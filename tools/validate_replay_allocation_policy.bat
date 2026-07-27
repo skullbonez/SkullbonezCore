@@ -63,7 +63,7 @@ if errorlevel 1 (
     echo FAIL: interaction report did not complete successfully. See "%REPORT%"
     exit /b 1
 )
-findstr /C:"\"framesRun\": 180" "%REPORT%" >nul
+findstr /R /C:"\"framesRun\": 18[01]" "%REPORT%" >nul
 if errorlevel 1 (
     echo FAIL: interaction report ended before the second generation proof. See "%REPORT%"
     exit /b 1

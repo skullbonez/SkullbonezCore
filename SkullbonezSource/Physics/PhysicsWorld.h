@@ -45,12 +45,12 @@ Related:
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vector>
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "PhysicsDebugData.h"
+#include "PhysicsStageCapacity.h"
 #include "Ragdoll.h"
 #include "PhysicsSolverSnapshot.h"
 #include "PhysicsRuntimeSettings.h"
@@ -98,38 +98,48 @@ class DisjointSet;
 class PhysicsWorld
 {
   public:
+
     // Source-compatible type names only; storage and mutation authority belong
     // exclusively to PhysicsContactSolverStage.
     using PersistentContact = Physics::PersistentContact;
     using PersistentContactSolverStats = Physics::PersistentContactSolverStats;
 
   private:
+
     // Lifetime: startup-bound diagnostics borrow; stage operations never retain it.
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
+
     // Gameplay force content crosses one bounded value lane; this stage owns
     // only reusable physics-side release scratch and application policy.
     ExternalForceStage m_externalForceStage;
+
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The sequencer borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
+
     // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
     // events in pair order because they target sleep and diagnostics owners.
     PhysicsNarrowphaseStage m_narrowphase;
+
     // Lifetime: this detached span borrows SceneTerrain cells. SceneWorld clears
     // the view before replacing that backing owner and republishes afterward.
     PhysicsTerrainView m_terrainView;
+
     // Terrain owns detection candidates, committed manifolds, and solver rest
     // rows. Sleep-support and remaining-time outputs are synchronous borrows.
     PhysicsTerrainStage m_terrain;
+
     // Persistent rows, cache, bounded solve scratch, and consequence queues
     // move as one cohesive contact-solver owner.
     PhysicsContactSolverStage m_contactSolverStage;
+
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
-    std::vector<float> m_timeRemaining;
+    PhysicsBodyRowList<float> m_timeRemaining { "PhysicsWorld.timeRemaining", PhysicsCapacityReason::SceneBodies };
     float m_lastTimeRemainingStep = 0.0f;
     bool m_lastTimeRemainingStepValid = false;
+
     // Cold/explicit sleep seeds need one underwater-lock census. Ordinary
     // island transitions probe the new sleeper immediately and leave this off.
     bool m_underwaterSleepProbeNeeded = true;
@@ -139,6 +149,7 @@ class PhysicsWorld
     // Sleep state, wake propagation, and island transitions have one concrete
     // owner. PhysicsWorld only sequences its typed fixed-step operations.
     PhysicsSleepController m_sleepController;
+
     // Diagnostic rows, collision visuals, and cold output live behind one
     // concrete owner; PhysicsWorld only supplies synchronous physics views.
     PhysicsStepDiagnostics m_stepDiagnostics;
@@ -149,34 +160,28 @@ class PhysicsWorld
 
     // Point joints are PhysicsWorld-owned solver state; the solver and sleep
     // owner borrow the dense rows synchronously.
-    std::vector<PointJointConstraint> m_pointJointConstraints;
+    PhysicsBodyRowList<PointJointConstraint> m_pointJointConstraints { "PhysicsWorld.pointJointConstraints",
+                                                                       PhysicsCapacityReason::PointJoints };
+    std::size_t m_pointJointCapacity = 0u;
     uint32_t m_nextPointJointHandleIndex = 0u;
     uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
 #ifdef _DEBUG
+
     // Scoped diagnostic suppression is a sequencer policy override, while every
     // diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( PhysicsBodyStore& bodyStore,
-                           const ColliderStore& colliderStore,
-                           std::span<BuoyancyBodyFacts> buoyancyFacts,
-                           float dt,
-                           const PhysicsRuntimeSettings& settings,
-                           const PhysicsWorldForces& worldForces,
-                           const ExternalForceFrameInput& externalForces,
-                           Threading::WorkerPool& workerPool,
-                           bool probeDormantUnderwaterLocks );
-    void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
-                                          const ColliderStore& colliderStore,
+    void RunSolverPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                           std::span<BuoyancyBodyFacts> buoyancyFacts, float dt, const PhysicsRuntimeSettings& settings,
+                           const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
+                           Threading::WorkerPool& workerPool, bool probeDormantUnderwaterLocks );
+    void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                           std::span<BuoyancyBodyFacts> buoyancyFacts,
                                           const PhysicsWorldForces& worldForces );
-    void ApplyExternalForces( PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              std::span<BuoyancyBodyFacts> buoyancyFacts,
-                              const PhysicsWorldForces& worldForces,
-                              const ExternalForceFrameInput& input,
-                              const PhysicsExecutionSettings& execution,
+    void ApplyExternalForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                              std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces,
+                              const ExternalForceFrameInput& input, const PhysicsExecutionSettings& execution,
                               Threading::WorkerPool& workerPool );
 
   public:
@@ -187,17 +192,16 @@ class PhysicsWorld
     void SetTerrainView( PhysicsTerrainView terrain ) noexcept;
     void ClearTerrainView() noexcept;
     void Clear();
-    void ReserveBodyScratchCapacity( std::size_t capacity );
+    void ReserveBodyScratchCapacity( std::size_t bodyCapacity, std::size_t pointJointCapacity );
+    std::size_t PointJointCapacity() const noexcept;
+
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.
-    void RunPhysics( PhysicsBodyStore& bodyStore,
-                     const ColliderStore& colliderStore,
-                     std::span<BuoyancyBodyFacts> buoyancyFacts,
-                     float fChangeInTime,
-                     const PhysicsRuntimeSettings& settings,
-                     const PhysicsWorldForces& worldForces,
-                     const ExternalForceFrameInput& externalForces,
+    void RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                     std::span<BuoyancyBodyFacts> buoyancyFacts, float fChangeInTime, const PhysicsRuntimeSettings& settings,
+                     const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
                      Threading::WorkerPool& workerPool );
+
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. The diagnostics sink owns the registered cold name
     // table and runtime owns the CSV writer, so fixed steps do not borrow model
@@ -205,42 +209,41 @@ class PhysicsWorld
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              float fChangeInTime,
+    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float fChangeInTime,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
-    void WakeModel( PhysicsBodyStore& bodyStore,
-                    const ColliderStore& colliderStore,
-                    std::span<BuoyancyBodyFacts> buoyancyFacts,
-                    const PhysicsWorldForces& worldForces,
-                    int index );
+    void WakeModel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                    std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsWorldForces& worldForces, int index );
     void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+
     // Cold authored mutation boundary: dense-row identity or fixed/sleep
     // classification may have changed before the next fixed step.
     void InvalidateBodyTopology();
     void ClearPointJointConstraints();
+
     // Deletion pre-pass: no constraint may retain a body handle after retirement.
     void DestroyPointJointsForBody( PhysicsBodyHandle body );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
-    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
+    const PhysicsBodyRowList<PointJointConstraint>& GetPointJointConstraints() const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+    std::span<const int64_t> GetCollisionCellKeys() const;
+    std::span<const uint8_t> GetCollisionVisualContacts() const;
     std::span<const int> GetFixedContactHighlightBodies() const;
+
     // Returns solver-emitted fixed-tree releases from the latest step. The
     // scene edge applies them before diagnostics and owner-side projection.
     std::span<const PhysicsFixedTreeReleaseEvent> GetFixedTreeReleaseEvents() const;
@@ -248,8 +251,8 @@ class PhysicsWorld
     std::span<const int> GetSleepIslandVisualIds() const;
     std::span<const uint8_t> GetSleepSupportedStates() const;
     std::span<const uint8_t> GetSleepInhibitedStates() const;
-    const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
-    const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
+    std::span<const PhysicsDebugContact> GetPhysicsDebugContacts() const;
+    std::span<const PhysicsPipelineRecord> GetPhysicsPipelineTrace() const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
@@ -262,23 +265,23 @@ class PhysicsWorld
 
 struct PhysicsDiagnosticsView
 {
-    const std::vector<PersistentContact>& persistentContacts;
+    std::span<const PersistentContact> persistentContacts;
     const PersistentContactSolverStats& persistentContactSolverStats;
-    const std::vector<int>& sleepIslandParent;
-    const std::vector<uint8_t>& sleepSupportedThisFrame;
-    const std::vector<uint8_t>& sleepInhibitedThisFrame;
-    const std::vector<uint8_t>& sleepState;
-    const std::vector<uint8_t>& sleepCounter;
-    const std::vector<uint8_t>& sleepIslandEligible;
-    const std::vector<uint8_t>& sleepIslandCanSleep;
-    const std::vector<PointJointConstraint>& pointJointConstraints;
+    std::span<const int> sleepIslandParent;
+    std::span<const uint8_t> sleepSupportedThisFrame;
+    std::span<const uint8_t> sleepInhibitedThisFrame;
+    std::span<const uint8_t> sleepState;
+    std::span<const uint8_t> sleepCounter;
+    std::span<const uint8_t> sleepIslandEligible;
+    std::span<const uint8_t> sleepIslandCanSleep;
+    std::span<const PointJointConstraint> pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
     std::span<const std::pair<int, int>> candidatePairs;
-    const std::vector<int64_t>& collisionCellKeys;
-    const std::vector<std::pair<int, int>>& sleepSupportEdges;
-    const std::vector<int>& sleepIslandVisualId;
-    const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
-    const std::vector<TerrainContactManifold>& terrainContactManifolds;
+    std::span<const int64_t> collisionCellKeys;
+    std::span<const std::pair<int, int>> sleepSupportEdges;
+    std::span<const int> sleepIslandVisualId;
+    std::span<const PhysicsPipelineRecord> physicsPipelineTrace;
+    std::span<const TerrainContactManifold> terrainContactManifolds;
 };
 
 } // namespace Physics

@@ -15,6 +15,8 @@ Glossary:
     path progress to the prediction owner.
   All-body paths: Space-scene mode where each simulated body's future is visible
     whether or not it participates in a causal contact edge.
+  Velocity drag preview: Immutable target and delta-v used to draw the
+    selected path estimate without exposing Prediction lifecycle state.
 
 Invariants:
   - Physics::PhysicsSceneObjectId is durable identity; ModelRowHint is only a staleable lookup hint.
@@ -54,6 +56,7 @@ struct RunReplayPredictionBodySample
 
 struct RunReplayPredictionFrame
 {
+
     // Concept: body samples are authoritative for the root trajectory, while
     // debugContacts are optional evidence for the contact-derived cause tree.
     // contactsIncomplete means the frame stayed usable after contact scratch
@@ -78,6 +81,13 @@ struct ReplayPredictionBaselineBodyPose
     Math::Orientation::Quaternion restOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
+struct ReplayVelocityDragPreviewView
+{
+    Physics::PhysicsSceneObjectId targetId;
+    Math::Vector::Vector3 velocityDelta = Math::Vector::ZERO_VECTOR;
+    bool active = false;
+};
+
 struct ReplayPredictionPresentationView
 {
     std::span<const RunReplayPredictionFrame> frames;
@@ -85,6 +95,7 @@ struct ReplayPredictionPresentationView
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;
     std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
     std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
+    ReplayVelocityDragPreviewView velocityDragPreview;
     Physics::PhysicsSceneObjectId targetId;
     Physics::PhysicsSceneObjectId baselineRootId;
     Physics::PhysicsSceneObjectId trajectoryBuildRootId;

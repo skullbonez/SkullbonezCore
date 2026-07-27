@@ -57,6 +57,7 @@ void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vecto
 
     // A zero authored up vector stays zero here; downstream camera queries own
     // their deterministic basis fallback rather than terminating in math.
+
     if ( !m_upVector.TryNormalise() )
     {
         m_upVector = Vector::ZERO_VECTOR;
@@ -80,6 +81,7 @@ void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vecto
 
 void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const CameraMovementSettings& settings )
 {
+
     // declare local variable to store movement results
     Vector3 movementResults = Vector::ZERO_VECTOR;
 
@@ -89,9 +91,11 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
 
         if ( m_isLockedMode )
         {
+
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance to the view point, so here we test to
             // ensure this rule is not violated
+
             if ( Vector::Distance( m_position, m_view ) < settings.minViewMag )
             {
                 return;
@@ -106,9 +110,12 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         break;
 
     case TravelDirection::Left:
+
         // left movement does not exist in locked mode
+
         if ( !m_isLockedMode )
         {
+
             // movement result is along the right vector, negative direction
             movementResults = GetRightVector() * -fQuantity;
         }
@@ -116,9 +123,12 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         break;
 
     case TravelDirection::Right:
+
         // right movement does not exist in locked mode
+
         if ( !m_isLockedMode )
         {
+
             // movement result is along the right vector, positive direction
             movementResults = GetRightVector() * fQuantity;
         }
@@ -129,9 +139,11 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
 
         if ( m_isLockedMode )
         {
+
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance from the view point, so here we test to
             // ensure this rule is not violated
+
             if ( Vector::Distance( m_position, m_view ) > settings.maxViewMag )
             {
                 return;
@@ -160,6 +172,7 @@ void Camera::ApplyMovementBuffer( const CameraMovementSettings& settings )
     Vector3 actualTranslation = m_position - oldPosition;
 
     // Locked mode translates the eye without moving the look target.
+
     if ( !m_isLockedMode )
     {
         m_view += actualTranslation;
@@ -171,13 +184,16 @@ void Camera::ApplyMovementBuffer( const CameraMovementSettings& settings )
 
 void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSettings& settings )
 {
+
     // caps the y rotation quantity to avoid view-up collisions
     float yMoveCapped = UpVectorViewVectorRotationCap( yMove, settings );
 
     // the following code will move the view vector - this is not allowed
     // in locked mode
+
     if ( !m_isLockedMode )
     {
+
         /*
             NOTE: view member is set to original m_position plus our rotation result
             vector - this translates our new view vector into a point relative
@@ -194,11 +210,11 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the camera translation)
-        m_view = m_position +
-                 Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(), GetViewVectorRaw() );
+        m_view = m_position + Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(), GetViewVectorRaw() );
     }
     else
     {
+
         /*
             NOTE: m_position member is set to original view plus our rotation result
             vector - this translates our new m_position vector into a point relative
@@ -215,15 +231,13 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
         // the mouses xMove will always represent a pivot on the up vector
         // (repsective to the view point)
-        proposedTranslation = m_view +
-                              Transformation::RotatePointAboutArbitrary( xMove, m_upVector, -GetViewVectorRaw() );
+        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( xMove, m_upVector, -GetViewVectorRaw() );
 
         m_movementBuffer += proposedTranslation - m_position;
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the view point)
-        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( yMoveCapped,
-                                                                                  GetRightVector(),
+        proposedTranslation = m_view + Transformation::RotatePointAboutArbitrary( yMoveCapped, GetRightVector(),
                                                                                   -GetViewVectorRaw() );
 
         m_movementBuffer += proposedTranslation - m_position;
@@ -233,6 +247,7 @@ void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSetting
 
 void Camera::PrepareTranslation()
 {
+
     // Bounds recovery needs the pre-translation X/Z in case clamping moves the
     // camera back to an edge.
     m_xzStore.x = m_position.x;
@@ -246,6 +261,7 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
     bool isOnBoundZ = false;
 
     // reposition X on a bound violation
+
     if ( m_position.x < m_boundary.m_xMin + settings.minCameraHeight )
     {
         m_position.x = m_boundary.m_xMin + settings.minCameraHeight;
@@ -259,6 +275,7 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
                    ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
 
     // reposition Z on a bound violation
+
     if ( m_position.z < m_boundary.m_zMin + settings.minCameraHeight )
     {
         m_position.z = m_boundary.m_zMin + settings.minCameraHeight;
@@ -272,6 +289,7 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
                    ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
 
     // if we have recursed once already
+
     if ( m_isFinishedTranslationRecursed )
     {
         m_isFinishedTranslationRecursed = false;
@@ -280,6 +298,7 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
     }
 
     // if the flag has been set to recalculate the view magnitude
+
     if ( m_doCalculateViewMagnitude )
     {
         m_viewMagnitude = Vector::Distance( m_position, m_view );
@@ -288,34 +307,38 @@ void Camera::FinishTranslation( const CameraMovementSettings& settings )
     }
     else
     {
+
         // test to see if we need to recover lost view magnitude
         RecoverViewMagnitude( isOnBoundX, isOnBoundZ, settings );
     }
 }
 
 
-void Camera::RecoverViewMagnitude( const bool isOnBoundX,
-                                   const bool isOnBoundZ,
-                                   const CameraMovementSettings& settings )
+void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ, const CameraMovementSettings& settings )
 {
+
     // only recover view magnitude if the camera has been set to do so
+
     if ( !m_doPreserveViewMagnitude )
     {
         return;
     }
 
     // only recover view magnitude when in locked mode
+
     if ( !m_isLockedMode )
     {
         return;
     }
 
     // if we are not out of bounds on either the X or Z axis
+
     if ( !isOnBoundX || !isOnBoundZ )
     {
         float viewMagTmp = Vector::Distance( m_position, m_view );
 
         // if the current view magnitude is under quota
+
         if ( viewMagTmp < m_viewMagnitude )
         {
             Vector3 positionStore = m_position;
@@ -330,8 +353,10 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
             bool isModifiedComponentX;
 
             // if neither X or Z are on their boundary
+
             if ( !isOnBoundX && !isOnBoundZ )
             {
+
                 // determine component distances from m_boundaries
                 float dxMin = positionStore.x - m_boundary.m_xMin + settings.minCameraHeight;
                 float dxMax = m_boundary.m_xMax - settings.minCameraHeight - positionStore.x;
@@ -343,8 +368,10 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
                 float dz = ( dzMin < dzMax ) ? dzMin : dzMax;
 
                 // restore the component who is closest to their closest boundary
+
                 if ( dx > dz )
                 {
+
                     // restore X component
                     m_position.x = positionStore.x;
 
@@ -353,6 +380,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
                 }
                 else
                 {
+
                     // restore Z component
                     m_position.z = positionStore.z;
 
@@ -362,6 +390,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
             }
             else if ( isOnBoundZ )
             {
+
                 // restore X if already maxed
                 m_position.x = positionStore.x;
 
@@ -370,6 +399,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
             }
             else
             {
+
                 // restore Z if already maxed
                 m_position.z = positionStore.z;
 
@@ -409,6 +439,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX,
         // if the current view magnitude is over quota
         else if ( viewMagTmp > m_viewMagnitude )
         {
+
             // cap the magnitude to what it is set to
             m_view = m_position + ( GetViewVectorNormalised() * m_viewMagnitude );
         }
@@ -434,6 +465,7 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraM
     float currentDownAngle = acosf( vNegatedView * -m_upVector );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
+
     if ( currentUpAngle - requestRadians < settings.cameraCollisionThreshold )
     {
         return currentUpAngle - settings.cameraCollisionThreshold;
@@ -442,6 +474,7 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraM
     // pre-detect down-vector view-vector collision, return a capped rotation angle
     // NOTE:  request radians will be negative, and if required should be returned
     // as a negative value
+
     if ( currentDownAngle + requestRadians < settings.cameraCollisionThreshold )
     {
         return -( currentDownAngle - settings.cameraCollisionThreshold );
@@ -458,6 +491,7 @@ Vector3 Camera::GetRightVector()
 
     if ( !vRight.TryNormalise() )
     {
+
         // Fallback: coincident/parallel camera axes use world +X as a stable
         // right direction until the next valid pose arrives.
         vRight = Vector3( 1.0f, 0.0f, 0.0f );
@@ -475,6 +509,7 @@ Vector3 Camera::GetViewVectorRaw()
 
 Vector3 Camera::GetViewVectorNormalised()
 {
+
     /*
         Recall that vector subtraction works the following way:
 
@@ -523,6 +558,7 @@ Vector3 Camera::GetViewVectorNormalised()
 
     if ( !vView.TryNormalise() )
     {
+
         // Fallback: a camera looking at its own position keeps the engine's
         // conventional forward direction instead of publishing NaNs.
         vView = Vector3( 0.0f, 0.0f, -1.0f );

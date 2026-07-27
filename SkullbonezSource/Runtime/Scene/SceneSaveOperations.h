@@ -39,17 +39,15 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+
 // Returns false only when the numbered editor path could not be selected. When
 // true, outSaveResult reports the synchronous serializer result.
-bool TrySaveNextEditorSceneSnapshot( int& sequence,
-                                     const GameObjects::SceneWorldSaveState& world,
+bool TrySaveNextEditorSceneSnapshot( int& sequence, const GameObjects::SceneWorldSaveState& world,
                                      const GameObjects::SceneSessionSaveState& session,
-                                     const GameObjects::PresentationSaveState& presentation,
-                                     Core::SbResult& outSaveResult );
+                                     const GameObjects::PresentationSaveState& presentation, Core::SbResult& outSaveResult );
 
 // Saves the scene-load-only publication to the caller's explicit CLI path.
-Core::SbResult SaveSceneLoadOnlySnapshot( const char* path,
-                                          const GameObjects::SceneWorldSaveState& world,
+Core::SbResult SaveSceneLoadOnlySnapshot( const char* path, const GameObjects::SceneWorldSaveState& world,
                                           const GameObjects::SceneSessionSaveState& session,
                                           const GameObjects::PresentationSaveState& presentation );
 

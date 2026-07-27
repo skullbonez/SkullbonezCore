@@ -49,6 +49,7 @@ constexpr float UI_SKY_ROW_H = 42.0f;
 
 struct SkySliderSpec
 {
+
     // Concept: One row in the Sky tab. Keeping param/range/step together
     // prevents draw, hit-test, and command mapping from drifting apart.
     const char* section;
@@ -94,8 +95,7 @@ constexpr SkySliderSpec kSkySliderSpecs[] = {
     { nullptr, "Contrast", SkullbonezCore::UI::UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
     { nullptr, "Vignette", SkullbonezCore::UI::UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
 };
-static_assert( sizeof( kSkySliderSpecs ) / sizeof( kSkySliderSpecs[0] ) ==
-                   SkullbonezCore::UI::SkyTab::UI_SKY_SLIDER_COUNT,
+static_assert( sizeof( kSkySliderSpecs ) / sizeof( kSkySliderSpecs[0] ) == SkullbonezCore::UI::SkyTab::UI_SKY_SLIDER_COUNT,
                "Sky slider specs must match UISkyTabState." );
 
 constexpr SkyFeatureSpec kSkyFeatureSpecs[] = {
@@ -108,12 +108,10 @@ static_assert( sizeof( kSkyFeatureSpecs ) / sizeof( kSkyFeatureSpecs[0] ) ==
                    SkullbonezCore::UI::SkyTab::UI_SKY_FEATURE_COUNT,
                "Sky feature specs must match UISkyTabState." );
 
-void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw,
-                     const SkullbonezCore::UI::UIRect& bounds,
-                     float r,
-                     float g,
-                     float b )
+void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r,
+                     float g, float b )
 {
+
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
         return;
@@ -132,8 +130,10 @@ int SkySliderIndexFromActiveSlider( int activeSlider )
 float SkySliderY( int index, float baseY )
 {
     float y = baseY;
+
     for ( int i = 0; i <= index; ++i )
     {
+
         if ( kSkySliderSpecs[i].section )
         {
             y += UI_SKY_SECTION_H;
@@ -169,6 +169,7 @@ SkullbonezCore::UI::UIRect SkySaveButtonBounds( float contentX, float scrolledY,
 bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                         SkullbonezCore::UI::UICinematicFeature feature )
 {
+
     switch ( feature )
     {
     case SkullbonezCore::UI::UICinematicFeature::Sky:
@@ -187,6 +188,7 @@ bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinem
 float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                         SkullbonezCore::UI::UICinematicParam param )
 {
+
     switch ( param )
     {
     case SkullbonezCore::UI::UICinematicParam::Exposure:
@@ -246,10 +248,8 @@ float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinem
     }
 }
 
-void SetSkySliderResult( SkullbonezCore::UI::InGameUIInputResult& result,
-                         const SkullbonezCore::UI::UISlider& slider,
-                         int mouseX,
-                         const SkySliderSpec& spec )
+void SetSkySliderResult( SkullbonezCore::UI::InGameUIInputResult& result, const SkullbonezCore::UI::UISlider& slider,
+                         int mouseX, const SkySliderSpec& spec )
 {
     result.commands.cinematic.requestedParam = spec.param;
     result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
@@ -267,8 +267,10 @@ namespace SkyTab
 int ContentHeight()
 {
     float height = UI_SKY_START_Y;
+
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
+
         if ( kSkySliderSpecs[i].section )
         {
             height += UI_SKY_SECTION_H;
@@ -280,19 +282,15 @@ int ContentHeight()
     return static_cast<int>( height + 18.0f );
 }
 
-bool HandleContentClick( UISkyTabState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float scrolledY,
-                         float contentW )
+bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
+                         float contentX, float scrolledY, float contentW )
 {
+
     // Invariant: Click handling sets the same bounds used by Draw, so hit boxes
     // and visible controls stay coupled.
     const UIRect saveBounds = SkySaveButtonBounds( contentX, scrolledY, contentW );
     state.saveButton.SetBounds( saveBounds.x, saveBounds.y, saveBounds.w, saveBounds.h );
+
     if ( state.saveButton.HitTest( mouseX, mouseY ) )
     {
         result.commands.cinematic.saveSkyDefaults = true;
@@ -301,11 +299,13 @@ bool HandleContentClick( UISkyTabState& state,
 
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     const float featureBaseY = scrolledY + UI_SKY_FEATURE_START_Y + 26.0f;
+
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
     {
         const float tx = SkyFeatureX( i, contentX, colW );
         const float toggleY = SkyFeatureY( i, featureBaseY );
         state.featureToggles[i].SetBounds( tx, toggleY, colW, 24.0f );
+
         if ( state.featureToggles[i].HitTest( mouseX, mouseY ) )
         {
             result.commands.cinematic.requestedFeature = kSkyFeatureSpecs[i].feature;
@@ -314,9 +314,11 @@ bool HandleContentClick( UISkyTabState& state,
     }
 
     const float rowBase = scrolledY + UI_SKY_START_Y;
+
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
         state.sliders[i].SetBounds( contentX, SkySliderY( i, rowBase ), contentW, 34.0f );
+
         if ( state.sliders[i].HitTest( mouseX, mouseY ) )
         {
             activeSlider = UI_SKY_SLIDER_BASE + i;
@@ -330,9 +332,11 @@ bool HandleContentClick( UISkyTabState& state,
 
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
+
     // Lifetime: activeSlider is a global UI capture id. Accept only the Sky tab
     // range so dragging between tabs cannot write the wrong command.
     const int skySlider = SkySliderIndexFromActiveSlider( activeSlider );
+
     if ( skySlider < 0 )
     {
         return false;
@@ -347,13 +351,10 @@ bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InG
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UISkyTabState& state,
-                   const UIDrawContext& draw,
-                   float contentR,
-                   float contentG,
-                   float contentB )
+void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB )
 {
     DrawHitboxRect( draw, state.saveButton.Bounds(), contentR, contentG, contentB );
+
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
     {
         DrawHitboxRect( draw, state.featureToggles[i].Bounds(), contentR, contentG, contentB );
@@ -365,16 +366,8 @@ void DrawHitboxes( const UISkyTabState& state,
     }
 }
 
-void Draw( UISkyTabState& state,
-           const UIDrawContext& draw,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int mouseX,
-           int mouseY )
+void Draw( UISkyTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY,
+           float contentW, float contentH, float scrolledY, int mouseX, int mouseY )
 {
     char buf[128];
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -382,6 +375,7 @@ void Draw( UISkyTabState& state,
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Sky" );
     state.saveButton.SetBounds( saveBounds.x, saveBounds.y, saveBounds.w, saveBounds.h );
+
     if ( IsRowVisible( contentY, contentH, saveBounds.y, saveBounds.h ) )
     {
         state.saveButton.Draw( draw, "Save Sky", mouseX, mouseY );
@@ -393,40 +387,31 @@ void Draw( UISkyTabState& state,
     }
 
     const float featureBaseY = scrolledY + UI_SKY_FEATURE_START_Y + 26.0f;
+
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
     {
         const float tx = SkyFeatureX( i, contentX, colW );
         const float toggleY = SkyFeatureY( i, featureBaseY );
-        DrawContentToggle( draw,
-                           contentY,
-                           contentH,
-                           state.featureToggles[i],
-                           tx,
-                           toggleY,
-                           colW,
-                           kSkyFeatureSpecs[i].label,
+        DrawContentToggle( draw, contentY, contentH, state.featureToggles[i], tx, toggleY, colW, kSkyFeatureSpecs[i].label,
                            SkyFeatureEnabled( data.cinematic, kSkyFeatureSpecs[i].feature ) );
     }
 
     const float baseY = scrolledY + UI_SKY_START_Y;
+
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
         const SkySliderSpec& spec = kSkySliderSpecs[i];
         const float sliderY = SkySliderY( i, baseY );
+
         if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 18.0f ) )
         {
-            DrawSectionTitle( draw,
-                              contentX,
-                              contentY,
-                              contentH,
-                              sliderY - UI_SKY_SECTION_H + 4.0f,
-                              12.0f,
-                              spec.section );
+            DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_SKY_SECTION_H + 4.0f, 12.0f, spec.section );
         }
 
         const float value = std::clamp( SkyValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );
         snprintf( buf, sizeof( buf ), spec.valueFormat, value );
         state.sliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
+
         if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
         {
             state.sliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );

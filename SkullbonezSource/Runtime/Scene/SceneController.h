@@ -10,7 +10,7 @@ Summary:
   scene; callers borrow it instead of reaching domains through forwarding.
 
 Glossary:
-  Scene runtime: Current scene state plus queue navigation data.
+  Scene session: Current scene state plus controller-owned queue navigation data.
   Scene queue: Ordered authored scene list, with an empty path selecting the
     generated demo scene.
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
@@ -29,7 +29,7 @@ Invariants:
   - Queue index lookups must normalize path separators before matching.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneSessionState.h
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
@@ -40,9 +40,9 @@ Related:
 #include "SceneAutomationGateConfiguration.h"
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
-#include "SceneRuntime.h"
-#include "SceneRuntimeCoordinator.h"
-#include "SceneRuntimeUiOptions.h"
+#include "SceneSessionState.h"
+#include "SceneLoadRequest.h"
+#include "SceneLoadPresentation.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -91,6 +91,7 @@ struct SceneNavigationModel;
 } // namespace UI
 namespace Runtime
 {
+class AuthoredScene;
 class AttachedCameraController;
 class DiagnosticsRuntime;
 class InputRouter;
@@ -119,9 +120,11 @@ struct SceneFrameAdvanceResult
     bool holdInteractive = false;
     bool quitIfLoadFails = false;
     bool restartSimulationTimerAfterLoad = false;
+
     // Value request only; validation retains diagnostic rows and printing.
     bool reportMissingRequirements = false;
 };
+
 // Value policy sampled once after input. Every late-frame consumer observes
 // the same step edge and cross-scene lock decision for the entire frame turn.
 struct SceneFrameProceedPolicy
@@ -132,11 +135,13 @@ struct SceneFrameProceedPolicy
 };
 inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
 {
+
     // Invariant: only the sampled step edge releases a locked scene turn.
     return SceneFrameProceedPolicy { stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
 }
 struct SceneDefaultsSaveView
 {
+
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
     const OverlayDebugState& debug;
@@ -155,14 +160,12 @@ struct SceneLoadCompletedWorldChange
     float fluidDensity = 0.0f;
 };
 
-class SceneController
+class SceneController : public SceneSession
 {
   public:
     SceneController();
     explicit SceneController( std::vector<std::string> queue );
 
-    SceneSessionState& State();
-    const SceneSessionState& State() const;
     // Borrow the concrete active-scene owner. SceneController deliberately has
     // no duplicate entity/physics/camera/terrain/render forwarding surface.
     SceneWorld& Scene();
@@ -173,64 +176,49 @@ class SceneController
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
     SceneFrameProceedPolicy BuildFrameProceedPolicy( bool stepRequested ) const;
-    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
-                                          bool proceedAllowed,
-                                          bool perfTestActive,
-                                          bool screenshotSaved,
-                                          bool manualCameraActive,
+    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
+                                          bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                           double elapsedSeconds );
 
-    bool HasEntry( int index ) const;
-    bool HasCurrentEntry() const;
-    const std::string* CurrentPath() const;
-    const std::string& PathAt( int index ) const;
-    int QueueSize() const;
-    int CurrentIndex() const;
-    int NextIndex() const;
-    const std::vector<std::string>& Queue() const;
-
-    void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
-    void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
-    const SceneLifecyclePacket& LifecyclePacket() const;
-    void MarkManualReset();
-    int FindNormalizedPath( const std::string& normalizedPath ) const;
-    int FindGeneratedDemo() const;
-    int Append( std::string path );
-    bool CurrentQueueIsCinematicDeck() const;
-    int AdjacentQueueIndex( int direction ) const;
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
+    bool ApplyCinematicBrowserStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                                     const Assets::AssetSystem& assets,
+                                     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index );
+    void ApplyLiveStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                         const AuthoredScene& styleScene );
+    bool ApplyDemoHeroStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
+
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose operation completes successfully. The transaction
     // owns outputs and enforces the later reaction/presentation phases.
-    bool ExecutePending( SceneLoadTransaction& transaction,
-                         SkullbonezCore::Core::EngineConfig& config,
+    bool ExecutePending( SceneLoadTransaction& transaction, SkullbonezCore::Core::EngineConfig& config,
                          RunLaunchOptions& launchOptions,
                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                         const RunStartupState& startup,
-                         Assets::AssetSystem& assets,
-                         Threading::WorkerPool& workerPool,
-                         DiagnosticsRuntime& diagnosticsRuntime,
-                         Rendering::Dx12FrameOwner* renderFrame,
-                         Rendering::Dx12ResourceBuilder* renderResources,
-                         RuntimeRenderer& renderer );
+                         const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                         DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
+                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission and ordered batch execution stay owner-specific;
     // SceneRequestExecution.cpp consumes the fixed pending batch.
     void SubmitLoadBrowserIndex( int index );
     void SubmitLoadDemoScene();
-    void SubmitResetCurrentScene( bool preserveUIState = true,
-                                  bool suppressExitOnComplete = true,
+    void SubmitResetCurrentScene( bool preserveUIState = true, bool suppressExitOnComplete = true,
                                   bool preserveRuntimeState = true );
     SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
+    SceneLoadRequest CreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
+    SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
-    SceneRuntime& Runtime();
-    const SceneRuntime& Runtime() const;
 
   private:
     friend class SceneLoadTransaction;
@@ -240,20 +228,13 @@ class SceneController
     // backpointer or complete mutable context.
     // Hazard: renderFrame proves old GPU use complete before scene mutation;
     // renderResources is borrowed only afterward for cold terrain construction.
-    SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         SkullbonezCore::Core::EngineConfig& config,
-                                         RunLaunchOptions& launchOptions,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                                         const RunStartupState& startup,
-                                         Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool,
-                                         DiagnosticsRuntime& diagnosticsRuntime,
-                                         Rendering::Dx12FrameOwner* renderFrame,
-                                         Rendering::Dx12ResourceBuilder* renderResources,
-                                         RuntimeRenderer& renderer,
-                                         SceneLoadTransaction& transaction );
+    SkullbonezCore::Core::SbResult
+    Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
+          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
+          Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
+          Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
+          SceneLoadTransaction& transaction );
 
-    SceneRuntime m_runtime;               // Scene queue and active scene-run state
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.
     bool m_crossScenePauseLocked = false; // Operator scene-flow lock preserved across load transactions.

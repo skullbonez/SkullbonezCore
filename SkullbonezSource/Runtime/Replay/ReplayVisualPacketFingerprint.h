@@ -98,17 +98,13 @@ ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVi
 // means the side-channel telemetry does not describe the renderer-bound spans.
 const char* FindReplayVisualPacketSubmissionSpanMismatch( const ReplayVisualPacket& packet ) noexcept;
 
-ReplayVisualPacketFingerprint BuildReplayVisualPacketFingerprint(
-    const ReplayVisualPacket& packet,
-    std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests,
-    ReplayVisualTrajectoryDigestPolicy digestPolicy = ReplayVisualTrajectoryDigestPolicy::RebuildAll );
+ReplayVisualPacketFingerprint BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet, std::vector<ReplayVisualTrajectoryDigestState>& trajectoryDigests,
+                                                                  ReplayVisualTrajectoryDigestPolicy digestPolicy = ReplayVisualTrajectoryDigestPolicy::RebuildAll );
 
 // Returns the first typed/header/submission mismatch against one durable RVIS
 // row. Raw packet streams are compared by their exact ordered byte digests and
 // sizes; the archive verifier separately checks those rows against the capture.
-bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
-                                             const ReplayVisualArchiveSample& expected,
-                                             char* difference,
-                                             std::size_t differenceSize );
+bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet, const ReplayVisualArchiveSample& expected,
+                                             char* difference, std::size_t differenceSize );
 } // namespace ReplayVisualPacketFingerprintOperations
 } // namespace SkullbonezCore::Runtime

@@ -59,6 +59,7 @@ inline constexpr std::size_t
 inline constexpr std::size_t PREDICTION_TRAJECTORY_RANGE_CAPACITY = 4096u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_ORDINARY_LINE_FLOAT_CAPACITY = 262144u;
 inline constexpr std::size_t PREDICTION_TRAJECTORY_PRIORITY_LINE_FLOAT_CAPACITY = 524288u;
+
 // Prediction retains the authored asset identity while Rendering receives it
 // only as a cold source value paired with the generic retained-ribbon contract.
 inline constexpr const char* PREDICTION_RETAINED_RIBBON_SHADER_BASE_NAME = "shaders/trajectory_ribbon";
@@ -89,55 +90,44 @@ struct ReplayPredictionRetainedRecord
 
     std::array<float, PREDICTION_TRAJECTORY_FLOATS_PER_RECORD> Packed() const noexcept
     {
-        return { start.x,
-                 start.y,
-                 start.z,
-                 end.x,
-                 end.y,
-                 end.z,
-                 width,
-                 colorR,
-                 colorG,
-                 colorB,
-                 alpha,
-                 edgeFeather,
-                 emphasis,
-                 previousStart.x,
-                 previousStart.y,
-                 previousStart.z,
-                 nextEnd.x,
-                 nextEnd.y,
-                 nextEnd.z };
+        return { start.x,         start.y,         start.z,   end.x,     end.y,       end.z,    width,
+                 colorR,          colorG,          colorB,    alpha,     edgeFeather, emphasis, previousStart.x,
+                 previousStart.y, previousStart.z, nextEnd.x, nextEnd.y, nextEnd.z };
     }
 };
 
-inline bool AppendPredictionRetainedRecord( std::span<float> arena,
-                                            Rendering::RetainedGeometryRangeToken& range,
+inline bool AppendPredictionRetainedRecord( std::span<float> arena, Rendering::RetainedGeometryRangeToken& range,
                                             const ReplayPredictionRetainedRecord& incoming,
                                             float continuityToleranceSquared ) noexcept
 {
+
     if ( range.recordCount >= range.recordCapacity )
     {
         return false;
     }
+
     const std::size_t recordIndex = static_cast<std::size_t>( range.firstRecord ) + range.recordCount;
     const std::size_t firstFloat = recordIndex * PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
+
     if ( firstFloat + PREDICTION_TRAJECTORY_FLOATS_PER_RECORD > arena.size() )
     {
         return false;
     }
 
     std::array<float, PREDICTION_TRAJECTORY_FLOATS_PER_RECORD> record = incoming.Packed();
+
     if ( range.recordCount > 0u )
     {
         float* previous = arena.data() + firstFloat - PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
         const float dx = previous[3] - record[0];
         const float dy = previous[4] - record[1];
         const float dz = previous[5] - record[2];
-        const bool samePresentation = previous[6] == record[6] && previous[10] == record[10] &&
-                                      previous[11] == record[11] && previous[12] == record[12];
+        const bool samePresentation = previous[6] == record[6] && previous[10] == record[10] && previous[11] == record[11] &&
+                                      previous[12] == record[12];
+
         if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
         {
+
             // Invariant: adjacent records repair both ends of the shared join,
             // leaving unrelated fixed slices untouched.
             record[13] = previous[0];
@@ -150,10 +140,12 @@ inline bool AppendPredictionRetainedRecord( std::span<float> arena,
     }
 
     float* destination = arena.data() + firstFloat;
+
     for ( std::size_t component = 0; component < PREDICTION_TRAJECTORY_FLOATS_PER_RECORD; ++component )
     {
         destination[component] = record[component];
     }
+
     ++range.recordCount;
     return true;
 }
@@ -164,24 +156,28 @@ inline bool AppendPredictionRetainedContinuation( std::span<float> arena,
                                                   const ReplayPredictionRetainedRecord& incoming,
                                                   float continuityToleranceSquared ) noexcept
 {
+
     if ( range.recordCount != 0u )
     {
         return false;
     }
+
     if ( !AppendPredictionRetainedRecord( arena, range, incoming, continuityToleranceSquared ) )
     {
         return false;
     }
+
     if ( previousRange.recordCount == 0u )
     {
         return true;
     }
 
-    const std::size_t previousRecord = static_cast<std::size_t>( previousRange.firstRecord ) +
-                                       previousRange.recordCount - 1u;
+    const std::size_t previousRecord = static_cast<std::size_t>( previousRange.firstRecord ) + previousRange.recordCount -
+                                       1u;
     const std::size_t currentRecord = static_cast<std::size_t>( range.firstRecord );
     const std::size_t previousFloat = previousRecord * PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
     const std::size_t currentFloat = currentRecord * PREDICTION_TRAJECTORY_FLOATS_PER_RECORD;
+
     if ( previousFloat + PREDICTION_TRAJECTORY_FLOATS_PER_RECORD > arena.size() ||
          currentFloat + PREDICTION_TRAJECTORY_FLOATS_PER_RECORD > arena.size() )
     {
@@ -193,8 +189,9 @@ inline bool AppendPredictionRetainedContinuation( std::span<float> arena,
     const float dx = previous[3] - current[0];
     const float dy = previous[4] - current[1];
     const float dz = previous[5] - current[2];
-    const bool samePresentation = previous[6] == current[6] && previous[10] == current[10] &&
-                                  previous[11] == current[11] && previous[12] == current[12];
+    const bool samePresentation = previous[6] == current[6] && previous[10] == current[10] && previous[11] == current[11] &&
+                                  previous[12] == current[12];
+
     if ( samePresentation && dx * dx + dy * dy + dz * dz <= continuityToleranceSquared )
     {
         current[13] = previous[0];
@@ -205,6 +202,7 @@ inline bool AppendPredictionRetainedContinuation( std::span<float> arena,
         previous[18] = current[5];
         ++previousRange.sourceVersion;
     }
+
     return true;
 }
 
@@ -227,6 +225,7 @@ class ReplayPredictionRetainedGeometry
     RibbonStyle m_baselineStyle = { 1.0f, 1.0f, 1.0f, 0.0f };
     float m_selectedEmphasis = 0.45f;
     bool m_appearanceInitialized = false;
+
     // Invariant: the compact arena has one construction-time allocation and
     // no capacity-changing API. Keeping the fixed 513,000-float payload behind
     // a pointer also prevents the process-lifetime ReplayRuntime owner from
@@ -243,14 +242,8 @@ class ReplayPredictionRetainedGeometry
     uint64_t m_revision = 0;
 
     void RecordDropped( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
-    bool EmitRecord( std::size_t rangeIndex,
-                     const Math::Vector::Vector3& start,
-                     const Math::Vector::Vector3& end,
-                     float r,
-                     float g,
-                     float b,
-                     const RibbonStyle& style,
-                     SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
+    bool EmitRecord( std::size_t rangeIndex, const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float r,
+                     float g, float b, const RibbonStyle& style, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane );
 
   public:
     ReplayPredictionRetainedGeometry();
@@ -263,12 +256,8 @@ class ReplayPredictionRetainedGeometry
         return m_revision;
     }
 
-    std::size_t BeginRange( uint64_t identity,
-                            uint32_t sourceVersion,
-                            bool priority,
-                            std::size_t recordCapacity,
-                            uint64_t drawOrder,
-                            std::size_t continuationRange = PREDICTION_TRAJECTORY_RANGE_CAPACITY );
+    std::size_t BeginRange( uint64_t identity, uint32_t sourceVersion, bool priority, std::size_t recordCapacity,
+                            uint64_t drawOrder, std::size_t continuationRange = PREDICTION_TRAJECTORY_RANGE_CAPACITY );
     std::size_t RangeCapacityRemaining( std::size_t rangeIndex ) const noexcept;
     std::size_t OrdinaryCapacityRemaining() const noexcept;
     std::size_t PriorityCapacityRemaining() const noexcept;
@@ -278,26 +267,12 @@ class ReplayPredictionRetainedGeometry
     {
         RecordDropped( lane );
     }
-    void AddPathSegment( std::size_t rangeIndex,
-                         const Math::Vector::Vector3& start,
-                         const Math::Vector::Vector3& end,
-                         float r,
-                         float g,
-                         float b,
-                         SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
+    void AddPathSegment( std::size_t rangeIndex, const Math::Vector::Vector3& start, const Math::Vector::Vector3& end,
+                         float r, float g, float b, SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                          float emphasis = 0.0f );
-    void AddCausalTrailSegment( std::size_t rangeIndex,
-                                const Math::Vector::Vector3& start,
-                                const Math::Vector::Vector3& end,
-                                float r,
-                                float g,
-                                float b );
-    void AddBaselinePathSegment( std::size_t rangeIndex,
-                                 const Math::Vector::Vector3& start,
-                                 const Math::Vector::Vector3& end,
-                                 float r,
-                                 float g,
-                                 float b,
-                                 float opacity = 1.0f );
+    void AddCausalTrailSegment( std::size_t rangeIndex, const Math::Vector::Vector3& start, const Math::Vector::Vector3& end,
+                                float r, float g, float b );
+    void AddBaselinePathSegment( std::size_t rangeIndex, const Math::Vector::Vector3& start,
+                                 const Math::Vector::Vector3& end, float r, float g, float b, float opacity = 1.0f );
 };
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

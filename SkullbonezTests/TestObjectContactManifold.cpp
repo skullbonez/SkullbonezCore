@@ -18,6 +18,8 @@
 //   - The first reduced point is the deepest candidate; remaining rows favor
 //     spatial coverage and retain deterministic feature ids.
 //   - Rebuilding an unchanged contact produces identical row order and ids.
+//   - Every sphere, box, and convex-hull pairing publishes finite contacts,
+//     while a separated pair remains contact-free.
 //
 // Related:
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
@@ -27,7 +29,9 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/BoundingBox.h"
+#include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
+#include "TestCollisionShapeFixtures.h"
 
 #include <algorithm>
 #include <cmath>
@@ -39,6 +43,9 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
+using SkullbonezCore::Physics::SweepObjectContact;
+using SkullbonezTests::CollisionShapeFixtures::BoxShape;
+using SkullbonezTests::CollisionShapeFixtures::SphereShape;
 
 namespace
 {
@@ -49,8 +56,7 @@ CollisionShape MakeBox( const Vector3& halfExtents = Vector3( 1.0f, 1.0f, 1.0f )
     return CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
 }
 
-ObjectContactBodyView MakeBody( const Vector3& position,
-                                const Vector3& rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
+ObjectContactBodyView MakeBody( const Vector3& position, const Vector3& rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
                                 float rotationRadians = 0.0f )
 {
     ObjectContactBodyView body;
@@ -62,15 +68,31 @@ ObjectContactBodyView MakeBody( const Vector3& position,
     return body;
 }
 
-ObjectContactManifold BuildBoxManifold( const ObjectContactBodyView& a,
-                                        const CollisionShape& shapeA,
-                                        const ObjectContactBodyView& b,
-                                        const CollisionShape& shapeB )
+ObjectContactManifold BuildBoxManifold( const ObjectContactBodyView& a, const CollisionShape& shapeA,
+                                        const ObjectContactBodyView& b, const CollisionShape& shapeB )
 {
     ObjectContactManifold manifold;
     const bool hit = BuildObjectContactManifold( a, shapeA, b, shapeB, 11, 29, kContactSkin, manifold );
     REQUIRE( hit );
     return manifold;
+}
+
+void CheckContactPair( const ObjectContactBodyView& a, const CollisionShape& shapeA, const ObjectContactBodyView& b,
+                       const CollisionShape& shapeB )
+{
+    ObjectContactManifold manifold;
+    REQUIRE( BuildObjectContactManifold( a, shapeA, b, shapeB, 3, 7, 0.02f, manifold ) );
+    REQUIRE( manifold.pointCount > 0u );
+    CHECK( manifold.bodyA == 3 );
+    CHECK( manifold.bodyB == 7 );
+    CHECK( std::isfinite( manifold.normal.x ) );
+    CHECK( std::isfinite( manifold.normal.y ) );
+    CHECK( std::isfinite( manifold.normal.z ) );
+    for ( uint8_t point = 0; point < manifold.pointCount; ++point )
+    {
+        CHECK( std::isfinite( manifold.points[point].penetration ) );
+        CHECK( manifold.points[point].penetration >= -0.02f );
+    }
 }
 
 void CheckFiniteManifold( const ObjectContactManifold& manifold )
@@ -167,15 +189,15 @@ TEST_CASE( "Object contact manifold: coplanar face and degenerate slab stay fini
     const CollisionShape unitBox = MakeBox();
     const ObjectContactBodyView base = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
 
-    const ObjectContactManifold coplanar =
-        BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 2.0f, 0.0f ) ), unitBox );
+    const ObjectContactManifold coplanar = BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 2.0f, 0.0f ) ),
+                                                             unitBox );
     CheckFiniteManifold( coplanar );
 
     // A zero-height slab is a useful editor/import boundary case. Narrowphase
     // must return bounded data rather than introducing NaNs into solver rows.
     const CollisionShape slab = MakeBox( Vector3( 0.75f, 0.0f, 0.75f ) );
-    const ObjectContactManifold degenerate =
-        BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 1.0f, 0.0f ) ), slab );
+    const ObjectContactManifold degenerate = BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                                               slab );
     CheckFiniteManifold( degenerate );
 }
 
@@ -200,8 +222,46 @@ TEST_CASE( "Object contact manifold: boundary-band feature selection is stable a
         for ( uint8_t pointIndex = 0; pointIndex < baseline.pointCount; ++pointIndex )
         {
             CHECK( current.points[pointIndex].featureId == baseline.points[pointIndex].featureId );
-            CHECK( current.points[pointIndex].penetration ==
-                   doctest::Approx( baseline.points[pointIndex].penetration ) );
+            CHECK( current.points[pointIndex].penetration == doctest::Approx( baseline.points[pointIndex].penetration ) );
         }
     }
+}
+
+
+TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes contacts" )
+{
+    const CollisionShape sphere = SphereShape( 2.0f );
+    const CollisionShape box = BoxShape( Vector3( 2.0f, 2.0f, 2.0f ) );
+    const CollisionShape hull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile(
+        "SkullbonezData/hulls/pyramid.hull" );
+
+    ObjectContactBodyView a;
+    a.position = Vector3( 0.0f, 0.0f, 0.0f );
+    ObjectContactBodyView b;
+    b.position = Vector3( 1.0f, 0.0f, 0.0f );
+
+    CheckContactPair( a, sphere, b, sphere );
+    CheckContactPair( a, sphere, b, box );
+    CheckContactPair( a, box, b, sphere );
+    CheckContactPair( a, box, b, box );
+    CheckContactPair( a, sphere, b, hull );
+    CheckContactPair( a, hull, b, sphere );
+    CheckContactPair( a, box, b, hull );
+    CheckContactPair( a, hull, b, box );
+    CheckContactPair( a, hull, b, hull );
+
+    ObjectContactBodyView farBody = b;
+    farBody.position = Vector3( 30.0f, 0.0f, 0.0f );
+    ObjectContactManifold separated;
+    CHECK_FALSE( BuildObjectContactManifold( a, sphere, farBody, sphere, 0, 1, 0.0f, separated ) );
+    CHECK_FALSE( BuildObjectContactManifold( a, sphere, farBody, hull, 0, 1, 0.0f, separated ) );
+
+    ObjectContactBodyView moving = a;
+    moving.position = Vector3( -5.0f, 0.0f, 0.0f );
+    ObjectContactBodyView target = a;
+    const auto sweep = SweepObjectContact( moving, sphere, Vector3( 10.0f, 0.0f, 0.0f ), target, sphere,
+                                           Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    CHECK( sweep.hit );
+    CHECK( sweep.collisionTime >= 0.0f );
+    CHECK( sweep.collisionTime <= 1.0f );
 }

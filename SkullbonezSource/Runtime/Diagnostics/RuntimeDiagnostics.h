@@ -77,6 +77,7 @@ struct RunPhysicsDiagnosticsState
 
 struct ReplayScrubProbeDiagnostic
 {
+
     // Lifetime: bodyName is consumed synchronously while one NDJSON row is
     // written. Every other field is a value snapshot of that probe result.
     uint64_t selectedReplayFrame = 0;
@@ -103,6 +104,7 @@ struct ReplayScrubProbeDiagnostic
 
 struct ReplayRestoreProbeDiagnostic
 {
+
     // Value snapshot used to translate the retained-solver probe into the
     // stable replay_restore NDJSON schema without borrowing replay owners.
     uint64_t targetReplayFrame = 0;
@@ -124,6 +126,7 @@ struct ReplayRestoreProbeDiagnostic
 
 struct ReplayRestoreResultDiagnostic
 {
+
     // Lifetime: strings are borrowed only for the synchronous log write; this
     // schema carries no replay, scene, or diagnostics ownership.
     const char* restoreSource = nullptr;
@@ -147,14 +150,6 @@ struct ReplayRestoreResultDiagnostic
 };
 #endif
 
-struct RuntimePerfTickContext
-{
-    int pass = 0;
-    int frame = 0;
-    float physicsTimeSeconds = 0.0f;
-    float renderTimeSeconds = 0.0f;
-};
-
 struct RuntimeProfilerFrameTimes
 {
     float physicsTimeSeconds = 0.0f;
@@ -165,6 +160,7 @@ struct RuntimeProfilerFrameTimes
 class RuntimeDiagnostics
 {
   public:
+
     // Samples cheap process counters; includePrivateWorkingSet adds a
     // full resident-page walk for diagnostics that need Task Manager parity.
     static SkullbonezCore::Core::MainMemoryProcessStats SampleProcessMemory( bool includePrivateWorkingSet );
@@ -173,45 +169,37 @@ class RuntimeDiagnostics
     static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
+
     // SkullbonezCore::Core::Profiler is a startup-bound optional dependency so artifact writers do
     // not reopen a process-global profiler locator while ticking frames or
     // scene automation.
-    static void
-    OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, SkullbonezCore::Core::Profiler* profiler );
+    static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
+                                  SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog,
-                             const RuntimePerfTickContext& context,
-                             SkullbonezCore::Core::Profiler* profiler );
+    static void TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
+                             float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );
     static void SetPhysicsCollisionTimeLogOverride( RunPerfLogState& perfLog, const char* path );
+
     // Diagnostics receives the physics owner directly; artifact setup never
     // needs scene lifecycle, request, or world-presentation authority.
-    static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                           Physics::PhysicsEngine& physics,
-                                           const char* path,
-                                           bool fixedStepForcedByDiagnostics );
-    static void
-    LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName, const char* reason );
-    static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                            Physics::PhysicsEngine& physics,
-                                            const SceneSessionState& scene,
-                                            const SkullbonezCore::Core::EngineConfig& config,
-                                            const char* scenePath,
-                                            const char* rendererName );
-    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                     const SceneSessionState& scene,
+    static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
+                                           const char* path, bool fixedStepForcedByDiagnostics );
+    static void LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
+                                  const char* reason );
+    static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, Physics::PhysicsEngine& physics,
+                                            const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
+                                            const char* scenePath, const char* rendererName );
+    static void LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                      const ReplayScrubProbeDiagnostic& probe );
-    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics,
-                                       const SceneSessionState& scene,
+    static void LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                        const ReplayRestoreProbeDiagnostic& probe );
-    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics,
-                                        const SceneSessionState& scene,
+    static void LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                         const ReplayRestoreResultDiagnostic& result );
-    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                          const SceneSessionState& scene,
+    static void EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                           const char* status );
 #endif
 };

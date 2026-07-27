@@ -24,7 +24,7 @@ validation.
 | `validate_native_diagnostics.bat` | Opt-in MSVC AddressSanitizer and bounded native static-analysis lane | ~20s; no engine launch |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
-| `validate_alt_velocity_visualization.bat` | Real ALT-VEL button/gizmo drag with retained-path and single-rebuild assertions | build + one engine process |
+| `validate_alt_velocity_visualization.bat` | Real ALT-VEL drag with a selected-path preview and release-only rebuild assertions | build + two engine processes |
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, ALT-VEL interaction, and perf | ~depends |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
@@ -170,6 +170,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `format_fix.bat` | Auto-fix C++ layout, keep the first assigned expression beside `=`, separate wrapped statements/control blocks, and align header comments |
 | `separate_multiline_cpp_declarations.py --check\|--check-pipeline\|--write\|--stdin` | Keep assignment heads together and add semantic paragraph breaks; `--stdin` previews the post-pass without touching files |
 | `check_related_paths.py [--self-test]` | Verify repository-relative paths in tracked source learning-header `Related:` blocks and exercise live/dead fixtures |
+| `inventory_authority_free_aggregates.py [--repo .] [--strict] [--self-test] [--format text\|json\|markdown] [--output path]` | Discover data-bearing structs/classes without suffix filtering; report members, behavior, stated invariants, lexical sites, and joined owner rulings; `--strict` fails on an unruled bounded legacy-suffix/no-invariant row, while stale, malformed, or source-drifted rulings always fail |
+| `inventory_extraction_scars.py [--repo .] [--self-test]` | Report function-block member-prefixed locals and pure reference aliases, including control/direct initializers and structured bindings; fail on a finding with no owner ruling |
+| `cpp_source_scan.py` | Shared tracked-source enumeration and comment/literal masking for the two inventories; masking is imported from `inventory_wide_signatures.py` so there is one implementation |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
 | `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
@@ -182,7 +185,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
 | `validate_replay_allocation_policy.bat` | Builds Automation, runs one hidden two-generation tornado prediction process, and requires zero gameplay/reserve violations plus a complete frame-180 interaction report |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
-| `validate_alt_velocity_visualization.bat` | Builds Automation and runs the N-body ALT-VEL button plus held gizmo drag, requiring a visible path on every drag sample and zero superseded prediction restarts |
+| `validate_alt_velocity_visualization.bat` | Builds Automation and runs instant/amortized N-body ALT-VEL drags, requiring a live selected-path preview, zero held-drag restarts, and release-only authoritative replacement |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Run the Legacy UI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |

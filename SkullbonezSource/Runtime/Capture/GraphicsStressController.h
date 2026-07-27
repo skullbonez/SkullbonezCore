@@ -73,6 +73,7 @@ class GraphicsStressController
     int TextureChurnCount() const;
 
   private:
+
     // Ten warmup frames establish stable process-lifetime rows; 131 requested
     // resizes exceed the old 128-row heap, then 30 drain frames precede proof.
     static constexpr int DESCRIPTOR_BASELINE_FRAME = 9;

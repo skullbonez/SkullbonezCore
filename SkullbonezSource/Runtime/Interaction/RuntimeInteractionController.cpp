@@ -51,13 +51,14 @@ bool IsGizmoOwner( WorldInteractionOwner owner )
 }
 
 
-bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
-                           RuntimePointerCaptureOwner captureOwner,
+bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture, RuntimePointerCaptureOwner captureOwner,
                            WorldInteractionOwner owner )
 {
+
     // Invariant: every non-empty gesture must have both a compatible pointer
     // capture owner and a world owner. This keeps replay, editor, and
     // manipulator drags from overlapping after mode transitions.
+
     switch ( gesture.kind )
     {
     case RuntimeInteractionGestureKind::None:
@@ -67,8 +68,7 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
     case RuntimeInteractionGestureKind::ObjectPick:
         return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner != WorldInteractionOwner::None;
     case RuntimeInteractionGestureKind::EditorPlacementScaleDrag:
-        return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
-               owner == WorldInteractionOwner::EditorPlacement;
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::EditorPlacement;
 
     case RuntimeInteractionGestureKind::GizmoDrag:
         return captureOwner == RuntimePointerCaptureOwner::ToolGesture && IsGizmoOwner( owner ) &&
@@ -86,16 +86,15 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
                owner == WorldInteractionOwner::ReplayVelocityEdit && gesture.body.IsValid() && gesture.axis >= 0;
 
     case RuntimeInteractionGestureKind::ReplayCauseTreeDrag:
-        return captureOwner == RuntimePointerCaptureOwner::ToolGesture &&
-               owner == WorldInteractionOwner::ReplayCauseTree && ( gesture.axis == 0 || gesture.axis == 1 );
+        return captureOwner == RuntimePointerCaptureOwner::ToolGesture && owner == WorldInteractionOwner::ReplayCauseTree &&
+               ( gesture.axis == 0 || gesture.axis == 1 );
     }
 
     return false;
 }
 
 
-bool CanBeginGesture( const RuntimeInteractionGesture& gesture,
-                      RuntimePointerCaptureOwner captureOwner,
+bool CanBeginGesture( const RuntimeInteractionGesture& gesture, RuntimePointerCaptureOwner captureOwner,
                       WorldInteractionOwner owner )
 {
     return gesture.kind != RuntimeInteractionGestureKind::None && IsActiveGestureValid( gesture, captureOwner, owner );
@@ -152,41 +151,36 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterInspect()
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterEdit()
 {
-    return TransitionTo( RuntimeWorkspace::Edit,
-                         WorldInteractionOwner::EditorPlacement,
-                         InteractionExitReason::EnterEdit );
+    return TransitionTo( RuntimeWorkspace::Edit, WorldInteractionOwner::EditorPlacement, InteractionExitReason::EnterEdit );
 }
 
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterReplay()
 {
-    return TransitionTo( RuntimeWorkspace::Replay,
-                         WorldInteractionOwner::ReplayScrub,
-                         InteractionExitReason::EnterReplay );
+    return TransitionTo( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub, InteractionExitReason::EnterReplay );
 }
 
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterLauncher()
 {
-    return TransitionTo( RuntimeWorkspace::Live,
-                         WorldInteractionOwner::Launcher,
-                         InteractionExitReason::EnterLauncher );
+    return TransitionTo( RuntimeWorkspace::Live, WorldInteractionOwner::Launcher, InteractionExitReason::EnterLauncher );
 }
 
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterManipulator()
 {
-    return TransitionTo( RuntimeWorkspace::Live,
-                         WorldInteractionOwner::Manipulator,
+    return TransitionTo( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
                          InteractionExitReason::EnterManipulator );
 }
 
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunCameraMode mode )
 {
+
     // Why: camera mode is the user-facing command, while workspace/owner is the
     // interaction contract. Keeping this mapping here makes mode transitions use
     // the same cleanup metadata as direct tool and replay owner transitions.
+
     switch ( mode )
     {
     case RunCameraMode::Demo:
@@ -216,8 +210,10 @@ RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOw
 
 RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
 {
+
     // Concept: workspace classification is interaction-domain vocabulary. Tool
     // routers ask this owner instead of duplicating replay/edit/live mappings.
+
     if ( owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
          owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
          owner == WorldInteractionOwner::ReplayCauseTree )
@@ -245,8 +241,7 @@ RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteracti
 
 
 RuntimeInteractionTransition
-RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
-                                                                   WorldInteractionOwner owner,
+RuntimeInteractionController::SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace, WorldInteractionOwner owner,
                                                                    InteractionExitReason reason )
 {
     return TransitionTo( workspace, owner, reason );
@@ -270,25 +265,15 @@ RuntimeInteractionTransition RuntimeInteractionController::BeginGesture( const R
 
     if ( !canBegin )
     {
-        return CaptureTransition( previousWorkspace,
-                                  previousOwner,
-                                  previousCameraLook,
-                                  previousPhysicsAdvance,
-                                  previousGesture,
-                                  previousPointerCapture,
-                                  reason );
+        return CaptureTransition( previousWorkspace, previousOwner, previousCameraLook, previousPhysicsAdvance,
+                                  previousGesture, previousPointerCapture, reason );
     }
 
     m_gesture = gesture;
     m_pointerCapture = captureOwner;
     ValidateState();
-    return CaptureTransition( previousWorkspace,
-                              previousOwner,
-                              previousCameraLook,
-                              previousPhysicsAdvance,
-                              previousGesture,
-                              previousPointerCapture,
-                              reason );
+    return CaptureTransition( previousWorkspace, previousOwner, previousCameraLook, previousPhysicsAdvance, previousGesture,
+                              previousPointerCapture, reason );
 }
 
 
@@ -304,24 +289,20 @@ RuntimeInteractionTransition RuntimeInteractionController::EndGesture( Interacti
     m_gesture = RuntimeInteractionGesture {};
     m_pointerCapture = RuntimePointerCaptureOwner::None;
     ValidateState();
-    return CaptureTransition( previousWorkspace,
-                              previousOwner,
-                              previousCameraLook,
-                              previousPhysicsAdvance,
-                              previousGesture,
-                              previousPointerCapture,
-                              reason );
+    return CaptureTransition( previousWorkspace, previousOwner, previousCameraLook, previousPhysicsAdvance, previousGesture,
+                              previousPointerCapture, reason );
 }
 
 
-bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureCommand& command,
-                                                        RuntimeGestureEvent& outEvent )
+bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureCommand& command, RuntimeGestureEvent& outEvent )
 {
     outEvent = RuntimeGestureEvent {};
     RuntimeInteractionTransition transition;
+
     if ( command.action == RuntimeGestureCommandAction::Begin )
     {
         transition = BeginGesture( command.gesture, command.captureOwner, command.reason );
+
         if ( !transition.gestureChanged || m_gesture.kind != command.gesture.kind )
         {
             return false;
@@ -331,12 +312,14 @@ bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureComm
     }
     else
     {
+
         if ( command.gesture.kind == RuntimeInteractionGestureKind::None || m_gesture.kind != command.gesture.kind )
         {
             return false;
         }
 
         transition = EndGesture( command.reason );
+
         if ( !transition.gestureChanged )
         {
             return false;
@@ -354,10 +337,10 @@ bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureComm
 }
 
 
-bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace workspace,
-                                                          WorldInteractionOwner owner,
+bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace workspace, WorldInteractionOwner owner,
                                                           const RuntimeInteractionGesture& gesture )
 {
+
     // Invariant: owner selection and gesture capture share one controller
     // boundary. Domain tools must not mirror either half in replay/root state.
     SetWorldInteractionOwnerInWorkspace( workspace, owner, InteractionExitReason::BeginGesture );
@@ -368,6 +351,7 @@ bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace works
 
 void RuntimeInteractionController::EndGestureIfKind( RuntimeInteractionGestureKind kind )
 {
+
     if ( m_gesture.kind == kind )
     {
         EndGesture( InteractionExitReason::EndGesture );
@@ -377,6 +361,7 @@ void RuntimeInteractionController::EndGestureIfKind( RuntimeInteractionGestureKi
 
 void RuntimeInteractionController::CancelCameraLookGesture()
 {
+
     if ( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook )
     {
         EndGesture( InteractionExitReason::EndGesture );
@@ -389,6 +374,7 @@ void RuntimeInteractionController::SyncCameraLookGesture( const RuntimeInputSnap
                                                           bool mouseLookOwnsCursor )
 {
     const bool wantsCameraLook = input.appFocused && mouseLookOwnsCursor && policy.cameraMouseLookActive;
+
     if ( !wantsCameraLook )
     {
         CancelCameraLookGesture();
@@ -419,6 +405,7 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 void RuntimeInteractionController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                           bool enterInspectAfterActivation )
 {
+
     if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         ResetForScene( InteractionExitReason::LoadScene );
@@ -458,6 +445,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     else if ( input.replayLiveHeldAtCurrentFrame )
     {
         policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
+
         if ( !input.stepHeld )
         {
             policy.physicsTimeScale = 0.0f;
@@ -479,9 +467,11 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
 
     if ( input.crossScenePauseLocked )
     {
+
         // Invariant: the explicit cross-scene lock outranks camera, workspace,
         // launcher, and tool policy. Space remains the sole step-level release.
         policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
+
         if ( !input.stepHeld )
         {
             policy.physicsTimeScale = 0.0f;
@@ -489,6 +479,7 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     }
 
     const bool toolGestureCaptured = m_pointerCapture == RuntimePointerCaptureOwner::ToolGesture;
+
     if ( toolGestureCaptured )
     {
         policy.cameraLook = CameraLookState::Passive;
@@ -517,14 +508,9 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
 }
 
 
-RuntimeInteractionTransition
-RuntimeInteractionController::CaptureTransition( RuntimeWorkspace previousWorkspace,
-                                                 WorldInteractionOwner previousOwner,
-                                                 CameraLookState previousCameraLook,
-                                                 PhysicsAdvanceState previousPhysicsAdvance,
-                                                 const RuntimeInteractionGesture& previousGesture,
-                                                 RuntimePointerCaptureOwner previousPointerCapture,
-                                                 InteractionExitReason reason ) const
+RuntimeInteractionTransition RuntimeInteractionController::CaptureTransition( RuntimeWorkspace previousWorkspace, WorldInteractionOwner previousOwner, CameraLookState previousCameraLook,
+                                                                              PhysicsAdvanceState previousPhysicsAdvance, const RuntimeInteractionGesture& previousGesture,
+                                                                              RuntimePointerCaptureOwner previousPointerCapture, InteractionExitReason reason ) const
 {
     RuntimeInteractionTransition transition;
     transition.previousWorkspace = previousWorkspace;
@@ -577,13 +563,8 @@ RuntimeInteractionTransition RuntimeInteractionController::TransitionTo( Runtime
     m_pointerCapture = RuntimePointerCaptureOwner::None;
 
     ValidateState();
-    return CaptureTransition( previousWorkspace,
-                              previousOwner,
-                              previousCameraLook,
-                              previousPhysicsAdvance,
-                              previousGesture,
-                              previousPointerCapture,
-                              reason );
+    return CaptureTransition( previousWorkspace, previousOwner, previousCameraLook, previousPhysicsAdvance, previousGesture,
+                              previousPointerCapture, reason );
 }
 
 

@@ -49,14 +49,10 @@ using Math::Vector::VectorMagSquared;
 constexpr int RENDER_TEXTURE_SLOT_COUNT = Rendering::TEXTURE_SLOT_COUNT;
 constexpr float FX_KIND_RIBBON = 0.0f;
 constexpr float FX_KIND_DUST = 1.0f;
-constexpr Rendering::PassRasterStateBucket VISUAL_RASTER = Rendering::MakePassRasterStateBucket(
-    0,
-    { true,
-      false,
-      true,
-      Rendering::BlendFactor::SrcAlpha,
-      Rendering::BlendFactor::OneMinusSrcAlpha,
-      Rendering::CullMode::None } );
+constexpr Rendering::PassRasterStateBucket
+    VISUAL_RASTER = Rendering::MakePassRasterStateBucket( 0, { true, false, true, Rendering::BlendFactor::SrcAlpha,
+                                                               Rendering::BlendFactor::OneMinusSrcAlpha,
+                                                               Rendering::CullMode::None } );
 
 float Clamp01( float value )
 {
@@ -75,6 +71,7 @@ float HashUnitFloat( uint32_t value )
 
 Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
 {
+
     if ( VectorMagSquared( value ) <= 1.0e-8f )
     {
         return fallback;
@@ -89,16 +86,8 @@ Vector3 CylindricalOffset( float radius, float angle )
     return Vector3( cosf( angle ) * radius, 0.0f, sinf( angle ) * radius );
 }
 
-void EmitFxVertex( std::vector<float>& vertices,
-                   const Vector3& position,
-                   float r,
-                   float g,
-                   float b,
-                   float a,
-                   float u,
-                   float v,
-                   float fxKind,
-                   float terrainY )
+void EmitFxVertex( std::vector<float>& vertices, const Vector3& position, float r, float g, float b, float a, float u,
+                   float v, float fxKind, float terrainY )
 {
     vertices.push_back( position.x );
     vertices.push_back( position.y );
@@ -115,6 +104,7 @@ void EmitFxVertex( std::vector<float>& vertices,
 
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
 {
+
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         renderTextures.BindTexture( 0, slot );
@@ -147,8 +137,7 @@ void TornadoGameplay::SetVisualEnabled( bool enabled )
     m_visualPass.SetEnabled( enabled );
 }
 
-Rendering::WorldRenderExtensionRegistration
-TornadoGameplay::PrepareVisualFrame( const TornadoVisualTimeCandidates& time )
+Rendering::WorldRenderExtensionRegistration TornadoGameplay::PrepareVisualFrame( const TornadoVisualTimeCandidates& time )
 {
     return m_visualPass.PrepareFrame( m_field.GetConfig(), m_system.GetConfig(), m_system.GetElapsedSeconds(), time );
 }
@@ -208,10 +197,10 @@ bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::W
     GraphCallbackData callbackData;
     callbackData.pass = &pass;
     callbackData.frame = &scope.Frame();
-    scope.AppendGraphicsPass<&TornadoVisualPass::ExecuteGraphPass>( "TornadoVisualPass",
-                                                                    callbackData,
+    scope.AppendGraphicsPass<&TornadoVisualPass::ExecuteGraphPass>( "TornadoVisualPass", callbackData,
                                                                     "Frame/Render/TornadoVisual" );
     const bool rendered = callbackData.rendered;
+
     // Lifetime: no frame/configuration borrow survives the synchronous graph
     // range. Persistent visual clock and owned capacity remain valid.
     pass.m_frame = {};
@@ -219,9 +208,9 @@ bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::W
     return rendered;
 }
 
-void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/,
-                                          GraphCallbackData& data )
+void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/, GraphCallbackData& data )
 {
+
     if ( !data.pass || !data.frame )
     {
         SB_FATAL( "Gameplay/TornadoVisualPass", "Graph callback missing frame execution data." );
@@ -245,15 +234,12 @@ void TornadoVisualPass::EnsureTransientCapacity()
     const int vertexCount = authoredVortexCount *
                             ( ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6 );
 
-    const std::size_t floatCapacity = static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) *
-                                      VISUAL_FLOATS_PER_VERTEX;
+    const std::size_t floatCapacity = static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * VISUAL_FLOATS_PER_VERTEX;
 
     if ( floatCapacity > m_vertices.capacity() )
     {
-        SB_FATAL( "Gameplay/TornadoVisualPass",
-                  "Transient vertex capacity exceeded. requested=%zu capacity=%zu",
-                  floatCapacity,
-                  m_vertices.capacity() );
+        SB_FATAL( "Gameplay/TornadoVisualPass", "Transient vertex capacity exceeded. requested=%zu capacity=%zu",
+                  floatCapacity, m_vertices.capacity() );
     }
 }
 
@@ -261,6 +247,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
 {
     assert( m_frame.field && m_frame.system && "TornadoVisualPass requires prepared gameplay state" );
     const TornadoVisualSettings& visual = m_settings;
+
     if ( !visual.enabled )
     {
         return false;
@@ -271,6 +258,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     const int particleCount = std::clamp( visual.particleCount, 0, 256 );
     const float shellAlpha = std::clamp( visual.shellAlpha, 0.0f, 0.30f );
     const float dustAlpha = std::clamp( visual.dustAlpha, 0.0f, 0.30f );
+
     if ( ( ribbonCount <= 0 || shellAlpha <= 0.0f ) && dustAlpha <= 0.0f )
     {
         return false;
@@ -280,6 +268,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     const bool useReplayTime = candidates.hasPresentation || candidates.hasSolver || candidates.hasPrediction;
     const bool useTornadoSystem = m_frame.system->enabled && !m_frame.system->vortices.empty();
     const double sourceSeconds = candidates.simulationSourceSeconds;
+
     if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
     {
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
@@ -293,6 +282,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     m_lastLiveVisualSourceSeconds = sourceSeconds;
 
     float time = m_liveVisualTimeSeconds;
+
     if ( candidates.hasPresentation )
     {
         time = static_cast<float>( candidates.presentationSeconds );
@@ -303,8 +293,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     }
     else if ( candidates.hasPrediction )
     {
-        time = useTornadoSystem ? candidates.predictionSystemSeconds
-                                : static_cast<float>( candidates.predictionSeconds );
+        time = useTornadoSystem ? candidates.predictionSystemSeconds : static_cast<float>( candidates.predictionSeconds );
     }
     else if ( useTornadoSystem )
     {
@@ -312,6 +301,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     }
 
     m_activeVisualVortices.clear();
+
     if ( useTornadoSystem )
     {
         TornadoSystem::BuildActiveVortices( *m_frame.system, time, m_activeVisualVortices );
@@ -351,11 +341,12 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
         if ( shellAlpha > 0.0f )
         {
             constexpr float shellTurns = 2.85f;
+
             for ( int ribbon = 0; ribbon < ribbonCount; ++ribbon )
             {
                 const float ribbonSeed = HashUnitFloat( 41u + static_cast<uint32_t>( ribbon ) * 97u );
-                const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) +
-                                    rotation + ribbonSeed * 0.45f;
+                const float phase = static_cast<float>( ribbon ) * twoPi / static_cast<float>( ribbonCount ) + rotation +
+                                    ribbonSeed * 0.45f;
 
                 for ( int segment = 0; segment < ribbonSegments; ++segment )
                 {
@@ -389,6 +380,7 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const Vector3 b = p1 - side * width;
                     const Vector3 c = p1 + side * width;
                     const Vector3 d = p0 + side * width;
+
                     // Invariant: every effect quad is emitted as two clockwise
                     // triangles with identical style at all six vertices.
                     EmitFxVertex( m_vertices, a, cool, 0.78f, 0.84f, alpha, 0.0f, 0.0f, FX_KIND_RIBBON, 0.0f );
@@ -405,12 +397,15 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
         {
             constexpr int dustBands = 3;
             constexpr int dustSegments = 56;
+
             for ( int band = 0; band < dustBands; ++band )
             {
                 const float bandT = static_cast<float>( band ) / static_cast<float>( dustBands - 1 );
                 const float phase = rotation * ( 1.15f + bandT * 0.35f ) + bandT * twoPi * 0.37f;
+
                 for ( int segment = 0; segment < dustSegments; ++segment )
                 {
+
                     if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
                     {
                         continue;
@@ -423,11 +418,9 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
                     const float bandRadius = radius * ( 0.58f + 0.16f * static_cast<float>( band ) );
                     const float innerRadius = bandRadius - radius * 0.015f;
                     const float outerRadius = bandRadius + radius * ( 0.024f + 0.008f * bandT );
-                    const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) +
-                                     sinf( angle0 * 2.0f ) * 1.6f;
+                    const float y0 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle0 * 2.0f ) * 1.6f;
 
-                    const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) +
-                                     sinf( angle1 * 2.0f ) * 1.6f;
+                    const float y1 = field.center.y + height * ( 0.018f + 0.030f * bandT ) + sinf( angle1 * 2.0f ) * 1.6f;
 
                     const Vector3 a = field.center + CylindricalOffset( innerRadius, angle0 ) +
                                       Vector3( 0.0f, y0 - field.center.y, 0.0f );
@@ -498,10 +491,8 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
     PROFILE_GPU_BEGIN( &frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( frame.renderDiagnostics, "Frame/Render/TornadoVisual" );
     ClearAllRenderTextureSlots( frame.renderTextures );
-    frame.renderGeometry.DrawTransientColoredTriangles( m_vertices,
-                                                        frame.viewProjection,
-                                                        Rendering::TransientTriangleStyle::Color,
-                                                        VISUAL_RASTER );
+    frame.renderGeometry.DrawTransientColoredTriangles( m_vertices, frame.viewProjection,
+                                                        Rendering::TransientTriangleStyle::Color, VISUAL_RASTER );
 
     PROFILE_GPU_END( &frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     return true;

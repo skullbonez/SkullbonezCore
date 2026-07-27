@@ -4,9 +4,10 @@ Purpose:
   Owns renderer resources whose validity follows the active DX12 backend epoch.
 
 Summary:
-  RenderResourceLifecycle binds the established backend and world owner views,
-  creates process and scene resources, and projects safe preview values. Frame
-  ordering remains in RuntimeRenderer; backend-epoch state does not.
+  RenderResourceLifecycle binds concrete backend owners and the established
+  world owner view, creates process and scene resources, and projects safe
+  preview values. Frame ordering remains in RuntimeRenderer; backend-epoch
+  state does not.
 
 Glossary:
   Backend epoch: The interval during which one set of concrete DX12 owners is
@@ -16,7 +17,7 @@ Glossary:
 
 Invariants:
   - Every stored owner borrow outlives this lifecycle owner.
-  - Backend-owned resources are released before the enclosing backend view dies.
+  - Backend-owned resources are released before the concrete backend owners die.
   - Preview projection never exposes framebuffer or pass-resource ownership.
 
 Related:
@@ -33,6 +34,7 @@ Related:
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -42,14 +44,27 @@ namespace Geometry
 {
 class SkyBox;
 }
+namespace Rendering
+{
+class Dx12Diagnostics;
+class Dx12FrameOwner;
+class Dx12GeometryOwner;
+class Dx12GraphTransientPool;
+class Dx12RaytracingOwner;
+class Dx12RenderDevice;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+} // namespace Rendering
 namespace Runtime
 {
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle( RuntimeRenderBackendView backend,
-                             const RenderWorldView& world,
-                             const SceneSessionState& scene );
+    RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                             Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                             Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                             Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                             bool raytracingAvailable, const RenderWorldView& world, const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
@@ -58,31 +73,50 @@ class RenderResourceLifecycle
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                          bool cinematicTargetsAvailable,
                                                                          bool volumetricAvailable ) const;
-    bool ShouldRenderUiText( const OverlayDebugState& debug,
-                             const SceneSessionState& scene,
-                             bool crossScenePauseLocked,
-                             const CameraControlState& camera,
-                             const UI::InGameUI& ui,
-                             bool replayScrubberVisible,
+    bool ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene, bool crossScenePauseLocked,
+                             const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
                              bool replayPathVisualizerHasTarget ) const;
-    void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing );
+    void SetUiTextDxrReflectionPreviewTexture( uint32_t textureHandle );
 
   private:
     friend class RuntimeRenderer;
 
-    // Concept: only capabilities that participate in renderer resource setup,
-    // frame recording, or release survive construction. Capture, shader
-    // development, and development-UI owners remain at the composition root.
-    struct BackendEpochOwners
+    Rendering::Dx12FrameOwner& RenderFrame() const
     {
-        Rendering::Dx12FrameOwner* renderFrame = nullptr;
-        Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-        Rendering::Dx12ResourceBuilder* renderResources = nullptr;
-        Rendering::Dx12TextureOwner* renderTextures = nullptr;
-        Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
-        Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-        Rendering::Dx12RaytracingOwner* raytracing = nullptr;
-    };
+        return m_renderFrame;
+    }
+    Rendering::Dx12RenderDevice& RenderDevice() const
+    {
+        return m_renderDevice;
+    }
+    Rendering::Dx12GraphTransientPool& RenderGraph() const
+    {
+        return m_renderGraph;
+    }
+    Rendering::Dx12ResourceBuilder& RenderResources() const
+    {
+        return m_renderResources;
+    }
+    Rendering::Dx12TextureOwner& RenderTextures() const
+    {
+        return m_renderTextures;
+    }
+    Rendering::Dx12GeometryOwner& RenderGeometry() const
+    {
+        return m_renderGeometry;
+    }
+    Rendering::Dx12Diagnostics& RenderDiagnostics() const
+    {
+        return m_renderDiagnostics;
+    }
+    Rendering::Dx12RaytracingOwner& Raytracing() const
+    {
+        return m_raytracing;
+    }
+    bool RaytracingAvailable() const
+    {
+        return m_raytracingAvailable;
+    }
 
     // Lifetime: teardown remains ordered by RuntimeRenderer because pass
     // consumers must release between these owned phases. Each command mutates
@@ -93,10 +127,6 @@ class RenderResourceLifecycle
     void ReleaseTextureResources();
     void ReleaseSkyResources();
 
-    const BackendEpochOwners& Backend() const
-    {
-        return m_backend;
-    }
     RenderResourceLifecycleLog& Log()
     {
         return m_lifecycleLog;
@@ -148,10 +178,15 @@ class RenderResourceLifecycle
         return m_uiTextPass;
     }
 
-    // Concept: this is a cohesive backend-epoch owner, not a generic service
-    // bag. Every member either creates, names, previews, or releases resources
-    // whose handles become invalid together when the backend is rebuilt.
-    BackendEpochOwners m_backend;
+    Rendering::Dx12RenderDevice& m_renderDevice;
+    Rendering::Dx12FrameOwner& m_renderFrame;
+    Rendering::Dx12GraphTransientPool& m_renderGraph;
+    Rendering::Dx12ResourceBuilder& m_renderResources;
+    Rendering::Dx12TextureOwner& m_renderTextures;
+    Rendering::Dx12GeometryOwner& m_renderGeometry;
+    Rendering::Dx12Diagnostics& m_renderDiagnostics;
+    Rendering::Dx12RaytracingOwner& m_raytracing;
+    bool m_raytracingAvailable = false;
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;

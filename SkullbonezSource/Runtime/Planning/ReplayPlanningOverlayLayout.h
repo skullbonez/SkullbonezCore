@@ -74,7 +74,6 @@ UI::UIRect ReplayPorkchopPanelRect( int screenW );
 UI::UIRect ReplayPorkchopGridRect( int screenW );
 UI::UIRect ReplayPorkchopCellRect( int screenW, std::size_t cellIndex );
 bool ReplayPorkchopCellAtPointer( int screenW, int pointerX, int pointerY, std::size_t& outCellIndex );
-void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner,
-                                    int screenW,
+void BuildReplayTripPlannerSurface( const ReplayTripPlannerView& planner, int screenW,
                                     ReplayTripPlannerSurface& outSurface );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

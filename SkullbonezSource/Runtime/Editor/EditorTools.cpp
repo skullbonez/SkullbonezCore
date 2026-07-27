@@ -30,7 +30,7 @@ Related:
 #include "../Capture/CaptureController.h"
 #include "../Input/InputController.h"
 #include "../Tools/RuntimeFileWriter.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneSaveOperations.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Common.h"
@@ -47,8 +47,6 @@ using SkullbonezCore::Math::Vector::Vector3;
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 namespace
 {
@@ -69,6 +67,7 @@ static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
 
 int EditorMouseWheelSteps( int wheelDelta )
 {
+
     if ( wheelDelta == 0 )
     {
         return 0;
@@ -79,6 +78,7 @@ int EditorMouseWheelSteps( int wheelDelta )
 
 Assets::EditorHullAsset EditorHullAssetForType( int objectType )
 {
+
     switch ( ClampEditorObjectType( objectType ) )
     {
     case UI::EditorTab::OBJECT_HULL_WEDGE:
@@ -125,6 +125,7 @@ bool EditorPlacementUsesHullScaleFactors( int objectType )
 bool EditorPlacementUsesTreeScaleLock( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_TREE_SMALL:
@@ -156,6 +157,7 @@ bool EditorPlacementUsesTreeScaleLock( int objectType )
 Vector3 EditorDefaultPlacementScale( int objectType )
 {
     const int type = ClampEditorObjectType( objectType );
+
     switch ( type )
     {
     case UI::EditorTab::OBJECT_BOX:
@@ -175,9 +177,11 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = ClampEditorObjectType( objectType );
+
     // Concept: Object families define the shape of the scale value. Trees and
     // buildings ignore user scale, balls use one radius, hulls use hull-local
     // factors, and boxes use world half extents.
+
     if ( EditorPlacementUsesTreeScaleLock( type ) )
     {
         return Vector3( 1.0f, 1.0f, 1.0f );
@@ -191,28 +195,23 @@ Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 
     if ( EditorPlacementUsesHullScaleFactors( type ) )
     {
-        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ),
-                        std::clamp( scale.y, 0.05f, 20.0f ),
+        return Vector3( std::clamp( scale.x, 0.05f, 20.0f ), std::clamp( scale.y, 0.05f, 20.0f ),
                         std::clamp( scale.z, 0.05f, 20.0f ) );
     }
 
-    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ),
-                    std::clamp( scale.y, 0.25f, 200.0f ),
+    return Vector3( std::clamp( scale.x, 0.25f, 200.0f ), std::clamp( scale.y, 0.25f, 200.0f ),
                     std::clamp( scale.z, 0.25f, 200.0f ) );
 }
 
-Vector3 EditorPlacementScaleFromGesture( int objectType,
-                                         const Vector3& startScale,
-                                         float dragPixelsX,
-                                         float dragPixelsY,
+Vector3 EditorPlacementScaleFromGesture( int objectType, const Vector3& startScale, float dragPixelsX, float dragPixelsY,
                                          int wheelSteps )
 {
     const int type = ClampEditorObjectType( objectType );
+
     if ( EditorPlacementUsesUniformScale( type ) )
     {
         const float dragUnits = ( dragPixelsX + dragPixelsY ) / ( EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT * 2.0f );
-        const float radius = startScale.x + dragUnits +
-                             static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
+        const float radius = startScale.x + dragUnits + static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
 
         return EditorClampPlacementScale( type, Vector3( radius, radius, radius ) );
     }
@@ -234,41 +233,44 @@ Vector3 EditorPlacementScaleFromGesture( int objectType,
 }
 
 
-void ResetEditorUnfocusedInputState( EditorGizmoContext context )
+void ResetEditorUnfocusedInputState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
+
     // Lifetime: Losing focus cancels gesture-owned state only. Persistent
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
-    context.editor.viewportLookActive = false;
-    EndEditorPlacementScaleGesture( context );
-    context.editor.placementScaleWheelSteps = 0;
-    CancelEditorGizmoDragState( context );
-    context.editor.gizmoDragStartAxisT = 0.0f;
-    context.editor.gizmoDragStartRotationAngle = 0.0f;
-    context.editor.gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
-    context.editor.gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    editor.viewportLookActive = false;
+    EndEditorPlacementScaleGesture( interaction );
+    editor.placementScaleWheelSteps = 0;
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.gizmoDragStartAxisT = 0.0f;
+    editor.gizmoDragStartRotationAngle = 0.0f;
+    editor.gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    editor.gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
 }
 
 
-void ClearEditorManipulationState( EditorGizmoContext context )
+void ClearEditorManipulationState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    context.editor.placementPreviewVisible = false;
-    EndEditorPlacementScaleGesture( context );
-    context.editor.placementScaleWheelSteps = 0;
-    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
-    context.editor.placementScaleStart = context.editor.placementScale;
-    CancelEditorGizmoDragState( context );
-    context.editor.placementAltitudeSteps = 0;
-    context.editor.placementYawRadians = 0.0f;
+    editor.placementPreviewVisible = false;
+    EndEditorPlacementScaleGesture( interaction );
+    editor.placementScaleWheelSteps = 0;
+    editor.placementScale = EditorDefaultPlacementScale( editor.objectType );
+    editor.placementScaleStart = editor.placementScale;
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.placementAltitudeSteps = 0;
+    editor.placementYawRadians = 0.0f;
 }
 
 
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed )
 {
     EditorKeyboardShortcutResult result;
+
     switch ( action )
     {
     case RuntimeInputAction::ToggleEditorTool:
+
         // Concept: Alt is both a level input for replay velocity editing and a
         // press edge for editor placement-mode toggling.
         result.altDown = isDown;
@@ -280,18 +282,20 @@ EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction ac
 }
 
 
-EditorPlacementModeChangeResult
-SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation )
+EditorPlacementModeChangeResult SetEditorPlacementMode( RunEditorPlacementState& editor,
+                                                        RuntimeInteractionController& interaction, bool enabled,
+                                                        bool clearManipulation )
 {
-    context.editor.placementModeEnabled = context.editor.editorModeEnabled && enabled;
-    context.editor.viewportLookActive = false;
+    editor.placementModeEnabled = editor.editorModeEnabled && enabled;
+    editor.viewportLookActive = false;
+
     if ( clearManipulation )
     {
-        ClearEditorManipulationState( context );
+        ClearEditorManipulationState( editor, interaction );
     }
 
     EditorPlacementModeChangeResult result;
-    result.placementModeEnabled = context.editor.placementModeEnabled;
+    result.placementModeEnabled = editor.placementModeEnabled;
     result.worldOwner = result.placementModeEnabled ? WorldInteractionOwner::EditorPlacement
                                                     : WorldInteractionOwner::EditorGizmo;
 
@@ -299,42 +303,45 @@ SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearMani
 }
 
 
-EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context )
+EditorPlacementModeChangeResult ToggleEditorPlacementMode( RunEditorPlacementState& editor,
+                                                           RuntimeInteractionController& interaction )
 {
-    return SetEditorPlacementMode( context, !context.editor.placementModeEnabled, true );
+    return SetEditorPlacementMode( editor, interaction, !editor.placementModeEnabled, true );
 }
 
 
-void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode )
+void EnterEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction,
+                           RunCameraMode restoreCameraMode )
 {
-    context.editor.editorModeEnabled = true;
-    context.editor.placementModeEnabled = true;
-    context.editor.viewportLookActive = false;
-    ClearEditorManipulationState( context );
-    context.editor.restoreCameraModeAfterEditor = restoreCameraMode;
+    editor.editorModeEnabled = true;
+    editor.placementModeEnabled = true;
+    editor.viewportLookActive = false;
+    ClearEditorManipulationState( editor, interaction );
+    editor.restoreCameraModeAfterEditor = restoreCameraMode;
 }
 
 
-void ExitEditorModeState( EditorGizmoContext context )
+void ExitEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    context.editor.history.Clear();
-    context.editor.editorModeEnabled = false;
-    context.editor.viewportLookActive = false;
-    context.editor.placementPreviewVisible = false;
-    context.editor.placementModeEnabled = false;
-    EndEditorPlacementScaleGesture( context );
-    CancelEditorGizmoDragState( context );
-    context.editor.placementScaleWheelSteps = 0;
-    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
-    context.editor.placementScaleStart = context.editor.placementScale;
-    context.editor.placementAltitudeSteps = 0;
-    context.editor.placementYawRadians = 0.0f;
-    context.editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
+    editor.history.Clear();
+    editor.editorModeEnabled = false;
+    editor.viewportLookActive = false;
+    editor.placementPreviewVisible = false;
+    editor.placementModeEnabled = false;
+    EndEditorPlacementScaleGesture( interaction );
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.placementScaleWheelSteps = 0;
+    editor.placementScale = EditorDefaultPlacementScale( editor.objectType );
+    editor.placementScaleStart = editor.placementScale;
+    editor.placementAltitudeSteps = 0;
+    editor.placementYawRadians = 0.0f;
+    editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
 }
 
 
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject )
 {
+
     if ( editor.placeStaticObject == placeStaticObject )
     {
         return false;
@@ -351,51 +358,54 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor )
 }
 
 
-void ToggleEditorTerrainAlign( EditorGizmoContext context )
+void ToggleEditorTerrainAlign( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    RunEditorPlacementState& editor = context.editor;
     editor.autoTerrainAlign = !editor.autoTerrainAlign;
     editor.placementPreviewVisible = false;
-    EndEditorPlacementScaleGesture( context );
+    EndEditorPlacementScaleGesture( interaction );
     editor.placementScaleWheelSteps = 0;
 }
 
 
-EditorObjectTypeRequestResult
-SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode )
+EditorObjectTypeRequestResult SelectEditorObjectType( RunEditorPlacementState& editor,
+                                                      RuntimeInteractionController& interaction, int requestedObjectType,
+                                                      bool enterPlacementMode )
 {
     EditorObjectTypeRequestResult result;
     const int objectType = ClampEditorObjectType( requestedObjectType );
-    if ( objectType != context.editor.objectType )
+
+    if ( objectType != editor.objectType )
     {
-        context.editor.objectType = objectType;
-        ClearEditorManipulationState( context );
+        editor.objectType = objectType;
+        ClearEditorManipulationState( editor, interaction );
         result.objectTypeChanged = true;
     }
     else if ( enterPlacementMode )
     {
-        ClearEditorManipulationState( context );
+        ClearEditorManipulationState( editor, interaction );
     }
 
-    result.enterPlacementMode = enterPlacementMode && context.editor.editorModeEnabled;
+    result.enterPlacementMode = enterPlacementMode && editor.editorModeEnabled;
     return result;
 }
 
 
-EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( RunEditorPlacementState& editor,
+                                                                             RuntimeInteractionController& interaction,
                                                                              const UI::UIEditorCommands& commands )
 {
     EditorPlacementPreModeUICommandResult result;
     result.toggleEditorMode = commands.toggleEditorMode;
     result.togglePlacementMode = commands.togglePlacementMode;
-    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
+
+    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( editor, commands.requestedPlaceStatic ) )
     {
         result.setPlaceStatic = true;
     }
 
     if ( commands.requestedObjectType >= 0 )
     {
-        const EditorObjectTypeRequestResult objectTypeRequest = SelectEditorObjectType( context,
+        const EditorObjectTypeRequestResult objectTypeRequest = SelectEditorObjectType( editor, interaction,
                                                                                         commands.requestedObjectType,
                                                                                         commands.enterPlacementMode );
 
@@ -407,11 +417,12 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
 }
 
 
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               RuntimeInteractionController& interaction,
                                                                                const UI::UIEditorCommands& commands )
 {
-    RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
+
     if ( commands.togglePlaceStatic )
     {
         ToggleEditorPlaceStaticObject( editor );
@@ -420,7 +431,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 
     if ( commands.toggleTerrainAlign )
     {
-        ToggleEditorTerrainAlign( context );
+        ToggleEditorTerrainAlign( editor, interaction );
         result.toggledTerrainAlign = true;
     }
 
@@ -428,11 +439,10 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 }
 
 
-void HandleEditorSceneSaveHotkey( SceneWorld& world,
-                                  const SceneSessionState& scene,
-                                  const GameObjects::PresentationSaveState& presentation,
-                                  bool wasPressed )
+void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
+                                  const GameObjects::PresentationSaveState& presentation, bool wasPressed )
 {
+
     if ( !wasPressed )
     {
         return;
@@ -440,10 +450,8 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world,
 
     static int sSnapshotSeq = 0;
     SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
-    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq,
-                                         world.GetSaveState(),
-                                         scene.GetSaveState(),
-                                         presentation,
+
+    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq, world.GetSaveState(), scene.GetSaveState(), presentation,
                                          saveResult ) &&
          !saveResult.ok )
     {
@@ -454,6 +462,7 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world,
 
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 {
+
     if ( !wasPressed )
     {
         return;
@@ -461,15 +470,12 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 
     static int sScreenshotSeq = 0;
     char path[256] = {};
-    if ( RuntimeFileWriter::NextNumberedPath( path,
-                                              sizeof( path ),
-                                              "Screenshots",
-                                              "screenshot_",
-                                              ".bmp",
-                                              sScreenshotSeq,
+
+    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "Screenshots", "screenshot_", ".bmp", sScreenshotSeq,
                                               100 ) )
     {
         const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
+
         if ( !queueResult.ok )
         {
             std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
@@ -479,6 +485,5 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 }
 
 
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

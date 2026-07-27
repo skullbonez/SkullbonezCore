@@ -15,10 +15,13 @@ Glossary:
     an SkullbonezCore::Core::SbResult so the owning boundary can stop before unsafe mutation.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
+  Process-end capacity table: Final active-scene store rows emitted before
+    subsystem teardown.
 
 Invariants:
   - Backend-owned render resources must be released while the renderer backend
     is still alive, after a GPU flush, and in the explicit release order below.
+  - Final capacity rows are reported while the active scene stores still exist.
 
 Related:
   - SkullbonezSource/Runtime/App/Run.h
@@ -37,7 +40,6 @@ Related:
 #include "../Tools/RuntimeFileWriter.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Scene/SceneSaveOperations.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
@@ -71,6 +73,7 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
+
     // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
     return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
@@ -97,6 +100,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
     PhysicsEngine& physics = sceneWorld.Physics();
     SkullbonezCore::Gameplay::TornadoGameplay& tornadoGameplay = sceneWorld.Tornado();
     target.allocationGuardMode = launch.allocationGuardMode;
+
     if ( CoreAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
     {
         CoreAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
@@ -135,6 +139,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
         SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
         tornadoGameplay.SetFieldConfig( tornadoField );
+
         if ( tornadoGameplay.VisualAutoEnableWithTornado() )
         {
             tornadoGameplay.SetVisualEnabled( launch.tornadoEnabled );
@@ -172,6 +177,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
     }
 
     target.dumpTextureAssets = launch.dumpTextureAssets;
+
     if ( launch.interactiveSceneRun )
     {
         target.interactiveSceneRun = true;
@@ -189,10 +195,10 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
 }
 
 
-bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
-                                      ReplayRuntime& replayRuntime,
+bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides, ReplayRuntime& replayRuntime,
                                       int sceneObjectCapacity )
 {
+
     if ( !overrides.configureReplayRecording )
     {
         return false;
@@ -202,13 +208,14 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
     // captured physics tick, so keep their scratch vectors reserved before the
     // replay phase begins.
 
-    const ReplayRecordingActivationResult replayActivation = replayRuntime.ConfigureRecording(
-        overrides.replayRecordingEnabled,
-        overrides.replayRetentionSeconds,
-        overrides.replayHashLogPath,
-        sceneObjectCapacity );
+    const ReplayRecordingActivationResult replayActivation = replayRuntime
+                                                                 .ConfigureRecording( overrides.replayRecordingEnabled,
+                                                                                      overrides.replayRetentionSeconds,
+                                                                                      overrides.replayHashLogPath,
+                                                                                      sceneObjectCapacity );
 
     const ReplayRecordingConfigResult& replayConfig = replayActivation.configuration;
+
     if ( replayConfig.presentationStats.enabled )
     {
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
@@ -220,9 +227,8 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                 replayConfig.solverConfig.checkpointIntervalFrames,
                 static_cast<unsigned long long>( replayConfig.eventStats.eventCapacity ),
                 replayConfig.presentationConfig.hashLogPath.empty() ? "" : " hash_log=",
-                replayConfig.presentationConfig.hashLogPath.empty()
-                    ? ""
-                    : replayConfig.presentationConfig.hashLogPath.c_str(),
+                replayConfig.presentationConfig.hashLogPath.empty() ? ""
+                                                                    : replayConfig.presentationConfig.hashLogPath.c_str(),
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : " solver_hash_log=",
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
@@ -232,10 +238,10 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
 
 
 #ifdef _DEBUG
-void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
-                                    DiagnosticsRuntime& diagnosticsRuntime,
+void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides, DiagnosticsRuntime& diagnosticsRuntime,
                                     PhysicsEngine& physics )
 {
+
     if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
     {
         diagnosticsRuntime.SetPhysicsRegressionLogOverride( overrides.physicsRegressionLogPath );
@@ -248,8 +254,7 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
     if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
     {
-        diagnosticsRuntime.SetPhysicsDiagnosticsPath( physics,
-                                                      overrides.physicsDiagnosticsPath,
+        diagnosticsRuntime.SetPhysicsDiagnosticsPath( physics, overrides.physicsDiagnosticsPath,
                                                       overrides.physicsDiagnosticsFixedStepForced );
     }
 }
@@ -260,90 +265,100 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    sceneObjectCapacity = std::clamp( config.runtimeCapacity.sceneObjectCapacity,
-                                      1,
+    sceneObjectCapacity = std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1,
                                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 
     workerThreads = config.runtimeCapacity.workerThreads;
 }
 
 
-Run::Run( Window& window,
-          std::vector<std::string> sceneQueue,
-          SkullbonezCore::Core::EngineConfig& config,
-          Threading::WorkerPool& workerPool,
-          SkullbonezCore::Core::Profiler* profiler,
-          RuntimeRenderBackendView renderBackendView,
+Run::Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::Core::EngineConfig& config,
+          Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
+          Rendering::Dx12BackbufferCapture& backbufferCapture,
           SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
       m_tracyClientOwner( tracyClientOwner ), m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
-      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
-      m_renderer( m_renderBackendView,
-                  RenderWorldView { m_assets,
-                                    m_sceneController.Scene().Cameras(),
-                                    m_sceneController.Scene().Terrain(),
-                                    window,
-                                    m_config,
-                                    m_sceneController.Scene().Environment(),
-                                    m_overlayDiagnostics->RenderResources(),
-                                    profiler },
-                  m_sceneController.State() )
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_backbufferCapture( backbufferCapture )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
+    m_diagnosticsRuntime.BindProfiler( profiler );
+    m_sceneController.Scene().Physics().BindProfiler( profiler );
+    m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    m_operatorUi->SceneNavigation().RefreshBrowserList();
+    m_sceneController.Scene().ApplyRuntimeConfig( cfg );
+    m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
+    m_startup.ApplyStartupConfig( cfg );
+}
+
+SkullbonezCore::Core::SbResult
+Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                        Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                        Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                        bool raytracingAvailable,
+                        std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start(
-        m_window.NativeWindowHandle(),
-        m_renderBackendView.developmentUiRenderer );
+                        ,
+                        Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
+#endif
+)
+{
+    m_renderer = std::make_unique<RuntimeRenderer>( renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
+                                                    renderGeometry, renderDiagnostics, raytracing, raytracingAvailable,
+                                                    RenderWorldView { m_assets, m_sceneController.Scene().Cameras(),
+                                                                      m_sceneController.Scene().Terrain(), m_window,
+                                                                      m_config, m_sceneController.Scene().Environment(),
+                                                                      m_overlayDiagnostics->RenderResources(), m_profiler },
+                                                    m_sceneController.State() );
+
+    m_shaderDevelopment = shaderDevelopment;
+    Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
+    Renderer().SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start( m_window.NativeWindowHandle(),
+                                                                                 &developmentUiRenderer );
 
     if ( !imguiStartResult.ok )
     {
         m_applicationExit.RequestOwnedFailure( imguiStartResult );
+        return imguiStartResult;
     }
-    else
-    {
-        // Lifetime: Window forwards only native messages and retains no ImGui
-        // context/resource authority. Run removes this direct borrow before
-        // destroying the editor owner below.
-        m_window.BindDevelopmentUiInput( m_imguiEditor );
-    }
+
+    m_window.BindDevelopmentUiInput( m_imguiEditor );
 #endif
-    m_diagnosticsRuntime.BindProfiler( profiler );
-    m_sceneController.Scene().Physics().BindProfiler( profiler );
-    m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    RefreshSceneBrowserList( m_operatorUi->SceneNavigation().browser );
-    m_sceneController.Scene().ApplyRuntimeConfig( cfg );
-    m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
-    m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
-    m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
-    m_startup.ApplyStartupConfig( cfg );
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
 Run::~Run()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+    const std::string* currentScenePath = m_sceneController.CurrentPath();
+    m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
+                                                  currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );
+
 #ifdef _DEBUG
     m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView {
-                                                      m_sceneController.Scene().Entities(),
-                                                      m_sceneController.Scene().CollectGameplayMemoryBytes(),
-                                                      m_sceneController.Scene().CollectGameplayDebugMemoryBytes(),
-                                                      m_sceneController.Scene().Physics(),
-                                                      m_sceneController.Scene().RenderInstances() } ),
-                                                  m_sceneController.State(),
-                                                  "shutdown",
-                                                  m_timers.simulationTimer.GetTotalTime() );
+        m_diagnosticsRuntime
+            .WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
+                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView { m_sceneController.Scene().Entities(),
+                                                                                        m_sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                                                        m_sceneController.Scene()
+                                                                                            .CollectGameplayDebugMemoryBytes(),
+                                                                                        m_sceneController.Scene().Physics(),
+                                                                                        m_sceneController.Scene().RenderInstances() } ),
+                                  m_sceneController.State(), "shutdown", m_timers.simulationTimer.GetTotalTime() );
     }
 
     m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
+
     if ( replayShutdown.presentation.enabled )
     {
         const ReplayRecorderStats& replayStats = replayShutdown.presentation;
@@ -373,15 +388,14 @@ Run::~Run()
     // Lifetime: clean up backend-owned render resources while the current
     // backend is still alive. RuntimeRenderer performs the checked drain before
     // its first release so no owner can destroy resources after a failed wait.
-    const SkullbonezCore::Core::SbResult releaseResult = m_renderer.ReleaseBackendOwnedRuntimeResources(
-        RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release", *m_operatorUi, m_runtimeTools } );
+    const SkullbonezCore::Core::SbResult releaseResult = Renderer().ReleaseBackendOwnedRuntimeResources( RuntimeRenderer::BackendResourceReleaseContext { "shutdown_release", *m_operatorUi, m_runtimeTools } );
 
     if ( !releaseResult.ok )
     {
+
         // Lane F: a destructor cannot propagate Lane R to a caller, and letting
         // member destruction continue after an uncertain GPU drain is unsafe.
-        SB_FATAL( "Runtime/Run",
-                  "Backend resource release could not establish GPU safety. owner=%s reason=%s",
+        SB_FATAL( "Runtime/Run", "Backend resource release could not establish GPU safety. owner=%s reason=%s",
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
@@ -391,6 +405,7 @@ Run::~Run()
     // content branch or a retained backend pointer.
     m_sceneController.Scene().Tornado().ReleaseVisualResources();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
     // ImGui context and concrete DX12 owners still exist.
@@ -402,6 +417,7 @@ Run::~Run()
 
 SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverrides& overrides )
 {
+
     // Why: Runtime/Init owns CLI parsing, but Run owns the live side effects
     // needed to make those startup policies active. Keep the public boundary as
     // one launch packet and preserve the old setter order because several
@@ -413,8 +429,10 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif
+
     if ( launch.replayGuideArcsAtStartup )
     {
+
         // Why: startup overrides are applied after the initial scene transaction;
         // later scene loads reapply the same explicit request after activation.
         m_replayRuntime.SetGuideArcsEnabled( true );
@@ -444,36 +462,26 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                                 sceneState.isSceneMode,
                                                                                 cameraModeEnabledMask );
 
-        m_replayRuntime.ExitInspectionCamera( &sceneWorld.Cameras(),
-                                              sceneWorld.Terrain().Get(),
-                                              m_camera,
-                                              normalizedRestoreMode,
-                                              m_attachedCamera.State().activeFollow,
-                                              m_camera.director.grabbed,
-                                              m_interaction,
-                                              m_inputRouter );
+        m_replayRuntime.ExitInspectionCamera( &sceneWorld.Cameras(), sceneWorld.Terrain().Get(), m_camera,
+                                              normalizedRestoreMode, m_attachedCamera.State().activeFollow,
+                                              m_camera.director.grabbed, m_interaction, m_inputRouter );
     }
 
-    m_replayRuntime.ConfigureStartupWorkflows( ReplayStartupRequest { overrides.replayLoadPath,
-                                                                      overrides.replayLoadProbe,
-#ifdef _DEBUG
-                                                                      overrides.replayRestoreFileProbePath,
-                                                                      overrides.replayRestoreTargetFileProbePath,
-                                                                      overrides.replayRestoreBranchFileProbePath,
-                                                                      overrides.replayRestoreFailureFileProbePath,
-                                                                      overrides.replayScrubProbe,
-                                                                      overrides.replayScrubProbeNormalized,
-                                                                      overrides.replayRestoreProbe,
-                                                                      overrides.replayRestoreProbeNormalized,
-                                                                      overrides.replaySaveProbe,
-                                                                      overrides.replaySaveProbePath
-#endif
-    } );
+    m_replayRuntime.ConfigureStartupWorkflows( ReplayStartupRequest { overrides.replayLoadPath, overrides.replayLoadProbe,
+                                       #ifdef _DEBUG
+                                                                      overrides.replayRestoreFileProbePath, overrides.replayRestoreTargetFileProbePath,
+                                                                      overrides.replayRestoreBranchFileProbePath, overrides.replayRestoreFailureFileProbePath,
+                                                                      overrides.replayScrubProbe, overrides.replayScrubProbeNormalized,
+                                                                      overrides.replayRestoreProbe, overrides.replayRestoreProbeNormalized,
+                                                                      overrides.replaySaveProbe, overrides.replaySaveProbePath
+                                       #endif
+                                               } );
 
     m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions, *m_operatorUi );
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif
+
     if ( !overrides.interactionScriptPath )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -487,22 +495,17 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     if ( !result.ok )
     {
         const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
-        (void)m_interactionAutomation.reportWriter.Write( InteractionAutomationReportInputs {
-            m_interactionAutomation.status,
-            m_interactionAutomation.scriptPath,
-            m_sceneController.Scene(),
-            m_sceneController.State(),
-            m_sceneController.CurrentPath() ? m_sceneController.CurrentPath()->c_str() : nullptr,
-            m_runtimeTools,
-            replay,
-            m_interaction,
-            m_camera,
-            *m_operatorUi,
-            m_renderer.FrameGraphSnapshot() } );
+        (void)m_interactionAutomation.reportWriter.Write( InteractionAutomationReportInputs { m_interactionAutomation.status, m_interactionAutomation.scriptPath,
+                                                                                              m_sceneController.Scene(), m_sceneController.State(),
+                                                                                              m_sceneController.CurrentPath() ? m_sceneController.CurrentPath()->c_str()
+                                                                                                                              : nullptr,
+                                                                                              m_runtimeTools, replay, m_interaction, m_camera, *m_operatorUi,
+                                                                                              Renderer().FrameGraphSnapshot() } );
     }
 
     return result;
 #else
+
     // Lane R: interaction scripts are external validation input. Ordinary game
     // builds reject them instead of linking the diagnostic controller into the
     // frame loop; tools must use the dedicated Automation configuration.
@@ -514,25 +517,21 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
 void Run::Initialise()
 {
+
     // Why: timers default to inert storage so Run construction cannot throw
     // before the startup reporter exists. Initialise them at this boundary and
     // return platform counter failures through the normal Lane R process path.
     const SkullbonezCore::Core::SbResult timerStartupResult = m_timers.Initialise();
+
     if ( !timerStartupResult.ok )
     {
         m_lastSceneLoadResult = timerStartupResult;
         return;
     }
 
-    assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
-    assert( m_renderBackendView.renderTextures && "Run requires render textures before Initialise()" );
-    assert( m_renderBackendView.renderGeometry && "Run requires render geometry before Initialise()" );
-    assert( m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
-            "Run requires frame and graph owners before Initialise()" );
-
-    assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
-    auto& renderResources = *m_renderBackendView.renderResources;
-    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
+    assert( m_renderer && "Run requires a renderer before Initialise()" );
+    auto& renderResources = Renderer().RenderResources();
+    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer().RenderDiagnostics();
 
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
@@ -541,8 +540,7 @@ void Run::Initialise()
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
 
     // Build renderer-owned resources from source asset records.
-    const SkullbonezCore::Core::SbResult rebuildResourcesResult = m_renderer.ResourceLifecycle()
-                                                                      .InitialiseProcessResources( m_launchOptions.dumpTextureAssets );
+    const SkullbonezCore::Core::SbResult rebuildResourcesResult = Renderer().ResourceLifecycle().InitialiseProcessResources( m_launchOptions.dumpTextureAssets );
 
     if ( !rebuildResourcesResult.ok )
     {
@@ -551,16 +549,11 @@ void Run::Initialise()
     }
 
     const std::string terrainRawPath = m_assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                                         "terrain.raw",
-                                                                         cfg.assetPaths.terrainRaw.c_str() );
+                                                                         "terrain.raw", cfg.assetPaths.terrainRaw.c_str() );
 
     std::unique_ptr<Terrain> startupTerrain;
-    const SkullbonezCore::Core::SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
-                                                                                                 256,
-                                                                                                 8,
-                                                                                                 15,
-                                                                                                 m_config,
-                                                                                                 m_assets,
+    const SkullbonezCore::Core::SbResult startupTerrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(), 256,
+                                                                                                 8, 15, m_config, m_assets,
                                                                                                  renderResources,
                                                                                                  startupTerrain );
 
@@ -572,10 +565,8 @@ void Run::Initialise()
 
     m_sceneController.Scene().ReplaceTerrain( std::move( startupTerrain ), false );
 
-    m_sceneController.Scene().Environment() = WorldEnvironment( cfg.worldForces.fluidHeight,
-                                                                cfg.worldForces.fluidDensity,
-                                                                cfg.worldForces.gasDensity,
-                                                                cfg.worldForces.gravity );
+    m_sceneController.Scene().Environment() = WorldEnvironment( cfg.worldForces.fluidHeight, cfg.worldForces.fluidDensity,
+                                                                cfg.worldForces.gasDensity, cfg.worldForces.gravity );
 
     m_sceneController.Scene().Environment().BindRenderContexts( m_config, m_assets, renderResources );
     XZBounds tb = m_sceneController.Scene().Terrain().Get()->GetXZBounds();
@@ -583,9 +574,9 @@ void Run::Initialise()
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
-    const SkullbonezCore::Core::SbResult uiTextResourceResult = m_renderer.ResourceLifecycle().EnsureUiTextResources(
-        cfg.window.screenX,
-        cfg.window.screenY );
+    const SkullbonezCore::Core::SbResult
+        uiTextResourceResult = Renderer().ResourceLifecycle().EnsureUiTextResources( cfg.window.screenX,
+                                                                                     cfg.window.screenY );
 
     if ( !uiTextResourceResult.ok )
     {
@@ -596,43 +587,19 @@ void Run::Initialise()
     SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( m_camera,
-                                     sceneLoadNavigation,
-                                     m_overlayDiagnostics->PresentationSnapshot(),
-                                     m_renderBackendView.RendererName(),
-                                     m_timers.simulationTimer.GetTotalTime() );
+    sceneLoad.CaptureSubmittedState( m_camera, sceneLoadNavigation, m_overlayDiagnostics->PresentationSnapshot(),
+                                     Renderer().RendererName(), m_timers.simulationTimer.GetTotalTime() );
 
-    m_lastSceneLoadResult = sceneLoad.Load( m_sceneController,
-                                            SceneLoadRequest::Load( 0, false, false, false ),
-                                            m_config,
-                                            m_launchOptions,
-                                            m_renderDefaults.CinematicBaseline(),
-                                            m_startup,
-                                            m_assets,
-                                            m_workerPool,
-                                            m_diagnosticsRuntime,
-                                            m_renderBackendView.renderFrame,
-                                            m_renderBackendView.renderResources,
-                                            m_renderer );
+    m_lastSceneLoadResult = sceneLoad.Load( m_sceneController, SceneLoadRequest::Load( 0, false, false, false ), m_config,
+                                            m_launchOptions, m_renderDefaults.CinematicBaseline(), m_startup, m_assets,
+                                            m_workerPool, m_diagnosticsRuntime, &Renderer().RenderFrame(),
+                                            &Renderer().RenderResources(), Renderer() );
 
-    sceneLoad.ApplyRuntimeReactions( m_launchOptions,
-                                     m_timers,
-                                     *m_overlayDiagnostics,
-                                     m_sceneController,
-                                     m_inputRouter,
-                                     m_interaction,
-                                     m_camera,
-                                     m_attachedCamera,
-                                     m_runtimeTools,
-                                     m_replayRuntime );
+    sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
+                                     m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
 
-    sceneLoad.ApplyPresentationOutputs( m_window,
-                                        *m_operatorUi,
-                                        *m_validationHarness,
-                                        m_launchOptions,
-                                        m_renderBackendView.renderDevice,
-                                        m_renderer.VsyncEnabled(),
-                                        m_sceneController );
+    sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                        &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
     if ( !m_lastSceneLoadResult.ok )
     {
@@ -650,18 +617,13 @@ void Run::Initialise()
     const uint32_t cameraModeEnabledMask = RuntimeCameraModeEnabledMask( sceneMode, sceneEntityCount );
 
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
-    const RunCameraMode normalizedRestoreMode = NormalizeRuntimeCameraMode( replayInput.restoreCameraMode,
-                                                                            sceneMode,
+    const RunCameraMode normalizedRestoreMode = NormalizeRuntimeCameraMode( replayInput.restoreCameraMode, sceneMode,
                                                                             cameraModeEnabledMask );
 
-    const RunCameraMode normalizedCameraMode = NormalizeRuntimeCameraMode( m_camera.mode,
-                                                                           sceneMode,
-                                                                           cameraModeEnabledMask );
+    const RunCameraMode normalizedCameraMode = NormalizeRuntimeCameraMode( m_camera.mode, sceneMode, cameraModeEnabledMask );
 
-    const ReplaySceneTimelineResetInput timelineReset = DescribeReplaySceneTimeline( m_sceneController,
-                                                                                     sceneOverrides,
-                                                                                     sceneState,
-                                                                                     sceneObjectCapacity,
+    const ReplaySceneTimelineResetInput timelineReset = DescribeReplaySceneTimeline( m_sceneController, sceneOverrides,
+                                                                                     sceneState, sceneObjectCapacity,
                                                                                      generatedObjectTypeOverrideBits );
 
     const ReplayStartupLoadInput loadInput { m_timers.simulationTimer.GetTotalTime(),
@@ -678,21 +640,17 @@ void Run::Initialise()
 
 #ifdef _DEBUG
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput,
-                                                                                   m_sceneController,
+    const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput, m_sceneController,
                                                                                    m_diagnosticsRuntime,
-                                                                                   presentationEdit.State(),
-                                                                                   m_runtimeTools,
-                                                                                   m_simulation,
-                                                                                   m_config,
-                                                                                   m_assets,
-                                                                                   m_workerPool,
-                                                                                   sceneOverrides,
+                                                                                   presentationEdit.State(), m_runtimeTools,
+                                                                                   m_simulation, m_config, m_assets,
+                                                                                   m_workerPool, sceneOverrides,
                                                                                    generatedObjectTypeOverride );
 
 #else
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
 #endif
+
     if ( !replayStartup.status.ok )
     {
         m_lastSceneLoadResult = replayStartup.status;
@@ -701,6 +659,7 @@ void Run::Initialise()
 
     m_skipExecute = replayStartup.skipExecute;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Scene-authored legacy window defaults run during load. Reapply the
     // selected surface so an inactive implementation cannot become a second input owner.
     ApplyDevelopmentUiMode();
@@ -711,11 +670,14 @@ void Run::Initialise()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 void Run::ApplyDevelopmentUiMode()
 {
+
     // Initialize once from CLI, then preserve an explicit hot swap across
     // scene/replay loads rather than treating scene defaults as UI authority.
     m_imguiEditor.InitializeSurfaceSelection( m_launchOptions.developmentUiMode );
+
     if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
     {
+
         // Invariant: an omitted selector chooses the Legacy implementation but
         // preserves the scene-authored Legacy visibility default. This keeps
         // ordinary launches and capture baselines stable while ImGui stays dormant.
@@ -728,11 +690,14 @@ void Run::ApplyDevelopmentUiMode()
 
 void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
 {
+
     // Invariant: deactivate the source before activating the target. The two
     // implementations coexist in the build but never own focus in one instant.
+
     if ( DevelopmentUiModeShowsLegacy( surface ) )
     {
         m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );
+
         if ( !m_operatorUi->IsVisible() )
         {
             m_operatorUi->SetVisible( true, 0.0 );
@@ -760,6 +725,7 @@ const SkullbonezCore::Core::SbResult& Run::LastSceneLoadResult() const
 SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPath )
 {
     const int sceneCount = m_sceneController.QueueSize();
+
     if ( sceneCount <= 0 )
     {
         printf( "[scene-load-only] Exiting because --scene-load-only was requested, but no scenes were queued.\n" );
@@ -773,24 +739,22 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     }
 
     const bool writeSnapshot = snapshotOutPath && snapshotOutPath[0] != '\0';
+
     if ( writeSnapshot && sceneCount != 1 )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneLoadOnly",
                                                         "--scene-snapshot-out requires exactly one loaded scene." );
     }
 
-    printf( "[scene-load-only] Loaded 1/%d: %s\n",
-            sceneCount,
+    printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount,
             m_sceneController.PathAt( 0 ).empty() ? "generated" : m_sceneController.PathAt( 0 ).c_str() );
 
     if ( writeSnapshot )
     {
         const OverlayDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
-        const SkullbonezCore::Core::SbResult saveResult = SaveSceneLoadOnlySnapshot(
-            snapshotOutPath,
-            m_sceneController.Scene().GetSaveState(),
-            m_sceneController.State().GetSaveState(),
-            presentation.GetSaveState() );
+        const SkullbonezCore::Core::SbResult
+            saveResult = SaveSceneLoadOnlySnapshot( snapshotOutPath, m_sceneController.Scene().GetSaveState(),
+                                                    m_sceneController.State().GetSaveState(), presentation.GetSaveState() );
 
         if ( !saveResult.ok )
         {
@@ -803,53 +767,30 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     for ( int i = 1; i < sceneCount; ++i )
     {
         SceneLoadTransaction sceneLoad;
-        sceneLoad.CaptureSubmittedState( m_camera,
-                                         CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(),
-                                         m_renderBackendView.RendererName(),
+        sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                         m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
                                          m_timers.simulationTimer.GetTotalTime() );
 
-        const SkullbonezCore::Core::SbResult loadResult = sceneLoad.Load(
-            m_sceneController,
-            SceneLoadRequest::Load( i, false, false, false ),
-            m_config,
-            m_launchOptions,
-            m_renderDefaults.CinematicBaseline(),
-            m_startup,
-            m_assets,
-            m_workerPool,
-            m_diagnosticsRuntime,
-            m_renderBackendView.renderFrame,
-            m_renderBackendView.renderResources,
-            m_renderer );
+        const SkullbonezCore::Core::SbResult loadResult = sceneLoad.Load( m_sceneController,
+                                                                          SceneLoadRequest::Load( i, false, false, false ),
+                                                                          m_config, m_launchOptions,
+                                                                          m_renderDefaults.CinematicBaseline(), m_startup,
+                                                                          m_assets, m_workerPool, m_diagnosticsRuntime,
+                                                                          &Renderer().RenderFrame(),
+                                                                          &Renderer().RenderResources(), Renderer() );
 
-        sceneLoad.ApplyRuntimeReactions( m_launchOptions,
-                                         m_timers,
-                                         *m_overlayDiagnostics,
-                                         m_sceneController,
-                                         m_inputRouter,
-                                         m_interaction,
-                                         m_camera,
-                                         m_attachedCamera,
-                                         m_runtimeTools,
-                                         m_replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
+                                         m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( m_window,
-                                            *m_operatorUi,
-                                            *m_validationHarness,
-                                            m_launchOptions,
-                                            m_renderBackendView.renderDevice,
-                                            m_renderer.VsyncEnabled(),
-                                            m_sceneController );
+        sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                            &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
 
         if ( !loadResult.ok )
         {
             return loadResult;
         }
 
-        printf( "[scene-load-only] Loaded %d/%d: %s\n",
-                i + 1,
-                sceneCount,
+        printf( "[scene-load-only] Loaded %d/%d: %s\n", i + 1, sceneCount,
                 m_sceneController.PathAt( i ).empty() ? "generated" : m_sceneController.PathAt( i ).c_str() );
     }
 

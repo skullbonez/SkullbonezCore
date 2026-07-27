@@ -9,9 +9,9 @@ Summary:
   direction and on the glossary/invariants below.
 
 Mental model:
-  Run is the process composition root and sequencer. It borrows concrete owners,
-  constructs stack-only frame views, and calls narrow phases without becoming
-  the storage owner for input, scene, replay, rendering, or UI policy.
+  Run is the process composition root and frame sequencer. Its ordered
+  coordinators may reach composed members directly; delegated domain operations
+  receive only the concrete owners and values they use.
 
 Glossary:
   Attached camera target: Runtime follow selection where Run owns the selected
@@ -42,7 +42,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
-  - SkullbonezSource/Runtime/RuntimeFrameViews.h
+  - SkullbonezSource/Runtime/App/InputFrame.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
@@ -51,12 +51,16 @@ Related:
 #pragma once
 
 
+#include <cassert>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include "../../Core/SbResult.h"
 #include "../../Assets/AssetSystem.h"
 #include "ApplicationExitState.h"
+#include "InputFrame.h"
 #include "../Camera/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -92,8 +96,20 @@ class TracyClientOwner;
 } // namespace Core
 namespace Rendering
 {
+class Dx12BackbufferCapture;
 class Dx12Diagnostics;
-}
+class Dx12FrameOwner;
+class Dx12GeometryOwner;
+class Dx12GraphTransientPool;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+class Dx12ImGuiRendererOwner;
+#endif
+class Dx12RaytracingOwner;
+class Dx12RenderDevice;
+class Dx12ResourceBuilder;
+class Dx12ShaderDevelopment;
+class Dx12TextureOwner;
+} // namespace Rendering
 namespace Threading
 {
 class WorkerPool;
@@ -101,18 +117,21 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
-}
+struct OperatorEditorFrameView;
+} // namespace UI
 namespace Runtime
 {
 class Window;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
 struct InteractionAutomationFrameResult;
-struct RuntimeFrameHostView;
-struct RuntimeFrameInteractionView;
-struct RuntimeFramePresentationView;
-struct RuntimeFrameSceneView;
+struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
+struct RuntimeUiTextFrameFacts;
+namespace ReplayOverlay
+{
+struct ReplayOverlayStateView;
+}
 
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -123,6 +142,7 @@ class Run
 {
 
   private:
+
     // Concept: Run is the process composition root. It constructs concrete
     // subsystem owners and retains only the process borrows and launch/result
     // values needed to sequence startup, frame order, and shutdown.
@@ -141,8 +161,8 @@ class Run
     RenderDefaultsStore m_renderDefaults;                                                        // Deferred ordinary/cinematic engine.cfg persistence owner.
     RunStartupState m_startup;                                                                   // engine.cfg startup capacity/thread defaults restored by demo resets.
 
-    // Subsystem owners below are ordered by lifetime dependency. Render-host
-    // bindings borrow from these objects; they do not own them.
+    // Subsystem owners below are ordered by lifetime dependency. Renderer and
+    // frame bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                     // Capture, perf, and queryable physics diagnostics owner.
     RunTimerState m_timers;                                                                      // Frame/simulation timers and rolling timing values
     InputRouter m_inputRouter;                                                                   // Owns keyboard/pointer edge memory and binding-context enforcement.
@@ -157,100 +177,124 @@ class Run
     ReplayRuntime m_replayRuntime;                                                               // Constructs and sequences the concrete replay domain owners.
     RuntimeTools m_runtimeTools;                                                                 // Launcher, editor, manipulator state, and transient render feedback.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Lifetime: the development editor owns only its ImGui CPU context and
     // presentation lifecycle; it receives no subsystem owner references.
     DevelopmentTools::ImGuiEditorOwner m_imguiEditor;
 #endif
+
     // Lifetime: renderer and frame helpers borrow this cohesive UI owner; the
     // opaque allocation keeps UI.h out of the composition-root header.
     std::unique_ptr<UI::InGameUI> m_operatorUi;
+
     // Lifetime: the renderer borrows visualizers from this startup-created
     // owner, so declaration order destroys the renderer first.
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
     std::unique_ptr<RuntimeValidationHarness> m_validationHarness;                               // Owns opt-in live-style and graphics-stress controls.
-    RuntimeRenderBackendView m_renderBackendView;                                                // Borrowed active renderer capabilities for renderer users.
-    RuntimeRenderer m_renderer;                                                                  // Owns runtime render passes and frame render ordering.
+    Rendering::Dx12BackbufferCapture& m_backbufferCapture;                                       // Required process-lifetime screenshot/readback owner.
+    std::unique_ptr<RuntimeRenderer> m_renderer;                                                 // Created once startup binds the concrete backend owners.
+    std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>>
+        m_shaderDevelopment;                                                                     // Explicit developer-only shader reload capability.
 
     // Concept: these value-only results carry decisions between adjacent frame
     // phases. They are stack state, not replacement owners or retained context.
-    struct FrameInputPhaseResult;
+    struct FrameInputPhaseResult
+    {
+        SceneFrameProceedPolicy proceedPolicy;
+        bool legacyDevelopmentUiActive = true;
+    };
     struct FrameSimulationPhaseResult;
     struct FrameRenderPhaseResult;
-    struct FramePresentationFacts;
+    struct FramePresentationFacts
+    {
+        float presentationAlpha = 1.0f;
+        bool capturePresentationPinned = false;
+        double secondsPerFrame = 0.0;
+        bool legacyDevelopmentUiActive = true;
+    };
+
+    RuntimeRenderer& Renderer()
+    {
+        assert( m_renderer );
+        return *m_renderer;
+    }
+    const RuntimeRenderer& Renderer() const
+    {
+        assert( m_renderer );
+        return *m_renderer;
+    }
+    Rendering::Dx12BackbufferCapture& BackbufferCapture() const
+    {
+        return m_backbufferCapture;
+    }
 
     bool PumpFrameMessages( int& messageExitCode );                                              // Bounded Win32 drain; true ends the frame loop.
     double BeginFrameTurn();                                                                     // Starts timing/profiling and validates renderer composition.
-    RuntimeFrameHostView BuildFrameHostView();                                                   // Constructs this turn's process-service borrow slice.
-    RuntimeFrameInteractionView BuildFrameInteractionView();                                     // Constructs this turn's input/UI borrow slice.
-    RuntimeFrameSceneView BuildFrameSceneView();                                                 // Constructs this turn's scene-policy borrow slice.
-    RuntimeFramePresentationView BuildFramePresentationView();                                   // Constructs this turn's render/validation borrow slice.
     void BeginFrameDiagnosticsPhase();                                                           // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    InteractionAutomationFrameResult RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction,
-                                                                    RuntimeFrameSceneView& scene );
+    InteractionAutomationFrameResult RunAutomationBeforeInputPhase();
 #endif
-    FrameInputPhaseResult RunInputPhase( RuntimeFrameHostView& host,
-                                         RuntimeFrameInteractionView& interaction,
-                                         RuntimeFrameSceneView& scene,
-                                         RuntimeFramePresentationView& presentation,
-                                         const InteractionAutomationFrameResult* automationBeforeInput );
-    FrameSimulationPhaseResult RunSimulationPhase( RuntimeFrameSceneView& scene,
-                                                   double secondsPerFrame,
-                                                   const SceneFrameProceedPolicy& proceedPolicy );
-    FrameRenderPhaseResult PrepareRenderPhase( RuntimeFrameHostView& host,
-                                               RuntimeFrameInteractionView& interaction,
-                                               RuntimeFrameSceneView& scene,
-                                               RuntimeFramePresentationView& presentation,
-                                               bool legacyDevelopmentUiActive,
+    FrameInputPhaseResult RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput );
+    FrameSimulationPhaseResult RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy );
+    FrameRenderPhaseResult PrepareRenderPhase( bool legacyDevelopmentUiActive,
                                                const FrameSimulationPhaseResult& simulation );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
-    SkullbonezCore::Core::SbResult RenderOperatorUiPhase( RuntimeFrameHostView& host,
-                                                          RuntimeFrameInteractionView& interaction,
-                                                          RuntimeFrameSceneView& scene,
-                                                          RuntimeFramePresentationView& presentation,
-                                                          const RuntimeRenderModelFrameView& renderModels,
+
+    // Cost: these frame-reachable Lane R returns use SbResult's sentinel-only
+    // success construction; the inline diagnostic tail is written only on failure.
+    SkullbonezCore::Core::SbResult RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
                                                           const FramePresentationFacts& facts );
-    void RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction, bool legacyDevelopmentUiActive );
+    void RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     SkullbonezCore::Core::SbResult PresentFramePhase();
     bool CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy );
 
-    void
-    Render( const RuntimeRenderModelFrameView& renderModels,
-            float presentationAlpha );                                                           // Skips 3D in text-only runs, then records passes for the current camera state.
-    void UpdateLogic( float simulationDt,
-                      float cameraDt,
+    // Ordered frame sub-coordinators retain direct composition-root reach. The
+    // domain operations they call receive concrete operands only.
+    RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
+                                                  const RuntimeInputFrameFacts& facts );
+    SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
+
+    void Render( const RuntimeRenderModelFrameView& renderModels,
+                 float presentationAlpha );                                                      // Skips 3D in text-only runs, then records passes for the current camera state.
+    void UpdateLogic( float simulationDt, float cameraDt,
                       float presentationAlpha );                                                 // simulationDt drives physics; cameraDt is unscaled wall time.
     void AfterPhysicsStep();                                                                     // Post-step hooks that must see committed physics state.
+
     // --- Per-frame tick helpers (called from Execute()) ---
-    float
-    TickPhysics( double dt,
-                 bool capturePresentationPinned,
-                 const SceneFrameProceedPolicy& proceedPolicy );                                 // Returns the live fixed-tick interpolation fraction.
+    float TickPhysics( double dt, bool capturePresentationPinned,
+                       const SceneFrameProceedPolicy& proceedPolicy );                           // Returns the live fixed-tick interpolation fraction.
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );                        // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );                          // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy );                       // Completion/load policy; true restarts frame.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     void ApplyDevelopmentUiMode();                                                               // Reapplies the process-lifetime surface selection.
-    void SelectDevelopmentUiSurface(
-        DevelopmentUiMode surface );                                                             // Atomically hides the source before showing the target surface.
+    void SelectDevelopmentUiSurface( DevelopmentUiMode surface );                                // Atomically hides the source before showing the target surface.
 #endif
 
   public:
-    Run( Window& window,
-         std::vector<std::string> sceneQueue,
-         SkullbonezCore::Core::EngineConfig& config,
-         Threading::WorkerPool& workerPool,
-         SkullbonezCore::Core::Profiler* profiler,
-         RuntimeRenderBackendView renderBackendView,
+    Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::Core::EngineConfig& config,
+         Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
+         Rendering::Dx12BackbufferCapture& backbufferCapture,
          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner = nullptr ); // sceneQueue empty string selects generated demo mode.
+    SkullbonezCore::Core::SbResult
+    BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+                       Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
+                       Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
+                       Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                       bool raytracingAvailable,
+                       std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+                       ,
+                       Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
+#endif
+    );
     ~Run();
     void Initialise();                                                                           // Initialises shared resources and loads first scene
-    const SkullbonezCore::Core::SbResult&
-    LastSceneLoadResult() const;                                                                 // Initialise scene-load result for CLI startup checks.
-    SkullbonezCore::Core::SbResult ApplyStartupOverrides(
-        const RunStartupOverrides& overrides );                                                  // Apply parsed CLI/startup policy before Initialise().
+    const SkullbonezCore::Core::SbResult& LastSceneLoadResult() const;                           // Initialise scene-load result for CLI startup checks.
+    SkullbonezCore::Core::SbResult
+    ApplyStartupOverrides( const RunStartupOverrides& overrides );                               // Apply parsed CLI/startup policy before Initialise().
     SkullbonezCore::Core::SbResult
     RunSceneLoadOnly( const char* snapshotOutPath = nullptr );                                   // Scene-load smoke path; skips the frame loop.
     SkullbonezCore::Core::SbResult Execute();                                                    // Main message loop; returns recoverable runtime failures.

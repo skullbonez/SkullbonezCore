@@ -4,7 +4,7 @@ Purpose:
   Defines the allocation-free value protocol for scene lifecycle publication.
 
 Summary:
-  SceneRuntime advances one monotonic generation for each accepted load attempt
+  SceneController advances one monotonic generation for each accepted load attempt
   after preflight succeeds. Reactive owners compare that generation at fixed
   frame boundaries and apply each relevant phase at most once.
 
@@ -24,7 +24,7 @@ Invariants:
     or dynamically growing storage.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-22/owner-fanout-reduction-of0-census.md
 */
@@ -38,6 +38,7 @@ namespace Runtime
 {
 enum class SceneRuntimeLifecycleEvent
 {
+
     // Invariant: declaration order is transaction order because observers use
     // ordinal comparison to answer whether a required phase was reached.
     None,
@@ -79,11 +80,13 @@ class SceneLifecycleGenerationObserver
   public:
     bool ShouldApply( const SceneLifecyclePacket& packet, SceneRuntimeLifecycleEvent requiredEvent )
     {
+
         if ( packet.generation == 0 || packet.generation == m_lastAppliedGeneration ||
              !SceneLifecycleReached( packet.event, requiredEvent ) )
         {
             return false;
         }
+
         m_lastAppliedGeneration = packet.generation;
         return true;
     }
@@ -113,6 +116,7 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleConsumerBit( SceneLifecycleCo
 
 constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent event )
 {
+
     switch ( event )
     {
     case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
@@ -126,13 +130,13 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
     case SceneRuntimeLifecycleEvent::None:
         return 0;
     }
+
     return 0;
 }
 
 // A new generation resets the previous event to None. Within that generation,
 // phases are strictly ordered and may never restart or skip a commit edge.
-constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous,
-                                                     SceneRuntimeLifecycleEvent next )
+constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous, SceneRuntimeLifecycleEvent next )
 {
     return ( previous == SceneRuntimeLifecycleEvent::None && next == SceneRuntimeLifecycleEvent::BeforeSceneUnload ) ||
            ( previous == SceneRuntimeLifecycleEvent::BeforeSceneUnload &&

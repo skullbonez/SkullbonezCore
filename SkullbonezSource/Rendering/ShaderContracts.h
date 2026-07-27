@@ -62,6 +62,7 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
+
     // Contract: named t-register resources remain available to non-bindless
     // program contracts. Shipping UnifiedRaster programs instead translate
     // BindTexture slot N into b1 bindless payload element N.
@@ -132,6 +133,7 @@ inline constexpr size_t ShippingShaderVertexInputContractCount()
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
 {
+
     switch ( type )
     {
     case ShaderValueType::Int:
@@ -151,6 +153,7 @@ inline const char* ShaderValueTypeName( ShaderValueType type )
 
 inline const char* ShaderResourceKindName( ShaderResourceKind kind )
 {
+
     switch ( kind )
     {
     case ShaderResourceKind::Texture2D:
@@ -168,40 +171,50 @@ inline bool ShaderContractNameEquals( const char* left, const char* right )
 // Looks up a uniform by authoring name. The optional index lets runtime
 // diagnostics mark exactly which required uniforms were set during the current
 // activation without duplicating the contract table.
-inline const ShaderUniformDecl*
-FindShaderUniformDecl( const ShaderProgramDesc& desc, const char* name, size_t* outIndex = nullptr )
+inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& desc, const char* name,
+                                                       size_t* outIndex = nullptr )
 {
+
     if ( outIndex )
     {
         *outIndex = static_cast<size_t>( -1 );
     }
+
     if ( !name )
     {
         return nullptr;
     }
+
     for ( size_t i = 0; i < desc.uniformCount; ++i )
     {
+
         if ( ShaderContractNameEquals( desc.uniforms[i].name, name ) )
         {
+
             if ( outIndex )
             {
                 *outIndex = i;
             }
+
             return &desc.uniforms[i];
         }
     }
+
     return nullptr;
 }
 
 inline const ShaderResourceDecl* FindShaderResourceDecl( const ShaderProgramDesc& desc, const char* name )
 {
+
     for ( size_t i = 0; name && i < desc.resourceCount; ++i )
     {
+
         if ( ShaderContractNameEquals( desc.resources[i].name, name ) )
         {
             return &desc.resources[i];
         }
     }
+
     return nullptr;
 }
 
@@ -211,8 +224,10 @@ inline const ShaderResourceDecl* FindShaderResourceDecl( const ShaderProgramDesc
 inline const char* ShaderBaseNameFromPath( const char* path, size_t& outLength )
 {
     const char* start = path ? path : "";
+
     for ( const char* cursor = start; *cursor != '\0'; ++cursor )
     {
+
         if ( *cursor == '/' || *cursor == '\\' )
         {
             start = cursor + 1;
@@ -222,10 +237,12 @@ inline const char* ShaderBaseNameFromPath( const char* path, size_t& outLength )
     outLength = std::strlen( start );
     static constexpr const char* hlslExt = ".hlsl";
     static constexpr size_t hlslExtLen = 5;
+
     if ( outLength > hlslExtLen && std::strcmp( start + outLength - hlslExtLen, hlslExt ) == 0 )
     {
         outLength -= hlslExtLen;
     }
+
     return start;
 }
 
@@ -367,14 +384,10 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
     };
 
     static constexpr ShaderUniformDecl skyAtmosphereUniforms[] = {
-        { "uSunParams", ShaderValueType::Vec4, true },
-        { "uSunColor", ShaderValueType::Vec3, true },
-        { "uHorizonColor", ShaderValueType::Vec3, true },
-        { "uZenithColor", ShaderValueType::Vec3, true },
-        { "uCloudParams", ShaderValueType::Vec4, true },
-        { "uInvView", ShaderValueType::Mat4, true },
-        { "uInvProjection", ShaderValueType::Mat4, true },
-        { "uSkyMode", ShaderValueType::Int, true },
+        { "uSunParams", ShaderValueType::Vec4, true },     { "uSunColor", ShaderValueType::Vec3, true },
+        { "uHorizonColor", ShaderValueType::Vec3, true },  { "uZenithColor", ShaderValueType::Vec3, true },
+        { "uCloudParams", ShaderValueType::Vec4, true },   { "uInvView", ShaderValueType::Mat4, true },
+        { "uInvProjection", ShaderValueType::Mat4, true }, { "uSkyMode", ShaderValueType::Int, true },
     };
 
     static constexpr ShaderUniformDecl tonemapUniforms[] = {
@@ -395,153 +408,48 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
         { "uVolumetricParams", ShaderValueType::Vec4, true },
     };
     static constexpr ShaderProgramDesc contracts[] = {
-        { "collision_visualizer",
-          "debug",
-          "P3_N3_I4x4_Color3",
-          collisionVisualizerUniforms,
-          sizeof( collisionVisualizerUniforms ) / sizeof( collisionVisualizerUniforms[0] ),
-          nullptr,
-          0 },
-        { "grid_line",
-          "debug",
-          "P3_Color3",
-          viewProjectionUniforms,
-          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "launcher_laser",
-          "effects",
-          "P3_Color4",
-          viewProjectionUniforms,
-          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "lit_textured_instanced",
-          "objects",
-          "P3_N3_UV2_I4x4_Material4x3",
-          litTexturedInstancedUniforms,
-          sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ),
-          nullptr,
-          0 },
-        { "lit_textured",
-          "terrain",
-          "P3_N3_UV2",
-          litTexturedUniforms,
-          sizeof( litTexturedUniforms ) / sizeof( litTexturedUniforms[0] ),
-          nullptr,
-          0 },
-        { "water_calm",
-          "water",
-          "P3",
-          waterCalmUniforms,
-          sizeof( waterCalmUniforms ) / sizeof( waterCalmUniforms[0] ),
-          nullptr,
-          0 },
-        { "water_ocean",
-          "water",
-          "P3",
-          waterOceanUniforms,
-          sizeof( waterOceanUniforms ) / sizeof( waterOceanUniforms[0] ),
-          nullptr,
-          0 },
-        { "sky_atmosphere",
-          "sky",
-          "FullscreenP2_UV2",
-          skyAtmosphereUniforms,
-          sizeof( skyAtmosphereUniforms ) / sizeof( skyAtmosphereUniforms[0] ),
-          nullptr,
-          0 },
-        { "post_tonemap",
-          "post",
-          "FullscreenP2_UV2",
-          tonemapUniforms,
-          sizeof( tonemapUniforms ) / sizeof( tonemapUniforms[0] ),
-          nullptr,
-          0 },
-        { "post_volumetric_light",
-          "post",
-          "FullscreenP2_UV2",
-          volumetricUniforms,
-          sizeof( volumetricUniforms ) / sizeof( volumetricUniforms[0] ),
-          nullptr,
-          0 },
-        { "shadow_depth",
-          "shadow",
-          "P3",
-          shadowDepthUniforms,
-          sizeof( shadowDepthUniforms ) / sizeof( shadowDepthUniforms[0] ),
-          nullptr,
-          0 },
-        { "shadow_depth_instanced",
-          "shadow",
-          "P3_I4x4",
-          shadowDepthInstancedUniforms,
-          sizeof( shadowDepthInstancedUniforms ) / sizeof( shadowDepthInstancedUniforms[0] ),
-          nullptr,
-          0 },
-        { "soft_additive_ribbon",
-          "effects",
-          "P3_Color4_UV4",
-          viewProjectionUniforms,
-          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "solid_color",
-          "ui",
-          "P2",
-          solidColorUniforms,
-          sizeof( solidColorUniforms ) / sizeof( solidColorUniforms[0] ),
-          nullptr,
-          0 },
-        { "solid_color_batch",
-          "ui",
-          "P2_Color4",
-          projectionUniforms,
-          sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "text",
-          "ui",
-          "P2_UV2_Color3",
-          projectionUniforms,
-          sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "transient_colored_triangles",
-          "effects",
-          "P3_Color4_UV4",
-          viewProjectionUniforms,
-          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ),
-          nullptr,
-          0 },
-        { "retained_ribbon",
-          "effects",
-          "P3_End4_Color4_Style2_Previous3_Next3",
-          retainedRibbonUniforms,
-          sizeof( retainedRibbonUniforms ) / sizeof( retainedRibbonUniforms[0] ),
-          nullptr,
-          0 },
-        { "ui_render_target_preview",
-          "ui",
-          "FullscreenP2_UV2",
-          previewUniforms,
-          sizeof( previewUniforms ) / sizeof( previewUniforms[0] ),
-          nullptr,
-          0 },
-        { "UIBackdropBlur",
-          "ui",
-          "FullscreenP2_UV2",
-          backdropBlurUniforms,
-          sizeof( backdropBlurUniforms ) / sizeof( backdropBlurUniforms[0] ),
-          nullptr,
-          0 },
-        { "unlit_textured",
-          "objects",
-          "P3_UV2",
-          unlitTexturedUniforms,
-          sizeof( unlitTexturedUniforms ) / sizeof( unlitTexturedUniforms[0] ),
-          nullptr,
-          0 },
+        { "collision_visualizer", "debug", "P3_N3_I4x4_Color3", collisionVisualizerUniforms,
+          sizeof( collisionVisualizerUniforms ) / sizeof( collisionVisualizerUniforms[0] ), nullptr, 0 },
+        { "grid_line", "debug", "P3_Color3", viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
+        { "launcher_laser", "effects", "P3_Color4", viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
+        { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4x3", litTexturedInstancedUniforms,
+          sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ), nullptr, 0 },
+        { "lit_textured", "terrain", "P3_N3_UV2", litTexturedUniforms,
+          sizeof( litTexturedUniforms ) / sizeof( litTexturedUniforms[0] ), nullptr, 0 },
+        { "water_calm", "water", "P3", waterCalmUniforms, sizeof( waterCalmUniforms ) / sizeof( waterCalmUniforms[0] ),
+          nullptr, 0 },
+        { "water_ocean", "water", "P3", waterOceanUniforms, sizeof( waterOceanUniforms ) / sizeof( waterOceanUniforms[0] ),
+          nullptr, 0 },
+        { "sky_atmosphere", "sky", "FullscreenP2_UV2", skyAtmosphereUniforms,
+          sizeof( skyAtmosphereUniforms ) / sizeof( skyAtmosphereUniforms[0] ), nullptr, 0 },
+        { "post_tonemap", "post", "FullscreenP2_UV2", tonemapUniforms,
+          sizeof( tonemapUniforms ) / sizeof( tonemapUniforms[0] ), nullptr, 0 },
+        { "post_volumetric_light", "post", "FullscreenP2_UV2", volumetricUniforms,
+          sizeof( volumetricUniforms ) / sizeof( volumetricUniforms[0] ), nullptr, 0 },
+        { "shadow_depth", "shadow", "P3", shadowDepthUniforms,
+          sizeof( shadowDepthUniforms ) / sizeof( shadowDepthUniforms[0] ), nullptr, 0 },
+        { "shadow_depth_instanced", "shadow", "P3_I4x4", shadowDepthInstancedUniforms,
+          sizeof( shadowDepthInstancedUniforms ) / sizeof( shadowDepthInstancedUniforms[0] ), nullptr, 0 },
+        { "soft_additive_ribbon", "effects", "P3_Color4_UV4", viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
+        { "solid_color", "ui", "P2", solidColorUniforms, sizeof( solidColorUniforms ) / sizeof( solidColorUniforms[0] ),
+          nullptr, 0 },
+        { "solid_color_batch", "ui", "P2_Color4", projectionUniforms,
+          sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ), nullptr, 0 },
+        { "text", "ui", "P2_UV2_Color3", projectionUniforms, sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
+          nullptr, 0 },
+        { "transient_colored_triangles", "effects", "P3_Color4_UV4", viewProjectionUniforms,
+          sizeof( viewProjectionUniforms ) / sizeof( viewProjectionUniforms[0] ), nullptr, 0 },
+        { "retained_ribbon", "effects", "P3_End4_Color4_Style2_Previous3_Next3", retainedRibbonUniforms,
+          sizeof( retainedRibbonUniforms ) / sizeof( retainedRibbonUniforms[0] ), nullptr, 0 },
+        { "ui_render_target_preview", "ui", "FullscreenP2_UV2", previewUniforms,
+          sizeof( previewUniforms ) / sizeof( previewUniforms[0] ), nullptr, 0 },
+        { "UIBackdropBlur", "ui", "FullscreenP2_UV2", backdropBlurUniforms,
+          sizeof( backdropBlurUniforms ) / sizeof( backdropBlurUniforms[0] ), nullptr, 0 },
+        { "unlit_textured", "objects", "P3_UV2", unlitTexturedUniforms,
+          sizeof( unlitTexturedUniforms ) / sizeof( unlitTexturedUniforms[0] ), nullptr, 0 },
     };
     return contracts;
 }
@@ -555,13 +463,16 @@ inline const ShaderProgramDesc* FindShaderProgramDesc( const char* pathOrBaseNam
 {
     const ShaderProgramDesc* contracts = ShippingRasterShaderContracts();
     const size_t count = ShippingRasterShaderContractCount();
+
     for ( size_t i = 0; i < count; ++i )
     {
+
         if ( ShaderContractMatchesBaseName( contracts[i].baseName, pathOrBaseName ) )
         {
             return &contracts[i];
         }
     }
+
     return nullptr;
 }
 } // namespace Rendering

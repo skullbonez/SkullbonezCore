@@ -37,12 +37,12 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#include "Run.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #endif
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
-#include "../Capture/RuntimeStressController.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -60,12 +60,9 @@ Related:
 #include "../UI/RuntimeViewModel.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Scene/SceneRuntimeCreate.h"
-#include "../Interaction/OperatorCommandApplier.h"
-#include "../Scene/SceneRuntimeGeneratedControls.h"
-#include "../Scene/SceneRuntimeLoad.h"
+#include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneLoadTransaction.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
@@ -90,7 +87,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Hardware::InputState;
 using SkullbonezCore::UI::InGameUITab;
@@ -100,86 +96,130 @@ using SkullbonezCore::UI::InGameUITab;
 // InputRouter owns sampling, edge memory, semantic order, and pointer policy;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
-// Lifetime: both views are borrowed for this call and are never stored.
-InputFrameExecutionResult
-SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
-                                            RuntimeFrameInteractionView& interactionOwners,
-                                            RuntimeFrameSceneView& sceneOwners,
-                                            RuntimeFramePresentationView& presentationOwners,
-                                            ReplayRuntime& replayRuntime,
-                                            UiInputCaptureIntent externalUiCapture,
-                                            UI::OperatorEditorCommandQueues externalEditorCommands,
-                                            bool legacyDevelopmentUiActive )
+// Lifetime: the Run coordinator reaches composed owners only for this ordered
+// input turn; delegated operations receive concrete operands and retain none.
+Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
-    InputFrameExecutionResult result;
-    InputRouter& m_inputRouter = interactionOwners.inputRouter;
-    SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
-    RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
-    const RunStartupState& m_startup = sceneOwners.startup;
-    RunTimerState& m_timers = sceneOwners.timers;
-    CameraControlState& m_camera = interactionOwners.camera;
-    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    OverlayDebugState& m_debug = presentationEdit.State();
-    ApplicationExitState& m_applicationExit = host.applicationExit;
-    RenderDefaultsStore& m_renderDefaults = presentationOwners.renderDefaults;
-    DiagnosticsRuntime& m_diagnosticsRuntime = host.diagnosticsRuntime;
-    Assets::AssetSystem& m_assets = host.assets;
-    Threading::WorkerPool& m_workerPool = host.workerPool;
-    Window& m_window = host.window;
-    RuntimeInteractionController& m_interaction = interactionOwners.interaction;
-    AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
-    SimulationSystem& m_simulation = sceneOwners.simulation;
-    ReplayRuntime& m_replayRuntime = replayRuntime;
-    SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.operatorUi;
-    RuntimeValidationHarness& m_validationHarness = presentationOwners.validationHarness;
-    RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
-    RuntimeRenderBackendView& m_renderBackendView = presentationOwners.renderBackendView;
-    RuntimeRenderer& m_renderer = presentationOwners.renderer;
-    SceneController& m_sceneController = sceneOwners.sceneController;
+    UiInputCaptureIntent externalUiCapture;
+    SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
+    bool legacyDevelopmentUiActive = true;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    externalUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
+    externalEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+
+    if ( automationBeforeInput )
+    {
+        const SkullbonezCore::Core::SbResult submitStatus = m_interactionAutomation
+                                                                .SubmitOperatorEditorReplayCommand( *automationBeforeInput,
+                                                                                                    externalEditorCommands );
+
+        if ( !submitStatus.ok )
+        {
+            m_applicationExit.RequestOwnedFailure( submitStatus );
+        }
+    }
+#else
+    (void)automationBeforeInput;
+#endif
+    legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#else
+    (void)automationBeforeInput;
+#endif
+    bool requestDevelopmentUiSurfaceSwap = false;
+    InputRouter& inputRouter = m_inputRouter;
+    SkullbonezCore::Core::EngineConfig& config = m_config;
+    RunLaunchOptions& launchOptions = m_launchOptions;
+    const RunStartupState& startup = m_startup;
+    RunTimerState& timers = m_timers;
+    CameraControlState& camera = m_camera;
+    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
+    OverlayDebugState& debug = presentationEdit.State();
+    ApplicationExitState& applicationExit = m_applicationExit;
+    RenderDefaultsStore& renderDefaults = m_renderDefaults;
+    DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
+    Assets::AssetSystem& assets = m_assets;
+    Threading::WorkerPool& workerPool = m_workerPool;
+    Window& window = m_window;
+    RuntimeInteractionController& interaction = m_interaction;
+    AttachedCameraController& attachedCamera = m_attachedCamera;
+    SimulationSystem& simulation = m_simulation;
+    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
+    RuntimeValidationHarness& validationHarness = *m_validationHarness;
+    RuntimeTools& runtimeTools = m_runtimeTools;
+    RuntimeRenderer& renderer = Renderer();
+    SceneController& sceneController = m_sceneController;
+    ReplayRuntime& replayRuntime = m_replayRuntime;
+
     // Lifetime: these aliases expose InputRouter-owned frame state only for
     // this synchronous routing pass; Run retains neither value as member state.
-    RuntimeInputContext& m_runtimeInput = m_inputRouter.RuntimeContext();
-    InputActions& m_inputActions = m_inputRouter.Actions();
-    const auto SceneState = [&]() -> SceneSessionState& { return m_sceneController.State(); };
+    RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
+    InputActions& inputActions = inputRouter.Actions();
+    const auto SceneState = [&]() -> SceneSessionState& { return sceneController.State(); };
+
+    const auto CompleteInputPhase = [&]()
+    {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
+        if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
+        {
+
+            // Invariant: scene load may apply a Legacy default during input. An
+            // explicit process selection wins before either UI begins its frame.
+            SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+        }
+
+        if ( requestDevelopmentUiSurfaceSwap )
+        {
+            SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
+        }
+
+        // RunInputPhase may consume Ctrl+0 after its snapshot; resample only
+        // after every pre-render swap so both surfaces cannot draw concurrently.
+        legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#endif
+        const SceneFrameProceedPolicy proceedPolicy = sceneController.BuildFrameProceedPolicy( inputRouter.RuntimeSnapshot().frameInput.stepHeld );
+
+        validationHarness.TickLiveStyle( launchOptions, sceneController, ui.SceneNavigation().browser, assets,
+                                         ActiveSceneCinematicConfig( sceneController.State(), config ),
+                                         renderDefaults.CinematicBaseline() );
+
+        return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
+    };
 
     const auto NormalizeCameraModeForCurrentScene = [&]( RunCameraMode mode )
     {
         const SceneSessionState& sceneState = SceneState();
 
-        const int sceneEntityCount = m_sceneController.Scene().SceneEntityCount();
+        const int sceneEntityCount = sceneController.Scene().SceneEntityCount();
         const uint32_t cameraModeEnabledMask = RuntimeCameraModeEnabledMask( sceneState.isSceneMode, sceneEntityCount );
         return NormalizeRuntimeCameraMode( mode, sceneState.isSceneMode, cameraModeEnabledMask );
     };
 
     const auto CameraModeEnabledMask = [&]()
-    { return RuntimeCameraModeEnabledMask( SceneState().isSceneMode, m_sceneController.Scene().SceneEntityCount() ); };
+    { return RuntimeCameraModeEnabledMask( SceneState().isSceneMode, sceneController.Scene().SceneEntityCount() ); };
 
     const auto EnterInteractiveSceneRun = [&]()
     {
-        m_sceneController.EnterInteractiveRun();
+        sceneController.EnterInteractiveRun();
 
-        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        diagnosticsRuntime.Capture().DisableAutomationExit();
     };
 
-    const auto RunUIStressActions = [&]()
+    const auto runUIStressBatch = [&]()
     {
+
         // Invariant: the scene-authored stress harness mutates Legacy UI state.
         // Once ImGui owns the development surface, allowing that harness to
         // re-show Legacy would violate the exclusive focus/visibility contract.
+
         if ( !legacyDevelopmentUiActive )
         {
             return SkullbonezCore::Core::SbResult::Success();
         }
 
         presentationEdit.Commit();
-        const SkullbonezCore::Core::SbResult result = SkullbonezCore::Runtime::RunUIStressActions(
-            host,
-            interactionOwners,
-            sceneOwners,
-            m_renderBackendView,
-            m_renderer,
-            m_replayRuntime,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
+        const SkullbonezCore::Core::SbResult result = this->RunUIStressActions( NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
 
         presentationEdit.Refresh();
         return result;
@@ -187,21 +227,15 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     const auto DrainCaptureRequests = [&]()
     {
-        CaptureController& capture = m_diagnosticsRuntime.Capture();
+        CaptureController& capture = diagnosticsRuntime.Capture();
 
         if ( capture.PendingScreenshotCount() == 0 )
         {
             return false;
         }
 
-        Rendering::Dx12BackbufferCapture* backbufferCapture = m_renderBackendView.backbufferCapture;
-        if ( !backbufferCapture )
-        {
-            // Lane F: startup binds this owner before input can submit capture work.
-            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active DX12 capture owner" );
-        }
+        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( BackbufferCapture() );
 
-        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *backbufferCapture );
         if ( !batch.status.ok )
         {
             std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
@@ -210,17 +244,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
         for ( std::size_t index = 0; index < batch.savedCount; ++index )
         {
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
-                ReplayEventKind::OwnerAction,
-                0,
-                true,
-                0,
-                static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
-                0,
-                0,
-                0,
-                0,
-                batch.saved[index].path ) );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, 0,
+                                                                                   static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ),
+                                                                                   0, 0, 0, 0, batch.saved[index].path ) );
         }
 
         return true;
@@ -228,14 +254,15 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     const auto DrainRenderDefaultRequests = [&]()
     {
-        if ( m_renderDefaults.PendingCount() == 0 )
+
+        if ( renderDefaults.PendingCount() == 0 )
         {
             return false;
         }
 
-        const RenderDefaultsSaveBatchResult batch = m_renderDefaults.DrainAtFrameCheckpoint(
-            m_config.ordinaryRender,
-            ActiveSceneCinematicConfig( SceneState(), m_config ) );
+        const RenderDefaultsSaveBatchResult
+            batch = renderDefaults.DrainAtFrameCheckpoint( config.ordinaryRender,
+                                                           ActiveSceneCinematicConfig( SceneState(), config ) );
 
         if ( !batch.status.ok )
         {
@@ -249,16 +276,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                   ? ReplayOwnerEventCode::RenderSaveOrdinaryDefaults
                                                   : ReplayOwnerEventCode::RenderSaveCinematicDefaults;
 
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction,
-                                                                                     0,
-                                                                                     true,
-                                                                                     0,
-                                                                                     static_cast<int32_t>( code ),
-                                                                                     0,
-                                                                                     0,
-                                                                                     0,
-                                                                                     0,
-                                                                                     ReplayOwnerEventName( code ) ) );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true, 0,
+                                                                                   static_cast<int32_t>( code ), 0, 0, 0, 0,
+                                                                                   ReplayOwnerEventName( code ) ) );
         }
 
         return true;
@@ -266,19 +286,22 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     DeviceInputFrame deviceFrame;
     const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
+
     if ( !deviceCaptureResult.ok )
     {
         ReportRuntimeInputFailure( deviceCaptureResult );
         std::fflush( stderr );
-        m_applicationExit.RequestOwnedFailure( deviceCaptureResult );
+        applicationExit.RequestOwnedFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
-        return result;
+        return CompleteInputPhase();
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
     // Concept: the last completed UI frame publishes the fitted image value.
     // Mapping immediately after the sole device sample gives every existing
     // world interaction owner one coherent source-space point this frame.
+
     if ( deviceFrame.hasClientPosition && externalUiCapture.gameViewportMappingActive )
     {
         DevelopmentTools::ImGuiGameViewportRect viewport;
@@ -292,12 +315,11 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         viewport.valid = true;
         int mappedX = 0;
         int mappedY = 0;
-        if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport,
-                                                          static_cast<float>( deviceFrame.clientX ),
-                                                          static_cast<float>( deviceFrame.clientY ),
-                                                          mappedX,
-                                                          mappedY ) )
+
+        if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport, static_cast<float>( deviceFrame.clientX ),
+                                                          static_cast<float>( deviceFrame.clientY ), mappedX, mappedY ) )
         {
+
             // Invariant: every downstream pointer consumer sees the same mapped
             // source pixel; no tool resamples Win32 coordinates independently.
             deviceFrame.clientX = mappedX;
@@ -306,18 +328,20 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
 #endif
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
-    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions, externalUiCapture );
+    inputRouter.BeginFrame( deviceFrame, keyboardBindings, inputActions, externalUiCapture );
     UiInputHitSnapshot preUiPointer;
-    preUiPointer.mouse = m_inputActions.mouse;
+    preUiPointer.mouse = inputActions.mouse;
     preUiPointer.clientX = deviceFrame.clientX;
     preUiPointer.clientY = deviceFrame.clientY;
     preUiPointer.hasClientPosition = deviceFrame.hasClientPosition;
     preUiPointer.unhandledWheelDelta = deviceFrame.wheelDelta;
-    m_inputRouter.PublishUiSnapshot( preUiPointer );
+    inputRouter.PublishUiSnapshot( preUiPointer );
     auto commitPointerPresentation = [&]()
     {
+
         if ( externalUiCapture.mouse )
         {
+
             // Hazard: imgui_impl_win32 owns the same HWND capture while a tool
             // drag is active. Do not let the engine release it at a frame edge;
 
@@ -327,12 +351,14 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
 
         PointerPresentationState presentation;
-        if ( !m_inputRouter.ConsumePointerPresentationChange( presentation ) )
+
+        if ( !inputRouter.ConsumePointerPresentationChange( presentation ) )
         {
             return;
         }
 
         SkullbonezCore::Core::SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
+
         if ( pointerResult.ok )
         {
             Input::SetSystemCursorVisible( presentation.cursorVisible );
@@ -341,129 +367,111 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         if ( !pointerResult.ok )
         {
             ReportRuntimeInputFailure( pointerResult );
-            m_applicationExit.RequestOwnedFailure( pointerResult );
+            applicationExit.RequestOwnedFailure( pointerResult );
             PostQuitMessage( 1 );
         }
     };
 
     if ( externalUiCapture.nativePointerStateTouched )
     {
+
         // The vendor backend may have changed shared HWND capture/cursor state
         // while translating a mouse message. Reassert the input owner's full
         // native policy even when its desired value is otherwise unchanged.
-        m_inputRouter.DeferPointerPresentationCommit();
+        inputRouter.DeferPointerPresentationCommit();
     }
 
     if ( externalUiCapture.mouse )
     {
-        m_inputRouter.ReleaseNativeCapture();
-        m_inputRouter.RequestCursorVisible( true );
-        m_inputRouter.DeferPointerPresentationCommit();
+        inputRouter.ReleaseNativeCapture();
+        inputRouter.RequestCursorVisible( true );
+        inputRouter.DeferPointerPresentationCommit();
     }
 
-    if ( m_inputRouter.HandleUnfocusedFrame( interactionOwners, m_sceneController, m_replayRuntime, m_runtimeInput ) )
+    if ( inputRouter.HandleUnfocusedFrame( runtimeTools, interaction, attachedCamera, camera, ui, sceneController,
+                                           replayRuntime, runtimeInput ) )
     {
-        const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
+        const SkullbonezCore::Core::SbResult stressResult = runUIStressBatch();
+
         if ( !stressResult.ok )
         {
+
             // Lane R: focus loss still routes stress churn through the same guarded
             // rebuild path. End the run before returning to the frame loop.
             ReportRuntimeInputFailure( stressResult );
             std::fflush( stderr );
-            m_applicationExit.RequestOwnedFailure( stressResult );
+            applicationExit.RequestOwnedFailure( stressResult );
             PostQuitMessage( 1 );
         }
 
         commitPointerPresentation();
-        return result;
+        return CompleteInputPhase();
     }
 
-    const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard() || externalUiCapture.keyboard ||
-                                             externalUiCapture.text;
+    const bool UIBlocksKeyboardBeforeInput = ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
 
-    m_inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                                                m_runtimeTools.Editor(),
-                                                                                m_replayRuntime.BuildInputView() ) );
+    inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
 
-    InputController::BeginFrame( m_runtimeInput,
-                                 BuildRuntimeInputModeState( m_camera.mode,
-                                                             m_runtimeTools.Editor(),
-                                                             m_interaction.Gesture(),
-                                                             m_attachedCamera.State().activeFollow,
-                                                             m_camera.director.grabbed ),
-                                 true,
-                                 UIBlocksKeyboardBeforeInput,
-                                 m_UI.BlocksCameraMouse() || externalUiCapture.mouse );
+    InputController::BeginFrame( runtimeInput,
+                                 BuildRuntimeInputModeState( camera.mode, runtimeTools.Editor(), interaction.Gesture(),
+                                                             attachedCamera.State().activeFollow, camera.director.grabbed ),
+                                 true, UIBlocksKeyboardBeforeInput, ui.BlocksCameraMouse() || externalUiCapture.mouse );
 
     bool keyboardToggleEditorMode = false;
-    RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
+    EditorKeyboardShortcutResult keyboardEditorToolShortcut;
     auto completeEditorPlacementModeTransition = [&]( RuntimeInputActionSource source,
-                                                     const RunInternal::EditorPlacementModeChangeResult& placementMode )
+                                                     const EditorPlacementModeChangeResult& placementMode )
     {
-        m_inputRouter.SetWorldInteractionOwner(
-            placementMode.worldOwner,
-            InteractionExitReason::EnterEdit,
-            interactionOwners,
-            m_sceneController,
-            m_replayRuntime,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
+        inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, runtimeTools,
+                                              interaction, attachedCamera, camera, sceneController, replayRuntime,
+                                              NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
 
-        if ( m_inputRouter.ReleasePointerToUi(
-                 EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                     m_runtimeTools.Editor(),
-                                                     m_replayRuntime.BuildInputView() ) ) )
+        if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) ) )
         {
-            InputController::ResetMouseLook( m_camera );
+            InputController::ResetMouseLook( camera );
         }
 
-        m_inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                m_runtimeTools.Editor(),
-                                                m_replayRuntime.BuildInputView() ) );
+        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
 
-        m_inputRouter.RecordModeAction( interactionOwners,
-                                        m_runtimeInput,
-                                        RuntimeInputAction::ToggleEditorTool,
-                                        source );
+        inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                      RuntimeInputAction::ToggleEditorTool, source );
     };
 
     auto applyEditorPlacementModeToggle = [&]( RuntimeInputActionSource source )
     {
         EnterInteractiveSceneRun();
 
-        const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_sceneController.Scene(), m_interaction } );
+        const EditorPlacementModeChangeResult placementMode = ToggleEditorPlacementMode( runtimeTools.Editor(),
+                                                                                         interaction );
 
         completeEditorPlacementModeTransition( source, placementMode );
     };
 
-    const bool flyCamera = RunCameraModeUsesFlyControls( m_camera.mode,
-                                                         m_attachedCamera.State().activeFollow,
-                                                         m_camera.director.grabbed );
+    const bool flyCamera = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
+                                                         camera.director.grabbed );
 
     const KeyboardContextFacts keyboardContextFacts { !UIBlocksKeyboardBeforeInput,
                                                       SceneState().isSceneMode,
                                                       flyCamera,
-                                                      RunCameraModeUsesLauncher( m_camera.mode ),
-                                                      RunCameraModeIsAttached( m_camera.mode ),
-                                                      m_camera.mode == RunCameraMode::Director,
-                                                      m_camera.mode == RunCameraMode::Director || flyCamera,
-                                                      m_runtimeTools.Editor().editorModeEnabled,
-                                                      !m_replayRuntime.BuildInputView().restoreConsumedThisFrame,
+                                                      RunCameraModeUsesLauncher( camera.mode ),
+                                                      RunCameraModeIsAttached( camera.mode ),
+                                                      camera.mode == RunCameraMode::Director,
+                                                      camera.mode == RunCameraMode::Director || flyCamera,
+                                                      runtimeTools.Editor().editorModeEnabled,
+                                                      !replayRuntime.BuildInputView().restoreConsumedThisFrame,
                                                       false };
 
-    m_inputRouter.RoutePhase( keyboardBindings,
-                              InputActionPhase::PreUi,
-                              BuildKeyboardContextMask( keyboardContextFacts ),
-                              m_inputActions );
+    inputRouter.RoutePhase( keyboardBindings, InputActionPhase::PreUi, BuildKeyboardContextMask( keyboardContextFacts ),
+                            inputActions );
 
-    if ( m_inputActions.Overflowed() )
+    if ( inputActions.Overflowed() )
     {
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing pre-UI actions." );
     }
 
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
+
         if ( !request.accepted )
         {
             return false;
@@ -471,46 +479,20 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
-        sceneLoad.CaptureSubmittedState(
-            m_camera,
-            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
-            m_debug,
-            m_renderBackendView.RendererName(),
-            m_timers.simulationTimer.GetTotalTime() );
+        sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
+                                         renderer.RendererName(), timers.simulationTimer.GetTotalTime() );
 
         const bool loaded = sceneLoad
-                                .Load( m_sceneController,
-                                       request,
-                                       m_config,
-                                       m_launchOptions,
-                                       m_renderDefaults.CinematicBaseline(),
-                                       m_startup,
-                                       m_assets,
-                                       m_workerPool,
-                                       m_diagnosticsRuntime,
-                                       m_renderBackendView.renderFrame,
-                                       m_renderBackendView.renderResources,
-                                       m_renderer )
+                                .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
+                                       startup, assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
+                                       &renderer.RenderResources(), renderer )
                                 .ok;
 
-        sceneLoad.ApplyRuntimeReactions( m_launchOptions,
-                                         m_timers,
-                                         sceneOwners.overlays,
-                                         m_sceneController,
-                                         m_inputRouter,
-                                         m_interaction,
-                                         m_camera,
-                                         m_attachedCamera,
-                                         m_runtimeTools,
-                                         m_replayRuntime );
+        sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter,
+                                         interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( m_window,
-                                            interactionOwners.operatorUi,
-                                            m_validationHarness,
-                                            m_launchOptions,
-                                            m_renderBackendView.renderDevice,
-                                            m_renderer.VsyncEnabled(),
-                                            m_sceneController );
+        sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                            renderer.VsyncEnabled(), sceneController );
 
         presentationEdit.Refresh();
         return loaded;
@@ -519,9 +501,11 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     // Invariant: pre-UI consumers receive the router's fixed ordered events.
     // Mode checks below may fail closed after an earlier action mutates state,
     // but no consumer may re-sample its physical key.
-    for ( std::size_t index = 0; index < m_inputActions.Count(); ++index )
+
+    for ( std::size_t index = 0; index < inputActions.Count(); ++index )
     {
-        const InputActionEvent& event = m_inputActions[index];
+        const InputActionEvent& event = inputActions[index];
+
         if ( event.phase != InputActionPhase::PreUi )
         {
             continue;
@@ -529,10 +513,8 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
         if ( event.action == RuntimeInputAction::ToggleEditorTool )
         {
-            keyboardEditorToolShortcut = RunInternal::HandleEditorKeyboardShortcut(
-                event.action,
-                event.edge != InputActionEdge::Released,
-                event.edge == InputActionEdge::Pressed );
+            keyboardEditorToolShortcut = HandleEditorKeyboardShortcut( event.action, event.edge != InputActionEdge::Released,
+                                                                       event.edge == InputActionEdge::Pressed );
 
             continue;
         }
@@ -545,220 +527,203 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         switch ( event.action )
         {
         case RuntimeInputAction::ToggleEditor:
+
             // Backtick is captured early but applied after UI command processing.
             keyboardToggleEditorMode = true;
             break;
         case RuntimeInputAction::UndoEditor:
-            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+
+            if ( runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
             {
+
                 if ( deviceFrame.keys.IsDown( VK_SHIFT ) )
                 {
-                    (void)m_runtimeTools.RedoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+                    (void)runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() );
                 }
                 else
                 {
-                    (void)m_runtimeTools.UndoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+                    (void)runtimeTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() );
                 }
             }
 
             break;
         case RuntimeInputAction::RedoEditor:
-            if ( m_runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
+
+            if ( runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
             {
-                (void)m_runtimeTools.RedoEditorCommand( m_sceneController.Scene(), m_sceneController.State() );
+                (void)runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() );
             }
 
             break;
         case RuntimeInputAction::DeleteEditorSelection:
-            if ( m_runtimeTools.Editor().editorModeEnabled )
+
+            if ( runtimeTools.Editor().editorModeEnabled )
             {
-                (void)m_runtimeTools.DeleteEditorSelection( m_sceneController.Scene(), m_sceneController.State() );
+                (void)runtimeTools.DeleteEditorSelection( sceneController.Scene(), sceneController.State() );
             }
 
             break;
         case RuntimeInputAction::CycleCameraMode:
-            m_inputRouter.CycleCameraMode( interactionOwners, m_sceneController, m_replayRuntime, m_runtimeInput );
+            inputRouter.CycleCameraMode( runtimeTools, interaction, attachedCamera, camera, sceneController, replayRuntime,
+                                         runtimeInput );
+
             break;
         case RuntimeInputAction::ToggleFlyCamera:
         {
             const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
-            m_inputRouter.ApplyCameraMode(
-                m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
-                event.source,
-                interactionOwners,
-                m_sceneController,
-                m_replayRuntime,
-                m_runtimeInput );
+            inputRouter.ApplyCameraMode( camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
+                                         event.source, runtimeTools, interaction, attachedCamera, camera, sceneController,
+                                         replayRuntime, runtimeInput );
 
             break;
         }
         case RuntimeInputAction::ToggleLauncher:
-            if ( m_camera.mode == RunCameraMode::Launcher )
+
+            if ( camera.mode == RunCameraMode::Launcher )
             {
-                m_inputRouter.ApplyCameraMode( m_camera.modeBeforeLauncher,
-                                               event.source,
-                                               interactionOwners,
-                                               m_sceneController,
-                                               m_replayRuntime,
-                                               m_runtimeInput );
+                inputRouter.ApplyCameraMode( camera.modeBeforeLauncher, event.source, runtimeTools, interaction,
+                                             attachedCamera, camera, sceneController, replayRuntime, runtimeInput );
             }
             else
             {
-                m_camera.modeBeforeLauncher = m_camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect
-                                                                                          : m_camera.mode;
+                camera.modeBeforeLauncher = camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : camera.mode;
 
-                m_inputRouter.ApplyCameraMode( RunCameraMode::Launcher,
-                                               event.source,
-                                               interactionOwners,
-                                               m_sceneController,
-                                               m_replayRuntime,
-                                               m_runtimeInput );
+                inputRouter.ApplyCameraMode( RunCameraMode::Launcher, event.source, runtimeTools, interaction,
+                                             attachedCamera, camera, sceneController, replayRuntime, runtimeInput );
             }
 
             break;
         case RuntimeInputAction::CycleLauncherFireMode:
-            if ( RunCameraModeUsesLauncher( m_camera.mode ) )
+
+            if ( RunCameraModeUsesLauncher( camera.mode ) )
             {
-                m_runtimeTools.RayCastTest().fireMode = m_runtimeTools.RayCastTest().fireMode ==
-                                                                RunLauncherFireMode::Laser
-                                                            ? RunLauncherFireMode::Projectile
-                                                            : RunLauncherFireMode::Laser;
+                runtimeTools.RayCastTest().fireMode = runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Laser
+                                                          ? RunLauncherFireMode::Projectile
+                                                          : RunLauncherFireMode::Laser;
             }
 
             break;
         case RuntimeInputAction::CycleAttachedCameraSubmode:
-            if ( RunCameraModeIsAttached( m_camera.mode ) && m_attachedCamera.CycleMode( m_sceneController.Scene() ) )
+
+            if ( RunCameraModeIsAttached( camera.mode ) && attachedCamera.CycleMode( sceneController.Scene() ) )
             {
-                m_inputRouter.RecordModeAction( interactionOwners,
-                                                m_runtimeInput,
-                                                RuntimeInputAction::CycleAttachedCameraSubmode,
-                                                RuntimeInputActionSource::Keyboard );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                              RuntimeInputAction::CycleAttachedCameraSubmode,
+                                              RuntimeInputActionSource::Keyboard );
             }
 
             break;
         case RuntimeInputAction::ToggleAttachedCameraPin:
-            if ( RunCameraModeIsAttached( m_camera.mode ) )
+
+            if ( RunCameraModeIsAttached( camera.mode ) )
             {
-                const bool activeFollow = m_attachedCamera.TogglePin( m_sceneController.Scene() );
+                const bool activeFollow = attachedCamera.TogglePin( sceneController.Scene() );
+
                 if ( !activeFollow )
                 {
-                    if ( m_inputRouter.ReleasePointerToUi(
-                             EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                                 m_runtimeTools.Editor(),
-                                                                 m_replayRuntime.BuildInputView() ) ) )
+
+                    if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                             replayRuntime.BuildInputView() ) ) )
                     {
-                        InputController::ResetMouseLook( m_camera );
+                        InputController::ResetMouseLook( camera );
                     }
                 }
 
-                m_inputRouter.ApplyPointerPresentation(
-                    EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                        m_runtimeTools.Editor(),
-                                                        m_replayRuntime.BuildInputView() ) );
+                inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                          replayRuntime.BuildInputView() ) );
 
-                m_inputRouter.RecordModeAction( interactionOwners,
-                                                m_runtimeInput,
-                                                RuntimeInputAction::ToggleAttachedCameraPin,
-                                                RuntimeInputActionSource::Keyboard );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                              RuntimeInputAction::ToggleAttachedCameraPin,
+                                              RuntimeInputActionSource::Keyboard );
             }
 
             break;
         case RuntimeInputAction::WriteLauncherReproSnapshot:
 #ifdef _DEBUG
-            if ( RunCameraModeUsesLauncher( m_camera.mode ) &&
-                 !m_replayRuntime.BuildInputView().restoreConsumedThisFrame )
+
+            if ( RunCameraModeUsesLauncher( camera.mode ) && !replayRuntime.BuildInputView().restoreConsumedThisFrame )
             {
-                const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-                m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
-                    { m_sceneController.Scene(),
-                      SceneState(),
-                      m_sceneController.CurrentPath(),
-                      m_launchOptions,
-                      m_sceneController.Scene().Physics().IsSleepEnabled(),
-                      m_renderer.VsyncEnabled(),
-                      m_renderer.PipelineSyncEnabled(),
-                      m_config.bodySimulation.contactEpsilon,
-                      m_config.physicsMaterial.frictionCoeff,
-                      m_debug,
-                      m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName()
-                                                            : "DirectX 12",
-                      simulationSeconds },
-                    m_debug );
+                const double simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
+                runtimeTools
+                    .WriteLauncherReproSnapshotWithStatusMessage( { sceneController.Scene(), SceneState(),
+                                                                    sceneController.CurrentPath(), launchOptions,
+                                                                    sceneController.Scene().Physics().IsSleepEnabled(),
+                                                                    renderer.VsyncEnabled(), renderer.PipelineSyncEnabled(),
+                                                                    config.bodySimulation.contactEpsilon,
+                                                                    config.physicsMaterial.frictionCoeff, debug,
+                                                                    renderer.RendererName(), simulationSeconds },
+                                                                  debug );
             }
 #endif
             break;
         case RuntimeInputAction::ToggleDirectorGrab:
-            if ( m_camera.mode != RunCameraMode::Director )
+
+            if ( camera.mode != RunCameraMode::Director )
             {
                 break;
             }
 
-            if ( m_camera.director.grabbed )
+            if ( camera.director.grabbed )
             {
-                if ( DemoDirectorPlayback::EndGrab( m_camera, m_sceneController.Scene().Cameras() ) )
+
+                if ( DemoDirectorPlayback::EndGrab( camera, sceneController.Scene().Cameras() ) )
                 {
-                    ExitFlyModeCamera( m_inputRouter,
-                                       m_camera,
-                                       m_sceneController.Scene().Cameras(),
-                                       *m_sceneController.Scene().Terrain().Get(),
-                                       SceneState().isSceneMode );
+                    ExitFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(),
+                                       *sceneController.Scene().Terrain().Get(), SceneState().isSceneMode );
 
-                    m_inputRouter.ApplyPointerPresentation(
-                        EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                            m_runtimeTools.Editor(),
-                                                            m_replayRuntime.BuildInputView() ) );
+                    inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                              replayRuntime.BuildInputView() ) );
 
-                    m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                    inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                                  event.action, event.source );
                 }
             }
-            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_sceneController.Scene().Cameras() ) )
+            else if ( DemoDirectorPlayback::BeginGrab( camera, sceneController.Scene().Cameras() ) )
             {
-                EnterFlyModeCamera( m_inputRouter,
-                                    m_camera,
-                                    m_sceneController.Scene().Cameras(),
-                                    SceneState().isSceneMode,
-                                    m_runtimeTools.Editor(),
-                                    m_replayRuntime.BuildInputView() );
+                EnterFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(), SceneState().isSceneMode,
+                                    runtimeTools.Editor(), replayRuntime.BuildInputView() );
 
-                m_inputRouter.ApplyPointerPresentation(
-                    EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                        m_runtimeTools.Editor(),
-                                                        m_replayRuntime.BuildInputView() ) );
+                inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                          replayRuntime.BuildInputView() ) );
 
-                m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
         case RuntimeInputAction::SetDirectorPhasePose:
-            if ( ( m_camera.mode == RunCameraMode::Director ||
-                   RunCameraModeUsesFlyControls( m_camera.mode,
-                                                 m_attachedCamera.State().activeFollow,
-                                                 m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_sceneController.Scene().Cameras() ) )
+
+            if ( ( camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
+                                                 camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SetCurrentPhasePose( camera, sceneController.Scene().Cameras() ) )
             {
-                m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
         case RuntimeInputAction::StepDirectorPhase:
-            if ( ( m_camera.mode == RunCameraMode::Director ||
-                   RunCameraModeUsesFlyControls( m_camera.mode,
-                                                 m_attachedCamera.State().activeFollow,
-                                                 m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_sceneController.Scene().Cameras() ) )
+
+            if ( ( camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
+                                                 camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( camera, sceneController.Scene().Cameras() ) )
             {
-                m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
         case RuntimeInputAction::SaveDirectorShotList:
-            if ( ( m_camera.mode == RunCameraMode::Director ||
-                   RunCameraModeUsesFlyControls( m_camera.mode,
-                                                 m_attachedCamera.State().activeFollow,
-                                                 m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SaveShotList( m_camera ) )
+
+            if ( ( camera.mode == RunCameraMode::Director ||
+                   RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
+                                                 camera.director.grabbed ) ) &&
+                 DemoDirectorPlayback::SaveShotList( camera ) )
             {
-                m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -775,20 +740,15 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         case RuntimeInputAction::TogglePhysicsDebugTransparent:
         case RuntimeInputAction::ReportRendererRuntimeRetired:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
-            HandleDiagnosticsKeyboardShortcut(
-                DiagnosticsKeyboardShortcutContext { m_debug,
-                                                     m_camera.trackBallRow.value,
-                                                     m_sceneController.Scene().SceneEntityCount(),
-                                                     m_renderBackendView.renderDiagnostics,
-                                                     SceneState().isSceneMode,
-                                                     m_timers.simulationTimer.GetTimeSinceLastStart() },
-                event.action,
-                true );
+            HandleDiagnosticsKeyboardShortcut( debug, camera.trackBallRow.value, sceneController.Scene().SceneEntityCount(),
+                                               &renderer.RenderDiagnostics(), SceneState().isSceneMode,
+                                               timers.simulationTimer.GetTimeSinceLastStart(), event.action, true );
 
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
         {
-            if ( !m_renderBackendView.shaderDevelopment )
+
+            if ( !m_shaderDevelopment )
             {
                 fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
                 break;
@@ -798,62 +758,66 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SkullbonezCore::Core::SbResult reloadResult = m_renderBackendView.shaderDevelopment
-                                                                    ->ReloadShadersFromSource();
+            const SkullbonezCore::Core::SbResult reloadResult = m_shaderDevelopment->get().ReloadShadersFromSource();
 
             if ( !reloadResult.ok )
             {
-                fprintf( stderr,
-                         "Shader hot reload failed: owner=%s reason=%s\n",
-                         reloadResult.error.owner,
+                fprintf( stderr, "Shader hot reload failed: owner=%s reason=%s\n", reloadResult.error.owner,
                          reloadResult.error.message );
 
                 SkullbonezCore::Core::Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
-                                                         reloadResult.error.owner,
-                                                         reloadResult.error.message );
+                                                         reloadResult.error.owner, reloadResult.error.message );
             }
 
             break;
         }
         case RuntimeInputAction::CycleReplayPathColorMode:
+
             // Concept: comma changes a presentation value only. Existing
             // trajectory samples remain immutable and are recolored next draw.
-            m_replayRuntime.CyclePathColorMode();
+            replayRuntime.CyclePathColorMode();
             break;
         case RuntimeInputAction::ToggleReplayGuideArcs:
+
             // Why: guide rings remain a Legacy-only teaching aid while ImGui
             // owns its separate development-tool presentation contract.
+
             if ( legacyDevelopmentUiActive )
             {
-                m_replayRuntime.ToggleGuideArcs();
+                replayRuntime.ToggleGuideArcs();
             }
 
             break;
         case RuntimeInputAction::ToggleReplayTripPlanner:
+
             if ( legacyDevelopmentUiActive )
             {
-                (void)m_replayRuntime.QueueTripPlannerCommand( { ReplayTripPlannerCommandKind::TogglePanel } );
+                (void)replayRuntime.QueueTripPlannerCommand( { ReplayTripPlannerCommandKind::TogglePanel } );
             }
 
             break;
         case RuntimeInputAction::ToggleReplayPorkchopPanel:
+
             if ( legacyDevelopmentUiActive )
             {
-                m_replayRuntime.TogglePorkchopPanel();
+                replayRuntime.TogglePorkchopPanel();
             }
 
             break;
         case RuntimeInputAction::ToggleCrossScenePause:
+
             // P locks scene automation without turning the run interactive;
             // SceneController preserves the policy across load transactions.
-            m_sceneController.ToggleCrossScenePause();
+            sceneController.ToggleCrossScenePause();
             break;
         case RuntimeInputAction::ToggleUIVisibility:
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
         {
+
             if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
             {
+
                 // Invariant: the legacy visibility shortcut is inert while the
                 // active ImGui surface owns focus and input.
                 break;
@@ -861,39 +825,34 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
             if ( event.action == RuntimeInputAction::ToggleUIVisibility && deviceFrame.keys.IsDown( VK_CONTROL ) )
             {
+
                 // The input owner interprets the chord once; Run retains only
                 // the process-wide decision about which surface becomes active.
-                result.requestDevelopmentUiSurfaceSwap = true;
+                requestDevelopmentUiSurfaceSwap = true;
             }
 
-            const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
-                DiagnosticsUIKeyboardShortcutContext { m_UI,
-                                                       m_debug,
-                                                       SceneState(),
-                                                       m_diagnosticsRuntime.Capture(),
-                                                       m_timers.simulationTimer.GetTotalTime() },
-                event.action,
-                true );
+            const DiagnosticsUIKeyboardShortcutResult
+                shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, SceneState(), diagnosticsRuntime.Capture(),
+                                                                      timers.simulationTimer.GetTotalTime(), event.action,
+                                                                      true );
 
             if ( shortcutResult.triggered )
             {
+
                 if ( shortcutResult.releaseMouseToUI )
                 {
-                    m_inputRouter.ApplyPointerPresentation(
-                        EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                            m_runtimeTools.Editor(),
-                                                            m_replayRuntime.BuildInputView() ) );
+                    inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                              replayRuntime.BuildInputView() ) );
 
-                    if ( m_inputRouter.ReleasePointerToUi(
-                             EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                                 m_runtimeTools.Editor(),
-                                                                 m_replayRuntime.BuildInputView() ) ) )
+                    if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                                             replayRuntime.BuildInputView() ) ) )
                     {
-                        InputController::ResetMouseLook( m_camera );
+                        InputController::ResetMouseLook( camera );
                     }
                 }
 
-                m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -903,34 +862,25 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             const int direction = event.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController,
-                                                                           m_UI.SceneNavigation().browser );
+            const int currentSceneBrowserIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
 
-            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            UI::SceneNavigationModel& sceneNavigation = m_UI.SceneNavigation();
-            const int cinematicIndex = AdjacentCinematicModeBrowserIndex( sceneNavigation,
-                                                                          direction,
-                                                                          currentSceneBrowserIndex,
-                                                                          isCinematicTabActive );
+            const bool isCinematicTabActive = ui.GetActiveTab() == InGameUITab::Cinematic;
+            UI::SceneNavigationModel& sceneNavigation = ui.SceneNavigation();
+            const int cinematicIndex = AdjacentCinematicModeBrowserIndex( sceneNavigation, direction,
+                                                                          currentSceneBrowserIndex, isCinematicTabActive );
 
             const bool appliedCinematic = cinematicIndex >= 0 &&
-                                          ApplyCinematicModeFromBrowserIndex(
-                                              SceneRuntimeStyleContext {
-                                                  m_launchOptions,
-                                                  SceneState(),
-                                                  m_UI.SceneNavigation().browser,
-                                                  m_sceneController.Scene(),
-                                                  m_assets,
-                                                  ActiveSceneCinematicConfig( SceneState(), m_config ),
-                                                  m_renderDefaults.CinematicBaseline() },
-                                              cinematicIndex );
+                                          sceneController
+                                              .ApplyCinematicBrowserStyle( launchOptions, ui.SceneNavigation().browser,
+                                                                           assets,
+                                                                           ActiveSceneCinematicConfig( SceneState(),
+                                                                                                       config ),
+                                                                           renderDefaults.CinematicBaseline(),
+                                                                           cinematicIndex );
 
             if ( !appliedCinematic )
             {
-                executeSceneLoadRequest( LoadAdjacentScene( sceneNavigation,
-                                                            direction,
-                                                            currentSceneBrowserIndex,
-                                                            m_sceneController.Runtime() ) );
+                executeSceneLoadRequest( LoadAdjacentScene( sceneNavigation, direction, currentSceneBrowserIndex, sceneController ) );
             }
 
             break;
@@ -940,12 +890,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
     }
 
-    if ( m_runtimeTools.Editor().editorModeEnabled )
+    if ( runtimeTools.Editor().editorModeEnabled )
     {
-        (void)m_replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown,
-                                                           false,
-                                                           m_interaction.Owner(),
-                                                           m_timers.simulationTimer.GetTotalTime() } );
+        (void)replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, false, interaction.Owner(), timers.simulationTimer.GetTotalTime() } );
 
         if ( keyboardEditorToolShortcut.togglePlacementMode )
         {
@@ -954,15 +901,11 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
     else
     {
-        const ReplayKeyboardVelocityEditResult velocityEditResult = m_replayRuntime.ApplyKeyboardVelocityEdit(
-            { keyboardEditorToolShortcut.altDown,
-              true,
-              m_interaction.Owner(),
-              m_timers.simulationTimer.GetTotalTime() } );
+        const ReplayKeyboardVelocityEditResult velocityEditResult = replayRuntime.ApplyKeyboardVelocityEdit( { keyboardEditorToolShortcut.altDown, true, interaction.Owner(), timers.simulationTimer.GetTotalTime() } );
 
         if ( velocityEditResult.cancelToolDrag )
         {
-            ReplayInteractionOperations::CancelToolDragState( m_interaction, m_inputRouter );
+            ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
         }
 
         if ( velocityEditResult.enterInteractive )
@@ -972,64 +915,48 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
         if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::EnterInspection )
         {
-            m_replayRuntime.EnterInspectionCamera( &m_sceneController.Scene().Cameras(),
-                                                   m_camera,
-                                                   NormalizeCameraModeForCurrentScene( m_camera.mode ),
-                                                   m_interaction,
-                                                   m_inputRouter,
-                                                   m_runtimeTools.MousePickup() );
+            replayRuntime.EnterInspectionCamera( &sceneController.Scene().Cameras(), camera,
+                                                 NormalizeCameraModeForCurrentScene( camera.mode ), interaction, inputRouter,
+                                                 runtimeTools.MousePickup() );
         }
         else if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::ExitInspection )
         {
-            m_replayRuntime.ExitInspectionCamera(
-                &m_sceneController.Scene().Cameras(),
-                m_sceneController.Scene().Terrain().Get(),
-                m_camera,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-                m_attachedCamera.State().activeFollow,
-                m_camera.director.grabbed,
-                m_interaction,
-                m_inputRouter );
+            replayRuntime.ExitInspectionCamera( &sceneController.Scene().Cameras(), sceneController.Scene().Terrain().Get(),
+                                                camera,
+                                                NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                attachedCamera.State().activeFollow, camera.director.grabbed, interaction,
+                                                inputRouter );
         }
 
         if ( velocityEditResult.setWorldOwner )
         {
-            m_inputRouter.SetWorldInteractionOwner(
-                velocityEditResult.worldOwner,
-                InteractionExitReason::EnterReplay,
-                interactionOwners,
-                m_sceneController,
-                m_replayRuntime,
-                NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
+            inputRouter.SetWorldInteractionOwner( velocityEditResult.worldOwner, InteractionExitReason::EnterReplay,
+                                                  runtimeTools, interaction, attachedCamera, camera, sceneController,
+                                                  replayRuntime,
+                                                  NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
         }
     }
 
     ReplayPathPickInput replayPointerRay;
-    replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
-                                                                   m_window,
-                                                                   replayPointerRay.rayOrigin,
-                                                                   replayPointerRay.rayDirection );
+    replayPointerRay.hasWorldRay = inputRouter.TryBuildWorldRay( sceneController.Scene().Cameras(), window,
+                                                                 replayPointerRay.rayOrigin, replayPointerRay.rayDirection );
 
-    const RuntimeInputFrameFacts uiSamplingFacts {
-        NormalizeCameraModeForCurrentScene( m_camera.mode ),
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-        CameraModeEnabledMask(),
-        UIBlocksKeyboardBeforeInput,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-        externalUiCapture,
-        externalEditorCommands,
-        legacyDevelopmentUiActive };
+    const RuntimeInputFrameFacts uiSamplingFacts { NormalizeCameraModeForCurrentScene( camera.mode ),
+                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                   CameraModeEnabledMask(),
+                                                   UIBlocksKeyboardBeforeInput,
+                                                   SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
+                                                   externalUiCapture,
+                                                   externalEditorCommands,
+                                                   legacyDevelopmentUiActive };
 
-    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_window,
-                                                              interactionOwners,
-                                                              m_timers,
-                                                              m_sceneController,
-                                                              m_replayRuntime,
-                                                              replayPointerRay,
-                                                              uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( window, inputRouter, camera, runtimeTools, attachedCamera,
+                                                              interaction, ui, timers, sceneController, replayRuntime,
+                                                              replayPointerRay, uiSamplingFacts );
 
     if ( uiFrameResult.frameActive )
     {
+
         if ( uiFrameResult.enterInteractiveScene )
         {
             EnterInteractiveSceneRun();
@@ -1037,54 +964,44 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
 
         presentationEdit.Commit();
-        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss( m_inputActions,
-                                                                         { uiFrameResult.commands.ui.userInteracted,
-                                                                           m_timers.simulationTimer.GetTotalTime(),
-                                                                           legacyDevelopmentUiActive },
-                                                                         m_diagnosticsRuntime,
-                                                                         interactionOwners,
-                                                                         m_sceneController,
-                                                                         sceneOwners.overlays,
-                                                                         m_replayRuntime.BuildInputView() );
+        const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
+                                                                       uiFrameResult.commands.ui.userInteracted,
+                                                                       timers.simulationTimer.GetTotalTime(),
+                                                                       legacyDevelopmentUiActive, diagnosticsRuntime, camera,
+                                                                       attachedCamera, runtimeTools, ui, sceneController,
+                                                                       *m_overlayDiagnostics,
+                                                                       replayRuntime.BuildInputView() );
 
         presentationEdit.Refresh();
+
         if ( quitRequested )
         {
             PostQuitMessage( 0 );
         }
     }
 
-    const RuntimeInputFrameFacts commandFacts {
-        NormalizeCameraModeForCurrentScene( m_camera.mode ),
-        NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-        CameraModeEnabledMask(),
-        uiFrameResult.suppressWorldActionThisFrame,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-        externalUiCapture,
-        externalEditorCommands,
-        legacyDevelopmentUiActive };
+    const RuntimeInputFrameFacts commandFacts { NormalizeCameraModeForCurrentScene( camera.mode ),
+                                                NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                CameraModeEnabledMask(),
+                                                uiFrameResult.suppressWorldActionThisFrame,
+                                                SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
+                                                externalUiCapture,
+                                                externalEditorCommands,
+                                                legacyDevelopmentUiActive };
 
     presentationEdit.Commit();
-    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
-                                                 keyboardToggleEditorMode,
-                                                 host,
-                                                 interactionOwners,
-                                                 sceneOwners,
-                                                 presentationOwners,
-                                                 m_replayRuntime,
-                                                 commandFacts );
+    uiFrameResult = ApplyInputCommandsPhase( uiFrameResult, keyboardToggleEditorMode, commandFacts );
 
     presentationEdit.Refresh();
+
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
-        uiFrameResult.status = RunUIStressActions();
+        uiFrameResult.status = runUIStressBatch();
     }
 
-    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult,
-                                                 interactionOwners,
-                                                 m_sceneController,
-                                                 m_replayRuntime,
-                                                 NormalizeCameraModeForCurrentScene( m_camera.mode ) );
+    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult, inputRouter, camera, runtimeTools, interaction,
+                                                 attachedCamera, ui, sceneController, replayRuntime,
+                                                 NormalizeCameraModeForCurrentScene( camera.mode ) );
 
     if ( uiFrameResult.enterInteractiveScene )
     {
@@ -1092,43 +1009,26 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
 
     const ReplayLiveRestoreRequest& restoreRequest = uiFrameResult.replayWorkspace.restoreRequest;
+
     if ( restoreRequest.kind != ReplayLiveRestoreKind::None )
     {
-        const ReplaySceneTimelineResetInput timelineReset = DescribeReplaySceneTimeline(
-            m_sceneController,
-            m_UI.SceneNavigation().overrides,
-            SceneState(),
-            SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-            static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+        const ReplaySceneTimelineResetInput
+            timelineReset = DescribeReplaySceneTimeline( sceneController, ui.SceneNavigation().overrides, SceneState(),
+                                                         SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
+                                                         static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
         ReplayRestoreTransaction transaction { timelineReset };
-        ReplayLiveRestoreOutcome restoreOutcome = m_replayRuntime.ApplyLiveRestoreRequest(
-            transaction,
-            restoreRequest,
-            m_sceneController.Scene(),
-            SceneState(),
-            m_debug,
-            m_runtimeTools,
-            m_simulation,
-            m_config,
-            m_assets,
-            m_workerPool,
-            m_UI.SceneNavigation().overrides,
-            m_launchOptions.generatedObjectTypeOverride );
+        ReplayLiveRestoreOutcome restoreOutcome = replayRuntime
+                                                      .ApplyLiveRestoreRequest( transaction, restoreRequest,
+                                                                                sceneController.Scene(), SceneState(), debug,
+                                                                                runtimeTools, simulation, config, assets,
+                                                                                workerPool, ui.SceneNavigation().overrides,
+                                                                                launchOptions.generatedObjectTypeOverride );
 
-        m_replayRuntime.CompleteLiveRestoreRequest(
-            transaction,
-            restoreRequest,
-            restoreOutcome,
-            m_sceneController.Scene(),
-            SceneState(),
-            m_diagnosticsRuntime,
-            m_inputRouter,
-            m_interaction,
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-            m_attachedCamera.State().activeFollow,
-            m_camera.director.grabbed );
+        replayRuntime.CompleteLiveRestoreRequest( transaction, restoreRequest, restoreOutcome, sceneController.Scene(),
+                                                  SceneState(), diagnosticsRuntime, inputRouter, interaction, camera,
+                                                  NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                  attachedCamera.State().activeFollow, camera.director.grabbed );
 
         if ( restoreOutcome.enterInteractive )
         {
@@ -1138,54 +1038,50 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     if ( !uiFrameResult.status.ok )
     {
+
         // Lane R: a generated-resource rebuild could not prove its GPU drain.
         // Stop this frame and end the run before any later world/input mutation.
         ReportRuntimeInputFailure( uiFrameResult.status );
         std::fflush( stderr );
-        m_applicationExit.RequestOwnedFailure( uiFrameResult.status );
+        applicationExit.RequestOwnedFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         commitPointerPresentation();
-        return result;
+        return CompleteInputPhase();
     }
 
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
     // Editor, replay, and launcher actions share world clicks. UI interaction
     // and capture suppress them so panel controls never mutate the scene.
-    const RuntimeMouseEdges& mouseEdges = m_inputRouter.UiSnapshot().mouse;
-    const DeviceInputFrame& routedDeviceFrame = m_inputRouter.DeviceFrame();
-    const UiInputHitSnapshot& routedUiSnapshot = m_inputRouter.UiSnapshot();
-    const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
+    const RuntimeMouseEdges& mouseEdges = inputRouter.UiSnapshot().mouse;
+    const DeviceInputFrame& routedDeviceFrame = inputRouter.DeviceFrame();
+    const UiInputHitSnapshot& routedUiSnapshot = inputRouter.UiSnapshot();
+    const ReplayInputView replayInput = replayRuntime.BuildInputView();
     RuntimeInteractionFrameInput frameInput;
     frameInput.scenePhysicsEnabled = SceneState().isScenePhysics;
     frameInput.stepHeld = routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep;
     frameInput.replayScrubbedHistoricalSample = replayInput.scrubPaused;
     frameInput.replayLiveHeldAtCurrentFrame = replayInput.liveAdvanceHeld;
-    frameInput.crossScenePauseLocked = m_sceneController.CrossScenePauseLocked();
+    frameInput.crossScenePauseLocked = sceneController.CrossScenePauseLocked();
     frameInput.rightMouseLookHeld = mouseEdges.rightDown;
-    frameInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
+    frameInput.editorViewportLookActive = runtimeTools.Editor().viewportLookActive;
     frameInput.replayInspectionLookActive = replayInput.inspectionActive && routedDeviceFrame.rightDown &&
                                             !routedUiSnapshot.wantsNativeCursor && !routedUiSnapshot.blocksCameraMouse;
 
     frameInput.forcePhysicsRunning = false;
     frameInput.sceneTimeScale = SceneState().timeScale;
-    const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.PublishRuntimeSnapshot( frameInput,
-                                                                                      suppressWorldActionThisFrame );
+    const RuntimeInputSnapshot& inputSnapshot = inputRouter.PublishRuntimeSnapshot( frameInput,
+                                                                                    suppressWorldActionThisFrame );
 
     // Invariant: InputRouter samples both world rays before the first domain
     // owner can mutate selection, camera, or scene state. Consumers receive the
     // existing semantic pointer value plus only their focused leaf operands.
-    const RuntimePointerRouteResult pointerResult = m_inputRouter.RouteRuntimePointer(
-        inputSnapshot.pointer,
-        m_camera.mode,
-        replayInput.inspectionActive,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-        m_window,
-        m_assets,
-        interactionOwners,
-        m_sceneController,
-        m_replayRuntime,
-        NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
+    const RuntimePointerRouteResult
+        pointerResult = inputRouter.RouteRuntimePointer( inputSnapshot.pointer, replayInput.inspectionActive,
+                                                         SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), window,
+                                                         assets, runtimeTools, attachedCamera, interaction, camera,
+                                                         sceneController, replayRuntime,
+                                                         NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
 
     if ( pointerResult.enteredInteractiveScene )
     {
@@ -1194,64 +1090,49 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
 
     for ( std::size_t actionIndex = 0; actionIndex < pointerResult.modeActionCount; ++actionIndex )
     {
-        m_inputRouter.RecordModeAction( interactionOwners,
-                                        m_runtimeInput,
-                                        pointerResult.modeActions[actionIndex],
-                                        RuntimeInputActionSource::Mouse );
+        inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                      pointerResult.modeActions[actionIndex], RuntimeInputActionSource::Mouse );
     }
 
-    if ( m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
+    if ( ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {
-        m_interaction.CancelCameraLookGesture();
-        InputController::ResetMouseLook( m_camera );
-        m_camera.input.Set( InputState::Up, false );
-        m_camera.input.Set( InputState::Down, false );
-        m_camera.input.Set( InputState::Left, false );
-        m_camera.input.Set( InputState::Right, false );
-        m_inputRouter.ApplyPointerPresentation(
-            EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                m_runtimeTools.Editor(),
-                                                m_replayRuntime.BuildInputView() ) );
+        interaction.CancelCameraLookGesture();
+        InputController::ResetMouseLook( camera );
+        camera.input.Set( InputState::Up, false );
+        camera.input.Set( InputState::Down, false );
+        camera.input.Set( InputState::Left, false );
+        camera.input.Set( InputState::Right, false );
+        inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
     }
     else
     {
-        m_inputRouter.DispatchCaptureActions( m_inputActions,
-                                              m_diagnosticsRuntime,
-                                              interactionOwners,
-                                              m_sceneController,
-                                              sceneOwners.overlays.PresentationSnapshot().GetSaveState(),
-                                              m_replayRuntime.BuildInputView() );
+        inputRouter.DispatchCaptureActions( inputActions, diagnosticsRuntime, camera, attachedCamera, ui, sceneController,
+                                            m_overlayDiagnostics->PresentationSnapshot().GetSaveState(),
+                                            replayRuntime.BuildInputView() );
 
-        const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
-        const bool mouseOwnsCursor = EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                                         m_runtimeTools.Editor(),
-                                                                         m_replayRuntime.BuildInputView() )
+        const RuntimeInteractionFramePolicy inputPolicy = interaction.BuildFramePolicy( inputSnapshot.frameInput );
+        const bool mouseOwnsCursor = EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
+                                                                         replayRuntime.BuildInputView() )
                                          .mouseLookOwnsCursor;
 
-        m_interaction.SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
-        const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseOwnsCursor &&
-                                           inputSnapshot.appFocused;
+        interaction.SyncCameraLookGesture( inputSnapshot, inputPolicy, mouseOwnsCursor );
+        const bool cameraMouseLookActive = inputPolicy.cameraMouseLookActive && mouseOwnsCursor && inputSnapshot.appFocused;
 
         if ( cameraMouseLookActive )
         {
-            m_inputRouter.RequestNativeCapture();
-            m_inputRouter.RequestCursorVisible( false );
+            inputRouter.RequestNativeCapture();
+            inputRouter.RequestCursorVisible( false );
         }
 
-        const RuntimeCameraInputFrameResult cameraInputResult = InputController::ApplyCameraInputFrame(
-            m_camera,
-            RuntimeCameraInputFrameContext { inputSnapshot.appFocused,
-                                             cameraMouseLookActive,
-                                             mouseOwnsCursor,
-                                             inputPolicy.cameraKeyboardControlsActive,
-                                             &m_inputRouter.DeviceFrame() } );
+        const RuntimeCameraInputFrameResult
+            cameraInputResult = InputController::ApplyCameraInputFrame( camera, inputSnapshot.appFocused,
+                                                                        cameraMouseLookActive, mouseOwnsCursor,
+                                                                        inputPolicy.cameraKeyboardControlsActive,
+                                                                        inputRouter.DeviceFrame() );
 
         if ( cameraInputResult.applyCursorOwnership )
         {
-            m_inputRouter.ApplyPointerPresentation(
-                EvaluateRuntimePointerPresentation( m_inputRouter,
-                                                    m_runtimeTools.Editor(),
-                                                    m_replayRuntime.BuildInputView() ) );
+            inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         }
     }
 
@@ -1261,52 +1142,29 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const bool processedDefaults = DrainRenderDefaultRequests();
     const bool processedCapture = DrainCaptureRequests();
     presentationEdit.Commit();
-    const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState(
-        interactionOwners.operatorUi.SceneNavigation() );
+    const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( ui.SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
-    sceneLoad.CaptureSubmittedState( m_camera,
-                                     sceneLoadNavigation,
-                                     m_debug,
-                                     m_renderBackendView.RendererName(),
-                                     m_timers.simulationTimer.GetTotalTime() );
+    sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),
+                                     timers.simulationTimer.GetTotalTime() );
 
-    const bool processedScene = m_sceneController.ExecutePending( sceneLoad,
-                                                                  m_config,
-                                                                  m_launchOptions,
-                                                                  m_renderDefaults.CinematicBaseline(),
-                                                                  m_startup,
-                                                                  m_assets,
-                                                                  m_workerPool,
-                                                                  m_diagnosticsRuntime,
-                                                                  m_renderBackendView.renderFrame,
-                                                                  m_renderBackendView.renderResources,
-                                                                  m_renderer );
+    const bool processedScene = sceneController.ExecutePending( sceneLoad, config, launchOptions,
+                                                                renderDefaults.CinematicBaseline(), startup, assets,
+                                                                workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
+                                                                &renderer.RenderResources(), renderer );
 
-    sceneLoad.ApplyRuntimeReactions( m_launchOptions,
-                                     m_timers,
-                                     sceneOwners.overlays,
-                                     m_sceneController,
-                                     m_inputRouter,
-                                     m_interaction,
-                                     m_camera,
-                                     m_attachedCamera,
-                                     m_runtimeTools,
-                                     m_replayRuntime );
+    sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter, interaction,
+                                     camera, attachedCamera, runtimeTools, replayRuntime );
 
-    sceneLoad.ApplyPresentationOutputs( m_window,
-                                        interactionOwners.operatorUi,
-                                        m_validationHarness,
-                                        m_launchOptions,
-                                        m_renderBackendView.renderDevice,
-                                        m_renderer.VsyncEnabled(),
-                                        m_sceneController );
+    sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                        renderer.VsyncEnabled(), sceneController );
 
     presentationEdit.Refresh();
+
     if ( processedCapture || processedDefaults || processedScene )
     {
     }
 
     commitPointerPresentation();
-    return result;
+    return CompleteInputPhase();
 }

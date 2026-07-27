@@ -45,6 +45,7 @@ namespace Math
 {
 namespace Orientation
 {
+
 /* -- Quaternion
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -55,27 +56,22 @@ class Quaternion
 
   public:
     Quaternion();                                               // Initializes to identity orientation.
-    Quaternion( float fX,
-                float fY,
-                float fZ,
-                float fW );                                     // Explicit component construction for deserialization/math helpers.
+    Quaternion( float fX, float fY, float fZ, float fW );       // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
     void Identity();                                            // Resets orientation to the no-rotation value.
     void Normalise();                                           // Removes floating-point drift before conversion to matrices or solver rows.
     void RotateAboutXYZ( const Vector::Vector3& vRadians );     // Treats xyz radians as one angular-displacement vector.
-    void RotateAboutAxis(
-        const Vector::Vector3& axis,
-        float angle );                                          // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
+    void
+    RotateAboutAxis( const Vector::Vector3& axis,
+                     float angle );                             // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
     Transformation::RotationMatrix GetOrientationMatrix();      // Converts orientation to the matrix form expected by
-                                                           // transforms/collision.
-    void RotateAboutXYZ( float xRadians,
-                         float yRadians,
+
+    // transforms/collision.
+    void RotateAboutXYZ( float xRadians, float yRadians,
                          float zRadians );                      // Rotate by angular-displacement components without Euler decomposition
     Quaternion operator*( const Quaternion& q ) const;          // Combines this rotation with q in engine multiplication order.
     Quaternion& operator*=( const Quaternion& q );              // In-place rotation composition; caller normalizes if drift matters.
-    void GetComponents( float& x,
-                        float& y,
-                        float& z,
+    void GetComponents( float& x, float& y, float& z,
                         float& w ) const;                       // Exposes raw components for deterministic serialization.
 
   private:
@@ -105,6 +101,7 @@ inline Quaternion NlerpShortest( const Quaternion& previous, const Quaternion& c
     // endpoint when their dot product is negative keeps normalized linear
     // interpolation on the shorter rotation arc instead of spinning the long way.
     const float dot = previousX * currentX + previousY * currentY + previousZ * currentZ + previousW * currentW;
+
     if ( dot < 0.0f )
     {
         currentX = -currentX;
@@ -114,10 +111,8 @@ inline Quaternion NlerpShortest( const Quaternion& previous, const Quaternion& c
     }
 
     const float t = std::clamp( alpha, 0.0f, 1.0f );
-    Quaternion blended( previousX + ( currentX - previousX ) * t,
-                        previousY + ( currentY - previousY ) * t,
-                        previousZ + ( currentZ - previousZ ) * t,
-                        previousW + ( currentW - previousW ) * t );
+    Quaternion blended( previousX + ( currentX - previousX ) * t, previousY + ( currentY - previousY ) * t,
+                        previousZ + ( currentZ - previousZ ) * t, previousW + ( currentW - previousW ) * t );
     blended.Normalise();
     return blended;
 }

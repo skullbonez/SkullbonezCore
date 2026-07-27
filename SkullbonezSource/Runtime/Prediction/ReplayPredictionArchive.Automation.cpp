@@ -38,6 +38,7 @@ namespace
 {
 void WriteAutomationReason( char* destination, std::size_t size, const char* message )
 {
+
     if ( destination && size > 0 )
     {
         std::snprintf( destination, size, "%s", message ? message : "prediction archive failure" );
@@ -47,17 +48,20 @@ void WriteAutomationReason( char* destination, std::size_t size, const char* mes
 
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize )
 {
+
     // Lane P: this is bounded validation work performed after the sole live
     // capture. Temporary vectors are diagnostics artifacts, never steady-state
     // replay storage or a second presentation path.
     RunReplayPathVisualizerState restoredPathVisualizer;
     RunReplayPredictionState restoredPrediction;
+
     if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, outReason, reasonSize ) )
     {
         return false;
     }
 
     std::vector<uint8_t> rebuiltBytes;
+
     if ( !BuildReplayPredictionArchive( restoredPathVisualizer, restoredPrediction, rebuiltBytes ) )
     {
         WriteAutomationReason( outReason, reasonSize, "could not rebuild prediction archive" );

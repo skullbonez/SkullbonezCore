@@ -43,11 +43,11 @@ if not "%~1"=="" if not "%PREFLIGHT_ONLY%"=="1" (
 
 echo.
 echo ========================================
-echo   VALIDATE_FAST - Format + Metadata + Dependencies + Size + Build
+echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Build
 echo ========================================
 echo.
 
-echo [1/6] Checking formatting...
+echo [1/8] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -55,15 +55,29 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/6] Checking Visual Studio project filters...
+echo [2/8] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/6] Checking dependency graph...
+echo [3/8] Checking dependency graph...
 call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
-echo [4/6] Checking staged file sizes...
+echo [4/8] Checking aggregate ownership rulings...
+REM Why: the two shape inventories report current structure and fail only on an
+REM UNRULED row, so an owner judgement can never be skipped silently. Neither
+REM freezes a count. Self-tests run first so a scanner regression is
+REM distinguishable from a real source finding.
+python "%~dp0inventory_authority_free_aggregates.py" --self-test
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_extraction_scars.py" --self-test
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
+if errorlevel 1 exit /b 8
+
+echo [5/8] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 REM Hosted CI supplies a base commit because its clean index contains no pending
@@ -75,11 +89,11 @@ if defined SKORE_SIZE_DIFF_BASE (
 )
 if errorlevel 1 exit /b 3
 
-echo [5/6] Building Profile x64...
+echo [6/8] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [6/6] Running unit tests...
+echo [7/8] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5
@@ -90,6 +104,7 @@ echo       Deferred to validate_all_cpu_tests.bat; no test executable ran.
 
 :tests_complete
 
+echo [8/8] Checking ready builds...
 call "%~dp0validate_ready_builds.bat"
 if errorlevel 1 exit /b 6
 

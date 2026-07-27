@@ -89,6 +89,17 @@ struct WaterReflectionInput
     bool raytraced = false;                                                                           // Reflection texture came from the DXR path instead of raster capture.
 };
 
+// Detached before/after values produced by one atomic world-policy mutation.
+struct WorldOverrideChange
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+};
+
 struct WaterStyleParams
 {
     float tintR = 0.05f;                                                                              // Linear water tint red channel.
@@ -141,38 +152,25 @@ class WorldEnvironment
 
   public:
     WorldEnvironment();                                                                               // Initializes default gravity/fluid values from config-era constants.
-    WorldEnvironment( float fFluidSurfaceHeight,
-                      float fFluidDensity,
-                      float fGasDensity,
+    WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity,
                       float fGravity );                                                               // Explicit physics constants for tests and scene loading.
     ~WorldEnvironment();                                                                              // Releases owned water mesh/shader resources.
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                        // Scene containers move worlds during setup only.
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                             // Scene containers move worlds during setup only.
 
-    void SetTerrainBounds( float xMin,
-                           float xMax,
-                           float zMin,
+    void SetTerrainBounds( float xMin, float xMax, float zMin,
                            float zMax );                                                              // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Math::Transformation::Matrix4& view,
-                      const Math::Transformation::Matrix4& proj,
-                      const Math::Vector::Vector3& cameraWorld,
-                      Rendering::Dx12TextureOwner& textures,
-                      const WaterReflectionInput& reflection,
-                      const Rendering::PassRasterStateBucket& rasterState,
-                      float time,
-                      bool flatWater = false,
-                      bool cinematic = false,
+    void RenderFluid( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj,
+                      const Math::Vector::Vector3& cameraWorld, Rendering::Dx12TextureOwner& textures,
+                      const WaterReflectionInput& reflection, const Rendering::PassRasterStateBucket& rasterState,
+                      float time, bool flatWater = false, bool cinematic = false,
                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig = nullptr ); // Active water mesh render path with current style/reflection inputs.
-    void BindRuntimeConfig( const SkullbonezCore::Core::EngineConfig&
-                                config );                                                             // Borrow runtime settings for water physics and style constants.
-    void BindRenderContexts(
-        const SkullbonezCore::Core::EngineConfig& config,
-        Assets::AssetSystem& assets,
-        Rendering::Dx12ResourceBuilder& resources );                                                  // Borrow rebuild-only services for water resources.
+    void BindRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );                       // Borrow runtime settings for water physics and style constants.
     void
-    EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
-                           Assets::AssetSystem& assets,
-                           Rendering::Dx12ResourceBuilder& resources );                               // Lazily rebuilds missing backend resources.
+    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
+                        Rendering::Dx12ResourceBuilder& resources );                                  // Borrow rebuild-only services for water resources.
+    void EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
+                                Rendering::Dx12ResourceBuilder& resources );                          // Lazily rebuilds missing backend resources.
     void ResetRenderResources();                                                                      // Rebuilds GPU resources after renderer reset/switch
     void ReleaseRenderResources();                                                                    // Releases GPU resources without rebuilding.
     float GetFluidSurfaceHeight() const;                                                              // World-space Y plane where water begins.
@@ -183,12 +181,16 @@ class WorldEnvironment
     void SetGravity( float gravity );                                                                 // Updates gravity for future force integration ticks.
     float GetFluidDensity() const;                                                                    // Fluid density in kg/m^3 for buoyancy and drag.
     void SetFluidDensity( float density );                                                            // Updates fluid density for future force integration ticks.
+    WorldOverrideChange
+    ApplyOverride( float gravity, float fluidHeight,
+                   float fluidDensity );                                                              // Applies one detached world-policy tuple and returns before/after values.
     const Physics::MutualGravitySettings&
     GetMutualGravitySettings() const;                                                                 // Pairwise attraction settings for authored space scenes.
     void SetMutualGravitySettings( const Physics::MutualGravitySettings& settings );                  // Updates future mutual-gravity ticks.
     Physics::PhysicsWorldForces GetPhysicsWorldForces() const;                                        // Tick-local force inputs for physics-owned integration.
 
   private:
+
     // Snapshot of both render profiles plus the config-owned ocean controls.
     // The public config value is SkullbonezCore::Core::WaterRenderStyleSettings; this bound
     // copy also retains profile state needed across render calls.
@@ -230,20 +232,15 @@ class WorldEnvironment
     Rendering::Dx12ResourceBuilder* m_resources = nullptr;                                            // Borrowed cold builder for water meshes.
 
     void BuildFluidMesh();                                                                            // Builds calm and ocean meshes from current terrain bounds.
-    void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig&
-                                         config );                                                    // Copies only the water and fluid fields this type consumes.
+    void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig& config );              // Copies only the water and fluid fields this type consumes.
     WaterStyleParams BuildCalmWaterStyle( bool cinematic,
                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic,
                                            const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
-    void BindCommonWaterStyle( Rendering::ShaderDX12& shader,
-                               const WaterStyleParams& style,
-                               const Math::Vector::Vector3& cameraWorld,
-                               const WaterReflectionInput& reflection ) const;
+    void BindCommonWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style,
+                               const Math::Vector::Vector3& cameraWorld, const WaterReflectionInput& reflection ) const;
     void BindCalmWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style ) const;
-    void BindOceanWaterStyle( Rendering::ShaderDX12& shader,
-                              const WaterStyleParams& style,
-                              float time,
+    void BindOceanWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style, float time,
                               bool flatWater ) const;
 };
 } // namespace Environment

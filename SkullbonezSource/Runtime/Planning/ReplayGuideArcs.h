@@ -72,13 +72,16 @@ struct ReplayGuideArcsView
 class ReplayGuideArcs
 {
   public:
+
     // Inverts the Legacy affordance and makes the next enabled update due.
     void Toggle() noexcept;
+
     // Applies idempotent startup/scene policy without repeated calls flipping
     // the user-visible state.
     void SetEnabled( bool enabled ) noexcept;
     void Reset() noexcept;
     bool Enabled() const noexcept;
+
     // Lets the composition boundary avoid all store scans between deadlines.
     bool RefreshDue( double nowSeconds ) const noexcept;
     void Update( const ReplayGuideArcsUpdateInput& input ) noexcept;

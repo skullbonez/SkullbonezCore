@@ -57,6 +57,7 @@ void Quaternion::Normalise()
     // pathological floating-point cancellation during collision impulse resolution.
     // Reset to identity rather than crash — the object retains its last valid orientation.
     static constexpr float EPSILON_SQ = 1e-12f;
+
     if ( magSq < EPSILON_SQ )
     {
         Identity();
@@ -74,6 +75,7 @@ void Quaternion::Normalise()
 
 void Quaternion::RotateAboutXYZ( float xRadians, float yRadians, float zRadians )
 {
+
     // Treat XYZ inputs as one angular-displacement vector and integrate
     // with a single axis-angle update to avoid Euler-order coupling.
     float angleSq = xRadians * xRadians + yRadians * yRadians + zRadians * zRadians;
@@ -97,6 +99,7 @@ void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 
 void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 {
+
     // Single rotation about an arbitrary WORLD-space axis — no Euler decomposition,
     // no gimbal lock. This codebase uses "anti-Hamilton" quaternion multiplication
     // (operator* computes Hamilton(q2*q1) when called as q1*q2), and GetOrientationMatrix
@@ -114,16 +117,13 @@ void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 
 RotationMatrix Quaternion::GetOrientationMatrix()
 {
+
     // The engine uses right-handed object orientation math; render projection is
     // handled separately by Matrix4.
-    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
-                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ),
-                           ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
-                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ),
-                           ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
+    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
+                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
+                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ), ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
+                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ), ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
                            1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
 }
 

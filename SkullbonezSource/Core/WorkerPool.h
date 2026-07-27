@@ -54,6 +54,7 @@ namespace Threading
 using WorkerPoolMutex = TrackedMutex;
 using WorkerPoolConditionVariable = std::condition_variable_any;
 #else
+
 // Profile/Release stay on the standard primitives: lock validation and its
 // generic condition-variable cost are a Debug probe only.
 using WorkerPoolMutex = std::mutex;
@@ -87,21 +88,15 @@ class WorkerPool
     // stays private so runtime callers cannot build callback-style interfaces.
     template <typename TaskT> void SubmitNoAlloc( TaskT& task );
     template <typename IndexFunctionT>
-    void ParallelForNoAlloc( int begin,
-                             int end,
-                             IndexFunctionT&& fn,
-                             int minParallelItems,
-                             const char* workerMarkerPath,
+    void ParallelForNoAlloc( int begin, int end, IndexFunctionT&& fn, int minParallelItems, const char* workerMarkerPath,
                              uint32_t workerMarkerHash );
     template <typename ChunkFunctionT>
     void ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn );
+
     // Returns deterministic chunk ranges in caller-owned storage. Use this for
     // hot-path two-pass jobs that need prefix sums or fixed scratch before
     // calling ParallelForChunksNoAlloc().
-    int BuildChunkRangesNoAlloc( int begin,
-                                 int end,
-                                 int minParallelItems,
-                                 WorkerChunkRange* outChunks,
+    int BuildChunkRangesNoAlloc( int begin, int end, int minParallelItems, WorkerChunkRange* outChunks,
                                  int outCapacity ) const;
 
     int GetThreadCount() const;
@@ -114,23 +109,20 @@ class WorkerPool
     static int CurrentWorkerIndex();
 
     template <typename ChunkOutput, typename BuildChunk, typename MergeChunk>
-    void ParallelCollectOrdered( int begin,
-                                 int end,
-                                 std::vector<ChunkOutput>& chunkOutputs,
-                                 BuildChunk buildChunk,
-                                 MergeChunk mergeChunk,
-                                 int minParallelItems = 0 )
+    void ParallelCollectOrdered( int begin, int end, std::vector<ChunkOutput>& chunkOutputs, BuildChunk buildChunk,
+                                 MergeChunk mergeChunk, int minParallelItems = 0 )
     {
         WorkerChunkRange chunks[WORKER_PARALLEL_TASK_CAPACITY];
         const int chunkCount = BuildChunks( begin, end, minParallelItems, chunks, WORKER_PARALLEL_TASK_CAPACITY );
         chunkOutputs.clear();
         chunkOutputs.resize( static_cast<size_t>( chunkCount ) );
 
-        ParallelForChunksNoAlloc(
-            chunks,
-            chunkCount,
-            [&]( int chunkIndex, int chunkBegin, int chunkEnd )
-            { buildChunk( chunkIndex, chunkBegin, chunkEnd, chunkOutputs[static_cast<size_t>( chunkIndex )] ); } );
+        ParallelForChunksNoAlloc( chunks, chunkCount,
+                                  [&]( int chunkIndex, int chunkBegin, int chunkEnd )
+                                  {
+                                      buildChunk( chunkIndex, chunkBegin, chunkEnd,
+                                                  chunkOutputs[static_cast<size_t>( chunkIndex )] );
+                                  } );
 
         for ( size_t chunkIndex = 0; chunkIndex < chunkOutputs.size(); ++chunkIndex )
         {
@@ -139,6 +131,7 @@ class WorkerPool
     }
 
   private:
+
     // Why: the fixed-capacity worker queue accepts arbitrary caller-owned task
     // types without allocation or runtime polymorphism. Each erased pointer is
     // private, its typed trampoline is chosen at submission, and the submitting
@@ -187,11 +180,13 @@ class WorkerPool
     // Profile/Release retain the original std::mutex/condition_variable pair.
     mutable WorkerPoolMutex m_mutex;
     WorkerPoolConditionVariable m_workAvailable;
+
     // Fixed callback records keep asynchronous replay slices allocation-free.
     TaskRecord m_tasks[WORKER_PARALLEL_TASK_CAPACITY];
     int m_taskHead;
     int m_taskCount;
     int m_taskHighWater;
+
     // Runtime allocation policy:
     //   Preallocated as inline WorkerPool storage for worker-count bounded
     //   parallel dispatch. Steady gameplay must not grow task records; overflow
@@ -202,6 +197,7 @@ class WorkerPool
     int m_parallelTaskCount;
     int m_parallelTaskHighWater;
     std::vector<std::thread> m_threads;
+
     // Lifetime: startup-bound diagnostics borrow; worker tasks never retain it.
     Core::Profiler* m_profiler;
     bool m_stopping;
@@ -219,14 +215,11 @@ template <typename TaskT> void WorkerPool::ExecuteTaskRecord( void* taskState )
 }
 
 template <typename IndexFunctionT>
-void WorkerPool::ParallelForNoAlloc( int begin,
-                                     int end,
-                                     IndexFunctionT&& fn,
-                                     int minParallelItems,
-                                     const char* workerMarkerPath,
-                                     uint32_t workerMarkerHash )
+void WorkerPool::ParallelForNoAlloc( int begin, int end, IndexFunctionT&& fn, int minParallelItems,
+                                     const char* workerMarkerPath, uint32_t workerMarkerHash )
 {
     const int itemCount = end - begin;
+
     if ( itemCount <= 0 )
     {
         return;
@@ -243,6 +236,7 @@ void WorkerPool::ParallelForNoAlloc( int begin,
         static_cast<void>( markerPath );
         static_cast<void>( markerHash );
 #endif
+
         for ( int index = chunkBegin; index < chunkEnd; ++index )
         {
             indexFn( index );
@@ -264,19 +258,23 @@ void WorkerPool::ParallelForNoAlloc( int begin,
 template <typename ChunkFunctionT>
 void WorkerPool::ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn )
 {
+
     if ( !chunks || chunkCount <= 0 )
     {
         return;
     }
 
     typename std::remove_reference<ChunkFunctionT>::type& chunkFn = fn;
+
     if ( GetThreadCount() == 0 || IsCurrentThreadWorker() )
     {
+
         for ( int index = 0; index < chunkCount; ++index )
         {
             const WorkerChunkRange& chunk = chunks[index];
             chunkFn( chunk.chunkIndex, chunk.begin, chunk.end );
         }
+
         return;
     }
 
@@ -296,6 +294,7 @@ template <typename ChunkFunctionT>
 void WorkerPool::ExecuteParallelChunkTask( void* dispatchState, const WorkerChunkRange& chunk )
 {
     auto* state = static_cast<ParallelForChunksState<ChunkFunctionT>*>( dispatchState );
+
     if ( !state )
     {
         return;

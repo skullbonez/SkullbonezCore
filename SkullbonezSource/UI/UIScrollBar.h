@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   UIScrollBar.h implements UI ScrollBar widgets, layout, drawing, or UI state
+
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the
   glossary/invariants below.
@@ -37,11 +38,7 @@ class UIScrollBar
   public:
     void SetBounds( float x, float y, float w, float h );
     UIRect Bounds() const;
-    void Draw( const UIDrawContext& draw,
-               float contentHeight,
-               float viewportHeight,
-               float scrollY,
-               double visibleUntil,
+    void Draw( const UIDrawContext& draw, float contentHeight, float viewportHeight, float scrollY, double visibleUntil,
                double now ) const;
 
   private:

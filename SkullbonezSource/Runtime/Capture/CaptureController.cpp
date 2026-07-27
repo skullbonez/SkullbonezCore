@@ -60,44 +60,35 @@ void CaptureController::DisableAutomationExit()
 }
 
 
-bool CaptureController::IsScreenshotDue( const RuntimeCaptureSceneContext& context ) const
+bool CaptureController::IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const
 {
-    return CaptureSystem::IsScreenshotDue( m_screenshot, context );
+    return CaptureSystem::IsScreenshotDue( m_screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
-bool CaptureController::RequiresDeterministicPresentation( const RuntimeCaptureSceneContext& context ) const
+bool CaptureController::RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const
 {
-    return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, context );
+    return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
+RuntimeCaptureResult CaptureController::TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame,
+                                                         double elapsedMs, const char* currentScenePath,
                                                          Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickScreenshots( m_screenshot, context, *this, backend );
+    return CaptureSystem::TickScreenshots( m_screenshot, isSceneMode, isInteractiveRun, currentFrame, elapsedMs,
+                                           currentScenePath, *this, backend );
 }
 
 
-RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
-                                                       bool isInteractiveRun,
-                                                       int ballCount,
-                                                       float& autoCycleInterval,
-                                                       float& autoCycleAccum,
-                                                       int& autoCycleShotsTaken,
-                                                       int& trackBallIndex,
+RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
+                                                       float& autoCycleInterval, float& autoCycleAccum,
+                                                       int& autoCycleShotsTaken, int& trackBallIndex,
                                                        Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickAutoCycle( isSceneMode,
-                                         isInteractiveRun,
-                                         ballCount,
-                                         autoCycleInterval,
-                                         autoCycleAccum,
-                                         autoCycleShotsTaken,
-                                         trackBallIndex,
-                                         *this,
-                                         backend );
+    return CaptureSystem::TickAutoCycle( isSceneMode, isInteractiveRun, ballCount, autoCycleInterval, autoCycleAccum,
+                                         autoCycleShotsTaken, trackBallIndex, *this, backend );
 }
 #endif
 
@@ -105,8 +96,10 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
 SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* path )
 {
     const std::size_t pathLength = path ? strnlen_s( path, CAPTURE_REQUEST_PATH_CAPACITY ) : 0;
+
     if ( pathLength == 0 || pathLength >= CAPTURE_REQUEST_PATH_CAPACITY )
     {
+
         // Lane R: file paths originate at tool/input boundaries. Rejecting the
         // request before enqueue prevents the fixed record from truncating to a
         // different destination than the operator selected.
@@ -116,21 +109,20 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
     }
 
     const char* extension = strrchr( path, '.' );
+
     if ( !extension || _stricmp( extension, ".bmp" ) != 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController",
-                                                        "Screenshot path must end in .bmp: %s",
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController", "Screenshot path must end in .bmp: %s",
                                                         path );
     }
 
     if ( m_requestCount >= CAPTURE_REQUEST_QUEUE_CAPACITY )
     {
+
         // Lane F: this queue drains once per input frame. Exhaustion means a
         // producer violated the fixed owner budget; runtime growth is forbidden.
-        SB_FATAL( "Runtime/CaptureController",
-                  "Capture request capacity exhausted. capacity=%d high_water=%d phase=input",
-                  CAPTURE_REQUEST_QUEUE_CAPACITY,
-                  m_requestCount );
+        SB_FATAL( "Runtime/CaptureController", "Capture request capacity exhausted. capacity=%d high_water=%d phase=input",
+                  CAPTURE_REQUEST_QUEUE_CAPACITY, m_requestCount );
     }
 
     const int tail = ( m_requestHead + m_requestCount ) % CAPTURE_REQUEST_QUEUE_CAPACITY;
@@ -140,10 +132,10 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
 }
 
 
-void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch,
-                                     const CaptureRequest& request,
+void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const CaptureRequest& request,
                                      const SkullbonezCore::Core::SbResult& requestResult )
 {
+
     if ( requestResult.ok )
     {
         batch.saved[batch.savedCount++] = request;
@@ -163,6 +155,7 @@ void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch,
 CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering::Dx12BackbufferCapture& backend )
 {
     CaptureRequestBatchResult result;
+
     while ( m_requestCount > 0 )
     {
         const CaptureRequest request = m_requests[m_requestHead];
@@ -193,6 +186,7 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
     const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
+
     if ( !captureResult.ok )
     {
         return captureResult;

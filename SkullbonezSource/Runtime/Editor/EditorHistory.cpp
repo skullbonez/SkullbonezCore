@@ -27,7 +27,7 @@ Related:
 
 #include "EditorTools.h"
 #include "../Scene/SceneControllerState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
@@ -63,6 +63,7 @@ const ColliderAuthoringRecord* ColliderAuthoringForModelIndex( const ColliderSto
 
 bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSnapshot& after )
 {
+
     if ( VectorMagSquared( after.position - before.position ) > 1.0e-8f )
     {
         return true;
@@ -78,8 +79,9 @@ bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSn
     float afterW = 1.0f;
     before.orientation.GetComponents( beforeX, beforeY, beforeZ, beforeW );
     after.orientation.GetComponents( afterX, afterY, afterZ, afterW );
-    if ( fabsf( beforeX - afterX ) > 1.0e-6f || fabsf( beforeY - afterY ) > 1.0e-6f ||
-         fabsf( beforeZ - afterZ ) > 1.0e-6f || fabsf( beforeW - afterW ) > 1.0e-6f )
+
+    if ( fabsf( beforeX - afterX ) > 1.0e-6f || fabsf( beforeY - afterY ) > 1.0e-6f || fabsf( beforeZ - afterZ ) > 1.0e-6f ||
+         fabsf( beforeW - afterW ) > 1.0e-6f )
     {
         return true;
     }
@@ -96,12 +98,14 @@ bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSn
 
 bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrimitiveRecreateRecipe& outRecipe )
 {
+
     if ( modelIndex < 0 || modelIndex >= world.SceneEntityCount() )
     {
         return false;
     }
 
     const SceneEntityRecord& entity = world.Entities().At( modelIndex );
+
     if ( entity.behaviorGroup.kind != SceneBehaviorGroupKind::None || entity.asset.isAssetBacked )
     {
         return false;
@@ -112,6 +116,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndex );
     const ColliderAuthoringRecord* colliderAuthoring = ColliderAuthoringForModelIndex( world.Colliders(), modelIndex );
+
     if ( !body || !collider || !colliderAuthoring || modelIndex >= static_cast<int>( buoyancyFacts.size() ) ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
@@ -127,6 +132,7 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     strcpy_s( outRecipe.entity.displayName, entity.displayName );
     outRecipe.entity.editorVisible = entity.editorVisible;
     outRecipe.entity.editorLocked = entity.editorLocked;
+
     // Invariant: recreation facts exclude the live handle and transient
     // pending-impulse/sleep state; stable identity comes from the entity recipe.
     const PhysicsBodyHotState hotState = LoadPhysicsBodyHotState( bodyStore.HotFields(),
@@ -158,13 +164,11 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
 }
 
 
-bool RecreatePrimitive( SceneWorld& world,
-                        SceneSessionState& scene,
-                        const EditorPrimitiveRecreateRecipe& recipe,
-                        PhysicsBodyHandle& outBody,
-                        PhysicsColliderHandle& outCollider )
+bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const EditorPrimitiveRecreateRecipe& recipe,
+                        PhysicsBodyHandle& outBody, PhysicsColliderHandle& outCollider )
 {
     CollisionShape shape;
+
     if ( !TryBuildEditorPrimitiveShape( recipe.shape, shape ) )
     {
         return false;
@@ -192,14 +196,11 @@ bool RecreatePrimitive( SceneWorld& world,
     bodyDesc.releasesFromFixedOnContact = recipe.body.releasesFromFixedOnContact;
     bodyDesc.usesWorldInertia = recipe.body.usesWorldInertia;
     bodyDesc.contactReleaseImpulseThreshold = recipe.body.contactReleaseImpulseThreshold;
-    PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shape,
-                                                                     recipe.restitution,
-                                                                     recipe.contactMaterialId,
+    PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shape, recipe.restitution, recipe.contactMaterialId,
                                                                      recipe.contactMaterialName );
 
     colliderDesc.friction = recipe.friction;
-    const SceneEntityCreateResult result = world.TryCreateSceneEntity( recipe.entity,
-                                                                       std::move( bodyDesc ),
+    const SceneEntityCreateResult result = world.TryCreateSceneEntity( recipe.entity, std::move( bodyDesc ),
                                                                        std::move( colliderDesc ) );
 
     if ( !result.status.ok )
@@ -210,6 +211,7 @@ bool RecreatePrimitive( SceneWorld& world,
     outBody = result.body;
     outCollider = world.Colliders().HandleForBodyHandle( outBody );
     scene.modelCount = world.SceneEntityCount();
+
     if ( outCollider.IsValid() )
     {
         return true;
@@ -217,8 +219,10 @@ bool RecreatePrimitive( SceneWorld& world,
 
     // Hazard: never report a failed inverse after leaving its partially
     // recreated entity live; that would desynchronize the cursor and scene.
+
     if ( !world.DestroySceneEntity( outBody ) )
     {
+
         // Lane F: a successful create must remain synchronously removable
         // before any later command can observe it.
         SB_FATAL( "EditorCommandHistory", "Failed to roll back an incomplete primitive recreation." );
@@ -233,12 +237,14 @@ bool RecreatePrimitive( SceneWorld& world,
 bool DestroyBySceneId( SceneWorld& world, SceneSessionState& scene, PhysicsSceneObjectId sceneObjectId )
 {
     const int modelIndex = world.Entities().FindBySceneObjectId( sceneObjectId );
+
     if ( modelIndex < 0 )
     {
         return false;
     }
 
     const PhysicsBodyHandle body = world.BodyStore().HandleForModelIndex( modelIndex );
+
     if ( !body.IsValid() || !world.DestroySceneEntity( body ) )
     {
         return false;
@@ -251,6 +257,7 @@ bool DestroyBySceneId( SceneWorld& world, SceneSessionState& scene, PhysicsScene
 
 bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bool useAfter )
 {
+
     // Invariant: resolve every stable id and shape before the first mutation so
     // an invalid command cannot apply only a prefix of a group gesture.
     std::array<int, EDITOR_COMMAND_TRANSFORM_CAPACITY> modelIndices = {};
@@ -261,6 +268,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         const EditorTransformHistoryItem& item = entry.transforms[index];
         const EditorTransformSnapshot& snapshot = useAfter ? item.after : item.before;
         modelIndices[index] = world.Entities().FindBySceneObjectId( item.sceneObjectId );
+
         if ( modelIndices[index] < 0 ||
              ( snapshot.hasShape && ( !TryBuildEditorPrimitiveShape( snapshot.shape, shapes[index] ) ||
                                       !ColliderForModelIndex( world.Colliders(), modelIndices[index] ) ) ) )
@@ -271,13 +279,13 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 
     for ( std::size_t index = 0; index < entry.transformCount; ++index )
     {
-        const EditorTransformSnapshot& snapshot = useAfter ? entry.transforms[index].after
-                                                           : entry.transforms[index].before;
+        const EditorTransformSnapshot& snapshot = useAfter ? entry.transforms[index].after : entry.transforms[index].before;
 
         PhysicsBodyUpdateDesc update;
         update.updateMask = PHYSICS_BODY_UPDATE_POSE;
         update.position = snapshot.position;
         update.orientation = snapshot.orientation;
+
         if ( snapshot.hasShape )
         {
             const ColliderRecord* collider = ColliderForModelIndex( world.Colliders(), modelIndices[index] );
@@ -289,17 +297,15 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
                 return false;
             }
 
-            PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shapes[index],
-                                                                             collider->restitution,
+            PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shapes[index], collider->restitution,
                                                                              collider->contactMaterialId,
                                                                              colliderAuthoring->contactMaterialName );
 
             colliderDesc.friction = collider->friction;
-            if ( !RunInternal::ResetEditorModelMotionAndWake( world,
-                                                              modelIndices[index],
-                                                              update,
-                                                              std::move( colliderDesc ) ) )
+
+            if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update, std::move( colliderDesc ) ) )
             {
+
                 // Lane F: preflight resolved this owned body/collider. Failure
                 // here would otherwise leave a group inverse partially applied.
                 SB_FATAL( "EditorCommandHistory", "Preflighted scale inverse failed during commit." );
@@ -307,8 +313,10 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         }
         else
         {
-            if ( !RunInternal::ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
+
+            if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
             {
+
                 // Lane F: stable-id preflight makes an update rejection an
                 // ownership invariant failure, not a recoverable cursor miss.
                 SB_FATAL( "EditorCommandHistory", "Preflighted transform inverse failed during commit." );
@@ -320,13 +328,10 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 }
 
 
-bool ApplyHistoryEntry( SceneWorld& world,
-                        SceneSessionState& scene,
-                        const EditorCommandEntry& entry,
-                        bool redo,
-                        PhysicsBodyHandle& outBody,
-                        PhysicsColliderHandle& outCollider )
+bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const EditorCommandEntry& entry, bool redo,
+                        PhysicsBodyHandle& outBody, PhysicsColliderHandle& outCollider )
 {
+
     if ( entry.kind == EditorCommandKind::Transform )
     {
         return ApplyTransformEntry( world, entry, redo );
@@ -349,10 +354,9 @@ bool ApplyHistoryEntry( SceneWorld& world,
 } // namespace
 
 
-void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
-                                                 RuntimeGizmoDragKind gizmoKind,
-                                                 int selectedModelIndex )
+void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex )
 {
+
     if ( !m_editor.editorModeEnabled || selectedModelIndex < 0 )
     {
         return;
@@ -367,6 +371,7 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
     {
         const PhysicsBodyRecord* body = bodies.RecordForModelIndex( selectedModelIndex );
         const ColliderRecord* collider = ColliderForModelIndex( colliders, selectedModelIndex );
+
         if ( !body || !collider )
         {
             m_editor.history.InvalidateForNonUndoableEdit();
@@ -383,10 +388,13 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
         item.after.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         item.before.hasShape = TryCaptureEditorPrimitiveShape( m_editor.gizmoDragStartShape, item.before.shape );
         item.after.hasShape = TryCaptureEditorPrimitiveShape( collider->shape, item.after.shape );
+
         if ( !item.before.hasShape || !item.after.hasShape || !PosesDiffer( item.before, item.after ) )
         {
+
             if ( !item.before.hasShape || !item.after.hasShape )
             {
+
                 // Hazard: a committed convex-hull scale has no bounded inverse.
                 // Clear history so stale redo cannot cross that mutation.
                 m_editor.history.InvalidateForNonUndoableEdit();
@@ -399,15 +407,16 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
     }
     else
     {
-        const int groupCount = RunInternal::ValidCapturedEditorGizmoGroupCount( m_editor, world.SceneEntityCount() );
+        const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, world.SceneEntityCount() );
         const int count = groupCount > 0 ? groupCount : 1;
+
         for ( int groupIndex = 0; groupIndex < count; ++groupIndex )
         {
-            const int modelIndex = groupCount > 0
-                                       ? m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )]
-                                       : selectedModelIndex;
+            const int modelIndex = groupCount > 0 ? m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )]
+                                                  : selectedModelIndex;
 
             const PhysicsBodyRecord* body = bodies.RecordForModelIndex( modelIndex );
+
             if ( !body )
             {
                 m_editor.history.InvalidateForNonUndoableEdit();
@@ -421,14 +430,14 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
                                        : m_editor.gizmoDragStartPosition;
 
             item.before.orientation = groupCount > 0
-                                          ? m_editor
-                                                .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )]
+                                          ? m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )]
                                           : m_editor.gizmoDragStartOrientation;
 
             const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
             const auto hotFields = bodies.HotFields();
             item.after.position = PhysicsBodyPosition( hotFields, bodyIndex );
             item.after.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+
             if ( PosesDiffer( item.before, item.after ) )
             {
                 ++entry.transformCount;
@@ -447,6 +456,7 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world,
 
 void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter )
 {
+
     if ( !m_editor.editorModeEnabled || modelCountAfter <= modelCountBefore )
     {
         return;
@@ -454,6 +464,7 @@ void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCou
 
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Place;
+
     if ( modelCountAfter == modelCountBefore + 1 && CapturePrimitiveRecipe( world, modelCountBefore, entry.primitive ) )
     {
         m_editor.history.Push( entry );
@@ -471,6 +482,7 @@ bool RuntimeTools::UndoEditorCommand( SceneWorld& world, SceneSessionState& scen
     const EditorCommandEntry* entry = m_editor.history.PendingUndo();
     PhysicsBodyHandle body;
     PhysicsColliderHandle collider;
+
     if ( !m_editor.editorModeEnabled || !entry || !ApplyHistoryEntry( world, scene, *entry, false, body, collider ) )
     {
         return false;
@@ -500,6 +512,7 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scen
     const EditorCommandEntry* entry = m_editor.history.PendingRedo();
     PhysicsBodyHandle body;
     PhysicsColliderHandle collider;
+
     if ( !m_editor.editorModeEnabled || !entry || !ApplyHistoryEntry( world, scene, *entry, true, body, collider ) )
     {
         return false;
@@ -526,9 +539,10 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scen
 
 bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
-    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
+    const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Place;
+
     if ( !m_editor.editorModeEnabled || modelIndex < 0 || world.Entities().At( modelIndex ).editorLocked ||
          !CapturePrimitiveRecipe( world, modelIndex, entry.primitive ) )
     {
@@ -540,8 +554,7 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionStat
     entry.primitive.entity.editorLocked = false;
     entry.primitive.body.position.x += 2.0f;
     entry.primitive.body.position.z += 2.0f;
-    const char* sourceName = entry.primitive.entity.displayName[0] != '\0' ? entry.primitive.entity.displayName
-                                                                           : "Object";
+    const char* sourceName = entry.primitive.entity.displayName[0] != '\0' ? entry.primitive.entity.displayName : "Object";
 
     char duplicateName[64] = {};
 
@@ -550,6 +563,7 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionStat
 
     PhysicsBodyHandle body;
     PhysicsColliderHandle collider;
+
     if ( !RecreatePrimitive( world, scene, entry.primitive, body, collider ) )
     {
         return false;
@@ -565,9 +579,10 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionStat
 
 bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
-    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
+    const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Delete;
+
     if ( !m_editor.editorModeEnabled || modelIndex < 0 || world.Entities().At( modelIndex ).editorLocked ||
          !CapturePrimitiveRecipe( world, modelIndex, entry.primitive ) ||
          !world.DestroySceneEntity( m_editor.selectedBody ) )

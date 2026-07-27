@@ -41,11 +41,10 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
 {
     return lhs.cinematicRender == rhs.cinematicRender && lhs.useCinematicTarget == rhs.useCinematicTarget &&
            lhs.terrainShadowValid == rhs.terrainShadowValid && lhs.objectShadowValid == rhs.objectShadowValid &&
-           lhs.shadowPassExecuted == rhs.shadowPassExecuted &&
-           lhs.reflectionPassExecuted == rhs.reflectionPassExecuted && lhs.reflectionUsedDxr == rhs.reflectionUsedDxr &&
-           lhs.objectOpaquePass == rhs.objectOpaquePass && lhs.objectTransparentPass == rhs.objectTransparentPass &&
-           lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
-           lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.shadowPassExecuted == rhs.shadowPassExecuted && lhs.reflectionPassExecuted == rhs.reflectionPassExecuted &&
+           lhs.reflectionUsedDxr == rhs.reflectionUsedDxr && lhs.objectOpaquePass == rhs.objectOpaquePass &&
+           lhs.objectTransparentPass == rhs.objectTransparentPass && lhs.terrainPassRendered == rhs.terrainPassRendered &&
+           lhs.waterPassRendered == rhs.waterPassRendered && lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
            lhs.worldExtensionRendered == rhs.worldExtensionRendered &&
            lhs.volumetricPassExecuted == rhs.volumetricPassExecuted && lhs.volumetricReady == rhs.volumetricReady &&
            lhs.volumetricTextureHandle == rhs.volumetricTextureHandle && lhs.volumetricWidth == rhs.volumetricWidth &&
@@ -55,6 +54,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
 
 uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
 {
+
     // Why: DumpText allocates. Hash only stable schedule/resource vocabulary so
     // unchanged frames return before constructing diagnostic strings; native
     // addresses are deliberately excluded because swap-chain rotation is not a
@@ -69,6 +69,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
 
     const auto appendName = [&]( const char* name )
     {
+
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( name ); cursor && *cursor;
 
               ++cursor )
@@ -111,6 +112,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         appendByte( static_cast<uint8_t>( pass.executionOwner ) );
         appendByte( pass.callbackEnabled ? 1u : 0u );
         appendByte( static_cast<uint8_t>( pass.queue ) );
+
         for ( const RenderGraphResourceUse& read : pass.reads )
         {
             appendByte( static_cast<uint8_t>( read.resource.index ) );
@@ -119,6 +121,7 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
         }
 
         appendByte( 0xfeu );
+
         for ( const RenderGraphResourceUse& write : pass.writes )
         {
             appendByte( static_cast<uint8_t>( write.resource.index ) );
@@ -168,6 +171,7 @@ void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, 
     static uint64_t lastGraphFingerprint = 0;
 
     const uint64_t graphFingerprint = FrameGraphShapeFingerprint( graph );
+
     if ( hasLastSnapshot && IsSameSnapshot( snapshot, lastSnapshot ) && graphFingerprint == lastGraphFingerprint )
     {
         return;
@@ -178,6 +182,7 @@ void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, 
     lastSnapshot = snapshot;
     lastGraphFingerprint = graphFingerprint;
     hasLastSnapshot = true;
+
     if ( dumpText == lastDumpText )
     {
         return;
@@ -186,6 +191,7 @@ void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderGraph& graph, 
     std::error_code ec;
     std::filesystem::create_directories( "Debug", ec );
     std::ofstream file( "Debug/dx12_frame_graph_actual.txt", std::ios::binary );
+
     if ( file.is_open() )
     {
         file << dumpText << "\n";

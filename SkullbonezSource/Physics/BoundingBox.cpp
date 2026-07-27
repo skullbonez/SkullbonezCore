@@ -27,6 +27,7 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
+
 // =============================================================================
 // BOUNDING BOX (BoundingBox.cpp)
 // =============================================================================
@@ -82,8 +83,7 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 // The shader renders a unit cube [-1,1]³ scaled by half-extents.
 Matrix4 BoundingBox::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
-    Matrix4 translate = Matrix4::Translate( worldPos.x + m_position.x,
-                                            worldPos.y + m_position.y,
+    Matrix4 translate = Matrix4::Translate( worldPos.x + m_position.x, worldPos.y + m_position.y,
                                             worldPos.z + m_position.z );
 
     Matrix4 scale = Matrix4::Scale( m_halfExtents.x, m_halfExtents.y, m_halfExtents.z );
@@ -102,6 +102,7 @@ float BoundingBox::GetVolume() const
 // 2*halfExtent.y.
 float BoundingBox::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
 {
+
     // This is a deliberately rough buoyancy approximation: it treats the box as
     // an upright vertical slab. The exact submerged volume of a rotated box would
     // need clipping against the water plane and is more expensive than this path
@@ -185,6 +186,7 @@ const Vector3& BoundingBox::GetHalfExtents() const
 // Box vs Sphere swept test: approximate box as bounding sphere for broadphase
 float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Cheap candidate test only. A later OBB/sphere manifold uses the real box
     // axes and closest point, so this broadphase test is allowed to be generous.
     // Approximate this box as a sphere of bounding radius for the swept test
@@ -197,8 +199,10 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
 
     if ( totalMovementSq < TOLERANCE )
     {
+
         // Static overlap check
         Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
+
         if ( VectorMagSquared( delta ) <= combinedRadiusSq )
         {
             return 0.0f;
@@ -220,6 +224,7 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
     }
 
     float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+
     if ( t < 0.0f || t > 1.0f )
     {
         return NO_COLLISION;
@@ -232,6 +237,7 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
 // Box vs Box swept test: approximate both as bounding spheres for broadphase
 float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Two oriented boxes can be expensive to sweep exactly. This conservative
     // radius test asks only whether their bounding balls could touch this tick.
     // Exact face/edge/corner contacts are built by ObjectContactManifold.cpp.
@@ -244,6 +250,7 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
     if ( totalMovementSq < TOLERANCE )
     {
         Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
+
         if ( VectorMagSquared( delta ) <= combinedRadiusSq )
         {
             return 0.0f;
@@ -265,6 +272,7 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
     }
 
     float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+
     if ( t < 0.0f || t > 1.0f )
     {
         return NO_COLLISION;
@@ -276,6 +284,7 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
 
 float BoundingBox::TestCollision( const ConvexHullShape& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Conservative broadphase candidate test. Exact box/hull SAT contacts are
     // generated later by ObjectContactManifold.cpp.
     float combinedRadius = GetBoundingRadius() + target.GetBoundingRadius();
@@ -296,6 +305,7 @@ float BoundingBox::TestCollision( const ConvexHullShape& target, const Ray& targ
 
     float dDotMoveDir = d * moveDir;
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
+
     if ( discriminant < 0.0f )
     {
         return NO_COLLISION;

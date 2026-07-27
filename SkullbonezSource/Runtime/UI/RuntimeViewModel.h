@@ -5,13 +5,11 @@ Purpose:
 
 Summary:
   RuntimeViewModel is a read-only snapshot of common runtime presentation data.
-  It is rebuilt from an explicit presentation context rather than letting UI
-  code chase storage owners directly.
+  It is rebuilt from explicit presentation operands rather than letting UI code
+  chase storage owners directly.
 
 Glossary:
   View model: Read-only presentation snapshot assembled from runtime owners.
-  RuntimeViewModelContext: Narrow borrowed view of the scene, capture, runtime
-    settings, and physics owners needed for presentation.
   Snapshot payload: Small copyable values such as counts, flags, indices, and
     bounded frame-local arrays.
   Presentation layer: UI or diagnostics code that reads state without owning it.
@@ -20,8 +18,7 @@ Glossary:
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
-  - Builder reads through RuntimeViewModelContext and leaves source systems
-    untouched.
+  - Builder reads concrete source owners and leaves them untouched.
 
 Related:
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
@@ -59,23 +56,12 @@ struct RuntimeViewModel
     float presentationAlpha = 1.0f;        // Effective previous-to-current pose blend.
 };
 
-struct RuntimeViewModelContext
-{
-    // Lifetime: Run builds this from owners that outlive the frame-local view
-    // model rebuild. The builder copies values and never stores these borrows.
-    const SceneSessionState& scene;
-    const SceneWorld& world;
-    int sceneCount = 0;
-    const CaptureController& capture;
-    bool presentationInterpolation = true;
-    bool presentationPinned = false;
-    float presentationAlpha = 1.0f;
-};
-
 class RuntimeViewModelBuilder
 {
   public:
-    static RuntimeViewModel Build( const RuntimeViewModelContext& context );
+    static RuntimeViewModel Build( const SceneSessionState& scene, const SceneWorld& world, int sceneCount,
+                                   const CaptureController& capture, bool presentationInterpolation, bool presentationPinned,
+                                   float presentationAlpha );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

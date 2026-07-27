@@ -40,6 +40,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::Reset()
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::AdvanceReleases( int frame )
 {
+
     if ( m_releaseLeftFrame == frame )
     {
         m_leftMouseDown = false;
@@ -67,10 +68,9 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT
     m_hasMouseClientPosition = true;
 }
 
-void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton,
-                                                                            int frame,
-                                                                            int holdFrames )
+void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton, int frame, int holdFrames )
 {
+
     if ( rightButton )
     {
         m_rightMouseDown = true;
@@ -99,6 +99,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
 {
     Input::AutomationState inputState;
     inputState.enabled = true;
+
     // Automation owns focus for the synthetic frame. Reading the real desktop
     // foreground window here would make a CLI result depend on operator input.
     inputState.overrideAppFocused = true;
@@ -111,6 +112,7 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PublishFrame()
     inputState.keyDown = m_keyDown;
     inputState.controlDown = m_controlDown;
     Input::SetAutomationState( inputState );
+
     if ( m_unfocusedInputFrames > 0 )
     {
         --m_unfocusedInputFrames;

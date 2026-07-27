@@ -48,9 +48,7 @@ template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vec
 
 } // namespace
 
-ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
-                                                                int retentionSeconds,
-                                                                const char* hashLogPath,
+ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath,
                                                                 int runtimeBodyCapacity )
 {
     m_recordingConfigured = true;
@@ -88,9 +86,11 @@ ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
 
 bool ReplayTimeline::SetRecordingEnabled( bool enabled ) noexcept
 {
+
     // Hazard: hash-log capture is a startup validation contract and cannot be
     // paused by an editor surface. Ordinary recording may stop without
     // reconfiguring or clearing the already reserved retained rings.
+
     if ( !m_recordingConfigured || !m_recordingHashLogPath.empty() ||
          ( enabled && !m_solver.IsEnabled() && !m_presentation.IsEnabled() ) )
     {
@@ -105,6 +105,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
 {
     ReplayMemoryPolicyApplyResult result;
     ReplayMemoryPolicy nextPolicy = m_memoryPolicy;
+
     if ( request.presetIndex >= 0 )
     {
         nextPolicy = ReplayMemoryPresetPolicy( ReplayMemoryPresetFromIndex( request.presetIndex ) );
@@ -121,6 +122,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
     }
 
     nextPolicy = ResolveReplayMemoryPolicy( nextPolicy );
+
     if ( nextPolicy.preset == m_memoryPolicy.preset &&
          nextPolicy.requestedRetentionSeconds == m_memoryPolicy.requestedRetentionSeconds &&
          nextPolicy.requestedBudgetMiB == m_memoryPolicy.requestedBudgetMiB &&
@@ -132,6 +134,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
 
     m_memoryPolicy = nextPolicy;
     result.changed = true;
+
     if ( !m_recordingConfigured )
     {
         return result;
@@ -139,8 +142,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
 
     // Hazard: changing retention invalidates every normalized cursor. Keep the
     // three recorder windows atomic so no frame observes mixed history ranges.
-    ConfigureRecording( m_recordingEnabled,
-                        m_memoryPolicy.requestedRetentionSeconds,
+    ConfigureRecording( m_recordingEnabled, m_memoryPolicy.requestedRetentionSeconds,
                         m_recordingHashLogPath.empty() ? nullptr : m_recordingHashLogPath.c_str(),
                         m_recordingRuntimeBodyCapacity );
 
@@ -168,6 +170,7 @@ void ReplayTimeline::ClearLoadedPresentation()
 
 bool ReplayTimeline::LoadPresentationArtifact( const char* path )
 {
+
     if ( !path || path[0] == '\0' )
     {
         return false;
@@ -177,22 +180,18 @@ bool ReplayTimeline::LoadPresentationArtifact( const char* path )
     // after validation, so a failed picker load preserves the previous track.
     std::vector<ReplayPresentationSample> samples;
     ReplayV2LoadResult result;
+
     if ( !ReplayV2Artifact::LoadPresentation( path, samples, &result ) || samples.size() < 2 )
     {
         return false;
     }
 
-    InstallLoadedPresentation( path,
-                               samples,
-                               result.bodyDictionaryCount,
-                               result.fileBytes,
-                               result.firstFrame,
+    InstallLoadedPresentation( path, samples, result.bodyDictionaryCount, result.fileBytes, result.firstFrame,
                                result.lastFrame );
 
     printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
             "last_frame=%llu bytes=%llu\n",
-            m_loadedPresentation.path,
-            static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
+            m_loadedPresentation.path, static_cast<unsigned long long>( m_loadedPresentation.samples.size() ),
             static_cast<unsigned long long>( m_loadedPresentation.bodyDictionaryCount ),
             static_cast<unsigned long long>( m_loadedPresentation.firstFrame ),
             static_cast<unsigned long long>( m_loadedPresentation.lastFrame ),
@@ -201,12 +200,9 @@ bool ReplayTimeline::LoadPresentationArtifact( const char* path )
     return true;
 }
 
-void ReplayTimeline::InstallLoadedPresentation( const char* path,
-                                                std::vector<ReplayPresentationSample>& samples,
-                                                std::size_t bodyDictionaryCount,
-                                                std::size_t fileBytes,
-                                                ReplayFrameIndex firstFrame,
-                                                ReplayFrameIndex lastFrame )
+void ReplayTimeline::InstallLoadedPresentation( const char* path, std::vector<ReplayPresentationSample>& samples,
+                                                std::size_t bodyDictionaryCount, std::size_t fileBytes,
+                                                ReplayFrameIndex firstFrame, ReplayFrameIndex lastFrame )
 {
     ClearLoadedPresentation();
     m_loadedPresentation.samples.swap( samples );
@@ -220,16 +216,13 @@ void ReplayTimeline::InstallLoadedPresentation( const char* path,
 
 bool ReplayTimeline::NextPresentationSavePath( char* outPath, std::size_t outPathSize )
 {
-    return RuntimeFileWriter::NextNumberedPath( outPath,
-                                                outPathSize,
-                                                "replays",
-                                                "replay_v2_",
-                                                ".skreplay",
+    return RuntimeFileWriter::NextNumberedPath( outPath, outPathSize, "replays", "replay_v2_", ".skreplay",
                                                 m_presentationSaveSequence );
 }
 
 void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
 {
+
     if ( m_recordingEnabled && m_events.IsEnabled() )
     {
         m_events.RecordEvent( input );
@@ -238,12 +231,14 @@ void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
 
 void ReplayTimeline::SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch )
 {
+
     if ( command.kind == ReplayEventKind::Unknown || !m_recordingEnabled || !m_events.IsEnabled() )
     {
         return;
     }
 
     ReplayEventInput input;
+
     if ( command.useNextFrame )
     {
         const ReplayRecorderStats solverStats = m_solver.GetStats();
@@ -277,22 +272,21 @@ ReplayTimelineMemoryStats ReplayTimeline::CollectMemoryStats() const
 {
     ReplayTimelineMemoryStats stats;
     CollectMemoryCategoryBytes( stats.categoryBytes );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
-        static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                                            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedOwner,
+                                                            static_cast<uint64_t>( sizeof( m_loadedPresentation ) ) );
 
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        stats.categoryBytes,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
-        ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples ) );
+    SkullbonezCore::Core::
+        MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                          SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedSampleRecords,
+                                          ReplayTimelineVectorCapacityBytes( m_loadedPresentation.samples ) );
 
     for ( const ReplayPresentationSample& sample : m_loadedPresentation.samples )
     {
-        SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-            stats.categoryBytes,
-            SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
-            ReplayTimelineVectorCapacityBytes( sample.bodies ) );
+        SkullbonezCore::Core::
+            MainMemoryAddReplayCategoryBytes( stats.categoryBytes,
+                                              SkullbonezCore::Core::MainMemoryReplayByteCategory::LoadedBodies,
+                                              ReplayTimelineVectorCapacityBytes( sample.bodies ) );
     }
 
     stats.policy = m_memoryPolicy;
@@ -313,6 +307,7 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
 {
     const ReplayPresentationSample* presentation = m_presentation.LatestSample();
     const ReplaySolverFrameSample* solver = m_solver.LatestSample();
+
     if ( !presentation || !solver )
     {
         return;
@@ -334,8 +329,7 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
                  "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
                  "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
                  "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_captureMismatchReports,
-                 static_cast<unsigned long long>( presentation->frameIndex ),
+                 m_captureMismatchReports, static_cast<unsigned long long>( presentation->frameIndex ),
                  static_cast<unsigned long long>( solver->frameIndex ),
                  static_cast<unsigned long long>( presentation->stateHash ),
                  static_cast<unsigned long long>( solver->presentationHash ),
@@ -346,54 +340,42 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
     else if ( !m_captureMismatchSuppressed )
     {
         m_captureMismatchSuppressed = true;
-        fprintf( stderr,
-                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
-                 "timeline.\n" );
+        fprintf( stderr, "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
+                         "timeline.\n" );
     }
 }
 
-ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( int sceneFrame,
-                                                          float physicsDt,
-                                                          const ReplayWorldPresentationSample& world,
-                                                          const ReplayCameraSample& camera,
-                                                          const ReplayLauncherVisualSample& launcherVisual,
-                                                          Physics::PhysicsEngine& physics,
-                                                          const Gameplay::TornadoGameplay& tornadoGameplay,
-                                                          const SceneEntityStore& entities,
-                                                          const Physics::PhysicsBodyStore& bodyStore,
-                                                          const Physics::ColliderStore& colliderStore,
-                                                          const ReplayBranchInfo& branch )
+const ReplaySolverFrameSample*
+ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
+                              const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
+                              Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
+                              const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
+                              const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch )
 {
-    ReplayTimelineCaptureResult result;
+
     if ( !m_recordingEnabled )
     {
-        return result;
+        return nullptr;
     }
 
     const uint32_t eventCursor = m_events.GetStats().nextSequence;
+
     if ( m_solver.IsEnabled() )
     {
         const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
-        m_solver.CaptureFrame( branch,
-                               eventCursor,
-                               sceneFrame,
-                               physicsDt,
-                               world,
-                               camera,
-                               launcherVisual,
-                               physics,
-                               tornadoGameplay,
-                               entities,
-                               bodyStore,
-                               colliderStore );
+        m_solver.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, launcherVisual, physics,
+                               tornadoGameplay, entities, bodyStore, colliderStore );
 
         const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
+
         if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
         {
+
             // Why: the solver sample already contains presentation-facing body
             // fields and its hash, so a paired capture needs only one store walk.
             m_presentation.CaptureFrameFromSolverSample( *solverSample );
             const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
+
             if ( presentationSample )
             {
                 m_artifactHashLog.AppendPresentation( *presentationSample );
@@ -401,29 +383,21 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( int sceneFrame,
 
             m_artifactHashLog.AppendSolver( *solverSample );
             ReportLatestCaptureMismatch();
-            result.solverSample = solverSample;
-            return result;
+            return solverSample;
         }
     }
 
-    m_presentation.CaptureFrame( branch,
-                                 eventCursor,
-                                 sceneFrame,
-                                 physicsDt,
-                                 world,
-                                 camera,
-                                 physics,
-                                 entities,
-                                 bodyStore,
+    m_presentation.CaptureFrame( branch, eventCursor, sceneFrame, physicsDt, world, camera, physics, entities, bodyStore,
                                  colliderStore );
 
     const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
+
     if ( presentationSample )
     {
         m_artifactHashLog.AppendPresentation( *presentationSample );
     }
 
     ReportLatestCaptureMismatch();
-    return result;
+    return nullptr;
 }
 } // namespace SkullbonezCore::Runtime

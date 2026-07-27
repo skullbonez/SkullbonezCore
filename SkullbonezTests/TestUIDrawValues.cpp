@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Exercises every UR1 value variant, fixed-capacity failure behavior, preview
   fallback data, clip nesting, immutable text measurement, the profiler
-  presenter, and all production UI surfaces without a GPU.
+  presenter, detached memory-capacity rows, and all production UI surfaces
+  without a GPU.
 
 Mental model:
   UI records ordered values into bounded storage. These tests inspect those
@@ -16,11 +17,14 @@ Mental model:
 Glossary:
   Preview identity: UI catalog row resolved to a texture only during submission.
   Clip stack: Nested screen rectangles constraining later draw commands.
+  Capacity row: Runtime-owned label and numeric values rendered without a live
+    allocator borrow.
 
 Invariants:
   - Command order and stored text are deterministic.
   - Capacity exhaustion reports a flag and never grows storage.
   - Missing previews carry an authored fill and label fallback.
+  - Memory rows sort largest-resident-first without exhausting draw storage.
 
 Related:
   - SkullbonezSource/UI/UIDrawList.h
@@ -28,6 +32,7 @@ Related:
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/UI/UIDraw.h"
 #include "../SkullbonezSource/UI/UIDrawList.h"
 #include "../SkullbonezSource/UI/UIFontMetrics.h"
@@ -39,11 +44,31 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <span>
 #include <string>
 
 using SkullbonezCore::UI::UIDrawContext;
 using SkullbonezCore::UI::UIDrawList;
 using SkullbonezCore::UI::UIFontMetrics;
+
+namespace
+{
+int FindDrawTextIndex( const UIDrawList& list, const char* expected )
+{
+    const std::span<const UIDrawList::Command> commands = list.Commands();
+
+    for ( int index = 0; index < static_cast<int>( commands.size() ); ++index )
+    {
+        if ( commands[static_cast<std::size_t>( index )].type == UIDrawList::CommandType::Text &&
+             std::strcmp( list.TextAt( commands[static_cast<std::size_t>( index )].textOffset ), expected ) == 0 )
+        {
+            return index;
+        }
+    }
+
+    return -1;
+}
+} // namespace
 
 TEST_CASE( "UI draw values preserve primitive and text order" )
 {
@@ -233,6 +258,70 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         CHECK_FALSE( frame.GetStats().textOverflow );
         CHECK_FALSE( frame.GetStats().clipOverflow );
     }
+}
+
+TEST_CASE( "Memory capacity table sorts detached owner rows by resident bytes without draw overflow" )
+{
+    using SkullbonezCore::UI::InGameUIFrameData;
+    using SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState;
+
+    auto data = std::make_unique<InGameUIFrameData>();
+    SkullbonezCore::UI::UIRuntimeReserveCapacityRow capacityRows[2] = {};
+    data->reserveCapacityRows = capacityRows;
+    data->reserveCapacityRowCount = 2;
+    strcpy_s( capacityRows[0].ownerName, "PhysicsBodyStore.bodies" );
+    strcpy_s( capacityRows[0].capacityReason, "one row per loaded body" );
+    strcpy_s( capacityRows[0].subsystemName, "physics" );
+    capacityRows[0].elementSizeBytes = 72;
+    capacityRows[0].currentCapacity = 100;
+    capacityRows[0].liveCount = 30;
+    capacityRows[0].sessionHighWater = 40;
+    capacityRows[0].residentBytes = 7200;
+    strcpy_s( capacityRows[1].ownerName, "ColliderStore.colliders" );
+    strcpy_s( capacityRows[1].capacityReason, "one row per loaded collider" );
+    strcpy_s( capacityRows[1].subsystemName, "physics" );
+    capacityRows[1].elementSizeBytes = 80;
+    capacityRows[1].currentCapacity = 200;
+    capacityRows[1].liveCount = 80;
+    capacityRows[1].sessionHighWater = 125;
+    capacityRows[1].residentBytes = 16000;
+
+    UIDrawList list;
+    UIDrawContext draw( 1920, 1080, list );
+    UIMemoryOverlayState state;
+    SkullbonezCore::UI::MemoryTab::Draw( draw, state, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0, 0, 0 );
+
+    UIDrawList measuredList;
+    UIDrawContext measuredDraw( 1920, 1080, measuredList );
+    UIMemoryOverlayState measuredState;
+    SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Gameplay );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope renderScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render );
+        SkullbonezCore::UI::MemoryTab::Draw( measuredDraw, measuredState, *data, 20.0f, 0.0f, 720.0f, 260.0f, -450.0f, 0,
+                                            0, 0 );
+    }
+    const uint64_t memoryDrawAllocationViolations =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount();
+    SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off );
+
+    CHECK( memoryDrawAllocationViolations == 0u );
+    const int colliderRow = FindDrawTextIndex( measuredList, "ColliderStore.colliders" );
+    const int bodyRow = FindDrawTextIndex( measuredList, "PhysicsBodyStore.bodies" );
+    REQUIRE( colliderRow >= 0 );
+    REQUIRE( bodyRow >= 0 );
+    CHECK( colliderRow < bodyRow );
+    CHECK( FindDrawTextIndex( measuredList, "62.5%" ) >= 0 );
+    const UIDrawList::Stats stats = measuredList.GetStats();
+    CHECK( stats.commandCount > 0 );
+    CHECK( stats.commandCount < UIDrawList::MAX_COMMANDS );
+    CHECK( stats.textBytes < UIDrawList::MAX_TEXT_BYTES );
+    CHECK_FALSE( stats.commandOverflow );
+    CHECK_FALSE( stats.textOverflow );
+    CHECK_FALSE( stats.clipOverflow );
 }
 
 

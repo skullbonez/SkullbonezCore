@@ -81,9 +81,11 @@ BoundingSphere::BoundingSphere( float fRadius, const Vector3& vPosition, float f
  */
 float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Relative motion this frame (focus in target space).
     Vector3 relativeMovement = focusRay.vector3 - targetRay.vector3;
     float relativeMovementSq = relativeMovement * relativeMovement;
+
     if ( relativeMovementSq <= TOLERANCE * TOLERANCE )
     {
         return NO_COLLISION;
@@ -96,6 +98,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
     float radiusSumSq = radiusSum * radiusSum;
 
     // Already overlapping: skip swept solve and let static overlap handling resolve contact.
+
     if ( centerDistanceSq <= radiusSumSq )
     {
         return NO_COLLISION;
@@ -103,6 +106,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
     // If relative motion is separating, no swept impact can occur this frame.
     float closingDot = difference * relativeMovement;
+
     if ( closingDot >= 0.0f )
     {
         return NO_COLLISION;
@@ -112,6 +116,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
     // they cannot reach contact distance.
     float maxTravel = sqrtf( relativeMovementSq );
     float reachRadius = radiusSum + maxTravel;
+
     if ( centerDistanceSq > reachRadius * reachRadius )
     {
         return NO_COLLISION;
@@ -122,6 +127,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
     float b = closingDot;
     float c = centerDistanceSq - radiusSumSq;
     float discriminant = b * b - a * c;
+
     if ( discriminant < 0.0f )
     {
         return NO_COLLISION;
@@ -133,6 +139,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
 float BoundingSphere::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Public wrapper kept so CollisionShape's std::visit dispatch can call the
     // same member name for every shape pair.
     return CollisionDetect( target, targetRay, focusRay );
@@ -159,6 +166,7 @@ const Vector3& BoundingSphere::GetPosition() const
 
 Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
+
     // Builds the full TRS model matrix: T(worldPos) * rotation * T(m_position) * Scale(radius).
     //
     // SIMPLIFICATION: m_position is always ZERO_VECTOR in this engine — every sphere's local
@@ -170,10 +178,12 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
     // (col0, col1, col2) uniformly scaled by m_radius, and col3 replaced by worldPos.
     // No matrix multiply is needed at all.
 #ifdef _DEBUG
+
     // Debug: full formula — makes T(m_position) visible even though it's always identity.
     return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) *
            Matrix4::Scale( m_radius, m_radius, m_radius );
 #else
+
     // Release/Profile: 3 SSE scale passes + direct col3 write.
     //
     // Each pass loads one 4-float column of 'rotation' (16-byte-unaligned is fine with
@@ -208,6 +218,7 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
 
 float BoundingSphere::GetVolume() const
 {
+
     // m_volume of sphere = 4/3 * PI * m_radius^3
     return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
 }
@@ -215,22 +226,27 @@ float BoundingSphere::GetVolume() const
 
 float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
 {
+
     // Buoyancy needs "how much of this sphere is under the water line?" Full
     // above/below cases are simple; the middle case is the spherical-cap formula
     // for a ball sliced by a flat plane.
     // Compare the sphere's bottom (center.y - r) and top (center.y + r) against the fluid surface.
+
     if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
     {
+
         // not touching fluid
         return 0.0f;
     }
     else if ( m_position.y + m_radius <= m_fluidSurfaceHeight )
     {
+
         // totally submerged in fluid
         return 1.0f;
     }
     else
     {
+
         /*
             Partially submerged: compute the volume of a spherical cap.
 
@@ -263,6 +279,7 @@ void BoundingSphere::SetDragCoefficient( float fDragCoefficient )
 
 float BoundingSphere::GetProjectedSurfaceArea() const
 {
+
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;
 }
@@ -272,6 +289,7 @@ float BoundingSphere::GetProjectedSurfaceArea() const
 // Precise OBB-sphere tests are done in the narrowphase collision response.
 float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // This intentionally overestimates a box as a sphere that reaches its
     // farthest corner. Broadphase prefers false positives over false negatives:
     // it is fine to do one extra narrowphase test, but not fine to miss a hit.
@@ -284,6 +302,7 @@ float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targe
     if ( totalMovementSq < TOLERANCE )
     {
         Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
+
         if ( VectorMagSquared( delta ) <= combinedRadiusSq )
         {
             return 0.0f;
@@ -305,6 +324,7 @@ float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targe
     }
 
     float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+
     if ( t < 0.0f || t > 1.0f )
     {
         return NO_COLLISION;
@@ -316,6 +336,7 @@ float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targe
 
 float BoundingSphere::TestCollision( const ConvexHullShape& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+
     // Broadphase sweep only: hulls provide exact contacts later through the
     // object manifold builder, so this path stays conservative.
     float combinedRadius = m_radius + target.GetBoundingRadius();
@@ -336,6 +357,7 @@ float BoundingSphere::TestCollision( const ConvexHullShape& target, const Ray& t
 
     float dDotMoveDir = d * moveDir;
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
+
     if ( discriminant < 0.0f )
     {
         return NO_COLLISION;

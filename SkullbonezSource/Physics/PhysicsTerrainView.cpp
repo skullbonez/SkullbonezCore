@@ -14,7 +14,8 @@ Glossary:
     quad.
 
 Invariants:
-  - X/Z posting orientation intentionally preserves the legacy swapped mapping.
+  - Cache storage advances world X in its outer index and world Z in its inner
+    index, matching Terrain's world-X-major post construction.
   - The diagonal comparison and plane-height expression are byte-order
     sensitive and must not be algebraically rearranged.
   - Out-of-bounds sampling is a lane-F caller invariant failure.
@@ -41,13 +42,14 @@ bool PhysicsTerrainView::IsValid() const noexcept
                                                                  static_cast<std::size_t>( quadsPerSide )
                                                            : 0u;
 
-    return flatSlope ? flatSlopeExtent > 0.0f
-                     : requiredCellCount > 0u && scaledStepSize > 0.0f && worldExtent > 0.0f &&
-                           cells.size() >= requiredCellCount;
+    return flatSlope
+               ? flatSlopeExtent > 0.0f
+               : requiredCellCount > 0u && scaledStepSize > 0.0f && worldExtent > 0.0f && cells.size() >= requiredCellCount;
 }
 
 bool PhysicsTerrainView::IsInBounds( float x, float z ) const noexcept
 {
+
     if ( !IsValid() )
     {
         return false;
@@ -67,17 +69,16 @@ float PhysicsTerrainView::HeightAt( float x, float z ) const
 
 void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, Plane& outPlane ) const
 {
+
     if ( !IsInBounds( x, z ) )
     {
-        SB_FATAL( "Physics/PhysicsTerrainView",
-                  "Coordinates out of terrain bounds: x=%.3f z=%.3f valid=%d.",
-                  x,
-                  z,
+        SB_FATAL( "Physics/PhysicsTerrainView", "Coordinates out of terrain bounds: x=%.3f z=%.3f valid=%d.", x, z,
                   IsValid() ? 1 : 0 );
     }
 
     if ( flatSlope )
     {
+
         // Invariant: preserve base + slopeX*x + slopeZ*z exactly; regrouping
         // these terms changes the byte-exact physics oracle.
         outHeight = slopeBaseY + slopeX * x + slopeZ * z;
@@ -85,25 +86,22 @@ void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, P
         return;
     }
 
-    // Invariant: the historic terrain cache maps Z to xPosting and X to
-    // zPosting. The names look crossed, but changing them rotates the surface.
-    const int xPosting = static_cast<int>( floorf( z / scaledStepSize ) );
-    const int zPosting = static_cast<int>( floorf( x / scaledStepSize ) );
-    if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
+    // Invariant: cache storage advances world X in its outer index and world Z
+    // in its inner index, matching Terrain's world-X-major post construction.
+    const int worldZCell = static_cast<int>( floorf( z / scaledStepSize ) );
+    const int worldXCell = static_cast<int>( floorf( x / scaledStepSize ) );
+
+    if ( worldZCell < 0 || worldXCell < 0 || worldZCell >= quadsPerSide || worldXCell >= quadsPerSide )
     {
         SB_FATAL( "Physics/PhysicsTerrainView",
-                  "Terrain cache index out of range: x=%.3f z=%.3f xPosting=%d zPosting=%d quadsPerSide=%d.",
-                  x,
-                  z,
-                  xPosting,
-                  zPosting,
-                  quadsPerSide );
+                  "Terrain cache index out of range: x=%.3f z=%.3f worldXCell=%d worldZCell=%d quadsPerSide=%d.", x, z,
+                  worldXCell, worldZCell, quadsPerSide );
     }
 
-    const float localZ = z - ( xPosting * scaledStepSize );
-    const float localX = x - ( zPosting * scaledStepSize );
+    const float localZ = z - ( worldZCell * scaledStepSize );
+    const float localX = x - ( worldXCell * scaledStepSize );
     const bool isTriangleA = ( localX <= TOLERANCE ) || ( ( scaledStepSize - localZ ) > localX );
-    const PhysicsTerrainCell& cell = cells[static_cast<std::size_t>( zPosting * quadsPerSide + xPosting )];
+    const PhysicsTerrainCell& cell = cells[static_cast<std::size_t>( worldXCell * quadsPerSide + worldZCell )];
     const Plane& plane = isTriangleA ? cell.triangleA : cell.triangleB;
 
     // Invariant: keep the subtraction and division order byte-identical to the

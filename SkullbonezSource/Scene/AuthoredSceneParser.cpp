@@ -45,10 +45,11 @@ using AuthoredSceneParserDetail::RequireMember;
 using AuthoredSceneParserDetail::RequireObject;
 using AuthoredSceneParserDetail::ValidateReleasableTreeGroups;
 
-Physics::PhysicsSceneObjectId
-AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
+Physics::PhysicsSceneObjectId AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count,
+                                                                               const std::string& path )
 {
     Physics::PhysicsSceneObjectId result { first };
+
     if ( first == 0 )
     {
         Fail( path, "sceneObjectId must be nonzero" );
@@ -56,6 +57,7 @@ AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count,
     }
 
     const uint32_t maxId = ( std::numeric_limits<uint32_t>::max )();
+
     if ( count == 0 || count - 1u > maxId - first )
     {
         Fail( path, "sceneObjectId range exceeds uint32" );
@@ -65,9 +67,11 @@ AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count,
     // Invariant: duplicate detection covers derived ragdoll parts as well as
     // directly authored rows, so no two bodies can enter creation with the
     // same persistent identity.
+
     for ( uint32_t offset = 0; offset < count; ++offset )
     {
         const uint32_t candidate = first + offset;
+
         if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), candidate ) != m_sceneObjectIds.end() )
         {
             Fail( path, "Duplicate sceneObjectId: " + std::to_string( candidate ) );
@@ -83,18 +87,18 @@ AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count,
     return result;
 }
 
-Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json& object,
-                                                                      const std::string& path,
-                                                                      const char* context,
-                                                                      uint32_t count )
+Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json& object, const std::string& path,
+                                                                      const char* context, uint32_t count )
 {
     uint32_t first = 0;
+
     if ( m_currentDocumentVersion == 2 )
     {
         first = ReadUInt( RequireMember( object, path, context, "sceneObjectId" ), path, "sceneObjectId" );
     }
     else
     {
+
         if ( FindMember( object, "sceneObjectId" ) )
         {
             Fail( path, "sceneObjectId requires scene schema version 2" );
@@ -115,17 +119,19 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json
     return RegisterSceneObjectIdRange( first, count, path );
 }
 
-Physics::PhysicsSceneObjectId
-AuthoredSceneParser::AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count, const std::string& path )
+Physics::PhysicsSceneObjectId AuthoredSceneParser::AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count,
+                                                                                       const std::string& path )
 {
     const uint32_t maxId = ( std::numeric_limits<uint32_t>::max )();
+
     while ( next != 0 && count > 0 && count - 1u <= maxId - next )
     {
         bool available = true;
+
         for ( uint32_t offset = 0; offset < count; ++offset )
         {
-            if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), next + offset ) !=
-                 m_sceneObjectIds.end() )
+
+            if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), next + offset ) != m_sceneObjectIds.end() )
             {
                 next += offset + 1u;
                 available = false;
@@ -150,8 +156,10 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     uint32_t next = 1;
     auto assignRows = [&]( auto& rows )
     {
+
         for ( auto& row : rows )
         {
+
             if ( !row.sceneObjectId.IsValid() )
             {
                 row.sceneObjectId = AllocateVersion1SceneObjectIdRange( next, 1, path );
@@ -172,15 +180,17 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     assignRows( m_scene.m_boxStates );
     assignRows( m_scene.m_convexHulls );
     assignRows( m_scene.m_convexHullStates );
+
     for ( SceneRagdoll& ragdoll : m_scene.m_ragdolls )
     {
+
         if ( !ragdoll.firstSceneObjectId.IsValid() )
         {
-            ragdoll.firstSceneObjectId = AllocateVersion1SceneObjectIdRange(
-                next,
+            ragdoll.firstSceneObjectId = AllocateVersion1SceneObjectIdRange( next,
 
-                static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
-                path );
+                                                                             static_cast<uint32_t>( Physics::Ragdoll::SIMPLE_PART_COUNT ),
+                                                                             path );
+
             if ( ParserFailed() )
             {
                 return;
@@ -190,6 +200,7 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
 
     for ( SceneAssetPartRef& part : m_scene.m_assetParts )
     {
+
         switch ( part.source )
         {
         case SceneAssetPartSource::BallState:
@@ -209,6 +220,7 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
 
     for ( SceneAssetInstanceRecord& instance : m_scene.m_assetInstances )
     {
+
         if ( instance.partCount > 0 )
         {
             instance.rootSceneObjectId = m_scene.m_assetParts[instance.firstPart].sceneObjectId;
@@ -222,15 +234,15 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
 }
 
-const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( const Json& instance,
-                                                                             const std::string& path,
-                                                                             uint32_t partIndex,
-                                                                             uint32_t expectedPartCount,
+const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( const Json& instance, const std::string& path,
+                                                                             uint32_t partIndex, uint32_t expectedPartCount,
                                                                              const std::string& expectedPartName )
 {
     const Json* parts = FindMember( instance, "parts" );
+
     if ( m_currentDocumentVersion == 1 )
     {
+
         if ( parts )
         {
             Fail( path, "assetInstance.parts requires scene schema version 2" );
@@ -246,6 +258,7 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
     }
 
     RequireArray( *parts, path, "assetInstance.parts" );
+
     if ( ParserFailed() )
     {
         return nullptr;
@@ -253,17 +266,15 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
     if ( parts->size() != expectedPartCount )
     {
-        Fail( path,
-              "assetInstance.parts count does not match asset recipe: expected " + std::to_string( expectedPartCount ) +
-                  ", got " + std::to_string( parts->size() ) );
+        Fail( path, "assetInstance.parts count does not match asset recipe: expected " +
+                        std::to_string( expectedPartCount ) + ", got " + std::to_string( parts->size() ) );
 
         return nullptr;
     }
 
     const Json& identity = ( *parts )[partIndex];
     RequireObject( identity, path, "assetInstance.parts[]" );
-    const std::string name = ReadString( RequireMember( identity, path, "assetInstance.parts[]", "name" ),
-                                         path,
+    const std::string name = ReadString( RequireMember( identity, path, "assetInstance.parts[]", "name" ), path,
                                          "assetInstance.parts[].name" );
 
     if ( ParserFailed() )
@@ -283,6 +294,7 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
 std::string AuthoredSceneParser::ResolveStylePath( const std::string& token ) const
 {
+
     if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".style.json" ) )
     {
@@ -292,18 +304,17 @@ std::string AuthoredSceneParser::ResolveStylePath( const std::string& token ) co
     return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
 }
 
-void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
-                                             const std::string& path,
-                                             const char* memberName,
-                                             int depth )
+void AuthoredSceneParser::LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth )
 {
     const Json* includes = FindMember( root, memberName );
+
     if ( !includes )
     {
         return;
     }
 
     RequireArray( *includes, path, memberName );
+
     if ( ParserFailed() )
     {
         return;
@@ -312,6 +323,7 @@ void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
     for ( const Json& include : *includes )
     {
         const std::string token = ReadString( include, path, memberName );
+
         if ( ParserFailed() )
         {
             return;
@@ -319,6 +331,7 @@ void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
 
         const std::string stylePath = ResolveStylePath( token );
         LoadDocumentIntoScene( stylePath, true, depth + 1 );
+
         if ( ParserFailed() )
         {
             return;
@@ -329,6 +342,7 @@ void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
 void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& path )
 {
     LoadAssetLibraries( root, path );
+
     if ( ParserFailed() )
     {
         return;
@@ -337,6 +351,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* playback = FindMember( root, "playback" ) )
     {
         ApplyPlayback( *playback, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -346,6 +361,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* simulation = FindMember( root, "simulation" ) )
     {
         ApplySimulation( *simulation, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -355,6 +371,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* tornadoSystem = FindMember( root, "tornadoSystem" ) )
     {
         ApplyTornadoSystem( *tornadoSystem, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -364,6 +381,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* runtime = FindMember( root, "runtime" ) )
     {
         ApplyRuntime( *runtime, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -373,6 +391,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* capture = FindMember( root, "capture" ) )
     {
         ApplyCapture( *capture, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -382,6 +401,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* logging = FindMember( root, "logging" ) )
     {
         ApplyLogging( *logging, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -391,6 +411,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* debug = FindMember( root, "debug" ) )
     {
         ApplyDebug( *debug, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -400,6 +421,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* terrain = FindMember( root, "terrain" ) )
     {
         ApplyTerrain( *terrain, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -409,6 +431,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* editor = FindMember( root, "editor" ) )
     {
         ApplyEditor( *editor, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -418,6 +441,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* ui = FindMember( root, "ui" ) )
     {
         ApplyUI( *ui, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -427,6 +451,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* cinematic = FindMember( root, "cinematic" ) )
     {
         ApplyCinematic( *cinematic, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -436,6 +461,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* cameras = FindMember( root, "cameras" ) )
     {
         RequireArray( *cameras, path, "cameras" );
+
         if ( ParserFailed() )
         {
             return;
@@ -444,6 +470,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
         for ( const Json& camera : *cameras )
         {
             ApplyCamera( camera, path );
+
             if ( ParserFailed() )
             {
                 return;
@@ -454,6 +481,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* objects = FindMember( root, "objects" ) )
     {
         RequireArray( *objects, path, "objects" );
+
         if ( ParserFailed() )
         {
             return;
@@ -462,6 +490,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
         for ( const Json& object : *objects )
         {
             ApplyObject( object, path );
+
             if ( ParserFailed() )
             {
                 return;
@@ -472,6 +501,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* ragdollJoints = FindMember( root, "ragdollJoints" ) )
     {
         RequireArray( *ragdollJoints, path, "ragdollJoints" );
+
         if ( ParserFailed() )
         {
             return;
@@ -480,6 +510,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
         for ( const Json& joint : *ragdollJoints )
         {
             ApplyPointJointConstraint( joint, path );
+
             if ( ParserFailed() )
             {
                 return;
@@ -488,6 +519,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     }
 
     ApplyAssetInstances( root, path );
+
     if ( ParserFailed() )
     {
         return;
@@ -497,9 +529,11 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHullStates );
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHulls );
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
+
     if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
     {
         RequireArray( *objectMaterials, path, "objectMaterials" );
+
         if ( ParserFailed() )
         {
             return;
@@ -508,6 +542,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
         for ( const Json& objectMaterial : *objectMaterials )
         {
             ApplyObjectMaterial( objectMaterial, path );
+
             if ( ParserFailed() )
             {
                 return;
@@ -518,6 +553,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
     if ( const Json* requirements = FindMember( root, "requirements" ) )
     {
         ApplyRequirements( *requirements, path );
+
         if ( ParserFailed() )
         {
             return;
@@ -527,6 +563,7 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
 
 void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
 {
+
     if ( depth > kMaxStyleIncludeDepth )
     {
         Fail( path, "Style include depth exceeded" );
@@ -534,21 +571,21 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
     }
 
     const Json root = ReadJsonFile( path );
+
     if ( ParserFailed() )
     {
         return;
     }
 
     RequireObject( root, path, "document root" );
+
     if ( ParserFailed() )
     {
         return;
     }
 
     const std::string expectedFormat = styleOnly ? "skullbonez.style.json" : "skullbonez.scene.json";
-    const std::string actualFormat = ReadString( RequireMember( root, path, "document root", "format" ),
-                                                 path,
-                                                 "format" );
+    const std::string actualFormat = ReadString( RequireMember( root, path, "document root", "format" ), path, "format" );
 
     if ( ParserFailed() )
     {
@@ -563,9 +600,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
         return;
     }
 
-    const uint32_t documentVersion = ReadUInt( RequireMember( root, path, "document root", "version" ),
-                                               path,
-                                               "version" );
+    const uint32_t documentVersion = ReadUInt( RequireMember( root, path, "document root", "version" ), path, "version" );
 
     if ( ParserFailed() )
     {
@@ -584,6 +619,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
     }
 
     LoadStyleIncludes( root, path, "includes", depth );
+
     if ( ParserFailed() )
     {
         return;
@@ -592,6 +628,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
     if ( !styleOnly )
     {
         LoadStyleIncludes( root, path, "styles", depth );
+
         if ( ParserFailed() )
         {
             return;
@@ -609,7 +646,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
 
 // Lifetime: the parser only borrows the asset registry during this parse.
 // A null registry keeps standalone tools on the historical path fallback.
-AuthoredSceneParser::AuthoredSceneParser( Assets::AssetContext assets ) : m_assets( assets )
+AuthoredSceneParser::AuthoredSceneParser( const Assets::AssetSystem* assets ) : m_assets( assets )
 {
 }
 
@@ -627,6 +664,7 @@ AuthoredScene AuthoredSceneParser::LoadScene( const char* path )
 {
     AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
+
     if ( !result.ok )
     {
         SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
@@ -639,6 +677,7 @@ AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
 {
     AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
+
     if ( !result.ok )
     {
         SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
@@ -647,8 +686,8 @@ AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
     return scene;
 }
 
-SkullbonezCore::Core::SbResult
-AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly,
+                                                                     AuthoredScene& outScene )
 {
     m_scene = AuthoredScene();
     m_assetDefinitions.clear();
@@ -660,6 +699,7 @@ AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, Authored
     {
         ParserFailureScope failureScope( m_failure );
         LoadDocumentIntoScene( path ? path : "", styleOnly, 0 );
+
         if ( !ParserFailed() )
         {
             UpgradeVersion1SceneObjectIds( path ? path : "" );
@@ -667,6 +707,7 @@ AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, Authored
 
         if ( !ParserFailed() )
         {
+
             // Invariant: explicit and legacy group names are resolved only
             // after includes and version-1 ids have reached their final form.
             ValidateReleasableTreeGroups( m_scene.m_convexHulls, path ? path : "" );
@@ -689,24 +730,24 @@ AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, Authored
 }
 
 
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
     return AuthoredSceneParser( assets ).LoadScene( path );
 }
 
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
     return AuthoredSceneParser( assets ).LoadStyle( path );
 }
 
-SkullbonezCore::Core::SbResult
-TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+                                                                 AuthoredScene& outScene )
 {
     return AuthoredSceneParser( assets ).TryLoadScene( path, outScene );
 }
 
-SkullbonezCore::Core::SbResult
-TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+                                                              AuthoredScene& outScene )
 {
     return AuthoredSceneParser( assets ).TryLoadStyle( path, outScene );
 }

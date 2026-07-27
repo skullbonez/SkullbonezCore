@@ -31,55 +31,75 @@ using namespace SkullbonezCore::Physics;
 
 namespace
 {
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
+}
+
+template <typename Source, typename Destination> void CaptureList( const Source& source, Destination& destination )
+{
+    destination.clear();
+
+    for ( const auto& value : source )
+    {
+        destination.push_back( value );
+    }
+}
+
+template <typename Source, typename Destination> void RestoreList( const Source& source, Destination& destination )
+{
+    destination.Reserve( source.size() );
+    destination.clear();
+
+    for ( const auto& value : source )
+    {
+        destination.push_back( value );
+    }
 }
 } // namespace
 
 void PhysicsSleepController::CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const
 {
-    snapshot.sleepSupportedThisFrame = m_sleepSupportedThisFrame;
-    snapshot.sleepInhibitedThisFrame = m_sleepInhibitedThisFrame;
-    snapshot.sleepState = m_sleepState;
-    snapshot.sleepCounter = m_sleepCounter;
-    snapshot.underwaterSleepLocked = m_underwaterSleepLocked;
-    snapshot.sleepIslandVisualId = m_sleepIslandVisualId;
-    snapshot.sleepIslandAssignedVisualId = m_sleepIslandAssignedVisualId;
-    snapshot.sleepSupportEdges = m_sleepSupportEdges;
-    snapshot.sleepIslandParent = m_sleepIslandParent;
-    snapshot.sleepIslandRank = m_sleepIslandRank;
-    snapshot.sleepIslandHasAwake = m_sleepIslandHasAwake;
-    snapshot.sleepIslandHasSupportAnchor = m_sleepIslandHasSupportAnchor;
-    snapshot.sleepIslandEligible = m_sleepIslandEligible;
-    snapshot.sleepIslandCanSleep = m_sleepIslandCanSleep;
+    CaptureList( m_sleepSupportedThisFrame, snapshot.sleepSupportedThisFrame );
+    CaptureList( m_sleepInhibitedThisFrame, snapshot.sleepInhibitedThisFrame );
+    CaptureList( m_sleepState, snapshot.sleepState );
+    CaptureList( m_sleepCounter, snapshot.sleepCounter );
+    CaptureList( m_underwaterSleepLocked, snapshot.underwaterSleepLocked );
+    CaptureList( m_sleepIslandVisualId, snapshot.sleepIslandVisualId );
+    CaptureList( m_sleepIslandAssignedVisualId, snapshot.sleepIslandAssignedVisualId );
+    CaptureList( m_sleepSupportEdges, snapshot.sleepSupportEdges );
+    CaptureList( m_sleepIslandParent, snapshot.sleepIslandParent );
+    CaptureList( m_sleepIslandRank, snapshot.sleepIslandRank );
+    CaptureList( m_sleepIslandHasAwake, snapshot.sleepIslandHasAwake );
+    CaptureList( m_sleepIslandHasSupportAnchor, snapshot.sleepIslandHasSupportAnchor );
+    CaptureList( m_sleepIslandEligible, snapshot.sleepIslandEligible );
+    CaptureList( m_sleepIslandCanSleep, snapshot.sleepIslandCanSleep );
     snapshot.nextSleepIslandVisualId = m_nextSleepIslandVisualId;
     snapshot.sleepEnabled = m_sleepEnabled;
 }
 
 void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
-    m_sleepSupportedThisFrame = snapshot.sleepSupportedThisFrame;
-    m_sleepInhibitedThisFrame = snapshot.sleepInhibitedThisFrame;
-    m_sleepState = snapshot.sleepState;
-    m_sleepCounter = snapshot.sleepCounter;
-    m_underwaterSleepLocked = snapshot.underwaterSleepLocked;
-    m_sleepIslandVisualId = snapshot.sleepIslandVisualId;
-    m_sleepIslandAssignedVisualId = snapshot.sleepIslandAssignedVisualId;
-    // Invariant: replay restore is a cold copy, but it still may not enlarge a
-    // hot owner beyond the same construction-reserved support-edge ceiling.
-    ValidateSleepSupportEdgeCount( snapshot.sleepSupportEdges.size(),
-                                   m_sleepSupportEdges.capacity(),
-                                   m_sleepSupportEdges.size(),
-                                   "replay_restore" );
+    RestoreList( snapshot.sleepSupportedThisFrame, m_sleepSupportedThisFrame );
+    RestoreList( snapshot.sleepInhibitedThisFrame, m_sleepInhibitedThisFrame );
+    RestoreList( snapshot.sleepState, m_sleepState );
+    RestoreList( snapshot.sleepCounter, m_sleepCounter );
+    RestoreList( snapshot.underwaterSleepLocked, m_underwaterSleepLocked );
+    RestoreList( snapshot.sleepIslandVisualId, m_sleepIslandVisualId );
+    RestoreList( snapshot.sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId );
 
-    m_sleepSupportEdges = snapshot.sleepSupportEdges;
-    m_sleepIslandParent = snapshot.sleepIslandParent;
-    m_sleepIslandRank = snapshot.sleepIslandRank;
-    m_sleepIslandHasAwake = snapshot.sleepIslandHasAwake;
-    m_sleepIslandHasSupportAnchor = snapshot.sleepIslandHasSupportAnchor;
-    m_sleepIslandEligible = snapshot.sleepIslandEligible;
-    m_sleepIslandCanSleep = snapshot.sleepIslandCanSleep;
+    // Invariant: replay restore is a cold copy, but it still may not enlarge a
+    // hot owner beyond the same scene-committed support-edge ceiling.
+    ValidateSleepSupportEdgeCount( snapshot.sleepSupportEdges.size(), m_sleepSupportEdges.capacity(),
+                                   m_sleepSupportEdges.size(), "replay_restore" );
+
+    RestoreList( snapshot.sleepSupportEdges, m_sleepSupportEdges );
+    RestoreList( snapshot.sleepIslandParent, m_sleepIslandParent );
+    RestoreList( snapshot.sleepIslandRank, m_sleepIslandRank );
+    RestoreList( snapshot.sleepIslandHasAwake, m_sleepIslandHasAwake );
+    RestoreList( snapshot.sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor );
+    RestoreList( snapshot.sleepIslandEligible, m_sleepIslandEligible );
+    RestoreList( snapshot.sleepIslandCanSleep, m_sleepIslandCanSleep );
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
     m_pendingAwakeCount = 0;
@@ -120,7 +140,7 @@ std::span<const std::pair<int, int>> PhysicsSleepController::GetSleepSupportEdge
 {
     return m_sleepSupportEdges;
 }
-std::vector<std::pair<int, int>>& PhysicsSleepController::MutableSupportEdgesForContactSolver()
+PhysicsCandidatePairList& PhysicsSleepController::MutableSupportEdgesForContactSolver()
 {
     return m_sleepSupportEdges;
 }
@@ -132,83 +152,87 @@ std::span<uint8_t> PhysicsSleepController::MutableInhibitedStatesForTerrain()
 {
     return m_sleepInhibitedThisFrame;
 }
-const std::vector<int>& PhysicsSleepController::GetSleepIslandParents() const
+std::span<const int> PhysicsSleepController::GetSleepIslandParents() const
 {
     return m_sleepIslandParent;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepCounters() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepCounters() const
 {
     return m_sleepCounter;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepIslandRanks() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandRanks() const
 {
     return m_sleepIslandRank;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepIslandHasAwake() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandHasAwake() const
 {
     return m_sleepIslandHasAwake;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepIslandHasSupportAnchor() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandHasSupportAnchor() const
 {
     return m_sleepIslandHasSupportAnchor;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepIslandEligible() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandEligible() const
 {
     return m_sleepIslandEligible;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepIslandCanSleep() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepIslandCanSleep() const
 {
     return m_sleepIslandCanSleep;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetUnderwaterSleepLockVector() const
+std::span<const uint8_t> PhysicsSleepController::GetUnderwaterSleepLockVector() const
 {
     return m_underwaterSleepLocked;
 }
-const std::vector<int>& PhysicsSleepController::GetSleepIslandVisualIdVector() const
+std::span<const int> PhysicsSleepController::GetSleepIslandVisualIdVector() const
 {
     return m_sleepIslandVisualId;
 }
-const std::vector<int>& PhysicsSleepController::GetSleepIslandAssignedVisualIds() const
+uint64_t PhysicsSleepController::GetSleepIslandVisualIdCapacityBytes() const
+{
+    return m_sleepIslandVisualId.committed_bytes();
+}
+std::span<const int> PhysicsSleepController::GetSleepIslandAssignedVisualIds() const
 {
     return m_sleepIslandAssignedVisualId;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepStateVector() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepStateVector() const
 {
     return m_sleepState;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepSupportedVector() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepSupportedVector() const
 {
     return m_sleepSupportedThisFrame;
 }
-const std::vector<uint8_t>& PhysicsSleepController::GetSleepInhibitedVector() const
+std::span<const uint8_t> PhysicsSleepController::GetSleepInhibitedVector() const
 {
     return m_sleepInhibitedThisFrame;
 }
-const std::vector<std::pair<int, int>>& PhysicsSleepController::GetSleepSupportEdgeVector() const
+std::span<const std::pair<int, int>> PhysicsSleepController::GetSleepSupportEdgeVector() const
 {
     return m_sleepSupportEdges;
 }
 
 uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
 {
-    uint64_t bytes = 0;
-    bytes += VectorCapacityBytes( m_sleepSupportedThisFrame );
-    bytes += VectorCapacityBytes( m_sleepInhibitedThisFrame );
-    bytes += VectorCapacityBytes( m_sleepState );
-    bytes += VectorCapacityBytes( m_sleepCounter );
-    bytes += VectorCapacityBytes( m_underwaterSleepLocked );
-    bytes += VectorCapacityBytes( m_sleepIslandVisualId );
-    bytes += VectorCapacityBytes( m_sleepIslandAssignedVisualId );
-    bytes += VectorCapacityBytes( m_sleepSupportEdges );
-    bytes += VectorCapacityBytes( m_sleepIslandParent );
-    bytes += VectorCapacityBytes( m_sleepIslandRank );
-    bytes += VectorCapacityBytes( m_sleepIslandHasAwake );
-    bytes += VectorCapacityBytes( m_sleepIslandHasSupportAnchor );
-    bytes += VectorCapacityBytes( m_sleepIslandEligible );
-    bytes += VectorCapacityBytes( m_sleepIslandCanSleep );
-    bytes += VectorCapacityBytes( m_sleepScratchFlags );
-    bytes += VectorCapacityBytes( m_sleepVisualIslandIds );
-    bytes += VectorCapacityBytes( m_sleepVisualIslandBodies );
-    bytes += VectorCapacityBytes( m_restingWakeQueueScratch );
+    uint64_t bytes = m_awakeBodyIndices.committed_bytes() + m_awakeListPositions.committed_bytes();
+    bytes += ListCapacityBytes( m_sleepSupportedThisFrame );
+    bytes += ListCapacityBytes( m_sleepInhibitedThisFrame );
+    bytes += ListCapacityBytes( m_sleepState );
+    bytes += ListCapacityBytes( m_sleepCounter );
+    bytes += ListCapacityBytes( m_underwaterSleepLocked );
+    bytes += ListCapacityBytes( m_sleepIslandVisualId );
+    bytes += ListCapacityBytes( m_sleepIslandAssignedVisualId );
+    bytes += ListCapacityBytes( m_sleepSupportEdges );
+    bytes += ListCapacityBytes( m_sleepIslandParent );
+    bytes += ListCapacityBytes( m_sleepIslandRank );
+    bytes += ListCapacityBytes( m_sleepIslandHasAwake );
+    bytes += ListCapacityBytes( m_sleepIslandHasSupportAnchor );
+    bytes += ListCapacityBytes( m_sleepIslandEligible );
+    bytes += ListCapacityBytes( m_sleepIslandCanSleep );
+    bytes += ListCapacityBytes( m_sleepScratchFlags );
+    bytes += ListCapacityBytes( m_sleepVisualIslandIds );
+    bytes += ListCapacityBytes( m_sleepVisualIslandBodies );
+    bytes += ListCapacityBytes( m_restingWakeQueueScratch );
     return bytes;
 }

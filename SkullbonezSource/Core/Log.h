@@ -45,6 +45,7 @@ namespace SkullbonezCore
 {
 namespace Core
 {
+
 /* -- EngineLog
 ----------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -71,12 +72,14 @@ class EngineLog
     static EngineLog& Get();
 
     void Writef( const char* fileName, const char* fmt, ... );
+
     // Caller contract: forwards one active va_list without taking ownership of
     // its lifetime; the caller still owns va_end.
     void WriteVf( const char* fileName, const char* fmt, va_list args );
     void WriteEventf( const char* fmt, ... );
     void FlushAll();
 #if defined( SKULLBONEZ_TEST_ENGINE_LOG )
+
     // Test-only cold boundary: closes retained handles after a concurrency
     // probe so the test can inspect exact bytes on Windows.
     void CloseAllForTests();

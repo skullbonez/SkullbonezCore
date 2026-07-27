@@ -54,12 +54,8 @@ RotationMatrix GetOrientationMatrix( const TerrainContactBodyView& body )
     return q.GetOrientationMatrix();
 }
 
-bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
-                                 const TerrainContactBodyView& body,
-                                 const BoundingBox& box,
-                                 Vector3& outVertex,
-                                 float& outTerrainHeight,
-                                 Plane& outPlane,
+bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                 const BoundingBox& box, Vector3& outVertex, float& outTerrainHeight, Plane& outPlane,
                                  float& outGap )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
@@ -74,8 +70,10 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
 
     bool found = false;
     float bestGap = 1.0e30f;
+
     for ( int v = 0; v < 8; ++v )
     {
+
         // The low three bits enumerate the OBB corner signs. Sampling each
         // world-space corner against its own terrain height keeps sleep/contact
         // decisions tied to the visible geometry instead of a center XZ sample.
@@ -91,6 +89,7 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
         Plane terrainPlane;
         body.terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
+
         if ( !found || gap < bestGap )
         {
             found = true;
@@ -105,12 +104,8 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
     return found;
 }
 
-bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
-                                  const TerrainContactBodyView& body,
-                                  const ConvexHullShape& hull,
-                                  Vector3& outVertex,
-                                  float& outTerrainHeight,
-                                  Plane& outPlane,
+bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                  const ConvexHullShape& hull, Vector3& outVertex, float& outTerrainHeight, Plane& outPlane,
                                   float& outGap )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
@@ -126,6 +121,7 @@ bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
     bool found = false;
     float bestGap = 1.0e30f;
     const uint16_t vertexCount = hull.GetVertexCount();
+
     for ( uint16_t v = 0; v < vertexCount; ++v )
     {
         const Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
@@ -139,6 +135,7 @@ bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
         Plane terrainPlane;
         body.terrain.HeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
         const float gap = worldVertex.y - terrainHeight;
+
         if ( !found || gap < bestGap )
         {
             found = true;
@@ -153,30 +150,30 @@ bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
     return found;
 }
 
-float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
-                                const TerrainContactBodyView& body,
-                                const CollisionShape& shape,
-                                float changeInTime,
-                                Ray& outTestingRay,
-                                Plane& outTestingPlane )
+template <typename ShapeView>
+float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                const ShapeView& shape, float changeInTime, Ray& outTestingRay, Plane& outTestingPlane )
 {
+
     // Swept terrain tests use the body's unobstructed path for the candidate
     // timestep. Keeping this local makes the ray construction explicit at the
     // point where terrain collision state is prepared.
     outTestingRay = Ray( body.position, body.linearVelocity * changeInTime );
 
     // If out of bounds, no collision has occurred.
+
     if ( !body.terrain.IsInBounds( body.position.x, body.position.z ) )
     {
         return NO_COLLISION;
     }
 
-    const BoundingBox* box = std::get_if<BoundingBox>( &shape );
-    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape );
+    const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
     float bottomOffset = body.boundingRadius;
 
     if ( box != nullptr )
     {
+
         // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward
         // extent from centre is dot(abs(rotationRow_Y), halfExtents). This is
         // only an early-out aid; exact terrain contact below samples real vertices.
@@ -184,7 +181,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
         const RotationMatrix rotMat = GetOrientationMatrix( body );
         bottomOffset = rotMat.SupportExtentY( he );
     }
-    else if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    else if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         bottomOffset = sphere->GetRadius();
     }
@@ -193,6 +190,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
     // maximum height during this timestep, skip the expensive cached query.
     float minBottomY = body.position.y - bottomOffset;
     const float velY = body.linearVelocity.y;
+
     if ( velY < 0.0f )
     {
         minBottomY += velY * changeInTime;
@@ -205,6 +203,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 
     if ( box != nullptr )
     {
+
         // Boxes need a real vertex/terrain gap test before any center-based path
         // runs. On sloped terrain, a center sample can say the box is supported
         // while every real vertex is still visibly above the surface.
@@ -212,6 +211,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
+
         if ( !GetClosestBoxTerrainVertex( profiler, body, *box, closestVertex, terrainHeight, terrainPlane, gap ) )
         {
             return NO_COLLISION;
@@ -234,9 +234,11 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
+
             // When no vertex is currently touching, sweep every box vertex along
             // the body's linear motion and take the earliest plane hit.
             PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSweptVertexProbe" );
+
             for ( int v = 0; v < 8; ++v )
             {
                 const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
@@ -253,6 +255,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
+
                 if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE && vertexCollisionTime <= 1.0f &&
                      vertexCollisionTime < earliestCollisionTime )
                 {
@@ -277,6 +280,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
+
         if ( !GetClosestHullTerrainVertex( profiler, body, *hull, closestVertex, terrainHeight, terrainPlane, gap ) )
         {
             return NO_COLLISION;
@@ -301,6 +305,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
         {
             PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSweptVertexProbe" );
             const uint16_t vertexCount = hull->GetVertexCount();
+
             for ( uint16_t v = 0; v < vertexCount; ++v )
             {
                 const Vector3 worldVertex = hullCenter + ( rotMat * hull->GetVertex( v ) );
@@ -316,6 +321,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
+
                 if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE && vertexCollisionTime <= 1.0f &&
                      vertexCollisionTime < earliestCollisionTime )
                 {
@@ -339,12 +345,14 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
     float terrainHeight = 0.0f;
     body.terrain.HeightAndPlaneAt( body.position.x, body.position.z, terrainHeight, outTestingPlane );
     const float gap = body.position.y - bottomOffset - terrainHeight;
+
     if ( gap <= body.contactEpsilon )
     {
         return 0.0f;
     }
 
     // If the dynamic object is stationary and not in contact, no collision will occur.
+
     if ( outTestingRay.vector3.IsCloseToZero() )
     {
         return NO_COLLISION;
@@ -356,13 +364,17 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
 }
 } // namespace
 
-TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Profiler* profiler,
-                                                                        const TerrainContactBodyView& body,
-                                                                        const CollisionShape& shape,
-                                                                        float changeInTime )
+namespace
 {
+template <typename ShapeView>
+TerrainContactSweepResult SweepTerrainContactImpl( SkullbonezCore::Core::Profiler* profiler,
+                                                   const TerrainContactBodyView& body, const ShapeView& shape,
+                                                   float changeInTime )
+{
+
     // This answers "how many seconds can this body move before it hits terrain?"
     // and returns the hit plane directly for the solver row builder.
+
     if ( !body.terrain.IsValid() )
     {
         SB_FATAL( "TerrainContactManifold", "Physics terrain view not valid in SweepTerrainContact." );
@@ -373,12 +385,7 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Pr
 
     Ray testingRay;
     Plane testingPlane;
-    const float collisionRatio = GetTerrainCollisionRatio( profiler,
-                                                           body,
-                                                           shape,
-                                                           changeInTime,
-                                                           testingRay,
-                                                           testingPlane );
+    const float collisionRatio = GetTerrainCollisionRatio( profiler, body, shape, changeInTime, testingRay, testingPlane );
 
     if ( collisionRatio > 1.0f || collisionRatio < ZERO_TAKE_TOLERANCE )
     {
@@ -393,13 +400,10 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Pr
 }
 
 
-bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profiler,
-                                                           const TerrainContactBodyView& body,
-                                                           const CollisionShape& shape,
-                                                           int bodyIndex,
-                                                           const TerrainContactSweepResult& sweep,
-                                                           float availableTime,
-                                                           TerrainContactManifold& out )
+template <typename ShapeView>
+bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                      const ShapeView& shape, int bodyIndex, const TerrainContactSweepResult& sweep,
+                                      float availableTime, TerrainContactManifold& out )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold" );
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/Build" );
@@ -407,6 +411,7 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profi
     // Geometry-only boundary for the shared terrain row path. This converts the
     // swept terrain hit into contact points, feature ids, tangent axes, and
     // support-policy metadata. It must not apply impulses or decide final sleep.
+
     if ( !body.terrain.IsValid() || body.isFixed || !sweep.hit )
     {
         return false;
@@ -428,106 +433,118 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profi
     const Vector3 planeNormal = out.normal;
     const Vector3 position = body.position;
 
-    std::visit(
-        [&]( const auto& shapeValue )
-        {
-            using ShapeT = std::decay_t<decltype( shapeValue )>;
+    VisitCollisionShape( shape,
+                         [&]( const auto& shapeValue )
+                         {
+                             using ShapeT = std::decay_t<decltype( shapeValue )>;
 
-            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-            {
-                // A sphere has one terrain point: the bottom pole along the
-                // terrain normal. That becomes one normal row and two tangent rows.
-                const float radius = shapeValue.GetRadius();
-                const Vector3 contactWorldPos = position - planeNormal * radius;
-                const float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
+                             if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                             {
 
-                TerrainContactPoint& point = out.points[0];
-                point.point = contactWorldPos;
-                point.rA = contactWorldPos - position;
-                point.penetration = -signedDist;
-                point.featureId = 0;
-                out.pointCount = 1;
-            }
-            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-            {
-                PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/BoxVertices" );
+                                 // A sphere has one terrain point: the bottom pole along the
+                                 // terrain normal. That becomes one normal row and two tangent rows.
+                                 const float radius = shapeValue.GetRadius();
+                                 const Vector3 contactWorldPos = position - planeNormal * radius;
+                                 const float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
 
-                const Vector3& he = shapeValue.GetHalfExtents();
-                const RotationMatrix rotMat = GetOrientationMatrix( body );
-                Vector3 worldVerts[8];
-                float signedDists[8];
-                float minSignedDist = 1e10f;
+                                 TerrainContactPoint& point = out.points[0];
+                                 point.point = contactWorldPos;
+                                 point.rA = contactWorldPos - position;
+                                 point.penetration = -signedDist;
+                                 point.featureId = 0;
+                                 out.pointCount = 1;
+                             }
+                             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                             {
+                                 PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/BoxVertices" );
 
-                for ( int v = 0; v < 8; ++v )
-                {
-                    const Vector3 local = GetBoxTerrainLocalCorner( he, v );
-                    worldVerts[v] = position + ( rotMat * local );
-                    signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
-                    if ( signedDists[v] < minSignedDist )
-                    {
-                        minSignedDist = signedDists[v];
-                    }
-                }
+                                 const Vector3& he = shapeValue.GetHalfExtents();
+                                 const RotationMatrix rotMat = GetOrientationMatrix( body );
+                                 Vector3 worldVerts[8];
+                                 float signedDists[8];
+                                 float minSignedDist = 1e10f;
 
-                const float contactThreshold = (std::max)( 0.0f, body.terrainContactThreshold );
-                const float cutoff = minSignedDist + contactThreshold;
-                for ( int v = 0; v < 8; ++v )
-                {
-                    if ( signedDists[v] > cutoff )
-                    {
-                        continue;
-                    }
+                                 for ( int v = 0; v < 8; ++v )
+                                 {
+                                     const Vector3 local = GetBoxTerrainLocalCorner( he, v );
+                                     worldVerts[v] = position + ( rotMat * local );
+                                     signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
 
-                    const float penetration = -signedDists[v];
-                    TerrainContactPoint& point = out.points[out.pointCount];
-                    point.point = worldVerts[v];
-                    point.rA = worldVerts[v] - position;
-                    point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
-                    point.featureId = static_cast<uint32_t>( v + 1 );
-                    ++out.pointCount;
-                }
-            }
-            else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
-            {
-                PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/HullVertices" );
+                                     if ( signedDists[v] < minSignedDist )
+                                     {
+                                         minSignedDist = signedDists[v];
+                                     }
+                                 }
 
-                const RotationMatrix rotMat = GetOrientationMatrix( body );
-                const Vector3 hullCenter = position + ( rotMat * shapeValue.GetPosition() );
-                Vector3 worldVerts[ConvexHullShape::MAX_VERTICES];
-                float signedDists[ConvexHullShape::MAX_VERTICES];
-                float minSignedDist = 1e10f;
+                                 const float contactThreshold = (std::max)( 0.0f, body.terrainContactThreshold );
+                                 const float cutoff = minSignedDist + contactThreshold;
 
-                const uint16_t vertexCount = shapeValue.GetVertexCount();
-                for ( uint16_t v = 0; v < vertexCount; ++v )
-                {
-                    worldVerts[v] = hullCenter + ( rotMat * shapeValue.GetVertex( v ) );
-                    signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
-                    if ( signedDists[v] < minSignedDist )
-                    {
-                        minSignedDist = signedDists[v];
-                    }
-                }
+                                 for ( int v = 0; v < 8; ++v )
+                                 {
 
-                const float contactThreshold = (std::max)( 0.0f, body.terrainContactThreshold );
-                const float cutoff = minSignedDist + contactThreshold;
-                for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
-                {
-                    if ( signedDists[v] > cutoff )
-                    {
-                        continue;
-                    }
+                                     if ( signedDists[v] > cutoff )
+                                     {
+                                         continue;
+                                     }
 
-                    const float penetration = -signedDists[v];
-                    TerrainContactPoint& point = out.points[out.pointCount];
-                    point.point = worldVerts[v];
-                    point.rA = worldVerts[v] - position;
-                    point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
-                    point.featureId = 0x6000u | static_cast<uint32_t>( v & 0x0fffu );
-                    ++out.pointCount;
-                }
-            }
-        },
-        shape );
+                                     const float penetration = -signedDists[v];
+                                     TerrainContactPoint& point = out.points[out.pointCount];
+                                     point.point = worldVerts[v];
+                                     point.rA = worldVerts[v] - position;
+                                     point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                                     point.featureId = static_cast<uint32_t>( v + 1 );
+                                     ++out.pointCount;
+                                 }
+                             }
+                             else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
+                             {
+                                 PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/HullVertices" );
+
+                                 const RotationMatrix rotMat = GetOrientationMatrix( body );
+                                 const Vector3 hullCenter = position + ( rotMat * shapeValue.GetPosition() );
+                                 Vector3 worldVerts[ConvexHullShape::MAX_VERTICES];
+                                 float signedDists[ConvexHullShape::MAX_VERTICES];
+                                 float minSignedDist = 1e10f;
+
+                                 const uint16_t vertexCount = shapeValue.GetVertexCount();
+
+                                 for ( uint16_t v = 0; v < vertexCount; ++v )
+                                 {
+                                     worldVerts[v] = hullCenter + ( rotMat * shapeValue.GetVertex( v ) );
+                                     signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
+
+                                     if ( signedDists[v] < minSignedDist )
+                                     {
+                                         minSignedDist = signedDists[v];
+                                     }
+                                 }
+
+                                 const float contactThreshold = (std::max)( 0.0f, body.terrainContactThreshold );
+                                 const float cutoff = minSignedDist + contactThreshold;
+
+                                 for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
+                                 {
+
+                                     if ( signedDists[v] > cutoff )
+                                     {
+                                         continue;
+                                     }
+
+                                     const float penetration = -signedDists[v];
+                                     TerrainContactPoint& point = out.points[out.pointCount];
+                                     point.point = worldVerts[v];
+                                     point.rA = worldVerts[v] - position;
+                                     point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                                     point.featureId = 0x6000u | static_cast<uint32_t>( v & 0x0fffu );
+                                     ++out.pointCount;
+                                 }
+                             }
+                             else
+                             {
+                                 static_assert( std::is_same_v<ShapeT, void>,
+                                                "Every CollisionShape alternative requires explicit terrain dispatch." );
+                             }
+                         } );
 
     if ( out.pointCount == 0 )
     {
@@ -535,14 +552,17 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profi
     }
 
     const float preVn = body.linearVelocity * planeNormal;
+
     if ( preVn < -body.restitutionThreshold && out.pointCount > 1 )
     {
+
         // For fast impacts, collapse a multi-point box footprint to a centroid
         // impact row. Resting contacts should use the full patch, but a high
         // speed bounce should not stack several restitution rows and over-launch.
         Vector3 centroid = ZERO_VECTOR;
         Vector3 centroidR = ZERO_VECTOR;
         float avgPen = 0.0f;
+
         for ( uint8_t i = 0; i < out.pointCount; ++i )
         {
             centroid += out.points[i].point;
@@ -559,14 +579,9 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profi
     }
 
     const RotationMatrix orientMat = GetOrientationMatrix( body );
-    const BoxTerrainSupportClassification terrainSupport = ClassifyBoxTerrainSupport( profiler,
-                                                                                      shape,
-                                                                                      position,
-                                                                                      orientMat,
-                                                                                      planeNormal,
-                                                                                      body.terrain,
-                                                                                      out.pointCount,
-                                                                                      body.contactEpsilon,
+    const BoxTerrainSupportClassification terrainSupport = ClassifyBoxTerrainSupport( profiler, shape, position, orientMat,
+                                                                                      planeNormal, body.terrain,
+                                                                                      out.pointCount, body.contactEpsilon,
                                                                                       true );
 
     // Support policy is metadata, not collision response. Unsupported edge or
@@ -578,4 +593,36 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profi
     out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
     out.inhibitsSleep = !out.supportsRestingPolicy;
     return true;
+}
+} // namespace
+
+TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Profiler* profiler,
+                                                                        const TerrainContactBodyView& body,
+                                                                        const CollisionShape& shape, float changeInTime )
+{
+    return SweepTerrainContactImpl( profiler, body, shape, changeInTime );
+}
+
+TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Profiler* profiler,
+                                                                        const TerrainContactBodyView& body,
+                                                                        const CollisionShapeReference& shape,
+                                                                        float changeInTime )
+{
+    return SweepTerrainContactImpl( profiler, body, shape, changeInTime );
+}
+
+bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                                           const CollisionShape& shape, int bodyIndex,
+                                                           const TerrainContactSweepResult& sweep, float availableTime,
+                                                           TerrainContactManifold& out )
+{
+    return BuildTerrainContactManifoldImpl( profiler, body, shape, bodyIndex, sweep, availableTime, out );
+}
+
+bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profiler, const TerrainContactBodyView& body,
+                                                           const CollisionShapeReference& shape, int bodyIndex,
+                                                           const TerrainContactSweepResult& sweep, float availableTime,
+                                                           TerrainContactManifold& out )
+{
+    return BuildTerrainContactManifoldImpl( profiler, body, shape, bodyIndex, sweep, availableTime, out );
 }

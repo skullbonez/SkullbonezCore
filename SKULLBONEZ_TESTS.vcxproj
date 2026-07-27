@@ -142,7 +142,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -168,7 +168,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -203,7 +203,6 @@
     <ClCompile Include="SkullbonezTests\TestCamera.cpp" />
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
-    <ClCompile Include="SkullbonezTests\TestCoverageFloorContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
@@ -229,6 +228,7 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
+    <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayGuideArcs.cpp" />
@@ -280,14 +280,15 @@
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayPlanningOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Planning\ReplayGuideArcs.cpp" />
@@ -311,6 +312,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h" />
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />

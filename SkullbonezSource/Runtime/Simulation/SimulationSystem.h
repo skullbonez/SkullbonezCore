@@ -51,6 +51,7 @@ struct SimulationTickInput
     bool isFixedStep = false;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     bool isStepRequested = false;
+
     // True only when the runtime owner has a valid physics target for the
     // returned commit count.
     bool canStepPhysics = false;
@@ -70,10 +71,12 @@ class SimulationSystem
 {
   public:
     void Reset();
+
     // Applies the pacing reset once after a scene transaction reaches clear;
     // SimulationSystem never needs to participate in scene population.
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet );
     SimulationTickResult Tick( const SimulationTickInput& input );
+
     // Cumulative diagnostics since Reset; callers may sample them without
     // mutating scheduler state or retaining an accumulator view.
     uint64_t DroppedPhysicsTickCount() const noexcept;

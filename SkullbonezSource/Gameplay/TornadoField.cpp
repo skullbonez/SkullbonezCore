@@ -37,6 +37,7 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 static float SmoothStep01( float edge0, float edge1, float value )
 {
+
     if ( fabsf( edge1 - edge0 ) <= TOLERANCE )
     {
         return value >= edge1 ? 1.0f : 0.0f;
@@ -127,6 +128,7 @@ std::size_t TornadoField::DynamicMemoryBytes() const
 
 TornadoSystem::TornadoSystem()
 {
+
     // Lifetime: both vectors reach their authored hard cap during owner
     // construction. Scene edits, idle UI, and replay restore may change size
     // but cannot grow storage after steady gameplay begins.
@@ -136,15 +138,15 @@ TornadoSystem::TornadoSystem()
 
 void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
+
     if ( config.vortices.size() > m_config.vortices.capacity() )
     {
-        SB_FATAL( "Gameplay/TornadoSystem",
-                  "Authored vortex storage exceeded. requested=%zu capacity=%zu",
-                  config.vortices.size(),
-                  m_config.vortices.capacity() );
+        SB_FATAL( "Gameplay/TornadoSystem", "Authored vortex storage exceeded. requested=%zu capacity=%zu",
+                  config.vortices.size(), m_config.vortices.capacity() );
     }
 
     m_config = config;
+
     for ( TornadoVortexConfig& vortex : m_config.vortices )
     {
         vortex.field.radius = (std::max)( 1.0f, vortex.field.radius );
@@ -193,6 +195,7 @@ void TornadoSystem::ToggleVelocityFieldVisualization()
 
 void TornadoSystem::SetFieldValue( float TornadoFieldConfig::* field, float value )
 {
+
     for ( TornadoVortexConfig& vortex : m_config.vortices )
     {
         vortex.field.*field = value;
@@ -230,11 +233,11 @@ void TornadoSystem::Tick( float dt )
 }
 
 
-void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
-                                         float elapsedSeconds,
+void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, float elapsedSeconds,
                                          std::vector<TornadoActiveVortex>& outVortices )
 {
     outVortices.clear();
+
     if ( !config.enabled )
     {
         return;
@@ -242,33 +245,37 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
 
     elapsedSeconds = (std::max)( 0.0f, elapsedSeconds );
     const float twoPi = 6.28318530718f;
+
     // Invariant: append order is authored source order. Physics consumes this
     // exact order for left-to-right floating-point accumulation.
+
     for ( int i = 0; i < static_cast<int>( config.vortices.size() ); ++i )
     {
         const TornadoVortexConfig& source = config.vortices[static_cast<size_t>( i )];
+
         if ( !source.field.enabled || elapsedSeconds < source.spawnSeconds )
         {
             continue;
         }
 
         const float age = elapsedSeconds - source.spawnSeconds;
-        if ( source.timeToLiveSeconds > 0.0f &&
-             age > source.timeToLiveSeconds + (std::max)( source.shrinkSeconds, 0.001f ) )
+
+        if ( source.timeToLiveSeconds > 0.0f && age > source.timeToLiveSeconds + (std::max)( source.shrinkSeconds, 0.001f ) )
         {
             continue;
         }
 
         const float grow = source.growSeconds > 0.0f ? std::clamp( age / source.growSeconds, 0.0f, 1.0f ) : 1.0f;
         float shrink = 1.0f;
+
         if ( source.timeToLiveSeconds > 0.0f && age > source.timeToLiveSeconds )
         {
             const float shrinkAge = age - source.timeToLiveSeconds;
-            shrink = source.shrinkSeconds > 0.0f ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f )
-                                                 : 0.0f;
+            shrink = source.shrinkSeconds > 0.0f ? std::clamp( 1.0f - shrinkAge / source.shrinkSeconds, 0.0f, 1.0f ) : 0.0f;
         }
 
         const float strength = grow * shrink;
+
         if ( strength <= 0.001f )
         {
             continue;
@@ -301,14 +308,17 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
 
     // Why: pair iteration is ascending and updates both centers immediately;
     // changing this to a parallel or unordered reduction changes later pairs.
+
     for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )
     {
         const TornadoVortexConfig& configA = config.vortices[static_cast<size_t>( outVortices[a].sourceIndex )];
+
         for ( int b = a + 1; b < static_cast<int>( outVortices.size() ); ++b )
         {
             const TornadoVortexConfig& configB = config.vortices[static_cast<size_t>( outVortices[b].sourceIndex )];
             const float repulsionRadius = (std::max)( configA.repulsionRadius, configB.repulsionRadius );
             const float repulsionStrength = (std::max)( configA.repulsionStrength, configB.repulsionStrength );
+
             if ( repulsionRadius <= TOLERANCE || repulsionStrength <= TOLERANCE )
             {
                 continue;
@@ -317,6 +327,7 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
             Vector3 delta = outVortices[b].field.center - outVortices[a].field.center;
             delta.y = 0.0f;
             const float distanceSq = delta * delta;
+
             if ( distanceSq >= repulsionRadius * repulsionRadius )
             {
                 continue;
@@ -324,6 +335,7 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
 
             Vector3 direction( 1.0f, 0.0f, 0.0f );
             float distance = 0.0f;
+
             if ( distanceSq > TOLERANCE * TOLERANCE )
             {
                 distance = sqrtf( distanceSq );
@@ -331,8 +343,7 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
             }
             else
             {
-                const float fallbackPhase = static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f +
-                                            elapsedSeconds * 0.17f;
+                const float fallbackPhase = static_cast<float>( a * 41 + b * 97 ) * 0.61803398875f + elapsedSeconds * 0.17f;
 
                 direction = Vector3( cosf( fallbackPhase ), 0.0f, sinf( fallbackPhase ) );
             }
@@ -354,6 +365,7 @@ void TornadoSystem::RebuildActiveVortices()
 Vector3 TornadoSystem::SampleAcceleration( const Vector3& position ) const
 {
     Vector3 acceleration = ZERO_VECTOR;
+
     for ( const TornadoActiveVortex& vortex : m_activeVortices )
     {
         acceleration += SampleAccelerationForConfigImpl( vortex.field, position );

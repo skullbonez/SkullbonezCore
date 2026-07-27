@@ -38,6 +38,7 @@ class Profiler;
 }
 namespace Physics
 {
+
 // Terrain support classification is not the collision response itself. It is a
 // safety check for the sleep/resting layer: "is this terrain contact stable
 // enough that the body may be treated as supported?" A box can collide with
@@ -54,6 +55,7 @@ static constexpr float BOX_TERRAIN_STABLE_PATCH_DOT = 0.99f; // ~8 degrees from 
 
 struct BoxTerrainVertexSupportProbe
 {
+
     // Number of oriented-box corners whose world-space height is close enough
     // to their sampled terrain height to count as a real terrain footprint.
     // A high count means the box is likely resting on a face/patch rather than
@@ -73,6 +75,7 @@ struct BoxTerrainVertexSupportProbe
 
 struct BoxTerrainSupportClassification
 {
+
     // Sphere-style terrain contacts preserve the legacy support behavior. The
     // stricter face/vertex footprint checks apply to shapes that can balance on
     // a narrow edge or point: OBBs and authored convex hulls.
@@ -95,6 +98,7 @@ struct BoxTerrainSupportClassification
 
 inline Math::Vector::Vector3 GetBoxTerrainLocalCorner( const Math::Vector::Vector3& halfExtents, int cornerIndex )
 {
+
     // cornerIndex uses three bits as signs: bit 0 chooses +/-X, bit 1 chooses
     // +/-Y, and bit 2 chooses +/-Z. This compactly enumerates all eight box
     // corners without a table.
@@ -118,12 +122,14 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
 
     float bestDot = fabsf( axisX * terrainNormal );
     const float absDotY = fabsf( axisY * terrainNormal );
+
     if ( absDotY > bestDot )
     {
         bestDot = absDotY;
     }
 
     const float absDotZ = fabsf( axisZ * terrainNormal );
+
     if ( absDotZ > bestDot )
     {
         bestDot = absDotZ;
@@ -134,9 +140,9 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
 
 inline float ComputeBoxTerrainBestFaceNormalDot( Core::Profiler* profiler,
                                                  const Math::Transformation::RotationMatrix& orientation,
-                                                 const Math::Vector::Vector3& terrainNormal,
-                                                 bool profile )
+                                                 const Math::Vector::Vector3& terrainNormal, bool profile )
 {
+
     if ( profile )
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicyFaceAxes" );
@@ -146,13 +152,12 @@ inline float ComputeBoxTerrainBestFaceNormalDot( Core::Profiler* profiler,
     return ComputeBoxTerrainBestFaceNormalDotImpl( orientation, terrainNormal );
 }
 
-inline BoxTerrainVertexSupportProbe
-ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
-                             const Math::Vector::Vector3& position,
-                             const Math::Transformation::RotationMatrix& orientation,
-                             const PhysicsTerrainView& terrain,
-                             float contactEpsilon )
+inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
+                                                                 const Math::Vector::Vector3& position,
+                                                                 const Math::Transformation::RotationMatrix& orientation,
+                                                                 const PhysicsTerrainView& terrain, float contactEpsilon )
 {
+
     // Sample visible box corners against the heightfield. The solver may have a
     // contact row from the terrain plane, but sleep support needs a footprint:
     // enough real corners close to terrain that a human would say the box is
@@ -170,6 +175,7 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
     {
         const Math::Vector::Vector3 local = GetBoxTerrainLocalCorner( halfExtents, corner );
         const Math::Vector::Vector3 worldVertex = position + ( orientation * local );
+
         if ( !terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
         {
             continue;
@@ -177,6 +183,7 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
 
         const float terrainHeight = terrain.HeightAt( worldVertex.x, worldVertex.z );
         const float gap = worldVertex.y - terrainHeight;
+
         if ( gap <= supportGap )
         {
             ++result.supportedVertices;
@@ -190,10 +197,12 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
         }
         else
         {
+
             if ( gap < result.minTerrainGap )
             {
                 result.minTerrainGap = gap;
             }
+
             if ( gap > result.maxTerrainGap )
             {
                 result.maxTerrainGap = gap;
@@ -204,14 +213,12 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
     return result;
 }
 
-inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( Core::Profiler* profiler,
-                                                             const Math::CollisionDetection::BoundingBox& box,
-                                                             const Math::Vector::Vector3& position,
-                                                             const Math::Transformation::RotationMatrix& orientation,
-                                                             const PhysicsTerrainView& terrain,
-                                                             float contactEpsilon,
-                                                             bool profile )
+inline BoxTerrainVertexSupportProbe
+ProbeBoxTerrainVertices( Core::Profiler* profiler, const Math::CollisionDetection::BoundingBox& box,
+                         const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation,
+                         const PhysicsTerrainView& terrain, float contactEpsilon, bool profile )
 {
+
     if ( profile )
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
@@ -227,11 +234,13 @@ inline float ComputeConvexHullTerrainBestFaceNormalDotImpl( const Math::Collisio
 {
     float bestDot = 0.0f;
     const uint16_t faceCount = hull.GetFaceCount();
+
     for ( uint16_t faceIndex = 0; faceIndex < faceCount; ++faceIndex )
     {
         const Math::CollisionDetection::ConvexHullFace& face = hull.GetFace( faceIndex );
         const Math::Vector::Vector3 worldNormal = orientation * face.normalLocal;
         const float absDot = fabsf( worldNormal * terrainNormal );
+
         if ( absDot > bestDot )
         {
             bestDot = absDot;
@@ -244,9 +253,9 @@ inline float ComputeConvexHullTerrainBestFaceNormalDotImpl( const Math::Collisio
 inline float ComputeConvexHullTerrainBestFaceNormalDot( Core::Profiler* profiler,
                                                         const Math::CollisionDetection::ConvexHullShape& hull,
                                                         const Math::Transformation::RotationMatrix& orientation,
-                                                        const Math::Vector::Vector3& terrainNormal,
-                                                        bool profile )
+                                                        const Math::Vector::Vector3& terrainNormal, bool profile )
 {
+
     if ( profile )
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSupportPolicyFaces" );
@@ -256,21 +265,19 @@ inline float ComputeConvexHullTerrainBestFaceNormalDot( Core::Profiler* profiler
     return ComputeConvexHullTerrainBestFaceNormalDotImpl( hull, orientation, terrainNormal );
 }
 
-inline BoxTerrainVertexSupportProbe
-ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullShape& hull,
-                                    const Math::Vector::Vector3& position,
-                                    const Math::Transformation::RotationMatrix& orientation,
-                                    const PhysicsTerrainView& terrain,
-                                    float contactEpsilon )
+inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullShape& hull, const Math::Vector::Vector3& position,
+                                                                        const Math::Transformation::RotationMatrix& orientation, const PhysicsTerrainView& terrain, float contactEpsilon )
 {
     BoxTerrainVertexSupportProbe result;
     const Math::Vector::Vector3 hullCenter = position + ( orientation * hull.GetPosition() );
     const float supportGap = contactEpsilon + BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
 
     const uint16_t vertexCount = hull.GetVertexCount();
+
     for ( uint16_t vertexIndex = 0; vertexIndex < vertexCount; ++vertexIndex )
     {
         const Math::Vector::Vector3 worldVertex = hullCenter + ( orientation * hull.GetVertex( vertexIndex ) );
+
         if ( !terrain.IsInBounds( worldVertex.x, worldVertex.z ) )
         {
             continue;
@@ -278,6 +285,7 @@ ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullSh
 
         const float terrainHeight = terrain.HeightAt( worldVertex.x, worldVertex.z );
         const float gap = worldVertex.y - terrainHeight;
+
         if ( gap <= supportGap )
         {
             ++result.supportedVertices;
@@ -291,10 +299,12 @@ ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullSh
         }
         else
         {
+
             if ( gap < result.minTerrainGap )
             {
                 result.minTerrainGap = gap;
             }
+
             if ( gap > result.maxTerrainGap )
             {
                 result.maxTerrainGap = gap;
@@ -305,15 +315,14 @@ ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullSh
     return result;
 }
 
-inline BoxTerrainVertexSupportProbe
-ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape& hull,
-                                Core::Profiler* profiler,
-                                const Math::Vector::Vector3& position,
-                                const Math::Transformation::RotationMatrix& orientation,
-                                const PhysicsTerrainView& terrain,
-                                float contactEpsilon,
-                                bool profile )
+inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape& hull,
+                                                                    Core::Profiler* profiler,
+                                                                    const Math::Vector::Vector3& position,
+                                                                    const Math::Transformation::RotationMatrix& orientation,
+                                                                    const PhysicsTerrainView& terrain, float contactEpsilon,
+                                                                    bool profile )
 {
+
     if ( profile )
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSupportPolicyVerts" );
@@ -323,25 +332,24 @@ ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape&
     return ProbeConvexHullTerrainVerticesImpl( hull, position, orientation, terrain, contactEpsilon );
 }
 
+template <typename ShapeView>
 inline BoxTerrainSupportClassification
-ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
-                               const Math::CollisionDetection::CollisionShape& shape,
-                               const Math::Vector::Vector3& position,
+ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape, const Math::Vector::Vector3& position,
                                const Math::Transformation::RotationMatrix& orientation,
-                               const Math::Vector::Vector3& terrainNormal,
-                               const PhysicsTerrainView& terrain,
-                               int contactCount,
-                               float contactEpsilon,
-                               bool profileChildren )
+                               const Math::Vector::Vector3& terrainNormal, const PhysicsTerrainView& terrain,
+                               int contactCount, float contactEpsilon, bool profileChildren )
 {
     using Math::CollisionDetection::BoundingBox;
     using Math::CollisionDetection::ConvexHullShape;
+    using Math::CollisionDetection::GetShapeIf;
 
     BoxTerrainSupportClassification result;
-    const BoundingBox* box = std::get_if<BoundingBox>( &shape );
-    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape );
+    const BoundingBox* box = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &shape );
+
     if ( !box && !hull )
     {
+
         // Sphere/capsule-style terrain contacts do not have an oriented face
         // footprint to test here, so leave supportsRestingPolicy at the legacy
         // default. The shared terrain rows still solve their Catto
@@ -351,19 +359,16 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
 
     result.isBox = box != nullptr;
     result.isConvexHull = hull != nullptr;
-    result.bestFaceNormalDot = box ? ComputeBoxTerrainBestFaceNormalDot( profiler,
-                                                                         orientation,
-                                                                         terrainNormal,
+    result.bestFaceNormalDot = box ? ComputeBoxTerrainBestFaceNormalDot( profiler, orientation, terrainNormal,
                                                                          profileChildren )
-                                   : ComputeConvexHullTerrainBestFaceNormalDot( profiler,
-                                                                                *hull,
-                                                                                orientation,
-                                                                                terrainNormal,
+                                   : ComputeConvexHullTerrainBestFaceNormalDot( profiler, *hull, orientation, terrainNormal,
                                                                                 profileChildren );
 
     bool supportsRestingPolicy = true;
+
     if ( contactCount > 0 && contactCount < 4 )
     {
+
         // A one- or two-point manifold may be a valid impact row, but it is not
         // enough evidence that the box is resting on a stable face. Require face
         // alignment first so an edge grazing the terrain does not get rest-only
@@ -373,22 +378,13 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
 
     if ( supportsRestingPolicy )
     {
+
         if ( terrain.IsValid() )
         {
-            result.vertices = box ? ProbeBoxTerrainVertices( profiler,
-                                                             *box,
-                                                             position,
-                                                             orientation,
-                                                             terrain,
-                                                             contactEpsilon,
+            result.vertices = box ? ProbeBoxTerrainVertices( profiler, *box, position, orientation, terrain, contactEpsilon,
                                                              profileChildren )
-                                  : ProbeConvexHullTerrainVertices( *hull,
-                                                                    profiler,
-                                                                    position,
-                                                                    orientation,
-                                                                    terrain,
-                                                                    contactEpsilon,
-                                                                    profileChildren );
+                                  : ProbeConvexHullTerrainVertices( *hull, profiler, position, orientation, terrain,
+                                                                    contactEpsilon, profileChildren );
 
             const bool hasHeightfieldFootprint = result.vertices.supportedVertices >= 3;
             const bool hasStablePlanePatch = result.vertices.supportedVertices >= 2 && contactCount >= 3 &&
@@ -403,6 +399,7 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
         }
         else
         {
+
             // Without terrain samples we cannot prove a heightfield footprint,
             // so choose the conservative answer. The contact can still solve;
             // it simply cannot seed rest/sleep policy from this classifier.
@@ -414,40 +411,23 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
     return result;
 }
 
+template <typename ShapeView>
 inline BoxTerrainSupportClassification
-ClassifyBoxTerrainSupport( Core::Profiler* profiler,
-                           const Math::CollisionDetection::CollisionShape& shape,
-                           const Math::Vector::Vector3& position,
+ClassifyBoxTerrainSupport( Core::Profiler* profiler, const ShapeView& shape, const Math::Vector::Vector3& position,
                            const Math::Transformation::RotationMatrix& orientation,
-                           const Math::Vector::Vector3& terrainNormal,
-                           const PhysicsTerrainView& terrain,
-                           int contactCount,
-                           float contactEpsilon,
-                           bool profile )
+                           const Math::Vector::Vector3& terrainNormal, const PhysicsTerrainView& terrain, int contactCount,
+                           float contactEpsilon, bool profile )
 {
+
     if ( profile )
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicy" );
-        return ClassifyBoxTerrainSupportImpl( profiler,
-                                              shape,
-                                              position,
-                                              orientation,
-                                              terrainNormal,
-                                              terrain,
-                                              contactCount,
-                                              contactEpsilon,
-                                              true );
+        return ClassifyBoxTerrainSupportImpl( profiler, shape, position, orientation, terrainNormal, terrain, contactCount,
+                                              contactEpsilon, true );
     }
 
-    return ClassifyBoxTerrainSupportImpl( profiler,
-                                          shape,
-                                          position,
-                                          orientation,
-                                          terrainNormal,
-                                          terrain,
-                                          contactCount,
-                                          contactEpsilon,
-                                          false );
+    return ClassifyBoxTerrainSupportImpl( profiler, shape, position, orientation, terrainNormal, terrain, contactCount,
+                                          contactEpsilon, false );
 }
 } // namespace Physics
 } // namespace SkullbonezCore

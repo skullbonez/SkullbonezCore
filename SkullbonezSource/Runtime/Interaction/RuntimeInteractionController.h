@@ -221,6 +221,7 @@ struct RuntimeInputSnapshot
 {
     RuntimePointerEvent pointer;
     RuntimeInteractionFrameInput frameInput;
+
     // Value command issued by the input owner; later frame phases never reopen
     // Page Up/Page Down key state to decide world behavior.
     Environment::FluidSurfaceAdjustment fluidSurfaceAdjustment;
@@ -254,6 +255,7 @@ class RuntimeInteractionController
     PhysicsAdvanceState PhysicsAdvance() const;
     const RuntimeInteractionGesture& Gesture() const;
     RuntimePointerCaptureOwner PointerCapture() const;
+
     // Maps a world owner onto the workspace that owns its interaction policy;
     // unclassified owners remain in the controller's current workspace.
     RuntimeWorkspace WorkspaceForOwner( WorldInteractionOwner owner ) const;
@@ -269,22 +271,24 @@ class RuntimeInteractionController
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
                                                                       InteractionExitReason reason );
+
     // Commands are accepted only by the current owner; events publish the
     // resulting state after a successful mutation.
     bool ApplyGestureCommand( const RuntimeGestureCommand& command, RuntimeGestureEvent& outEvent );
+
     // Claims the workspace/owner, clears any previous interaction, and begins
     // one typed tool drag. A false result means the gesture/owner pairing is
     // invalid; the requested workspace and owner remain active.
-    bool BeginOwnedToolGesture( RuntimeWorkspace workspace,
-                                WorldInteractionOwner owner,
+    bool BeginOwnedToolGesture( RuntimeWorkspace workspace, WorldInteractionOwner owner,
                                 const RuntimeInteractionGesture& gesture );
+
     // Ends only the named active gesture so stale release events cannot cancel
     // a newer tool that already owns pointer capture.
     void EndGestureIfKind( RuntimeInteractionGestureKind kind );
+
     // Camera-look gesture ownership is interaction policy, not Run routing.
     // Sync begins only from an idle pointer owner and cancels on focus/policy exit.
-    void SyncCameraLookGesture( const RuntimeInputSnapshot& input,
-                                const RuntimeInteractionFramePolicy& policy,
+    void SyncCameraLookGesture( const RuntimeInputSnapshot& input, const RuntimeInteractionFramePolicy& policy,
                                 bool mouseLookOwnsCursor );
     void CancelCameraLookGesture();
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
@@ -294,18 +298,16 @@ class RuntimeInteractionController
 
   private:
     RuntimeInteractionTransition BeginGesture( const RuntimeInteractionGesture& gesture,
-                                               RuntimePointerCaptureOwner captureOwner,
-                                               InteractionExitReason reason );
+                                               RuntimePointerCaptureOwner captureOwner, InteractionExitReason reason );
     RuntimeInteractionTransition EndGesture( InteractionExitReason reason );
-    RuntimeInteractionTransition CaptureTransition( RuntimeWorkspace previousWorkspace,
-                                                    WorldInteractionOwner previousOwner,
+    RuntimeInteractionTransition CaptureTransition( RuntimeWorkspace previousWorkspace, WorldInteractionOwner previousOwner,
                                                     CameraLookState previousCameraLook,
                                                     PhysicsAdvanceState previousPhysicsAdvance,
                                                     const RuntimeInteractionGesture& previousGesture,
                                                     RuntimePointerCaptureOwner previousPointerCapture,
                                                     InteractionExitReason reason ) const;
-    RuntimeInteractionTransition
-    TransitionTo( RuntimeWorkspace workspace, WorldInteractionOwner owner, InteractionExitReason reason );
+    RuntimeInteractionTransition TransitionTo( RuntimeWorkspace workspace, WorldInteractionOwner owner,
+                                               InteractionExitReason reason );
     void ValidateState() const;
 
     RuntimeWorkspace m_workspace = RuntimeWorkspace::Live;

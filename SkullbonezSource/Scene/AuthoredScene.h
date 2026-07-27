@@ -63,12 +63,12 @@ namespace Runtime
 {
 class AuthoredScene;
 class AuthoredSceneParser;
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-SkullbonezCore::Core::SbResult
-TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene );
-SkullbonezCore::Core::SbResult
-TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene );
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+                                                                 AuthoredScene& outScene );
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+                                                              AuthoredScene& outScene );
 
 struct SceneCamera
 {
@@ -281,6 +281,7 @@ struct SceneConvexHull
 
 enum SceneCinematicOverrideBits : uint64_t
 {
+
     // Scene files may specify any subset of cinematic JSON fields. Each bit says
     // "this exact field was authored in the scene." That lets the loader merge
     // scene-specific values over engine.cfg without wiping unspecified defaults.
@@ -518,10 +519,11 @@ class AuthoredScene
 {
 
   private:
+
     // Parser-local construction helpers populate the immutable scene record in
     // one pass; runtime systems use public read-only access below.
-    friend AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-    friend AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+    friend AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+    friend AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
     friend class AuthoredSceneParser;
 
     std::vector<SceneCamera> m_cameras;
@@ -553,6 +555,7 @@ class AuthoredScene
   public:
     AuthoredScene();
     static AuthoredScene LoadFromFile( const char* path );
+
     // Lane R: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, AuthoredScene& outScene );
@@ -560,16 +563,16 @@ class AuthoredScene
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
     static AuthoredScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
-    static SkullbonezCore::Core::SbResult
-    TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, const Assets::AssetSystem& assets,
+                                                           AuthoredScene& outScene );
     static AuthoredScene LoadStyleFromFile( const char* path );
     static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, AuthoredScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
     static AuthoredScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
-    static SkullbonezCore::Core::SbResult
-    TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets,
+                                                                AuthoredScene& outScene );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;

@@ -29,6 +29,7 @@ namespace Runtime
 namespace Startup
 {
 #ifdef _DEBUG
+
 // Installs process-wide debug fault handlers. Call once before any deliberate
 // crash probe or subsystem construction; the handlers retain no caller state.
 void InstallDebugCrashLogger();

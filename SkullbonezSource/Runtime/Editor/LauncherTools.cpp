@@ -32,7 +32,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../App/RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneEntityStore.h"
@@ -61,6 +61,7 @@ constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 
 const char* LauncherReproShapeName( ColliderShapeKind kind )
 {
+
     switch ( kind )
     {
     case ColliderShapeKind::Box:
@@ -81,8 +82,7 @@ float LauncherReproRadius( const ColliderRecord& collider )
 
 
 const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore& bodyStore,
-                                                          const ColliderStore& colliderStore,
-                                                          int modelIndex )
+                                                          const ColliderStore& colliderStore, int modelIndex )
 {
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
@@ -90,17 +90,14 @@ const ColliderRecord* LauncherReproColliderForModelIndex( const PhysicsBodyStore
 }
 
 
-const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore,
-                                                       const ColliderRecord& collider )
+const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore, const ColliderRecord& collider )
 {
     return bodyStore.RecordForHandle( collider.body );
 }
 } // namespace
 
 
-bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
-                                            int& outIndex,
-                                            float& outRayT,
+bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world, int& outIndex, float& outRayT,
                                             float& outCrosshairDistance ) const
 {
     outIndex = -1;
@@ -111,6 +108,7 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
     const Vector3& camPos = cameras.GetCameraTranslation();
     Vector3 rayDir = cameras.GetCameraView() - camPos;
     float rayMagSq = VectorMagSquared( rayDir );
+
     if ( rayMagSq < TOLERANCE )
     {
         return false;
@@ -130,15 +128,18 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const auto colliders = colliderStore.Records();
     const auto hotFields = bodyStore.HotFields();
+
     for ( const ColliderRecord& collider : colliders )
     {
         const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );
+
         if ( !body )
         {
             continue;
         }
 
         const int modelIndex = colliderStore.ModelIndexForHandle( collider.handle );
+
         if ( modelIndex < 0 )
         {
             continue;
@@ -146,6 +147,7 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
 
         Vector3 toModel = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) ) - camPos;
         float rayT = toModel * rayDir;
+
         if ( rayT <= 0.0f )
         {
             continue;
@@ -153,12 +155,14 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
 
         float distSq = VectorMagSquared( toModel );
         float crosshairDistSq = distSq - rayT * rayT;
+
         if ( crosshairDistSq < 0.0f )
         {
             crosshairDistSq = 0.0f;
         }
 
         float radius = LauncherReproRadius( collider );
+
         if ( crosshairDistSq > radius * radius )
         {
             continue;
@@ -166,6 +170,7 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
 
         float hitOffset = sqrtf( radius * radius - crosshairDistSq );
         float hitT = rayT - hitOffset;
+
         if ( hitT < 0.0f )
         {
             hitT = rayT;
@@ -191,12 +196,12 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
 }
 
 
-LauncherReproSnapshotStatus
-RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
+LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
 {
     int targetIndex = -1;
     float rayT = 0.0f;
     float crosshairDistance = 0.0f;
+
     if ( !PickLauncherReproTarget( context.world, targetIndex, rayT, crosshairDistance ) )
     {
         return LauncherReproSnapshotStatus::NoTarget;
@@ -205,12 +210,14 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     const ColliderStore& colliderStore = context.world.Colliders();
     const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
+
     if ( !collider )
     {
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
     const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, *collider );
+
     if ( !body )
     {
         return LauncherReproSnapshotStatus::NoTarget;
@@ -221,6 +228,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
 
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
+
     if ( fopen_s( &rawFile, LAUNCHER_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
     {
         return LauncherReproSnapshotStatus::WriteFailed;
@@ -238,9 +246,12 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     Quaternion orientation = hotState.orientation;
     orientation.GetComponents( qx, qy, qz, qw );
 
-    const CollisionShape& shape = collider->shape;
-    bool isSphere = std::holds_alternative<BoundingSphere>( shape );
-    bool isBox = std::holds_alternative<BoundingBox>( shape );
+    const CollisionShapeReference& shape = collider->shape;
+    const BoundingSphere* sphereShape = GetShapeIf<BoundingSphere>( &shape );
+    const BoundingBox* boxShape = GetShapeIf<BoundingBox>( &shape );
+    const ConvexHullShape* hullShape = GetShapeIf<ConvexHullShape>( &shape );
+    bool isSphere = sphereShape != nullptr;
+    bool isBox = boxShape != nullptr;
     const char* shapeName = LauncherReproShapeName( collider->shapeKind );
     float boundingRadius = LauncherReproRadius( *collider );
     float shapeVolume = GetShapeVolume( shape );
@@ -249,26 +260,29 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     float mass = body->mass;
     float restitution = collider->restitution;
     const char* name = context.world.Entities().At( targetIndex ).displayName;
+
     if ( !name || name[0] == '\0' )
     {
         name = "<unnamed>";
     }
 
     const char* scenePath = "<generated>";
+
     if ( context.sceneState.isSceneMode )
     {
+
         if ( context.currentScenePath )
         {
             scenePath = context.currentScenePath->c_str();
         }
     }
 
-    const char* rendererName = context.rendererName && context.rendererName[0] != '\0' ? context.rendererName
-                                                                                       : "DirectX 12";
+    const char* rendererName = context.rendererName && context.rendererName[0] != '\0' ? context.rendererName : "DirectX 12";
 
     const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
+
     if ( context.launchOptions.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
         generatedObjectOverride = "all_balls";
@@ -291,30 +305,35 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int sleepIslandVisualId = 0;
     const Physics::PhysicsEngine& physics = context.world.Physics();
     const auto sleepStates = PhysicsEngine::ReadSleepStates( physics );
+
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
         sleeping = sleepStates[targetIndex] ? 1 : 0;
     }
 
     const auto sleepSupportedStates = PhysicsEngine::ReadSleepSupportedStates( physics );
+
     if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
     {
         sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
     }
 
     const auto sleepInhibitedStates = PhysicsEngine::ReadSleepInhibitedStates( physics );
+
     if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
     {
         sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
     }
 
-    const std::vector<uint8_t>& collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
+    const auto collisionContacts = PhysicsEngine::ReadCollisionVisualContacts( physics );
+
     if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
     {
         collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
     }
 
     const auto islandIds = PhysicsEngine::ReadSleepIslandVisualIds( physics );
+
     if ( targetIndex < static_cast<int>( islandIds.size() ) )
     {
         sleepIslandVisualId = islandIds[targetIndex];
@@ -324,6 +343,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     float terrainHeight = 0.0f;
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
     Geometry::Terrain* terrain = context.world.Terrain().Get();
+
     if ( terrain && terrain->IsInBounds( pos.x, pos.z ) )
     {
         terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
@@ -333,18 +353,14 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int boxTerrainSupportedVertices = -1;
     float boxMinTerrainGap = 0.0f;
     float boxMaxTerrainGap = 0.0f;
-    if ( std::holds_alternative<BoundingBox>( shape ) && terrain )
+
+    if ( boxShape && terrain )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
         Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
-        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr,
-                                                                                   box,
-                                                                                   pos,
-                                                                                   orientMat,
+        const BoxTerrainVertexSupportProbe supportProbe = ProbeBoxTerrainVertices( nullptr, *boxShape, pos, orientMat,
                                                                                    terrain->PhysicsView(),
-                                                                                   context.contactEpsilon,
-                                                                                   false );
+                                                                                   context.contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -355,6 +371,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
 
     time_t now = time( nullptr );
+
     // Invariant: Snapshot keys are intentionally simple CSV-like rows. Keep
     // names, order, and precision stable so copied repro blocks remain useful
     // across debugging sessions and script revisions.
@@ -382,31 +399,22 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "model_count,%d\n", context.world.SceneEntityCount() );
     fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
+
     if ( context.sceneState.isSceneMode )
     {
         fprintf( f,
                  "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale "
                  "%.6f%s%s%s%s\n",
-                 rendererArg,
-                 scenePath,
-                 context.sceneState.rngSeed,
-                 context.sceneState.timeScale,
-                 context.sceneState.isFixedStep ? " --fixed-step" : "",
-                 context.launchOptions.noWater ? " --no-water" : "",
-                 context.physicsSleepEnabled ? "" : " --no-sleep",
-                 generatedObjectArg );
+                 rendererArg, scenePath, context.sceneState.rngSeed, context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
     }
     else
     {
-        fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
-                 rendererArg,
-                 context.sceneState.rngSeed,
-                 context.sceneState.timeScale,
-                 context.sceneState.isFixedStep ? " --fixed-step" : "",
-                 context.launchOptions.noWater ? " --no-water" : "",
-                 context.physicsSleepEnabled ? "" : " --no-sleep",
-                 generatedObjectArg );
+        fprintf( f, "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
+                 rendererArg, context.sceneState.rngSeed, context.sceneState.timeScale,
+                 context.sceneState.isFixedStep ? " --fixed-step" : "", context.launchOptions.noWater ? " --no-water" : "",
+                 context.physicsSleepEnabled ? "" : " --no-sleep", generatedObjectArg );
     }
 
     fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );
@@ -439,15 +447,14 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "shape_volume,%.6f\n", shapeVolume );
     fprintf( f, "shape_projected_area,%.6f\n", shapeArea );
     fprintf( f, "shape_drag_coefficient,%.6f\n", shapeDrag );
+
     if ( isSphere )
     {
-        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-        fprintf( f, "sphere_radius,%.6f\n", sphere.GetRadius() );
+        fprintf( f, "sphere_radius,%.6f\n", sphereShape->GetRadius() );
     }
     else if ( isBox )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
-        const Vector3& he = box.GetHalfExtents();
+        const Vector3& he = boxShape->GetHalfExtents();
         fprintf( f, "box_half_extents,%.6f,%.6f,%.6f\n", he.x, he.y, he.z );
         fprintf( f, "box_terrain_supported_vertices,%d\n", boxTerrainSupportedVertices );
         fprintf( f, "box_min_terrain_gap,%.6f\n", boxMinTerrainGap );
@@ -455,11 +462,10 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     }
     else
     {
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        fprintf( f, "hull_name,%s\n", hull.GetName() );
-        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hull.GetVertexCount() ) );
-        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hull.GetFaceCount() ) );
-        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hull.GetEdgeCount() ) );
+        fprintf( f, "hull_name,%s\n", hullShape->GetName() );
+        fprintf( f, "hull_vertices,%u\n", static_cast<unsigned>( hullShape->GetVertexCount() ) );
+        fprintf( f, "hull_faces,%u\n", static_cast<unsigned>( hullShape->GetFaceCount() ) );
+        fprintf( f, "hull_edges,%u\n", static_cast<unsigned>( hullShape->GetEdgeCount() ) );
     }
 
     fprintf( f, "sleeping,%d\n", sleeping );
@@ -470,36 +476,23 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "terrain_at_center,%d\n", terrainAtCenter ? 1 : 0 );
     fprintf( f, "terrain_height_at_center,%.6f\n", terrainHeight );
     fprintf( f, "terrain_normal_at_center,%.6f,%.6f,%.6f\n", terrainNormal.x, terrainNormal.y, terrainNormal.z );
-    fprintf( f,
-             "scene_object_line_hint,%s %s %.6f %.6f %.6f",
-             isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ),
-             name,
-             pos.x,
-             pos.y,
-             pos.z );
+    fprintf( f, "scene_object_line_hint,%s %s %.6f %.6f %.6f",
+             isSphere ? "ball_state/manual" : ( isBox ? "box/manual" : "convex_hull/manual" ), name, pos.x, pos.y, pos.z );
 
     if ( isSphere )
     {
-        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphere.GetRadius(), mass, restitution );
+        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphereShape->GetRadius(), mass, restitution );
     }
     else if ( isBox )
     {
-        const BoundingBox& box = std::get<BoundingBox>( shape );
-        const Vector3& he = box.GetHalfExtents();
+        const Vector3& he = boxShape->GetHalfExtents();
         fprintf( f, " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f", he.x, he.y, he.z, mass, restitution );
     }
     else
     {
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( shape );
-        fprintf( f,
-                 " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f",
-                 hull.GetName(),
-                 static_cast<unsigned>( hull.GetVertexCount() ),
-                 static_cast<unsigned>( hull.GetFaceCount() ),
-                 static_cast<unsigned>( hull.GetEdgeCount() ),
-                 mass,
-                 restitution );
+        fprintf( f, " hull=%s vertices=%u faces=%u edges=%u mass=%.6f restitution=%.6f", hullShape->GetName(),
+                 static_cast<unsigned>( hullShape->GetVertexCount() ), static_cast<unsigned>( hullShape->GetFaceCount() ),
+                 static_cast<unsigned>( hullShape->GetEdgeCount() ), mass, restitution );
     }
 
     fprintf( f, "\n" );
@@ -513,16 +506,16 @@ LauncherReproSnapshotStatus
 RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
                                                            OverlayDebugState& debug ) const
 {
+
     // Why: the debug Enter shortcut should ask the launcher owner for both the
     // cold snapshot artifact and the operator-facing status text, leaving Run to
     // decide only whether the shortcut is currently allowed.
     const LauncherReproSnapshotStatus snapshotStatus = WriteLauncherReproSnapshot( context );
     const char* snapshotMessage = "Failed to write repro snapshot";
+
     if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
     {
-        sprintf_s( debug.reproSnapshotMessage,
-                   sizeof( debug.reproSnapshotMessage ),
-                   "Repro snapshot: %s",
+        sprintf_s( debug.reproSnapshotMessage, sizeof( debug.reproSnapshotMessage ), "Repro snapshot: %s",
                    LAUNCHER_REPRO_SNAPSHOT_PATH );
     }
     else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )

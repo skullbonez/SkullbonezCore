@@ -24,10 +24,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "LiveStyleController.h"
+#include "../Scene/SceneController.h"
 #include "../../Core/PlatformWin32.h"
 #include "../Capture/CaptureController.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../../Scene/AuthoredScene.h"
 #include <cstdio>
 #include <cstring>
@@ -51,6 +52,7 @@ bool IsAbsolutePath( const char* path )
 
 void JoinControlPath( const char* directory, const char* fileName, char* out, size_t outSize )
 {
+
     if ( !directory || directory[0] == '\0' )
     {
         strcpy_s( out, outSize, fileName );
@@ -58,6 +60,7 @@ void JoinControlPath( const char* directory, const char* fileName, char* out, si
     }
 
     const size_t len = strlen( directory );
+
     if ( len > 0 && IsPathSeparator( directory[len - 1] ) )
     {
         sprintf_s( out, outSize, "%s%s", directory, fileName );
@@ -71,9 +74,11 @@ void JoinControlPath( const char* directory, const char* fileName, char* out, si
 
 uint64_t FileStamp( const char* path )
 {
+
     // Why: live style files are tiny, so a combined timestamp/size stamp avoids
     // rereading every frame while still catching rapid save updates.
     WIN32_FILE_ATTRIBUTE_DATA data = {};
+
     if ( !path || !GetFileAttributesExA( path, GetFileExInfoStandard, &data ) )
     {
         return 0;
@@ -93,6 +98,7 @@ uint64_t FileStamp( const char* path )
 
 char* TrimLeft( char* text )
 {
+
     while ( *text == ' ' || *text == '\t' )
     {
         ++text;
@@ -105,8 +111,8 @@ char* TrimLeft( char* text )
 void TrimRight( char* text )
 {
     size_t len = strlen( text );
-    while ( len > 0 &&
-            ( text[len - 1] == '\n' || text[len - 1] == '\r' || text[len - 1] == ' ' || text[len - 1] == '\t' ) )
+
+    while ( len > 0 && ( text[len - 1] == '\n' || text[len - 1] == '\r' || text[len - 1] == ' ' || text[len - 1] == '\t' ) )
     {
         text[--len] = '\0';
     }
@@ -123,6 +129,7 @@ bool TokenMatches( const char* text, const char* token )
 bool ExtractCapturePath( const char* source, char* out, size_t outSize )
 {
     out[0] = '\0';
+
     if ( !source )
     {
         return false;
@@ -133,6 +140,7 @@ bool ExtractCapturePath( const char* source, char* out, size_t outSize )
     TrimRight( line );
 
     char* cursor = TrimLeft( line );
+
     if ( cursor[0] == '\0' || cursor[0] == '#' )
     {
         return false;
@@ -153,6 +161,7 @@ bool ExtractCapturePath( const char* source, char* out, size_t outSize )
     {
         ++cursor;
         char* end = strchr( cursor, '"' );
+
         if ( end )
         {
             *end = '\0';
@@ -173,6 +182,7 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 {
     FILE* file = nullptr;
     const errno_t err = fopen_s( &file, path, "r" );
+
     if ( err != 0 || !file )
     {
         return false;
@@ -180,8 +190,10 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 
     char line[512] = {};
     bool found = false;
+
     while ( fgets( line, sizeof( line ), file ) )
     {
+
         if ( ExtractCapturePath( line, out, outSize ) )
         {
             found = true;
@@ -199,6 +211,7 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 
 void LiveStyleController::WriteStatus( const char* status, const char* detail ) const
 {
+
     if ( !m_enabled || m_statusPath[0] == '\0' )
     {
         return;
@@ -206,6 +219,7 @@ void LiveStyleController::WriteStatus( const char* status, const char* detail ) 
 
     FILE* file = nullptr;
     const errno_t err = fopen_s( &file, m_statusPath, "w" );
+
     if ( err != 0 || !file )
     {
         return;
@@ -223,6 +237,7 @@ void LiveStyleController::WriteStatus( const char* status, const char* detail ) 
 
 bool LiveStyleController::ConfigureDirectory( const char* path )
 {
+
     if ( !path || path[0] == '\0' )
     {
         return false;
@@ -250,25 +265,29 @@ void LiveStyleController::MarkReady()
 }
 
 
-void LiveStyleController::Tick( SceneRuntimeStyleContext context )
+void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                                SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                                SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
+
     if ( !m_enabled )
     {
         return;
     }
 
     const uint64_t styleStamp = FileStamp( m_stylePath );
+
     if ( styleStamp != 0 && styleStamp != m_styleStamp )
     {
         m_styleStamp = styleStamp;
         AuthoredScene styleScene;
-        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath,
-                                                                                               context.assets,
+        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath, assets,
                                                                                                styleScene );
 
         if ( loadResult.ok )
         {
-            ApplyLiveStyleScene( context, styleScene );
+            sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
             ++m_styleApplyCount;
             WriteStatus( "style_applied", m_stylePath );
             printf( "[style-harness] Applied %s\n", m_stylePath );
@@ -282,23 +301,23 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     }
 
     const uint64_t captureStamp = FileStamp( m_capturePath );
+
     if ( captureStamp != 0 && captureStamp != m_captureStamp )
     {
         m_captureStamp = captureStamp;
 
         char requestedPath[512] = {};
+
         if ( ReadCaptureRequest( m_capturePath, requestedPath, sizeof( requestedPath ) ) )
         {
+
             if ( IsAbsolutePath( requestedPath ) )
             {
                 strcpy_s( m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ), requestedPath );
             }
             else
             {
-                JoinControlPath( m_directory,
-                                 requestedPath,
-                                 m_pendingScreenshotPath,
-                                 sizeof( m_pendingScreenshotPath ) );
+                JoinControlPath( m_directory, requestedPath, m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ) );
             }
 
             m_hasPendingScreenshot = true;
@@ -346,12 +365,14 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
 
 void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
+
     if ( !HasPendingCapture() )
     {
         return;
     }
 
     const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
+
     if ( !captureResult.ok )
     {
         MarkCaptureFailed( captureResult.error.message );

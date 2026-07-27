@@ -58,10 +58,11 @@ static_assert( sizeof( BuoyancyBodyFacts ) == sizeof( float ) * 5u,
 class BuoyancySystem
 {
   private:
-    PhysicsFixedList<BuoyancyBodyFacts, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_bodyFacts {
-        "BuoyancySystem.bodyFacts" };
+    PhysicsFixedList<BuoyancyBodyFacts, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_bodyFacts { "BuoyancySystem.bodyFacts", PhysicsCapacityReason::SceneBodies };
 
   public:
+    void ReserveCapacity( std::size_t capacity );
     bool AppendBodyFacts( const PhysicsBodyCreateDesc& desc );
     bool RefreshBodyFacts( int index, const PhysicsBodyCreateDesc& desc );
     bool EraseBodyFactsSwapLast( int index );
@@ -72,13 +73,11 @@ class BuoyancySystem
     std::span<const BuoyancyBodyFacts> Facts() const;
     std::span<BuoyancyBodyFacts> MutableFacts();
 
-    static bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
-                                                    const PhysicsBodyStore& bodyStore,
-                                                    const ColliderStore& colliderStore,
-                                                    BuoyancyBodyFacts& facts,
+    static bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces, const PhysicsBodyStore& bodyStore,
+                                                    const ColliderStore& colliderStore, BuoyancyBodyFacts& facts,
                                                     int index );
-    static bool
-    IsFullySubmergedBall( const BuoyancyBodyFacts& facts, bool fixed, const ColliderStore& colliderStore, int index );
+    static bool IsFullySubmergedBall( const BuoyancyBodyFacts& facts, bool fixed, const ColliderStore& colliderStore,
+                                      int index );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

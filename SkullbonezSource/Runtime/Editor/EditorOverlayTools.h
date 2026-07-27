@@ -22,8 +22,8 @@ Glossary:
   Collider store: Physics-owned shape records used for shape-accurate overlays.
 
 Invariants:
-  - Helpers borrow all mutable state through context structs; they do not cache
-    pointers or own runtime services.
+  - Helpers take explicit frame-local borrows; they do not cache pointers or
+    own runtime services.
   - Preview updates may mutate editor state, but overlay tracing must be a
     read-only projection of the current tool state.
   - Placement preview uses the same borrowed asset registry as placement commit.
@@ -66,17 +66,6 @@ struct RunEditorPlacementState;
 struct RunMousePickupState;
 struct RunRayCastTestState;
 
-namespace RunInternal
-{
-// Lifetime: preview and trace passes borrow the scene-lifetime owner once and
-// retain no store pointer after the frame-local call returns.
-struct EditorInteractionPreviewContext
-{
-    RunEditorPlacementState& editor;
-    SceneWorld& world;
-    RuntimeInteractionController& interaction;
-    const Assets::AssetSystem& assets;
-};
 
 struct EditorInteractionPreviewInput
 {
@@ -94,16 +83,6 @@ struct EditorInteractionPreviewResult
     bool inspectSelectionScope = false;
 };
 
-struct EditorToolOverlayTraceContext
-{
-    const RunEditorPlacementState& editor;
-    const RunRayCastTestState& rayCastTest;
-    const RunMousePickupState& mousePickup;
-    const SceneWorld& world;
-    const Assets::AssetSystem& assets;
-    EditorTracer& tracer;
-};
-
 struct EditorToolOverlayTraceInput
 {
     float rayLingerSeconds = 0.0f;
@@ -114,9 +93,13 @@ struct EditorToolOverlayTraceInput
     bool attachedCameraActiveFollow = false;
 };
 
-EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteractionPreviewContext context,
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( RunEditorPlacementState& editor, SceneWorld& world,
+                                                               RuntimeInteractionController& interaction,
+                                                               const Assets::AssetSystem& assets,
                                                                const EditorInteractionPreviewInput& input );
-void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input );
-} // namespace RunInternal
+void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const RunRayCastTestState& rayCastTest,
+                                  const RunMousePickupState& mousePickup, const SceneWorld& world,
+                                  const Assets::AssetSystem& assets, EditorTracer& tracer,
+                                  const EditorToolOverlayTraceInput& input );
 } // namespace Runtime
 } // namespace SkullbonezCore

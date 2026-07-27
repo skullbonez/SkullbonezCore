@@ -21,7 +21,7 @@ Invariants:
   - Capacity exhaustion is fatal; steady runtime never grows this store.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h
+  - SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -58,14 +58,15 @@ class RenderDefaultsStore
     const SkullbonezCore::Core::CinematicRenderConfig& CinematicBaseline() const;
     void SubmitOrdinarySave();
     void SubmitCinematicSave();
-    RenderDefaultsSaveBatchResult
-    DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
-                            const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+    RenderDefaultsSaveBatchResult DrainAtFrameCheckpoint( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     std::size_t PendingCount() const;
     RenderDefaultsRequestType PendingTypeAt( std::size_t index ) const;
 
   private:
     void Submit( RenderDefaultsRequestType type );
+    static SkullbonezCore::Core::SbResult PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary );
+    static SkullbonezCore::Core::SbResult PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
 
     RenderDefaultsRequestType m_requests[RENDER_DEFAULTS_REQUEST_CAPACITY]; // Fixed persistence-intent ring.
     int m_head = 0;                                                         // Oldest save request.

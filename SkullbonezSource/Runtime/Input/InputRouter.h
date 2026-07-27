@@ -121,17 +121,6 @@ class SceneController;
 class DiagnosticsRuntime;
 class Window;
 struct OverlayDebugState;
-struct RuntimeFrameInteractionView;
-
-// Operation-specific facts for the after-UI escape pass. The frame-selected
-// surface bit prevents Escape from opening the dormant Legacy UI while ImGui
-// owns window focus.
-struct RuntimeAfterUiDismissInput
-{
-    bool uiUserInteracted = false;
-    double nowSeconds = 0.0;
-    bool legacyUiActive = true;
-};
 
 struct EditorPointerRouteResult
 {
@@ -147,6 +136,7 @@ struct EditorPointerRouteResult
 
 struct RuntimePointerRouteResult
 {
+
     // Invariant: actions preserve editor/end-before-begin and domain priority;
     // composition applies them after the router finishes synchronous borrows.
     static constexpr std::size_t MAX_MODE_ACTIONS = 2;
@@ -210,6 +200,7 @@ class InputKeySnapshot
 
 struct DeviceInputFrame
 {
+
     // Lifetime: capture code finishes this value before handing it to the
     // router. Router and downstream consumers receive it as const and never
     // retain references beyond the frame.
@@ -229,6 +220,7 @@ struct DeviceInputFrame
 
 struct UiInputCaptureIntent
 {
+
     // Value-only arbitration from an external tool UI. InputRouter filters the
     // corresponding device class and resynchronizes held levels when ownership
     // returns so a tool keystroke cannot become a gameplay press.
@@ -236,6 +228,7 @@ struct UiInputCaptureIntent
     bool keyboard = false;
     bool text = false;
     bool nativePointerStateTouched = false;
+
     // Value-only fitted image rectangle from an external editor. Input
     // composition maps the one captured client point through it before any
     // world pick, placement, camera, or gizmo owner sees coordinates.
@@ -252,6 +245,7 @@ struct UiInputCaptureIntent
 
 struct UiInputHitSnapshot
 {
+
     // Lifetime: published once after UI hit testing and retained by InputRouter
     // only until the next DeviceInputFrame begins.
     RuntimeMouseEdges mouse;
@@ -268,6 +262,7 @@ struct UiInputHitSnapshot
 
 struct PointerPresentationState
 {
+
     // Value boundary between the platform-neutral router and Win32 hardware.
     bool nativeCapture = false;
     bool cursorVisible = true;
@@ -276,6 +271,7 @@ struct PointerPresentationState
 
 struct PointerPresentationPolicyInput
 {
+
     // Value-only owner facts joined with InputRouter's device/UI snapshots.
     bool editorModeEnabled = false;
     bool editorViewportLookActive = false;
@@ -328,6 +324,7 @@ class InputActions
     std::size_t Count() const;
     bool Empty() const;
     bool Overflowed() const;
+
     // Precondition: index is less than Count().
     const InputActionEvent& operator[]( std::size_t index ) const;
     const InputActionEvent* Data() const;
@@ -359,17 +356,13 @@ class InputRouter
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
     // calls append one ordered frame result.
-    void BeginFrame( const DeviceInputFrame& frame,
-                     RuntimeInputKeyBindingView bindings,
-                     InputActions& output,
+    void BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output,
                      UiInputCaptureIntent capture = {} );
 
     // Emits the selected phase in binding-table order. activeContexts contains
     // current mode/UI facts; AfterUi/Capture phase bits are supplied by the
     // router so callers cannot accidentally route a row through the wrong pass.
-    void RoutePhase( RuntimeInputKeyBindingView bindings,
-                     InputActionPhase phase,
-                     RuntimeInputContextMask activeContexts,
+    void RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPhase phase, RuntimeInputContextMask activeContexts,
                      InputActions& output );
 
     void Reset();
@@ -377,101 +370,80 @@ class InputRouter
     const DeviceInputFrame& DeviceFrame() const;
     void PublishUiSnapshot( const UiInputHitSnapshot& snapshot );
     const UiInputHitSnapshot& UiSnapshot() const;
+
     // Builds the one post-UI pointer/policy value from router-owned snapshots.
     // Cross-domain policy facts arrive as values and are not retained.
     RuntimeInputSnapshot BuildRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                bool suppressWorldAction ) const;
+
     // Publishes the immutable value consumed after the input turn; later phases
     // must not reopen DeviceFrame.
     const RuntimeInputSnapshot& PublishRuntimeSnapshot( const RuntimeInteractionFrameInput& frameInput,
                                                         bool suppressWorldAction );
     const RuntimeInputSnapshot& RuntimeSnapshot() const;
     PointerPresentationPolicy EvaluatePointerPresentation( const PointerPresentationPolicyInput& input ) const;
-    void ApplyPointerPresentation(
-        const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
-    bool ReleasePointerToUi( const PointerPresentationPolicy&
-                                 policy );         // Releases native capture only when mouse look has no stronger claim.
-    void ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
-                                            RuntimeFrameInteractionView& interactionOwners,
-                                            SceneController& sceneController,
-                                            ReplayRuntime& replayRuntime,
+    void ApplyPointerPresentation( const PointerPresentationPolicy& policy ); // Commits the policy's desired native cursor visibility.
+    bool ReleasePointerToUi( const PointerPresentationPolicy& policy );       // Releases native capture only when mouse look has no stronger claim.
+    void ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition, RuntimeTools& runtimeTools,
+                                            RuntimeInteractionController& interaction,
+                                            AttachedCameraController& attachedCamera, CameraControlState& camera,
+                                            SceneController& sceneController, ReplayRuntime& replayRuntime,
                                             RunCameraMode replayRestoreCameraMode );
-    void ApplyInteractionTransition( const RuntimeInteractionTransition& transition,
-                                     RuntimeFrameInteractionView& interactionOwners,
-                                     SceneController& sceneController,
-                                     ReplayRuntime& replayRuntime,
-                                     RunCameraMode replayRestoreCameraMode );
-    RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner,
-                                                           InteractionExitReason reason,
-                                                           RuntimeFrameInteractionView& interactionOwners,
-                                                           SceneController& sceneController,
-                                                           ReplayRuntime& replayRuntime,
-                                                           RunCameraMode replayRestoreCameraMode );
+    void ApplyInteractionTransition( const RuntimeInteractionTransition& transition, RuntimeTools& runtimeTools,
+                                     RuntimeInteractionController& interaction, AttachedCameraController& attachedCamera,
+                                     CameraControlState& camera, SceneController& sceneController,
+                                     ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode );
+    RuntimeInteractionTransition
+    SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason, RuntimeTools& runtimeTools,
+                              RuntimeInteractionController& interaction, AttachedCameraController& attachedCamera,
+                              CameraControlState& camera, SceneController& sceneController, ReplayRuntime& replayRuntime,
+                              RunCameraMode replayRestoreCameraMode );
+
     // Camera-mode requests are input-owner transitions: the router sequences
     // interaction cleanup, camera/editor state, and pointer presentation while
     // retaining none of the borrowed domain owners.
-    void ApplyCameraMode( RunCameraMode mode,
-                          RuntimeInputActionSource source,
-                          RuntimeFrameInteractionView& interactionOwners,
-                          SceneController& sceneController,
-                          ReplayRuntime& replayRuntime,
+    void ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source, RuntimeTools& runtimeTools,
+                          RuntimeInteractionController& interaction, AttachedCameraController& attachedCamera,
+                          CameraControlState& camera, SceneController& sceneController, ReplayRuntime& replayRuntime,
                           RuntimeInputContext& runtimeInput );
-    void CycleCameraMode( RuntimeFrameInteractionView& interactionOwners,
-                          SceneController& sceneController,
-                          ReplayRuntime& replayRuntime,
+    void CycleCameraMode( RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
+                          AttachedCameraController& attachedCamera, CameraControlState& camera,
+                          SceneController& sceneController, ReplayRuntime& replayRuntime,
                           RuntimeInputContext& runtimeInput );
-    bool HandleUnfocusedFrame( RuntimeFrameInteractionView& interactionOwners,
-                               SceneController& sceneController,
-                               ReplayRuntime& replayRuntime,
+    bool HandleUnfocusedFrame( RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
+                               AttachedCameraController& attachedCamera, CameraControlState& camera, UI::InGameUI& ui,
+                               SceneController& sceneController, ReplayRuntime& replayRuntime,
                                RuntimeInputContext& runtimeInput );
-    bool DispatchAfterUiDismiss( InputActions& actions,
-                                 const RuntimeAfterUiDismissInput& input,
-                                 DiagnosticsRuntime& diagnosticsRuntime,
-                                 RuntimeFrameInteractionView& interactionOwners,
-                                 SceneController& sceneController,
-                                 RuntimeOverlayDiagnostics& overlays,
+    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive,
+                                 DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera,
+                                 AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui,
+                                 SceneController& sceneController, RuntimeOverlayDiagnostics& overlays,
                                  const ReplayInputView& replayInput );
-    void DispatchCaptureActions( InputActions& actions,
-                                 DiagnosticsRuntime& diagnosticsRuntime,
-                                 RuntimeFrameInteractionView& interactionOwners,
-                                 SceneController& sceneController,
+    void DispatchCaptureActions( InputActions& actions, DiagnosticsRuntime& diagnosticsRuntime,
+                                 const CameraControlState& camera, const AttachedCameraController& attachedCamera,
+                                 const UI::InGameUI& ui, SceneController& sceneController,
                                  const GameObjects::PresentationSaveState& presentation,
                                  const ReplayInputView& replayInput );
-    void RecordModeAction( RuntimeFrameInteractionView& interactionOwners,
-                           RuntimeInputContext& runtimeInput,
-                           RuntimeInputAction action,
-                           RuntimeInputActionSource source );
-    EditorPointerRouteResult RouteEditorPointer( const RuntimePointerEvent& pointer,
-                                                 bool hasWorldRay,
-                                                 const Math::Vector::Vector3& rayOrigin,
-                                                 const Math::Vector::Vector3& rayDirection,
-                                                 RunCameraMode cameraMode,
-                                                 bool replayInspectionActive,
-                                                 int activeModelCapacity,
-                                                 Assets::AssetSystem& assets,
-                                                 RuntimeTools& runtimeTools,
-                                                 RuntimeInteractionController& interaction,
-                                                 SceneController& sceneController );
-    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer,
-                                                   RunCameraMode cameraMode,
-                                                   bool replayInspectionActive,
-                                                   int activeModelCapacity,
-                                                   const Window& window,
-                                                   Assets::AssetSystem& assets,
-                                                   RuntimeFrameInteractionView& interactionOwners,
-                                                   SceneController& sceneController,
-                                                   ReplayRuntime& replayRuntime,
+    void RecordModeAction( const CameraControlState& camera, const RuntimeTools& runtimeTools,
+                           const RuntimeInteractionController& interaction, const AttachedCameraController& attachedCamera,
+                           RuntimeInputContext& runtimeInput, RuntimeInputAction action, RuntimeInputActionSource source );
+    EditorPointerRouteResult
+    RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Math::Vector::Vector3& rayOrigin,
+                        const Math::Vector::Vector3& rayDirection, RunCameraMode cameraMode, bool replayInspectionActive,
+                        int activeModelCapacity, Assets::AssetSystem& assets, RuntimeTools& runtimeTools,
+                        RuntimeInteractionController& interaction, SceneController& sceneController );
+    RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive,
+                                                   int activeModelCapacity, const Window& window,
+                                                   Assets::AssetSystem& assets, RuntimeTools& runtimeTools,
+                                                   AttachedCameraController& attachedCamera,
+                                                   RuntimeInteractionController& interaction, CameraControlState& camera,
+                                                   SceneController& sceneController, ReplayRuntime& replayRuntime,
                                                    RunCameraMode replayRestoreCameraMode );
-    bool TryBuildWorldRay( const Environment::CameraCollection& cameras,
-                           const Window& window,
-                           Math::Vector::Vector3& outOrigin,
-                           Math::Vector::Vector3& outDirection,
+    bool TryBuildWorldRay( const Environment::CameraCollection& cameras, const Window& window,
+                           Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection,
                            bool clampToViewport = false ) const;
-    bool TryBuildWorldRayAt( POINT clientPosition,
-                             const Environment::CameraCollection& cameras,
-                             const Window& window,
-                             Math::Vector::Vector3& outOrigin,
-                             Math::Vector::Vector3& outDirection,
+    bool TryBuildWorldRayAt( POINT clientPosition, const Environment::CameraCollection& cameras, const Window& window,
+                             Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection,
                              bool clampToViewport = false ) const;
 
     // Pointer presentation requests are reconciled here so UI/tools/camera do
@@ -480,14 +452,17 @@ class InputRouter
     void ReleaseNativeCapture();
     void RequestCursorVisible( bool visible );
     void CancelPointerPresentation();
+
     // An external Win32 UI temporarily owns native capture/cursor calls. Force
     // the next engine-owned frame to republish its desired hardware state.
     void DeferPointerPresentationCommit();
+
     // Returns true only when the hardware-facing state changed since the last
     // consume. Callers apply the returned value atomically at the frame edge.
     bool ConsumePointerPresentationChange( PointerPresentationState& state );
     bool NativeCaptureRequested() const;
     bool CursorVisibleRequested() const;
+
     // Presentation timing for repeated semantic taps belongs beside action
     // edges, not in a consumer's compatibility input context.
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
@@ -521,12 +496,13 @@ class InputRouter
     DeviceInputFrame m_deviceFrame;
     UiInputHitSnapshot m_uiSnapshot;
     RuntimeInputSnapshot m_runtimeSnapshot;
-    RuntimeInputContext m_runtimeContext;          // Semantic mode/action history belongs with routed edge memory.
-    InputActions m_actions;                        // Fixed per-frame semantic output; reset by BeginFrame.
+    RuntimeInputContext m_runtimeContext;                                     // Semantic mode/action history belongs with routed edge memory.
+    InputActions m_actions;                                                   // Fixed per-frame semantic output; reset by BeginFrame.
     bool m_nativeCaptureRequested = false;
     bool m_committedNativeCapture = false;
     bool m_cursorVisibleRequested = true;
     bool m_committedCursorVisible = true;
+
     // False forces the first composition frame to initialize Win32 capture and cursor state.
     bool m_pointerPresentationCommitted = false;
     bool m_hasFrame = false;

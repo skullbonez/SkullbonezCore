@@ -52,12 +52,8 @@ class ShaderDX12;
 class Dx12ShaderDevelopment
 {
   public:
-    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
-                           Dx12TextureOwner& textures,
-                           Dx12GeometryOwner& geometry,
-                           Dx12RenderDevice& device,
-                           Dx12FrameOwner& frame,
-                           Dx12Diagnostics& diagnostics );
+    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12GeometryOwner& geometry,
+                           Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12Diagnostics& diagnostics );
 
     bool Enabled() const;
     SkullbonezCore::Core::SbResult ReloadShadersFromSource();
@@ -79,6 +75,7 @@ class Dx12ShaderDevelopment
     Dx12RenderDevice& m_device;
     Dx12FrameOwner& m_frame;
     Dx12Diagnostics& m_diagnostics;
+
     // Lifetime: rows borrow ShaderDX12 objects. Geometry-owned rows unregister
     // before reset; the final reset also makes late external shader teardown inert.
     std::array<ShaderDX12*, LIVE_SHADER_CAPACITY> m_liveShaders = {};

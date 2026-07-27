@@ -53,6 +53,7 @@
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Common.h"
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
@@ -103,6 +104,13 @@ using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
+void ReserveTestPhysicsCapacity( PhysicsEngine& engine, std::size_t capacity )
+{
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+    engine.ReserveAuthoredBodyCapacity( capacity );
+}
+
 constexpr int kMicroBodyCount = 3;
 constexpr int kParallelMutualGravityBodyCount = 40;
 constexpr int kParallelContactBodyCount = 520;
@@ -218,6 +226,7 @@ void AddMicroBody( PhysicsEngine& engine,
                    const Vector3& position,
                    const Vector3& linearVelocity )
 {
+    ReserveTestPhysicsCapacity( engine, kMicroBodyCount );
     engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
     const float radius = 1.0f;
     const float mass = 2.0f;
@@ -237,11 +246,14 @@ void AddMicroBody( PhysicsEngine& engine,
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
 void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position )
 {
+    ReserveTestPhysicsCapacity( engine, kParallelContactBodyCount );
     engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
     const float radius = 1.0f;
     const float mass = 2.0f;
@@ -261,6 +273,8 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, 
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
@@ -282,7 +296,7 @@ void SeedParallelContactSleepWorld( PhysicsEngine& engine, const SkullbonezCore:
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( true );
-    engine.ReserveAuthoredBodyCapacity( kParallelContactBodyCount );
+    ReserveTestPhysicsCapacity( engine, kParallelContactBodyCount );
 
     // Concept: the first 256 pairs are independent contact islands, exactly
     // crossing the parallel narrowphase threshold without sharing bodies. The
@@ -506,6 +520,8 @@ void AddMutualGravityBody( PhysicsEngine& engine,
     bodyDesc.angularVelocityLimit = 1000.0f;
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.0f, 0u, "unit" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
@@ -518,7 +534,7 @@ void SeedAuthoredSolarWorld( PhysicsEngine& engine,
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
-    engine.ReserveAuthoredBodyCapacity( scene.GetBallStateCount() );
+    ReserveTestPhysicsCapacity( engine, scene.GetBallStateCount() );
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
         const SkullbonezCore::Runtime::SceneBallState& body = scene.GetBallState( index );
@@ -562,7 +578,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
-    engine.ReserveAuthoredBodyCapacity( 2 );
+    ReserveTestPhysicsCapacity( engine, 2 );
     AddMutualGravityBody( engine, 201u, leftPosition, leftVelocity, mass, radius );
     AddMutualGravityBody( engine, 202u, rightPosition, rightVelocity, mass, radius );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 2 );
@@ -610,7 +626,7 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
         engine.Clear();
         engine.ApplyRuntimeConfig( config );
         engine.SetSleepEnabled( false );
-        engine.ReserveAuthoredBodyCapacity( bodyCount );
+        ReserveTestPhysicsCapacity( engine, bodyCount );
         for ( int index = 0; index < bodyCount; ++index )
         {
             const int column = index % 8;
@@ -866,8 +882,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
     const auto sleepSupportedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( engine );
     const auto sleepInhibitedStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( engine );
-    const std::vector<uint8_t>& collisionContacts =
-        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
+    const auto collisionContacts = SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( engine );
     const auto sleepIslandIds = SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( engine );
     body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
     body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
@@ -1169,6 +1184,8 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
     parallel->ApplyRuntimeConfig( config );
     serial->SetSleepEnabled( false );
     parallel->SetSleepEnabled( false );
+    ReserveTestPhysicsCapacity( *serial, bodyCount );
+    ReserveTestPhysicsCapacity( *parallel, bodyCount );
     for ( int index = 0; index < bodyCount; ++index )
     {
         const Vector3 position( -95.0f + static_cast<float>( index % 20 ) * 10.0f,
@@ -1452,7 +1469,7 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
         engine.Clear();
         engine.ApplyRuntimeConfig( config );
         engine.SetSleepEnabled( false );
-        engine.ReserveAuthoredBodyCapacity( 3 );
+        ReserveTestPhysicsCapacity( engine, 3 );
         AddMutualGravityBody( engine,
                               301u,
                               Vector3( -18.0f, 90.0f, 0.0f ),

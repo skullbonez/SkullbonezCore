@@ -31,6 +31,7 @@ namespace SkullbonezCore::UI
 {
 bool UIFontMetrics::Install( const float* advances, int count )
 {
+
     if ( !advances || count != GLYPH_COUNT )
     {
         return false;
@@ -55,12 +56,14 @@ bool UIFontMetrics::Ready()
 
 float UIFontMetrics::MeasureText( float size, const char* text )
 {
+
     if ( !text )
     {
         return 0.0f;
     }
 
     float width = 0.0f;
+
     for ( const char* cursor = text; *cursor; ++cursor )
     {
         const unsigned char character = static_cast<unsigned char>( *cursor );

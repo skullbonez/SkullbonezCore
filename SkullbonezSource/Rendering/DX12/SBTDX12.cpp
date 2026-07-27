@@ -31,6 +31,7 @@ Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
+
 // --- DXR Ray Tracing: Shader Binding Table (SBT) ---
 //
 //  The SBT maps ray interactions to shader code. When a ray hits geometry, the GPU uses the SBT
@@ -63,8 +64,8 @@ static inline UINT64 Align( UINT64 value, UINT64 alignment )
 
 
 SBT::SBT()
-    : m_buffer( nullptr ), m_rayGenOffset( 0 ), m_rayGenSize( 0 ), m_missOffset( 0 ), m_missSize( 0 ),
-      m_hitGroupOffset( 0 ), m_hitGroupStride( 0 ), m_hitGroupSize( 0 )
+    : m_buffer( nullptr ), m_rayGenOffset( 0 ), m_rayGenSize( 0 ), m_missOffset( 0 ), m_missSize( 0 ), m_hitGroupOffset( 0 ),
+      m_hitGroupStride( 0 ), m_hitGroupSize( 0 )
 {
 }
 
@@ -75,13 +76,11 @@ SBT::~SBT()
 }
 
 
-SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
-                                           ID3D12StateObjectProperties* props,
-                                           const wchar_t* rayGenName,
-                                           const wchar_t* missName,
-                                           const wchar_t* hitGroupTerrainName,
-                                           const wchar_t* hitGroupSphereName )
+SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObjectProperties* props,
+                                           const wchar_t* rayGenName, const wchar_t* missName,
+                                           const wchar_t* hitGroupTerrainName, const wchar_t* hitGroupSphereName )
 {
+
     if ( !props )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -115,19 +114,21 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
     // Why: DXR exposes opaque shader identifiers through a native void-pointer
     // ABI. The SBT owner immediately narrows each borrowed 32-byte identifier.
     const uint8_t* rayGenId = static_cast<const uint8_t*>( props->GetShaderIdentifier( rayGenName ) );
+
     if ( !rayGenId )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "SBT: Missing ray-generation shader identifier" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing ray-generation shader identifier" );
     }
 
     const uint8_t* missId = static_cast<const uint8_t*>( props->GetShaderIdentifier( missName ) );
+
     if ( !missId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
     }
 
     const uint8_t* terrainHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupTerrainName ) );
+
     if ( !terrainHitId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -135,6 +136,7 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
     }
 
     const uint8_t* sphereHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupSphereName ) );
+
     if ( !sphereHitId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -157,12 +159,9 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
     // Allocate the SBT buffer on the upload heap (CPU-writable) because it's small and only
     // written once at init. The GPU reads it every DispatchRays call to find shader entry points.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &bufDesc,
-                                                  D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                  nullptr,
-                                                  IID_PPV_ARGS( &m_buffer ) ) ) )
+
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                  D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_buffer ) ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Failed to create buffer" );
     }
@@ -179,6 +178,7 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
     void* rawMapped = nullptr;
     const HRESULT mapResult = m_buffer->Map( 0, nullptr, &rawMapped );
     const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( mapResult, rawMapped, "SBT buffer Map" );
+
     if ( !mappedResult.result.ok )
     {
         Reset();
@@ -235,6 +235,7 @@ D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE SBT::HitGroupRange() const
 
 void SBT::Reset()
 {
+
     if ( m_buffer )
     {
         m_buffer->Release();

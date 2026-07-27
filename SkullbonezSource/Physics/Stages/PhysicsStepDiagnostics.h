@@ -32,10 +32,10 @@ Related:
 #include "../PhysicsDebugData.h"
 #include "../PhysicsDiagnosticsSink.h"
 #include "../PhysicsSolverSnapshot.h"
+#include "../PhysicsStageCapacity.h"
 
 #include <cstdint>
 #include <span>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -48,15 +48,18 @@ struct PhysicsDiagnosticsView;
 class PhysicsStepDiagnostics
 {
   private:
-    static constexpr std::size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
-    std::vector<uint8_t> m_collisionVisualContacts;
+    PhysicsBodyRowList<uint8_t> m_collisionVisualContacts { "PhysicsStepDiagnostics.collisionVisualContacts",
+                                                            PhysicsCapacityReason::SceneBodies };
     bool m_collisionVisualFrameActive = false;
-    std::vector<PhysicsDebugContact> m_physicsDebugContacts;
-    std::vector<PhysicsPipelineRecord> m_physicsPipelineTrace;
+    PhysicsContactRowList<PhysicsDebugContact> m_physicsDebugContacts { "PhysicsStepDiagnostics.physicsDebugContacts",
+                                                                        PhysicsCapacityReason::PersistentContacts };
+    PhysicsPipelineRowList<PhysicsPipelineRecord> m_physicsPipelineTrace { "PhysicsStepDiagnostics.physicsPipelineTrace",
+                                                                           PhysicsCapacityReason::PipelineRecords };
     PhysicsDiagnosticsSink m_sink;
 
   public:
     PhysicsStepDiagnostics();
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
     void Clear();
     void BeginStep( int modelCount );
     void BeginCollisionVisualFrame( int modelCount );
@@ -65,21 +68,14 @@ class PhysicsStepDiagnostics
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
     bool CanRecordPipelineStage() const;
     int RemainingPipelineRecordCapacity() const;
-    void EmitCollisionTime( bool diagnosticsSuppressed,
-                            const char* type,
-                            int bodyA,
-                            int bodyB,
-                            float collisionTime,
+    void EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime,
                             float availableTime );
 
     bool ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const;
     bool ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( bool diagnosticsSuppressed,
-                              const PhysicsDiagnosticsView& diagnosticsView,
-                              const PhysicsBodyStore& bodyStore,
-                              const ColliderStore& colliderStore,
-                              float deltaSeconds,
+    void EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
+                              const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
 #ifdef _DEBUG
@@ -91,13 +87,14 @@ class PhysicsStepDiagnostics
 
     void CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+    std::span<const uint8_t> GetCollisionVisualContacts() const;
+
     // Lifetime: these mutable buffers are borrowed only by the synchronous
     // producing stage and remain capacity-governed by this diagnostics owner.
-    std::vector<PhysicsDebugContact>& MutableDebugContacts();
-    const std::vector<PhysicsDebugContact>& GetDebugContacts() const;
-    std::vector<PhysicsPipelineRecord>& MutablePipelineTrace();
-    const std::vector<PhysicsPipelineRecord>& GetPipelineTrace() const;
+    PhysicsContactRowList<PhysicsDebugContact>& MutableDebugContacts();
+    std::span<const PhysicsDebugContact> GetDebugContacts() const;
+    PhysicsPipelineRowList<PhysicsPipelineRecord>& MutablePipelineTrace();
+    std::span<const PhysicsPipelineRecord> GetPipelineTrace() const;
     uint64_t CollectDynamicMemoryBytes() const;
     uint64_t CollectDebugMemoryBytes() const;
 };

@@ -66,11 +66,8 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
 
-Dx12RaytracingOwner::Dx12RaytracingOwner( Dx12RenderDevice& device,
-                                          Dx12DescriptorHeaps& descriptors,
-                                          Dx12FrameOwner& frame,
-                                          Dx12TextureOwner& textures,
-                                          Dx12PipelineOwner& pipeline,
+Dx12RaytracingOwner::Dx12RaytracingOwner( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame,
+                                          Dx12TextureOwner& textures, Dx12PipelineOwner& pipeline,
                                           Dx12GeometryOwner& geometry )
     : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_textures( textures ),
       m_rasterPipeline( pipeline ), m_geometry( geometry )
@@ -96,29 +93,26 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
     // leaves the concrete owner's supported flag false.
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
     const HRESULT featureResult = device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) );
+
     if ( FAILED( featureResult ) )
     {
-        m_featureResult = SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12Optional",
-            "DXR capability query failed (HRESULT 0x%08X); raster fallback active",
-            static_cast<unsigned int>( featureResult ) );
+        m_featureResult = SkullbonezCore::Core::SbResult::
+            Failure( "Rendering/DX12Optional", "DXR capability query failed (HRESULT 0x%08X); raster fallback active",
+                     static_cast<unsigned int>( featureResult ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
-                                                 m_featureResult.error.owner,
-                                                 m_featureResult.error.message );
+                                                 m_featureResult.error.owner, m_featureResult.error.message );
 
         return;
     }
 
     if ( opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
     {
-        m_featureResult = SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12Optional",
-            "DXR tier 1.0 is unavailable; raster fallback active" );
+        m_featureResult = SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12Optional",
+                                                                   "DXR tier 1.0 is unavailable; raster fallback active" );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
-                                                 m_featureResult.error.owner,
-                                                 m_featureResult.error.message );
+                                                 m_featureResult.error.owner, m_featureResult.error.message );
 
         return;
     }
@@ -126,21 +120,21 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
     // Device5/command-list4 expose the DXR entry points. QueryInterface is the
     // COM way to ask whether this device object also supports that newer API.
     const HRESULT deviceInterfaceResult = device->QueryInterface( IID_PPV_ARGS( &m_device5 ) );
+
     if ( FAILED( deviceInterfaceResult ) )
     {
-        m_featureResult = SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12Optional",
-            "DXR device interface query failed (HRESULT 0x%08X); raster fallback active",
-            static_cast<unsigned int>( deviceInterfaceResult ) );
+        m_featureResult = SkullbonezCore::Core::SbResult::
+            Failure( "Rendering/DX12Optional", "DXR device interface query failed (HRESULT 0x%08X); raster fallback active",
+                     static_cast<unsigned int>( deviceInterfaceResult ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
-                                                 m_featureResult.error.owner,
-                                                 m_featureResult.error.message );
+                                                 m_featureResult.error.owner, m_featureResult.error.message );
 
         return;
     }
 
     m_supported = true;
+
     // Why: plan and stress evidence must distinguish a DXR-capable run from a
     // raster-fallback pass without inferring support from missing warnings.
     SkullbonezCore::Core::Log().WriteEventf( "dxr_capability supported=1 tier=%u",
@@ -164,6 +158,7 @@ const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {
+
     // Concept: the raytracing root signature is the binding contract for
     // reflect.rt.hlsl.
     //
@@ -188,6 +183,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
     texRange.RegisterSpace = 0;
 
     D3D12_ROOT_PARAMETER1 params[4] = {};
+
     // Slot 0: TLAS SRV (inline)
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
     params[0].Descriptor.ShaderRegister = 0;
@@ -234,8 +230,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
 
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
-    if ( FAILED(
-             D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
+
+    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "RT root signature serialization failed" );
     }
@@ -243,9 +239,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
     // Create the DXR root signature from the serialized blob. Same concept as the raster root
     // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( device->CreateRootSignature( 0,
-                                              signature->GetBufferPointer(),
-                                              signature->GetBufferSize(),
+
+    if ( FAILED( device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(),
                                               IID_PPV_ARGS( &m_rootSignature ) ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "CreateRootSignature (RT) failed" );
@@ -258,18 +253,19 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 {
+
     // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
     // workflows so runtime startup never shells out or depends on SDK paths.
     std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
 
     FILE* dxilFile = nullptr;
     fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
+
     if ( !dxilFile )
     {
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12",
-            "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader "
-            "bytecode before using DXR reflection." );
+        return SkullbonezCore::Core::SbResult::
+            Failure( "Rendering/DX12", "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader "
+                                       "bytecode before using DXR reflection." );
     }
 
     fseek( dxilFile, 0, SEEK_END );
@@ -343,6 +339,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
     // map geometry types to closest-hit shaders, shader config (payload/attribute sizes), pipeline
     // config (max recursion), and the root signature. This is more flexible than graphics PSOs.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-createstateobject
+
     if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_pipeline ) ) ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "CreateStateObject (RTPSO) failed" );
@@ -356,6 +353,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 
     // Query the state object for shader identifier lookup (used when building the SBT).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
+
     if ( FAILED( m_pipeline->QueryInterface( IID_PPV_ARGS( &m_pipelineProperties ) ) ) || !m_pipelineProperties )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -366,13 +364,12 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 }
 
 
-SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device,
-                                                                             Dx12DescriptorHeaps& descriptors,
-                                                                             int width,
-                                                                             int height )
+SkullbonezCore::Core::SbResult
+Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, int width, int height )
 {
     m_reflectionWidth = width;
     m_reflectionHeight = height;
+
     // The reflection texture is the off-screen image written by DXR. It starts
     // shader-readable so the graph's first producer edge has one stable before
     // state on the first frame and every later frame.
@@ -393,15 +390,12 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
     // Rays are cast from the water surface and the resulting reflections are written here.
     // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( device->CreateCommittedResource( &heapProps,
-                                                  D3D12_HEAP_FLAG_NONE,
-                                                  &texDesc,
-                                                  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                  nullptr,
+
+    if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc,
+                                                  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
                                                   IID_PPV_ARGS( &m_reflectionTexture ) ) ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Failed to create DXR reflection UAV texture" );
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "Failed to create DXR reflection UAV texture" );
     }
 
     NameDx12Object( m_reflectionTexture, L"Skullbonez DX12 Reflection UAV Texture" );
@@ -415,15 +409,11 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    device->CreateUnorderedAccessView( m_reflectionTexture,
-                                       nullptr,
-                                       &uavDesc,
+    device->CreateUnorderedAccessView( m_reflectionTexture, nullptr, &uavDesc,
                                        descriptors.StagingCpuHandle( m_reflectionUavIndex ) );
 
     D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = descriptors.ShaderVisibleCpuHandle( m_reflectionUavIndex );
-    device->CopyDescriptorsSimple( 1,
-                                   srvHeapCpu,
-                                   descriptors.StagingCpuHandle( m_reflectionUavIndex ),
+    device->CopyDescriptorsSimple( 1, srvHeapCpu, descriptors.StagingCpuHandle( m_reflectionUavIndex ),
                                    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
     // Create a second descriptor over the same texture for the water shader.
@@ -434,30 +424,24 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
-    device->CreateShaderResourceView( m_reflectionTexture,
-                                      &srvDesc,
-                                      descriptors.StagingCpuHandle( m_reflectionSrvIndex ) );
+    device->CreateShaderResourceView( m_reflectionTexture, &srvDesc, descriptors.StagingCpuHandle( m_reflectionSrvIndex ) );
 
     // Copy the SRV template into the shader-visible heap so raster draws can
     // sample the completed reflection texture.
     srvHeapCpu = descriptors.ShaderVisibleCpuHandle( m_reflectionSrvIndex );
-    device->CopyDescriptorsSimple( 1,
-                                   srvHeapCpu,
-                                   descriptors.StagingCpuHandle( m_reflectionSrvIndex ),
+    device->CopyDescriptorsSimple( 1, srvHeapCpu, descriptors.StagingCpuHandle( m_reflectionSrvIndex ),
                                    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device,
-                                                            ID3D12GraphicsCommandList* commandList,
-                                                            Dx12DescriptorHeaps& descriptors,
-                                                            int renderWidth,
-                                                            int renderHeight,
-                                                            const RaytracingSetupDesc& setup )
+Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList* commandList,
+                                                            Dx12DescriptorHeaps& descriptors, int renderWidth,
+                                                            int renderHeight, const RaytracingSetupDesc& setup )
 {
     Dx12RaytracingSetupOutcome outcome;
+
     if ( !m_supported )
     {
         return outcome;
@@ -467,6 +451,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // meshes (and their BLAS) do not change between scenes — only the TLAS is rebuilt per-frame.
     // The full init path is only needed after a new DX12 device/backend is created, where
     // m_commandList4 is null and we fall through to the full init below.
+
     if ( m_commandList4 )
     {
         return outcome;
@@ -476,16 +461,16 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // cannot provide it, keep raster rendering alive, disable DXR reflection,
     // and retain one bounded reason so diagnostics can explain the fallback.
     const HRESULT commandInterfaceResult = commandList->QueryInterface( IID_PPV_ARGS( &m_commandList4 ) );
+
     if ( FAILED( commandInterfaceResult ) )
     {
-        m_featureResult = SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12Optional",
-            "DXR command-list interface query failed (HRESULT 0x%08X); raster fallback active",
-            static_cast<unsigned int>( commandInterfaceResult ) );
+        m_featureResult = SkullbonezCore::Core::SbResult::
+            Failure( "Rendering/DX12Optional",
+                     "DXR command-list interface query failed (HRESULT 0x%08X); raster fallback active",
+                     static_cast<unsigned int>( commandInterfaceResult ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
-                                                 m_featureResult.error.owner,
-                                                 m_featureResult.error.message );
+                                                 m_featureResult.error.owner, m_featureResult.error.message );
 
         m_supported = false;
         return outcome;
@@ -494,6 +479,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // The binding contract and pipeline must exist before scene acceleration
     // structures can be used by reflection dispatch.
     SkullbonezCore::Core::SbResult setupResult = CreateRootSignature( device );
+
     if ( !setupResult.ok )
     {
         outcome.result = setupResult;
@@ -501,6 +487,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     }
 
     setupResult = CreatePipeline();
+
     if ( !setupResult.ok )
     {
         outcome.result = setupResult;
@@ -510,6 +497,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // Render reflections at 2x viewport size so water distortion has extra
     // detail to sample before the final screen pass.
     setupResult = CreateReflectionTexture( device, descriptors, renderWidth * 2, renderHeight * 2 );
+
     if ( !setupResult.ok )
     {
         outcome.result = setupResult;
@@ -534,11 +522,8 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
         bufDesc.SampleDesc.Count = 1;
         bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-        if ( FAILED( device->CreateCommittedResource( &heapProps,
-                                                      D3D12_HEAP_FLAG_NONE,
-                                                      &bufDesc,
-                                                      D3D12_RESOURCE_STATE_GENERIC_READ,
-                                                      nullptr,
+        if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
+                                                      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
                                                       IID_PPV_ARGS( &m_constantBuffer ) ) ) )
         {
             outcome.result = SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -548,12 +533,12 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
         }
 
         NameDx12Object( m_constantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
+
         // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
         // immediately publishes typed constant-buffer bytes to the owner.
         void* rawMapped = nullptr;
         const HRESULT mapResult = m_constantBuffer->Map( 0, nullptr, &rawMapped );
-        const Dx12MappedPointerResult checkedMap = ValidateDx12MappedPointer( mapResult,
-                                                                              rawMapped,
+        const Dx12MappedPointerResult checkedMap = ValidateDx12MappedPointer( mapResult, rawMapped,
                                                                               "DXR constant buffer Map" );
 
         if ( !checkedMap.result.ok )
@@ -567,12 +552,9 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain
     // triangles; the sphere BLAS is reused by every moving sphere instance.
-    setupResult = m_terrainBlas.Build( m_device5,
-                                       m_commandList4,
+    setupResult = m_terrainBlas.Build( m_device5, m_commandList4,
                                        (D3D12_GPU_VIRTUAL_ADDRESS)setup.terrain.vertexBufferAddress,
-                                       setup.terrain.vertexCount,
-                                       setup.terrain.vertexStride,
-                                       DXGI_FORMAT_R32G32B32_FLOAT,
+                                       setup.terrain.vertexCount, setup.terrain.vertexStride, DXGI_FORMAT_R32G32B32_FLOAT,
                                        true );
 
     if ( !setupResult.ok )
@@ -582,12 +564,8 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     }
 
     outcome.recordedBuildWork = true;
-    setupResult = m_sphereBlas.Build( m_device5,
-                                      m_commandList4,
-                                      (D3D12_GPU_VIRTUAL_ADDRESS)setup.sphere.vertexBufferAddress,
-                                      setup.sphere.vertexCount,
-                                      setup.sphere.vertexStride,
-                                      DXGI_FORMAT_R32G32B32_FLOAT,
+    setupResult = m_sphereBlas.Build( m_device5, m_commandList4, (D3D12_GPU_VIRTUAL_ADDRESS)setup.sphere.vertexBufferAddress,
+                                      setup.sphere.vertexCount, setup.sphere.vertexStride, DXGI_FORMAT_R32G32B32_FLOAT,
                                       false );
 
     if ( !setupResult.ok )
@@ -601,6 +579,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device* device, int maxInstances )
 {
+
     // Lifetime: the backend calls this only after its queue fence proves the
     // recorded BLAS builds complete. Scratch can then be released safely.
     m_terrainBlas.ReleaseAfterBuild();
@@ -608,6 +587,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
 
     m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     SkullbonezCore::Core::SbResult setupResult = m_tlas.Init( m_device5, m_maxInstances + 1 );
+
     if ( !setupResult.ok )
     {
         return setupResult;
@@ -616,8 +596,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
     // The SBT is the raytracing dispatch table. It maps the RayGen, Miss,
     // TerrainHitGroup, and SphereHitGroup shader identifiers into GPU-readable
     // records that DispatchRays can follow.
-    setupResult = m_sbt
-                      .Build( device, m_pipelineProperties, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
+    setupResult = m_sbt.Build( device, m_pipelineProperties, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
 
     if ( !setupResult.ok )
     {
@@ -629,6 +608,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
 
 void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& failure )
 {
+
     // Lane R: optional raytracing setup may fail while raster rendering stays
     // available. Retain one bounded reason after releasing safely drained DXR
     // resources so diagnostics can explain the fallback.
@@ -639,26 +619,25 @@ void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& fail
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSetupDesc& setup )
 {
+
     if ( !Supported() || Initialized() )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
     const SkullbonezCore::Core::SbResult openResult = m_frame.EnsureOpen();
+
     if ( !openResult.ok )
     {
         return openResult;
     }
 
-    const Dx12RaytracingSetupOutcome setupOutcome = BeginSetup( m_device.Device(),
-                                                                m_device.CommandList(),
-                                                                m_descriptors,
-                                                                m_device.Width(),
-                                                                m_device.Height(),
-                                                                setup );
+    const Dx12RaytracingSetupOutcome setupOutcome = BeginSetup( m_device.Device(), m_device.CommandList(), m_descriptors,
+                                                                m_device.Width(), m_device.Height(), setup );
 
     if ( setupOutcome.recordedBuildWork )
     {
+
         // Lifetime: only the frame/device coordinator closes, submits, and
         // fences command work. The raytracing owner reports whether it emitted
         // BLAS commands so the coordinator can prove their completion before
@@ -673,12 +652,14 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
         }
 
         const SkullbonezCore::Core::SbResult submitResult = m_frame.SubmitClosed();
+
         if ( !submitResult.ok )
         {
             return submitResult;
         }
 
         const SkullbonezCore::Core::SbResult waitResult = m_frame.CommitWait( m_frame.WaitForGpu() );
+
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -693,12 +674,14 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
 
     if ( !Supported() )
     {
+
         // Optional command-list capability failure selects raster fallback and
         // is not a fatal renderer initialization error.
         return SkullbonezCore::Core::SbResult::Success();
     }
 
     const SkullbonezCore::Core::SbResult completeResult = CompleteSetup( m_device.Device(), setup.maxInstances );
+
     if ( !completeResult.ok )
     {
         AbortSetup( completeResult );
@@ -709,6 +692,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
     // The steady render query is a pure value read and cannot grow the texture
     // registry under the runtime allocation guard.
     const UINT reflectionSrvIndex = ReflectionSrvIndex();
+
     if ( reflectionSrvIndex != 0 )
     {
         PublishReflectionTextureHandle( m_textures.RegisterSRV( reflectionSrvIndex, ReflectionResource() ) );
@@ -720,12 +704,14 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
 
 void Dx12RaytracingOwner::BuildTLAS( std::span<const Matrix4> instanceTransforms )
 {
+
     if ( !Supported() || !m_frame.EnsureOpen().ok )
     {
         return;
     }
 
     const SkullbonezCore::Core::SbResult buildResult = BuildScene( instanceTransforms );
+
     if ( !buildResult.ok )
     {
         [[maybe_unused]] const SkullbonezCore::Core::SbResult retainedFailure = m_frame.RetainFailure( buildResult );
@@ -735,24 +721,25 @@ void Dx12RaytracingOwner::BuildTLAS( std::span<const Matrix4> instanceTransforms
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const Matrix4> instanceTransforms )
 {
+
     if ( !m_supported || !m_commandList4 )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
     const int instanceCount = static_cast<int>( instanceTransforms.size() );
+
     if ( instanceCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ||
          ( m_maxInstances > 0 && instanceCount > m_maxInstances ) )
     {
+
         // Invariant: the TLAS instance buffer was sized during InitDXR for one
         // terrain instance plus the active model capacity. A larger rebuild
         // would overwrite the fixed raytracing instance table.
         SB_FATAL( "RenderBackendDX12",
                   "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d "
                   "maxSceneObjects=%d",
-                  instanceCount,
-                  m_maxInstances,
-                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+                  instanceCount, m_maxInstances, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.
@@ -774,6 +761,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
     terrainInst.InstanceID = 0;
 
     // Sphere instances
+
     for ( int i = 0; i < instanceCount; ++i )
     {
         D3D12_RAYTRACING_INSTANCE_DESC& inst = m_instances[(size_t)i + 1];
@@ -813,6 +801,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
                                                                         const WaterReflectionRayDesc& reflection )
 {
     Dx12RaytracingDispatchOutcome outcome;
+
     if ( !m_supported || !m_commandList4 || !m_pipeline )
     {
         return outcome;
@@ -877,18 +866,16 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     // Root parameter [3] is the material/environment texture table. The shader
     // reads it as t0=sphere, t1=terrain, and t2..t7=sky cube faces.
-    const uint32_t textureHandles[8] = { reflection.textures.sphere,
-                                         reflection.textures.terrain,
-                                         reflection.textures.skyUp,
-                                         reflection.textures.skyDown,
-                                         reflection.textures.skyRight,
-                                         reflection.textures.skyLeft,
-                                         reflection.textures.skyFront,
-                                         reflection.textures.skyBack };
+    const uint32_t textureHandles[8] = { reflection.textures.sphere,   reflection.textures.terrain,
+                                         reflection.textures.skyUp,    reflection.textures.skyDown,
+                                         reflection.textures.skyRight, reflection.textures.skyLeft,
+                                         reflection.textures.skyFront, reflection.textures.skyBack };
 
     bool allValid = true;
+
     for ( int i = 0; i < 8; ++i )
     {
+
         if ( textures.ResolveSrv( textureHandles[i] ) == UINT_MAX )
         {
             allValid = false;
@@ -898,6 +885,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     if ( allValid )
     {
+
         // Root parameter [3] is one descriptor table with eight consecutive SRV
         // rows. AllocateTransientSRVRange() checks and reserves all eight rows
         // at once, so an exhausted heap cannot leave a partially reserved table.
@@ -911,9 +899,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
         {
             D3D12_CPU_DESCRIPTOR_HANDLE dst = descriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
             UINT srcIdx = textures.ResolveSrv( textureHandles[i] );
-            device->CopyDescriptorsSimple( 1,
-                                           dst,
-                                           descriptors.StagingCpuHandle( srcIdx ),
+            device->CopyDescriptorsSimple( 1, dst, descriptors.StagingCpuHandle( srcIdx ),
                                            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
         }
 
@@ -946,14 +932,13 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
 void Dx12RaytracingOwner::DispatchReflectionRays( const WaterReflectionRayDesc& reflection )
 {
+
     if ( !Supported() || !m_frame.EnsureOpen().ok )
     {
         return;
     }
 
-    const Dx12RaytracingDispatchOutcome dispatch = DispatchReflections( m_device.Device(),
-                                                                        m_descriptors,
-                                                                        m_textures,
+    const Dx12RaytracingDispatchOutcome dispatch = DispatchReflections( m_device.Device(), m_descriptors, m_textures,
                                                                         reflection );
 
     if ( !dispatch.result.ok )
@@ -964,6 +949,7 @@ void Dx12RaytracingOwner::DispatchReflectionRays( const WaterReflectionRayDesc& 
 
     if ( dispatch.rasterStateInvalidated )
     {
+
         // The owner reports state invalidation as a value. It cannot mutate the
         // sibling raster owners or retain a path back into this coordinator.
         m_rasterPipeline.InvalidateCommandState();
@@ -992,13 +978,13 @@ uint32_t Dx12RaytracingOwner::ReflectionTextureHandle() const
 
 void Dx12RaytracingOwner::PublishReflectionTextureHandle( uint32_t handle )
 {
+
     // Invariant: the texture registry exposes at most one handle for the
     // reflection SRV during a raytracing-owner epoch.
+
     if ( handle == 0 || m_reflectionTextureHandle != 0 )
     {
-        SB_FATAL( "Dx12RaytracingOwner",
-                  "Invalid reflection texture handle publication. handle=%u current=%u",
-                  handle,
+        SB_FATAL( "Dx12RaytracingOwner", "Invalid reflection texture handle publication. handle=%u current=%u", handle,
                   m_reflectionTextureHandle );
     }
 
@@ -1096,8 +1082,10 @@ void Dx12RaytracingOwner::Shutdown()
 void Dx12RaytracingOwner::ShutdownDXR()
 {
     const uint32_t reflectionTextureHandle = TakeReflectionTextureHandle();
+
     if ( reflectionTextureHandle != 0 )
     {
+
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.

@@ -57,6 +57,7 @@ Matrix4::Matrix4()
 
 Matrix4::Matrix4( const float* values )
 {
+
     for ( int i = 0; i < 16; ++i )
     {
         m[i] = values[i];
@@ -109,6 +110,7 @@ Matrix4 Matrix4::PerspectiveZeroToOne( float fovDegrees, float aspect, float nea
 Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane )
 {
     Matrix4 result;
+
     for ( int i = 0; i < 16; ++i )
     {
         result.m[i] = 0.0f;
@@ -129,6 +131,7 @@ Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float 
 Matrix4 Matrix4::OrthoZeroToOne( float left, float right, float bottom, float top, float nearPlane, float farPlane )
 {
     Matrix4 result;
+
     for ( int i = 0; i < 16; ++i )
     {
         result.m[i] = 0.0f;
@@ -149,6 +152,7 @@ Matrix4 Matrix4::OrthoZeroToOne( float left, float right, float bottom, float to
 Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector3& up )
 {
     Vector3 f = center - eye;
+
     if ( VectorMag( f ) < 1e-6f )
     {
         return Matrix4();
@@ -157,15 +161,19 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
     f.Normalise();
 
     Vector3 u = up;
+
     if ( !u.TryNormalise() )
     {
+
         // Fallback: authored cameras may omit up; world +Y is deterministic
         // and the parallel-axis branch below still handles a top-down view.
         u = Vector3( 0.0f, 1.0f, 0.0f );
     }
 
     Vector3 s = CrossProduct( f, u );
+
     // f and u are parallel (e.g. top-down camera) — pick arbitrary perpendicular
+
     if ( VectorMag( s ) < 1e-6f )
     {
         u = ( fabsf( f.x ) < 0.9f ) ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
@@ -241,6 +249,7 @@ Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axi
 
     // Normalise axis
     float mag = sqrtf( axisX * axisX + axisY * axisY + axisZ * axisZ );
+
     if ( mag > 0.0f )
     {
         axisX /= mag;
@@ -274,6 +283,7 @@ Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axi
 
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
+
     // Unit quaternion q = (qx, qy, qz, qw) becomes a 4x4 column-major rotation matrix.
     //
     // Derivation:
@@ -332,6 +342,7 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 
 Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& N, float scale )
 {
+
     // Fused single-pass evaluation of: T(tx,ty,tz) * RotFromUpToN * Scale(scale)
     //
     // WHY: The old shadow path called GetTerrainNormalAt (a second LocatePolygon walk),
@@ -377,11 +388,13 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
     // The Debug path below performs each step individually for debugger visibility;
     // it produces numerically identical results.
 #ifdef _DEBUG
+
     // Debug: step-by-step — shows the mathematical composition being fused.
     // The acosf→degrees→RotateAxis round-trip recovers cosf/sinf from the angle we
     // derived from acosf — the exact waste the release path eliminates.
     Matrix4 model = Translate( tx, ty, tz );
     const float cosA = N.y;
+
     if ( cosA < 0.9999f )
     {
         float axisX = N.z;
@@ -395,11 +408,14 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
 
     return model * Scale( scale );
 #else
+
     // c = cosA = N·up = N.y (dot product of two unit vectors, one of which is (0,1,0))
     const float c = N.y;
     float res[16];
+
     if ( c >= 0.9999f )
     {
+
         // Terrain is within ~0.8° of flat — rotation is effectively identity.
         // R = I, so the TRS result is just a uniform scale placed at (tx,ty,tz).
         res[0] = scale;
@@ -417,13 +433,16 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
     }
     else
     {
+
         // sinA = |axis| = sqrt(N.x² + N.z²).  With |N|=1 and c=N.y: sinA = sqrt(1-c²).
         const float sinA = sqrtf( N.x * N.x + N.z * N.z );
         const float t = 1.0f - c; // Rodrigues (1-cos) factor
+
         // Normalised axis components: ax = N.z/sinA,  az = -N.x/sinA
         const float ax = N.z / sinA;
 
         const float az = -N.x / sinA;
+
         // Rodrigues diagonal and off-diagonal terms (factored to avoid repeating ax²,az²,ax·az)
         const float tax2 = t * ax * ax; // t·ax²     → contributes to R[0][0]
         const float taz2 = t * az * az; // t·az²     → contributes to R[2][2]
@@ -469,14 +488,18 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
 Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 {
 #ifdef _DEBUG
+
     // Debug: scalar triple-loop — each intermediate value is individually inspectable.
     // result[col][row] = sum_k( lhs[k][row] * rhs[col][k] )
     Matrix4 result;
+
     for ( int col = 0; col < 4; ++col )
     {
+
         for ( int row = 0; row < 4; ++row )
         {
             result.m[col * 4 + row] = 0.0f;
+
             for ( int k = 0; k < 4; ++k )
             {
                 result.m[col * 4 + row] += m[k * 4 + row] * rhs.m[col * 4 + k];
@@ -486,6 +509,7 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 
     return result;
 #else
+
     // Release/Profile: column-major 4×4 × 4×4 using SSE.
     //
     // STRATEGY: for each output column c, compute all 4 rows simultaneously using
@@ -518,15 +542,16 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
     const __m128 lhsC3 = _mm_loadu_ps( m + 12 ); // LHS column 3: m[12..15]
 
     float r[16];
+
     for ( int c = 0; c < 4; ++c )
     {
+
         // Broadcast each RHS scalar for output column c, scale the matching LHS column,
         // accumulate four contributions with two paired adds (avoids a 4-way add chain).
-        _mm_storeu_ps( r + c * 4,
-                       _mm_add_ps( _mm_add_ps( _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
-                                               _mm_mul_ps( lhsC1, _mm_set1_ps( rhs.m[c * 4 + 1] ) ) ),
-                                   _mm_add_ps( _mm_mul_ps( lhsC2, _mm_set1_ps( rhs.m[c * 4 + 2] ) ),
-                                               _mm_mul_ps( lhsC3, _mm_set1_ps( rhs.m[c * 4 + 3] ) ) ) ) );
+        _mm_storeu_ps( r + c * 4, _mm_add_ps( _mm_add_ps( _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
+                                                          _mm_mul_ps( lhsC1, _mm_set1_ps( rhs.m[c * 4 + 1] ) ) ),
+                                              _mm_add_ps( _mm_mul_ps( lhsC2, _mm_set1_ps( rhs.m[c * 4 + 2] ) ),
+                                                          _mm_mul_ps( lhsC3, _mm_set1_ps( rhs.m[c * 4 + 3] ) ) ) ) );
     }
 
     return Matrix4( r );
@@ -549,18 +574,19 @@ const float* Matrix4::Data() const
 
 Matrix4 Matrix4::Inverse() const
 {
+
     // This cofactor expansion assumes the engine's column-major storage order.
     float inv[16];
     float det;
 
-    inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
-             m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
+    inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] -
+             m[13] * m[7] * m[10];
 
     inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] -
              m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
 
-    inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] +
-             m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
+    inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] -
+             m[12] * m[7] * m[9];
 
     inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] -
               m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
@@ -568,40 +594,41 @@ Matrix4 Matrix4::Inverse() const
     inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] -
              m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
 
-    inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] +
-             m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
+    inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] -
+             m[12] * m[3] * m[10];
 
-    inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] -
-             m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
+    inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] +
+             m[12] * m[3] * m[9];
 
-    inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] +
-              m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
+    inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] -
+              m[12] * m[2] * m[9];
 
-    inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] +
-             m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
+    inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7] -
+             m[13] * m[3] * m[6];
 
-    inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] -
-             m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
+    inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7] +
+             m[12] * m[3] * m[6];
 
-    inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] +
-              m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
+    inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7] -
+              m[12] * m[3] * m[5];
 
-    inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] -
-              m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
+    inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6] +
+              m[12] * m[2] * m[5];
 
-    inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] -
-             m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
+    inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7] +
+             m[9] * m[3] * m[6];
 
-    inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] +
-             m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
+    inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7] -
+             m[8] * m[3] * m[6];
 
-    inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] -
-              m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
+    inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] - m[8] * m[1] * m[7] +
+              m[8] * m[3] * m[5];
 
     inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] -
               m[8] * m[2] * m[5];
 
     det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+
     if ( fabsf( det ) < 1e-10f )
     {
         return Matrix4(); // Identity fallback keeps singular transforms finite.
@@ -609,6 +636,7 @@ Matrix4 Matrix4::Inverse() const
 
     float invDet = 1.0f / det;
     Matrix4 result;
+
     for ( int i = 0; i < 16; ++i )
     {
         result.m[i] = inv[i] * invDet;

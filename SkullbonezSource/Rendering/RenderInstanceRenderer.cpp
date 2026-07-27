@@ -80,14 +80,14 @@ struct ShadowCasterStreamCounts
     int convexHulls = 0;
 };
 
-ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instance,
-                                              int modelIndex,
-                                              std::span<const ColliderRecord> colliders,
-                                              const ConvexHullShape*& outHull )
+ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instance, int modelIndex,
+                                              std::span<const ColliderRecord> colliders, const ConvexHullShape*& outHull )
 {
     outHull = nullptr;
+
     // Invariant: one editor visibility bit suppresses every raster path. A
     // hidden main-pass object must not remain as a detached shadow or bound.
+
     if ( !instance.editorVisible )
     {
         return ShadowCasterStream::None;
@@ -104,7 +104,8 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
     }
 
     const ColliderRecord& collider = colliders[static_cast<std::size_t>( modelIndex )];
-    const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+    const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
+
     if ( !hull )
     {
         return ShadowCasterStream::None;
@@ -116,6 +117,7 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
 
 void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterStream stream )
 {
+
     switch ( stream )
     {
     case ShadowCasterStream::Sphere:
@@ -135,12 +137,11 @@ void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterS
     }
 }
 
-void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
-                                  int modelIndex,
-                                  std::span<const ColliderRecord> colliders,
-                                  ShadowCasterBatches& batches )
+void AppendShadowCasterToBatches( const RenderInstanceRecord& instance, int modelIndex,
+                                  std::span<const ColliderRecord> colliders, ShadowCasterBatches& batches )
 {
     const ConvexHullShape* hull = nullptr;
+
     switch ( ResolveShadowCasterStream( instance, modelIndex, colliders, hull ) )
     {
     case ShadowCasterStream::Sphere:
@@ -153,6 +154,7 @@ void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
         batches.pines.push_back( { instance.modelMatrix, instance.boundingRadius } );
         break;
     case ShadowCasterStream::ConvexHull:
+
         // Lifetime: convex hull casters borrow ColliderStore geometry and are
         // submitted during this shadow pass before collider storage refreshes.
         batches.convexHulls.push_back( { hull, { instance.modelMatrix, instance.boundingRadius } } );
@@ -162,13 +164,11 @@ void AppendShadowCasterToBatches( const RenderInstanceRecord& instance,
     }
 }
 
-void CountShadowCasterRange( std::span<const RenderInstanceRecord> instances,
-                             std::span<const ColliderRecord> colliders,
-                             int begin,
-                             int end,
-                             ShadowCasterStreamCounts& counts )
+void CountShadowCasterRange( std::span<const RenderInstanceRecord> instances, std::span<const ColliderRecord> colliders,
+                             int begin, int end, ShadowCasterStreamCounts& counts )
 {
     counts = ShadowCasterStreamCounts();
+
     for ( int x = begin; x < end; ++x )
     {
         const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
@@ -193,39 +193,34 @@ void ResizeShadowCasterBatchesNoAlloc( ShadowCasterBatches& batches, const Shado
     batches.convexHulls.resize( static_cast<std::size_t>( totals.convexHulls ) );
 }
 
-void FillShadowCasterRange( std::span<const RenderInstanceRecord> instances,
-                            std::span<const ColliderRecord> colliders,
-                            int begin,
-                            int end,
-                            const ShadowCasterStreamCounts& offsets,
-                            ShadowCasterBatches& batches )
+void FillShadowCasterRange( std::span<const RenderInstanceRecord> instances, std::span<const ColliderRecord> colliders,
+                            int begin, int end, const ShadowCasterStreamCounts& offsets, ShadowCasterBatches& batches )
 {
     ShadowCasterStreamCounts write = offsets;
+
     for ( int x = begin; x < end; ++x )
     {
         const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
         const ConvexHullShape* hull = nullptr;
+
         switch ( ResolveShadowCasterStream( instance, x, colliders, hull ) )
         {
         case ShadowCasterStream::Sphere:
-            batches.spheres[static_cast<std::size_t>( write.spheres++ )] = { instance.modelMatrix,
-                                                                             instance.boundingRadius };
+            batches.spheres[static_cast<std::size_t>( write.spheres++ )] = { instance.modelMatrix, instance.boundingRadius };
 
             break;
         case ShadowCasterStream::Box:
-            batches.boxes[static_cast<std::size_t>( write.boxes++ )] = { instance.modelMatrix,
-                                                                         instance.boundingRadius };
+            batches.boxes[static_cast<std::size_t>( write.boxes++ )] = { instance.modelMatrix, instance.boundingRadius };
 
             break;
         case ShadowCasterStream::Pine:
-            batches.pines[static_cast<std::size_t>( write.pines++ )] = { instance.modelMatrix,
-                                                                         instance.boundingRadius };
+            batches.pines[static_cast<std::size_t>( write.pines++ )] = { instance.modelMatrix, instance.boundingRadius };
 
             break;
         case ShadowCasterStream::ConvexHull:
-            batches.convexHulls[static_cast<std::size_t>( write.convexHulls++ )] = {
-                hull,
-                { instance.modelMatrix, instance.boundingRadius } };
+            batches.convexHulls[static_cast<std::size_t>( write.convexHulls++ )] = { hull,
+                                                                                     { instance.modelMatrix,
+                                                                                       instance.boundingRadius } };
 
             break;
         case ShadowCasterStream::None:
@@ -237,21 +232,17 @@ void FillShadowCasterRange( std::span<const RenderInstanceRecord> instances,
 bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profiler,
                                           std::span<const RenderInstanceRecord> instances,
                                           std::span<const ColliderRecord> colliders,
-                                          SkullbonezCore::Threading::WorkerPool& workerPool,
-                                          int modelCount,
+                                          SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount,
                                           ShadowCasterBatches& outBatches )
 {
+
     // Concept: shadow prep uses count/prefix/fill instead of chunk-local
     // vectors. Counting gives each worker a stable output range for every
     // caster stream, so the fill pass can run in parallel without allocating or
     // reordering the serial sphere/box/pine/hull stream order.
     SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
-    const int chunkCount = workerPool.BuildChunkRangesNoAlloc(
-        0,
-        modelCount,
-        SHADOW_PARALLEL_PREP_MIN_CASTERS,
-        chunks,
-        SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
+    const int chunkCount = workerPool.BuildChunkRangesNoAlloc( 0, modelCount, SHADOW_PARALLEL_PREP_MIN_CASTERS, chunks,
+                                                               SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
 
     if ( chunkCount <= 1 )
     {
@@ -259,20 +250,20 @@ bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profil
     }
 
     ShadowCasterStreamCounts counts[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
-    workerPool.ParallelForChunksNoAlloc(
-        chunks,
-        chunkCount,
-        [&]( int chunkIndex, int begin, int end )
-        {
-            PROFILE_WORKER_SCOPED( profiler,
-                                   "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
-                                   "OrderedWorkerCollect/WorkerBuildBatches" );
+    workerPool
+        .ParallelForChunksNoAlloc( chunks, chunkCount,
+                                   [&]( int chunkIndex, int begin, int end )
+                                   {
+                                       PROFILE_WORKER_SCOPED( profiler,
+                                                              "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+                                                              "OrderedWorkerCollect/WorkerBuildBatches" );
 
-            CountShadowCasterRange( instances, colliders, begin, end, counts[chunkIndex] );
-        } );
+                                       CountShadowCasterRange( instances, colliders, begin, end, counts[chunkIndex] );
+                                   } );
 
     ShadowCasterStreamCounts offsets[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
     ShadowCasterStreamCounts totals;
+
     for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
     {
         offsets[chunkIndex] = totals;
@@ -280,31 +271,35 @@ bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profil
     }
 
     ResizeShadowCasterBatchesNoAlloc( outBatches, totals );
+
     // Invariant: the output vectors are fully sized before this worker fill.
     // Each chunk writes a disjoint prefix-summed range, so no worker may call a
     // vector growth API or touch another chunk's elements.
-    workerPool.ParallelForChunksNoAlloc(
-        chunks,
-        chunkCount,
-        [&]( int chunkIndex, int begin, int end )
-        {
-            PROFILE_WORKER_SCOPED( profiler,
-                                   "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
-                                   "OrderedWorkerCollect/WorkerFillBatches" );
+    workerPool
+        .ParallelForChunksNoAlloc( chunks, chunkCount,
+                                   [&]( int chunkIndex, int begin, int end )
+                                   {
+                                       PROFILE_WORKER_SCOPED( profiler,
+                                                              "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+                                                              "OrderedWorkerCollect/WorkerFillBatches" );
 
-            FillShadowCasterRange( instances, colliders, begin, end, offsets[chunkIndex], outBatches );
-        } );
+                                       FillShadowCasterRange( instances, colliders, begin, end, offsets[chunkIndex],
+                                                              outBatches );
+                                   } );
     return true;
 }
 
 RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instance, bool box )
 {
+
     // Why: contact highlights are render-only feedback. They must not mutate
     // the model's stored material or physics release policy.
     RenderMaterial material = instance.material;
     const float hit = instance.isFixed ? instance.fixedContactAlpha : 0.0f;
+
     if ( hit > 0.0f )
     {
+
         if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
         {
             constexpr float fixedBase = 241.0f / 255.0f;
@@ -331,18 +326,11 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 // Main and reflection callers expose only facts meaningful to their pass while
 // sharing identical primitive submission below.
 template <RenderVisibilityView visibilityView>
-void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
-                          const RenderInstanceStore& renderStore,
-                          const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                          bool renderCollisionVolumes,
-                          const Matrix4& view,
-                          const Matrix4& proj,
-                          const float lightPos[4],
-                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                          const ShadowFrameData* shadow,
-                          float materialAlpha,
-                          const std::vector<uint8_t>* modelMask,
-                          bool drawMaskedModels )
+void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore,
+                          const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes,
+                          const Matrix4& view, const Matrix4& proj, const float lightPos[4],
+                          const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow,
+                          float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
     const auto instances = renderStore.Records();
 
@@ -352,22 +340,24 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     }
 
     const int modelCount = static_cast<int>( instances.size() );
+
     // Invariant: the visible-index scratch array mirrors the scene store's
     // compile-time ceiling. Crossing it would corrupt render-thread stack data.
+
     if ( modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
-        SB_FATAL( "Rendering/Visibility",
-                  "Render instance count exceeds visibility capacity. count=%d capacity=%d",
-                  modelCount,
-                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        SB_FATAL( "Rendering/Visibility", "Render instance count exceeds visibility capacity. count=%d capacity=%d",
+                  modelCount, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     int visibleIndices[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS] = {};
 
     int visibleCount = 0;
+
     // Why: the planar reflection has its own mirrored camera volume. Its water
     // half-space removes only instances wholly below the surface; straddlers
     // still reach the shader clip plane for pixel-accurate clipping.
+
     if ( visibilityView == RenderVisibilityView::Main || visibilityView == RenderVisibilityView::Reflection )
     {
         const SkullbonezCore::Math::Visibility::Frustum
@@ -380,6 +370,7 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
         for ( int index = 0; index < modelCount; ++index )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( index )];
+
             if ( !instance.editorVisible )
             {
                 continue;
@@ -387,11 +378,12 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
 
             const Vector3 center( instance.modelMatrix.m[12], instance.modelMatrix.m[13], instance.modelMatrix.m[14] );
             const bool insideFrustum = frustum.IntersectsSphere( center, instance.boundingRadius );
-            const bool aboveReflectionPlane = !reflectionClipPlane ||
-                                              SkullbonezCore::Math::Visibility::Frustum::IntersectsHalfSpace(
-                                                  center,
-                                                  instance.boundingRadius,
-                                                  reflectionClipPlane );
+            const bool
+                aboveReflectionPlane = !reflectionClipPlane ||
+                                       SkullbonezCore::Math::Visibility::Frustum::IntersectsHalfSpace( center,
+                                                                                                       instance
+                                                                                                           .boundingRadius,
+                                                                                                       reflectionClipPlane );
 
             if ( insideFrustum && aboveReflectionPlane )
             {
@@ -401,8 +393,10 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     }
     else
     {
+
         for ( int index = 0; index < modelCount; ++index )
         {
+
             if ( instances[static_cast<std::size_t>( index )].editorVisible )
             {
                 visibleIndices[visibleCount++] = index;
@@ -414,6 +408,7 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     const bool alphaBlendedPass = renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
+
         if ( !modelMask )
         {
             return true;
@@ -433,24 +428,21 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
-        auto sphereBatch = primitiveContext.renderer.BeginSphereBatch( primitiveContext,
-                                                                       view,
-                                                                       proj,
-                                                                       lightPos,
-                                                                       alphaBlendedPass,
-                                                                       cinematic,
-                                                                       shadow,
+        auto sphereBatch = primitiveContext.renderer.BeginSphereBatch( primitiveContext, view, proj, lightPos,
+                                                                       alphaBlendedPass, cinematic, shadow,
                                                                        clampedMaterialAlpha );
 
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
+
             if ( !shouldDrawModel( x ) )
             {
                 continue;
             }
 
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+
             if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, false );
@@ -463,6 +455,7 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass, PrimitiveBatchRenderer::PrimitiveBatchScope& batch )
     {
+
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
@@ -473,10 +466,12 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
             }
 
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+
             if ( instance.shapeKind == RenderInstanceShapeKind::Box )
             {
                 RenderMaterial material = MaterialWithContactHighlights( instance, true );
                 const bool isPineVisual = instance.shadowCasterStream == ShadowCasterStream::Pine;
+
                 if ( isPineVisual )
                 {
                     hasPineVisualModels = true;
@@ -503,14 +498,8 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
-        auto boxBatch = primitiveContext.renderer.BeginBoxBatch( primitiveContext,
-                                                                 view,
-                                                                 proj,
-                                                                 lightPos,
-                                                                 alphaBlendedPass,
-                                                                 cinematic,
-                                                                 shadow,
-                                                                 clampedMaterialAlpha );
+        auto boxBatch = primitiveContext.renderer.BeginBoxBatch( primitiveContext, view, proj, lightPos, alphaBlendedPass,
+                                                                 cinematic, shadow, clampedMaterialAlpha );
 
         appendBoxLikeModels( false, boxBatch );
     }
@@ -518,14 +507,8 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     if ( hasPineVisualModels )
     {
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
-        auto pineBatch = primitiveContext.renderer.BeginPineBatch( primitiveContext,
-                                                                   view,
-                                                                   proj,
-                                                                   lightPos,
-                                                                   alphaBlendedPass,
-                                                                   cinematic,
-                                                                   shadow,
-                                                                   clampedMaterialAlpha );
+        auto pineBatch = primitiveContext.renderer.BeginPineBatch( primitiveContext, view, proj, lightPos, alphaBlendedPass,
+                                                                   cinematic, shadow, clampedMaterialAlpha );
 
         appendBoxLikeModels( true, pineBatch );
     }
@@ -533,15 +516,18 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
     {
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
         std::span<const ColliderRecord> colliders;
+
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
+
             if ( !shouldDrawModel( x ) )
             {
                 continue;
             }
 
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+
             if ( instance.shapeKind != RenderInstanceShapeKind::ConvexHull )
             {
                 continue;
@@ -558,32 +544,23 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
             }
 
             const ColliderRecord& collider = colliders[static_cast<std::size_t>( x )];
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
+            const ConvexHullShape* hull = GetShapeIf<ConvexHullShape>( &collider.shape );
+
             if ( !hull )
             {
                 continue;
             }
 
             const RenderMaterial material = MaterialWithContactHighlights( instance, false );
-            primitiveContext.renderer.DrawConvexHullModel( primitiveContext,
-                                                           *hull,
-                                                           instance.modelMatrix,
-                                                           material,
-                                                           view,
-                                                           proj,
-                                                           lightPos,
-                                                           alphaBlendedPass,
-                                                           cinematic,
-                                                           shadow,
+            primitiveContext.renderer.DrawConvexHullModel( primitiveContext, *hull, instance.modelMatrix, material, view,
+                                                           proj, lightPos, alphaBlendedPass, cinematic, shadow,
                                                            clampedMaterialAlpha );
 
             ++submittedCount;
         }
     }
     const int drawCountAfter = primitiveContext.renderDiagnostics.GetFrameDrawCallCount();
-    primitiveContext.renderDiagnostics.RecordVisibility( visibilityView,
-                                                         modelCount,
-                                                         submittedCount,
+    primitiveContext.renderDiagnostics.RecordVisibility( visibilityView, modelCount, submittedCount,
                                                          modelCount - visibleCount,
                                                          (std::max)( 0, drawCountAfter - drawCountBefore ) );
 }
@@ -592,54 +569,29 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext,
 void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
                                            const RenderInstanceStore& renderStore,
                                            const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                           bool renderCollisionVolumes,
-                                           const Matrix4& view,
-                                           const Matrix4& projection,
+                                           bool renderCollisionVolumes, const Matrix4& view, const Matrix4& projection,
                                            const float ( &lightPosition )[4],
                                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                           const ShadowFrameData* shadow,
-                                           float materialAlpha,
-                                           const std::vector<uint8_t>* modelMask,
-                                           bool drawMaskedModels )
+                                           const ShadowFrameData* shadow, float materialAlpha,
+                                           const std::vector<uint8_t>* modelMask, bool drawMaskedModels )
 {
-    RenderModelsForView<RenderVisibilityView::Main>( primitiveContext,
-                                                     renderStore,
-                                                     colliderStore,
-                                                     renderCollisionVolumes,
-                                                     view,
-                                                     projection,
-                                                     lightPosition,
-                                                     cinematic,
-                                                     shadow,
-                                                     materialAlpha,
-                                                     modelMask,
-                                                     drawMaskedModels );
+    RenderModelsForView<RenderVisibilityView::Main>( primitiveContext, renderStore, colliderStore, renderCollisionVolumes,
+                                                     view, projection, lightPosition, cinematic, shadow, materialAlpha,
+                                                     modelMask, drawMaskedModels );
 }
 
 
 void RenderInstanceRenderer::RenderReflectionModels( const PrimitiveRenderContext& primitiveContext,
                                                      const RenderInstanceStore& renderStore,
                                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                     bool renderCollisionVolumes,
-                                                     const Matrix4& view,
-                                                     const Matrix4& projection,
-                                                     const float ( &lightPosition )[4],
+                                                     bool renderCollisionVolumes, const Matrix4& view,
+                                                     const Matrix4& projection, const float ( &lightPosition )[4],
                                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                                     const ShadowFrameData* shadow,
-                                                     float materialAlpha )
+                                                     const ShadowFrameData* shadow, float materialAlpha )
 {
-    RenderModelsForView<RenderVisibilityView::Reflection>( primitiveContext,
-                                                           renderStore,
-                                                           colliderStore,
-                                                           renderCollisionVolumes,
-                                                           view,
-                                                           projection,
-                                                           lightPosition,
-                                                           cinematic,
-                                                           shadow,
-                                                           materialAlpha,
-                                                           nullptr,
-                                                           true );
+    RenderModelsForView<RenderVisibilityView::Reflection>( primitiveContext, renderStore, colliderStore,
+                                                           renderCollisionVolumes, view, projection, lightPosition,
+                                                           cinematic, shadow, materialAlpha, nullptr, true );
 }
 
 
@@ -647,8 +599,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
                                                        const RenderInstanceStore& renderStore,
                                                        const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                        SkullbonezCore::Threading::WorkerPool* workerPool,
-                                                       bool useShadowParallelPrep,
-                                                       ShadowCasterBatches& outBatches )
+                                                       bool useShadowParallelPrep, ShadowCasterBatches& outBatches )
 {
     PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
@@ -662,21 +613,20 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
 
     const int modelCount = static_cast<int>( instances.size() );
     assert( outBatches.HasCapacityForModelCount( modelCount ) );
+
     if ( !outBatches.HasCapacityForModelCount( modelCount ) )
     {
         SB_FATAL( "RenderInstanceRenderer",
                   "Shadow caster batch reserve exhausted. modelCount=%d sphereCapacity=%zu boxCapacity=%zu "
                   "pineCapacity=%zu hullCapacity=%zu",
-                  modelCount,
-                  outBatches.spheres.capacity(),
-                  outBatches.boxes.capacity(),
-                  outBatches.pines.capacity(),
+                  modelCount, outBatches.spheres.capacity(), outBatches.boxes.capacity(), outBatches.pines.capacity(),
                   outBatches.convexHulls.capacity() );
     }
 
     const auto colliders = colliderStore.Records();
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
+
         for ( int x = begin; x < end; ++x )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
@@ -689,12 +639,8 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
-        if ( BuildShadowCasterBatchesWithWorkers( profiler,
-                                                  instances,
-                                                  colliders,
-                                                  *workerPool,
-                                                  modelCount,
-                                                  outBatches ) )
+
+        if ( BuildShadowCasterBatchesWithWorkers( profiler, instances, colliders, *workerPool, modelCount, outBatches ) )
         {
             return;
         }
@@ -706,12 +652,12 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
 
 void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
                                                         const PrimitiveRenderContext& primitiveContext,
-                                                        const ShadowCasterBatches& batches,
-                                                        const Matrix4& view,
+                                                        const ShadowCasterBatches& batches, const Matrix4& view,
                                                         const Matrix4& proj,
                                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                         Rendering::RenderVisibilityView visibilityView )
 {
+
     if ( batches.Empty() )
     {
         return;
@@ -738,13 +684,11 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
         PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
 
-        auto sphereBatch = primitiveContext.renderer.BeginShadowDepthSphereBatch( primitiveContext,
-                                                                                  view,
-                                                                                  proj,
-                                                                                  cinematic );
+        auto sphereBatch = primitiveContext.renderer.BeginShadowDepthSphereBatch( primitiveContext, view, proj, cinematic );
 
         for ( const ShadowCasterInstance& caster : batches.spheres )
         {
+
             if ( isVisible( caster ) )
             {
                 sphereBatch.DrawShadowModel( caster.model );
@@ -758,8 +702,10 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
 
         auto boxBatch = primitiveContext.renderer.BeginShadowDepthBoxBatch( primitiveContext, view, proj );
+
         for ( const ShadowCasterInstance& caster : batches.boxes )
         {
+
             if ( isVisible( caster ) )
             {
                 boxBatch.DrawShadowModel( caster.model );
@@ -774,8 +720,10 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
 
         auto pineBatch = primitiveContext.renderer.BeginShadowDepthPineBatch( primitiveContext, view, proj );
+
         for ( const ShadowCasterInstance& caster : batches.pines )
         {
+
             if ( isVisible( caster ) )
             {
                 pineBatch.DrawShadowModel( caster.model );
@@ -791,38 +739,27 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
         for ( const auto& caster : batches.convexHulls )
         {
+
             if ( caster.hull && isVisible( caster.instance ) )
             {
-                primitiveContext.renderer.DrawShadowDepthConvexHullModel( primitiveContext,
-                                                                          *caster.hull,
-                                                                          caster.instance.model,
-                                                                          view,
-                                                                          proj );
+                primitiveContext.renderer.DrawShadowDepthConvexHullModel( primitiveContext, *caster.hull,
+                                                                          caster.instance.model, view, proj );
 
                 ++submitted;
             }
         }
     }
 
-    primitiveContext.renderDiagnostics.RecordVisibility(
-        visibilityView,
-        candidates,
-        submitted,
-        candidates - submitted,
-        (std::max)( 0, primitiveContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
+    primitiveContext.renderDiagnostics
+        .RecordVisibility( visibilityView, candidates, submitted, candidates - submitted,
+                           (std::max)( 0, primitiveContext.renderDiagnostics.GetFrameDrawCallCount() - drawCountBefore ) );
 }
 
 
-void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler,
-                                                  const PrimitiveRenderContext& primitiveContext,
-                                                  const RenderInstanceStore& renderStore,
-                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                  SkullbonezCore::Threading::WorkerPool* workerPool,
-                                                  bool useShadowParallelPrep,
-                                                  const Matrix4& view,
-                                                  const Matrix4& proj,
-                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                                  Rendering::RenderVisibilityView visibilityView )
+void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler, const PrimitiveRenderContext& primitiveContext,
+                                                  const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                  SkullbonezCore::Threading::WorkerPool* workerPool, bool useShadowParallelPrep, const Matrix4& view, const Matrix4& proj,
+                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic, Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( profiler, renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
@@ -833,12 +770,8 @@ void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler
 bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler,
                                                     const RenderInstanceStore& renderStore,
                                                     SkullbonezCore::Threading::WorkerPool* workerPool,
-                                                    bool useShadowParallelPrep,
-                                                    const Vector3& focus,
-                                                    float maxDistance,
-                                                    Vector3& outCenter,
-                                                    float& outRadius,
-                                                    float& outHeightRange )
+                                                    bool useShadowParallelPrep, const Vector3& focus, float maxDistance,
+                                                    Vector3& outCenter, float& outRadius, float& outHeightRange )
 {
     PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
@@ -869,6 +802,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
         for ( int i = begin; i < end; ++i )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( i )];
+
             if ( !instance.editorVisible )
             {
                 continue;
@@ -880,6 +814,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
             const float includeDistance = queryDistance + radius;
             const float dx = pos.x - focus.x;
             const float dz = pos.z - focus.z;
+
             if ( dx * dx + dz * dz > includeDistance * includeDistance )
             {
                 continue;
@@ -897,6 +832,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
 
     auto mergeBounds = []( BoundsAccumulator& dst, const BoundsAccumulator& src )
     {
+
         if ( !src.found )
         {
             return;
@@ -912,24 +848,21 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
     };
 
     BoundsAccumulator bounds;
+
     if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
-        const int chunkCount = workerPool->BuildChunkRangesNoAlloc(
-            0,
-            modelCount,
-            SHADOW_PARALLEL_PREP_MIN_CASTERS,
-            chunks,
-            SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
+        const int chunkCount = workerPool
+                                   ->BuildChunkRangesNoAlloc( 0, modelCount, SHADOW_PARALLEL_PREP_MIN_CASTERS, chunks,
+                                                              SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS );
 
         if ( chunkCount > 1 )
         {
             BoundsAccumulator chunkOutputs[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
 
-            workerPool->ParallelForChunksNoAlloc( chunks,
-                                                  chunkCount,
+            workerPool->ParallelForChunksNoAlloc( chunks, chunkCount,
                                                   [&]( int chunkIndex, int begin, int end )
                                                   {
                                                       PROFILE_WORKER_SCOPED( profiler,
@@ -960,8 +893,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
         return false;
     }
 
-    outCenter = Vector3( ( bounds.minX + bounds.maxX ) * 0.5f,
-                         ( bounds.minY + bounds.maxY ) * 0.5f,
+    outCenter = Vector3( ( bounds.minX + bounds.maxX ) * 0.5f, ( bounds.minY + bounds.maxY ) * 0.5f,
                          ( bounds.minZ + bounds.maxZ ) * 0.5f );
 
     const float halfX = ( bounds.maxX - bounds.minX ) * 0.5f;

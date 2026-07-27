@@ -46,8 +46,7 @@ enum class RunCameraMode
 inline bool RunCameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
 {
     return mode == RunCameraMode::Inspect || mode == RunCameraMode::Launcher || mode == RunCameraMode::Manipulator ||
-           ( mode == RunCameraMode::Attach && attachActiveFollow ) ||
-           ( mode == RunCameraMode::Director && directorGrabbed );
+           ( mode == RunCameraMode::Attach && attachActiveFollow ) || ( mode == RunCameraMode::Director && directorGrabbed );
 }
 
 inline bool RunCameraModeUsesManualControls( RunCameraMode mode, bool attachActiveFollow, bool directorGrabbed )
@@ -73,6 +72,7 @@ inline bool RunCameraModeIsAttached( RunCameraMode mode )
 
 inline const char* RunCameraModeLabel( RunCameraMode mode )
 {
+
     switch ( mode )
     {
     case RunCameraMode::Demo:

@@ -38,16 +38,14 @@ inline constexpr std::size_t
                                                static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 inline constexpr std::size_t REPLAY_PREDICTION_MARKER_CAPACITY = static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 inline constexpr std::size_t REPLAY_PREDICTION_BASELINE_ROOT_POINT_CAPACITY = 261u;
+
 // Runtime allocation policy: live replay path-target picks rotate inside this
 // fixed vector budget instead of growing while gameplay is running.
 inline constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100u;
-inline constexpr std::size_t
-    REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>(
-                                             SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
-                                         4u;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
+                                                                  4u;
 inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY = 1u +
-                                                              static_cast<std::size_t>(
-                                                                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) +
+                                                              static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) +
                                                               REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 inline constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;

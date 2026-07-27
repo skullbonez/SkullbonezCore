@@ -53,8 +53,7 @@ struct CaptureRequestBatchResult
 // Applies one completed screenshot result to the bounded batch projection.
 // Tests use this value seam to exercise failure ownership without manufacturing
 // an alternate renderer implementation.
-void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch,
-                                     const CaptureRequest& request,
+void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const CaptureRequest& request,
                                      const SkullbonezCore::Core::SbResult& requestResult );
 
 class CaptureController
@@ -65,17 +64,12 @@ class CaptureController
 
     void ResetScreenshot();
     void DisableAutomationExit();
-    bool IsScreenshotDue( const RuntimeCaptureSceneContext& context ) const;
-    bool RequiresDeterministicPresentation( const RuntimeCaptureSceneContext& context ) const;
-    RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context,
-                                          Rendering::Dx12BackbufferCapture& backend );
-    RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
-                                        bool isInteractiveRun,
-                                        int ballCount,
-                                        float& autoCycleInterval,
-                                        float& autoCycleAccum,
-                                        int& autoCycleShotsTaken,
-                                        int& trackBallIndex,
+    bool IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const;
+    bool RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const;
+    RuntimeCaptureResult TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame, double elapsedMs,
+                                          const char* currentScenePath, Rendering::Dx12BackbufferCapture& backend );
+    RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount, float& autoCycleInterval,
+                                        float& autoCycleAccum, int& autoCycleShotsTaken, int& trackBallIndex,
                                         Rendering::Dx12BackbufferCapture& backend );
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.
@@ -85,8 +79,7 @@ class CaptureController
     std::size_t PendingScreenshotCount() const;
 
     SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::Dx12BackbufferCapture& backend, const char* path );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
-                                                             const char* path );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
 
   private:
     RunScreenshotState m_screenshot;                           // Scene and CLI screenshot trigger state

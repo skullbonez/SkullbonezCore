@@ -60,8 +60,7 @@ inline bool BroadphaseCandidateAppendHasCapacity( std::size_t size, std::size_t 
     return size < capacity;
 }
 
-inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,
-                                                              int bodyIndex )
+inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) );
 }
@@ -78,22 +77,21 @@ inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> coll
 // Invariant: this remains a broadphase test. It may keep false positives, but
 // it must not reject a pair whose exact shapes could touch during this fixed
 // tick; the relative-motion segment covers CCD and wakeup cases.
-inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore,
-                                                 const ColliderStore& colliderStore,
-                                                 float dt,
-                                                 float contactSkin,
-                                                 int a,
-                                                 int b )
+inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                                 float dt, float contactSkin, int a, int b )
 {
     const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+
     if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )
     {
         return false;
     }
+
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
     const float radiusA = BroadphaseCandidateBodyRadius( colliderRecords, a );
     const float radiusB = BroadphaseCandidateBodyRadius( colliderRecords, b );
+
     if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
     {
         return true;
@@ -109,6 +107,7 @@ inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodySto
     const float contactRadius = radiusA + radiusB + contactSkin;
     const float contactRadiusSq = contactRadius * contactRadius;
     const float relativeLengthSq = Math::Vector::VectorMagSquared( relativeDisplacement );
+
     if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
     {
         return Math::Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
@@ -120,13 +119,8 @@ inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodySto
     return Math::Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
 }
 
-inline bool BroadphaseCandidateCanTouch( const PhysicsBodyStore& bodyStore,
-                                         const ColliderStore& colliderStore,
-                                         std::span<const uint8_t> sleepState,
-                                         float dt,
-                                         float contactSkin,
-                                         int a,
-                                         int b )
+inline bool BroadphaseCandidateCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                         std::span<const uint8_t> sleepState, float dt, float contactSkin, int a, int b )
 {
     return !BroadphaseCandidateBothSleeping( sleepState, a, b ) &&
            BroadphaseCandidateGeometryCanTouch( bodyStore, colliderStore, dt, contactSkin, a, b );

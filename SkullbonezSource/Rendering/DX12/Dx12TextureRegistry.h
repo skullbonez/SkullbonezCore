@@ -47,9 +47,11 @@ class Dx12TextureRegistry
     }
     uint32_t Insert( const TextureEntryDX12& entry )
     {
+
         for ( size_t index = 0; index < m_entries.size(); ++index )
         {
             TextureEntryDX12& slot = m_entries[index];
+
             if ( !slot.resource && slot.srvIndex == UINT_MAX && !slot.owned )
             {
                 const uint8_t generation = Dx12TextureHandleCodec::NextGeneration( slot.generation );
@@ -58,6 +60,7 @@ class Dx12TextureRegistry
                 return Dx12TextureHandleCodec::Encode( index, generation );
             }
         }
+
         return 0;
     }
 
@@ -82,10 +85,12 @@ class Dx12TextureRegistry
     size_t Count() const
     {
         size_t active = 0;
+
         for ( const TextureEntryDX12& entry : m_entries )
         {
             active += entry.srvIndex != UINT_MAX ? 1u : 0u;
         }
+
         return active;
     }
     size_t Capacity() const
@@ -101,10 +106,12 @@ class Dx12TextureRegistry
     bool ResolveSlotIndex( uint32_t handle, size_t& outSlotIndex ) const
     {
         uint8_t generation = 0;
+
         if ( !Dx12TextureHandleCodec::Decode( handle, outSlotIndex, generation ) || outSlotIndex >= m_entries.size() )
         {
             return false;
         }
+
         const TextureEntryDX12& entry = m_entries[outSlotIndex];
         return entry.srvIndex != UINT_MAX && entry.generation == generation;
     }

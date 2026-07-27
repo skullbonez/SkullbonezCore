@@ -55,6 +55,7 @@ class Dx12ResourceBuilder;
 
 namespace Geometry
 {
+
 /* -- Sky Box
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -65,18 +66,17 @@ class SkyBox
 {
 
   private:
-    Box m_boundaries;                                                 // World-space cube bounds around the scene camera.
-    Textures::TextureCollection* m_textures;                          // Borrowed texture registry; scene/runtime owns it.
-    const SkullbonezCore::Core::EngineConfig* m_config;               // Borrowed sky texture/scale settings from the runtime config.
-    Assets::AssetSystem* m_assets;                                    // Borrowed asset registry used to resolve shader logical names.
-    Rendering::Dx12ResourceBuilder* m_resources;                      // Borrowed cold builder for sky GPU objects.
-    std::unique_ptr<Rendering::ShaderDX12> m_shader;                  // Unlit textured shader rebuilt on backend reset.
-    std::array<std::unique_ptr<Rendering::MeshDX12>, 6> m_faceMeshes; // One renderer-owned quad mesh per cube face.
-    std::array<uint32_t, 6> m_faceTextures;                           // Texture hash selected for each cube face.
+    Box m_boundaries;                                                     // World-space cube bounds around the scene camera.
+    Textures::TextureCollection* m_textures;                              // Borrowed texture registry; scene/runtime owns it.
+    const SkullbonezCore::Core::EngineConfig* m_config;                   // Borrowed sky texture/scale settings from the runtime config.
+    Assets::AssetSystem* m_assets;                                        // Borrowed asset registry used to resolve shader logical names.
+    Rendering::Dx12ResourceBuilder* m_resources;                          // Borrowed cold builder for sky GPU objects.
+    std::unique_ptr<Rendering::ShaderDX12> m_shader;                      // Unlit textured shader rebuilt on backend reset.
+    std::array<std::unique_ptr<Rendering::MeshDX12>, 6> m_faceMeshes;     // One renderer-owned quad mesh per cube face.
+    std::array<uint32_t, 6> m_faceTextures;                               // Texture hash selected for each cube face.
 
     SkullbonezCore::Core::SbResult LoadTextures( const SkullbonezCore::Core::EngineConfig& config );
-    void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config,
-                      Assets::AssetSystem& assets,
+    void BuildMeshes( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                       Rendering::Dx12ResourceBuilder& resources );
 
   public:
@@ -85,15 +85,13 @@ class SkyBox
     SkyBox( const SkyBox& ) = delete;
     SkyBox& operator=( const SkyBox& ) = delete;
 
-    void BindTextures( Textures::TextureCollection& textures );       // Borrow Run-owned texture registry for sky faces.
-    void
-    BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
-                        Assets::AssetSystem& assets,
-                        Rendering::Dx12ResourceBuilder& resources );  // Borrow rebuild-only services for sky resources.
-    void ReleaseRenderResources();                                    // Releases backend-owned sky meshes/shader and clears service borrows.
+    void BindTextures( Textures::TextureCollection& textures );           // Borrow Run-owned texture registry for sky faces.
+    void BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
+                             Rendering::Dx12ResourceBuilder& resources ); // Borrow rebuild-only services for sky resources.
+    void ReleaseRenderResources();                                        // Releases backend-owned sky meshes/shader and clears service borrows.
     SkullbonezCore::Core::SbResult Render( const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj );
-    SkullbonezCore::Core::SbResult ResetRenderResources();            // Rebuild meshes/shader after renderer reset/switch
+    SkullbonezCore::Core::SbResult ResetRenderResources();                // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

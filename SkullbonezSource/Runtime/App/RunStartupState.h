@@ -40,8 +40,7 @@ struct RunStartupState
     int sceneObjectCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     int workerThreads = -1;
 
-    void ApplyStartupConfig(
-        const SkullbonezCore::Core::EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
+    void ApplyStartupConfig( const SkullbonezCore::Core::EngineConfig& config ); // Captures startup-only capacity/thread policy from config.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -80,6 +80,7 @@ float ClampUnit( float value )
 float WrapRadians( float value )
 {
     value = std::fmod( value, TWO_PI );
+
     if ( value > PI )
     {
         value -= TWO_PI;
@@ -127,10 +128,12 @@ bool ValidElements( const OrbitalElements& elements )
 OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, float& outEccentricAnomaly )
 {
     float eccentricAnomaly = meanAnomaly + eccentricity * std::sin( meanAnomaly );
+
     for ( int iteration = 0; iteration < KEPLER_ITERATION_CAP; ++iteration )
     {
         const float residual = eccentricAnomaly - eccentricity * std::sin( eccentricAnomaly ) - meanAnomaly;
         const float derivative = 1.0f - eccentricity * std::cos( eccentricAnomaly );
+
         if ( std::fabs( derivative ) <= NUMERIC_EPSILON )
         {
             return OrbitalStatus::NotConverged;
@@ -138,6 +141,7 @@ OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, floa
 
         const float correction = residual / derivative;
         eccentricAnomaly -= correction;
+
         if ( std::fabs( correction ) <= NUMERIC_EPSILON )
         {
             outEccentricAnomaly = eccentricAnomaly;
@@ -150,6 +154,7 @@ OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, floa
 
 void Stumpff( double z, double& outC, double& outS )
 {
+
     if ( std::fabs( z ) < 1.0e-8 )
     {
         outC = 0.5;
@@ -170,17 +175,13 @@ void Stumpff( double z, double& outC, double& outS )
     outS = ( std::sinh( root ) - root ) / ( root * root * root );
 }
 
-bool LambertTimeResidual( double z,
-                          double radius1,
-                          double radius2,
-                          double transferA,
-                          double targetTimeScaled,
-                          double& outResidual,
-                          double& outY )
+bool LambertTimeResidual( double z, double radius1, double radius2, double transferA, double targetTimeScaled,
+                          double& outResidual, double& outY )
 {
     double c = 0.0;
     double s = 0.0;
     Stumpff( z, c, s );
+
     if ( c <= 0.0 || !std::isfinite( c ) || !std::isfinite( s ) )
     {
         return false;
@@ -188,6 +189,7 @@ bool LambertTimeResidual( double z,
 
     const double sqrtC = std::sqrt( c );
     const double y = radius1 + radius2 + transferA * ( z * s - 1.0 ) / sqrtC;
+
     if ( y <= 0.0 || !std::isfinite( y ) )
     {
         return false;
@@ -195,6 +197,7 @@ bool LambertTimeResidual( double z,
 
     const double x = std::sqrt( y / c );
     const double residual = x * x * x * s + transferA * std::sqrt( y ) - targetTimeScaled;
+
     if ( !std::isfinite( residual ) )
     {
         return false;
@@ -207,16 +210,18 @@ bool LambertTimeResidual( double z,
 } // namespace
 
 
-OrbitalStatus
-ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVelocity, float mu, OrbitalElements& out )
+OrbitalStatus ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVelocity, float mu,
+                                 OrbitalElements& out )
 {
     out = {};
+
     if ( mu <= 0.0f || !std::isfinite( mu ) || !IsFinite( relativePosition ) || !IsFinite( relativeVelocity ) )
     {
         return OrbitalStatus::Degenerate;
     }
 
     const float radius = Magnitude( relativePosition );
+
     if ( radius <= GEOMETRY_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -224,6 +229,7 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 
     const Vector3 angularMomentum = CrossProduct( relativePosition, relativeVelocity );
     const float angularMomentumMagnitude = Magnitude( angularMomentum );
+
     if ( angularMomentumMagnitude <= GEOMETRY_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -231,6 +237,7 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 
     const float speedSquared = MagnitudeSquared( relativeVelocity );
     const float specificEnergy = 0.5f * speedSquared - mu / radius;
+
     if ( specificEnergy >= -NUMERIC_EPSILON )
     {
         return OrbitalStatus::NotElliptic;
@@ -240,12 +247,14 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
                                        relativePosition * ( 1.0f / radius );
 
     const float eccentricity = Magnitude( eccentricityVector );
+
     if ( !std::isfinite( eccentricity ) || eccentricity >= 1.0f )
     {
         return OrbitalStatus::NotElliptic;
     }
 
     const float semiMajorAxis = -mu / ( 2.0f * specificEnergy );
+
     if ( semiMajorAxis <= GEOMETRY_EPSILON || !std::isfinite( semiMajorAxis ) )
     {
         return OrbitalStatus::NotElliptic;
@@ -255,6 +264,7 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
     const Vector3 node( -angularMomentum.y, angularMomentum.x, 0.0f );
     const float nodeMagnitude = Magnitude( node );
     float longitudeAscendingNode = 0.0f;
+
     if ( nodeMagnitude > GEOMETRY_EPSILON )
     {
         longitudeAscendingNode = std::atan2( node.y, node.x );
@@ -262,9 +272,11 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 
     float argumentPeriapsis = 0.0f;
     float trueAnomaly = 0.0f;
+
     if ( eccentricity > GEOMETRY_EPSILON )
     {
         const Vector3 unitEccentricity = eccentricityVector * ( 1.0f / eccentricity );
+
         if ( nodeMagnitude > GEOMETRY_EPSILON )
         {
             argumentPeriapsis = SignedAngle( node * ( 1.0f / nodeMagnitude ), unitEccentricity, unitAngularMomentum );
@@ -278,8 +290,7 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
     }
     else if ( nodeMagnitude > GEOMETRY_EPSILON )
     {
-        trueAnomaly = SignedAngle( node * ( 1.0f / nodeMagnitude ),
-                                   relativePosition * ( 1.0f / radius ),
+        trueAnomaly = SignedAngle( node * ( 1.0f / nodeMagnitude ), relativePosition * ( 1.0f / radius ),
                                    unitAngularMomentum );
     }
     else
@@ -287,9 +298,8 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
         trueAnomaly = std::atan2( relativePosition.y, relativePosition.x );
     }
 
-    const float eccentricAnomaly = 2.0f *
-                                   std::atan2( std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
-                                               std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly ) );
+    const float eccentricAnomaly = 2.0f * std::atan2( std::sqrt( 1.0f - eccentricity ) * std::sin( 0.5f * trueAnomaly ),
+                                                      std::sqrt( 1.0f + eccentricity ) * std::cos( 0.5f * trueAnomaly ) );
 
     out.semiMajorAxis = semiMajorAxis;
     out.eccentricity = eccentricity;
@@ -302,13 +312,12 @@ ElementsFromState( const Vector3& relativePosition, const Vector3& relativeVeloc
 }
 
 
-OrbitalStatus PropagateToTime( const OrbitalElements& elements,
-                               float deltaSeconds,
-                               Vector3& outRelativePosition,
+OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSeconds, Vector3& outRelativePosition,
                                Vector3& outRelativeVelocity )
 {
     outRelativePosition = Vector3( 0.0f, 0.0f, 0.0f );
     outRelativeVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+
     if ( !ValidElements( elements ) || !std::isfinite( deltaSeconds ) )
     {
         return elements.eccentricity >= 1.0f ? OrbitalStatus::NotElliptic : OrbitalStatus::Degenerate;
@@ -320,6 +329,7 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements,
     const float meanAnomaly = WrapRadians( elements.meanAnomalyAtEpoch + meanMotion * deltaSeconds );
     float eccentricAnomaly = 0.0f;
     const OrbitalStatus solveStatus = SolveEccentricAnomaly( meanAnomaly, elements.eccentricity, eccentricAnomaly );
+
     if ( solveStatus != OrbitalStatus::Ok )
     {
         return solveStatus;
@@ -329,6 +339,7 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements,
     const float sinEccentric = std::sin( eccentricAnomaly );
     const float ellipseMinorScale = std::sqrt( 1.0f - elements.eccentricity * elements.eccentricity );
     const float denominator = 1.0f - elements.eccentricity * cosEccentric;
+
     if ( denominator <= NUMERIC_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -348,6 +359,7 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements,
 
 std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vector3> outPoints )
 {
+
     if ( !ValidElements( elements ) || outPoints.empty() )
     {
         return 0;
@@ -355,6 +367,7 @@ std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vect
 
     const float ellipseMinorScale = std::sqrt( 1.0f - elements.eccentricity * elements.eccentricity );
     const float inverseCount = 1.0f / static_cast<float>( outPoints.size() );
+
     for ( std::size_t index = 0; index < outPoints.size(); ++index )
     {
         const float eccentricAnomaly = TWO_PI * static_cast<float>( index ) * inverseCount;
@@ -367,18 +380,20 @@ std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vect
 }
 
 
-OrbitalStatus
-SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu, bool prograde, LambertSolution& out )
+OrbitalStatus SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu, bool prograde,
+                            LambertSolution& out )
 {
     out = {};
-    if ( timeOfFlight <= 0.0f || mu <= 0.0f || !std::isfinite( timeOfFlight ) || !std::isfinite( mu ) ||
-         !IsFinite( r1 ) || !IsFinite( r2 ) )
+
+    if ( timeOfFlight <= 0.0f || mu <= 0.0f || !std::isfinite( timeOfFlight ) || !std::isfinite( mu ) || !IsFinite( r1 ) ||
+         !IsFinite( r2 ) )
     {
         return OrbitalStatus::Degenerate;
     }
 
     const double radius1 = static_cast<double>( Magnitude( r1 ) );
     const double radius2 = static_cast<double>( Magnitude( r2 ) );
+
     if ( radius1 <= GEOMETRY_EPSILON || radius2 <= GEOMETRY_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -388,6 +403,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     const double crossMagnitude = static_cast<double>( Magnitude( cross ) );
     const double cosTransfer = std::clamp( static_cast<double>( Dot( r1, r2 ) ) / ( radius1 * radius2 ), -1.0, 1.0 );
     const double sinMagnitude = crossMagnitude / ( radius1 * radius2 );
+
     if ( sinMagnitude <= GEOMETRY_EPSILON || 1.0 - cosTransfer <= GEOMETRY_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -402,6 +418,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     const bool directedPrograde = Dot( cross, progradeNormal ) >= 0.0f;
     const double sinTransfer = directedPrograde == prograde ? sinMagnitude : -sinMagnitude;
     const double transferA = sinTransfer * std::sqrt( radius1 * radius2 / ( 1.0 - cosTransfer ) );
+
     if ( std::fabs( transferA ) <= GEOMETRY_EPSILON )
     {
         return OrbitalStatus::Degenerate;
@@ -422,6 +439,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
         const double z = zMin + ( zMax - zMin ) * static_cast<double>( sample ) / bracketSamples;
         double residual = 0.0;
         double y = 0.0;
+
         if ( !LambertTimeResidual( z, radius1, radius2, transferA, targetTimeScaled, residual, y ) )
         {
             continue;
@@ -455,9 +473,11 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     double z = 0.5 * ( lower + upper );
     double y = 0.0;
     bool converged = lower == upper;
+
     for ( int iteration = 0; iteration < LAMBERT_ITERATION_CAP && !converged; ++iteration )
     {
         double residual = 0.0;
+
         if ( !LambertTimeResidual( z, radius1, radius2, transferA, targetTimeScaled, residual, y ) )
         {
             z = 0.5 * ( lower + upper );
@@ -486,18 +506,16 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
         double shiftedResidual = 0.0;
         double shiftedY = 0.0;
         double candidate = 0.5 * ( lower + upper );
-        if ( LambertTimeResidual( z + derivativeStep,
-                                  radius1,
-                                  radius2,
-                                  transferA,
-                                  targetTimeScaled,
-                                  shiftedResidual,
+
+        if ( LambertTimeResidual( z + derivativeStep, radius1, radius2, transferA, targetTimeScaled, shiftedResidual,
                                   shiftedY ) )
         {
             const double derivative = ( shiftedResidual - residual ) / derivativeStep;
+
             if ( std::fabs( derivative ) > 1.0e-12 )
             {
                 const double newton = z - residual / derivative;
+
                 if ( newton > lower && newton < upper )
                 {
                     candidate = newton;
@@ -509,6 +527,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     }
 
     double finalResidual = 0.0;
+
     if ( !LambertTimeResidual( z, radius1, radius2, transferA, targetTimeScaled, finalResidual, y ) ||
          ( !converged && std::fabs( finalResidual ) > 1.0e-6 * targetTimeScaled ) )
     {
@@ -518,6 +537,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
     const double f = 1.0 - y / radius1;
     const double g = transferA * std::sqrt( y / static_cast<double>( mu ) );
     const double gDot = 1.0 - y / radius2;
+
     if ( std::fabs( g ) <= 1.0e-9 || !std::isfinite( g ) )
     {
         return OrbitalStatus::Degenerate;
@@ -525,6 +545,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
 
     out.v1 = ( r2 - r1 * static_cast<float>( f ) ) * static_cast<float>( 1.0 / g );
     out.v2 = ( r2 * static_cast<float>( gDot ) - r1 ) * static_cast<float>( 1.0 / g );
+
     if ( !IsFinite( out.v1 ) || !IsFinite( out.v2 ) )
     {
         out = {};
@@ -538,6 +559,7 @@ SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFlight, float mu
 
 float HohmannTransferSeconds( float r1, float r2, float mu )
 {
+
     if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
     {
         return 0.0f;
@@ -550,6 +572,7 @@ float HohmannTransferSeconds( float r1, float r2, float mu )
 
 float HohmannDepartureDeltaV( float r1, float r2, float mu )
 {
+
     if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
     {
         return 0.0f;

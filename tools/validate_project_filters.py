@@ -85,7 +85,7 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Runtime/Automation/InteractionAutomationReportWriter.cpp",
         "Runtime/Replay/ReplayV2Artifact.cpp",
         "Runtime/Scene/SceneController.Load.cpp",
-        "Runtime/Scene/SceneRuntimeCreate.cpp",
+        "Runtime/Scene/SceneController.Creation.cpp",
         "Runtime/Startup/StartupLaunchResolution.cpp",
         "Scene/AuthoredSceneParser.cpp",
         "Scene/AuthoredSceneParserAssets.cpp",
@@ -207,6 +207,8 @@ PHYSICS_DIAGNOSTICS_PREFIXES = (
 
 PHYSICS_SUPPORT_PREFIXES = (
     "PhysicsFixedList",
+    "PhysicsStageCapacity",
+    "PhysicsSceneVectorReserve",
     "PhysicsTimestep",
 )
 
@@ -361,7 +363,7 @@ RUNTIME_INTERACTION_PREFIXES = (
 
 RUNTIME_SETTINGS_PREFIXES = (
     "LiveStyleController",
-    "OperatorCommandApplier",
+    "OperatorCommandTransaction",
 )
 
 RUNTIME_SCENE_PREFIXES = (
@@ -370,23 +372,21 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneControllerState",
     "SceneLifecycle",
     "SceneLoadTransaction",
+    "SceneLoadPreparation",
+    "SceneLoadPresentation",
+    "SceneResetPreservation",
     "SceneWorld",
     "SceneTerrain",
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",
-    "SceneRuntime",
-    "SceneRuntimeCreate",
-    "SceneRuntimeCoordinator",
-    "SceneRuntimeDefaults",
+    "SceneCinematicPolicy",
     "SceneRequestQueue",
     "SceneSaveOperations",
     "SceneEntityStore",
+    "SceneGeneratedControlTransaction",
     "SceneNavigationModel",
-    "SceneRuntimeGeneratedControls",
-    "SceneRuntimeLoad",
-    "SceneRuntimeReset",
-    "SceneRuntimeStyle",
-    "SceneRuntimeUiOptions",
+    "SceneLoadRequest",
+    "SceneSessionState",
 )
 
 CORE_ALLOCATION_PREFIXES = (

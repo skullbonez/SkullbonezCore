@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   UICheckBox.h implements UI CheckBox widgets, layout, drawing, or UI state
+
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the
   glossary/invariants below.
@@ -38,11 +39,7 @@ class UICheckBox
     void SetBounds( float x, float y, float w, float h );
     UIRect Bounds() const;
     bool HitTest( int mouseX, int mouseY ) const;
-    void DrawToggle( const UIDrawContext& draw,
-                     const char* label,
-                     bool checked,
-                     float accentR,
-                     float accentG,
+    void DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG,
                      float accentB ) const;
 
   private:

@@ -28,12 +28,59 @@ Do not claim to be a separate model or independent process unless you actually i
    - For tests: inspect what behavior is asserted, what is missing, and whether the tests can falsely pass.
    - For debugging: inspect the observed symptom, current hypothesis, evidence, and latest failure output.
 3. Compare expected outcome against actual work and evidence.
-4. Report findings by severity:
+4. For any change that adds, moves, or deletes C++ types or functions, answer the
+   five ownership questions below. These are not style comments — `AGENTS.md`
+   delegates enforcement of its aggregate, slice, and extraction rules to this
+   review, so a critique that skips them leaves those rules unenforced.
+5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
    - `Missing evidence`: validation, tests, logs, screenshots, artifacts, or reproduction proof that are needed to trust the result.
-5. If no material issues are found, say so clearly and name any residual risk.
-6. End with the smallest useful next step, especially when the critique blocks progress.
+6. If no material issues are found, say so clearly and name any residual risk.
+7. End with the smallest useful next step, especially when the critique blocks progress.
+
+## Ownership Questions (C++ changes)
+
+`AGENTS.md` bans authority-free aggregates, nominal capability slices, and
+extraction scars, and names this review as the enforcement mechanism. Answer all
+five explicitly. A finding against any of them is `[Blocking]` and cannot be
+waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle.
+
+1. **Aggregate ownership.** Does every aggregate the change touches or adds name a
+   rule it enforces, in an `Invariant:` block a test exercises? Two shapes are
+   authority-free: a behavior-free aggregate whose sole member is a borrowed
+   pointer/reference, and one whose **sole consumer destructures every member at
+   entry** without retaining it. A one-field behavior owner or tested strong
+   value type is not the first shape. Report the replacement, not just the defect.
+2. **Capability slices.** Judge reference-carrying view structs as one surface. Can
+   any single operation receive every slice? Do some operations take slices while
+   others reach the same owners as members? Either answer is a finding: the first
+   means the split is nominal, the second means the convention is decorative.
+3. **Extraction scars.** Does any local use the `m_` member convention, or exist
+   only as a second name for a parameter? A member-prefixed local reads as owner
+   state when it is a call-scoped borrow, and it is how a lifted god-class body
+   avoids being rewritten for its new owner.
+4. **Rename evasion.** Did a shape this change deleted reappear under another
+   suffix? `FooContext` becoming `FooOperands` or `FooServices` closes nothing.
+5. **False claims.** Does any header state an invariant, ownership, or sequencing
+   fact the post-change source does not hold? Moved responsibilities must be
+   corrected in the same commit under the Comment Quality Gate.
+
+Cite evidence rather than asserting a conclusion. Three repeatable inventories
+produce it, and all three are read-only:
+
+```bash
+python tools/inventory_authority_free_aggregates.py --repo .
+python tools/inventory_extraction_scars.py --repo .
+python tools/inventory_wide_signatures.py --repo .
+```
+
+Verdicts for the aggregate and extraction-scar inventories live in
+`tools/aggregate_ownership_rulings.json`. An `UNRULED` row means nobody has
+judged it yet; a ruled row means an owner has, and the reason field says why.
+The wide-signature inventory reports prior dispositions inline for review. None
+of these tools is a count budget — do not report a number as a finding, report
+the unowned invariant.
 
 ## Output Shape
 

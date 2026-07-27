@@ -38,16 +38,13 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime
 {
-void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
-                                                   Runtime::SceneWorld& world,
-                                                   bool replayCameraActive,
-                                                   bool sceneMode,
-                                                   bool attachedActiveFollow,
-                                                   bool cameraLookCaptured,
-                                                   float presentationAlpha,
+void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtime::SceneWorld& world,
+                                                   bool replayCameraActive, bool sceneMode, bool attachedActiveFollow,
+                                                   bool cameraLookCaptured, float presentationAlpha,
                                                    Core::Profiler* profiler )
 {
     Environment::CameraCollection& cameras = world.Cameras();
+
     if ( replayCameraActive )
     {
         PROFILE_SCOPED( profiler, "Frame/Replay/Camera" );
@@ -73,6 +70,7 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
     timers.cameraTimer.StopTimer();
     cameraTime += static_cast<float>( timers.cameraTimer.GetElapsedTime() );
     timers.cameraTimer.StartTimer();
+
     if ( cameraTime > 5.0f )
     {
         selectedCamera = ( selectedCamera + 1 ) % 3;
@@ -84,8 +82,10 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;
     // a missing row leaves the previous view target intact for this frame.
+
     for ( int modelIndex = 0; modelIndex < 2; ++modelIndex )
     {
+
         if ( !cameras.IsCameraSelected( cameraSlots[modelIndex] ) )
         {
             continue;
@@ -93,6 +93,7 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
 
         Vector3 targetPosition;
         Quaternion targetOrientation;
+
         if ( world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
@@ -103,6 +104,7 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers,
 
 void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 {
+
     if ( sceneMode && autoCycleInterval > 0.0f )
     {
         autoCycleAccum += simulationDt;
@@ -110,14 +112,9 @@ void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulation
 }
 
 
-void CameraControlState::TickControls( Runtime::SceneWorld& world,
-                                       AttachedCameraController& attachedCamera,
-                                       const SkullbonezCore::Core::EngineConfig& config,
-                                       bool editorModeEnabled,
-                                       bool viewportLookActive,
-                                       bool sceneMode,
-                                       float cameraDt,
-                                       float presentationAlpha )
+void CameraControlState::TickControls( Runtime::SceneWorld& world, AttachedCameraController& attachedCamera,
+                                       const SkullbonezCore::Core::EngineConfig& config, bool editorModeEnabled,
+                                       bool viewportLookActive, bool sceneMode, float cameraDt, float presentationAlpha )
 {
     Environment::CameraCollection& cameras = world.Cameras();
     Geometry::Terrain& terrain = *world.Terrain().Get();
@@ -125,21 +122,24 @@ void CameraControlState::TickControls( Runtime::SceneWorld& world,
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
                                          attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
 
-    InputController::ApplyCameraMovement(
-        *this,
-        cameras,
-        terrain,
-        RuntimeCameraMovementInput {
-            cameraDt * config.camera.keySpeed,
-            CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity,
-            config.camera.minCameraHeight,
-            config.camera.maxCameraHeight,
-            attachedOrbitOwnsCamera,
-            RunCameraModeUsesFlyControls( mode, attachedCamera.State().activeFollow, director.grabbed ),
-            editorModeEnabled,
-            viewportLookActive,
-            RunCameraModeUsesManualControls( mode, attachedCamera.State().activeFollow, director.grabbed ),
-            sceneMode } );
+    InputController::ApplyCameraMovement( *this, cameras, terrain,
+                                          RuntimeCameraMovementInput { cameraDt * config.camera.keySpeed,
+                                                                       CAMERA_MOUSE_REFERENCE_DT *
+                                                                           config.camera.mouseSensitivity,
+                                                                       config.camera.minCameraHeight,
+                                                                       config.camera.maxCameraHeight,
+                                                                       attachedOrbitOwnsCamera,
+                                                                       RunCameraModeUsesFlyControls( mode,
+                                                                                                     attachedCamera.State()
+                                                                                                         .activeFollow,
+                                                                                                     director.grabbed ),
+                                                                       editorModeEnabled, viewportLookActive,
+                                                                       RunCameraModeUsesManualControls( mode,
+                                                                                                        attachedCamera
+                                                                                                            .State()
+                                                                                                            .activeFollow,
+                                                                                                        director.grabbed ),
+                                                                       sceneMode } );
 
     if ( RunCameraModeIsAttached( mode ) )
     {

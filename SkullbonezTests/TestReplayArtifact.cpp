@@ -17,6 +17,8 @@
 //   - Writer output is byte-identical for identical recorder state.
 //   - Header versions and every chunk range are validated before payload reads.
 //   - Required chunk duplication cannot make the first matching tag authoritative.
+//   - A writer-made full artifact round-trips presentation, solver checkpoints,
+//     events, hashes, branch identity, and launcher visuals through public loaders.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
@@ -26,30 +28,43 @@
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Physics/PhysicsApi.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
+#include "TestCollisionShapeFixtures.h"
 
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayBodyPresentationSample;
+using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayEventSample;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplayPresentationSample;
 using SkullbonezCore::Runtime::ReplayRecorder;
 using SkullbonezCore::Runtime::ReplayRecorderConfig;
-using SkullbonezCore::Runtime::ReplayVisualArchiveSample;
 using SkullbonezCore::Runtime::ReplayV2SolverHashSample;
+using SkullbonezCore::Runtime::ReplayVisualArchiveSample;
 namespace ReplayRecorderOperations = SkullbonezCore::Runtime::ReplayRecorderOperations;
+using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplayV2Artifact;
 using SkullbonezCore::Runtime::ReplayV2LoadResult;
 using SkullbonezCore::Runtime::ReplayV2SaveResult;
+using SkullbonezTests::CollisionShapeFixtures::SphereShape;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -158,7 +173,7 @@ void WriteFile( const std::string& path, const std::vector<uint8_t>& bytes )
 template <typename T> T ReadValue( const std::vector<uint8_t>& bytes, std::size_t offset )
 {
     REQUIRE( offset + sizeof( T ) <= bytes.size() );
-    T value{};
+    T value {};
     std::memcpy( &value, bytes.data() + offset, sizeof( value ) );
     return value;
 }
@@ -298,4 +313,184 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
         WriteValue<uint64_t>( bytes, kFileSizeOffset, static_cast<uint64_t>( bytes.size() + 1u ) );
         CheckRejected( ArtifactPath( "wrong_file_size.skreplay" ), bytes );
     }
+}
+
+
+namespace
+{
+std::string FullArtifactPath()
+{
+    return "TestOutput/coverage_floor_unit/full_tracks.skreplay";
+}
+} // namespace
+
+
+TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values" )
+{
+    auto engineStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& engine = *engineStorage;
+    engine.Clear();
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        engine.ReserveAuthoredBodyCapacity( 1 );
+    }
+
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape = SphereShape( 1.0f );
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId { 501u }, shape, Vector3( 0.0f, 4.0f, 0.0f ),
+                                               SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                               Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.25f, 0.0f ),
+                                               Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.25f, PhysicsBodyMotionKind::Dynamic,
+                                               "coverage-artifact-body" );
+    auto colliderDesc = MakeColliderCreateDesc( shape, 0.25f, 4u, "coverage-artifact" );
+    colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
+    SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registration;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
+    }
+    REQUIRE( registration.IsValid() );
+
+    SceneEntityStore entities;
+    entities.ConfigureCapacity( 1 );
+    SceneEntityCreateDesc entity;
+    entity.sceneObjectId = bodyDesc.sceneObjectId;
+    entity.SetName( "coverage_artifact_body" );
+    REQUIRE( entities.PreflightAppend( entity ).ok );
+    entities.CommitAppend( entity, registration.body );
+
+    ReplayRecorderConfig config;
+    config.enabled = true;
+    config.retentionSeconds = 1;
+    config.checkpointIntervalFrames = 1;
+    config.runtimeBodyCapacity = 1;
+    ReplaySolverRecorder solver;
+    ReplayRecorder presentation;
+    ReplayEventRecorder events;
+    REQUIRE( solver.Configure( config ) );
+    REQUIRE( presentation.Configure( config ) );
+    REQUIRE( events.Configure( config ) );
+    solver.ResetTimeline( "coverage-floor" );
+    presentation.ResetTimeline( "coverage-floor" );
+    events.ResetTimeline( "coverage-floor" );
+
+    ReplayLauncherVisualSample launcher;
+    launcher.fireMode = ReplayLauncherFireMode::Projectile;
+    launcher.visualizeRays = true;
+    launcher.impulseStrength = 42.0f;
+    launcher.projectileSpeed = 84.0f;
+    ReplayRayCastLineSample ray;
+    ray.start = Vector3( 1.0f, 2.0f, 3.0f );
+    ray.end = Vector3( 4.0f, 5.0f, 6.0f );
+    ray.ageSeconds = 0.5f;
+    ray.active = true;
+    ray.hit = true;
+    launcher.rayLines.push_back( ray );
+    LauncherLaserShotSnapshot shot;
+    shot.start = Vector3( -1.0f, 2.0f, 0.0f );
+    shot.end = Vector3( 3.0f, 2.0f, 0.0f );
+    shot.cameraRight = Vector3( 1.0f, 0.0f, 0.0f );
+    shot.cameraUp = Vector3( 0.0f, 1.0f, 0.0f );
+    shot.ageSeconds = 0.25f;
+    shot.lifetimeSeconds = 1.0f;
+    shot.active = true;
+    launcher.laserShots.push_back( shot );
+
+    SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
+    ReplayBranchInfo captureBranch;
+    captureBranch.branchId = 9u;
+    captureBranch.parentBranchId = 4u;
+    ReplayWorldPresentationSample captureWorld;
+    captureWorld.fixedStep = true;
+    ReplayCameraSample captureCamera;
+
+    solver.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
+                         tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
+    const ReplaySolverFrameSample* sample = solver.LatestSample();
+    REQUIRE( sample != nullptr );
+    presentation.CaptureFrameFromSolverSample( *sample );
+
+    const ReplaySolverFrameSample* historical = solver.SampleAtNormalized( 0.0f );
+    REQUIRE( historical != nullptr );
+    const uint64_t firstResolveCount = solver.GetStats().denseSampleResolveCount;
+    CHECK( firstResolveCount == 1u );
+    CHECK( solver.SampleAtNormalized( 0.0f ) == historical );
+    CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount );
+
+    REQUIRE( engine.SetBodyVelocity( registration.body, Vector3( 2.0f, 1.0f, -1.0f ), Vector3( 0.1f, 0.2f, 0.3f ), true ) );
+    solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
+                         tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
+                         PhysicsEngine::ReadColliders( engine ) );
+    sample = solver.LatestSample();
+    REQUIRE( sample != nullptr );
+    presentation.CaptureFrameFromSolverSample( *sample );
+
+    historical = solver.SampleAtNormalized( 0.0f );
+    REQUIRE( historical != nullptr );
+    CHECK( solver.GetStats().denseSampleResolveCount == firstResolveCount + 1u );
+
+    for ( ReplayFrameIndex frame = 0u; frame < 2u; ++frame )
+    {
+        ReplayEventInput event;
+        event.frameIndex = frame;
+        event.branch = captureBranch;
+        event.kind = ReplayEventKind::OwnerAction;
+        event.flags = 5u + static_cast<uint32_t>( frame );
+        event.value0 = 100 + static_cast<int32_t>( frame );
+        event.data0 = 0xABC000u + frame;
+        event.text = frame == 0u ? "first-owner-event" : "second-owner-event";
+        events.RecordEvent( event );
+    }
+
+    ReplayV2SaveResult save;
+    const std::string path = FullArtifactPath();
+    REQUIRE( ReplayV2Artifact::SavePresentationWithSolverHashes( presentation, solver, events, path.c_str(), &save ) );
+    CHECK( save.sampleCount == 2u );
+    CHECK( save.solverHashCount == 2u );
+    CHECK( save.solverCheckpointCount == 2u );
+    CHECK( save.eventCount == 2u );
+    CHECK( save.eventCursorCount == 2u );
+    CHECK( save.fileBytes > 0u );
+
+    std::vector<ReplayPresentationSample> loadedPresentation;
+    ReplayV2LoadResult presentationResult;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( path.c_str(), loadedPresentation, &presentationResult ) );
+    REQUIRE( loadedPresentation.size() == 2u );
+    CHECK( presentationResult.firstFrame == 0u );
+    CHECK( presentationResult.lastFrame == 1u );
+    REQUIRE( loadedPresentation.back().bodies.size() == 1u );
+    CHECK( loadedPresentation.back().bodies[0].id.value == 501u );
+    CHECK( loadedPresentation.back().bodies[0].linearVelocity.x == doctest::Approx( 2.0f ) );
+
+    std::vector<ReplaySolverFrameSample> checkpoints;
+    ReplayV2SolverCheckpointLoadResult checkpointResult;
+    REQUIRE( ReplayV2Artifact::LoadSolverCheckpoints( path.c_str(), checkpoints, &checkpointResult ) );
+    REQUIRE( checkpoints.size() == 2u );
+    CHECK( checkpointResult.firstFrame == 0u );
+    CHECK( checkpointResult.lastFrame == 1u );
+    CHECK( checkpoints[0].branch.branchId == 9u );
+    CHECK( checkpoints[0].eventCursor == 3u );
+    CHECK( checkpoints[1].eventCursor == 4u );
+    REQUIRE( checkpoints[1].bodies.size() == 1u );
+    CHECK( checkpoints[1].bodies[0].linearVelocity.y == doctest::Approx( 1.0f ) );
+    CHECK( checkpoints[0].launcherVisual.rayLines.size() == 1u );
+    CHECK( checkpoints[0].launcherVisual.laserShots.size() == 1u );
+
+    std::vector<ReplayEventSample> loadedEvents;
+    ReplayV2EventLoadResult eventResult;
+    REQUIRE( ReplayV2Artifact::LoadEvents( path.c_str(), loadedEvents, &eventResult ) );
+    REQUIRE( loadedEvents.size() == 2u );
+    CHECK( loadedEvents[0].value0 == 100 );
+    CHECK( std::string( loadedEvents[1].text ) == "second-owner-event" );
+
+    std::vector<ReplayV2SolverHashSample> hashes;
+    ReplayV2SolverHashLoadResult hashResult;
+    REQUIRE( ReplayV2Artifact::LoadSolverHashes( path.c_str(), hashes, &hashResult ) );
+    REQUIRE( hashes.size() == 2u );
+    CHECK( hashes[0].checkpointBoundary );
+    CHECK( hashes[1].checkpointBoundary );
+    CHECK( hashes[1].solverHash != 0u );
+    CHECK( hashes[1].presentationHash != 0u );
 }

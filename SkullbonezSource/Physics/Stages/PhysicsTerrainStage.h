@@ -22,7 +22,7 @@ Invariants:
   - Candidate commit remains serial in ascending model order.
   - Detection worker slots map to ascending awake indices and retain per-body
     candidate identity regardless of worker scheduling.
-  - Manifold and candidate vectors are construction-reserved to scene capacity.
+  - Manifold and candidate lists are committed to exact scene capacity.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp
@@ -35,13 +35,13 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #include "../../Core/SceneCapacity.h"
 #include "../BuoyancySystem.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsRuntimeSettings.h"
+#include "../PhysicsStageCapacity.h"
 #include "../TerrainContactManifold.h"
 
 namespace SkullbonezCore
@@ -72,6 +72,7 @@ struct TerrainDetectionCandidate
 
 struct PreparedTerrainCandidateCommit
 {
+
     // Value transaction split around sequencer-owned diagnostics. This keeps
     // Record -> Emit -> manifold/sleep -> visual -> clock ordering unchanged.
     PhysicsPipelineRecord pipelineRecord;
@@ -87,58 +88,48 @@ struct PreparedTerrainCandidateCommit
 class PhysicsTerrainStage
 {
   private:
-    std::vector<TerrainDetectionCandidate> m_detectionCandidates;
-    std::vector<TerrainContactManifold> m_contactManifolds;
+    PhysicsBodyRowList<TerrainDetectionCandidate> m_detectionCandidates { "PhysicsTerrainStage.detectionCandidates",
+                                                                          PhysicsCapacityReason::SceneBodies };
+    PhysicsBodyRowList<TerrainContactManifold> m_contactManifolds { "PhysicsTerrainStage.contactManifolds",
+                                                                    PhysicsCapacityReason::SceneBodies };
     std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
-    void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords,
-                          std::span<const BuoyancyBodyFacts> buoyancyFacts,
-                          const PhysicsBodyHotFieldsConstView& hotFields,
-                          std::span<const ColliderRecord> colliderRecords,
-                          PhysicsTerrainView terrain,
-                          const PhysicsRuntimeSettings& settings,
-                          std::span<const uint8_t> sleepState,
-                          std::span<const float> timeRemaining,
-                          Core::Profiler* profiler,
-                          int bodyIndex );
+    void DetectTerrainAt( std::span<const PhysicsBodyRecord> bodyRecords, std::span<const BuoyancyBodyFacts> buoyancyFacts,
+                          const PhysicsBodyHotFieldsConstView& hotFields, std::span<const ColliderRecord> colliderRecords,
+                          PhysicsTerrainView terrain, const PhysicsRuntimeSettings& settings,
+                          std::span<const uint8_t> sleepState, std::span<const float> timeRemaining,
+                          Core::Profiler* profiler, int bodyIndex );
 
   public:
     PhysicsTerrainStage();
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
 
     void Clear();
     void BeginFrame();
+
     // Lifetime: detection workers borrow these concrete rows only until the
     // no-allocation dispatch joins; candidate storage remains stage-owned.
-    void Detect( const PhysicsBodyStore& bodyStore,
-                 const ColliderStore& colliderStore,
-                 std::span<const BuoyancyBodyFacts> buoyancyFacts,
-                 PhysicsTerrainView terrain,
-                 const PhysicsRuntimeSettings& settings,
-                 std::span<const uint8_t> sleepState,
-                 std::span<const float> timeRemaining,
-                 Core::Profiler* profiler,
-                 std::span<const int> awakeBodyIndices,
-                 const PhysicsExecutionSettings& execution,
-                 Threading::WorkerPool& workerPool );
+    void Detect( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                 std::span<const BuoyancyBodyFacts> buoyancyFacts, PhysicsTerrainView terrain,
+                 const PhysicsRuntimeSettings& settings, std::span<const uint8_t> sleepState,
+                 std::span<const float> timeRemaining, Core::Profiler* profiler, std::span<const int> awakeBodyIndices,
+                 const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool );
+
     // Invariant: prepare performs body integration and manifold construction;
     // commit performs only the serial manifold/sleep publication after the
     // PhysicsWorld diagnostic gap.
-    PreparedTerrainCandidateCommit PrepareCandidateCommit( PhysicsBodyStore& bodyStore,
-                                                           const ColliderStore& colliderStore,
+    PreparedTerrainCandidateCommit PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                            PhysicsTerrainView terrain,
                                                            std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                                           const PhysicsRuntimeSettings& settings,
-                                                           Core::Profiler* profiler,
-                                                           int bodyIndex,
-                                                           float availableTime,
+                                                           const PhysicsRuntimeSettings& settings, Core::Profiler* profiler,
+                                                           int bodyIndex, float availableTime,
                                                            const TerrainContactSweepResult& sweep );
-    void CommitCandidate( const PreparedTerrainCandidateCommit& commit,
-                          std::span<uint8_t> sleepSupportedThisFrame,
+    void CommitCandidate( const PreparedTerrainCandidateCommit& commit, std::span<uint8_t> sleepSupportedThisFrame,
                           std::span<uint8_t> sleepInhibitedThisFrame );
 
     std::span<const TerrainDetectionCandidate> GetDetectionCandidates() const;
-    std::vector<TerrainContactManifold>& GetContactManifolds();
-    const std::vector<TerrainContactManifold>& GetContactManifolds() const;
+    PhysicsBodyRowList<TerrainContactManifold>& GetContactManifolds();
+    std::span<const TerrainContactManifold> GetContactManifolds() const;
     std::span<uint8_t> GetRestApplied();
     uint64_t CollectDynamicMemoryBytes() const;
 };

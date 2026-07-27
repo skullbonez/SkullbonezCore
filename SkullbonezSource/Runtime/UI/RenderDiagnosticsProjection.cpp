@@ -51,6 +51,7 @@ UI::UIRenderMemoryStats ProjectRenderMemoryDiagnostics( const Rendering::RenderM
     result.uploadCapacityBytes = source.uploadCapacityBytes;
     result.uploadUsedBytes = source.uploadUsedBytes;
     result.uploadPeakBytes = source.uploadPeakBytes;
+
     for ( std::size_t index = 0; index < UI::UI_RENDER_UPLOAD_CATEGORY_COUNT; ++index )
     {
         result.uploadCategoryUsedBytes[index] = source.uploadCategoryUsedBytes[index];
@@ -92,6 +93,7 @@ UI::UIRenderVisibilityStats ProjectRenderVisibilityDiagnostics( const Rendering:
                    "Render visibility views require an explicit UI projection update." );
 
     UI::UIRenderVisibilityStats result;
+
     for ( int index = 0; index < static_cast<int>( UI::UIRenderVisibilityView::Count ); ++index )
     {
         const Rendering::RenderVisibilityViewStats& sourceView = source.views[index];

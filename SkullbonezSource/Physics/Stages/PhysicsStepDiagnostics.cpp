@@ -28,6 +28,7 @@ Related:
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDiagnosticsModel.h"
+#include "../PhysicsStageCapacity.h"
 #include "../PhysicsWorld.h"
 
 #include <algorithm>
@@ -36,17 +37,19 @@ using namespace SkullbonezCore::Physics;
 
 namespace
 {
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 } // namespace
 
-PhysicsStepDiagnostics::PhysicsStepDiagnostics()
+PhysicsStepDiagnostics::PhysicsStepDiagnostics() = default;
+
+void PhysicsStepDiagnostics::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
-    m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
-    m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
+    m_collisionVisualContacts.Reserve( bodyCapacity );
+    m_physicsDebugContacts.Reserve( PhysicsContactRowCapacity( bodyCapacity ) );
+    m_physicsPipelineTrace.Reserve( PHYSICS_MAX_PIPELINE_TRACE_RECORDS );
 }
 
 void PhysicsStepDiagnostics::Clear()
@@ -66,6 +69,7 @@ void PhysicsStepDiagnostics::SetDiagnosticNames( std::span<const char* const> di
 
 void PhysicsStepDiagnostics::BeginStep( int modelCount )
 {
+
     if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
     {
         m_collisionVisualContacts.assign( modelCount, 0 );
@@ -94,6 +98,7 @@ void PhysicsStepDiagnostics::EndCollisionVisualFrame()
 
 void PhysicsStepDiagnostics::MarkCollisionVisualContact( int index )
 {
+
     if ( index >= 0 && index < static_cast<int>( m_collisionVisualContacts.size() ) )
     {
         m_collisionVisualContacts[index] = 1;
@@ -102,7 +107,8 @@ void PhysicsStepDiagnostics::MarkCollisionVisualContact( int index )
 
 void PhysicsStepDiagnostics::RecordPipelineStage( const PhysicsPipelineRecord& record )
 {
-    if ( m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS )
+
+    if ( m_physicsPipelineTrace.size() < PHYSICS_MAX_PIPELINE_TRACE_RECORDS )
     {
         m_physicsPipelineTrace.push_back( record );
     }
@@ -110,24 +116,20 @@ void PhysicsStepDiagnostics::RecordPipelineStage( const PhysicsPipelineRecord& r
 
 bool PhysicsStepDiagnostics::CanRecordPipelineStage() const
 {
-    return m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS;
+    return m_physicsPipelineTrace.size() < PHYSICS_MAX_PIPELINE_TRACE_RECORDS;
 }
 
 int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
 {
-    return (std::max)( 0,
-                       static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                           static_cast<int>( m_physicsPipelineTrace.size() ) );
+    return (std::max)( 0, static_cast<int>( PHYSICS_MAX_PIPELINE_TRACE_RECORDS ) -
+                              static_cast<int>( m_physicsPipelineTrace.size() ) );
 }
 
-void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed,
-                                                const char* type,
-                                                int bodyA,
-                                                int bodyB,
-                                                float collisionTime,
-                                                float availableTime )
+void PhysicsStepDiagnostics::EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB,
+                                                float collisionTime, float availableTime )
 {
 #ifdef _DEBUG
+
     if ( diagnosticsSuppressed )
     {
         return;
@@ -158,27 +160,23 @@ bool PhysicsStepDiagnostics::ShouldEmitCollisionTimeDiagnostics( bool diagnostic
 #endif
 }
 
-void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed,
-                                                  const PhysicsDiagnosticsView& diagnosticsView,
-                                                  const PhysicsBodyStore& bodyStore,
-                                                  const ColliderStore& colliderStore,
+void PhysicsStepDiagnostics::EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
+                                                  const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                   float deltaSeconds,
                                                   const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
+
     if ( !diagnosticsSuppressed )
     {
         const bool regressionLogEnabled = m_sink.IsRegressionLogEnabled();
         const bool frameLogEnabled = m_sink.IsFrameLogEnabled();
+
         if ( regressionLogEnabled || frameLogEnabled )
         {
             const PhysicsDiagnosticsNameView names = m_sink.RegisteredNames();
-            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,
-                                                       bodyStore,
-                                                       colliderStore,
-                                                       names,
-                                                       diagnosticsCsvWriter,
-                                                       deltaSeconds };
+            const PhysicsDiagnosticsFrameInput frame { diagnosticsView,      bodyStore,   colliderStore, names,
+                                                       diagnosticsCsvWriter, deltaSeconds };
 
             if ( regressionLogEnabled )
             {
@@ -225,45 +223,84 @@ void PhysicsStepDiagnostics::SetPhysicsDiagnosticsRunId( const char* runId )
 
 void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const
 {
-    snapshot.collisionVisualContacts = m_collisionVisualContacts;
-    snapshot.debugContacts = m_physicsDebugContacts;
-    snapshot.pipelineTrace = m_physicsPipelineTrace;
+    snapshot.collisionVisualContacts.clear();
+
+    for ( uint8_t value : m_collisionVisualContacts )
+    {
+        snapshot.collisionVisualContacts.push_back( value );
+    }
+
+    snapshot.debugContacts.clear();
+
+    for ( const PhysicsDebugContact& contact : m_physicsDebugContacts )
+    {
+        snapshot.debugContacts.push_back( contact );
+    }
+
+    snapshot.pipelineTrace.clear();
+
+    for ( const PhysicsPipelineRecord& record : m_physicsPipelineTrace )
+    {
+        snapshot.pipelineTrace.push_back( record );
+    }
+
     snapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
 }
 
 void PhysicsStepDiagnostics::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
-    m_collisionVisualContacts = snapshot.collisionVisualContacts;
-    m_physicsDebugContacts = snapshot.debugContacts;
-    m_physicsPipelineTrace = snapshot.pipelineTrace;
+    m_collisionVisualContacts.Reserve( snapshot.collisionVisualContacts.size() );
+    m_collisionVisualContacts.clear();
+
+    for ( uint8_t value : snapshot.collisionVisualContacts )
+    {
+        m_collisionVisualContacts.push_back( value );
+    }
+
+    m_physicsDebugContacts.Reserve( snapshot.debugContacts.size() );
+    m_physicsDebugContacts.clear();
+
+    for ( const PhysicsDebugContact& contact : snapshot.debugContacts )
+    {
+        m_physicsDebugContacts.push_back( contact );
+    }
+
+    m_physicsPipelineTrace.Reserve( snapshot.pipelineTrace.size() );
+    m_physicsPipelineTrace.clear();
+
+    for ( const PhysicsPipelineRecord& record : snapshot.pipelineTrace )
+    {
+        m_physicsPipelineTrace.push_back( record );
+    }
+
     m_collisionVisualFrameActive = snapshot.collisionVisualFrameActive;
 }
 
-const std::vector<uint8_t>& PhysicsStepDiagnostics::GetCollisionVisualContacts() const
+std::span<const uint8_t> PhysicsStepDiagnostics::GetCollisionVisualContacts() const
 {
     return m_collisionVisualContacts;
 }
-std::vector<PhysicsDebugContact>& PhysicsStepDiagnostics::MutableDebugContacts()
+PhysicsContactRowList<PhysicsDebugContact>& PhysicsStepDiagnostics::MutableDebugContacts()
 {
     return m_physicsDebugContacts;
 }
-const std::vector<PhysicsDebugContact>& PhysicsStepDiagnostics::GetDebugContacts() const
+std::span<const PhysicsDebugContact> PhysicsStepDiagnostics::GetDebugContacts() const
 {
     return m_physicsDebugContacts;
 }
-std::vector<PhysicsPipelineRecord>& PhysicsStepDiagnostics::MutablePipelineTrace()
+PhysicsPipelineRowList<PhysicsPipelineRecord>& PhysicsStepDiagnostics::MutablePipelineTrace()
 {
     return m_physicsPipelineTrace;
 }
-const std::vector<PhysicsPipelineRecord>& PhysicsStepDiagnostics::GetPipelineTrace() const
+std::span<const PhysicsPipelineRecord> PhysicsStepDiagnostics::GetPipelineTrace() const
 {
     return m_physicsPipelineTrace;
 }
 
 uint64_t PhysicsStepDiagnostics::CollectDynamicMemoryBytes() const
 {
-    return VectorCapacityBytes( m_collisionVisualContacts ) + VectorCapacityBytes( m_physicsDebugContacts ) +
-           VectorCapacityBytes( m_physicsPipelineTrace );
+    return ListCapacityBytes( m_collisionVisualContacts ) + ListCapacityBytes( m_physicsDebugContacts ) +
+           ListCapacityBytes( m_physicsPipelineTrace );
 }
 
 uint64_t PhysicsStepDiagnostics::CollectDebugMemoryBytes() const

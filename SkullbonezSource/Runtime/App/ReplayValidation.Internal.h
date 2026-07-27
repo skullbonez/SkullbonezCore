@@ -52,8 +52,7 @@ inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED = REPLAY_EDITOR_TRANSFORM_TRANSLATE |
-                                                              REPLAY_EDITOR_TRANSFORM_ROTATE |
-                                                              REPLAY_EDITOR_TRANSFORM_SCALE;
+                                                              REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 
 const Physics::PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld& world, int modelIndex );
 

@@ -46,6 +46,7 @@ void HashByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashScalar( uint64_t& hash, T value )
 {
+
     for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
         HashByte( hash, byte );
@@ -82,10 +83,12 @@ void HashQuaternion( uint64_t& hash, const Math::Orientation::Quaternion& value 
 bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPacket& packet,
                                                           const ReplayTrajectoryRecord& record )
 {
+
     // During a growing prediction the renderer may switch between committed
     // and worker banks according to prefix readiness, which is intentionally
     // left conservative here. Once completion is published, ReplayPredictionDrawing
     // draws only the committed root (branch 0) and committed child range.
+
     if ( packet.header.predictionBuilding || !packet.header.predictionComplete )
     {
         return true;
@@ -116,16 +119,12 @@ ReplayVisualPacketBufferFacts BuildReplayVisualPacketBufferFacts( const ReplayVi
                                        !packet.retainedPredictionPriorityRibbonVertices.empty();
 
     facts.hasGeometry = packet.HasGeometry();
-    facts.combinedLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines,
-                                                           packet.ordinaryLines,
-                                                           packet.retainedPredictionPriorityLines,
-                                                           packet.priorityLines );
+    facts.combinedLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines, packet.ordinaryLines,
+                                                           packet.retainedPredictionPriorityLines, packet.priorityLines );
 
-    facts.ordinaryLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines,
-                                                           packet.ordinaryLines );
+    facts.ordinaryLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines, packet.ordinaryLines );
 
-    facts.priorityLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines,
-                                                           packet.priorityLines );
+    facts.priorityLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines, packet.priorityLines );
 
     facts.ordinaryRibbonHash = hasRetainedPrediction
                                    ? HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryRibbonSegments,
@@ -214,8 +213,7 @@ const char* FindReplayVisualPacketSubmissionSpanMismatch( const ReplayVisualPack
         return "submission.vertexHash";
     }
 
-    if ( !emptyCompatibleHash( submission.ordinaryVertexHash,
-                               facts.ordinaryExpandedVertexHash,
+    if ( !emptyCompatibleHash( submission.ordinaryVertexHash, facts.ordinaryExpandedVertexHash,
                                facts.ordinaryExpandedVertexBytes ) )
     {
         return "submission.ordinaryVertexHash";
@@ -322,8 +320,10 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     fingerprint.headerStateHash = hash;
 
     uint64_t presentedTrajectoryRecordCount = 0;
+
     for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
     {
+
         if ( TrajectoryRecordParticipatesInCompletedPresentation( packet, record ) )
         {
             ++presentedTrajectoryRecordCount;
@@ -333,6 +333,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     HashScalar( hash, presentedTrajectoryRecordCount );
     uint64_t internalTrajectoryStateHash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
     HashScalar( internalTrajectoryStateHash, static_cast<uint64_t>( packet.trajectoryRecords.size() ) );
+
     if ( trajectoryDigests.size() < packet.trajectoryRecords.size() )
     {
         trajectoryDigests.resize( packet.trajectoryRecords.size() );
@@ -368,6 +369,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
             digest.lane = static_cast<uint8_t>( record.key.lane );
             digest.branchOrdinal = record.key.branchOrdinal;
             digest.version = record.version;
+
             for ( std::size_t pointIndex = 0; pointIndex < pointCount; ++pointIndex )
             {
                 const ReplayTrajectoryPoint& point = record.points[pointIndex];
@@ -385,6 +387,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
         // visual lane admits only records the completed overlay can select.
         HashScalar( internalTrajectoryStateHash, record.version );
         HashScalar( internalTrajectoryStateHash, recordPresentationHash );
+
         if ( TrajectoryRecordParticipatesInCompletedPresentation( packet, record ) )
         {
             HashScalar( hash, recordPresentationHash );
@@ -394,6 +397,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     fingerprint.trajectoryStateHash = hash;
 
     HashScalar( hash, static_cast<uint64_t>( packet.futureNodes.size() ) );
+
     for ( const RunReplayPathTraceNode& node : packet.futureNodes )
     {
         HashScalar( hash, node.id.value );
@@ -410,6 +414,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     fingerprint.topologyStateHash = hash;
 
     HashScalar( hash, static_cast<uint64_t>( packet.retainedMarkers.size() ) );
+
     for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
     {
         HashScalar( hash, marker.id.value );
@@ -428,6 +433,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     fingerprint.markerStateHash = hash;
 
     HashScalar( hash, static_cast<uint64_t>( packet.ghostRequests.size() ) );
+
     for ( const ReplayPredictionGhostDrawRequest& ghost : packet.ghostRequests )
     {
         HashScalar( hash, ghost.modelRow.value );
@@ -457,6 +463,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     HashScalar( hash, diagnostics.publishedPointCount );
     HashScalar( hash, diagnostics.versionChurn );
     HashScalar( hash, diagnostics.maxRecordVersion );
+
     for ( uint64_t value : diagnostics.emittedSegments )
     {
         HashScalar( hash, value );
@@ -500,6 +507,7 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     SB_HASH_REPLAY_BUFFER_FACT( ordinaryExpandedVertexHash );
     SB_HASH_REPLAY_BUFFER_FACT( ordinaryExpandedVertexBytes );
 #undef SB_HASH_REPLAY_BUFFER_FACT
+
     // Canonical marker hashes and structural counts are supplementary. The
     // ordered hashes above are always derived from renderer-bound packet spans.
     const auto& submission = packet.submission;
@@ -515,18 +523,13 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
     return fingerprint;
 }
 
-bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
-                                             const ReplayVisualArchiveSample& expected,
-                                             char* difference,
-                                             std::size_t differenceSize )
+bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet, const ReplayVisualArchiveSample& expected,
+                                             char* difference, std::size_t differenceSize )
 {
     const auto fail = [&]( const char* field )
     {
-        std::snprintf( difference,
-                       differenceSize,
-                       "visual packet mismatch at reveal %llu: %s",
-                       static_cast<unsigned long long>( expected.revealFrame ),
-                       field );
+        std::snprintf( difference, differenceSize, "visual packet mismatch at reveal %llu: %s",
+                       static_cast<unsigned long long>( expected.revealFrame ), field );
 
         return false;
     };
@@ -639,6 +642,7 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
     }
 
     uint64_t droppedSegmentCount = 0;
+
     for ( const uint64_t dropped : packet.trajectoryDiagnostics.droppedSegments )
     {
         droppedSegmentCount += dropped;
@@ -655,6 +659,7 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
     }
 
     const ReplayVisualPacketBufferFacts facts = BuildReplayVisualPacketBufferFacts( packet );
+
     if ( facts.combinedLineHash != expected.combinedLineHash )
     {
         return fail( "combinedLines.hash" );
@@ -671,24 +676,21 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
     }
 
     const auto& submission = packet.submission;
-#define SB_COMPARE_REPLAY_VISUAL( actual, archived, field )                                                            \
-    if ( ( actual ) != ( archived ) )                                                                                  \
+#define SB_COMPARE_REPLAY_VISUAL( actual, archived, field )                                                                 \
+    if ( ( actual ) != ( archived ) )                                                                                       \
     return fail( field )
     SB_COMPARE_REPLAY_VISUAL( facts.ordinaryLineHash, expected.ordinaryLineHash, "ordinaryLines.hash" );
     SB_COMPARE_REPLAY_VISUAL( facts.priorityLineHash, expected.priorityLineHash, "priorityLines.hash" );
-    SB_COMPARE_REPLAY_VISUAL( submission.priorityLineCanonicalHash,
-                              expected.priorityLineCanonicalHash,
+    SB_COMPARE_REPLAY_VISUAL( submission.priorityLineCanonicalHash, expected.priorityLineCanonicalHash,
                               "priorityLines.canonicalHash" );
 
     SB_COMPARE_REPLAY_VISUAL( facts.ordinaryRibbonHash, expected.ordinaryRibbonHash, "ordinaryRibbonSegments.hash" );
     SB_COMPARE_REPLAY_VISUAL( facts.priorityRibbonHash, expected.priorityRibbonHash, "priorityRibbonSegments.hash" );
-    SB_COMPARE_REPLAY_VISUAL( submission.priorityRibbonCanonicalHash,
-                              expected.priorityRibbonCanonicalHash,
+    SB_COMPARE_REPLAY_VISUAL( submission.priorityRibbonCanonicalHash, expected.priorityRibbonCanonicalHash,
                               "priorityRibbonSegments.canonicalHash" );
 
     SB_COMPARE_REPLAY_VISUAL( facts.expandedVertexHash, expected.expandedVertexHash, "expandedRibbonVertices.hash" );
-    SB_COMPARE_REPLAY_VISUAL( facts.ordinaryExpandedVertexHash,
-                              expected.ordinaryExpandedVertexHash,
+    SB_COMPARE_REPLAY_VISUAL( facts.ordinaryExpandedVertexHash, expected.ordinaryExpandedVertexHash,
                               "ordinaryExpandedVertices.hash" );
 
     SB_COMPARE_REPLAY_VISUAL( facts.ordinaryLineBytes, expected.ordinaryLineBytes, "ordinaryLines.bytes" );
@@ -696,30 +698,24 @@ bool ReplayVisualPacketMatchesArchiveSample( const ReplayVisualPacket& packet,
     SB_COMPARE_REPLAY_VISUAL( facts.ordinaryRibbonBytes, expected.ordinaryRibbonBytes, "ordinaryRibbonSegments.bytes" );
     SB_COMPARE_REPLAY_VISUAL( facts.priorityRibbonBytes, expected.priorityRibbonBytes, "priorityRibbonSegments.bytes" );
     SB_COMPARE_REPLAY_VISUAL( facts.expandedVertexBytes, expected.expandedVertexBytes, "expandedRibbonVertices.bytes" );
-    SB_COMPARE_REPLAY_VISUAL( facts.ordinaryExpandedVertexBytes,
-                              expected.ordinaryExpandedVertexBytes,
+    SB_COMPARE_REPLAY_VISUAL( facts.ordinaryExpandedVertexBytes, expected.ordinaryExpandedVertexBytes,
                               "ordinaryExpandedVertices.bytes" );
 
     SB_COMPARE_REPLAY_VISUAL( facts.hasGeometry, expected.hasGeometry != 0u, "packet.hasGeometry" );
-    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryLineVertexCount,
-                              expected.ordinaryLineVertexCount,
+    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryLineVertexCount, expected.ordinaryLineVertexCount,
                               "ordinaryLines.vertices" );
 
-    SB_COMPARE_REPLAY_VISUAL( submission.priorityLineVertexCount,
-                              expected.priorityLineVertexCount,
+    SB_COMPARE_REPLAY_VISUAL( submission.priorityLineVertexCount, expected.priorityLineVertexCount,
                               "priorityLines.vertices" );
 
-    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryRibbonSegmentCount,
-                              expected.ordinaryRibbonSegmentCount,
+    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryRibbonSegmentCount, expected.ordinaryRibbonSegmentCount,
                               "ordinaryRibbonSegments.count" );
 
-    SB_COMPARE_REPLAY_VISUAL( submission.priorityRibbonSegmentCount,
-                              expected.priorityRibbonSegmentCount,
+    SB_COMPARE_REPLAY_VISUAL( submission.priorityRibbonSegmentCount, expected.priorityRibbonSegmentCount,
                               "priorityRibbonSegments.count" );
 
     SB_COMPARE_REPLAY_VISUAL( submission.vertexCount, expected.expandedVertexCount, "expandedRibbonVertices.count" );
-    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryVertexCount,
-                              expected.ordinaryExpandedVertexCount,
+    SB_COMPARE_REPLAY_VISUAL( submission.ordinaryVertexCount, expected.ordinaryExpandedVertexCount,
                               "ordinaryExpandedVertices.count" );
 
     SB_COMPARE_REPLAY_VISUAL( submission.segmentCount, expected.segmentCount, "segments.count" );

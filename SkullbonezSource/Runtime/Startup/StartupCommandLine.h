@@ -55,6 +55,7 @@ struct CommandLineView
 
 struct ParsedArgs
 {
+
     // Parsed command-line state. Defaults here are part of startup behavior:
     // validation scripts, desktop shortcuts, and scene automation all rely on
     // omitted flags producing these exact policies.

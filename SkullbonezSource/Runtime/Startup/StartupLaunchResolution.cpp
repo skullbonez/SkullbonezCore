@@ -94,6 +94,7 @@ std::string HeroSceneLaunchPath()
 std::string ResolveSceneLaunchPath( const char* rawSceneArg )
 {
     std::string sceneArg( rawSceneArg );
+
     if ( sceneArg.empty() || SceneArgHasPathSyntax( sceneArg ) )
     {
         return sceneArg;
@@ -106,9 +107,11 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     }
 
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
+
     if ( !SceneArgHasExtension( sceneArg ) )
     {
         const std::string sceneCandidate = sceneDir + sceneArg + ".scene.json";
+
         if ( FileExistsForLaunch( sceneCandidate ) )
         {
             return sceneCandidate;
@@ -116,6 +119,7 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
     }
 
     const std::string directCandidate = sceneDir + sceneArg;
+
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
@@ -126,15 +130,18 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
 std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
 {
     std::string suiteArg( rawSuiteArg );
+
     if ( suiteArg.empty() || SceneArgHasPathSyntax( suiteArg ) )
     {
         return suiteArg;
     }
 
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
+
     if ( !SceneArgHasExtension( suiteArg ) )
     {
         const std::string suiteCandidate = sceneDir + suiteArg + ".suite.json";
+
         if ( FileExistsForLaunch( suiteCandidate ) )
         {
             return suiteCandidate;
@@ -142,6 +149,7 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
     }
 
     const std::string directCandidate = sceneDir + suiteArg;
+
     if ( FileExistsForLaunch( directCandidate ) )
     {
         return directCandidate;
@@ -151,6 +159,7 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
 }
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -202,19 +211,18 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 
     return false;
 }
-bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
-                                         const char* dashedName,
-                                         const char* underscoredName,
-                                         uint32_t flag,
-                                         ParsedArgs& out )
+bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine, const char* dashedName,
+                                         const char* underscoredName, uint32_t flag, ParsedArgs& out )
 {
     const char* value = FindOptionValue( commandLine, dashedName, underscoredName );
+
     if ( !value )
     {
         return true;
     }
 
     bool enabled = false;
+
     if ( !ParseOptionalOnOffValue( value, enabled ) )
     {
         return FailCommandLineParse( "%s expects optional on|off.", dashedName );
@@ -226,6 +234,7 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
     }
 
     out.hasPhysicsDebugFlagsOverride = true;
+
     if ( enabled )
     {
         out.physicsDebugFlagsOverride |= flag;
@@ -237,17 +246,18 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine,
 
     return true;
 }
-bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
-                                     const PhysicsDebugFloatDirective& directive,
+bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine, const PhysicsDebugFloatDirective& directive,
                                      ParsedArgs& out )
 {
     const char* value = FindOptionValue( commandLine, directive.dashedName, directive.underscoredName );
+
     if ( !value )
     {
         return true;
     }
 
     float parsed = 0.0f;
+
     if ( !ParseFloatToken( value, parsed ) || parsed < directive.minValue || parsed > directive.maxValue )
     {
         return FailCommandLineParse( directive.errorMessage );
@@ -255,6 +265,7 @@ bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine,
 
     out.*( directive.hasOverride ) = true;
     out.*( directive.value ) = parsed;
+
     if ( directive.enableTransparentBodies && !out.hasPhysicsDebugTransparentOverride )
     {
         out.hasPhysicsDebugTransparentOverride = true;
@@ -272,6 +283,7 @@ struct RunCliValueDirective
 
 bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--live-style-control expects a directory path." );
@@ -290,6 +302,7 @@ bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 }
 bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--scene-snapshot-out expects a file path." );
@@ -308,6 +321,7 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 }
 bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
 {
+
     if ( !CopyCommandLinePath( value, "--memory-dump", args.memoryDumpPath, sizeof( args.memoryDumpPath ) ) )
     {
         return false;
@@ -319,9 +333,8 @@ bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath( value,
-                               "--interaction-script",
-                               args.interactionScriptPath,
+
+    if ( !CopyCommandLinePath( value, "--interaction-script", args.interactionScriptPath,
                                sizeof( args.interactionScriptPath ) ) )
     {
         return false;
@@ -335,9 +348,8 @@ bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
-    if ( !CopyCommandLinePath( value,
-                               "--interaction-report",
-                               args.interactionReportPath,
+
+    if ( !CopyCommandLinePath( value, "--interaction-report", args.interactionReportPath,
                                sizeof( args.interactionReportPath ) ) )
     {
         return false;
@@ -349,6 +361,7 @@ bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-hashes expects a file path." );
@@ -367,6 +380,7 @@ bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-save-probe expects a file path." );
@@ -389,6 +403,7 @@ bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-load expects a file path." );
@@ -408,6 +423,7 @@ bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( !ApplyReplayLoadPath( value, args ) )
     {
         return false;
@@ -421,6 +437,7 @@ bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-file-probe expects a file path." );
@@ -440,6 +457,7 @@ bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-target-file-probe expects a file path." );
@@ -459,6 +477,7 @@ bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args 
 }
 bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-branch-file-probe expects a file path." );
@@ -478,6 +497,7 @@ bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args 
 }
 bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args )
 {
+
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-failure-file-probe expects a file path." );
@@ -499,8 +519,10 @@ bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out )
 {
     const char* modeValue = FindOptionValue( commandLine, "--physics-debug", "--physics_debug" );
+
     if ( modeValue )
     {
+
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
             return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
@@ -519,22 +541,20 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-        if ( !ApplyPhysicsDebugComponentOverride( commandLine,
-                                                  component.dashedName,
-                                                  component.underscoredName,
-                                                  component.flag,
-                                                  out ) )
+
+        if ( !ApplyPhysicsDebugComponentOverride( commandLine, component.dashedName, component.underscoredName,
+                                                  component.flag, out ) )
         {
             return false;
         }
     }
 
-    const char* transparentValue = FindOptionValue( commandLine,
-                                                    "--physics-debug-transparent",
+    const char* transparentValue = FindOptionValue( commandLine, "--physics-debug-transparent",
                                                     "--physics_debug_transparent" );
 
     if ( transparentValue )
     {
+
         if ( !ParseOptionalOnOffValue( transparentValue, out.physicsDebugTransparentOverride ) )
         {
             return FailCommandLineParse( "--physics-debug-transparent expects optional on|off." );
@@ -544,26 +564,16 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     }
 
     static const PhysicsDebugFloatDirective kFloatOverrides[] = {
-        { "--physics-debug-alpha",
-          "--physics_debug_alpha",
-          &ParsedArgs::hasPhysicsDebugAlphaOverride,
-          &ParsedArgs::physicsDebugAlphaOverride,
-          0.05f,
-          1.0f,
-          "--physics-debug-alpha expects 0.05..1.0.",
-          true },
-        { "--physics-debug-contact-linger",
-          "--physics_debug_contact_linger",
-          &ParsedArgs::hasPhysicsDebugContactLingerOverride,
-          &ParsedArgs::physicsDebugContactLingerOverride,
-          0.0f,
-          5.0f,
-          "--physics-debug-contact-linger expects 0.0..5.0 seconds.",
-          false },
+        { "--physics-debug-alpha", "--physics_debug_alpha", &ParsedArgs::hasPhysicsDebugAlphaOverride,
+          &ParsedArgs::physicsDebugAlphaOverride, 0.05f, 1.0f, "--physics-debug-alpha expects 0.05..1.0.", true },
+        { "--physics-debug-contact-linger", "--physics_debug_contact_linger",
+          &ParsedArgs::hasPhysicsDebugContactLingerOverride, &ParsedArgs::physicsDebugContactLingerOverride, 0.0f, 5.0f,
+          "--physics-debug-contact-linger expects 0.0..5.0 seconds.", false },
     };
 
     for ( const PhysicsDebugFloatDirective& directive : kFloatOverrides )
     {
+
         if ( !ApplyPhysicsDebugFloatOverride( commandLine, directive, out ) )
         {
             return false;
@@ -577,9 +587,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     if ( out.hasPhysicsDebugTransparentOverride )
     {
-        fprintf( stdout,
-                 "[physics-debug] Transparent bodies: %s\n",
-                 out.physicsDebugTransparentOverride ? "on" : "off" );
+        fprintf( stdout, "[physics-debug] Transparent bodies: %s\n", out.physicsDebugTransparentOverride ? "on" : "off" );
     }
 
     if ( out.hasPhysicsDebugAlphaOverride )
@@ -600,6 +608,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     const char* sceneArg = FindOptionValue( commandLine, "--scene" );
     const bool heroArg = HasOption( commandLine, "--hero" );
     const bool demoHeroArg = HasOption( commandLine, "--demohero" ) || HasOption( commandLine, "--demo-hero" );
+
     if ( ( suiteArg && sceneArg ) || ( heroArg && ( suiteArg || sceneArg ) ) ||
          ( demoHeroArg && ( suiteArg || sceneArg || heroArg ) ) )
     {
@@ -614,6 +623,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     }
     else if ( suiteArg )
     {
+
         if ( IsOptionValueMissing( suiteArg ) )
         {
             return FailCommandLineParse( "--suite requires a path." );
@@ -622,12 +632,14 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         // Resolve a suite JSON path from either a file token or a repository-relative path.
         const std::string suitePath = ResolveSuiteLaunchPath( suiteArg );
         std::ifstream suiteFile( suitePath );
+
         if ( !suiteFile )
         {
             return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
         }
 
         Json suite = Json::parse( suiteFile, nullptr, false );
+
         if ( suite.is_discarded() )
         {
             return FailCommandLineParse( "--suite invalid JSON in '%s'.", suitePath.c_str() );
@@ -639,13 +651,14 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         }
 
         const auto formatIt = suite.find( "format" );
-        if ( formatIt == suite.end() || !formatIt->is_string() ||
-             formatIt->get<std::string>() != "skullbonez.suite.json" )
+
+        if ( formatIt == suite.end() || !formatIt->is_string() || formatIt->get<std::string>() != "skullbonez.suite.json" )
         {
             return FailCommandLineParse( "--suite '%s' must declare format skullbonez.suite.json.", suitePath.c_str() );
         }
 
         const auto scenesIt = suite.find( "scenes" );
+
         if ( scenesIt == suite.end() || !scenesIt->is_array() )
         {
             return FailCommandLineParse( "--suite '%s' must contain a scenes array.", suitePath.c_str() );
@@ -653,6 +666,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
         for ( const Json& scene : *scenesIt )
         {
+
             if ( !scene.is_string() )
             {
                 return FailCommandLineParse( "--suite '%s' scenes entries must be strings.", suitePath.c_str() );
@@ -665,6 +679,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     }
     else if ( sceneArg )
     {
+
         if ( IsOptionValueMissing( sceneArg ) )
         {
             return FailCommandLineParse( "--scene requires a path." );
@@ -672,6 +687,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
         if ( *sceneArg != '\0' )
         {
+
             // Support both quoted ("path with spaces") and unquoted tokens.
             // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
             // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
@@ -734,11 +750,9 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
     overrides.interactionReportPath = args.interactionReportPath[0] != '\0' ? args.interactionReportPath : nullptr;
-    const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun ||
-                                      args.liveStyleControlDir[0] != '\0';
+    const bool replayDefaultAllowed = !args.isSuiteOrSceneMode || args.interactiveRun || args.liveStyleControlDir[0] != '\0';
 
-    const bool replayEnabled = args.replayExplicit ? args.replayRecording
-                                                   : ( args.replayRecording && replayDefaultAllowed );
+    const bool replayEnabled = args.replayExplicit ? args.replayRecording : ( args.replayRecording && replayDefaultAllowed );
 
     overrides.configureReplayRecording = replayEnabled || args.replayHashLogPath[0] != '\0';
     overrides.replayRecordingEnabled = true;
@@ -758,21 +772,17 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     overrides.replaySaveProbe = args.replaySaveProbe;
     overrides.replaySaveProbePath = args.replaySaveProbe ? args.replaySaveProbePath : nullptr;
     overrides.replayRestoreFileProbePath = args.replayRestoreFileProbe ? args.replayRestoreFileProbePath : nullptr;
-    overrides.replayRestoreTargetFileProbePath = args.replayRestoreTargetFileProbe
-                                                     ? args.replayRestoreTargetFileProbePath
-                                                     : nullptr;
+    overrides.replayRestoreTargetFileProbePath = args.replayRestoreTargetFileProbe ? args.replayRestoreTargetFileProbePath
+                                                                                   : nullptr;
 
-    overrides.replayRestoreBranchFileProbePath = args.replayRestoreBranchFileProbe
-                                                     ? args.replayRestoreBranchFileProbePath
-                                                     : nullptr;
+    overrides.replayRestoreBranchFileProbePath = args.replayRestoreBranchFileProbe ? args.replayRestoreBranchFileProbePath
+                                                                                   : nullptr;
 
-    overrides.replayRestoreFailureFileProbePath = args.replayRestoreFailureFileProbe
-                                                      ? args.replayRestoreFailureFileProbePath
-                                                      : nullptr;
+    overrides.replayRestoreFailureFileProbePath = args.replayRestoreFailureFileProbe ? args.replayRestoreFailureFileProbePath
+                                                                                     : nullptr;
 
-    overrides.physicsRegressionLogPath = args.physicsRegressionLogOverride[0] != '\0'
-                                             ? args.physicsRegressionLogOverride
-                                             : nullptr;
+    overrides.physicsRegressionLogPath = args.physicsRegressionLogOverride[0] != '\0' ? args.physicsRegressionLogOverride
+                                                                                      : nullptr;
 
     overrides.physicsCollisionTimeLogPath = args.physicsCollisionTimeLogOverride[0] != '\0'
                                                 ? args.physicsCollisionTimeLogOverride
@@ -785,6 +795,7 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 }
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
+
     // clang-format off
     // Keep the compatibility inventory compact: row order is behavior-bearing,
     // and each option remains visually adjacent to its exact callback.
@@ -809,6 +820,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int frames = 0;
+
               if ( !ParseIntCommandLineToken( value, frames ) || frames <= 0 )
               {
                   return FailCommandLineParse( "--frames expects a positive integer." );
@@ -824,6 +836,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               CoreAllocation::RuntimeAllocationGuardMode mode = CoreAllocation::RuntimeAllocationGuardMode::Off;
+
               if ( !ParseAllocationGuardCommandLineToken( value, mode ) )
               {
                   return FailCommandLineParse( "--allocation-guard expects off|measure|gameplay." );
@@ -838,6 +851,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           "--dev_ui",
           []( const char* value, ParsedArgs& args ) -> bool
           {
+
               if ( !value || IsOptionValueMissing( value ) )
               {
                   return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
@@ -872,6 +886,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--replay expects optional on|off." );
@@ -887,6 +902,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int seconds = 0;
+
               if ( !ParseIntCommandLineToken( value, seconds ) || seconds < 1 || seconds > 600 )
               {
                   return FailCommandLineParse( "--replay-seconds expects 1..600." );
@@ -902,6 +918,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               float normalized = 0.0f;
+
               if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
               {
                   return FailCommandLineParse( "--replay-scrub-probe expects a normalized position in the range 0..0.995." );
@@ -922,6 +939,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               float normalized = 0.0f;
+
               if ( !ParseFloatToken( value, normalized ) || normalized < 0.0f || normalized >= 0.995f )
               {
                   return FailCommandLineParse( "--replay-restore-probe expects a normalized position in the range 0..0.995." );
@@ -937,6 +955,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[replay] Restore probe normalized position: %.3f\n", args.replayRestoreProbeNormalized );
               return true;
           } },
+
         // Invariant: each replay workflow has one semantic flag. The underscore
         // spelling remains the command-line parser's universal syntax alias;
         // deleted save-test/play synonyms carried no distinct behavior.
@@ -953,6 +972,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--ui-stress expects optional on|off." );
@@ -967,6 +987,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               unsigned int seed = 0;
+
               if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
               {
                   return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
@@ -982,6 +1003,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int actions = 0;
+
               if ( !ParseIntCommandLineToken( value, actions ) || actions <= 0 || actions > 32 )
               {
                   return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
@@ -997,6 +1019,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
+
               if ( !ParseOptionalOnOffValue( value, enabled ) )
               {
                   return FailCommandLineParse( "--graphics-stress expects optional on|off." );
@@ -1012,6 +1035,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               unsigned int seed = 0;
+
               if ( !ParseUnsignedCommandLineToken( value, seed ) || seed == 0 )
               {
                   return FailCommandLineParse( "--graphics-stress-seed expects a positive 32-bit integer." );
@@ -1028,6 +1052,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int actions = 0;
+
               if ( !ParseIntCommandLineToken( value, actions ) || actions <= 0 || actions > 64 )
               {
                   return FailCommandLineParse( "--graphics-stress-actions expects 1..64." );
@@ -1044,6 +1069,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int frames = 0;
+
               if ( !ParseIntCommandLineToken( value, frames ) || frames <= 0 || frames > 600 )
               {
                   return FailCommandLineParse( "--graphics-stress-scene-interval expects 1..600 frames." );
@@ -1060,6 +1086,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           []( const char* value, ParsedArgs& args ) -> bool
           {
               int frames = 0;
+
               if ( !ParseIntCommandLineToken( value, frames ) || frames < 0 || frames > 36000 )
               {
                   return FailCommandLineParse( "--graphics-stress-memory-interval expects 0..36000 frames." );
@@ -1074,9 +1101,11 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
     };
 
     // clang-format on
+
     for ( const RunCliValueDirective& directive : kValues )
     {
         const char* value = FindOptionValue( commandLine, directive.name );
+
         if ( !value && directive.alias )
         {
             value = FindOptionValue( commandLine, directive.alias );

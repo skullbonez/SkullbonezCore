@@ -95,6 +95,7 @@ struct PhysicsConstraintHandle
 
 struct PhysicsSceneObjectId
 {
+
     // Concept: this is the one stable cross-system identity for a scene object.
     // Undo, scene save/load, picking, logging, replay correlation, and future
     // cross-system features carry it; hot subsystem loops use their own typed

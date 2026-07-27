@@ -36,6 +36,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+
 // Semantic scrubber actions are owner vocabulary, not screen-layout policy.
 // The layout publishes action ids; ReplayScrubber resolves one action from the
 // current pointer/frame values before the composition root applies cross-owner
@@ -165,6 +166,7 @@ struct ReplayLiveRestoreRequest
     ReplayFrameIndex requestedFrame = 0;
     bool makeLiveBranch = false;
 #ifdef _DEBUG
+
     // Debug-only probe seam: corrupt expected target metadata after artifact
     // selection so rollback is exercised after live-state mutation.
     bool injectTargetHashMismatchForProbe = false;
@@ -217,6 +219,7 @@ class ReplayScrubber
     void SetTrackPosition( RunReplayTrack track, float position ) noexcept
     {
         const float clamped = std::clamp( position, 0.0f, 1.0f );
+
         if ( track == RunReplayTrack::Solver )
         {
             m_state.solverPosition = clamped;
@@ -225,6 +228,7 @@ class ReplayScrubber
         {
             m_state.presentationPosition = clamped;
         }
+
         if ( m_state.activeTrack == track )
         {
             m_state.position = clamped;
@@ -272,14 +276,15 @@ class ReplayScrubber
         return frame;
     }
 
-    ReplayScrubberUnavailableResult ResetUnavailableSurface( bool loadedPresentation,
-                                                             bool inspectionCameraActive ) noexcept
+    ReplayScrubberUnavailableResult ResetUnavailableSurface( bool loadedPresentation, bool inspectionCameraActive ) noexcept
     {
         ReplayScrubberUnavailableResult result;
+
         if ( !loadedPresentation )
         {
             result.exitInspectionCamera = ResetState( inspectionCameraActive );
         }
+
         m_state.fadeUpdatedAt = 0.0;
         m_state.visibleAlpha = 0.0f;
         return result;
@@ -289,10 +294,12 @@ class ReplayScrubber
 
     bool SetLiveAdvanceHeld( bool held ) noexcept
     {
+
         if ( m_state.liveAdvanceHeld == held )
         {
             return false;
         }
+
         m_state.liveAdvanceHeld = held;
         return true;
     }
@@ -307,6 +314,7 @@ class ReplayScrubber
     void SetVisible( bool visible, double now, double holdSeconds ) noexcept
     {
         m_state.visible = visible;
+
         if ( visible )
         {
             m_state.visibleUntil = now + (std::max)( 0.0, holdSeconds );
@@ -345,6 +353,7 @@ class ReplayScrubber
 
     void ArmLoadedPresentation( float normalized, double now, double holdSeconds ) noexcept
     {
+
         // Invariant: a loaded artifact owns the presentation cursor while the
         // live solver cursor stays parked at its present edge.
         SelectTrack( RunReplayTrack::Presentation );
@@ -367,37 +376,28 @@ class ReplayScrubber
     // the previous update timestamp is part of scrubber presentation state.
     // Invariant: visibility remains published through the fade-out tail and
     // frame stalls contribute at most 250 ms to one opacity step.
-    void UpdateVisibilityFade( bool targetVisible,
-                               double now,
-                               double fadeInSeconds,
-                               double fadeOutSeconds,
+    void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds,
                                float visibleEpsilon ) noexcept
     {
+
         if ( m_state.fadeUpdatedAt <= 0.0 || now < m_state.fadeUpdatedAt )
         {
             m_state.fadeUpdatedAt = now;
         }
+
         const double deltaSeconds = std::clamp( now - m_state.fadeUpdatedAt, 0.0, 0.25 );
         m_state.fadeUpdatedAt = now;
         const double fadeSeconds = targetVisible ? fadeInSeconds : fadeOutSeconds;
         const float alphaStep = fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
-        m_state.visibleAlpha = std::clamp( m_state.visibleAlpha + ( targetVisible ? alphaStep : -alphaStep ),
-                                           0.0f,
-                                           1.0f );
+        m_state.visibleAlpha = std::clamp( m_state.visibleAlpha + ( targetVisible ? alphaStep : -alphaStep ), 0.0f, 1.0f );
         m_state.visible = targetVisible || m_state.visibleAlpha > visibleEpsilon;
     }
 
-    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources,
-                              double now,
-                              ReplayLiveRestoreRequest& outRequest,
-                              char* outReason = nullptr,
-                              std::size_t reasonSize = 0 );
-    void CompleteRestore( const ReplayLiveRestoreRequest& request,
-                          bool restored,
-                          const RunReplayV2TargetRestoreResult& v2Result,
-                          const char* reason,
-                          RunReplayV2TargetRestoreResult* outV2Result = nullptr,
-                          char* outReason = nullptr,
+    bool BuildRestoreRequest( const ReplayScrubberRestoreSources& sources, double now, ReplayLiveRestoreRequest& outRequest,
+                              char* outReason = nullptr, std::size_t reasonSize = 0 );
+    void CompleteRestore( const ReplayLiveRestoreRequest& request, bool restored,
+                          const RunReplayV2TargetRestoreResult& v2Result, const char* reason,
+                          RunReplayV2TargetRestoreResult* outV2Result = nullptr, char* outReason = nullptr,
                           std::size_t reasonSize = 0 );
 
   private:

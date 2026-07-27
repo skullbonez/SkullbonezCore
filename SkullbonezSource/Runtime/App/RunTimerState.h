@@ -55,9 +55,10 @@ class RunTimerSceneLifecyclePolicy
   public:
     RunTimerSceneLifecycleActions Observe( const SceneLifecyclePacket& packet )
     {
-        return RunTimerSceneLifecycleActions {
-            m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
-            m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) };
+        return RunTimerSceneLifecycleActions { m_sceneResetObserver
+                                                   .ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ),
+                                               m_sceneActivationObserver
+                                                   .ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) };
     }
 
     uint64_t LastResetGeneration() const
@@ -79,25 +80,33 @@ struct RunTimerState
     SkullbonezCore::Core::SbResult Initialise()
     {
         const SkullbonezCore::Core::SbResult frameTimerResult = frameTimer.Initialise();
+
         if ( !frameTimerResult.ok )
         {
             return frameTimerResult;
         }
+
         const SkullbonezCore::Core::SbResult workTimerResult = workTimer.Initialise();
+
         if ( !workTimerResult.ok )
         {
             return workTimerResult;
         }
+
         const SkullbonezCore::Core::SbResult updateTimerResult = updateTimer.Initialise();
+
         if ( !updateTimerResult.ok )
         {
             return updateTimerResult;
         }
+
         const SkullbonezCore::Core::SbResult cameraTimerResult = cameraTimer.Initialise();
+
         if ( !cameraTimerResult.ok )
         {
             return cameraTimerResult;
         }
+
         return simulationTimer.Initialise();
     }
 
@@ -132,10 +141,12 @@ struct RunTimerState
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
     {
         const RunTimerSceneLifecycleActions actions = m_sceneLifecyclePolicy.Observe( packet );
+
         if ( actions.resetMeasurements )
         {
             ResetSceneMeasurements();
         }
+
         if ( actions.restartClocks )
         {
             RestartForSceneActivation();

@@ -51,6 +51,7 @@ constexpr int IMGUI_ACTIVE_BYTE_CAP = 64 * MEBIBYTE_BYTES;
 constexpr int TRACY_HEAP_CALLSTACK_DEPTH = 16;
 constexpr const char* TRACY_RUNTIME_HEAP_NAME = "Skore Runtime C++ Heap";
 #endif
+
 // Measured E17 standard captures peak near 400 MiB of Tracy-owned process
 // backing. A 512 MiB ceiling leaves bounded headroom without misrepresenting
 // the earlier nominal 256 MiB row as an enforceable production value.
@@ -59,32 +60,19 @@ std::atomic<bool> g_tracyAllocationTracingEnabled { false };
 
 RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner ) noexcept
 {
+
     if ( owner == DevelopmentToolAllocationOwner::DearImGui )
     {
-        static const RuntimeReserveOwnerHandle imguiOwner = RuntimeReserveAllocator::RegisterOwner(
-            { "DevelopmentTools/DearImGui",
-              RuntimeReserveSubsystem::DevelopmentTools,
-              RuntimeReservePhase::BackendInit,
-              0,
-              IMGUI_ACTIVE_BYTE_CAP,
-              0,
-              false,
-              "Dear ImGui process storage is a permanent development-only exception capped at 64 MiB active bytes",
-              true } );
+        static const RuntimeReserveOwnerHandle imguiOwner = RuntimeReserveAllocator::RegisterOwner( { "DevelopmentTools/DearImGui", RuntimeReserveSubsystem::DevelopmentTools, RuntimeReservePhase::BackendInit, 0,
+                                                                                                      IMGUI_ACTIVE_BYTE_CAP, 0, false,
+                                                                                                      "Dear ImGui process storage is a permanent development-only exception capped at 64 MiB active bytes", true } );
 
         return imguiOwner;
     }
 
-    static const RuntimeReserveOwnerHandle tracyOwner = RuntimeReserveAllocator::RegisterOwner(
-        { "DevelopmentTools/Tracy",
-          RuntimeReserveSubsystem::DevelopmentTools,
-          RuntimeReservePhase::BackendInit,
-          0,
-          TRACY_ACTIVE_BYTE_CAP,
-          0,
-          false,
-          "Tracy client buffers are a permanent development-only exception capped at 512 MiB active bytes",
-          true } );
+    static const RuntimeReserveOwnerHandle tracyOwner = RuntimeReserveAllocator::RegisterOwner( { "DevelopmentTools/Tracy", RuntimeReserveSubsystem::DevelopmentTools, RuntimeReservePhase::BackendInit, 0,
+                                                                                                  TRACY_ACTIVE_BYTE_CAP, 0, false,
+                                                                                                  "Tracy client buffers are a permanent development-only exception capped at 512 MiB active bytes", true } );
 
     return tracyOwner;
 }
@@ -95,6 +83,7 @@ namespace SkullbonezCore::Core::Allocation
 DevelopmentToolAllocationScope::DevelopmentToolAllocationScope( DevelopmentToolAllocationOwner owner ) noexcept
     : m_ownerScope( ToolOwnerHandle( owner ) )
 {
+
     // Invariant: RuntimeReserveOwnerScope changes only this thread's owner. It
     // deliberately leaves the global phase untouched so other engine threads
     // continue to fail the gameplay allocation guard.
@@ -105,6 +94,7 @@ bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
 {
     outStats = {};
     RuntimeReserveOwnerStatsView ownerStats;
+
     if ( !RuntimeReserveAllocator::CopyOwnerStats( ToolOwnerHandle( owner ), ownerStats ) )
     {
         return false;
@@ -120,10 +110,9 @@ bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
 
 bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
 {
-    return RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation(
-        ToolOwnerHandle( owner ),
-        static_cast<int>( GetRuntimeAllocationPhase() ),
-        static_cast<uint64_t>( size ) );
+    return RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( ToolOwnerHandle( owner ),
+                                                                               static_cast<int>( GetRuntimeAllocationPhase() ),
+                                                                               static_cast<uint64_t>( size ) );
 }
 
 void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
@@ -139,6 +128,7 @@ void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::
 
 void FreeDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, void* pointer ) noexcept
 {
+
     if ( !pointer )
     {
         return;
@@ -156,6 +146,7 @@ void SetTracyAllocationTracingEnabled( bool enabled ) noexcept
 uint64_t RecordTracyAllocation( const void* pointer, std::size_t size ) noexcept
 {
 #if defined( TRACY_ENABLE )
+
     if ( !pointer || !g_tracyAllocationTracingEnabled.load( std::memory_order_acquire ) || !TracyIsConnected )
     {
         return 0u;
@@ -175,6 +166,7 @@ uint64_t RecordTracyAllocation( const void* pointer, std::size_t size ) noexcept
 void RecordTracyFree( const void* pointer, uint64_t connectionId ) noexcept
 {
 #if defined( TRACY_ENABLE )
+
     if ( !pointer || connectionId == 0u || !g_tracyAllocationTracingEnabled.load( std::memory_order_acquire ) ||
          !TracyIsConnected || tracy::GetProfiler().ConnectionId() != connectionId )
     {

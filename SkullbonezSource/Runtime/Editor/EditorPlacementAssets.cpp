@@ -55,13 +55,11 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 
 constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
@@ -85,6 +83,7 @@ float HullAuthoredBottomOffset( const ConvexHullShape& hull )
 {
     float minY = FLT_MAX;
     const Vector3 authoredOffset = HullAuthoredLocalOffset( hull );
+
     for ( uint16_t i = 0; i < hull.GetVertexCount(); ++i )
     {
         minY = (std::min)( minY, authoredOffset.y + hull.GetVertex( i ).y );
@@ -97,8 +96,10 @@ float HullAuthoredBottomOffset( const ConvexHullShape& hull )
 const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+
     for ( const EditorBuildingDefinition& building : EDITOR_BUILDING_ASSETS )
     {
+
         if ( building.objectType == type )
         {
             return &building;
@@ -111,8 +112,8 @@ const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType 
 
 std::string EditorResolveBuildingAssetLibraryPath( const SkullbonezCore::Assets::AssetSystem& assets )
 {
-    if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library = assets.FindAssetLibrarySourceAsset(
-             "assetlib.buildings" ) )
+
+    if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library = assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) )
     {
         return library->resolvedPath;
     }
@@ -123,6 +124,7 @@ std::string EditorResolveBuildingAssetLibraryPath( const SkullbonezCore::Assets:
 
 const Json* EditorJsonFindMember( const Json& object, const char* name )
 {
+
     if ( !object.is_object() )
     {
         return nullptr;
@@ -135,6 +137,7 @@ const Json* EditorJsonFindMember( const Json& object, const char* name )
 
 const Json* CachedEditorBuildingLibrary( const SkullbonezCore::Assets::AssetSystem& assets )
 {
+
     // Lifetime: The building asset catalog is process-static editor data.
     // It is read-only after the first successful parse, so placement preview and
     // commit paths share one stable recipe source without repeated disk IO. The
@@ -142,11 +145,13 @@ const Json* CachedEditorBuildingLibrary( const SkullbonezCore::Assets::AssetSyst
     static Json library;
     static bool loaded = false;
     static bool valid = false;
+
     if ( !loaded )
     {
         loaded = true;
         const std::string path = EditorResolveBuildingAssetLibraryPath( assets );
         std::ifstream file( path );
+
         if ( file )
         {
             library = Json::parse( file, nullptr, false );
@@ -167,12 +172,14 @@ const Json* CachedEditorBuildingAsset( int objectType, const SkullbonezCore::Ass
 {
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( objectType );
     const Json* library = CachedEditorBuildingLibrary( assets );
+
     if ( !building || !library )
     {
         return nullptr;
     }
 
     const Json* assetArray = EditorJsonFindMember( *library, "assets" );
+
     if ( !assetArray || !assetArray->is_array() )
     {
         return nullptr;
@@ -181,6 +188,7 @@ const Json* CachedEditorBuildingAsset( int objectType, const SkullbonezCore::Ass
     for ( const Json& asset : *assetArray )
     {
         const Json* name = EditorJsonFindMember( asset, "name" );
+
         if ( name && name->is_string() && name->get<std::string>() == building->assetName )
         {
             return &asset;
@@ -214,8 +222,8 @@ bool EditorJsonBoolOr( const Json& object, const char* name, bool fallback )
 
 bool TryReadEditorJsonVec3( const Json& value, Vector3& out )
 {
-    if ( !value.is_array() || value.size() < 3 || !value[0].is_number() || !value[1].is_number() ||
-         !value[2].is_number() )
+
+    if ( !value.is_array() || value.size() < 3 || !value[0].is_number() || !value[1].is_number() || !value[2].is_number() )
     {
         return false;
     }
@@ -236,6 +244,7 @@ Vector3 EditorJsonVec3Or( const Json& object, const char* name, const Vector3& f
 std::string EditorAssetPrimitiveType( const Json& part )
 {
     const std::string type = EditorJsonStringOr( part, "type", "" );
+
     if ( type.empty() && EditorJsonFindMember( part, "hull" ) )
     {
         return "convexHull";
@@ -254,6 +263,7 @@ bool IsEditorAssetPrimitiveType( const std::string& type )
 bool TryReadEditorBoxHalfExtents( const Json& part, Vector3& outHalfExtents )
 {
     const Json* halfExtents = EditorJsonFindMember( part, "halfExtents" );
+
     if ( !halfExtents || !TryReadEditorJsonVec3( *halfExtents, outHalfExtents ) )
     {
         return false;
@@ -283,9 +293,7 @@ void IncludeEditorBoundsPoint( const Vector3& point, Vector3& inOutMin, Vector3&
 
 std::string EditorLowercase( std::string value )
 {
-    std::transform( value.begin(),
-                    value.end(),
-                    value.begin(),
+    std::transform( value.begin(), value.end(), value.begin(),
                     []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
 
     return value;
@@ -295,6 +303,7 @@ std::string EditorLowercase( std::string value )
 SkullbonezCore::Rendering::RenderMaterialKind EditorMaterialKindFromAssetToken( const std::string& token )
 {
     const std::string mode = EditorLowercase( token );
+
     if ( mode == "matte" || mode == "solid" )
     {
         return SkullbonezCore::Rendering::RenderMaterialKind::Matte;
@@ -367,6 +376,7 @@ SkullbonezCore::Rendering::RenderMaterialKind EditorMaterialKindFromAssetToken( 
 float EditorMaterialLegacyModeFromAsset( const Json& material )
 {
     const Json* modeValue = EditorJsonFindMember( material, "mode" );
+
     if ( !modeValue )
     {
         modeValue = EditorJsonFindMember( material, "kind" );
@@ -379,8 +389,7 @@ float EditorMaterialLegacyModeFromAsset( const Json& material )
 
     if ( modeValue && modeValue->is_string() )
     {
-        const SkullbonezCore::Rendering::RenderMaterialKind kind = EditorMaterialKindFromAssetToken(
-            modeValue->get<std::string>() );
+        const SkullbonezCore::Rendering::RenderMaterialKind kind = EditorMaterialKindFromAssetToken( modeValue->get<std::string>() );
 
         return SkullbonezCore::Rendering::RenderMaterialKindLegacyMode( kind );
     }
@@ -397,6 +406,7 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
 
     if ( materialJson && materialJson->is_object() )
     {
+
         if ( const Json* colorValue = EditorJsonFindMember( *materialJson, "color" ) )
         {
             TryReadEditorJsonVec3( *colorValue, color );
@@ -413,31 +423,25 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
         mode = EditorMaterialLegacyModeFromAsset( *materialJson );
     }
 
-    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
-        color.x,
-        color.y,
-        color.z,
-        mode );
+    SkullbonezCore::Rendering::RenderMaterial
+        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( color.x, color.y, color.z, mode );
 
     if ( materialJson && materialJson->is_object() )
     {
-        material.roughness = std::clamp( EditorJsonFloatOr( *materialJson, "roughness", material.roughness ),
-                                         0.0f,
-                                         1.0f );
+        material.roughness = std::clamp( EditorJsonFloatOr( *materialJson, "roughness", material.roughness ), 0.0f, 1.0f );
 
         material.metallic = std::clamp( EditorJsonFloatOr( *materialJson, "metallic", material.metallic ), 0.0f, 1.0f );
         material.specular = std::clamp( EditorJsonFloatOr( *materialJson, "specular", material.specular ), 0.0f, 1.0f );
-        material.transmission = std::clamp( EditorJsonFloatOr( *materialJson, "transmission", material.transmission ),
-                                            0.0f,
+        material.transmission = std::clamp( EditorJsonFloatOr( *materialJson, "transmission", material.transmission ), 0.0f,
                                             1.0f );
 
-        material.stylization = std::clamp( EditorJsonFloatOr( *materialJson, "stylization", material.stylization ),
-                                           0.0f,
+        material.stylization = std::clamp( EditorJsonFloatOr( *materialJson, "stylization", material.stylization ), 0.0f,
                                            1.0f );
 
         if ( const Json* emissive = EditorJsonFindMember( *materialJson, "emissive" ) )
         {
             Vector3 emissiveColor;
+
             if ( TryReadEditorJsonVec3( *emissive, emissiveColor ) )
             {
                 material.emissiveColor[0] = emissiveColor.x;
@@ -447,15 +451,11 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
         }
 
         material.emissiveStrength = (std::max)( 0.0f,
-                                                EditorJsonFloatOr( *materialJson,
-                                                                   "strength",
-                                                                   material.emissiveStrength ) );
+                                                EditorJsonFloatOr( *materialJson, "strength", material.emissiveStrength ) );
 
         material.flags = static_cast<uint32_t>( (std::max)( 0.0f, EditorJsonFloatOr( *materialJson, "flags", 0.0f ) ) );
-        const std::string name = EditorJsonStringOr(
-            *materialJson,
-            "name",
-            SkullbonezCore::Rendering::RenderMaterialKindName( material.kind ) );
+        const std::string name = EditorJsonStringOr( *materialJson, "name",
+                                                     SkullbonezCore::Rendering::RenderMaterialKindName( material.kind ) );
 
         strncpy_s( material.name, sizeof( material.name ), name.c_str(), _TRUNCATE );
     }
@@ -484,6 +484,7 @@ Quaternion EditorBuildingPartOrientation( const Quaternion& placementOrientation
 {
     Quaternion result = placementOrientation;
     const Vector3 euler = EditorJsonVec3Or( part, "euler", Vector3( 0.0f, 0.0f, 0.0f ) );
+
     if ( fabsf( euler.x ) > 1.0e-5f || fabsf( euler.y ) > 1.0e-5f || fabsf( euler.z ) > 1.0e-5f )
     {
         result *= EditorQuaternionFromEulerDegrees( euler );
@@ -497,12 +498,14 @@ Quaternion EditorBuildingPartOrientation( const Quaternion& placementOrientation
 int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
     const Json* asset = CachedEditorBuildingAsset( objectType, assets );
+
     if ( !asset )
     {
         return 0;
     }
 
     const std::string type = EditorJsonStringOr( *asset, "type", "" );
+
     if ( IsEditorAssetPrimitiveType( type ) )
     {
         return 1;
@@ -516,8 +519,10 @@ int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::Asset
 const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
 {
     static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
+
     for ( const auto& entry : hulls )
     {
+
         if ( entry.first == hullPath )
         {
             return &entry.second;
@@ -525,9 +530,8 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
     }
 
     ConvexHullShape hull;
-    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile(
-        ResolveEditorHullAssetPath( hullPath.c_str() ),
-        hull );
+    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ),
+                                                                                      hull );
 
     if ( !hullLoad.ok )
     {
@@ -544,84 +548,101 @@ float EditorBuildingVerticalSize( int objectType, const SkullbonezCore::Assets::
 {
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
-    const bool ok = ForEachEditorBuildingPart(
-        objectType,
-        assets,
-        [&]( const Json& part )
-        {
-            const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+    const bool ok = ForEachEditorBuildingPart( objectType, assets,
+                                               [&]( const Json& part )
+                                               {
+                                                   const Vector3 offset = EditorJsonVec3Or( part, "offset",
+                                                                                            Vector3( 0.0f, 0.0f, 0.0f ) );
 
-            const Quaternion orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
-            Quaternion orientationCopy = orientation;
-            const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
-            const std::string primitiveType = EditorAssetPrimitiveType( part );
-            if ( primitiveType == "convexHull" )
-            {
-                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-                if ( !hull )
-                {
-                    return;
-                }
+                                                   const Quaternion
+                                                       orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION,
+                                                                                                    part );
 
-                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
-                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
-                {
-                    const float y = offset.y + ( rotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) ).y;
-                    minY = (std::min)( minY, y );
-                    maxY = (std::max)( maxY, y );
-                }
+                                                   Quaternion orientationCopy = orientation;
+                                                   const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+                                                   const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                return;
-            }
+                                                   if ( primitiveType == "convexHull" )
+                                                   {
+                                                       const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                       const ConvexHullShape* hull = hullPath.empty()
+                                                                                         ? nullptr
+                                                                                         : CachedEditorBuildingHull( hullPath );
 
-            if ( primitiveType == "box" )
-            {
-                Vector3 halfExtents;
-                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                {
-                    return;
-                }
+                                                       if ( !hull )
+                                                       {
+                                                           return;
+                                                       }
 
-                for ( int xSign = -1; xSign <= 1; xSign += 2 )
-                {
-                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
-                    {
-                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
-                        {
-                            const Vector3 corner( halfExtents.x * static_cast<float>( xSign ),
-                                                  halfExtents.y * static_cast<float>( ySign ),
-                                                  halfExtents.z * static_cast<float>( zSign ) );
-                            const float y = offset.y + ( rotation * corner ).y;
-                            minY = (std::min)( minY, y );
-                            maxY = (std::max)( maxY, y );
-                        }
-                    }
-                }
+                                                       const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
 
-                return;
-            }
+                                                       for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
+                                                             ++vertexIndex )
+                                                       {
+                                                           const float y = offset.y +
+                                                                           ( rotation * ( hullLocalOffset +
+                                                                                          hull->GetVertex( vertexIndex ) ) )
+                                                                               .y;
 
-            if ( primitiveType == "sphere" )
-            {
-                float radius = 0.0f;
-                if ( TryReadEditorSphereRadius( part, radius ) )
-                {
-                    minY = (std::min)( minY, offset.y - radius );
-                    maxY = (std::max)( maxY, offset.y + radius );
-                }
-            }
-        } );
+                                                           minY = (std::min)( minY, y );
+                                                           maxY = (std::max)( maxY, y );
+                                                       }
+
+                                                       return;
+                                                   }
+
+                                                   if ( primitiveType == "box" )
+                                                   {
+                                                       Vector3 halfExtents;
+
+                                                       if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                       {
+                                                           return;
+                                                       }
+
+                                                       for ( int xSign = -1; xSign <= 1; xSign += 2 )
+                                                       {
+
+                                                           for ( int ySign = -1; ySign <= 1; ySign += 2 )
+                                                           {
+
+                                                               for ( int zSign = -1; zSign <= 1; zSign += 2 )
+                                                               {
+                                                                   const Vector3 corner( halfExtents.x *
+                                                                                             static_cast<float>( xSign ),
+                                                                                         halfExtents.y *
+                                                                                             static_cast<float>( ySign ),
+                                                                                         halfExtents.z *
+                                                                                             static_cast<float>( zSign ) );
+                                                                   const float y = offset.y + ( rotation * corner ).y;
+                                                                   minY = (std::min)( minY, y );
+                                                                   maxY = (std::max)( maxY, y );
+                                                               }
+                                                           }
+                                                       }
+
+                                                       return;
+                                                   }
+
+                                                   if ( primitiveType == "sphere" )
+                                                   {
+                                                       float radius = 0.0f;
+
+                                                       if ( TryReadEditorSphereRadius( part, radius ) )
+                                                       {
+                                                           minY = (std::min)( minY, offset.y - radius );
+                                                           maxY = (std::max)( maxY, offset.y + radius );
+                                                       }
+                                                   }
+                                               } );
 
     return ok && minY != FLT_MAX ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
 }
 
 
-bool TryComputeEditorBuildingWorldBounds( int objectType,
-                                          const Vector3& terrainPoint,
+bool TryComputeEditorBuildingWorldBounds( int objectType, const Vector3& terrainPoint,
                                           const Quaternion& placementOrientation,
-                                          const SkullbonezCore::Assets::AssetSystem& assets,
-                                          Vector3& outMin,
+                                          const SkullbonezCore::Assets::AssetSystem& assets, Vector3& outMin,
                                           Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
@@ -629,76 +650,97 @@ bool TryComputeEditorBuildingWorldBounds( int objectType,
     Quaternion placementCopy = placementOrientation;
     const RotationMatrix placementRotation = placementCopy.GetOrientationMatrix();
     const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-    const bool ok = ForEachEditorBuildingPart(
-        objectType,
-        assets,
-        [&]( const Json& part )
-        {
-            const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+    const bool
+        ok = ForEachEditorBuildingPart( objectType, assets,
+                                        [&]( const Json& part )
+                                        {
+                                            const Vector3 offset = EditorJsonVec3Or( part, "offset",
+                                                                                     Vector3( 0.0f, 0.0f, 0.0f ) );
 
-            const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
-            Quaternion partCopy = partOrientation;
-            const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-            const Vector3 partCenter = base + placementRotation * offset;
-            const std::string primitiveType = EditorAssetPrimitiveType( part );
-            if ( primitiveType == "convexHull" )
-            {
-                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-                if ( !hull )
-                {
-                    return;
-                }
+                                            const Quaternion
+                                                partOrientation = EditorBuildingPartOrientation( placementOrientation,
+                                                                                                 part );
 
-                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
-                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
-                {
-                    IncludeEditorBoundsPoint(
-                        partCenter + partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ),
-                        outMin,
-                        outMax );
-                }
+                                            Quaternion partCopy = partOrientation;
+                                            const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+                                            const Vector3 partCenter = base + placementRotation * offset;
+                                            const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                return;
-            }
+                                            if ( primitiveType == "convexHull" )
+                                            {
+                                                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                const ConvexHullShape* hull = hullPath.empty()
+                                                                                  ? nullptr
+                                                                                  : CachedEditorBuildingHull( hullPath );
 
-            if ( primitiveType == "box" )
-            {
-                Vector3 halfExtents;
-                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                {
-                    return;
-                }
+                                                if ( !hull )
+                                                {
+                                                    return;
+                                                }
 
-                for ( int xSign = -1; xSign <= 1; xSign += 2 )
-                {
-                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
-                    {
-                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
-                        {
-                            const Vector3 corner( halfExtents.x * static_cast<float>( xSign ),
-                                                  halfExtents.y * static_cast<float>( ySign ),
-                                                  halfExtents.z * static_cast<float>( zSign ) );
-                            IncludeEditorBoundsPoint( partCenter + partRotation * corner, outMin, outMax );
-                        }
-                    }
-                }
+                                                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
 
-                return;
-            }
+                                                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
+                                                      ++vertexIndex )
+                                                {
+                                                    IncludeEditorBoundsPoint( partCenter +
+                                                                                  partRotation *
+                                                                                      ( hullLocalOffset +
+                                                                                        hull->GetVertex( vertexIndex ) ),
+                                                                              outMin, outMax );
+                                                }
 
-            if ( primitiveType == "sphere" )
-            {
-                float radius = 0.0f;
-                if ( !TryReadEditorSphereRadius( part, radius ) )
-                {
-                    return;
-                }
+                                                return;
+                                            }
 
-                IncludeEditorBoundsPoint( partCenter + Vector3( -radius, -radius, -radius ), outMin, outMax );
-                IncludeEditorBoundsPoint( partCenter + Vector3( radius, radius, radius ), outMin, outMax );
-            }
-        } );
+                                            if ( primitiveType == "box" )
+                                            {
+                                                Vector3 halfExtents;
+
+                                                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                {
+                                                    return;
+                                                }
+
+                                                for ( int xSign = -1; xSign <= 1; xSign += 2 )
+                                                {
+
+                                                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
+                                                    {
+
+                                                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
+                                                        {
+                                                            const Vector3 corner( halfExtents.x *
+                                                                                      static_cast<float>( xSign ),
+                                                                                  halfExtents.y *
+                                                                                      static_cast<float>( ySign ),
+                                                                                  halfExtents.z *
+                                                                                      static_cast<float>( zSign ) );
+                                                            IncludeEditorBoundsPoint( partCenter + partRotation * corner,
+                                                                                      outMin, outMax );
+                                                        }
+                                                    }
+                                                }
+
+                                                return;
+                                            }
+
+                                            if ( primitiveType == "sphere" )
+                                            {
+                                                float radius = 0.0f;
+
+                                                if ( !TryReadEditorSphereRadius( part, radius ) )
+                                                {
+                                                    return;
+                                                }
+
+                                                IncludeEditorBoundsPoint( partCenter + Vector3( -radius, -radius, -radius ),
+                                                                          outMin, outMax );
+
+                                                IncludeEditorBoundsPoint( partCenter + Vector3( radius, radius, radius ),
+                                                                          outMin, outMax );
+                                            }
+                                        } );
 
     return ok && outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
 }
@@ -706,11 +748,11 @@ bool TryComputeEditorBuildingWorldBounds( int objectType,
 
 constexpr EditorTreePartDefinition NormalizeEditorTreePart( EditorTreePartDefinition part )
 {
+
     // Why: authored tree parts are already real recipe values. Normalization
     // adds the hull policy directly instead of copying the recipe through a
     // second descriptor with the same fields.
-    part.contactReleaseOnImpact = part.contactReleaseOnImpact ||
-                                  EditorHullAssetDefaultsToContactRelease( part.hullAsset );
+    part.contactReleaseOnImpact = part.contactReleaseOnImpact || EditorHullAssetDefaultsToContactRelease( part.hullAsset );
 
     return part;
 }
@@ -725,306 +767,271 @@ constexpr EditorTreePartDefinition LiftEditorTreePartY( EditorTreePartDefinition
 
 constexpr EditorTreePartDefinition SmallRootPart()
 {
-    return NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_ROOT_SMALL,
-                                   .suffix = "root",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 0.55f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.04f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
-                                   .materialName = "editor_small_root",
-                                   .colorR = 0.24f,
-                                   .colorG = 0.12f,
-                                   .colorB = 0.055f,
-                                   .roughness = 0.96f,
-                                   .specular = 0.05f,
-                                   .stylization = 0.50f } );
+    return NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_ROOT_SMALL,
+                                                               .suffix = "root",
+                                                               .offsetX = 0.0f,
+                                                               .offsetY = 0.55f,
+                                                               .offsetZ = 0.0f,
+                                                               .restitution = 0.04f,
+                                                               .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                                                               .materialName = "editor_small_root",
+                                                               .colorR = 0.24f,
+                                                               .colorG = 0.12f,
+                                                               .colorB = 0.055f,
+                                                               .roughness = 0.96f,
+                                                               .specular = 0.05f,
+                                                               .stylization = 0.50f } );
 }
 
 
 constexpr EditorTreePartDefinition LargeRootPart()
 {
-    return NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_ROOT_LARGE,
-                                   .suffix = "root",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 0.75f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.04f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
-                                   .materialName = "editor_large_root",
-                                   .colorR = 0.23f,
-                                   .colorG = 0.115f,
-                                   .colorB = 0.052f,
-                                   .roughness = 0.96f,
-                                   .specular = 0.05f,
-                                   .stylization = 0.50f } );
+    return NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_ROOT_LARGE,
+                                                               .suffix = "root",
+                                                               .offsetX = 0.0f,
+                                                               .offsetY = 0.75f,
+                                                               .offsetZ = 0.0f,
+                                                               .restitution = 0.04f,
+                                                               .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                                                               .materialName = "editor_large_root",
+                                                               .colorR = 0.23f,
+                                                               .colorG = 0.115f,
+                                                               .colorB = 0.052f,
+                                                               .roughness = 0.96f,
+                                                               .specular = 0.05f,
+                                                               .stylization = 0.50f } );
 }
 
 
-constexpr EditorTreePartDefinition
-PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ, float shade )
+constexpr EditorTreePartDefinition PineNeedlePart( const char* suffix, float offsetX, float offsetY, float offsetZ,
+                                                   float shade )
 {
-    return NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_NEEDLE_CLUSTER,
-                                   .suffix = suffix,
-                                   .offsetX = offsetX,
-                                   .offsetY = offsetY,
-                                   .offsetZ = offsetZ,
-                                   .restitution = 0.04f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_pine_loose_needles",
-                                   .colorR = 0.035f + shade * 0.025f,
-                                   .colorG = 0.18f + shade * 0.11f,
-                                   .colorB = 0.052f + shade * 0.045f,
-                                   .roughness = 0.90f,
-                                   .specular = 0.06f,
-                                   .stylization = 0.94f,
-                                   .startsFixed = true,
-                                   .contactReleaseOnImpact = true,
-                                   .contactReleaseImpulseThreshold = 1.25f } );
+    return NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_NEEDLE_CLUSTER,
+                                                               .suffix = suffix,
+                                                               .offsetX = offsetX,
+                                                               .offsetY = offsetY,
+                                                               .offsetZ = offsetZ,
+                                                               .restitution = 0.04f,
+                                                               .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                               .materialName = "editor_pine_loose_needles",
+                                                               .colorR = 0.035f + shade * 0.025f,
+                                                               .colorG = 0.18f + shade * 0.11f,
+                                                               .colorB = 0.052f + shade * 0.045f,
+                                                               .roughness = 0.90f,
+                                                               .specular = 0.06f,
+                                                               .stylization = 0.94f,
+                                                               .startsFixed = true,
+                                                               .contactReleaseOnImpact = true,
+                                                               .contactReleaseImpulseThreshold = 1.25f } );
 }
 
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_PARTS[] = {
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_SMALL_FACETED,
-                                   .suffix = "trunk",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 6.5f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.06f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
-                                   .materialName = "editor_small_bark",
-                                   .colorR = 0.30f,
-                                   .colorG = 0.14f,
-                                   .colorB = 0.055f,
-                                   .roughness = 0.94f,
-                                   .specular = 0.06f,
-                                   .stylization = 0.50f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_LOW,
-                                   .suffix = "low",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 20.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_small_needles_low",
-                                   .colorR = 0.055f,
-                                   .colorG = 0.24f,
-                                   .colorB = 0.12f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_MID,
-                                   .suffix = "mid",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 28.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_small_needles_mid",
-                                   .colorR = 0.075f,
-                                   .colorG = 0.30f,
-                                   .colorB = 0.15f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
-                                   .suffix = "top",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 35.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_small_needles_top",
-                                   .colorR = 0.10f,
-                                   .colorG = 0.36f,
-                                   .colorB = 0.18f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_SMALL_FACETED,
+                                                        .suffix = "trunk",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 6.5f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.06f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                                                        .materialName = "editor_small_bark",
+                                                        .colorR = 0.30f,
+                                                        .colorG = 0.14f,
+                                                        .colorB = 0.055f,
+                                                        .roughness = 0.94f,
+                                                        .specular = 0.06f,
+                                                        .stylization = 0.50f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_LOW,
+                                                        .suffix = "low",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 20.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_small_needles_low",
+                                                        .colorR = 0.055f,
+                                                        .colorG = 0.24f,
+                                                        .colorB = 0.12f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_MID,
+                                                        .suffix = "mid",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 28.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_small_needles_mid",
+                                                        .colorR = 0.075f,
+                                                        .colorG = 0.30f,
+                                                        .colorB = 0.15f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
+                                                        .suffix = "top",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 35.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_small_needles_top",
+                                                        .colorR = 0.10f,
+                                                        .colorG = 0.36f,
+                                                        .colorB = 0.18f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
 };
 constexpr int EDITOR_TREE_SMALL_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_PARTS ) /
                                                                sizeof( EDITOR_TREE_SMALL_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small",
-                                                     EDITOR_TREE_SMALL_PARTS,
-                                                     EDITOR_TREE_SMALL_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope",
-                                                           EDITOR_TREE_SMALL_PARTS,
-                                                           EDITOR_TREE_SMALL_PART_COUNT,
-                                                           true,
-                                                           false };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL = { "tree_small", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLOPE = { "tree_small_slope", EDITOR_TREE_SMALL_PARTS,
+                                                           EDITOR_TREE_SMALL_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_SMALL_SLEEP = { "tree_small_sleep", EDITOR_TREE_SMALL_PARTS, EDITOR_TREE_SMALL_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_PARTS[] = {
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
-                                   .suffix = "trunk",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 9.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.06f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
-                                   .materialName = "editor_big_bark",
-                                   .colorR = 0.31f,
-                                   .colorG = 0.16f,
-                                   .colorB = 0.07f,
-                                   .roughness = 0.94f,
-                                   .specular = 0.06f,
-                                   .stylization = 0.48f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_LARGE,
-                                   .suffix = "low",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 24.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_big_needles_low",
-                                   .colorR = 0.045f,
-                                   .colorG = 0.20f,
-                                   .colorB = 0.055f,
-                                   .roughness = 0.88f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.88f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_MID,
-                                   .suffix = "mid",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 34.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_big_needles_mid",
-                                   .colorR = 0.06f,
-                                   .colorG = 0.25f,
-                                   .colorB = 0.075f,
-                                   .roughness = 0.88f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.88f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_TOP,
-                                   .suffix = "top",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 43.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_big_needles_top",
-                                   .colorR = 0.09f,
-                                   .colorG = 0.31f,
-                                   .colorB = 0.10f,
-                                   .roughness = 0.88f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.88f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
+                                                        .suffix = "trunk",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 9.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.06f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                                                        .materialName = "editor_big_bark",
+                                                        .colorR = 0.31f,
+                                                        .colorG = 0.16f,
+                                                        .colorB = 0.07f,
+                                                        .roughness = 0.94f,
+                                                        .specular = 0.06f,
+                                                        .stylization = 0.48f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_LARGE,
+                                                        .suffix = "low",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 24.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_big_needles_low",
+                                                        .colorR = 0.045f,
+                                                        .colorG = 0.20f,
+                                                        .colorB = 0.055f,
+                                                        .roughness = 0.88f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.88f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_MID,
+                                                        .suffix = "mid",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 34.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_big_needles_mid",
+                                                        .colorR = 0.06f,
+                                                        .colorG = 0.25f,
+                                                        .colorB = 0.075f,
+                                                        .roughness = 0.88f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.88f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::PINE_TIER_TOP,
+                                                        .suffix = "top",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 43.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_big_needles_top",
+                                                        .colorR = 0.09f,
+                                                        .colorG = 0.31f,
+                                                        .colorB = 0.10f,
+                                                        .roughness = 0.88f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.88f } ),
 };
 constexpr int EDITOR_TREE_BIG_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_PARTS ) /
                                                              sizeof( EDITOR_TREE_BIG_PARTS[0] ) );
 constexpr EditorTreeDefinition EDITOR_TREE_BIG = { "tree_pine", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope",
-                                                         EDITOR_TREE_BIG_PARTS,
-                                                         EDITOR_TREE_BIG_PART_COUNT,
-                                                         true,
-                                                         false };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLOPE = { "tree_pine_slope", EDITOR_TREE_BIG_PARTS,
+                                                         EDITOR_TREE_BIG_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_BIG_SLEEP = { "tree_pine_sleep", EDITOR_TREE_BIG_PARTS, EDITOR_TREE_BIG_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_PARTS[] = {
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
-                                   .suffix = "trunk",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 9.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.06f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
-                                   .materialName = "editor_cedar_bark",
-                                   .colorR = 0.28f,
-                                   .colorG = 0.13f,
-                                   .colorB = 0.055f,
-                                   .roughness = 0.94f,
-                                   .specular = 0.06f,
-                                   .stylization = 0.50f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_LOW,
-                                   .suffix = "low",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 25.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_cedar_needles_low",
-                                   .colorR = 0.055f,
-                                   .colorG = 0.24f,
-                                   .colorB = 0.12f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_MID,
-                                   .suffix = "mid",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 38.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_cedar_needles_mid",
-                                   .colorR = 0.075f,
-                                   .colorG = 0.30f,
-                                   .colorB = 0.15f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
-    NormalizeEditorTreePart(
-        EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
-                                   .suffix = "top",
-                                   .offsetX = 0.0f,
-                                   .offsetY = 48.0f,
-                                   .offsetZ = 0.0f,
-                                   .restitution = 0.05f,
-                                   .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
-                                   .materialName = "editor_cedar_needles_top",
-                                   .colorR = 0.10f,
-                                   .colorG = 0.36f,
-                                   .colorB = 0.18f,
-                                   .roughness = 0.89f,
-                                   .specular = 0.08f,
-                                   .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::TREE_TRUNK_FACETED,
+                                                        .suffix = "trunk",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 9.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.06f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Bark,
+                                                        .materialName = "editor_cedar_bark",
+                                                        .colorR = 0.28f,
+                                                        .colorG = 0.13f,
+                                                        .colorB = 0.055f,
+                                                        .roughness = 0.94f,
+                                                        .specular = 0.06f,
+                                                        .stylization = 0.50f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_LOW,
+                                                        .suffix = "low",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 25.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_cedar_needles_low",
+                                                        .colorR = 0.055f,
+                                                        .colorG = 0.24f,
+                                                        .colorB = 0.12f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TALL_MID,
+                                                        .suffix = "mid",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 38.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_cedar_needles_mid",
+                                                        .colorR = 0.075f,
+                                                        .colorG = 0.30f,
+                                                        .colorB = 0.15f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
+    NormalizeEditorTreePart( EditorTreePartDefinition { .hullAsset = EditorHullAsset::CEDAR_TIER_TOP,
+                                                        .suffix = "top",
+                                                        .offsetX = 0.0f,
+                                                        .offsetY = 48.0f,
+                                                        .offsetZ = 0.0f,
+                                                        .restitution = 0.05f,
+                                                        .materialKind = SkullbonezCore::Rendering::RenderMaterialKind::Foliage,
+                                                        .materialName = "editor_cedar_needles_top",
+                                                        .colorR = 0.10f,
+                                                        .colorG = 0.36f,
+                                                        .colorB = 0.18f,
+                                                        .roughness = 0.89f,
+                                                        .specular = 0.08f,
+                                                        .stylization = 0.90f } ),
 };
 constexpr int EDITOR_TREE_CEDAR_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_PARTS ) /
                                                                sizeof( EDITOR_TREE_CEDAR_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar",
-                                                     EDITOR_TREE_CEDAR_PARTS,
-                                                     EDITOR_TREE_CEDAR_PART_COUNT };
-constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope",
-                                                           EDITOR_TREE_CEDAR_PARTS,
-                                                           EDITOR_TREE_CEDAR_PART_COUNT,
-                                                           true,
-                                                           false };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR = { "tree_cedar", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLOPE = { "tree_cedar_slope", EDITOR_TREE_CEDAR_PARTS,
+                                                           EDITOR_TREE_CEDAR_PART_COUNT, true, false };
 constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_SLEEP = { "tree_cedar_sleep", EDITOR_TREE_CEDAR_PARTS, EDITOR_TREE_CEDAR_PART_COUNT, false, false, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_SMALL_ROOTED_PARTS[] = {
     SmallRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0],
-                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1],
-                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2],
-                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3],
-                         SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_SMALL_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_SMALL_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_SMALL_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS ) /
                                                                       sizeof( EDITOR_TREE_SMALL_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted",
-                                                            EDITOR_TREE_SMALL_ROOTED_PARTS,
-                                                            EDITOR_TREE_SMALL_ROOTED_PART_COUNT,
-                                                            true,
-                                                            true };
+constexpr EditorTreeDefinition EDITOR_TREE_SMALL_ROOTED = { "tree_small_rooted", EDITOR_TREE_SMALL_ROOTED_PARTS,
+                                                            EDITOR_TREE_SMALL_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
     LargeRootPart(),
@@ -1035,30 +1042,20 @@ constexpr EditorTreePartDefinition EDITOR_TREE_BIG_ROOTED_PARTS[] = {
 };
 constexpr int EDITOR_TREE_BIG_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_BIG_ROOTED_PARTS ) /
                                                                     sizeof( EDITOR_TREE_BIG_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted",
-                                                          EDITOR_TREE_BIG_ROOTED_PARTS,
-                                                          EDITOR_TREE_BIG_ROOTED_PART_COUNT,
-                                                          true,
-                                                          true };
+constexpr EditorTreeDefinition EDITOR_TREE_BIG_ROOTED = { "tree_pine_rooted", EDITOR_TREE_BIG_ROOTED_PARTS,
+                                                          EDITOR_TREE_BIG_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_CEDAR_ROOTED_PARTS[] = {
     LargeRootPart(),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0],
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1],
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2],
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
-    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3],
-                         SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[0], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[1], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[2], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
+    LiftEditorTreePartY( EDITOR_TREE_CEDAR_PARTS[3], SkullbonezCore::Assets::EDITOR_TREE_LARGE_ROOTED_ABOVE_ROOT_LIFT_Y ),
 };
 constexpr int EDITOR_TREE_CEDAR_ROOTED_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS ) /
                                                                       sizeof( EDITOR_TREE_CEDAR_ROOTED_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted",
-                                                            EDITOR_TREE_CEDAR_ROOTED_PARTS,
-                                                            EDITOR_TREE_CEDAR_ROOTED_PART_COUNT,
-                                                            true,
-                                                            true };
+constexpr EditorTreeDefinition EDITOR_TREE_CEDAR_ROOTED = { "tree_cedar_rooted", EDITOR_TREE_CEDAR_ROOTED_PARTS,
+                                                            EDITOR_TREE_CEDAR_ROOTED_PART_COUNT, true, true };
 
 constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
     LargeRootPart(),
@@ -1105,11 +1102,8 @@ constexpr EditorTreePartDefinition EDITOR_TREE_PINE_SHEDDING_PARTS[] = {
 };
 constexpr int EDITOR_TREE_PINE_SHEDDING_PART_COUNT = static_cast<int>( sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS ) /
                                                                        sizeof( EDITOR_TREE_PINE_SHEDDING_PARTS[0] ) );
-constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding",
-                                                             EDITOR_TREE_PINE_SHEDDING_PARTS,
-                                                             EDITOR_TREE_PINE_SHEDDING_PART_COUNT,
-                                                             true,
-                                                             true };
+constexpr EditorTreeDefinition EDITOR_TREE_PINE_SHEDDING = { "tree_pine_shedding", EDITOR_TREE_PINE_SHEDDING_PARTS,
+                                                             EDITOR_TREE_PINE_SHEDDING_PART_COUNT, true, true };
 
 
 constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
@@ -1660,15 +1654,14 @@ constexpr EditorHousePartDefinition EDITOR_BRICK_HOUSE_PARTS[] = {
 };
 constexpr int EDITOR_BRICK_HOUSE_PART_COUNT = static_cast<int>( sizeof( EDITOR_BRICK_HOUSE_PARTS ) /
                                                                 sizeof( EDITOR_BRICK_HOUSE_PARTS[0] ) );
-constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house",
-                                                             EDITOR_BRICK_HOUSE_PARTS,
-                                                             EDITOR_BRICK_HOUSE_PART_COUNT,
-                                                             true };
+constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house", EDITOR_BRICK_HOUSE_PARTS,
+                                                             EDITOR_BRICK_HOUSE_PART_COUNT, true };
 
 
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+
     switch ( type )
     {
     case SkullbonezCore::UI::EditorTab::OBJECT_TREE_SMALL:
@@ -1713,6 +1706,7 @@ const EditorHouseDefinition* EditorHouseDefinitionForType( int objectType )
 bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
+
     if ( autoTerrainAlign )
     {
         return true;
@@ -1730,12 +1724,14 @@ bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
 
 Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
 {
+
     if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
     {
         return IDENTITY_QUATERNION;
     }
 
     const float normalMag = VectorMag( terrainNormal );
+
     if ( normalMag <= TOLERANCE )
     {
         return IDENTITY_QUATERNION;
@@ -1746,6 +1742,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
     const Vector3 up( 0.0f, 1.0f, 0.0f );
     const float dot = std::clamp( up * terrainNormal, -1.0f, 1.0f );
     Quaternion orientation = IDENTITY_QUATERNION;
+
     if ( dot > 0.9995f )
     {
         return orientation;
@@ -1759,6 +1756,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
 
     Vector3 axis = CrossProduct( up, terrainNormal );
     const float axisMag = VectorMag( axis );
+
     if ( axisMag <= TOLERANCE )
     {
         return orientation;
@@ -1773,6 +1771,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
 Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bool autoTerrainAlign, float yawRadians )
 {
     Quaternion orientation = EditorOrientationFromTerrainNormal( objectType, terrainNormal, autoTerrainAlign );
+
     if ( fabsf( yawRadians ) > 1.0e-5f )
     {
         orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), yawRadians );
@@ -1785,6 +1784,7 @@ Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bo
 const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
     const char* path = EditorHullAssetPath( asset );
+
     if ( !path )
     {
         return nullptr;
@@ -1795,6 +1795,7 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 
     for ( std::size_t i = 0; i < EDITOR_HULL_ASSET_COUNT; ++i )
     {
+
         if ( EDITOR_HULL_ASSETS[i].asset != asset )
         {
             continue;
@@ -1804,11 +1805,10 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
         {
             ConvexHullShape hull;
             const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+
             if ( !hullLoad.ok )
             {
-                fprintf( stderr,
-                         "[editor] Cannot cache hull asset %s: %s\n",
-                         EditorHullAssetToken( asset ),
+                fprintf( stderr, "[editor] Cannot cache hull asset %s: %s\n", EditorHullAssetToken( asset ),
                          hullLoad.error.message );
 
                 return nullptr;
@@ -1836,10 +1836,12 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
 {
     outMinY = FLT_MAX;
     outMaxY = -FLT_MAX;
+
     for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
         const EditorTreePartDefinition& part = tree.parts[partIndex];
         const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+
         if ( !hull )
         {
             return false;
@@ -1858,31 +1860,28 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
 }
 
 
-bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree,
-                                      const Vector3& terrainPoint,
-                                      const RotationMatrix& orientation,
-                                      Vector3& outMin,
-                                      Vector3& outMax )
+bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree, const Vector3& terrainPoint,
+                                      const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
     outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
     const Vector3 surfaceLift = orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
+
     for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
         const EditorTreePartDefinition& part = tree.parts[partIndex];
         const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+
         if ( !hull )
         {
             return false;
         }
 
-        const Vector3 localBase = Vector3( part.offsetX, part.offsetY, part.offsetZ ) +
-                                  HullAuthoredLocalOffset( *hull );
+        const Vector3 localBase = Vector3( part.offsetX, part.offsetY, part.offsetZ ) + HullAuthoredLocalOffset( *hull );
 
         for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
         {
-            const Vector3 world = terrainPoint + surfaceLift +
-                                  orientation * ( localBase + hull->GetVertex( vertexIndex ) );
+            const Vector3 world = terrainPoint + surfaceLift + orientation * ( localBase + hull->GetVertex( vertexIndex ) );
 
             outMin.x = (std::min)( outMin.x, world.x );
             outMin.y = (std::min)( outMin.y, world.y );
@@ -1897,19 +1896,19 @@ bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree,
 }
 
 
-void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part,
-                                       const Vector3& terrainPoint,
-                                       const RotationMatrix& orientation,
-                                       Vector3& outMin,
-                                       Vector3& outMax )
+void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, const Vector3& terrainPoint,
+                                       const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
 {
     const Vector3 base = terrainPoint + orientation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
     const Vector3 center = base + orientation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
     const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
+
     for ( int x = -1; x <= 1; x += 2 )
     {
+
         for ( int y = -1; y <= 1; y += 2 )
         {
+
             for ( int z = -1; z <= 1; z += 2 )
             {
                 const Vector3 corner = center + orientation * Vector3( halfExtents.x * static_cast<float>( x ),
@@ -1928,14 +1927,12 @@ void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part,
 }
 
 
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house,
-                                       const Vector3& terrainPoint,
-                                       const RotationMatrix& orientation,
-                                       Vector3& outMin,
-                                       Vector3& outMax )
+bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Vector3& terrainPoint,
+                                       const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
     outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+
     for ( int partIndex = 0; partIndex < house.partCount; ++partIndex )
     {
         ExpandEditorHousePartWorldBounds( house.parts[partIndex], terrainPoint, orientation, outMin, outMax );
@@ -1948,6 +1945,7 @@ bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house,
 float EditorTreeVerticalSize( int objectType )
 {
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
+
     if ( !tree )
     {
         return 1.0f;
@@ -1962,6 +1960,7 @@ float EditorTreeVerticalSize( int objectType )
 float EditorHouseVerticalSize( int objectType )
 {
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( objectType );
+
     if ( !house )
     {
         return 1.0f;
@@ -1969,6 +1968,7 @@ float EditorHouseVerticalSize( int objectType )
 
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
+
     for ( int partIndex = 0; partIndex < house->partCount; ++partIndex )
     {
         const EditorHousePartDefinition& part = house->parts[partIndex];
@@ -1982,11 +1982,9 @@ float EditorHouseVerticalSize( int objectType )
 
 SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition& part )
 {
-    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
-        part.colorR,
-        part.colorG,
-        part.colorB,
-        static_cast<float>( part.materialKind ) );
+    SkullbonezCore::Rendering::RenderMaterial
+        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB,
+                                                                                static_cast<float>( part.materialKind ) );
 
     strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
     material.roughness = part.roughness;
@@ -1998,11 +1996,9 @@ SkullbonezCore::Rendering::RenderMaterial EditorTreePartMaterial( const EditorTr
 
 SkullbonezCore::Rendering::RenderMaterial EditorHousePartMaterial( const EditorHousePartDefinition& part )
 {
-    SkullbonezCore::Rendering::RenderMaterial material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
-        part.colorR,
-        part.colorG,
-        part.colorB,
-        static_cast<float>( part.materialKind ) );
+    SkullbonezCore::Rendering::RenderMaterial
+        material = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint( part.colorR, part.colorG, part.colorB,
+                                                                                static_cast<float>( part.materialKind ) );
 
     strncpy_s( material.name, sizeof( material.name ), part.materialName, _TRUNCATE );
     material.roughness = part.roughness;
@@ -2059,11 +2055,9 @@ bool TryEditorRockMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
         return false;
     }
 
-    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
-        r,
-        g,
-        b,
-        static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
+    outMaterial = SkullbonezCore::Rendering::
+        MakeRenderMaterialFromLegacyTint( r, g, b,
+                                          static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Stone ) );
 
     strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
     outMaterial.roughness = roughness;
@@ -2077,6 +2071,7 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
 {
     const bool smallRoot = asset == EditorHullAsset::TREE_ROOT_SMALL;
     const bool largeRoot = asset == EditorHullAsset::TREE_ROOT_LARGE;
+
     if ( !smallRoot && !largeRoot )
     {
         return false;
@@ -2086,11 +2081,9 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     const float r = smallRoot ? 0.24f : 0.23f;
     const float g = smallRoot ? 0.12f : 0.115f;
     const float b = smallRoot ? 0.055f : 0.052f;
-    outMaterial = SkullbonezCore::Rendering::MakeRenderMaterialFromLegacyTint(
-        r,
-        g,
-        b,
-        static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
+    outMaterial = SkullbonezCore::Rendering::
+        MakeRenderMaterialFromLegacyTint( r, g, b,
+                                          static_cast<float>( SkullbonezCore::Rendering::RenderMaterialKind::Bark ) );
 
     strncpy_s( outMaterial.name, sizeof( outMaterial.name ), name, _TRUNCATE );
     outMaterial.roughness = 0.96f;
@@ -2103,6 +2096,7 @@ bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementSc
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const ConvexHullShape* baseHull = CachedEditorHullForType( type );
+
     if ( !baseHull )
     {
         return false;
@@ -2115,6 +2109,5 @@ bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementSc
     outHull.ScaleAxis( 2, scale.z );
     return true;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

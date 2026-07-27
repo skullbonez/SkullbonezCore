@@ -38,12 +38,15 @@ from pathlib import Path
 from typing import Iterable
 
 from separate_multiline_cpp_declarations import (
+    ensure_comment_spacing,
+    ensure_control_flow_spacing,
     normalize_assignment_heads,
     normalize_compact_parenthesized_expressions,
+    normalize_first_argument_heads,
 )
 
 
-DEFAULT_COLUMN_LIMIT = 120
+DEFAULT_COLUMN_LIMIT = 125
 DEFAULT_MIN_SPACES = 1
 
 
@@ -333,7 +336,7 @@ def main() -> int:
     for header in headers:
         original = read_text(header)
         source = original
-        if mode == "pipeline":
+        if mode == "pipeline" or (mode == "write" and args.clang_format is not None):
             try:
                 source = clang_format_text(args.clang_format, header, original)
             except RuntimeError as error:
@@ -342,6 +345,9 @@ def main() -> int:
 
         source, _ = normalize_assignment_heads(source)
         source, _ = normalize_compact_parenthesized_expressions(source)
+        source, _ = normalize_first_argument_heads(source)
+        source, _ = ensure_comment_spacing(source)
+        source, _ = ensure_control_flow_spacing(source)
         result = format_header_text(source, args.column_limit)
         aligned_comments += result.aligned_comments
         joined_declarations += result.joined_declarations

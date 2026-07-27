@@ -305,6 +305,7 @@ struct ReplaySolverWorldSnapshot
 
     void ClearPreservingCapacity() noexcept
     {
+
         // Lifetime: cancellation is a steady-runtime transition. Preserve all
         // Physics and Gameplay vector storage allocated during reserve setup.
         physics.ClearPreservingCapacity();
@@ -470,21 +471,17 @@ class ReplayRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayBranchInfo& branch,
-                       uint32_t eventCursor,
-                       int sceneFrame,
-                       float physicsDt,
-                       const ReplayWorldPresentationSample& world,
-                       const ReplayCameraSample& camera,
-                       Physics::PhysicsEngine& physics,
-                       const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore,
-                       const Physics::ColliderStore& colliderStore );
+    void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
+                       const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
+                       Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
+
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
     void CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
@@ -492,16 +489,15 @@ class ReplayRecorder
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 
   private:
+
     // Why: cold ArtifactIO must reconstruct compact deltas without making ring
     // internals public. Its commands accept this owner as const and publish only
     // copied chronological values.
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex );
-    void StoreVisualFramePayload( std::size_t slotIndex,
-                                  const ReplayPresentationSample& sample,
-                                  const std::vector<ReplayBodyPresentationSample>& bodies,
-                                  bool forceKeyframe,
+    void StoreVisualFramePayload( std::size_t slotIndex, const ReplayPresentationSample& sample,
+                                  const std::vector<ReplayBodyPresentationSample>& bodies, bool forceKeyframe,
                                   bool updateCarry );
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
@@ -513,6 +509,7 @@ class ReplayRecorder
     std::vector<ReplayPresentationSample> m_samples;
     std::vector<ReplayVisualDeltaFrame> m_visualFrames;
     std::vector<ReplayVisualBodyMetadata> m_visualBodyMetadata;
+
     // Model rows are hints, so every fast-path hit is still validated against
     // the stable scene id and immutable metadata before the index is reused.
     std::vector<uint32_t> m_visualMetadataIndexByModelRow;
@@ -524,6 +521,7 @@ class ReplayRecorder
     std::vector<uint16_t> m_contactCountScratch;
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
+
     // Lifetime: one UI turn may compare several scrub positions plus latest.
     // A small rotating pool preserves those simultaneous borrows without
     // caching one full body vector per retained frame.
@@ -551,50 +549,52 @@ class ReplaySolverRecorder
   public:
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
-    void CaptureFrame( const ReplayBranchInfo& branch,
-                       uint32_t eventCursor,
-                       int sceneFrame,
-                       float physicsDt,
-                       const ReplayWorldPresentationSample& world,
-                       const ReplayCameraSample& camera,
-                       const ReplayLauncherVisualSample& launcherVisual,
-                       Physics::PhysicsEngine& physics,
-                       const Gameplay::TornadoGameplay& tornadoGameplay,
-                       const SceneEntityStore& entities,
-                       const Physics::PhysicsBodyStore& bodyStore,
-                       const Physics::ColliderStore& colliderStore );
+    void CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt,
+                       const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera,
+                       const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics,
+                       const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities,
+                       const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore );
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
+
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
+
     // Visits resolved samples without allocating a copied artifact vector. The
     // templated callable keeps replay iteration typed and prevents a stored
     // void-pointer callback bridge from becoming runtime authority.
     template <typename Visitor> void ForEachSampleChronological( Visitor visitor ) const
     {
+        m_scrubResolveCacheValid = false;
+
         if ( m_sampleCount == 0 || m_samples.empty() )
         {
             return;
         }
+
         for ( std::size_t i = 0; i < m_sampleCount; ++i )
         {
+
             if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
             {
                 visitor( m_resolvedSolverSample );
             }
         }
     }
+
     // Visits one body's compact position stream without reconstructing dense
     // solver frames or their world snapshots. Returns false when retained
     // delta data is internally inconsistent.
     template <typename Visitor>
     bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
     {
+
         if ( m_sampleCount == 0 || m_samples.empty() )
         {
             return true;
         }
+
         if ( m_solverFrames.size() != m_samples.size() )
         {
             return false;
@@ -610,12 +610,15 @@ class ReplaySolverRecorder
             const std::size_t frameIndex = ( m_sampleHead + offset ) % m_samples.size();
             const ReplaySolverDeltaFrame& frame = m_solverFrames[frameIndex];
             uint32_t frameMetadataIndex = invalidMetadataIndex;
+
             for ( uint32_t metadataIndex : frame.bodyMetadataIndices )
             {
+
                 if ( metadataIndex >= m_solverBodyMetadata.size() )
                 {
                     return false;
                 }
+
                 if ( m_solverBodyMetadata[metadataIndex].id.value == targetId.value )
                 {
                     frameMetadataIndex = metadataIndex;
@@ -631,8 +634,10 @@ class ReplaySolverRecorder
             }
 
             bool stateChanged = false;
+
             for ( const ReplaySolverBodyDelta& delta : frame.changedBodies )
             {
+
                 if ( delta.metadataIndex == frameMetadataIndex )
                 {
                     activeState = delta.state;
@@ -640,6 +645,7 @@ class ReplaySolverRecorder
                     break;
                 }
             }
+
             if ( !stateChanged && ( frame.keyframe || !activeStateValid || activeMetadataIndex != frameMetadataIndex ) )
             {
                 return false;
@@ -647,26 +653,24 @@ class ReplaySolverRecorder
 
             activeMetadataIndex = frameMetadataIndex;
             activeStateValid = true;
-            visitor( m_samples[frameIndex].frameIndex,
-                     m_solverBodyMetadata[frameMetadataIndex].modelRow,
+            visitor( m_samples[frameIndex].frameIndex, m_solverBodyMetadata[frameMetadataIndex].modelRow,
                      activeState.position );
         }
+
         return true;
     }
     const ReplaySolverFrameSample* LatestSample() const;
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 
   private:
+
     // See ReplayRecorder: this is the same const-only cold materialization seam.
     friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex );
-    void StoreSolverFramePayload( std::size_t slotIndex,
-                                  const ReplaySolverFrameSample& sample,
+    void StoreSolverFramePayload( std::size_t slotIndex, const ReplaySolverFrameSample& sample,
                                   const std::vector<ReplaySolverBodySample>& bodies,
-                                  const ReplaySolverWorldSnapshot& worldSnapshot,
-                                  bool forceKeyframe,
-                                  bool updateCarry );
+                                  const ReplaySolverWorldSnapshot& worldSnapshot, bool forceKeyframe, bool updateCarry );
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
@@ -677,6 +681,7 @@ class ReplaySolverRecorder
     std::vector<ReplaySolverFrameSample> m_samples;
     std::vector<ReplaySolverDeltaFrame> m_solverFrames;
     std::vector<ReplaySolverBodyMetadata> m_solverBodyMetadata;
+
     // See the presentation track: row lookup is constant-time, then stable id
     // and metadata validation prevent a stale row hint from aliasing a body.
     std::vector<uint32_t> m_solverMetadataIndexByModelRow;
@@ -691,6 +696,7 @@ class ReplaySolverRecorder
     ReplaySolverWorldSnapshot m_solverCaptureWorldSnapshot;
     ReplaySolverWorldSnapshot m_solverWorldCarrySnapshot;
     bool m_solverWorldCarryActive = false;
+
     // Lifetime: historical scrub reads and "latest" reads can be compared by
     // pointer-owning callers in the same tick, so they need separate dense
     // reconstruction caches.
@@ -699,7 +705,15 @@ class ReplaySolverRecorder
     mutable ReplaySolverFrameSample m_promotedSolverSample;
     mutable std::vector<ReplaySolverBodyState> m_solverResolveStateScratch;
     mutable std::vector<uint8_t> m_solverResolveActiveScratch;
-    mutable ReplaySolverWorldSnapshot m_solverResolveWorldScratch;
+
+    // Invariant: the dense scrub value belongs to exactly one retained offset
+    // at one content revision. Capture, reset, and artifact iteration invalidate
+    // it before any caller can observe a buffer overwritten for another use.
+    mutable bool m_scrubResolveCacheValid = false;
+    mutable std::size_t m_scrubResolveCacheOffset = 0;
+    mutable uint64_t m_scrubResolveCacheRevision = 0;
+    mutable uint64_t m_denseSampleResolveCount = 0;
+    uint64_t m_contentRevision = 0;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;
@@ -720,11 +734,13 @@ class ReplayEventRecorder
     void RecordEvent( const ReplayEventInput& input );
     bool IsEnabled() const;
     ReplayEventRecorderStats GetStats() const;
+
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
 
   private:
+
     // See ReplayRecorder: event-ring order remains private to cold ArtifactIO.
     friend class ReplayArtifactSource;
     ReplayEventSample& AcquireEventSlot();

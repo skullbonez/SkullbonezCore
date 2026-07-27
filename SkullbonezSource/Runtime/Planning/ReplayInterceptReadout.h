@@ -36,6 +36,7 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
+
 // Why: the discrete prediction frames and contact solver can leave a touching
 // pair a few thousandths outside the authored radius sum. Contact is still a
 // proximity intercept, so classification admits one solver-slop-width.
@@ -72,6 +73,7 @@ struct ReplayInterceptUpdateInput
 class ReplayInterceptReadout
 {
   public:
+
     // Selection retains durable scene identity; the model row is a repairable
     // hint that the Runtime composition boundary refreshes after topology work.
     void SetTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow ) noexcept;
@@ -80,6 +82,7 @@ class ReplayInterceptReadout
     Physics::PhysicsSceneObjectId TargetId() const noexcept;
     Physics::ModelRowHint TargetModelRow() const noexcept;
     const ReplayInterceptView& View() const noexcept;
+
     // Lifetime: the frame prefix is borrowed only for this synchronous scan.
     // Callers may replace or release its backing bank as soon as Update returns.
     void Update( const ReplayInterceptUpdateInput& input ) noexcept;

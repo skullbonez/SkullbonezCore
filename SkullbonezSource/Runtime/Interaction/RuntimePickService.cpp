@@ -49,6 +49,7 @@ constexpr float PICK_TIE_EPSILON = 1.0e-4f;
 bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
 {
     outResult = RuntimePickResult {};
+
     if ( request.bodyStore == nullptr || request.colliderStore == nullptr )
     {
         return false;
@@ -59,16 +60,19 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
     const auto colliders = request.colliderStore->Records();
     const int candidateCount = static_cast<int>( (std::min)( bodies.size(), colliders.size() ) );
     const bool skipFixedBodies = request.purpose == RuntimePickPurpose::ManipulatorPickup;
+
     for ( int i = 0; i < candidateCount; ++i )
     {
         const Physics::PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
         const Physics::ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+
         if ( collider.body != body.handle )
         {
             continue;
         }
 
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
+
         if ( skipFixedBodies && hotFields.fixed[bodyIndex] != 0u )
         {
             continue;
@@ -82,6 +86,7 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         // not the conservative broadphase radius. Padding would reintroduce the
         // tree-trunk failure where large foliage envelopes hide narrow trunks.
         float rayT = 0.0f;
+
         if ( TryIntersectRuntimePickShape( collider.shape, transform, request.rayOrigin, request.rayDirection, rayT ) &&
              rayT + PICK_TIE_EPSILON < outResult.rayT )
         {

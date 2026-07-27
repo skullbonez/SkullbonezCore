@@ -224,6 +224,8 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsRuntimeSettings.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsStageCapacity.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSceneVectorReserve.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />

@@ -8,6 +8,7 @@
 //   The allocator is a fixed-storage policy ledger. Owners register their
 //   initial and hard capacity, replay owners may request bounded growth during
 //   replay, and every grant or denial becomes a compact diagnostic event.
+//   Reportable stores also publish per-scene capacity rows and unload text.
 //
 // Glossary:
 //   Reserve owner: Named runtime storage owner with an initial capacity and hard
@@ -17,6 +18,8 @@
 //   Development tool owner: Thread-local ImGui or Tracy attribution that admits
 //     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
+//   Capacity session: One scene's live/high-water interval, advanced after the
+//     preceding scene is cleared.
 //   Lifecycle phase: Always-on calling-thread label used by allocation and
 //     upload policies even when allocation counting is disabled.
 //   Allocation guard: Process-wide measurement mode that attributes global
@@ -30,6 +33,7 @@
 //     independently of guard mode and concurrent scopes.
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
+//   - A new capacity session resets the visible and list-local peak lazily.
 //
 // Related:
 //   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -41,15 +45,21 @@
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <new>
+#include <ranges>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -59,6 +69,7 @@ using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
 using SkullbonezCore::Core::Allocation::PrintRuntimeAllocationSummary;
 using SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters;
 using SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationForeignFreeCount;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardEnabled;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardHasGameplayViolations;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
@@ -68,17 +79,21 @@ using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult;
 using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerDesc;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope;
 using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
+using SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity;
+using SkullbonezCore::Physics::PhysicsFixedList;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 using SkullbonezCore::Core::Allocation::CopyDevelopmentToolAllocationStats;
 using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationOwner;
@@ -256,6 +271,7 @@ TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and fr
     const std::string summary = ReadFileText( output );
     std::fclose( output );
     CHECK( summary.find( "mode=measure" ) != std::string::npos );
+    CHECK( summary.find( "foreign_frees=0" ) != std::string::npos );
     CHECK( summary.find( "phase=diagnostics" ) != std::string::npos );
     CHECK( summary.find( "allocations=1" ) != std::string::npos );
     CHECK( summary.find( "frees=1" ) != std::string::npos );
@@ -367,12 +383,12 @@ TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve align
     ::operator delete( nullptr );
     ResetRuntimeAllocationCounters();
     CHECK( RuntimeAllocationGuardViolationCount() == 0u );
+    CHECK( RuntimeAllocationForeignFreeCount() == 0u );
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
 
     PrintRuntimeAllocationSummary( nullptr );
     CHECK_FALSE( RuntimeAllocationGuardEnabled() );
 }
-
 
 TEST_CASE( "RuntimeReserveAllocator: replay growth under cap grants and records bytes" )
 {
@@ -546,4 +562,444 @@ TEST_CASE( "RuntimeReserveAllocator: owner stats expose fixed-registry growth ev
 
     RuntimeReserveOwnerStatsView missing = {};
     CHECK_FALSE( RuntimeReserveAllocator::CopyOwnerStatsByName( "unit.reserve.e1.missing", missing ) );
+}
+
+
+TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity through contiguous pointers" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    static_assert( std::ranges::contiguous_range<List> );
+    static_assert( std::ranges::contiguous_range<const List> );
+
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    List values( "unit.physics-fixed-list.reserve-fill", ExplicitTestCapacity );
+    CHECK( values.owner_handle() != INVALID_RUNTIME_RESERVE_OWNER );
+    CHECK( std::strcmp( values.capacity_reason(), ExplicitTestCapacity ) == 0 );
+    CHECK( values.capacity() == 0u );
+    CHECK( values.max_capacity() == 8u );
+    values.Reserve( 3u );
+    CHECK( values.capacity() == 3u );
+    CHECK( reinterpret_cast<std::uintptr_t>( values.data() ) % 32u == 0u );
+
+    values.push_back( 11 );
+    values.push_back( 22 );
+    values.push_back( 33 );
+    CHECK( values.size() == values.capacity() );
+    CHECK( values.high_water() == 3u );
+    CHECK( values.end() - values.begin() == 3 );
+    CHECK( values.data()[0] == 11 );
+    CHECK( values.data()[2] == 33 );
+
+    const auto findCapacityRow = []( const char* ownerName ) -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [ownerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, ownerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    const RuntimeReserveCapacityView* filled = nullptr;
+    {
+        RuntimeAllocationScope steadyGameplay( RuntimeAllocationPhase::SteadyGameplay );
+        filled = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    }
+    const uint64_t queryAllocationViolations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( queryAllocationViolations == 0u );
+    REQUIRE( filled != nullptr );
+    CHECK( filled->subsystem == RuntimeReserveSubsystem::Physics );
+    CHECK( filled->elementSizeBytes == static_cast<int>( sizeof( int ) ) );
+    CHECK( filled->currentCapacity == 3 );
+    CHECK( filled->liveCount == 3 );
+    CHECK( filled->sessionHighWater == 3 );
+    CHECK( filled->residentBytes == 3u * sizeof( int ) );
+
+    values.clear();
+    const RuntimeReserveCapacityView* cleared = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    REQUIRE( cleared != nullptr );
+    CHECK( cleared->currentCapacity == 3 );
+    CHECK( cleared->liveCount == 0 );
+    CHECK( cleared->sessionHighWater == 3 );
+    CHECK( cleared->residentBytes == 3u * sizeof( int ) );
+
+    RuntimeReserveAllocator::BeginCapacitySession();
+    values.push_back( 44 );
+    const RuntimeReserveCapacityView* nextScene = findCapacityRow( "unit.physics-fixed-list.reserve-fill" );
+    REQUIRE( nextScene != nullptr );
+    CHECK( nextScene->currentCapacity == 3 );
+    CHECK( nextScene->liveCount == 1 );
+    CHECK( nextScene->sessionHighWater == 1 );
+
+    FILE* capacityLog = nullptr;
+    REQUIRE( tmpfile_s( &capacityLog ) == 0 );
+    REQUIRE( capacityLog != nullptr );
+    RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
+    const std::string capacityText = ReadFileText( capacityLog );
+    CHECK( capacityText.find( "[capacity] scene=\"unit-capacity.scene\" status=scene_unload" ) != std::string::npos );
+    CHECK( capacityText.find( "owner=\"unit.physics-fixed-list.reserve-fill\"" ) != std::string::npos );
+    CHECK( capacityText.find( "capacity=3 live=1 high_water=1 utilisation=33.33% resident_bytes=12" ) !=
+           std::string::npos );
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    {
+        RuntimeAllocationScope steadyGameplay( RuntimeAllocationPhase::SteadyGameplay );
+        RuntimeReserveAllocator::PrintCapacityRows( capacityLog, "unit-capacity.scene", "scene_unload" );
+    }
+    const uint64_t warmedLogAllocationViolations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    CHECK( warmedLogAllocationViolations == 0u );
+    std::fclose( capacityLog );
+}
+
+
+TEST_CASE( "PhysicsFixedList: one canonical publisher survives same-name clone destruction" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    constexpr const char* ownerName = "unit.physics-fixed-list.canonical-publisher";
+    const auto findCapacityRow = []( const char* targetOwner ) -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row =
+            std::find_if( rows.begin(), rows.end(), [targetOwner]( const RuntimeReserveCapacityView& candidate ) {
+                return candidate.ownerName && std::strcmp( candidate.ownerName, targetOwner ) == 0;
+            } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    {
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        List canonical( ownerName, ExplicitTestCapacity );
+        canonical.Reserve( 3u );
+        canonical.resize( 2u );
+
+        {
+            List sameNameClone( ownerName, ExplicitTestCapacity );
+            sameNameClone.Reserve( 7u );
+            sameNameClone.resize( 6u );
+
+            const RuntimeReserveCapacityView* whileCloneLives = findCapacityRow( ownerName );
+            REQUIRE( whileCloneLives != nullptr );
+            CHECK( whileCloneLives->currentCapacity == 3 );
+            CHECK( whileCloneLives->liveCount == 2 );
+            CHECK( whileCloneLives->sessionHighWater == 2 );
+            CHECK( whileCloneLives->residentBytes == 3u * sizeof( int ) );
+        }
+
+        const RuntimeReserveCapacityView* afterCloneDestruction = findCapacityRow( ownerName );
+        REQUIRE( afterCloneDestruction != nullptr );
+        CHECK( afterCloneDestruction->currentCapacity == 3 );
+        CHECK( afterCloneDestruction->liveCount == 2 );
+        CHECK( afterCloneDestruction->sessionHighWater == 2 );
+        CHECK( afterCloneDestruction->residentBytes == 3u * sizeof( int ) );
+    }
+
+    const RuntimeReserveCapacityView* afterCanonicalDestruction = findCapacityRow( ownerName );
+    REQUIRE( afterCanonicalDestruction != nullptr );
+    CHECK( afterCanonicalDestruction->currentCapacity == 0 );
+    CHECK( afterCanonicalDestruction->liveCount == 0 );
+    CHECK( afterCanonicalDestruction->sessionHighWater == 2 );
+    CHECK( afterCanonicalDestruction->residentBytes == 0u );
+}
+
+
+TEST_CASE( "PhysicsFixedList: same-name move assignment transfers canonical publication" )
+{
+    using List = PhysicsFixedList<int, 8>;
+    constexpr const char* ownerName = "unit.physics-fixed-list.publisher-move";
+    const auto findCapacityRow = [ownerName]() -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [ownerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, ownerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    List canonical( ownerName, ExplicitTestCapacity );
+    canonical.Reserve( 3u );
+    canonical.resize( 2u );
+    List successor( ownerName, ExplicitTestCapacity );
+    successor.Reserve( 5u );
+    successor.resize( 4u );
+    successor = std::move( canonical );
+
+    const RuntimeReserveCapacityView* transferred = findCapacityRow();
+    REQUIRE( transferred != nullptr );
+    CHECK( transferred->currentCapacity == 5 );
+    CHECK( transferred->liveCount == 2 );
+    CHECK( transferred->sessionHighWater == 4 );
+    CHECK( transferred->residentBytes == 5u * sizeof( int ) );
+}
+
+
+TEST_CASE( "PhysicsFixedList: runtime and compile-time ceilings remain distinct" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    PhysicsFixedList<int, 7> values( "unit.physics-fixed-list.ceilings", ExplicitTestCapacity );
+    values.Reserve( 2u );
+
+    CHECK( values.capacity() == 2u );
+    CHECK( values.max_capacity() == 7u );
+    values.reserve( 2u );
+    CHECK( values.capacity() == 2u );
+}
+
+
+namespace
+{
+struct PhysicsFixedListTrackedValue
+{
+    explicit PhysicsFixedListTrackedValue( int initialValue = 0 ) : value( initialValue )
+    {
+    }
+
+    PhysicsFixedListTrackedValue( const PhysicsFixedListTrackedValue& other ) : value( other.value )
+    {
+        ++copyConstructions;
+    }
+
+    PhysicsFixedListTrackedValue( PhysicsFixedListTrackedValue&& other ) noexcept : value( other.value )
+    {
+        other.value = -1;
+        ++moveConstructions;
+    }
+
+    PhysicsFixedListTrackedValue& operator=( const PhysicsFixedListTrackedValue& ) = default;
+    PhysicsFixedListTrackedValue& operator=( PhysicsFixedListTrackedValue&& ) = default;
+
+    int value = 0;
+    static inline int copyConstructions = 0;
+    static inline int moveConstructions = 0;
+};
+
+struct PhysicsFixedListThrowingValue
+{
+    explicit PhysicsFixedListThrowingValue( int initialValue = 0 ) : value( initialValue )
+    {
+        ++liveCount;
+    }
+
+    PhysicsFixedListThrowingValue( const PhysicsFixedListThrowingValue& other ) : value( other.value )
+    {
+        ++copyAttempts;
+
+        if ( throwOnCopyAttempt > 0 && copyAttempts == throwOnCopyAttempt )
+        {
+            throw std::runtime_error( "PhysicsFixedList copy probe" );
+        }
+
+        ++liveCount;
+    }
+
+    PhysicsFixedListThrowingValue( PhysicsFixedListThrowingValue&& other ) : value( other.value )
+    {
+        ++moveAttempts;
+
+        if ( throwOnMoveAttempt > 0 && moveAttempts == throwOnMoveAttempt )
+        {
+            throw std::runtime_error( "PhysicsFixedList move probe" );
+        }
+
+        other.value = -1;
+        ++liveCount;
+    }
+
+    ~PhysicsFixedListThrowingValue()
+    {
+        --liveCount;
+    }
+
+    int value = 0;
+    static inline int liveCount = 0;
+    static inline int copyAttempts = 0;
+    static inline int throwOnCopyAttempt = 0;
+    static inline int moveAttempts = 0;
+    static inline int throwOnMoveAttempt = 0;
+};
+} // namespace
+
+
+TEST_CASE( "PhysicsFixedList: trivial and non-trivial copy move preserve live values" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+
+    PhysicsFixedList<uint32_t, 8> trivial( "unit.physics-fixed-list.trivial-source", ExplicitTestCapacity );
+    trivial.Reserve( 4u );
+    trivial.push_back( 4u );
+    trivial.push_back( 9u );
+    PhysicsFixedList<uint32_t, 8> trivialCopy( trivial );
+    PhysicsFixedList<uint32_t, 8> trivialMove( std::move( trivialCopy ) );
+    CHECK( trivialMove.size() == 2u );
+    CHECK( trivialMove[0] == 4u );
+    CHECK( trivialMove[1] == 9u );
+
+    PhysicsFixedListTrackedValue::copyConstructions = 0;
+    PhysicsFixedListTrackedValue::moveConstructions = 0;
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> tracked( "unit.physics-fixed-list.tracked-source",
+                                                              ExplicitTestCapacity );
+    tracked.Reserve( 3u );
+    tracked.push_back( PhysicsFixedListTrackedValue( 17 ) );
+    tracked.push_back( PhysicsFixedListTrackedValue( 23 ) );
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> trackedCopy( tracked );
+    PhysicsFixedList<PhysicsFixedListTrackedValue, 8> trackedMove( std::move( trackedCopy ) );
+
+    CHECK( trackedMove.size() == 2u );
+    CHECK( trackedMove[0].value == 17 );
+    CHECK( trackedMove[1].value == 23 );
+    CHECK( PhysicsFixedListTrackedValue::copyConstructions == 2 );
+    CHECK( PhysicsFixedListTrackedValue::moveConstructions >= 4 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: failed non-trivial copy and relocation clean every constructed destination" )
+{
+    RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+    using List = PhysicsFixedList<PhysicsFixedListThrowingValue, 8>;
+    PhysicsFixedListThrowingValue::liveCount = 0;
+    PhysicsFixedListThrowingValue::copyAttempts = 0;
+    PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+    PhysicsFixedListThrowingValue::moveAttempts = 0;
+    PhysicsFixedListThrowingValue::throwOnMoveAttempt = 0;
+
+    {
+        List source( "unit.physics-fixed-list.throwing-source", ExplicitTestCapacity );
+        source.Reserve( 3u );
+        source.push_back( PhysicsFixedListThrowingValue( 17 ) );
+        source.push_back( PhysicsFixedListThrowingValue( 23 ) );
+        REQUIRE( PhysicsFixedListThrowingValue::liveCount == 2 );
+
+        PhysicsFixedListThrowingValue::copyAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 2;
+        bool copyThrew = false;
+
+        try
+        {
+            List failedCopy( source );
+        }
+        catch ( const std::runtime_error& )
+        {
+            copyThrew = true;
+        }
+
+        CHECK( copyThrew );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+
+        PhysicsFixedListThrowingValue::copyAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 2;
+        bool relocationThrew = false;
+
+        try
+        {
+            source.Reserve( 5u );
+        }
+        catch ( const std::runtime_error& )
+        {
+            relocationThrew = true;
+        }
+
+        CHECK( relocationThrew );
+        CHECK( source.capacity() == 3u );
+        CHECK( source.size() == 2u );
+        CHECK( source[0].value == 17 );
+        CHECK( source[1].value == 23 );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
+
+        PhysicsFixedListThrowingValue::moveAttempts = 0;
+        PhysicsFixedListThrowingValue::throwOnMoveAttempt = 2;
+        bool moveThrew = false;
+
+        try
+        {
+            List failedMove( std::move( source ) );
+        }
+        catch ( const std::runtime_error& )
+        {
+            moveThrew = true;
+        }
+
+        CHECK( moveThrew );
+        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+        source.clear();
+        const std::span<const RuntimeReserveCapacityView> capacityRows = RuntimeReserveAllocator::CapacityRows();
+        const auto sourceRow =
+            std::find_if( capacityRows.begin(), capacityRows.end(), []( const RuntimeReserveCapacityView& candidate ) {
+                return candidate.ownerName &&
+                       std::strcmp( candidate.ownerName, "unit.physics-fixed-list.throwing-source" ) == 0;
+            } );
+        REQUIRE( sourceRow != capacityRows.end() );
+        CHECK( sourceRow->currentCapacity == 3 );
+        CHECK( sourceRow->liveCount == 0 );
+        CHECK( sourceRow->sessionHighWater == 2 );
+        PhysicsFixedListThrowingValue::throwOnMoveAttempt = 0;
+    }
+
+    CHECK( PhysicsFixedListThrowingValue::liveCount == 0 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: replay reserve requires an approved outer owner and growth scope" )
+{
+    constexpr const char* ownerName = "unit.physics-fixed-list.replay-owner";
+    const RuntimeReserveOwnerHandle owner =
+        RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 0, 1024 ) );
+    RuntimeReserveGrowthRequest request = MakeGrowthRequest( ownerName, 0, 128 );
+    request.elementSizeBytes = 1;
+    const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, request );
+    REQUIRE( growth.granted );
+
+    PhysicsFixedList<int, 8> values( "unit.physics-fixed-list.replay-target", ExplicitTestCapacity );
+    {
+        RuntimeAllocationScope replayPhase( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        values.Reserve( 4u );
+    }
+
+    CHECK( values.capacity() == 4u );
+
+    constexpr const char* publishedOwnerName = "unit.physics-fixed-list.replay-published-source";
+    PhysicsFixedList<int, 8> publishedSource( publishedOwnerName, ExplicitTestCapacity );
+    {
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        publishedSource.Reserve( 3u );
+        publishedSource.resize( 2u );
+    }
+
+    const auto findPublishedRow = [publishedOwnerName]() -> const RuntimeReserveCapacityView* {
+        const std::span<const RuntimeReserveCapacityView> rows = RuntimeReserveAllocator::CapacityRows();
+        const auto row = std::find_if( rows.begin(), rows.end(), [publishedOwnerName]( const RuntimeReserveCapacityView& candidate ) {
+            return candidate.ownerName && std::strcmp( candidate.ownerName, publishedOwnerName ) == 0;
+        } );
+        return row != rows.end() ? &*row : nullptr;
+    };
+    const RuntimeReserveCapacityView* beforeReplayClone = findPublishedRow();
+    REQUIRE( beforeReplayClone != nullptr );
+    REQUIRE( beforeReplayClone->currentCapacity == 3 );
+    REQUIRE( beforeReplayClone->liveCount == 2 );
+
+    {
+        RuntimeAllocationScope replayPhase( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        PhysicsFixedList<int, 8> replayClone( publishedSource );
+        CHECK( replayClone.capacity() == 2u );
+        CHECK( replayClone.size() == 2u );
+    }
+
+    const RuntimeReserveCapacityView* afterReplayClone = findPublishedRow();
+    REQUIRE( afterReplayClone != nullptr );
+    CHECK( afterReplayClone->currentCapacity == 3 );
+    CHECK( afterReplayClone->liveCount == 2 );
+    CHECK( afterReplayClone->sessionHighWater == 2 );
+}
+
+
+TEST_CASE( "PhysicsFixedList: object size no longer scales with compile-time capacity" )
+{
+    CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) == sizeof( PhysicsFixedList<uint8_t, 8> ) );
+    CHECK( sizeof( PhysicsFixedList<uint8_t, 8192> ) <= 64u );
 }

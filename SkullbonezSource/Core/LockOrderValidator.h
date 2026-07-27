@@ -49,13 +49,14 @@ class LockOrderValidator
   private:
 #ifdef _DEBUG
     static constexpr uint32_t MAX_LOCK_COUNT = 256;
-    bool
-    HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting, std::bitset<MAX_LOCK_COUNT>& visited ) const;
+    bool HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting, std::bitset<MAX_LOCK_COUNT>& visited ) const;
     bool DetectCycleUnlocked() const;
+
     // Lifetime: Init owns this graph for longer than its WorkerPool borrow.
     // Keeping the state in the concrete owner removes teardown-order and
     // service-locator ambiguity from the lock path.
     std::mutex m_mutex;
+
     // Invariant: Debug diagnostics are bounded too. One bit row per registered
     // lock records observed ordering without runtime growth or heap fallback.
     std::array<std::bitset<MAX_LOCK_COUNT>, MAX_LOCK_COUNT> m_edges = {};

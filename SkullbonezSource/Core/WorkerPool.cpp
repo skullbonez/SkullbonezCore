@@ -24,6 +24,7 @@ Invariants:
   - Worker callbacks obey the engine-wide no-exceptions policy; a returned
     callback completed normally, while invariant failures terminate in Lane F.
   - Every persistent worker receives its stable profiler label before it waits
+
     for the first job, so captures never depend on which task runs first.
 
 Related:
@@ -85,6 +86,7 @@ int WorkerPool::MaxThreadCount()
 int WorkerPool::ResolveThreadCount( int requestedThreadCount )
 {
     const int maxThreadCount = MaxThreadCount();
+
     if ( requestedThreadCount == 0 )
     {
         return 0;
@@ -92,6 +94,7 @@ int WorkerPool::ResolveThreadCount( int requestedThreadCount )
 
     if ( requestedThreadCount < 0 )
     {
+
         if ( maxThreadCount <= 1 )
         {
             return 0;
@@ -121,6 +124,7 @@ void WorkerPool::Initialise( int requestedThreadCount )
     Shutdown();
 
     const int threadCount = ResolveThreadCount( requestedThreadCount );
+
     if ( threadCount <= 0 )
     {
         fprintf( stdout, "[workers] Worker pool disabled.\n" );
@@ -133,6 +137,7 @@ void WorkerPool::Initialise( int requestedThreadCount )
     }
 
     m_threads.reserve( static_cast<size_t>( threadCount ) );
+
     for ( int i = 0; i < threadCount; ++i )
     {
         m_threads.emplace_back( [this, i]() { WorkerLoop( i ); } );
@@ -152,6 +157,7 @@ void WorkerPool::Shutdown()
 
     for ( std::thread& thread : m_threads )
     {
+
         if ( thread.joinable() )
         {
             thread.join();
@@ -174,9 +180,11 @@ void WorkerPool::Shutdown()
 
 void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 {
+
     // Why: SubmitNoAlloc chooses the typed trampoline before this private queue
     // boundary. The caller-owned task remains alive until its completion fence,
     // and the fixed record never allocates or publishes erased state.
+
     if ( !dispatch )
     {
         return;
@@ -190,6 +198,7 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 
     {
         std::lock_guard<WorkerPoolMutex> lock( m_mutex );
+
         if ( m_stopping )
         {
             SB_FATAL( "WorkerPool",
@@ -201,9 +210,7 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
             SB_FATAL( "WorkerPool",
                       "Fixed task queue exhausted: owner=Core/WorkerPool phase=runtime_dispatch count=%d capacity=%d "
                       "high_water=%d.",
-                      m_taskCount,
-                      WORKER_PARALLEL_TASK_CAPACITY,
-                      m_taskHighWater );
+                      m_taskCount, WORKER_PARALLEL_TASK_CAPACITY, m_taskHighWater );
         }
 
         const int tail = ( m_taskHead + m_taskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
@@ -216,23 +223,17 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 }
 
 
-int WorkerPool::BuildChunkRangesNoAlloc( int begin,
-                                         int end,
-                                         int minParallelItems,
-                                         WorkerChunkRange* outChunks,
+int WorkerPool::BuildChunkRangesNoAlloc( int begin, int end, int minParallelItems, WorkerChunkRange* outChunks,
                                          int outCapacity ) const
 {
     return BuildChunks( begin, end, minParallelItems, outChunks, outCapacity );
 }
 
 
-int WorkerPool::BuildChunks( int begin,
-                             int end,
-                             int minParallelItems,
-                             WorkerChunkRange* outChunks,
-                             int outCapacity ) const
+int WorkerPool::BuildChunks( int begin, int end, int minParallelItems, WorkerChunkRange* outChunks, int outCapacity ) const
 {
     const int itemCount = end - begin;
+
     if ( itemCount <= 0 || !outChunks || outCapacity <= 0 )
     {
         return 0;
@@ -246,19 +247,17 @@ int WorkerPool::BuildChunks( int begin,
 
     const int workerCount = (std::max)( 1, GetThreadCount() );
     const int chunkCount = (std::max)( 1, (std::min)( workerCount, itemCount ) );
+
     if ( chunkCount > outCapacity )
     {
-        SB_FATAL( "WorkerPool",
-                  "Parallel chunk capacity exceeded: chunks=%d capacity=%d items=%d workers=%d.",
-                  chunkCount,
-                  outCapacity,
-                  itemCount,
-                  workerCount );
+        SB_FATAL( "WorkerPool", "Parallel chunk capacity exceeded: chunks=%d capacity=%d items=%d workers=%d.", chunkCount,
+                  outCapacity, itemCount, workerCount );
     }
 
     const int baseChunkSize = itemCount / chunkCount;
     const int remainder = itemCount % chunkCount;
     int cursor = begin;
+
     for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
     {
         const int chunkSize = baseChunkSize + ( chunkIndex < remainder ? 1 : 0 );
@@ -272,15 +271,16 @@ int WorkerPool::BuildChunks( int begin,
 }
 
 
-void WorkerPool::SubmitParallelChunk( void* dispatchState,
-                                      ParallelTaskDispatcher dispatch,
-                                      const WorkerChunkRange& chunk )
+void WorkerPool::SubmitParallelChunk( void* dispatchState, ParallelTaskDispatcher dispatch, const WorkerChunkRange& chunk )
 {
+
     // Why: ParallelForChunksNoAlloc owns the typed stack state and waits on its
     // fence before returning; this private fixed queue only transports the
     // synchronous borrow plus its matching typed trampoline.
+
     if ( GetThreadCount() == 0 )
     {
+
         if ( dispatch )
         {
             dispatch( dispatchState, chunk );
@@ -291,6 +291,7 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
 
     {
         std::lock_guard<WorkerPoolMutex> lock( m_mutex );
+
         if ( m_stopping )
         {
             SB_FATAL( "WorkerPool", "SubmitParallelChunk called while shutting down." );
@@ -301,9 +302,7 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
             SB_FATAL( "WorkerPool",
                       "Fixed parallel task queue exhausted: owner=Core/WorkerPool phase=runtime_parallel_dispatch "
                       "count=%d capacity=%d high_water=%d.",
-                      m_parallelTaskCount,
-                      WORKER_PARALLEL_TASK_CAPACITY,
-                      m_parallelTaskHighWater );
+                      m_parallelTaskCount, WORKER_PARALLEL_TASK_CAPACITY, m_parallelTaskHighWater );
         }
 
         const int tail = ( m_parallelTaskHead + m_parallelTaskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
@@ -379,6 +378,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
 
         if ( hasParallelTask )
         {
+
             if ( parallelTask.dispatch )
             {
                 parallelTask.dispatch( parallelTask.dispatchState, parallelTask.chunk );
@@ -386,6 +386,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
         }
         else
         {
+
             if ( task.dispatch )
             {
                 task.dispatch( task.state );
@@ -417,15 +418,18 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
     };
     constexpr int fixedTaskCount = 32;
     constexpr int fixedTaskRounds = 10;
+
     for ( int round = 0; round < fixedTaskRounds; ++round )
     {
         FixedTaskProbe fixedTaskProbe( fixedTaskCount );
+
         for ( int taskIndex = 0; taskIndex < fixedTaskCount; ++taskIndex )
         {
             pool.SubmitNoAlloc( fixedTaskProbe );
         }
 
         fixedTaskProbe.fence.Wait();
+
         if ( fixedTaskProbe.completed.load( std::memory_order_relaxed ) != fixedTaskCount )
         {
             fprintf( out, "[worker-self-test] Fixed task ring did not execute every submitted task.\n" );
@@ -434,16 +438,12 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
     }
 
     std::vector<int> squares( 257, 0 );
-    pool.ParallelForNoAlloc(
-        0,
-        static_cast<int>( squares.size() ),
-        [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },
-        1,
-        "Frame/Workers/SelfTest/ParallelFor",
-        HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
+    pool.ParallelForNoAlloc( 0, static_cast<int>( squares.size() ), [&]( int index ) { squares[static_cast<size_t>( index )] = index * index; },
+                             1, "Frame/Workers/SelfTest/ParallelFor", HashStr( "Frame/Workers/SelfTest/ParallelFor" ) );
 
     for ( int index = 0; index < static_cast<int>( squares.size() ); ++index )
     {
+
         if ( squares[static_cast<size_t>( index )] != index * index )
         {
             fprintf( out, "[worker-self-test] ParallelFor mismatch at %d.\n", index );
@@ -453,20 +453,17 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 
     std::vector<std::vector<int>> chunkOutputs;
     std::vector<int> merged;
-    pool.ParallelCollectOrdered<std::vector<int>>(
-        0,
-        257,
-        chunkOutputs,
-        []( int, int begin, int end, std::vector<int>& local )
-        {
-            local.reserve( static_cast<size_t>( end - begin ) );
-            for ( int index = begin; index < end; ++index )
-            {
-                local.push_back( index );
-            }
-        },
-        [&]( int, const std::vector<int>& local ) { merged.insert( merged.end(), local.begin(), local.end() ); },
-        1 );
+    pool.ParallelCollectOrdered<std::vector<int>>( 0, 257, chunkOutputs,
+                                                   []( int, int begin, int end, std::vector<int>& local )
+                                                   {
+                                                       local.reserve( static_cast<size_t>( end - begin ) );
+
+                                                       for ( int index = begin; index < end; ++index )
+                                                       {
+                                                           local.push_back( index );
+                                                       }
+                                                   },
+                                                   [&]( int, const std::vector<int>& local ) { merged.insert( merged.end(), local.begin(), local.end() ); }, 1 );
 
     if ( merged.size() != squares.size() )
     {
@@ -476,6 +473,7 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 
     for ( int index = 0; index < static_cast<int>( merged.size() ); ++index )
     {
+
         if ( merged[static_cast<size_t>( index )] != index )
         {
             fprintf( out, "[worker-self-test] Ordered collection mismatch at %d.\n", index );

@@ -67,6 +67,7 @@ struct FileCloser
 {
     void operator()( FILE* file ) const
     {
+
         if ( file )
         {
             fclose( file );
@@ -83,12 +84,14 @@ bool IsSpaceOrTab( char c )
 
 char* TrimInPlace( char* text )
 {
+
     while ( IsSpaceOrTab( *text ) )
     {
         ++text;
     }
 
     size_t len = strlen( text );
+
     while ( len > 0 && IsSpaceOrTab( text[len - 1] ) )
     {
         text[--len] = '\0';
@@ -99,13 +102,8 @@ char* TrimInPlace( char* text )
 
 void WarnConfigLine( const char* path, int line, const char* key, const char* value, const char* reason )
 {
-    fprintf( stderr,
-             "[config] %s:%d ignored %s=%s (%s).\n",
-             path ? path : "<config>",
-             line,
-             key ? key : "<unknown>",
-             value ? value : "",
-             reason ? reason : "invalid value" );
+    fprintf( stderr, "[config] %s:%d ignored %s=%s (%s).\n", path ? path : "<config>", line, key ? key : "<unknown>",
+             value ? value : "", reason ? reason : "invalid value" );
 }
 
 bool IsRangeValid( double value, const ConfigSetting& setting )
@@ -115,6 +113,7 @@ bool IsRangeValid( double value, const ConfigSetting& setting )
 
 bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const char* path, int line, int& out )
 {
+
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected integer" );
@@ -124,6 +123,7 @@ bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const
     errno = 0;
     char* end = nullptr;
     const long parsed = strtol( value, &end, 10 );
+
     if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
     {
         WarnConfigLine( path, line, setting.name, value, "expected integer" );
@@ -142,6 +142,7 @@ bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const
 
 bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, const char* path, int line, float& out )
 {
+
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected float" );
@@ -151,6 +152,7 @@ bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, con
     errno = 0;
     char* end = nullptr;
     const double parsed = strtod( value, &end );
+
     if ( end == value || *end != '\0' || errno == ERANGE )
     {
         WarnConfigLine( path, line, setting.name, value, "expected float" );
@@ -169,6 +171,7 @@ bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, con
 
 bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, const char* path, int line, bool& out )
 {
+
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected boolean" );
@@ -188,6 +191,7 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
     }
 
     int parsed = 0;
+
     if ( ParseConfigIntValue( value, setting, path, line, parsed ) )
     {
         out = parsed != 0;
@@ -198,14 +202,11 @@ bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, cons
     return false;
 }
 
-bool ApplyConfigString( EngineConfig& cfg,
-                        const char* value,
-                        const ConfigSetting& setting,
-                        const char* path,
-                        int line,
+bool ApplyConfigString( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line,
                         std::string& out )
 {
     static_cast<void>( cfg );
+
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected non-empty string" );
@@ -216,72 +217,72 @@ bool ApplyConfigString( EngineConfig& cfg,
     return true;
 }
 
-#define CONFIG_INT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                 \
-    { KEY,                                                                                                             \
-      ConfigValueType::Int,                                                                                            \
-      true,                                                                                                            \
-      static_cast<double>( MIN_VALUE ),                                                                                \
-      static_cast<double>( MAX_VALUE ),                                                                                \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool     \
-      {                                                                                                                \
-          int parsed = 0;                                                                                              \
-          if ( !ParseConfigIntValue( value, setting, path, line, parsed ) )                                            \
-          {                                                                                                            \
-              return false;                                                                                            \
-          }                                                                                                            \
-          cfg.FIELD = parsed;                                                                                          \
-          return true;                                                                                                 \
-      },                                                                                                               \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
+#define CONFIG_INT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                      \
+    { KEY,                                                                                                                  \
+      ConfigValueType::Int,                                                                                                 \
+      true,                                                                                                                 \
+      static_cast<double>( MIN_VALUE ),                                                                                     \
+      static_cast<double>( MAX_VALUE ),                                                                                     \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
+      {                                                                                                                     \
+          int parsed = 0;                                                                                                   \
+          if ( !ParseConfigIntValue( value, setting, path, line, parsed ) )                                                 \
+          {                                                                                                                 \
+              return false;                                                                                                 \
+          }                                                                                                                 \
+          cfg.FIELD = parsed;                                                                                               \
+          return true;                                                                                                      \
+      },                                                                                                                    \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
       { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ); } }
 
-#define CONFIG_FLOAT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                               \
-    { KEY,                                                                                                             \
-      ConfigValueType::Float,                                                                                          \
-      true,                                                                                                            \
-      static_cast<double>( MIN_VALUE ),                                                                                \
-      static_cast<double>( MAX_VALUE ),                                                                                \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool     \
-      {                                                                                                                \
-          float parsed = 0.0f;                                                                                         \
-          if ( !ParseConfigFloatValue( value, setting, path, line, parsed ) )                                          \
-          {                                                                                                            \
-              return false;                                                                                            \
-          }                                                                                                            \
-          cfg.FIELD = parsed;                                                                                          \
-          return true;                                                                                                 \
-      },                                                                                                               \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
+#define CONFIG_FLOAT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                    \
+    { KEY,                                                                                                                  \
+      ConfigValueType::Float,                                                                                               \
+      true,                                                                                                                 \
+      static_cast<double>( MIN_VALUE ),                                                                                     \
+      static_cast<double>( MAX_VALUE ),                                                                                     \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
+      {                                                                                                                     \
+          float parsed = 0.0f;                                                                                              \
+          if ( !ParseConfigFloatValue( value, setting, path, line, parsed ) )                                               \
+          {                                                                                                                 \
+              return false;                                                                                                 \
+          }                                                                                                                 \
+          cfg.FIELD = parsed;                                                                                               \
+          return true;                                                                                                      \
+      },                                                                                                                    \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
       { fprintf( out, "%s = %.9g\n", setting.name, static_cast<double>( cfg.FIELD ) ); } }
 
-#define CONFIG_BOOL( KEY, FIELD )                                                                                      \
-    { KEY,                                                                                                             \
-      ConfigValueType::Bool,                                                                                           \
-      true,                                                                                                            \
-      0.0,                                                                                                             \
-      static_cast<double>( INT_MAX ),                                                                                  \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool     \
-      {                                                                                                                \
-          bool parsed = false;                                                                                         \
-          if ( !ParseConfigBoolValue( value, setting, path, line, parsed ) )                                           \
-          {                                                                                                            \
-              return false;                                                                                            \
-          }                                                                                                            \
-          cfg.FIELD = parsed;                                                                                          \
-          return true;                                                                                                 \
-      },                                                                                                               \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
+#define CONFIG_BOOL( KEY, FIELD )                                                                                           \
+    { KEY,                                                                                                                  \
+      ConfigValueType::Bool,                                                                                                \
+      true,                                                                                                                 \
+      0.0,                                                                                                                  \
+      static_cast<double>( INT_MAX ),                                                                                       \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
+      {                                                                                                                     \
+          bool parsed = false;                                                                                              \
+          if ( !ParseConfigBoolValue( value, setting, path, line, parsed ) )                                                \
+          {                                                                                                                 \
+              return false;                                                                                                 \
+          }                                                                                                                 \
+          cfg.FIELD = parsed;                                                                                               \
+          return true;                                                                                                      \
+      },                                                                                                                    \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
       { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ? 1 : 0 ); } }
 
-#define CONFIG_STRING( KEY, FIELD )                                                                                    \
-    { KEY,                                                                                                             \
-      ConfigValueType::String,                                                                                         \
-      false,                                                                                                           \
-      0.0,                                                                                                             \
-      0.0,                                                                                                             \
-      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool     \
-      { return ApplyConfigString( cfg, value, setting, path, line, cfg.FIELD ); },                                     \
-      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                           \
+#define CONFIG_STRING( KEY, FIELD )                                                                                         \
+    { KEY,                                                                                                                  \
+      ConfigValueType::String,                                                                                              \
+      false,                                                                                                                \
+      0.0,                                                                                                                  \
+      0.0,                                                                                                                  \
+      []( EngineConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool          \
+      { return ApplyConfigString( cfg, value, setting, path, line, cfg.FIELD ); },                                          \
+      []( const EngineConfig& cfg, FILE* out, const ConfigSetting& setting )                                                \
       { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
 
 template <typename T, size_t N> constexpr size_t ArrayCount( const T ( & )[N] )
@@ -329,8 +330,7 @@ struct ConfigSettingTable
     size_t count;
 };
 
-template <size_t N>
-constexpr ConfigSettingRange FullConfigRange( ConfigSettingDomain domain, const ConfigSetting ( & )[N] )
+template <size_t N> constexpr ConfigSettingRange FullConfigRange( ConfigSettingDomain domain, const ConfigSetting ( & )[N] )
 {
     return { domain, 0, N };
 }
@@ -371,9 +371,7 @@ static const ConfigSetting kSkyboxSettings[] = {
 };
 
 static const ConfigSetting kRuntimeCapacitySettings[] = {
-    CONFIG_INT( "game_model_capacity",
-                runtimeCapacity.sceneObjectCapacity,
-                1,
+    CONFIG_INT( "game_model_capacity", runtimeCapacity.sceneObjectCapacity, 1,
                 SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
     CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
 };
@@ -444,32 +442,22 @@ static const ConfigSetting kOrdinaryRenderSettings[] = {
     CONFIG_FLOAT( "ordinary_box_specular_scale", ordinaryRender.boxSpecularScale, 0.0, 2.0 ),
     CONFIG_FLOAT( "replay_trajectory_future_width", ordinaryRender.replayTrajectory.futureWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_future_alpha", ordinaryRender.replayTrajectory.futureAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_future_edge_feather",
-                  ordinaryRender.replayTrajectory.futureEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_future_edge_feather", ordinaryRender.replayTrajectory.futureEdgeFeather, 0.25, 1.25 ),
     CONFIG_FLOAT( "replay_trajectory_causal_width", ordinaryRender.replayTrajectory.causalWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_causal_alpha", ordinaryRender.replayTrajectory.causalAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_causal_edge_feather",
-                  ordinaryRender.replayTrajectory.causalEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_causal_edge_feather", ordinaryRender.replayTrajectory.causalEdgeFeather, 0.25, 1.25 ),
     CONFIG_FLOAT( "replay_trajectory_baseline_width", ordinaryRender.replayTrajectory.baselineWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_baseline_alpha", ordinaryRender.replayTrajectory.baselineAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather",
-                  ordinaryRender.replayTrajectory.baselineEdgeFeather,
-                  0.25,
+    CONFIG_FLOAT( "replay_trajectory_baseline_edge_feather", ordinaryRender.replayTrajectory.baselineEdgeFeather, 0.25,
                   1.25 ),
     CONFIG_FLOAT( "replay_trajectory_marker_width", ordinaryRender.replayTrajectory.markerWidth, 1.0, 6.0 ),
     CONFIG_FLOAT( "replay_trajectory_marker_alpha", ordinaryRender.replayTrajectory.markerAlpha, 0.05, 1.0 ),
-    CONFIG_FLOAT( "replay_trajectory_marker_edge_feather",
-                  ordinaryRender.replayTrajectory.markerEdgeFeather,
-                  0.25,
-                  1.25 ),
+    CONFIG_FLOAT( "replay_trajectory_marker_edge_feather", ordinaryRender.replayTrajectory.markerEdgeFeather, 0.25, 1.25 ),
     CONFIG_FLOAT( "replay_trajectory_selected_emphasis", ordinaryRender.replayTrajectory.selectedEmphasis, 0.0, 1.0 ),
 };
 
 static const ConfigSetting kCinematicRenderSettings[] = {
+
     // Compatibility: historical "screen" keys still target normalized world-sky angles.
     CONFIG_BOOL( "cinematic_rendering", cinematicRender.enabled ),
     CONFIG_BOOL( "cinematic_sky_atmosphere", cinematicRender.skyAtmosphereEnabled ),
@@ -586,9 +574,7 @@ static const ConfigSetting kBroadphaseSettings[] = {
 static const ConfigSetting kPersistentContactSolverSettings[] = {
     CONFIG_FLOAT( "persistent_contact_slop", persistentContactSolver.slop, 0.0, 1000000.0 ),
     CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactSolver.baumgarteBeta, 0.0, 1.0 ),
-    CONFIG_FLOAT( "persistent_contact_position_correction_percent",
-                  persistentContactSolver.positionCorrectionPercent,
-                  0.0,
+    CONFIG_FLOAT( "persistent_contact_position_correction_percent", persistentContactSolver.positionCorrectionPercent, 0.0,
                   1.0 ),
     CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolver.iterations, 1, 1000000 ),
 };
@@ -730,8 +716,10 @@ static constexpr ConfigSettingRange kConfigSettingOrder[] = {
 // added to kConfigSettingOrder.
 constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
 {
+
     for ( const ConfigSettingRange& range : kConfigSettingOrder )
     {
+
         if ( static_cast<size_t>( range.domain ) >= static_cast<size_t>( ConfigSettingDomain::Count ) )
         {
             return false;
@@ -742,8 +730,10 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
     {
         const ConfigSettingDomain domain = static_cast<ConfigSettingDomain>( domainIndex );
         const size_t domainCount = kConfigSettingTables[domainIndex].count;
+
         for ( const ConfigSettingRange& range : kConfigSettingOrder )
         {
+
             if ( range.domain == domain && ( range.first > domainCount || range.count > domainCount - range.first ) )
             {
                 return false;
@@ -753,8 +743,10 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
         for ( size_t row = 0; row < domainCount; ++row )
         {
             size_t visits = 0;
+
             for ( const ConfigSettingRange& range : kConfigSettingOrder )
             {
+
                 if ( range.domain == domain && row >= range.first && row - range.first < range.count )
                 {
                     ++visits;
@@ -776,11 +768,14 @@ static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
 
 template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 {
+
     for ( const ConfigSettingRange& range : kConfigSettingOrder )
     {
         const ConfigSettingTable& table = kConfigSettingTables[static_cast<size_t>( range.domain )];
+
         for ( size_t row = 0; row < range.count; ++row )
         {
+
             if ( !visitor( table.settings[range.first + row] ) )
             {
                 return false;
@@ -794,17 +789,17 @@ template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 const ConfigSetting* FindConfigSetting( const char* name )
 {
     const ConfigSetting* found = nullptr;
-    VisitConfigSettingsInOrder(
-        [name, &found]( const ConfigSetting& setting )
-        {
-            if ( strcmp( setting.name, name ) != 0 )
-            {
-                return true;
-            }
+    VisitConfigSettingsInOrder( [name, &found]( const ConfigSetting& setting )
+                                {
 
-            found = &setting;
-            return false;
-        } );
+                                    if ( strcmp( setting.name, name ) != 0 )
+                                    {
+                                        return true;
+                                    }
+
+                                    found = &setting;
+                                    return false;
+                                } );
 
     return found;
 }
@@ -815,6 +810,7 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 {
     outVersion = 0;
     FILE* rawFile = nullptr;
+
     if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
     {
         return SbResult::Success();
@@ -825,22 +821,26 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
     bool sawVersion = false;
     char line[512];
     int lineNumber = 0;
+
     while ( fgets( line, sizeof( line ), file.get() ) )
     {
         ++lineNumber;
         size_t len = strlen( line );
+
         while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )
         {
             line[--len] = '\0';
         }
 
         char* trimmedLine = TrimInPlace( line );
+
         if ( *trimmedLine == '\0' || *trimmedLine == '#' )
         {
             continue;
         }
 
         char* eq = strchr( trimmedLine, '=' );
+
         if ( !eq )
         {
             continue;
@@ -848,6 +848,7 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
         *eq = '\0';
         char* key = TrimInPlace( trimmedLine );
+
         if ( strcmp( key, "format_version" ) != 0 )
         {
             continue;
@@ -855,14 +856,13 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
         if ( sawVersion )
         {
-            return SbResult::Failure( "Core/EngineConfig",
-                                      "Duplicate engine config format_version at %s:%d.",
-                                      path,
+            return SbResult::Failure( "Core/EngineConfig", "Duplicate engine config format_version at %s:%d.", path,
                                       lineNumber );
         }
 
         char* value = TrimInPlace( eq + 1 );
         char* hash = strchr( value, '#' );
+
         if ( hash )
         {
             *hash = '\0';
@@ -872,11 +872,10 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
         errno = 0;
         char* end = nullptr;
         const unsigned long parsed = strtoul( value, &end, 10 );
+
         if ( end == value || *TrimInPlace( end ) != '\0' || errno == ERANGE || parsed > UINT_MAX )
         {
-            return SbResult::Failure( "Core/EngineConfig",
-                                      "Invalid engine config format_version at %s:%d.",
-                                      path,
+            return SbResult::Failure( "Core/EngineConfig", "Invalid engine config format_version at %s:%d.", path,
                                       lineNumber );
         }
 
@@ -887,10 +886,8 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
     if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
     {
         return SbResult::Failure( "Core/EngineConfig",
-                                  "Engine config format version %u is newer than current version %u: %s.",
-                                  outVersion,
-                                  ENGINE_CONFIG_FORMAT_VERSION,
-                                  path );
+                                  "Engine config format version %u is newer than current version %u: %s.", outVersion,
+                                  ENGINE_CONFIG_FORMAT_VERSION, path );
     }
 
     // Versions 0-6 share the key/value grammar. Versioned execution rows are
@@ -903,17 +900,20 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 /* ---------------------------------------------------------------------------------*/
 SbResult EngineConfig::Load( const char* path )
 {
+
     // engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
     unsigned int formatVersion = 0;
     const SbResult versionResult = ReadConfigFormatVersion( path, formatVersion );
+
     if ( !versionResult.ok )
     {
         return versionResult;
     }
 
     FILE* rawFile = nullptr;
+
     if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
     {
         return SbResult::Success();
@@ -923,22 +923,26 @@ SbResult EngineConfig::Load( const char* path )
 
     char line[512];
     int lineNumber = 0;
+
     while ( fgets( line, sizeof( line ), file.get() ) )
     {
         ++lineNumber;
         size_t len = strlen( line );
+
         while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )
         {
             line[--len] = '\0';
         }
 
         char* trimmedLine = TrimInPlace( line );
+
         if ( *trimmedLine == '\0' || *trimmedLine == '#' )
         {
             continue;
         }
 
         char* eq = strchr( trimmedLine, '=' );
+
         if ( !eq )
         {
             WarnConfigLine( path, lineNumber, trimmedLine, "", "expected key=value" );
@@ -950,6 +954,7 @@ SbResult EngineConfig::Load( const char* path )
         char* value = TrimInPlace( eq + 1 );
 
         char* hash = strchr( value, '#' );
+
         if ( hash )
         {
             *hash = '\0';
@@ -968,6 +973,7 @@ SbResult EngineConfig::Load( const char* path )
         }
 
         const ConfigSetting* setting = FindConfigSetting( key );
+
         if ( !setting )
         {
             WarnConfigLine( path, lineNumber, key, value, "unknown setting" );
@@ -984,16 +990,17 @@ SbResult EngineConfig::Load( const char* path )
 /* ---------------------------------------------------------------------------------*/
 void EngineConfig::Dump( FILE* out ) const
 {
+
     if ( !out )
     {
         return;
     }
 
     fprintf( out, "[config]\n" );
-    VisitConfigSettingsInOrder(
-        [this, out]( const ConfigSetting& setting )
-        {
-            setting.dump( *this, out, setting );
-            return true;
-        } );
+    VisitConfigSettingsInOrder( [this, out]( const ConfigSetting& setting )
+                                {
+                                    setting.dump( *this, out, setting );
+
+                                    return true;
+                                } );
 }

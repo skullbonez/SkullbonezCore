@@ -28,12 +28,13 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShape& shape,
+bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionShapeReference& shape,
                                      EditorPrimitiveShapeSnapshot& outSnapshot )
 {
     using namespace Math::CollisionDetection;
     outSnapshot = {};
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+
+    if ( const BoundingSphere* sphere = GetShapeIf<BoundingSphere>( &shape ) )
     {
         outSnapshot.kind = EditorPrimitiveShapeKind::Sphere;
         outSnapshot.dimensions.x = sphere->GetRadius();
@@ -42,7 +43,7 @@ bool TryCaptureEditorPrimitiveShape( const Math::CollisionDetection::CollisionSh
         return true;
     }
 
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    if ( const BoundingBox* box = GetShapeIf<BoundingBox>( &shape ) )
     {
         outSnapshot.kind = EditorPrimitiveShapeKind::Box;
         outSnapshot.dimensions = box->GetHalfExtents();
@@ -58,6 +59,7 @@ bool TryBuildEditorPrimitiveShape( const EditorPrimitiveShapeSnapshot& snapshot,
                                    Math::CollisionDetection::CollisionShape& outShape )
 {
     using namespace Math::CollisionDetection;
+
     if ( snapshot.kind == EditorPrimitiveShapeKind::Sphere )
     {
         outShape = BoundingSphere( snapshot.dimensions.x, snapshot.localPosition, snapshot.dragCoefficient );
@@ -84,6 +86,7 @@ void EditorCommandHistory::Clear()
 
 void EditorCommandHistory::InvalidateForNonUndoableEdit()
 {
+
     // Hazard: retaining either side of history across an edit with no inverse
     // would let a later undo/redo apply facts captured for a different world.
     Clear();
@@ -93,6 +96,7 @@ void EditorCommandHistory::InvalidateForNonUndoableEdit()
 
 void EditorCommandHistory::Push( const EditorCommandEntry& entry )
 {
+
     if ( entry.kind == EditorCommandKind::None )
     {
         return;
@@ -101,12 +105,14 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     // Hazard: a branch from before the clean cursor removes the only route
     // back to the saved state, so equality with a future cursor is no longer
     // meaningful until the next successful save.
+
     if ( m_cleanCursor <= EDITOR_COMMAND_HISTORY_CAPACITY && m_cleanCursor > m_cursor )
     {
         m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
     }
 
     m_count = m_cursor;
+
     if ( m_count < EDITOR_COMMAND_HISTORY_CAPACITY )
     {
         m_entries[m_count++] = entry;
@@ -116,6 +122,7 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
 
     // Invariant: overflow is bounded editor work. The oldest inverse command
     // is discarded without allocating or changing the remaining order.
+
     if ( m_cleanCursor == 0 )
     {
         m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
@@ -150,6 +157,7 @@ const EditorCommandEntry* EditorCommandHistory::PendingRedo() const
 
 bool EditorCommandHistory::CommitUndo()
 {
+
     if ( m_cursor == 0 )
     {
         return false;
@@ -162,6 +170,7 @@ bool EditorCommandHistory::CommitUndo()
 
 bool EditorCommandHistory::CommitRedo()
 {
+
     if ( m_cursor >= m_count )
     {
         return false;

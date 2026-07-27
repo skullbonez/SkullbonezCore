@@ -61,38 +61,29 @@ namespace Rendering
 class RenderInstanceRenderer
 {
   public:
+
     // Submits the main view. The optional mask chooses either the marked or
     // unmarked model rows; all borrows end before this call returns.
     static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
-                              const Rendering::RenderInstanceStore& renderStore,
-                              const Physics::ColliderStore& colliderStore,
-                              bool renderCollisionVolumes,
-                              const Math::Transformation::Matrix4& view,
-                              const Math::Transformation::Matrix4& projection,
-                              const float ( &lightPosition )[4],
+                              const Rendering::RenderInstanceStore& renderStore, const Physics::ColliderStore& colliderStore,
+                              bool renderCollisionVolumes, const Math::Transformation::Matrix4& view,
+                              const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
                               const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                              const Rendering::ShadowFrameData* shadow,
-                              float materialAlpha,
-                              const std::vector<uint8_t>* modelMask,
-                              bool drawMaskedModels );
+                              const Rendering::ShadowFrameData* shadow, float materialAlpha,
+                              const std::vector<uint8_t>* modelMask, bool drawMaskedModels );
+
     // Submits the mirrored view. Reflection clipping is structural, so callers
     // cannot accidentally select main-view visibility or supply a model mask.
     static void RenderReflectionModels( const Rendering::PrimitiveRenderContext& primitiveContext,
                                         const Rendering::RenderInstanceStore& renderStore,
-                                        const Physics::ColliderStore& colliderStore,
-                                        bool renderCollisionVolumes,
+                                        const Physics::ColliderStore& colliderStore, bool renderCollisionVolumes,
                                         const Math::Transformation::Matrix4& view,
-                                        const Math::Transformation::Matrix4& projection,
-                                        const float ( &lightPosition )[4],
+                                        const Math::Transformation::Matrix4& projection, const float ( &lightPosition )[4],
                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                        const Rendering::ShadowFrameData* shadow,
-                                        float materialAlpha );
-    static void BuildShadowCasterBatches( Core::Profiler* profiler,
-                                          const Rendering::RenderInstanceStore& renderStore,
-                                          const Physics::ColliderStore& colliderStore,
-                                          Threading::WorkerPool* workerPool,
-                                          bool useShadowParallelPrep,
-                                          Rendering::ShadowCasterBatches& outBatches );
+                                        const Rendering::ShadowFrameData* shadow, float materialAlpha );
+    static void BuildShadowCasterBatches( Core::Profiler* profiler, const Rendering::RenderInstanceStore& renderStore,
+                                          const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
+                                          bool useShadowParallelPrep, Rendering::ShadowCasterBatches& outBatches );
     static void SubmitShadowCasterBatches( Core::Profiler* profiler,
                                            const Rendering::PrimitiveRenderContext& primitiveContext,
                                            const Rendering::ShadowCasterBatches& batches,
@@ -100,25 +91,17 @@ class RenderInstanceRenderer
                                            const Math::Transformation::Matrix4& proj,
                                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( Core::Profiler* profiler,
-                                     const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void RenderShadowCasters( Core::Profiler* profiler, const Rendering::PrimitiveRenderContext& primitiveContext,
                                      const Rendering::RenderInstanceStore& renderStore,
-                                     const Physics::ColliderStore& colliderStore,
-                                     Threading::WorkerPool* workerPool,
-                                     bool useShadowParallelPrep,
-                                     const Math::Transformation::Matrix4& view,
+                                     const Physics::ColliderStore& colliderStore, Threading::WorkerPool* workerPool,
+                                     bool useShadowParallelPrep, const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                      Rendering::RenderVisibilityView visibilityView );
-    static bool GetObjectShadowBounds( Core::Profiler* profiler,
-                                       const Rendering::RenderInstanceStore& renderStore,
-                                       Threading::WorkerPool* workerPool,
-                                       bool useShadowParallelPrep,
-                                       const Math::Vector::Vector3& focus,
-                                       float maxDistance,
-                                       Math::Vector::Vector3& outCenter,
-                                       float& outRadius,
-                                       float& outHeightRange );
+    static bool GetObjectShadowBounds( Core::Profiler* profiler, const Rendering::RenderInstanceStore& renderStore,
+                                       Threading::WorkerPool* workerPool, bool useShadowParallelPrep,
+                                       const Math::Vector::Vector3& focus, float maxDistance,
+                                       Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

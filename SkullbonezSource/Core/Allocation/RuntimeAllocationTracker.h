@@ -93,6 +93,7 @@ RuntimeAllocationPhase GetRuntimeAllocationPhase() noexcept;
 bool RuntimeAllocationGuardEnabled() noexcept;
 bool RuntimeAllocationGuardHasGameplayViolations() noexcept;
 uint64_t RuntimeAllocationGuardViolationCount() noexcept;
+uint64_t RuntimeAllocationForeignFreeCount() noexcept;
 
 void ResetRuntimeAllocationCounters() noexcept;
 void PrintRuntimeAllocationSummary( FILE* out ) noexcept;

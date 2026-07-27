@@ -112,6 +112,7 @@ struct RasterStateBucketId
 
 struct PassRasterStateBucket
 {
+
     // Invariant: this id is meaningful only inside the declaring pass. It is
     // diagnostic identity, never a durable cross-pass or backend cache key.
     RasterStateBucketId id;
@@ -128,6 +129,7 @@ struct InstancedMeshDrawDesc
 
 struct ClearTargetDesc
 {
+
     // Values travel on the clear operation so no later pass can inherit hidden
     // backend clear state from an earlier target.
     bool color = true;
@@ -183,6 +185,7 @@ struct RetainedGeometryRangeToken
     uint32_t firstRecord = 0;
     uint32_t recordCapacity = 0;
     uint32_t recordCount = 0;
+
     // Feature replacement version plus a possible repaired predecessor. The
     // backend refreshes the changed tail without interpreting the feature record.
     uint32_t sourceVersion = 0;
@@ -205,6 +208,7 @@ constexpr RetainedGeometryUploadPlan BuildRetainedGeometryUploadPlan( RetainedGe
                                                                       std::size_t incomingUnitCount,
                                                                       bool repairPreviousUnit ) noexcept
 {
+
     if ( cached.identity == incoming.identity && cached.revision == incoming.revision )
     {
         return {};
@@ -212,10 +216,12 @@ constexpr RetainedGeometryUploadPlan BuildRetainedGeometryUploadPlan( RetainedGe
 
     const bool append = cached.identity == incoming.identity && cachedUnitCount <= incomingUnitCount;
     std::size_t firstChangedUnit = append ? cachedUnitCount : 0u;
+
     if ( append && repairPreviousUnit && firstChangedUnit > 0u )
     {
         --firstChangedUnit;
     }
+
     return { true, firstChangedUnit };
 }
 
@@ -227,6 +233,7 @@ BuildRetainedGeometryRangeUploadPlan( const RetainedGeometryRangeToken& cached,
                                       const RetainedGeometryRangeToken& incoming ) noexcept
 {
     const bool sameRange = cached.identity == incoming.identity && cached.sourceVersion == incoming.sourceVersion;
+
     if ( sameRange && cached.recordCount == incoming.recordCount )
     {
         return {};
@@ -236,6 +243,7 @@ BuildRetainedGeometryRangeUploadPlan( const RetainedGeometryRangeToken& cached,
     {
         return { true, cached.recordCount > 0u ? cached.recordCount - 1u : 0u };
     }
+
     return { true, 0u };
 }
 

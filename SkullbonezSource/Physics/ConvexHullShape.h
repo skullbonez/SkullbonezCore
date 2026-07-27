@@ -96,8 +96,7 @@ class ConvexHullShape
     static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, ConvexHullShape& outHull );
     static ConvexHullShape LoadFromFile( const char* path );
 
-    Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,
-                                            const Transformation::Matrix4& rotation ) const;
+    Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetDefaultMass() const;
     float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
@@ -119,12 +118,10 @@ class ConvexHullShape
     uint16_t GetFaceIndex( uint16_t index ) const;
     const char* GetName() const;
 
-    float
-    TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
-    float
-    TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
-    float
-    TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
+    float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
+    float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
+    float TestCollision( const ConvexHullShape& target, const Geometry::Ray& targetRay,
+                         const Geometry::Ray& focusRay ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

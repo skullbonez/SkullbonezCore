@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   UIComboBox.h implements UI ComboBox widgets, layout, drawing, or UI state
+
   for the in-engine controls. As a public header, keep edits anchored on UI
   request, layout, hit-test, and draw-command flow and on the
   glossary/invariants below.
@@ -48,23 +49,10 @@ class UIComboBox
     void SetLabelVisible( bool visible );
     void ToggleOpen();
     void Close();
-    void Draw( const UIDrawContext& draw,
-               const char* label,
-               const char* const* options,
-               int optionCount,
-               int selectedIndex,
-               int mouseX,
-               int mouseY,
-               uint32_t disabledOptionMask = 0 ) const;
-    void Draw( const UIDrawContext& draw,
-               const char* label,
-               const char* selectedText,
-               const char* const* options,
-               int optionCount,
-               int selectedIndex,
-               int mouseX,
-               int mouseY,
-               uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex,
+               int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
+    void Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options,
+               int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask = 0 ) const;
 
   private:
     UIRect FieldRect() const;

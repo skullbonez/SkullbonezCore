@@ -30,6 +30,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
@@ -42,6 +43,8 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
 using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -69,7 +72,8 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
 
     ColliderRecord collider;
     collider.boundingRadius = radius;
-    (void)colliderStore.CreateColliderRecord( collider );
+    const CollisionShape shape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+    (void)colliderStore.CreateColliderRecord( collider, shape );
 }
 
 TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )
@@ -85,6 +89,12 @@ PhysicsBodyStore& TestBodyStore()
     // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS slots. Static storage matches
     // runtime ownership and avoids consuming the doctest thread stack.
     static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     store.Clear();
     return store;
 }
@@ -94,6 +104,13 @@ ColliderStore& TestColliderStore()
     // Why: Collider records mirror runtime fixed storage, so the focused unit
     // fixture clears one static list between cases instead of stack-allocating it.
     static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( 16u, 0u, 0u );
+    }
     store.Clear();
     return store;
 }
@@ -191,7 +208,11 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsForceStage stage;
-    stage.ReserveBodyScratchCapacity( 4u );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyScratchCapacity( 4u );
+    }
 
     const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
                                                               bodyStore.HotFields(),
@@ -216,7 +237,11 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
     SkullbonezTests::FixedSeed random( 0x16B0D1E5u );
     PhysicsBodyStore& bodyStore = TestBodyStore();
     PhysicsForceStage stage;
-    stage.ReserveBodyScratchCapacity( 2u );
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyScratchCapacity( 2u );
+    }
     SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;

@@ -48,22 +48,27 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
+
 // Lifetime: Win32 calls WndProc without a Run instance, so callback-fed mouse
 // queues stay process-local behind Input's static API. Keep new callback
 // accumulator state behind the bound HWND so late or foreign callbacks cannot
 // mutate stale frame input.
 HWND s_callbackBridgeWindow = nullptr;
+
 // Lifetime: ordinary polling helpers borrow the active runtime window while
 // WinMain owns it. WndProc still passes HWNDs directly to callback-specific
 // APIs, so this pointer is only for normal frame/input paths.
 Window* s_inputWindow = nullptr;
+
 // WndProc WM_MOUSEWHEEL writes; CaptureDeviceInputFrame consumes once per
 // frame so UI, editor, and replay cannot each drain the same wheel input.
 int g_mouseWheelDelta = 0;
+
 // Cursor policy latch, not a callback accumulator. InputFrameExecution and
 // window/focus paths write the requested native cursor state; WndProc
 // focus/cursor messages reapply that state when Windows asks.
 bool g_systemCursorVisibleRequested = false;
+
 // WndProc WM_INPUT writes these raw movement deltas. CaptureDeviceInputFrame
 // drains them once; focus and scene transitions may clear the queue before the
 // next frame so stale motion never reaches camera look.
@@ -72,6 +77,7 @@ long g_rawMouseDeltaY = 0;
 bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
+
 // Scripted input override, not a callback accumulator. InteractionAutomationController
 // writes it through SetAutomationState()/ClearAutomationState(); mouse and
 // capture folds it into DeviceInputFrame so deterministic validation uses the
@@ -82,13 +88,11 @@ constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
 [[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
 {
+
     // Why: printf-style %p requires a void pointer in this fatal diagnostic;
     // the casts do not establish ownership or serve as runtime identity.
-    SB_FATAL( "Input",
-              "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
-              functionName,
-              static_cast<void*>( s_inputWindow ),
-              static_cast<void*>( s_callbackBridgeWindow ),
+    SB_FATAL( "Input", "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
+              functionName, static_cast<void*>( s_inputWindow ), static_cast<void*>( s_callbackBridgeWindow ),
               s_automationState.enabled ? 1 : 0 );
 }
 
@@ -107,6 +111,7 @@ Window* BoundInputWindow()
 void EnsureShowCursorVisible()
 {
     int counter = ShowCursor( TRUE );
+
     while ( counter < 0 )
     {
         counter = ShowCursor( TRUE );
@@ -122,6 +127,7 @@ void EnsureShowCursorVisible()
 void EnsureShowCursorHidden()
 {
     int counter = ShowCursor( FALSE );
+
     while ( counter >= 0 )
     {
         counter = ShowCursor( FALSE );
@@ -136,6 +142,7 @@ void EnsureShowCursorHidden()
 
 long RawAbsoluteToPixels( long value, int extent )
 {
+
     if ( extent <= 0 )
     {
         return 0;
@@ -150,6 +157,7 @@ bool Input::IsAppFocused()
 {
     Window* window = BoundInputWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+
     if ( !windowHandle )
     {
         return false;
@@ -173,19 +181,22 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
     }
 
     BYTE keyboardState[InputKeySnapshot::VIRTUAL_KEY_COUNT] = {};
+
     if ( !GetKeyboardState( keyboardState ) )
     {
+
         // Lane R: desktop/session state can make Win32 keyboard capture fail.
         // The frame owner must stop rather than route a fabricated all-up frame.
-        return SkullbonezCore::Core::SbResult::Failure(
-            "Runtime/Input",
-            "GetKeyboardState failed while capturing the device frame (win32=%lu)",
-            static_cast<unsigned long>( GetLastError() ) );
+        return SkullbonezCore::Core::SbResult::
+            Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+                     static_cast<unsigned long>( GetLastError() ) );
     }
 
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+
     for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
     {
+
         if ( ( keyboardState[virtualKey] & 0x80u ) == 0u )
         {
             continue;
@@ -198,6 +209,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
     if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
          s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
     {
+
         // Invariant: automation augments the same immutable snapshot consumed by
         // physical input; it does not retain a second command-edge path.
         const int virtualKey = s_automationState.keyVirtualKey;
@@ -207,6 +219,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
 
     if ( s_automationState.enabled && s_automationState.controlDown )
     {
+
         // Why: modifier-aware interaction probes must exercise the normal
         // immutable keyboard snapshot used by editor shortcuts.
         const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
@@ -215,6 +228,7 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
 
     frame.keys = InputKeySnapshot::FromWords( words );
     const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates();
+
     if ( !clientPosition.result.ok )
     {
         return clientPosition.result;
@@ -238,10 +252,12 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
 
 SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 {
+
     // Lane R: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
     Window* window = BoundInputWindow();
     const HWND windowHandle = window ? window->NativeWindowHandle() : nullptr;
+
     if ( !windowHandle )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
@@ -251,6 +267,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
     if ( captured )
     {
         SetCapture( windowHandle );
+
         if ( GetCapture() != windowHandle )
         {
             return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
@@ -263,6 +280,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 
     // Do not release capture acquired by another window on this thread; this
     // seam owns only the bound runtime HWND.
+
     if ( GetCapture() != windowHandle )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -270,8 +288,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 
     if ( !ReleaseCapture() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
-                                                        "ReleaseCapture failed (win32=%lu)",
+        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input", "ReleaseCapture failed (win32=%lu)",
                                                         static_cast<unsigned long>( GetLastError() ) );
     }
 
@@ -289,6 +306,7 @@ void Input::BindWindow( Window& window )
 void Input::UnbindWindow( Window& window )
 {
     assert( s_inputWindow == &window && "Input window bridge unbound with a different window" );
+
     if ( s_inputWindow == &window )
     {
         s_inputWindow = nullptr;
@@ -299,6 +317,7 @@ void Input::UnbindWindow( Window& window )
 void Input::SetSystemCursorVisible( bool visible )
 {
     g_systemCursorVisibleRequested = visible;
+
     if ( visible )
     {
         SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
@@ -355,6 +374,7 @@ void Input::BindCallbackBridge( HWND window )
 {
     assert( window && "Input callback bridge requires a live HWND" );
     assert( !s_callbackBridgeWindow && "Input callback bridge is already bound" );
+
     if ( !window )
     {
         return;
@@ -369,6 +389,7 @@ void Input::UnbindCallbackBridge( HWND window )
 {
     assert( s_callbackBridgeWindow && "Input callback bridge must be bound before unbind" );
     assert( s_callbackBridgeWindow == window && "Input callback bridge unbound with a different HWND" );
+
     if ( s_callbackBridgeWindow != window )
     {
         return;
@@ -396,6 +417,7 @@ void Input::ClearCallbackEventBuffer( HWND window )
 
 void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
 {
+
     if ( !IsCallbackBridgeBoundForWindow( window ) || !rawInput || !IsAppFocused() )
     {
         return;
@@ -404,12 +426,14 @@ void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
     RAWINPUT data = {};
     UINT dataSize = sizeof( data );
     const UINT bytesRead = GetRawInputData( rawInput, RID_INPUT, &data, &dataSize, sizeof( RAWINPUTHEADER ) );
+
     if ( bytesRead == static_cast<UINT>( -1 ) || data.header.dwType != RIM_TYPEMOUSE )
     {
         return;
     }
 
     const RAWMOUSE& mouse = data.data.mouse;
+
     if ( ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0 )
     {
         const int width = ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0 ? GetSystemMetrics( SM_CXVIRTUALSCREEN )
@@ -420,6 +444,7 @@ void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
 
         const long currentX = RawAbsoluteToPixels( mouse.lLastX, width );
         const long currentY = RawAbsoluteToPixels( mouse.lLastY, height );
+
         if ( g_rawMouseHasAbsolutePosition )
         {
             g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
@@ -441,6 +466,7 @@ void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
 
 bool Input::ConsumeRawMouseDelta( long& xMove, long& yMove )
 {
+
     if ( !IsAppFocused() )
     {
         ResetMouseLookDeltas();
@@ -474,12 +500,12 @@ Input::MouseCoordinatesResult Input::GetMouseCoordinates()
 {
     MouseCoordinatesResult result;
     POINT mousePos = {};
+
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
-        result.result = SkullbonezCore::Core::SbResult::Failure(
-            "Runtime/Input",
-            "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
-            static_cast<unsigned long>( GetLastError() ) );
+        result.result = SkullbonezCore::Core::SbResult::
+            Failure( "Runtime/Input", "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
+                     static_cast<unsigned long>( GetLastError() ) );
 
         return result;
     }
@@ -492,6 +518,7 @@ Input::MouseCoordinatesResult Input::GetMouseCoordinates()
 Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
 {
     MouseCoordinatesResult result;
+
     if ( s_automationState.enabled && s_automationState.hasMouseClientPosition )
     {
         result.coordinates = s_automationState.mouseClientPosition;
@@ -499,25 +526,27 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
     }
 
     MouseCoordinatesResult mousePos = GetMouseCoordinates();
+
     if ( !mousePos.result.ok )
     {
         return mousePos;
     }
 
-    Window* m_cWindow = BoundInputWindow();
-    assert( m_cWindow && "Input client mouse coordinates require a bound window" );
-    if ( !m_cWindow )
+    Window* window = BoundInputWindow();
+    assert( window && "Input client mouse coordinates require a bound window" );
+
+    if ( !window )
     {
         FatalInputWindowBridgeMissing( "Input::GetClientMouseCoordinates" );
     }
 
     POINT clientCoordinates = mousePos.coordinates;
-    if ( !ScreenToClient( m_cWindow->NativeWindowHandle(), &clientCoordinates ) )
+
+    if ( !ScreenToClient( window->NativeWindowHandle(), &clientCoordinates ) )
     {
-        result.result = SkullbonezCore::Core::SbResult::Failure(
-            "Runtime/Input",
-            "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
-            static_cast<unsigned long>( GetLastError() ) );
+        result.result = SkullbonezCore::Core::SbResult::
+            Failure( "Runtime/Input", "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
+                     static_cast<unsigned long>( GetLastError() ) );
 
         return result;
     }
@@ -529,6 +558,7 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
 
 int Input::ConsumeMouseWheelDelta()
 {
+
     if ( !IsAppFocused() )
     {
         g_mouseWheelDelta = 0;
@@ -543,6 +573,7 @@ int Input::ConsumeMouseWheelDelta()
 
 void Input::AccumulateMouseWheelDelta( HWND window, int delta )
 {
+
     if ( !IsCallbackBridgeBoundForWindow( window ) || !IsAppFocused() )
     {
         return;

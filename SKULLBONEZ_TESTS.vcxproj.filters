@@ -52,6 +52,9 @@
     <Filter Include="Source Files\Runtime\Interaction">
       <UniqueIdentifier>{7D5AC876-4C0D-4E1D-966B-9A18B82E2788}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Settings">
+      <UniqueIdentifier>{EDCF1E64-1F8D-4620-98E4-4FB92B55E02D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{BDDE69D6-F660-4474-9BE8-0666D06D289E}</UniqueIdentifier>
     </Filter>
@@ -168,9 +171,6 @@
     <ClCompile Include="SkullbonezTests\TestConfig.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestCoverageFloorContracts.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -193,6 +193,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp">
@@ -333,7 +336,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp">
@@ -342,8 +345,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
-      <Filter>Source Files\Runtime\Scene</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>
@@ -356,6 +359,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime\Interaction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -426,6 +432,9 @@
       <Filter>External</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFatalCases.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h">

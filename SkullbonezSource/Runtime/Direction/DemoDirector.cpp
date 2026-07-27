@@ -59,6 +59,7 @@ void LogShotListError( const char* path, const std::string& detail )
 
 std::string JsonTypeName( const Json& value )
 {
+
     if ( value.is_null() )
     {
         return "null";
@@ -108,6 +109,7 @@ const Json* FindMember( const Json& object, const char* key )
 
 bool RequireObject( const Json& value, const char* path, const std::string& context )
 {
+
     if ( value.is_object() )
     {
         return true;
@@ -120,6 +122,7 @@ bool RequireObject( const Json& value, const char* path, const std::string& cont
 
 bool RequireArray( const Json& value, const char* path, const std::string& context )
 {
+
     if ( value.is_array() )
     {
         return true;
@@ -132,6 +135,7 @@ bool RequireArray( const Json& value, const char* path, const std::string& conte
 
 bool ReadStringValue( const Json& value, const char* path, const std::string& context, std::string& out )
 {
+
     if ( !value.is_string() )
     {
         std::ostringstream detail;
@@ -145,6 +149,7 @@ bool ReadStringValue( const Json& value, const char* path, const std::string& co
 
 bool ReadFloatValue( const Json& value, const char* path, const std::string& context, float& out )
 {
+
     if ( !value.is_number() )
     {
         std::ostringstream detail;
@@ -158,6 +163,7 @@ bool ReadFloatValue( const Json& value, const char* path, const std::string& con
 
 bool ReadBoolValue( const Json& value, const char* path, const std::string& context, bool& out )
 {
+
     if ( value.is_boolean() )
     {
         out = value.get<bool>();
@@ -173,12 +179,10 @@ bool ReadBoolValue( const Json& value, const char* path, const std::string& cont
     return FailField( path, context, "must be a bool" );
 }
 
-bool CopyTextField( char* destination,
-                    std::size_t destinationSize,
-                    const std::string& value,
-                    const char* path,
+bool CopyTextField( char* destination, std::size_t destinationSize, const std::string& value, const char* path,
                     const std::string& context )
 {
+
     if ( value.size() >= destinationSize )
     {
         std::ostringstream detail;
@@ -190,12 +194,10 @@ bool CopyTextField( char* destination,
     return true;
 }
 
-bool ReadOptionalFloatMember( const Json& object,
-                              const char* key,
-                              const char* path,
-                              const std::string& context,
+bool ReadOptionalFloatMember( const Json& object, const char* key, const char* path, const std::string& context,
                               float& inOutValue )
 {
+
     if ( const Json* member = FindMember( object, key ) )
     {
         return ReadFloatValue( *member, path, context + "." + key, inOutValue );
@@ -211,6 +213,7 @@ Json Vec3Json( const Vector3& value )
 
 bool ReadVec3Value( const Json& value, const char* path, const std::string& context, Vector3& out )
 {
+
     if ( !RequireArray( value, path, context ) )
     {
         return false;
@@ -226,13 +229,11 @@ bool ReadVec3Value( const Json& value, const char* path, const std::string& cont
            ReadFloatValue( value[2], path, context + "[2]", out.z );
 }
 
-bool ReadRequiredStringMember( const Json& object,
-                               const char* key,
-                               const char* path,
-                               const std::string& context,
+bool ReadRequiredStringMember( const Json& object, const char* key, const char* path, const std::string& context,
                                std::string& out )
 {
     const Json* member = FindMember( object, key );
+
     if ( !member )
     {
         return FailField( path, context, std::string( "missing '" ) + key + "'" );
@@ -241,13 +242,11 @@ bool ReadRequiredStringMember( const Json& object,
     return ReadStringValue( *member, path, context + "." + key, out );
 }
 
-bool ReadRequiredVec3Member( const Json& object,
-                             const char* key,
-                             const char* path,
-                             const std::string& context,
+bool ReadRequiredVec3Member( const Json& object, const char* key, const char* path, const std::string& context,
                              Vector3& out )
 {
     const Json* member = FindMember( object, key );
+
     if ( !member )
     {
         return FailField( path, context, std::string( "missing '" ) + key + "'" );
@@ -268,6 +267,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     }
 
     std::string name;
+
     if ( !ReadRequiredStringMember( value, "name", path, context, name ) ||
          !CopyTextField( outPhase.name, sizeof( outPhase.name ), name, path, context + ".name" ) )
     {
@@ -275,6 +275,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     }
 
     const Json* camera = FindMember( value, "camera" );
+
     if ( !camera )
     {
         return FailField( path, context, "missing 'camera'" );
@@ -291,6 +292,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     if ( const Json* stylePath = FindMember( value, "stylePath" ) )
     {
         std::string style;
+
         if ( !ReadStringValue( *stylePath, path, context + ".stylePath", style ) ||
              !CopyTextField( outPhase.stylePath, sizeof( outPhase.stylePath ), style, path, context + ".stylePath" ) )
         {
@@ -301,6 +303,7 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     if ( const Json* advance = FindMember( value, "advance" ) )
     {
         std::string advanceText;
+
         if ( !ReadStringValue( *advance, path, context + ".advance", advanceText ) )
         {
             return false;
@@ -320,12 +323,14 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
 
 bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
 {
+
     if ( !RequireObject( root, path, "document root" ) )
     {
         return false;
     }
 
     std::string format;
+
     if ( !ReadRequiredStringMember( root, "format", path, "document root", format ) )
     {
         return false;
@@ -337,12 +342,14 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     }
 
     const Json* versionMember = FindMember( root, "version" );
+
     if ( !versionMember )
     {
         return FailField( path, "version", "missing version" );
     }
 
     float version = 0.0f;
+
     if ( !ReadFloatValue( *versionMember, path, "version", version ) )
     {
         return false;
@@ -356,8 +363,10 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     // Invariant: fill a temporary record first so a failed load leaves the
     // caller's currently active shot list untouched.
     DemoShotList parsed;
+
     if ( const Json* loop = FindMember( root, "loop" ) )
     {
+
         if ( !ReadBoolValue( *loop, path, "loop", parsed.loop ) )
         {
             return false;
@@ -365,6 +374,7 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     }
 
     const Json* phases = FindMember( root, "phases" );
+
     if ( !phases )
     {
         return FailField( path, "document root", "missing 'phases'" );
@@ -383,6 +393,7 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
     for ( std::size_t i = 0; i < phases->size(); ++i )
     {
         const int phaseIndex = static_cast<int>( i );
+
         if ( !ReadPhase( ( *phases )[i], path, phaseIndex, parsed.phases[static_cast<std::size_t>( phaseIndex )] ) )
         {
             return false;
@@ -418,6 +429,7 @@ Json PhaseJson( const DemoPhase& phase )
 
 const char* PhaseAdvanceName( PhaseAdvance advance )
 {
+
     switch ( advance )
     {
     case PhaseAdvance::Manual:
@@ -433,6 +445,7 @@ const char* PhaseAdvanceName( PhaseAdvance advance )
 
 bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
 {
+
     if ( !text )
     {
         return false;
@@ -462,6 +475,7 @@ bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
 
 bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 {
+
     if ( !path || path[0] == '\0' )
     {
         LogShotListError( path, "missing shot-list path" );
@@ -469,6 +483,7 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
     }
 
     std::ifstream input( path );
+
     if ( !input.is_open() )
     {
         LogShotListError( path, "failed to open shot-list file" );
@@ -476,6 +491,7 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
     }
 
     Json root = Json::parse( input, nullptr, false );
+
     if ( root.is_discarded() )
     {
         LogShotListError( path, "invalid JSON" );
@@ -487,6 +503,7 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
 {
+
     if ( !path || path[0] == '\0' )
     {
         LogShotListError( path, "missing shot-list path" );
@@ -500,6 +517,7 @@ bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
     }
 
     std::ofstream output;
+
     if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
     {
         LogShotListError( path, "failed to open output file" );
@@ -511,6 +529,7 @@ bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
     root["version"] = kShotListVersion;
     root["loop"] = shotList.loop;
     root["phases"] = Json::array();
+
     for ( int i = 0; i < shotList.phaseCount; ++i )
     {
         root["phases"].push_back( PhaseJson( shotList.phases[static_cast<std::size_t>( i )] ) );

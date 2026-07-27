@@ -42,6 +42,7 @@ namespace
 
 #ifdef _DEBUG
 constexpr std::size_t HELD_LOCK_CAPACITY = 64;
+
 // Lifetime: each debug thread keeps its own fixed acquisition stack while the
 // startup-owned validator records order edges across all threads.
 thread_local std::array<uint32_t, HELD_LOCK_CAPACITY> g_heldLocks = {};
@@ -56,6 +57,7 @@ uint32_t LockOrderValidator::RegisterLock( const char* name )
 #ifdef _DEBUG
     std::lock_guard<std::mutex> lock( m_mutex );
     assert( m_nextLockId <= MAX_LOCK_COUNT && "Lock-order validator capacity exhausted." );
+
     if ( m_nextLockId > MAX_LOCK_COUNT )
     {
         return 0;
@@ -74,6 +76,7 @@ uint32_t LockOrderValidator::RegisterLock( const char* name )
 void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 {
 #ifdef _DEBUG
+
     if ( lockId == 0 || lockId > MAX_LOCK_COUNT )
     {
         assert( false && "Invalid lock-order validator id." );
@@ -82,9 +85,11 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 
     {
         std::lock_guard<std::mutex> lock( m_mutex );
+
         for ( std::size_t heldIndex = 0; heldIndex < g_heldLockCount; ++heldIndex )
         {
             const uint32_t heldLock = g_heldLocks[heldIndex];
+
             if ( heldLock != lockId )
             {
                 m_edges[heldLock - 1].set( lockId - 1 );
@@ -93,9 +98,7 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 
         if ( DetectCycleUnlocked() )
         {
-            fprintf( stderr,
-                     "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
-                     lockId,
+            fprintf( stderr, "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n", lockId,
                      m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>" );
 
             assert( false && "Lock-order cycle detected." );
@@ -103,6 +106,7 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
     }
 
     assert( g_heldLockCount < g_heldLocks.size() && "Per-thread held-lock stack exhausted." );
+
     if ( g_heldLockCount < g_heldLocks.size() )
     {
         g_heldLocks[g_heldLockCount++] = lockId;
@@ -116,10 +120,13 @@ void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 void LockOrderValidator::RecordRelease( uint32_t lockId )
 {
 #ifdef _DEBUG
+
     for ( std::size_t heldIndex = g_heldLockCount; heldIndex > 0; --heldIndex )
     {
+
         if ( g_heldLocks[heldIndex - 1] == lockId )
         {
+
             for ( std::size_t moveIndex = heldIndex; moveIndex < g_heldLockCount; ++moveIndex )
             {
                 g_heldLocks[moveIndex - 1] = g_heldLocks[moveIndex];
@@ -136,10 +143,10 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
 
 
 #ifdef _DEBUG
-bool LockOrderValidator::HasCycleFrom( uint32_t node,
-                                       std::bitset<MAX_LOCK_COUNT>& visiting,
+bool LockOrderValidator::HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting,
                                        std::bitset<MAX_LOCK_COUNT>& visited ) const
 {
+
     if ( visiting.test( node ) )
     {
         return true;
@@ -151,8 +158,10 @@ bool LockOrderValidator::HasCycleFrom( uint32_t node,
     }
 
     visiting.set( node );
+
     for ( uint32_t next = 0; next < MAX_LOCK_COUNT; ++next )
     {
+
         if ( m_edges[node].test( next ) && HasCycleFrom( next, visiting, visited ) )
         {
             return true;
@@ -169,8 +178,10 @@ bool LockOrderValidator::DetectCycleUnlocked() const
 {
     std::bitset<MAX_LOCK_COUNT> visiting;
     std::bitset<MAX_LOCK_COUNT> visited;
+
     for ( uint32_t node = 0; node + 1 < m_nextLockId; ++node )
     {
+
         if ( HasCycleFrom( node, visiting, visited ) )
         {
             return true;
@@ -207,6 +218,7 @@ void TrackedMutex::lock()
 
 bool TrackedMutex::try_lock()
 {
+
     if ( !m_inner.try_lock() )
     {
         return false;

@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   SceneWorld owns cameras while Run owns style/playback state, but Director
-  playback is a narrow helper module. The frame tick receives one scene-style
-  context and derives its camera subowner locally so the two cannot disagree.
+  playback is a narrow helper module. The frame tick receives the concrete style
+  owners and derives its camera subowner locally so the two cannot disagree.
 
 Glossary:
   Director playback: Runtime camera mode that applies authored shot-list poses
@@ -19,7 +19,7 @@ Invariants:
   - Helpers must stay presentation-only and must not mutate physics state.
   - Per-frame camera writes derive CameraCollection from the same SceneWorld
     used for style writes, so callers cannot pair mismatched scene owners.
-  - Style writes go through SceneRuntimeStyle so object material/cinematic
+  - Style writes go through SceneCinematicPolicy so object material/cinematic
     changes remain in the existing scene-style owner.
   - Reveal pacing writes stay on replay presentation state and do not rebuild
     prediction physics samples.
@@ -36,9 +36,24 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Core
+{
+struct CinematicRenderConfig;
+}
+namespace UI
+{
+struct RunSceneBrowserState;
+}
 namespace Runtime
 {
-struct SceneRuntimeStyleContext;
+struct RunLaunchOptions;
+struct SceneSessionState;
+class SceneController;
+class SceneWorld;
 
 // Concept: Director consumes a value-only reveal sample and returns a command.
 // It never borrows the prediction owner or its mutable reveal clock.
@@ -65,10 +80,11 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const CameraControlState& camera );
-DemoDirectorTickResult Tick( CameraControlState& camera,
-                             DemoDirectorPredictionView prediction,
-                             SceneRuntimeStyleContext styleContext,
-                             float cameraDt );
+DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
+                             RunLaunchOptions& launchOptions, SceneController& sceneController,
+                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                             SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Runtime
 } // namespace SkullbonezCore

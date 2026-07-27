@@ -15,10 +15,13 @@ Glossary:
     trajectory.
   Publication token: Monotonic Prediction value that invalidates retained
     geometry only when a reader-visible trajectory prefix changes.
+  Velocity drag preview: Frame-local first-order bend of only the selected
+    committed path while authoritative prediction remains untouched.
 
 Invariants:
   - Draw cursors and retained command storage belong to Prediction.
   - Stable publication returns before traversing trajectory records.
+  - Preview delta changes never rebuild retained non-selected paths.
   - All references in render contexts are synchronous frame borrows.
 
 Related:
@@ -77,11 +80,13 @@ struct ReplayPredictionDrawRecordCursor
 
 struct ReplayPredictionDrawListState
 {
+
     // 200 future nodes can publish incoming/outgoing records for both build and
     // committed banks, plus root/baseline/past rows.
     static constexpr std::size_t MAX_RECORD_CURSORS = 2048;
 
     std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> recordCursors = {};
+
     // Retained marker trails are a second presentation of child-outgoing
     // records with a denser, independently bounded sampling policy.
     std::array<ReplayPredictionDrawRecordCursor, MAX_RECORD_CURSORS> retainedTrailCursors = {};
@@ -92,6 +97,7 @@ struct ReplayPredictionDrawListState
     std::size_t ordinaryRibbonCapacityRemaining = 0;
     std::size_t priorityRibbonCapacityRemaining = 0;
     Physics::PhysicsSceneObjectId targetId;
+    Physics::PhysicsSceneObjectId velocityPreviewTargetId;
     ReplayFrameIndex revealFrame = 0;
     uint32_t generation = 0;
     uint32_t topologyVersion = 0;
@@ -101,21 +107,26 @@ struct ReplayPredictionDrawListState
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
     bool usingBuildFrames = false;
     bool showAllFuturePaths = false;
+    bool velocityPreviewActive = false;
     bool saturated = false;
     bool valid = false;
 
     void Reset() noexcept
     {
+
         // Hazard: assigning this whole state from {} materializes a
         // hundreds-of-KiB temporary and can exhaust nested Debug render stacks.
+
         for ( ReplayPredictionDrawRecordCursor& cursor : recordCursors )
         {
             cursor = {};
         }
+
         for ( ReplayPredictionDrawRecordCursor& cursor : retainedTrailCursors )
         {
             cursor = {};
         }
+
         recordCursorCount = 0;
         retainedTrailCursorCount = 0;
         retainedMarkerCount = 0;
@@ -123,6 +134,7 @@ struct ReplayPredictionDrawListState
         ordinaryRibbonCapacityRemaining = 0;
         priorityRibbonCapacityRemaining = 0;
         targetId = {};
+        velocityPreviewTargetId = {};
         revealFrame = 0;
         generation = 0;
         topologyVersion = 0;
@@ -132,6 +144,7 @@ struct ReplayPredictionDrawListState
         colorMode = ReplayPathColorMode::LaneFlat;
         usingBuildFrames = false;
         showAllFuturePaths = false;
+        velocityPreviewActive = false;
         saturated = false;
         valid = false;
     }
@@ -144,14 +157,12 @@ struct ReplayPredictionDrawListUpdate
     bool stable = false;
 };
 
-constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset,
-                                                            uint64_t retainedPublicationVersion,
+constexpr bool IsReplayPredictionDrawListPublicationStable( bool reset, uint64_t retainedPublicationVersion,
                                                             ReplayFrameIndex retainedRevealFrame,
                                                             uint64_t incomingPublicationVersion,
                                                             ReplayFrameIndex incomingRevealFrame ) noexcept
 {
-    return !reset && retainedPublicationVersion == incomingPublicationVersion &&
-           retainedRevealFrame == incomingRevealFrame;
+    return !reset && retainedPublicationVersion == incomingPublicationVersion && retainedRevealFrame == incomingRevealFrame;
 }
 
 constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumedPointCount ) noexcept
@@ -159,17 +170,15 @@ constexpr std::size_t ReplayPredictionFirstUnconsumedPoint( std::size_t consumed
     return consumedPointCount > 1u ? consumedPointCount : 1u;
 }
 
-constexpr bool ReplayPredictionDrawsAllBodyRecord( bool showAllFuturePaths,
-                                                   const ReplayTrajectoryRecordKey& key,
+constexpr bool ReplayPredictionDrawsAllBodyRecord( bool showAllFuturePaths, const ReplayTrajectoryRecordKey& key,
                                                    uint16_t activeRootBranch,
                                                    Physics::PhysicsSceneObjectId selectedId ) noexcept
 {
-    return showAllFuturePaths && key.lane == ReplayTrajectoryLane::FutureRoot &&
-           key.branchOrdinal == activeRootBranch && key.bodyId.value != selectedId.value;
+    return showAllFuturePaths && key.lane == ReplayTrajectoryLane::FutureRoot && key.branchOrdinal == activeRootBranch &&
+           key.bodyId.value != selectedId.value;
 }
 
-constexpr bool ReplayPredictionDrawsCausalChildRecord( bool showAllFuturePaths,
-                                                       const ReplayTrajectoryRecordKey& key,
+constexpr bool ReplayPredictionDrawsCausalChildRecord( bool showAllFuturePaths, const ReplayTrajectoryRecordKey& key,
                                                        uint16_t activeChildBranchBase,
                                                        uint16_t activeChildBranchEnd ) noexcept
 {
@@ -186,6 +195,7 @@ constexpr bool ReplayPredictionUsesAuthoredBodyColor( bool showAllFuturePaths, R
 
 struct ReplayPathVisualizerRenderContext
 {
+
     // Lifetime: every reference is a frame-local borrow after Prediction has
     // published for this frame.
     const ReplayPredictionPresentationView& prediction;
@@ -214,7 +224,6 @@ ReplayPredictionDrawListUpdate UpdateReplayPredictionDrawList( const ReplayPredi
 void AppendReplayPredictionProvisionalTails( const ReplayPredictionPresentationView& prediction,
                                              const RunReplayPathVisualizerState& pathVisualizer,
                                              const ReplayPredictionDrawListState& state,
-                                             const Physics::ColliderStore& colliderStore,
-                                             EditorTracer& tracer );
+                                             const Physics::ColliderStore& colliderStore, EditorTracer& tracer );
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

@@ -71,6 +71,7 @@ struct ImGuiEditorMessageDecision
 
 constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message, WPARAM wParam ) noexcept
 {
+
     switch ( message )
     {
     case WM_MOUSEMOVE:
@@ -101,11 +102,11 @@ constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message
 
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP:
+
         // Why: Alt+Tab and Alt+F4 remain OS navigation even while an editor
         // widget wants keyboard input. Other system keys follow ordinary
         // keyboard capture policy.
-        return wParam == VK_TAB || wParam == VK_F4 ? ImGuiEditorMessageClass::Platform
-                                                   : ImGuiEditorMessageClass::Keyboard;
+        return wParam == VK_TAB || wParam == VK_F4 ? ImGuiEditorMessageClass::Platform : ImGuiEditorMessageClass::Keyboard;
 
     case WM_CHAR:
     case WM_SYSCHAR:
@@ -116,6 +117,7 @@ constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message
         return ImGuiEditorMessageClass::Text;
 
     default:
+
         // Focus, resize, DPI, display, device, and clipboard ownership remain
         // platform/core responsibilities rather than captured input classes.
         return ImGuiEditorMessageClass::Platform;
@@ -124,12 +126,14 @@ constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message
 
 constexpr ImGuiEditorInputCapture EvaluateImGuiEditorInputCapture( const ImGuiEditorInputIntent& intent ) noexcept
 {
+
     if ( !intent.editorVisible )
     {
         return {};
     }
 
     ImGuiEditorInputCapture capture;
+
     // Invariant: viewport mouse/keyboard activity stays on the established
     // camera/selection/gizmo path even though the containing dock host may make
     // ImGui publish a broad WantCapture flag.
@@ -143,6 +147,7 @@ constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorM
                                                                     const ImGuiEditorInputCapture& capture ) noexcept
 {
     bool editorConsumes = false;
+
     switch ( messageClass )
     {
     case ImGuiEditorMessageClass::Mouse:
@@ -156,11 +161,13 @@ constexpr ImGuiEditorMessageDecision DecideImGuiEditorMessageRoute( ImGuiEditorM
         break;
     case ImGuiEditorMessageClass::Platform:
     default:
+
         // Why: focus loss, alt-tab, resize, DPI, IME configuration, and device
         // changes must still reach Window/DefWindowProc even while a tool edits.
         editorConsumes = false;
         break;
     }
+
     return ImGuiEditorMessageDecision { editorConsumes, !editorConsumes };
 }
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   UIWindowInteractionOwner translates normalized UI input into typed commands
+
   while retaining the widget geometry and gesture state that drawing consumes.
   InGameUI remains the draw/resource composer and borrows WidgetView only for
   the duration of one draw call.
@@ -160,20 +161,13 @@ class UIWindowInteractionOwner
     // Returns the optional deterministic pointer substitution as a detached
     // value; Runtime applies it while copying the sampled input snapshot.
     InputControl::UIPointerOverride InputOverride() const;
+
     // Consumes one normalized input turn and explicit presentation facts. Scene
     // and runtime mutations are returned as commands rather than applied here.
-    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input,
-                                     int screenWidth,
-                                     int screenHeight,
-                                     double now,
-                                     bool editorModeEnabled,
-                                     bool editorPlacementMode,
-                                     bool editorPlaceStatic,
-                                     bool editorTerrainAlign,
-                                     int cameraModeIndex,
-                                     uint32_t cameraModeEnabledMask,
-                                     std::span<const char* const> sceneOptions,
-                                     int selectedSceneOption );
+    InGameUIInputResult UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight,
+                                     double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic,
+                                     bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask,
+                                     std::span<const char* const> sceneOptions, int selectedSceneOption );
 
   private:
     void CloseSceneCombo();

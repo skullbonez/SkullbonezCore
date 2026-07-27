@@ -10,8 +10,8 @@ Summary:
   below.
 
 Glossary:
-  Asset context: Borrowed view that lets parsing or tool code resolve asset
-    records without using the active process-global bridge.
+  Asset-system borrow: Frame- or operation-local pointer/reference that lets
+    parsing or tool code resolve records without a process-global bridge.
 
 Invariants:
   - AssetId values are AssetSystem-owned identities and must not be invented by
@@ -150,19 +150,15 @@ class AssetSystem
     const SourceAssetRecord* FindSourceAsset( const char* logicalName ) const;
     const SourceAssetRecord* FindSourceAssetById( AssetId id ) const;
 
-    const TextureSourceAsset& RegisterTextureSourceAsset( const char* logicalName,
-                                                          const char* relativePath,
-                                                          uint32_t legacyHash,
-                                                          bool generateMips = true,
-                                                          bool linearFilter = true,
-                                                          int channelsHint = 3 );
+    const TextureSourceAsset& RegisterTextureSourceAsset( const char* logicalName, const char* relativePath,
+                                                          uint32_t legacyHash, bool generateMips = true,
+                                                          bool linearFilter = true, int channelsHint = 3 );
     const TextureSourceAsset* FindTextureSourceAsset( const char* logicalName ) const;
     const TextureSourceAsset* FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const;
     const TextureSourceAsset* FindTextureSourceAssetById( AssetId id ) const;
     const std::vector<TextureSourceAsset>& GetTextureSourceAssets() const;
 
-    const ShaderSourceAsset& RegisterShaderSourceAsset( const char* logicalName,
-                                                        const char* baseName,
+    const ShaderSourceAsset& RegisterShaderSourceAsset( const char* logicalName, const char* baseName,
                                                         ShaderProgramKind kind = ShaderProgramKind::Unknown,
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
@@ -189,14 +185,6 @@ class AssetSystem
     std::vector<AssetLibrarySourceAsset> m_assetLibraryAssets;
     AssetId m_nextAssetId = 1;
     uint32_t m_nextGeneration = 1;
-};
-
-struct AssetContext
-{
-    // Lifetime: callers borrow the registry for one parse, setup, or tool
-    // operation. Null keeps standalone utilities on their historical path
-    // fallback without reaching for process-global asset state.
-    const AssetSystem* assets = nullptr;
 };
 
 const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );

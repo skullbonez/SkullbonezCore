@@ -46,6 +46,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+
 // Lifetime: startup presentation activation borrows input, interaction,
 // camera, and terrain owners only for the synchronous load call. Solver,
 // scene-rebuild, and diagnostic authority is intentionally excluded.
@@ -103,10 +104,12 @@ class ReplayRestorePhaseCursor
 
     bool TryAdvance( Phase next )
     {
+
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;
         }
+
         m_phase = next;
         return true;
     }
@@ -151,6 +154,7 @@ class ReplayRestoreTransaction
     void CaptureLiveBackup( ReplaySolverFrameSample&& sample )
     {
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::LiveBackupCaptured, "CaptureLiveBackup" );
+
         // Hazard: ReplaySolverFrameSample owns a replay-policy vector. Moving
         // the freshly captured sample transfers its registered allocation;
         // copying here would add an unregistered restore-time growth path.
@@ -199,12 +203,14 @@ class ReplayRestoreTransaction
 
     void FailBeforeMutation( const char* reason )
     {
+
         if ( m_stateMutated )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
                       "Pre-mutation failure reported after live state mutation. phase=%u",
                       static_cast<unsigned int>( m_phase.Current() ) );
         }
+
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::Failed, "FailBeforeMutation" );
         CopyFailure( reason );
     }
@@ -362,15 +368,14 @@ class ReplayRestoreTransaction
     void AdvanceOrFatal( ReplayRestorePhaseCursor::Phase next, const char* operation )
     {
         const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
+
         if ( !m_phase.TryAdvance( next ) )
         {
+
             // Lane F: accepting an out-of-order restore phase could publish a
             // partial topology or return after mutation without rollback.
-            SB_FATAL( "Runtime/ReplayRestoreTransaction",
-                      "Illegal phase transition. operation=%s current=%u next=%u",
-                      operation,
-                      static_cast<unsigned int>( current ),
-                      static_cast<unsigned int>( next ) );
+            SB_FATAL( "Runtime/ReplayRestoreTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
+                      operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
         }
     }
 
@@ -398,6 +403,7 @@ class ReplayRestoreTransaction
     uint64_t m_branchSolverHash = 0;
     char m_failureReason[320] = {};
 #ifdef _DEBUG
+
     // Lifetime: diagnostic strings are copied into transaction-owned bounded
     // storage so publication never borrows an artifact or stack reason buffer.
     ReplayRestoreProbeDiagnostic m_restoreProbeDiagnostic;

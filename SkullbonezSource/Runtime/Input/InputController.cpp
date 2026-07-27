@@ -51,6 +51,7 @@ void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bo
 
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
 {
+
     if ( mode == m_currentMode )
     {
         return;
@@ -61,6 +62,7 @@ void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction act
     m_currentMode = mode;
     m_transitions[m_transitionWriteIndex] = transition;
     m_transitionWriteIndex = ( m_transitionWriteIndex + 1 ) % TRANSITION_HISTORY_COUNT;
+
     if ( m_transitionCount < TRANSITION_HISTORY_COUNT )
     {
         ++m_transitionCount;
@@ -99,6 +101,7 @@ int RuntimeInputContext::TransitionCount() const
 
 RuntimeInputTransition RuntimeInputContext::TransitionAt( int historyIndex ) const
 {
+
     if ( m_transitionCount <= 0 )
     {
         return {};
@@ -112,21 +115,15 @@ RuntimeInputTransition RuntimeInputContext::TransitionAt( int historyIndex ) con
     return m_transitions[index];
 }
 
-void InputController::BeginFrame( RuntimeInputContext& context,
-                                  const RuntimeInputModeState& modeState,
-                                  bool appFocused,
-                                  bool uiBlocksKeyboard,
-                                  bool uiBlocksMouse )
+void InputController::BeginFrame( RuntimeInputContext& context, const RuntimeInputModeState& modeState, bool appFocused,
+                                  bool uiBlocksKeyboard, bool uiBlocksMouse )
 {
     context.BeginFrame( appFocused, uiBlocksKeyboard, uiBlocksMouse );
-    context.SetMode( ResolveMode( modeState ),
-                     RuntimeInputAction::None,
+    context.SetMode( ResolveMode( modeState ), RuntimeInputAction::None,
                      appFocused ? RuntimeInputActionSource::Runtime : RuntimeInputActionSource::FocusLost );
 }
 
-void InputController::ApplyModeAction( RuntimeInputContext& context,
-                                       RuntimeInputMode mode,
-                                       RuntimeInputAction action,
+void InputController::ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,
                                        RuntimeInputActionSource source )
 {
     context.SetMode( mode, action, source );
@@ -134,8 +131,10 @@ void InputController::ApplyModeAction( RuntimeInputContext& context,
 
 RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& state )
 {
+
     if ( state.editor )
     {
+
         if ( state.editorViewportLook )
         {
             return RuntimeInputMode::EditorViewportLook;
@@ -148,6 +147,7 @@ RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& stat
 
         if ( state.editorGizmoDrag )
         {
+
             if ( state.editorGizmoScale )
             {
                 return RuntimeInputMode::EditorGizmoScale;
@@ -189,6 +189,7 @@ RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& stat
 
 const char* InputController::DescribeMode( RuntimeInputMode mode )
 {
+
     switch ( mode )
     {
     case RuntimeInputMode::Scene:
@@ -220,6 +221,7 @@ const char* InputController::DescribeMode( RuntimeInputMode mode )
 
 const char* InputController::DescribeAction( RuntimeInputAction action )
 {
+
     switch ( action )
     {
     case RuntimeInputAction::None:
@@ -421,6 +423,7 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
 
 const char* InputController::DescribeSource( RuntimeInputActionSource source )
 {
+
     switch ( source )
     {
     case RuntimeInputActionSource::Keyboard:
@@ -440,6 +443,7 @@ const char* InputController::DescribeSource( RuntimeInputActionSource source )
 
 void InputController::DescribeLastTransitions( const RuntimeInputContext& context, char* out, std::size_t outSize )
 {
+
     if ( outSize == 0 )
     {
         return;
@@ -447,24 +451,21 @@ void InputController::DescribeLastTransitions( const RuntimeInputContext& contex
 
     out[0] = '\0';
     const int count = context.TransitionCount();
+
     for ( int i = 0; i < count; ++i )
     {
         const RuntimeInputTransition transition = context.TransitionAt( i );
         const char* separator = i == 0 ? "" : " | ";
         const std::size_t used = std::strlen( out );
+
         if ( used + 1 >= outSize )
         {
             return;
         }
 
-        const int written = std::snprintf( out + used,
-                                           outSize - used,
-                                           "%s%s -> %s via %s/%s",
-                                           separator,
-                                           DescribeMode( transition.from ),
-                                           DescribeMode( transition.to ),
-                                           DescribeAction( transition.action ),
-                                           DescribeSource( transition.source ) );
+        const int written = std::snprintf( out + used, outSize - used, "%s%s -> %s via %s/%s", separator,
+                                           DescribeMode( transition.from ), DescribeMode( transition.to ),
+                                           DescribeAction( transition.action ), DescribeSource( transition.source ) );
 
         if ( written < 0 || static_cast<std::size_t>( written ) >= outSize - used )
         {
@@ -507,35 +508,34 @@ void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, 
     camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
-RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera,
-                                                                      const RuntimeCameraInputFrameContext& context )
+RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
+                                                                      bool cameraMouseLookActive, bool mouseLookOwnsCursor,
+                                                                      bool cameraKeyboardControlsActive,
+                                                                      const DeviceInputFrame& deviceFrame )
 {
     RuntimeCameraInputFrameResult result;
-    assert( context.deviceFrame && "Camera input requires the immutable device frame" );
-    if ( !context.deviceFrame )
-    {
-        return result;
-    }
-
-    const DeviceInputFrame& deviceFrame = *context.deviceFrame;
-    camera.mouseLookOwnsCursor = context.mouseLookOwnsCursor;
+    camera.mouseLookOwnsCursor = mouseLookOwnsCursor;
     camera.travelSpeedMultiplier = deviceFrame.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;
-    if ( context.cameraMouseLookActive )
+
+    if ( cameraMouseLookActive )
     {
+
         // Why: raw mouse input gives stable deltas during native mouse-look, and
         // client-position deltas keep remote-desktop or automation paths usable
         // when raw packets are unavailable.
-        if ( !context.appFocused )
+
+        if ( !appFocused )
         {
             ResetMouseLook( camera );
         }
-        else if ( !context.mouseLookOwnsCursor )
+        else if ( !mouseLookOwnsCursor )
         {
             result.applyCursorOwnership = true;
             ResetMouseLook( camera );
         }
         else
         {
+
             if ( !deviceFrame.hasClientPosition )
             {
                 ResetMouseLook( camera );
@@ -570,8 +570,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
             }
             else
             {
-                SetMouseLookDelta( camera,
-                                   currentClient.x - camera.mouseLookLastClient.x,
+                SetMouseLookDelta( camera, currentClient.x - camera.mouseLookLastClient.x,
                                    currentClient.y - camera.mouseLookLastClient.y );
 
                 camera.mouseLookLastClient = currentClient;
@@ -584,7 +583,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
         result.applyCursorOwnership = true;
     }
 
-    if ( context.cameraKeyboardControlsActive )
+    if ( cameraKeyboardControlsActive )
     {
         camera.input.Set( Hardware::InputState::Up, deviceFrame.keys.IsDown( 'W' ) );
         camera.input.Set( Hardware::InputState::Left, deviceFrame.keys.IsDown( 'A' ) );
@@ -604,10 +603,8 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
 }
 
 
-void InputController::ApplyCameraMovement( CameraControlState& camera,
-                                           Environment::CameraCollection& cameras,
-                                           Geometry::Terrain& terrain,
-                                           const RuntimeCameraMovementInput& input )
+void InputController::ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
+                                           Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input )
 {
     const bool hasTravelInput = camera.input.Get( Hardware::InputState::Up ) ||
                                 camera.input.Get( Hardware::InputState::Down ) ||
@@ -617,6 +614,7 @@ void InputController::ApplyCameraMovement( CameraControlState& camera,
     if ( !input.attachedOrbitOwnsCamera &&
          ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
     {
+
         if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
              ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
         {
@@ -625,6 +623,7 @@ void InputController::ApplyCameraMovement( CameraControlState& camera,
         }
 
         const float travelQuantity = input.keyMovementQuantity * camera.travelSpeedMultiplier;
+
         if ( camera.input.Get( Hardware::InputState::Up ) )
         {
             cameras.MovePrimary( Environment::Camera::TravelDirection::Forward, travelQuantity );
@@ -649,6 +648,7 @@ void InputController::ApplyCameraMovement( CameraControlState& camera,
     }
 
     // Passive generated-demo camera bounds do not own manual or pinned follow views.
+
     if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
     {
         const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();

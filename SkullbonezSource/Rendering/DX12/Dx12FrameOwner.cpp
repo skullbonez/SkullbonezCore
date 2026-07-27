@@ -43,19 +43,17 @@ Related:
 
 using namespace SkullbonezCore::Rendering;
 
-Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
-                                Dx12PipelineOwner& pipeline,
-                                Dx12TextureOwner& textures,
+Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
                                 Dx12DescriptorHeaps& descriptors )
-    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
-      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this ),
-      m_diagnosticsFrame( *this )
+    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ), m_drawGate( *this ),
+      m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this ), m_diagnosticsFrame( *this )
 {
 }
 
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics& diagnostics )
 {
+
     if ( HasFailure() )
     {
         return CurrentResult();
@@ -65,6 +63,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
          !m_device.CommandAllocator( AllocatorIndex() ) )
     {
         const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
+
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -86,6 +85,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
         }
 
         const SkullbonezCore::Core::SbResult submitResult = SubmitClosed();
+
         if ( !submitResult.ok )
         {
             return submitResult;
@@ -93,6 +93,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
     }
 
     const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
+
     if ( !waitResult.ok )
     {
         return waitResult;
@@ -113,6 +114,7 @@ void Dx12FrameOwner::ResetForDevice()
     m_deviceHealth.ResetForDevice();
     m_profilerStackState.Reset();
     m_profilerScopes.fill( Dx12PlatformProfilerGpuScopeDX12() );
+
     for ( UINT64& value : m_frameFenceValues )
     {
         value = 0;
@@ -132,6 +134,7 @@ void Dx12FrameOwner::ResetAfterShutdown()
 {
     m_profilerStackState.Reset();
     m_profilerScopes.fill( Dx12PlatformProfilerGpuScopeDX12() );
+
     for ( UINT64& value : m_frameFenceValues )
     {
         value = 0;
@@ -149,10 +152,12 @@ void Dx12FrameOwner::ResetAfterShutdown()
 
 bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
 {
+
     // Exception boundary: this helper is reserved for Present, cold synchronous
     // capture, the editor viewport copy/restore pair, and lifecycle
     // reconciliation. Executable frame passes use compiled graph transitions.
     ID3D12Resource* backbuffer = RenderTarget( FrameIndex() );
+
     if ( !backbuffer || BackBufferAccess() == after )
     {
         return false;
@@ -168,18 +173,16 @@ bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphReso
     desc.resource = backbuffer;
     desc.before = BackBufferAccess();
     desc.after = after;
-    const Dx12RenderGraphBarrierRecord record = ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit",
-                                                                                        passName,
-                                                                                        "SwapchainBackbuffer",
-                                                                                        desc );
+    const Dx12RenderGraphBarrierRecord record = ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit", passName,
+                                                                                        "SwapchainBackbuffer", desc );
 
     if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
          record.beforeState == record.afterState || !record.emitted )
     {
+
         // Hazard: advance the tracked state only after exactly one native
         // barrier was emitted for the current swap-chain image.
-        SB_FATAL( "Dx12FrameOwner",
-                  "DX12 backbuffer transition did not emit exactly one concrete barrier. pass=%s",
+        SB_FATAL( "Dx12FrameOwner", "DX12 backbuffer transition did not emit exactly one concrete barrier. pass=%s",
                   passName ? passName : "unknown" );
     }
 
@@ -190,6 +193,7 @@ bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphReso
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 {
+
     if ( !m_deviceHealth.CanIssueDeviceWork() )
     {
         return m_recording.RetainFailure( m_deviceHealth.CurrentResult() );
@@ -201,6 +205,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
     }
 
     ID3D12CommandAllocator* allocator = m_device.CommandAllocator( m_allocatorIndex );
+
     if ( !m_device.CommandList() || !m_device.GraphicsQueue() || !m_device.FrameFence().IsReady() || !allocator )
     {
         SB_FATAL( "Dx12FrameOwner", "Draw epoch requires device queue, fence, allocator, and command list." );
@@ -213,18 +218,21 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 
     const UINT64 completed = m_device.FrameFence().CompletedValue();
     m_submittedWork.ObserveCompletedFence( completed );
+
     if ( m_submittedWork.HasUnfencedOrUncertainWork() )
     {
-        return m_recording.RetainFailure( SkullbonezCore::Core::SbResult::Failure(
-            "Rendering/DX12",
-            "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
+        return m_recording.RetainFailure( SkullbonezCore::Core::SbResult::
+                                              Failure( "Rendering/DX12",
+                                                       "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
     }
 
     const UINT64 allocatorFence = m_frameFenceValues[m_allocatorIndex];
+
     if ( allocatorFence > completed )
     {
         const SkullbonezCore::Core::SbResult wait = m_device.FrameFence().WaitForValue( allocatorFence );
         m_submittedWork.CommitWait( wait, allocatorFence );
+
         if ( !wait.ok )
         {
             return m_recording.CommitWait( wait );
@@ -260,6 +268,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 
 bool Dx12FrameOwner::PrepareDraw()
 {
+
     if ( !EnsureOpen().ok )
     {
         return false;
@@ -267,11 +276,11 @@ bool Dx12FrameOwner::PrepareDraw()
 
     if ( !m_pipeline.RenderingToFramebuffer() && m_backBufferAccess != RenderGraphResourceAccess::RenderTarget )
     {
+
         // Invariant: executable graph callbacks acquire the normal render
         // target state. Draw submission is a consumer and must never recreate
         // the retired implicit transition fallback.
-        SB_FATAL( "Dx12FrameOwner",
-                  "Backbuffer draw reached submission without graph acquisition. tracked=%s",
+        SB_FATAL( "Dx12FrameOwner", "Backbuffer draw reached submission without graph acquisition. tracked=%s",
                   ToString( m_backBufferAccess ) );
     }
 
@@ -289,6 +298,7 @@ int Dx12FrameOwner::SuspendProfilerForSubmit( const char* reason )
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     const int depth = m_profilerStackState.Depth();
+
     if ( depth <= 0 )
     {
         return 0;
@@ -296,17 +306,15 @@ int Dx12FrameOwner::SuspendProfilerForSubmit( const char* reason )
 
     if ( !CommandList() || !m_recording.CanRecord() )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
-            reason ? reason : "unknown",
-            depth );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_platform_profiler_gpu_suspend_without_open_command_list reason=%s depth=%d",
+                          reason ? reason : "unknown", depth );
 
         return 0;
     }
 
     SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_gpu_stack_suspended_for_submit reason=%s depth=%d",
-                                             reason ? reason : "unknown",
-                                             depth );
+                                             reason ? reason : "unknown", depth );
 
     for ( int i = depth - 1; i >= 0; --i )
     {
@@ -314,6 +322,7 @@ int Dx12FrameOwner::SuspendProfilerForSubmit( const char* reason )
     }
 
     const int committedDepth = m_profilerStackState.SuspendForSubmit();
+
     if ( committedDepth != depth )
     {
         SB_FATAL( "Dx12FrameOwner", "DX12 platform profiler suspend depth changed during submission." );
@@ -330,10 +339,10 @@ int Dx12FrameOwner::SuspendProfilerForSubmit( const char* reason )
 void Dx12FrameOwner::RestoreProfilerAfterSubmit( int depth )
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+
     if ( !m_recording.CanRecord() )
     {
-        SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_gpu_restore_bookkeeping_only depth=%d",
-                                                 depth );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_gpu_restore_bookkeeping_only depth=%d", depth );
 
         if ( !m_profilerStackState.RestoreAfterSubmit( depth, PROFILER_STACK_CAPACITY ) )
         {
@@ -348,9 +357,7 @@ void Dx12FrameOwner::RestoreProfilerAfterSubmit( int depth )
         const Dx12PlatformProfilerGpuScopeDX12& scope = m_profilerScopes[i];
         const char* markerName = scope.name[0] != '\0' ? scope.name : "(null)";
         PIXBeginEvent( m_device.CommandList(),
-                       SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, scope.hash ),
-                       "%s",
-                       markerName );
+                       SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, scope.hash ), "%s", markerName );
     }
 
     if ( !m_profilerStackState.RestoreAfterSubmit( depth, PROFILER_STACK_CAPACITY ) )
@@ -365,26 +372,25 @@ void Dx12FrameOwner::RestoreProfilerAfterSubmit( int depth )
 
 void Dx12FrameOwner::AssertProfilerClosed( const char* reason ) const
 {
+
     if ( m_profilerStackState.Depth() == 0 )
     {
         return;
     }
 
     SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_open_stack_on_submit reason=%s depth=%d",
-                                             reason ? reason : "unknown",
-                                             m_profilerStackState.Depth() );
+                                             reason ? reason : "unknown", m_profilerStackState.Depth() );
 
     assert( m_profilerStackState.Depth() == 0 );
-    SB_FATAL( "Dx12FrameOwner",
-              "DX12 platform profiler GPU stack left open before command submission. reason=%s depth=%d",
-              reason ? reason : "unknown",
-              m_profilerStackState.Depth() );
+    SB_FATAL( "Dx12FrameOwner", "DX12 platform profiler GPU stack left open before command submission. reason=%s depth=%d",
+              reason ? reason : "unknown", m_profilerStackState.Depth() );
 }
 
 
 void Dx12FrameOwner::BeginProfilerEvent( const char* name, uint32_t hash )
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+
     if ( !CommandList() || !EnsureOpen().ok )
     {
         return;
@@ -392,26 +398,20 @@ void Dx12FrameOwner::BeginProfilerEvent( const char* name, uint32_t hash )
 
     if ( m_profilerStackState.Depth() >= PROFILER_STACK_CAPACITY )
     {
-        SB_FATAL( "Dx12FrameOwner",
-                  "DX12 platform profiler GPU stack overflow. depth=%d capacity=%d",
-                  m_profilerStackState.Depth(),
-                  PROFILER_STACK_CAPACITY );
+        SB_FATAL( "Dx12FrameOwner", "DX12 platform profiler GPU stack overflow. depth=%d capacity=%d",
+                  m_profilerStackState.Depth(), PROFILER_STACK_CAPACITY );
     }
 
     char gpuMarkerName[SkullbonezCore::Core::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
     const char* markerName = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled()
-                                 ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName( name,
-                                                                                               "_GPU",
-                                                                                               gpuMarkerName,
+                                 ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName( name, "_GPU", gpuMarkerName,
                                                                                                sizeof( gpuMarkerName ) )
                                  : name;
 
     Dx12PlatformProfilerGpuScopeDX12& scope = m_profilerScopes[m_profilerStackState.Depth()];
     _snprintf_s( scope.name, sizeof( scope.name ), _TRUNCATE, "%s", markerName ? markerName : "(null)" );
     scope.hash = hash;
-    PIXBeginEvent( CommandList(),
-                   SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ),
-                   "%s",
+    PIXBeginEvent( CommandList(), SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ), "%s",
                    markerName );
 
     if ( !m_profilerStackState.CommitBegin( PROFILER_STACK_CAPACITY ) )
@@ -428,8 +428,10 @@ void Dx12FrameOwner::BeginProfilerEvent( const char* name, uint32_t hash )
 void Dx12FrameOwner::EndProfilerEvent()
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+
     if ( m_profilerStackState.Depth() <= 0 )
     {
+
         if ( SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
         {
             SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
@@ -453,6 +455,7 @@ void Dx12FrameOwner::EndProfilerEvent()
     }
 
     PIXEndEvent( CommandList() );
+
     if ( !m_profilerStackState.CommitEnd() )
     {
         SB_FATAL( "Dx12FrameOwner", "DX12 platform profiler end lost its open scope." );
@@ -466,8 +469,10 @@ void Dx12FrameOwner::EndProfilerEvent()
 SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 {
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandSubmission", ::HashStr( "Frame/DX12/CommandSubmission" ) );
+
     if ( m_recording.HasFailure() )
     {
+
         if ( m_faultInjection.WasInjected() )
         {
             [[maybe_unused]] const SkullbonezCore::Core::SbResult blocked = m_faultInjection.BeforeSubmission();
@@ -483,17 +488,15 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
     }
 
     const SkullbonezCore::Core::SbResult injected = m_faultInjection.BeforeSubmission();
+
     if ( !injected.ok )
     {
         const SkullbonezCore::Core::SbResult retained = m_recording.RetainFailure( injected );
         SkullbonezCore::Core::Log().WriteEventf( "dx12_fault_injected point=before-first-submit submissions=%u",
                                                  m_faultInjection.SubmissionCount() );
 
-        fprintf( stderr,
-                 "[dx12-fault] owner=%s reason=\"%s\" submissions=%u\n",
-                 retained.error.owner,
-                 retained.error.message,
-                 m_faultInjection.SubmissionCount() );
+        fprintf( stderr, "[dx12-fault] owner=%s reason=\"%s\" submissions=%u\n", retained.error.owner,
+                 retained.error.message, m_faultInjection.SubmissionCount() );
 
         fflush( stderr );
         SkullbonezCore::Core::Log().FlushAll();
@@ -512,13 +515,14 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
 {
+
     if ( !m_device.FrameFence().IsReady() )
     {
+
         if ( m_submittedWork.HasSubmittedWork() )
         {
-            const SkullbonezCore::Core::SbResult unavailable = SkullbonezCore::Core::SbResult::Failure(
-                "Rendering/DX12",
-                "DX12 fence timeline unavailable while submitted GPU work remains unproven." );
+            const SkullbonezCore::Core::SbResult unavailable = SkullbonezCore::Core::SbResult::
+                Failure( "Rendering/DX12", "DX12 fence timeline unavailable while submitted GPU work remains unproven." );
 
             m_submittedWork.CommitWait( unavailable, 0 );
             return unavailable;
@@ -531,6 +535,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
     UINT64 fence = 0;
     const SkullbonezCore::Core::SbResult signal = m_device.FrameFence().Signal( fence );
     m_submittedWork.CommitSignal( signal, fence );
+
     if ( !signal.ok )
     {
         return signal;
@@ -538,6 +543,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
 
     const SkullbonezCore::Core::SbResult wait = m_device.FrameFence().WaitForValue( fence );
     m_submittedWork.CommitWait( wait, fence );
+
     if ( !wait.ok )
     {
         return wait;
@@ -545,8 +551,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
 
     if ( m_submittedWork.HasSubmittedWork() )
     {
-        SB_FATAL( "Dx12FrameOwner",
-                  "Submitted work remained live after successful upload-flush drain. fence=%llu",
+        SB_FATAL( "Dx12FrameOwner", "Submitted work remained live after successful upload-flush drain. fence=%llu",
                   static_cast<unsigned long long>( fence ) );
     }
 
@@ -585,6 +590,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
 
     ID3D12CommandAllocator* allocator = m_device.CommandAllocator( m_allocatorIndex );
     result = m_recording.CommitAllocatorReset( allocator->Reset(), "Dx12FrameOwner upload flush allocator Reset" );
+
     if ( result.ok )
     {
         result = m_recording.CommitListReset( m_device.CommandList()->Reset( allocator, nullptr ),
@@ -610,6 +616,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
 
 static const char* Dx12UploadCategoryName( RenderUploadCategory category )
 {
+
     switch ( category )
     {
     case RenderUploadCategory::Constants:
@@ -636,50 +643,53 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
 
     const Dx12UploadArenaStats stats = m_uploads.GetStats( m_allocatorIndex );
     const char* owner = Dx12UploadCategoryName( category );
-    const Dx12UploadReservationResolution resolution = ResolveDx12UploadReservation(
-        fits,
-        phase,
-        [&]()
-        {
-            ++m_uploadFlushCount;
+    const Dx12UploadReservationResolution
+        resolution = ResolveDx12UploadReservation( fits, phase,
+                                                   [&]()
+                                                   {
+                                                       ++m_uploadFlushCount;
 
-            SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_upload_cold_flush owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
-                "capacity_bytes=%llu flushes=%llu",
-                owner,
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
-                static_cast<unsigned long long>( size ),
-                static_cast<unsigned long long>( stats.usedBytes ),
-                static_cast<unsigned long long>( stats.capacityBytes ),
-                static_cast<unsigned long long>( m_uploadFlushCount ) );
+                                                       SkullbonezCore::Core::Log()
+                                                           .WriteEventf( "dx12_upload_cold_flush owner=%s phase=%s "
+                                                                         "requested_bytes=%llu used_bytes=%llu "
+                                                                         "capacity_bytes=%llu flushes=%llu",
+                                                                         owner,
+                                                                         SkullbonezCore::Core::Allocation::
+                                                                             RuntimeAllocationPhaseName( phase ),
+                                                                         static_cast<unsigned long long>( size ),
+                                                                         static_cast<unsigned long long>( stats.usedBytes ),
+                                                                         static_cast<unsigned long long>( stats.capacityBytes ),
+                                                                         static_cast<unsigned long long>( m_uploadFlushCount ) );
 
-            return FlushUploadBuffer().ok && m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
-        } );
+                                                       return FlushUploadBuffer().ok &&
+                                                              m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
+                                                   } );
 
     if ( resolution.dropped )
     {
         ++m_uploadDropCount;
         const std::size_t categoryIndex = static_cast<std::size_t>( category );
+
         if ( categoryIndex >= RENDER_UPLOAD_CATEGORY_COUNT )
         {
             SB_FATAL( "Dx12FrameOwner", "DX12 upload drop used an invalid category. category=%zu", categoryIndex );
         }
 
         const uint64_t categoryDrops = ++m_uploadCategoryDropCount[categoryIndex];
+
         // Rate-limit independently per owner so the first texture, constants,
         // instance, or overlay offender cannot be hidden by another category.
+
         if ( ( categoryDrops & ( categoryDrops - 1u ) ) == 0u )
         {
-            SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_upload_drop owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
-                "capacity_bytes=%llu owner_drops=%llu total_drops=%llu",
-                owner,
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
-                static_cast<unsigned long long>( size ),
-                static_cast<unsigned long long>( stats.usedBytes ),
-                static_cast<unsigned long long>( stats.capacityBytes ),
-                static_cast<unsigned long long>( categoryDrops ),
-                static_cast<unsigned long long>( m_uploadDropCount ) );
+            SkullbonezCore::Core::Log()
+                .WriteEventf( "dx12_upload_drop owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
+                              "capacity_bytes=%llu owner_drops=%llu total_drops=%llu",
+                              owner, SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
+                              static_cast<unsigned long long>( size ), static_cast<unsigned long long>( stats.usedBytes ),
+                              static_cast<unsigned long long>( stats.capacityBytes ),
+                              static_cast<unsigned long long>( categoryDrops ),
+                              static_cast<unsigned long long>( m_uploadDropCount ) );
         }
     }
 
@@ -690,6 +700,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
 D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
+
     if ( !EnsureOpen().ok || !PrepareUploadReservation( size, alignment, category ) )
     {
         return 0;
@@ -702,6 +713,7 @@ Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCatego
 D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory )
 {
+
     if ( !EnsureOpen().ok || vertexBytes == 0 )
     {
         return 0;
@@ -709,6 +721,7 @@ Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes,
 
     m_pendingConstantAddress = 0;
     m_pendingConstantBytes = 0;
+
     // Hazard: a flush after either address is published invalidates both. Probe
     // the conservative combined aligned budget, flush at most once, then allocate
     // the constant row before the dependent vertex/instance bytes.
@@ -726,9 +739,7 @@ Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes,
 
     if ( constantBytes > 0 )
     {
-        m_pendingConstantAddress = m_uploads.Allocate( m_allocatorIndex,
-                                                       constantBytes,
-                                                       256,
+        m_pendingConstantAddress = m_uploads.Allocate( m_allocatorIndex, constantBytes, 256,
                                                        RenderUploadCategory::Constants );
 
         m_pendingConstantBytes = constantBytes;
@@ -740,6 +751,7 @@ Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes,
 
 D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveConstantUpload( UINT64 size )
 {
+
     if ( m_pendingConstantAddress != 0 && m_pendingConstantBytes == size )
     {
         const D3D12_GPU_VIRTUAL_ADDRESS address = m_pendingConstantAddress;
@@ -764,21 +776,21 @@ void Dx12FrameOwner::CancelPendingConstantUpload()
 void Dx12FrameOwner::WriteFaultProbe() const
 {
 #ifdef _DEBUG
+
     if ( !m_faultInjection.IsArmed() )
     {
         return;
     }
 
     FILE* report = nullptr;
+
     if ( fopen_s( &report, "TestOutput/dx12_fault_injection.txt", "wb" ) != 0 || !report )
     {
         return;
     }
 
-    fprintf( report,
-             "point=before-first-submit injected=%d submissions=%u blocked_after_failure=%u\n",
-             m_faultInjection.WasInjected() ? 1 : 0,
-             m_faultInjection.SubmissionCount(),
+    fprintf( report, "point=before-first-submit injected=%d submissions=%u blocked_after_failure=%u\n",
+             m_faultInjection.WasInjected() ? 1 : 0, m_faultInjection.SubmissionCount(),
              m_faultInjection.BlockedSubmissionCount() );
 
     fclose( report );
@@ -869,12 +881,14 @@ void Dx12FrameOwner::ReleaseCompletedRetirements( bool releaseUnfenced )
 
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
 {
+
     if ( !resource )
     {
         return;
     }
 
     const bool fenceReady = m_device.FrameFence().IsReady();
+
     if ( fenceReady )
     {
         m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
@@ -888,6 +902,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
 
     const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
     bool hasOutstandingFrameWork = false;
+
     for ( const UINT64 frameFence : m_frameFenceValues )
     {
         hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
@@ -907,6 +922,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
 
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIndex )
 {
+
     if ( !resource )
     {
         RetireStaticDescriptor( descriptorIndex );
@@ -914,6 +930,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
     }
 
     const bool fenceReady = m_device.FrameFence().IsReady();
+
     if ( fenceReady )
     {
         m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
@@ -921,6 +938,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
 
     const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
     bool hasOutstandingFrameWork = m_recording.IsOpen();
+
     for ( const UINT64 frameFence : m_frameFenceValues )
     {
         hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
@@ -937,13 +955,13 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
 }
 
 
-void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
-                                     UINT descriptorIndex,
-                                     Dx12CpuDescriptorKind cpuKind,
+void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind,
                                      UINT cpuDescriptorIndex )
 {
+
     if ( !resource )
     {
+
         if ( descriptorIndex != UINT_MAX )
         {
             RetireStaticDescriptor( descriptorIndex );
@@ -958,6 +976,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
     }
 
     const bool fenceReady = m_device.FrameFence().IsReady();
+
     if ( fenceReady )
     {
         m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
@@ -965,6 +984,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
 
     const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
     bool hasOutstandingFrameWork = m_recording.IsOpen();
+
     for ( const UINT64 frameFence : m_frameFenceValues )
     {
         hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
@@ -973,6 +993,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
     if ( !hasOutstandingFrameWork && m_submittedWork.CanReleaseWithoutFence() )
     {
         resource->Release();
+
         if ( descriptorIndex != UINT_MAX )
         {
             m_descriptors.FreeStatic( descriptorIndex );
@@ -992,10 +1013,12 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
 
 void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
 {
+
     // Lifetime: descriptor rows use the resource retirement proof because a
     // transient shader-visible copy may outlive the registry entry that named
     // its staging row. Reuse is legal only after all covering frame fences.
     const bool fenceReady = m_device.FrameFence().IsReady();
+
     if ( fenceReady )
     {
         m_submittedWork.ObserveCompletedFence( m_device.FrameFence().CompletedValue() );
@@ -1003,6 +1026,7 @@ void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )
 
     const UINT64 completedFence = fenceReady ? m_device.FrameFence().CompletedValue() : 0;
     bool hasOutstandingFrameWork = m_recording.IsOpen();
+
     for ( const UINT64 frameFence : m_frameFenceValues )
     {
         hasOutstandingFrameWork = hasOutstandingFrameWork || frameFence > completedFence;
@@ -1030,35 +1054,25 @@ bool Dx12DrawGate::PrepareFramebufferBind()
 }
 
 
-bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
-                                          bool instanced,
-                                          const InstancedMeshDX12* instancedMesh,
-                                          const DynamicVBDX12* dynamicVertexBuffer,
-                                          const RasterStateDesc& rasterState )
+bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
+                                          const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState )
 {
+
     if ( !PrepareDraw() )
     {
         return false;
     }
 
-    return m_pipeline.PrepareDraw( Device(),
-                                   CommandList(),
-                                   m_recording,
-                                   m_textures,
-                                   format,
-                                   instanced,
-                                   instancedMesh,
-                                   dynamicVertexBuffer,
-                                   rasterState );
+    return m_pipeline.PrepareDraw( Device(), CommandList(), m_recording, m_textures, format, instanced, instancedMesh,
+                                   dynamicVertexBuffer, rasterState );
 }
 
 
-bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format,
-                                             bool instanced,
-                                             const InstancedMeshDX12* instancedMesh,
+bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
                                              const DynamicVBDX12* dynamicVertexBuffer,
                                              const RasterStateDesc& declaredRasterState )
 {
+
     if ( !PrepareDraw() )
     {
         return false;
@@ -1066,24 +1080,18 @@ bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format,
 
     // Why: pass preparation warms the exact declared recipe before the first
     // submission. No command-list state is changed by this operation.
-    return m_pipeline
-        .PrecompileDraw( Device(), format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
+    return m_pipeline.PrecompileDraw( Device(), format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
 }
 
 
-bool Dx12DrawGate::PreparePipelineDraw( VertexFormat12 format,
-                                        bool instanced,
-                                        const InstancedMeshDX12* instancedMesh,
-                                        const DynamicVBDX12* dynamicVertexBuffer,
-                                        const RasterStateDesc& rasterState )
+bool Dx12DrawGate::PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
+                                        const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState )
 {
     return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, rasterState );
 }
 
 
-bool Dx12DrawGate::PrecompilePipelineDraw( VertexFormat12 format,
-                                           bool instanced,
-                                           const InstancedMeshDX12* instancedMesh,
+bool Dx12DrawGate::PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
                                            const DynamicVBDX12* dynamicVertexBuffer,
                                            const RasterStateDesc& declaredRasterState )
 {
@@ -1104,8 +1112,7 @@ Dx12UploadReservations::ReserveUpload( UINT64 size, UINT64 alignment, RenderUplo
 }
 
 
-D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadReservations::ReserveGeometryUpload( UINT64 vertexBytes,
-                                                                         UINT64 constantBytes,
+D3D12_GPU_VIRTUAL_ADDRESS Dx12UploadReservations::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes,
                                                                          RenderUploadCategory vertexCategory )
 {
     return m_owner.ReserveGeometryUpload( vertexBytes, constantBytes, vertexCategory );
@@ -1142,9 +1149,7 @@ void Dx12ResourceRelease::Retire( ID3D12Resource* resource, UINT descriptorIndex
 }
 
 
-void Dx12ResourceRelease::Retire( ID3D12Resource* resource,
-                                  UINT descriptorIndex,
-                                  Dx12CpuDescriptorKind cpuKind,
+void Dx12ResourceRelease::Retire( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind,
                                   UINT cpuDescriptorIndex )
 {
     m_owner.RetireResource( resource, descriptorIndex, cpuKind, cpuDescriptorIndex );
@@ -1210,6 +1215,7 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
     Dx12CaptureSubmitOutcome outcome;
     m_owner.AssertProfilerClosed( "CaptureBackbuffer" );
     outcome.result = m_owner.CommitClose( m_owner.CommandList()->Close(), "CaptureBackbuffer command list Close" );
+
     if ( !outcome.result.ok )
     {
         outcome.readbackUseUncertain = true;
@@ -1218,8 +1224,10 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
     }
 
     outcome.result = m_owner.SubmitClosed();
+
     if ( !outcome.result.ok )
     {
+
         // Invariant: SubmitClosed reports failure only before ExecuteCommandLists;
         // the local readback remains safe for ordinary destruction.
         outcome.failedOperation = "Submit";
@@ -1227,6 +1235,7 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
     }
 
     outcome.result = m_owner.CommitWait( m_owner.WaitForGpu() );
+
     if ( !outcome.result.ok )
     {
         outcome.readbackUseUncertain = true;

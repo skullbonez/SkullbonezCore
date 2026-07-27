@@ -25,12 +25,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/LiveStyleController.cpp
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
+  - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 
 #include <cstdint>
 
@@ -43,12 +43,16 @@ class Dx12BackbufferCapture;
 namespace Runtime
 {
 class CaptureController;
+class SceneController;
 class LiveStyleController
 {
   public:
     bool ConfigureDirectory( const char* path );
     void MarkReady();
-    void Tick( SceneRuntimeStyleContext context );
+    void Tick( RunLaunchOptions& launchOptions, SceneController& sceneController,
+               SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+               const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
     bool HasPendingCapture() const;
     void SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
     const char* PendingScreenshotPath() const;

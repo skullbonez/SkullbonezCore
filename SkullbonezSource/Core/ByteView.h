@@ -6,6 +6,7 @@ Purpose:
 Summary:
   ByteView carries a pointer and byte count without erasing the boundary to
   void. ObjectBytes exposes the representation of trivially copyable values
+
   for deterministic hashes and cold binary formats.
 
 Glossary:
@@ -36,6 +37,7 @@ using ByteView = std::span<const uint8_t>;
 template <typename T> ByteView ObjectBytes( const T& value ) noexcept
 {
     static_assert( std::is_trivially_copyable_v<T>, "ObjectBytes requires a trivially copyable value." );
+
     // Why: C++ permits inspection of any object representation through an
     // unsigned-character type. This is the single typed boundary used by
     // deterministic hashes and binary writers instead of public void pointers.
@@ -45,10 +47,12 @@ template <typename T> ByteView ObjectBytes( const T& value ) noexcept
 template <typename T> ByteView ObjectBytes( std::span<const T> values ) noexcept
 {
     static_assert( std::is_trivially_copyable_v<T>, "ObjectBytes requires trivially copyable elements." );
+
     if ( values.empty() )
     {
         return {};
     }
+
     return { ObjectBytes( values.front() ).data(), values.size_bytes() };
 }
 } // namespace SkullbonezCore::Core

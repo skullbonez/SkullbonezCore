@@ -31,9 +31,11 @@ namespace Runtime
 {
 SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& request )
 {
+
     if ( request.type == SceneRequestType::CreateScene )
     {
         const std::size_t textLength = strnlen_s( request.text, SCENE_REQUEST_TEXT_CAPACITY );
+
         if ( textLength >= SCENE_REQUEST_TEXT_CAPACITY )
         {
             return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneRequestQueue",
@@ -44,12 +46,11 @@ SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& re
 
     if ( m_count >= SCENE_REQUEST_QUEUE_CAPACITY )
     {
+
         // Lane F: UI/input cannot legally emit more scene intents than the
         // owner budget between drains; growing here would allocate in runtime.
-        SB_FATAL( "Runtime/SceneRequestQueue",
-                  "Scene request capacity exhausted. capacity=%d high_water=%d phase=input",
-                  SCENE_REQUEST_QUEUE_CAPACITY,
-                  m_count );
+        SB_FATAL( "Runtime/SceneRequestQueue", "Scene request capacity exhausted. capacity=%d high_water=%d phase=input",
+                  SCENE_REQUEST_QUEUE_CAPACITY, m_count );
     }
 
     const int tail = ( m_head + m_count ) % SCENE_REQUEST_QUEUE_CAPACITY;
@@ -63,6 +64,7 @@ SceneRequestBatch SceneRequestQueue::TakePending()
 {
     SceneRequestBatch batch;
     bool hasTransition = false;
+
     while ( m_count > 0 )
     {
         const SceneRequest request = m_requests[m_head];
@@ -73,6 +75,7 @@ SceneRequestBatch SceneRequestQueue::TakePending()
 
         if ( SceneRequestIsTransition( request.type ) )
         {
+
             if ( hasTransition )
             {
                 ++batch.rejectedTransitionCount;

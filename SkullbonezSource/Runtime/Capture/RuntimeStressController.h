@@ -1,87 +1,98 @@
 /*
 File: SkullbonezSource/Runtime/Capture/RuntimeStressController.h
 Purpose:
-  Exposes deterministic UI and graphics stress execution at an explicit owner boundary.
+  Declares concrete graphics-stress operations used by the render phase.
 
 Summary:
-  Stress controllers own their random streams and counters. Each execution call
-  borrows the concrete runtime owners through non-copyable frame views; no borrow
-  is retained and Run only sequences the harness beside normal frame work.
+  Graphics stress is split into deterministic planning, descriptor churn,
+  bounded action groups, and diagnostics. Run remains the ordered phase
+  coordinator and supplies only the concrete owners each operation needs.
+
+Mental model:
+  These functions are synchronous stress transactions, not a replacement
+  runtime owner. They borrow their operands for one call, retain none, and
+  return only value decisions needed by the next render-phase step.
 
 Glossary:
-  UI stress: Bounded command churn that exercises control-state transitions.
-  Graphics stress: CLI-driven render, scene, and resource-lifetime churn.
+  Scene-load plan: Value-only request and logging facts chosen from the stress
+    seed before Run performs the scene-load transaction.
+  Quiet window: Descriptor-recreation interval in which unrelated random churn
+    is suppressed so the descriptor baseline can be verified.
 
 Invariants:
-  - Stress randomness advances only through its owning controller.
-  - Execution borrows are synchronous and are never stored after the call.
-  - Recoverable scene-load or renderer failures return through SkullbonezCore::Core::SbResult.
+  - Every helper receives twelve or fewer concrete operands.
+  - GraphicsStressController remains the sole owner of random sequence state.
+  - Scene-load transactions remain ordered by Run's PrepareRenderPhase.
+  - No helper retains a borrowed runtime owner or republishes a service bag.
 
 Related:
-  - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
-  - SkullbonezSource/Runtime/Capture/GraphicsStressController.h
+  - RuntimeStressController.cpp
+  - ../App/RunFrame.cpp
+  - GraphicsStressController.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-#include "../../Core/SbResult.h"
-#include "../Camera/RuntimeCameraMode.h"
-#include "../RuntimeFrameViews.h"
+#include "../Scene/SceneLoadRequest.h"
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace Core
 {
 class EngineConfig;
 struct CinematicRenderConfig;
 } // namespace Core
-namespace Assets
-{
-class AssetSystem;
-}
 namespace Rendering
 {
 class Dx12Diagnostics;
-}
-namespace Threading
-{
-class WorkerPool;
 }
 namespace UI
 {
 class InGameUI;
 }
-namespace Physics
-{
-class PhysicsDebugVisualizer;
-}
 namespace Runtime
 {
-class AttachedCameraController;
-class DiagnosticsRuntime;
 class GraphicsStressController;
-class InputRouter;
-class ReplayRuntime;
-class RuntimeInteractionController;
+class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
-class RuntimeTools;
 class SceneController;
+class ReplayRuntime;
+class RuntimeTools;
 class SimulationSystem;
 class Window;
-struct CameraControlState;
-struct OverlayDebugState;
+class DiagnosticsRuntime;
 struct RunLaunchOptions;
-struct RunStartupState;
 struct RunTimerState;
-struct RuntimeRenderBackendView;
+struct CameraControlState;
 
-SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
-                                                   RuntimeFrameInteractionView& interactionOwners,
-                                                   RuntimeFrameSceneView& sceneOwners,
-                                                   RuntimeRenderBackendView& renderBackendView,
-                                                   RuntimeRenderer& renderer,
-                                                   ReplayRuntime& replayRuntime,
-                                                   RunCameraMode replayRestoreCameraMode );
+struct GraphicsStressSceneLoadPlan
+{
+    SceneLoadRequest request;
+    bool scheduled = false;
+    int selectedSceneIndex = -1;
+    const char* selectedSceneSource = "none";
+};
 
+bool PrepareGraphicsStressChurn( GraphicsStressController& stress, Window& window, RuntimeRenderer& renderer,
+                                 const Rendering::Dx12Diagnostics& renderDiagnostics );
+GraphicsStressSceneLoadPlan PlanGraphicsStressSceneLoad( GraphicsStressController& stress, SceneController& sceneController,
+                                                         UI::InGameUI& ui );
+void ApplyGraphicsStressPresentationAction( int action, GraphicsStressController& stress, const Assets::AssetSystem& assets,
+                                            RunLaunchOptions& launchOptions, Core::EngineConfig& config,
+                                            RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                            RunTimerState& timers, UI::InGameUI& ui,
+                                            const Core::CinematicRenderConfig& defaultCinematicRender,
+                                            RuntimeRenderer& renderer );
+void ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions,
+                                       RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                       CameraControlState& camera, UI::InGameUI& ui, SimulationSystem& simulation,
+                                       RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
+void FinishGraphicsStressFrame( GraphicsStressController& stress, DiagnosticsRuntime& diagnosticsRuntime,
+                                RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime,
+                                const Rendering::Dx12Diagnostics& renderDiagnostics );
 } // namespace Runtime
 } // namespace SkullbonezCore

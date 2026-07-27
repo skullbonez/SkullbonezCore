@@ -73,6 +73,7 @@ namespace Runtime
 {
 struct SceneEntityCreateResult
 {
+
     // Lane R: authored input failures leave every store unchanged; success
     // publishes the body handle created by the cross-store commit.
     SkullbonezCore::Core::SbResult status;
@@ -81,6 +82,7 @@ struct SceneEntityCreateResult
 
 struct ScenePhysicsPostStepOutput
 {
+
     // Lifetime: the span borrows the physics owner's fixed-capacity event rows
     // until the next physics step. Dense rows are synchronous-only hints.
     std::span<const int> fixedContactModelIndices;
@@ -92,16 +94,26 @@ class SceneWorld
     SceneWorld();
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+
     // Published owner value; the scene-load transaction need not retain a
     // duplicate config-derived capacity among its detached outputs.
     int ActiveSceneObjectCapacity() const;
+
+    // Authored/generated setup supplies exact topology before its first append;
+    // SceneWorld sequences concrete Physics owners without retaining a bag.
+    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount, int hullCount,
+                                                               int pointJointCount );
+    SkullbonezCore::Core::SbResult ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount,
+                                                                          int pointJointCount );
+
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
-    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity,
-                                                  Physics::PhysicsBodyCreateDesc bodyDesc,
+    SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity, Physics::PhysicsBodyCreateDesc bodyDesc,
                                                   Physics::PhysicsColliderCreateDesc colliderDesc );
+
     // Cold editor deletion removes the same four rows as one swap-last commit.
     bool DestroySceneEntity( Physics::PhysicsBodyHandle body );
+
     // Terrain replacement is a lifetime transaction: revoke Physics' borrowed
     // cell span before destroying the backing owner, then publish the new view.
     void ReplaceTerrain( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope );
@@ -110,41 +122,44 @@ class SceneWorld
 
     void BeginPhysicsStepPresentationCapture();
     void CompletePhysicsStepPresentationCapture();
+
     // Executes the deterministic live/replay physics boundary. Returned dense
     // rows are valid only for the synchronous presentation handoff.
-    ScenePhysicsPostStepOutput
-    StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool );
+    ScenePhysicsPostStepOutput StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces,
+                                            Threading::WorkerPool& workerPool );
     void PrepareRenderInstances( float presentationAlpha = 1.0f );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
 
     bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
-    bool TryGetPresentationPose( int index,
-                                 float presentationAlpha,
-                                 Math::Vector::Vector3& outPosition,
+    bool TryGetPresentationPose( int index, float presentationAlpha, Math::Vector::Vector3& outPosition,
                                  Math::Orientation::Quaternion& outOrientation ) const;
     int SceneEntityCount() const;
+
     // Publishes every SceneWorld-owned field needed by one synchronous scene
     // save. Borrowed store rows remain valid only until the writer returns.
     GameObjects::SceneWorldSaveState GetSaveState() const;
+
     // Current prepared physics views. Callers must not retain either span/view
     // across topology mutation or scene replacement.
     const Physics::PhysicsBodyStore& BodyStore() const;
     const Physics::ColliderStore& Colliders() const;
     Rendering::RenderInstanceStore& MutableRenderInstances();
     const Rendering::RenderInstanceStore& RenderInstances() const;
+
     // Cold callers that need a refreshed snapshot use this command; hot render
     // passes consume RenderInstances() after PrepareRenderInstances().
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     double GetSceneKineticEnergy();
+
     // Runtime-tool edge: resolve a picked row once, then perform release and
     // same-tree propagation through PhysicsEngine-owned handles.
-    bool ReleaseAttachedFixedTreeParts( int sourceIndex,
-                                        float releaseImpulseStrength,
+    bool ReleaseAttachedFixedTreeParts( int sourceIndex, float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
     void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
+
     // Explicit cold boundary used before tools borrow aligned physics rows and
     // paired body/collider handles. Hot passes never trigger topology repair.
     bool RepairPhysicsBodyAndColliderTopology();
@@ -156,6 +171,7 @@ class SceneWorld
 
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
+
     // Editor flags resolve durable scene identity at this owner boundary.
     // Visibility also updates the paired render row; locks gate edit commands.
     bool SetEditorEntityVisible( Physics::PhysicsSceneObjectId sceneObjectId, bool visible );
@@ -170,10 +186,12 @@ class SceneWorld
     const Physics::PhysicsEngine& Physics() const;
     Gameplay::TornadoGameplay& Tornado();
     const Gameplay::TornadoGameplay& Tornado() const;
+
     // Projects content-neutral byte totals so diagnostics and renderer-facing
     // composition never need to name or borrow the concrete Gameplay owner.
     uint64_t CollectGameplayMemoryBytes() const;
     uint64_t CollectGameplayDebugMemoryBytes() const;
+
     // Content-neutral publication consumed by the late debug render pass. The
     // span aliases scene-owned gameplay scratch for this frame only.
     std::span<const float> BuildWorldExtensionDebugLines();
@@ -197,6 +215,7 @@ class SceneWorld
     Environment::WorldEnvironment m_world;
     SceneTerrain m_terrain;
     Physics::PhysicsEngine m_physics;
+
     // Scene-lifetime gameplay state is a sibling of Physics; only its bounded
     // value frame crosses the fixed-step boundary.
     Gameplay::TornadoGameplay m_tornadoGameplay;

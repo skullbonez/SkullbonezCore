@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   SceneController owns cold scene mutation and borrows only the owners required
+
   while scene storage is changing. SceneLoadTransaction owns the phase cursor
   and detached outputs, then sequences idempotent reactions at the excluded
   camera, input, interaction, tool, Replay, UI, and validation owners.
@@ -24,6 +25,8 @@ Glossary:
     once two bodies have produced an exact contact.
   Authored projection: Cold-load, field-by-field copy from parser DTOs into an
     owning subsystem's runtime values.
+  Capacity session: Per-scene live/high-water interval advanced only after the
+    old stores are cleared and before new scene population.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -34,6 +37,8 @@ Invariants:
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
   - Tornado projection copies every authored field here so Gameplay never
     depends upward on Scene or parser vocabulary.
+  - Capacity rows are logged before clear; the next capacity session begins
+    after clear and before population.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -44,7 +49,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../Interaction/OperatorCommandApplier.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Camera/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
@@ -55,12 +60,10 @@ Related:
 #include "../App/RunTimerState.h"
 #include "../App/Window.h"
 #include "../Render/RuntimeRenderer.h"
-#include "SceneRuntimeCoordinator.h"
-#include "SceneRuntimeLoad.h"
+#include "SceneLoadRequest.h"
+#include "SceneLoadPreparation.h"
 #include "SceneSaveOperations.h"
-#include "SceneRuntimeReset.h"
-#include "SceneRuntimeStyle.h"
-#include "SceneRuntimeUiOptions.h"
+#include "SceneCinematicPolicy.h"
 #include "../Editor/EditorTools.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/Ragdoll.h"
@@ -99,7 +102,6 @@ using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::MeshDX12;
-using namespace SkullbonezCore::Runtime::RunInternal;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -129,12 +131,14 @@ TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig
 
 TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemConfig& authored )
 {
+
     // Boundary: Scene owns cold authored DTOs. Runtime performs the exhaustive
     // copy so Gameplay never depends upward on Scene or parser vocabulary.
     TornadoSystemConfig projected;
     projected.enabled = authored.enabled;
     projected.visualizeVelocityField = authored.visualizeVelocityField;
     projected.vortices.reserve( authored.vortices.size() );
+
     for ( const AuthoredTornadoVortexConfig& authoredVortex : authored.vortices )
     {
         SkullbonezCore::Gameplay::TornadoVortexConfig vortex;
@@ -155,15 +159,14 @@ TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemCon
 }
 
 void ApplySceneWorkerThreadSetting( SkullbonezCore::Core::EngineConfig& config,
-                                    SkullbonezCore::Threading::WorkerPool& workerPool,
-                                    int requestedWorkerThreads )
+                                    SkullbonezCore::Threading::WorkerPool& workerPool, int requestedWorkerThreads )
 {
-    const int clampedWorkerThreads = std::clamp( requestedWorkerThreads,
-                                                 -1,
+    const int clampedWorkerThreads = std::clamp( requestedWorkerThreads, -1,
                                                  SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
 
     const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
     config.runtimeCapacity.workerThreads = clampedWorkerThreads;
+
     if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
     {
         workerPool.Initialise( clampedWorkerThreads );
@@ -190,18 +193,15 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
 
 void LogSceneLoadFailure( const SkullbonezCore::Core::SbResult& result, const std::string& scenePath )
 {
+
     // Why: scene setup is a recoverable load boundary. Logging the owner keeps
     // automation and operators on a concrete failing subsystem without treating
     // malformed scene/generated input as an engine invariant failure.
     const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Scene";
-    const char* message = result.error.message[0] != '\0' ? result.error.message
-                                                          : "scene setup failed without a message";
+    const char* message = result.error.message[0] != '\0' ? result.error.message : "scene setup failed without a message";
 
-    fprintf( stderr,
-             "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n",
-             owner,
-             scenePath.empty() ? "<generated>" : scenePath.c_str(),
-             message );
+    fprintf( stderr, "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n", owner,
+             scenePath.empty() ? "<generated>" : scenePath.c_str(), message );
 }
 
 bool IsCineScenePath( const std::string& path )
@@ -214,6 +214,7 @@ bool IsCineScenePath( const std::string& path )
 Json& EnsureJsonObject( Json& parent, const char* key )
 {
     Json& child = parent[key];
+
     if ( !child.is_object() )
     {
         child = Json::object();
@@ -222,15 +223,16 @@ Json& EnsureJsonObject( Json& parent, const char* key )
     return child;
 }
 
-void SetTouchedCinematicSceneProperties( Json& root,
-                                         uint64_t touchedMask,
+void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
                                          const SkullbonezCore::Core::CinematicRenderConfig& c )
 {
+
     // Concept: save only values the UI actually touched.
     //
     // Scene JSON can include reusable style files plus a few local overrides.
     // The touched mask prevents "Save Defaults" from expanding every engine.cfg
     // or style default into the scene file.
+
     if ( touchedMask == 0 )
     {
         return;
@@ -239,6 +241,7 @@ void SetTouchedCinematicSceneProperties( Json& root,
     Json& cinematic = EnsureJsonObject( root, "cinematic" );
     const auto writeBool = [&]( uint64_t bit, const char* key, bool value )
     {
+
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -247,6 +250,7 @@ void SetTouchedCinematicSceneProperties( Json& root,
 
     const auto writeFloat = [&]( uint64_t bit, const char* key, float value )
     {
+
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -255,6 +259,7 @@ void SetTouchedCinematicSceneProperties( Json& root,
 
     const auto writeInt = [&]( uint64_t bit, const char* key, int value )
     {
+
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -272,6 +277,7 @@ void SetTouchedCinematicSceneProperties( Json& root,
 
     writeFloat( SCENE_CINE_EXPOSURE, "exposure", c.exposure );
     writeFloat( SCENE_CINE_GAMMA, "gamma", c.gamma );
+
     // Compatibility: saved scenes keep the established JSON keys even though
     // the in-memory fields now describe world-sky azimuth and elevation.
     writeFloat( SCENE_CINE_SUN_AZIMUTH, "sunScreenX", c.sunAzimuth );
@@ -356,13 +362,13 @@ void SetTouchedCinematicSceneProperties( Json& root,
 
     if ( ( touchedMask & SCENE_CINE_BASIN_MASK ) != 0 )
     {
-        cinematic["basinMask"] = Json::array(
-            { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
+        cinematic["basinMask"] = Json::array( { c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather } );
     }
 }
 
 const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
 {
+
     if ( noReflect )
     {
         return "none";
@@ -371,33 +377,9 @@ const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
     return rtReflect ? "dxr" : "fbo";
 }
 
-SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SceneWorld& sceneWorld )
-{
-    return SceneAuthoredCameraContext { sceneWorld };
-}
-
-SceneAuthoredModelContext BuildSceneAuthoredModelContext( SceneSessionState& sceneState,
-                                                          SceneWorld& sceneWorld,
-                                                          SceneAutomationGateConfiguration& automationGates )
-{
-    return SceneAuthoredModelContext { sceneState, sceneWorld, automationGates };
-}
-
-SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SceneWorld& sceneWorld )
-{
-    return SceneGeneratedCameraContext { sceneWorld };
-}
-
-SceneGeneratedModelContext BuildSceneGeneratedModelContext( SceneSessionState& scene,
-                                                            const SkullbonezCore::Core::EngineConfig& config,
-                                                            SceneWorld& sceneWorld,
-                                                            GeneratedObjectTypeOverride objectTypeOverride )
-{
-    return SceneGeneratedModelContext { scene, config, sceneWorld, objectTypeOverride };
-}
-
 void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
 {
+
     if ( !terrain )
     {
         return;
@@ -407,13 +389,10 @@ void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
     world.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 }
 
-void ApplyConfiguredWorldEnvironment( WorldEnvironment& world,
-                                      const SkullbonezCore::Core::EngineConfig& cfg,
+void ApplyConfiguredWorldEnvironment( WorldEnvironment& world, const SkullbonezCore::Core::EngineConfig& cfg,
                                       Terrain* terrain )
 {
-    world = WorldEnvironment( cfg.worldForces.fluidHeight,
-                              cfg.worldForces.fluidDensity,
-                              cfg.worldForces.gasDensity,
+    world = WorldEnvironment( cfg.worldForces.fluidHeight, cfg.worldForces.fluidDensity, cfg.worldForces.gasDensity,
                               cfg.worldForces.gravity );
 
     world.BindRuntimeConfig( cfg );
@@ -422,6 +401,7 @@ void ApplyConfiguredWorldEnvironment( WorldEnvironment& world,
 
 void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWater )
 {
+
     if ( !noWater || !terrain )
     {
         return;
@@ -430,8 +410,7 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
-                                                  SkullbonezCore::Assets::AssetSystem& assets,
+SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   const std::string& terrainRawPath,
                                                   SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
@@ -440,6 +419,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
     SceneTerrain& terrainOwner = sceneWorld.Terrain();
     WorldEnvironment& world = sceneWorld.Environment();
     assert( renderResources );
+
     if ( !renderResources )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/RunScene",
@@ -448,11 +428,14 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
 
     if ( !terrainOwner.Get() || terrainOwner.IsFlatSlope() )
     {
+
         if ( renderFrame )
         {
             const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
+
             if ( !flushResult.ok )
             {
+
                 // Lane R: keep the currently owned terrain alive when its GPU
                 // references cannot be proven drained.
                 return flushResult;
@@ -460,17 +443,13 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
         }
 
         std::unique_ptr<Terrain> terrain;
-        const SkullbonezCore::Core::SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(),
-                                                                                              256,
-                                                                                              8,
-                                                                                              15,
-                                                                                              config,
-                                                                                              assets,
-                                                                                              *renderResources,
-                                                                                              terrain );
+        const SkullbonezCore::Core::SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(), 256, 8,
+                                                                                              15, config, assets,
+                                                                                              *renderResources, terrain );
 
         if ( !terrainResult.ok )
         {
+
             // Why: RAW terrain is external scene/config input. Report the load
             // failure before replacing the currently owned terrain.
             return terrainResult;
@@ -487,18 +466,16 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
-                                                    SkullbonezCore::Assets::AssetSystem& assets,
-                                                    const SkullbonezCore::Core::EngineConfig& config,
-                                                    float baseY,
-                                                    float slopeX,
-                                                    float slopeZ,
+SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
+                                                    const SkullbonezCore::Core::EngineConfig& config, float baseY,
+                                                    float slopeX, float slopeZ,
                                                     SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
                                                     SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
     SceneTerrain& terrainOwner = sceneWorld.Terrain();
     WorldEnvironment& world = sceneWorld.Environment();
     assert( renderResources );
+
     if ( !renderResources )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/RunScene",
@@ -508,8 +485,10 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
     if ( renderFrame )
     {
         const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
+
         if ( !flushResult.ok )
         {
+
             // Lane R: assignment below destroys the old terrain. Leave it
             // untouched unless the GPU drain and command-list reopen succeeded.
             return flushResult;
@@ -523,8 +502,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
-                                         WorldEnvironment& world,
+void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field, WorldEnvironment& world,
                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
@@ -558,21 +536,21 @@ void SceneLoadTransaction::Outputs::ResetForLoad()
 void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation )
 {
     const SceneLoadPhaseCursor::Phase current = m_phase.Current();
+
     if ( !m_phase.TryAdvance( next ) )
     {
+
         // Lane F: accepting an out-of-order phase would expose partially
         // updated scene owners or publish presentation before reactions.
-        SB_FATAL( "Runtime/SceneLoadTransaction",
-                  "Illegal phase transition. operation=%s current=%u next=%u",
-                  operation,
-                  static_cast<unsigned int>( current ),
-                  static_cast<unsigned int>( next ) );
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Illegal phase transition. operation=%s current=%u next=%u", operation,
+                  static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
     }
 }
 
 
 void SceneLoadTransaction::FinishLoadPhase()
 {
+
     if ( m_phase.Current() == SceneLoadPhaseCursor::Phase::Idle )
     {
         AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "FinishLoadPhase" );
@@ -581,19 +559,17 @@ void SceneLoadTransaction::FinishLoadPhase()
 
     if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
     {
-        SB_FATAL( "Runtime/SceneLoadTransaction",
-                  "Load phase finished from an invalid phase. current=%u",
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Load phase finished from an invalid phase. current=%u",
                   static_cast<unsigned int>( m_phase.Current() ) );
     }
 }
 
 
 void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& camera,
-                                                  const SceneLoadNavigationState& navigation,
-                                                  const OverlayDebugState& debug,
-                                                  const char* rendererName,
-                                                  double sceneTimeSeconds )
+                                                  const SceneLoadNavigationState& navigation, const OverlayDebugState& debug,
+                                                  const char* rendererName, double sceneTimeSeconds )
 {
+
     // Why: submitted navigation and presentation values own growable cold-load
     // storage. Attribute their copies to SceneLoad even when the transaction is
     // opened from the steady-gameplay frame boundary.
@@ -617,42 +593,26 @@ void SceneLoadTransaction::CaptureSubmittedState( const CameraControlState& came
 
 
 SkullbonezCore::Core::SbResult
-SceneLoadTransaction::Load( SceneController& sceneController,
-                            const SceneLoadRequest& request,
-                            SkullbonezCore::Core::EngineConfig& config,
-                            RunLaunchOptions& launchOptions,
+SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadRequest& request,
+                            SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                            const RunStartupState& startup,
-                            Assets::AssetSystem& assets,
-                            Threading::WorkerPool& workerPool,
-                            DiagnosticsRuntime& diagnosticsRuntime,
-                            Rendering::Dx12FrameOwner* renderFrame,
-                            Rendering::Dx12ResourceBuilder* renderResources,
-                            RuntimeRenderer& renderer )
+                            const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
+                            DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame,
+                            Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "Load" );
     m_request = request;
-    return sceneController.Load( request,
-                                 config,
-                                 launchOptions,
-                                 defaultCinematicRender,
-                                 startup,
-                                 assets,
-                                 workerPool,
-                                 diagnosticsRuntime,
-                                 renderFrame,
-                                 renderResources,
-                                 renderer,
-                                 *this );
+    return sceneController.Load( request, config, launchOptions, defaultCinematicRender, startup, assets, workerPool,
+                                 diagnosticsRuntime, renderFrame, renderResources, renderer, *this );
 }
 
 
 void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
 {
+
     if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
     {
-        SB_FATAL( "Runtime/SceneLoadTransaction",
-                  "Development UI policy changed outside the load phase. current=%u",
+        SB_FATAL( "Runtime/SceneLoadTransaction", "Development UI policy changed outside the load phase. current=%u",
                   static_cast<unsigned int>( m_phase.Current() ) );
     }
 
@@ -662,47 +622,44 @@ void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
 }
 
 
-void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions,
-                                                  RunTimerState& timers,
-                                                  RuntimeOverlayDiagnostics& overlays,
-                                                  SceneController& sceneController,
-                                                  InputRouter& inputRouter,
-                                                  RuntimeInteractionController& interaction,
-                                                  CameraControlState& camera,
-                                                  AttachedCameraController& attachedCamera,
-                                                  RuntimeTools& runtimeTools,
-                                                  ReplayRuntime& replayRuntime )
+void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RunTimerState& timers,
+                                                  RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                                  InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                                  CameraControlState& camera, AttachedCameraController& attachedCamera,
+                                                  RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::RuntimeReactions, "ApplyRuntimeReactions" );
     Outputs& outputs = m_outputs;
+
     // Lifetime: lifecycle identity stays owned by SceneController. Consumers
     // sample this reference synchronously and retain only their generation.
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
+
     // Invariant: reactive owners consume the generation before external
     // UI/validation effects. This preserves their former end-of-Load ordering
     // without returning them to the transaction participant graph.
     timers.ObserveSceneLifecycle( lifecycle );
     overlays.ObserveSceneLifecycle( lifecycle, outputs.presentation );
+
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {
         const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
-        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
-                                                                                     change.previousFluidHeight,
-                                                                                     change.previousFluidDensity,
-                                                                                     change.gravity,
-                                                                                     change.fluidHeight,
-                                                                                     change.fluidDensity ) );
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
+                                                                                     change.previousFluidDensity, change.gravity,
+                                                                                     change.fluidHeight, change.fluidDensity ) );
     }
 
     runtimeTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), inputRouter, interaction );
     attachedCamera.ObserveSceneLifecycle( lifecycle );
     replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, interaction, inputRouter );
+
     // Invariant: ResetForSceneLoad first selects Scene/Demo. Only authored
     // snapshot pause policy changes the detached result to Inspect, so the mode
     // is the authoritative activation value and no parallel boolean is needed.
     const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
     interaction.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation );
     camera.ObserveSceneLifecycle( lifecycle, outputs.camera );
+
     if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
     {
         Hardware::Input::ResetMouseLookDeltas();
@@ -728,26 +685,19 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
         return restoreMode;
     };
 
-    const ReplaySceneTimelineResetInput timelineReset = DescribeReplaySceneTimeline(
-        sceneController,
-        outputs.navigation.overrides,
-        sceneController.State(),
-        sceneController.Scene().ActiveSceneObjectCapacity(),
-        static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
+    const ReplaySceneTimelineResetInput
+        timelineReset = DescribeReplaySceneTimeline( sceneController, outputs.navigation.overrides, sceneController.State(),
+                                                     sceneController.Scene().ActiveSceneObjectCapacity(),
+                                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
-    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle,
-                                                        timelineReset,
-                                                        inputRouter,
-                                                        interaction,
+    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, inputRouter, interaction,
                                                         &sceneController.Scene().Cameras(),
-                                                        sceneController.Scene().Terrain().Get(),
-                                                        camera,
-                                                        replayRestoreMode(),
-                                                        attachedCamera.State().activeFollow,
-                                                        camera.director.grabbed );
+                                                        sceneController.Scene().Terrain().Get(), camera, replayRestoreMode(),
+                                                        attachedCamera.State().activeFollow, camera.director.grabbed );
 
     if ( launchOptions.replayGuideArcsAtStartup && lifecycle.event == SceneRuntimeLifecycleEvent::AfterSceneActivated )
     {
+
         // Why: clear-phase processing restores the product's default-off state.
         // An explicit cold CLI request is reapplied only after activation.
         replayRuntime.SetGuideArcsEnabled( true );
@@ -755,8 +705,10 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
 
     // Invariant: only a successfully completed defaults write enters this
     // batch, so a failed Lane-R save cannot advance the editor clean cursor.
+
     for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
     {
+
         if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
         {
             runtimeTools.Editor().history.MarkClean();
@@ -768,6 +720,7 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
     {
         const SceneRequest& request = outputs.completedRequests.requests[index];
         ReplayOwnerEventCode eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
+
         switch ( request.type )
         {
         case SceneRequestType::LoadBrowserIndex:
@@ -787,35 +740,31 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
             break;
         }
 
-        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
-            ReplayEventKind::OwnerAction,
-            0,
-            true,
-            ReplaySceneRequestFlags( request ),
-            static_cast<int32_t>( eventCode ),
-            request.index,
-            0,
-            0,
-            0,
-            request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand( ReplayEventKind::OwnerAction, 0, true,
+                                                                               ReplaySceneRequestFlags( request ),
+                                                                               static_cast<int32_t>( eventCode ),
+                                                                               request.index, 0, 0, 0,
+                                                                               request.type == SceneRequestType::CreateScene
+                                                                                   ? request.text
+                                                                                   : ReplayOwnerEventName( eventCode ) ) );
     }
 }
 
 
-void SceneLoadTransaction::ApplyPresentationOutputs( Window& window,
-                                                     UI::InGameUI& operatorUi,
+void SceneLoadTransaction::ApplyPresentationOutputs( Window& window, UI::InGameUI& operatorUi,
                                                      RuntimeValidationHarness& validationHarness,
                                                      const RunLaunchOptions& launchOptions,
-                                                     Rendering::Dx12RenderDevice* renderDevice,
-                                                     bool rendererVsyncEnabled,
+                                                     Rendering::Dx12RenderDevice* renderDevice, bool rendererVsyncEnabled,
                                                      SceneController& sceneController )
 {
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Presentation, "ApplyPresentationOutputs" );
     Outputs& outputs = m_outputs;
     const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
     validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
+
     // Invariant: device swap policy commits only with a fully activated scene;
     // partial loads may publish clear/populate reactions but not presentation.
+
     if ( renderDevice && SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
         renderDevice->SetVsyncEnabled( rendererVsyncEnabled );
@@ -833,62 +782,58 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window,
 
     if ( outputs.refreshSceneBrowser )
     {
+
         // Why: scene creation writes editor-authored IO inside the scene owner,
         // but UI keeps display names and stable c-string views. Rebuild those
         // views after the request batch returns to the UI boundary.
-        RefreshSceneBrowserList( operatorUi.SceneNavigation().browser );
+        operatorUi.SceneNavigation().RefreshBrowserList();
     }
 
-    ApplySceneUiActivation( operatorUi, outputs.uiActivation );
+    ApplyUiActivation( operatorUi, outputs.uiActivation );
     validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Complete, "CompletePresentation" );
 }
 
-SkullbonezCore::Core::SbResult
-SceneController::Load( const SceneLoadRequest& request,
-                       SkullbonezCore::Core::EngineConfig& config,
-                       RunLaunchOptions& launchOptions,
-                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                       const RunStartupState& startup,
-                       Assets::AssetSystem& assets,
-                       Threading::WorkerPool& workerPool,
-                       DiagnosticsRuntime& diagnosticsRuntime,
-                       Rendering::Dx12FrameOwner* renderFrame,
-                       Rendering::Dx12ResourceBuilder* renderResources,
-                       RuntimeRenderer& renderer,
-                       SceneLoadTransaction& transaction )
+SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
+                                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup,
+                                                      Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
+                                                      Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
+                                                      SceneLoadTransaction& transaction )
 {
     SceneLoadTransaction::Outputs& consumerOutputs = transaction.m_outputs;
+
     // Lifetime: these aliases make cold scene mutation readable without
     // recovering a retained context. They refer only to synchronously borrowed
     // phase inputs or transaction-owned outputs and die with this call.
     const char* rendererName = transaction.m_rendererName;
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
-    OverlayDebugState& m_debug = consumerOutputs.presentation;
+    OverlayDebugState& debug = consumerOutputs.presentation;
     CameraControlState& camera = consumerOutputs.camera;
-    const auto recordCompletedWorldChange = [&]( const WorldOverrideChange& change )
+    const auto recordCompletedWorldChange = [&]( const Environment::WorldOverrideChange& change )
     {
+
         if ( consumerOutputs.completedWorldChangeCount >= consumerOutputs.completedWorldChanges.size() )
         {
             SB_FATAL( "Runtime/SceneController", "Fixed completed world-change capacity exhausted." );
         }
 
-        consumerOutputs
-            .completedWorldChanges[consumerOutputs.completedWorldChangeCount++] = SceneLoadCompletedWorldChange {
-            change.previousGravity,
-            change.previousFluidHeight,
-            change.previousFluidDensity,
-            change.gravity,
-            change.fluidHeight,
-            change.fluidDensity };
+        consumerOutputs.completedWorldChanges
+            [consumerOutputs.completedWorldChangeCount++] = SceneLoadCompletedWorldChange { change.previousGravity,
+                                                                                            change.previousFluidHeight,
+                                                                                            change.previousFluidDensity,
+                                                                                            change.gravity,
+                                                                                            change.fluidHeight,
+                                                                                            change.fluidDensity };
     };
 
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Scene().Physics().IsSleepEnabled();
+
     if ( !request.accepted )
     {
+
         // Lane R: a rejected navigation value cannot identify a scene to load;
         // preserve the active scene and report the owner boundary violation.
         return SkullbonezCore::Core::SbResult::Failure( "SceneController",
@@ -897,6 +842,7 @@ SceneController::Load( const SceneLoadRequest& request,
 
     if ( !request.HasLoad() )
     {
+
         if ( request.enterInteractiveSceneRun )
         {
             State().isInteractiveRun = true;
@@ -911,56 +857,49 @@ SceneController::Load( const SceneLoadRequest& request,
     const bool preserveUIState = request.preserveUIState;
     const bool suppressExitOnComplete = request.suppressExitOnComplete;
     const bool preserveRuntimeState = request.preserveRuntimeState;
-    SceneController& m_sceneController = *this;
+    SceneController& sceneController = *this;
     const auto SceneState = [this]() -> SceneSessionState& { return State(); };
 
-    SkullbonezCore::Core::SbResult m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
-    SceneController& runtime = m_sceneController;
-    const SceneRuntimeLoadBeginResult loadBegin = PrepareSceneRuntimeLoad(
-        runtime,
-        sceneNavigation.overrides,
-        renderer,
-        m_debug,
-        camera,
-        renderFrame,
-        request.enterInteractiveSceneRun || launchOptions.interactiveSceneRun,
-        index,
-        suppressExitOnComplete,
-        preserveRuntimeState );
+    SkullbonezCore::Core::SbResult lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
+    const SceneLoadBeginResult loadBegin = transaction.PrepareLoad( sceneController, sceneNavigation.overrides, renderer,
+                                                                    debug, camera, renderFrame,
+                                                                    request.enterInteractiveSceneRun ||
+                                                                        launchOptions.interactiveSceneRun,
+                                                                    index, suppressExitOnComplete, preserveRuntimeState );
 
     if ( !loadBegin.status.ok )
     {
+
         // Lane R: preparation has not mutated or destroyed the old
         // scene after a failed GPU drain, so preserve that state and end load.
-        m_lastSceneLoadResult = loadBegin.status;
+        lastSceneLoadResult = loadBegin.status;
         LogSceneLoadFailure( loadBegin.status, loadBegin.scenePath ? *loadBegin.scenePath : std::string {} );
-        return m_lastSceneLoadResult;
+        return lastSceneLoadResult;
     }
 
     if ( !loadBegin.shouldLoad )
     {
-        return m_lastSceneLoadResult;
+        return lastSceneLoadResult;
     }
 
-    const SceneLifecycleBeginPolicy lifecyclePolicy { preserveUIState,
-                                                      preserveRuntimeState,
-                                                      suppressExitOnComplete,
-                                                      request.enterInteractiveSceneRun,
-                                                      request.markManualReset };
+    const SceneLifecycleBeginPolicy lifecyclePolicy { preserveUIState, preserveRuntimeState, suppressExitOnComplete,
+                                                      request.enterInteractiveSceneRun, request.markManualReset };
 
     // Invariant: generation begins only after preflight and GPU drain succeed,
     // but before any transaction phase mutates the active scene. Every event
     // emitted below therefore belongs to this exact load attempt.
-    runtime.BeginLoadAttempt( index, lifecyclePolicy );
+    sceneController.BeginLoadAttempt( index, lifecyclePolicy );
     SceneLifecycleConsumerMask beforeUnloadConsumers = SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
-    diagnosticsRuntime.BeforeSceneUnload( SceneState() );
+    const std::string* unloadingScenePath = sceneController.CurrentPath();
+    diagnosticsRuntime.BeforeSceneUnload( SceneState(), unloadingScenePath ? unloadingScenePath->c_str() : nullptr );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
-    CommitSceneRuntimeLoad( runtime, sceneNavigation, loadBegin );
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
+    transaction.CommitLoad( sceneController, sceneNavigation, loadBegin );
     consumerOutputs.applyNavigation = true;
+
     if ( request.markManualReset )
     {
-        runtime.MarkManualReset();
+        sceneController.MarkManualReset();
     }
 
     if ( request.enterInteractiveSceneRun )
@@ -971,7 +910,7 @@ SceneController::Load( const SceneLoadRequest& request,
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
     const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
-    const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
+    const SceneResetPreservationSnapshot& resetSnapshot = loadBegin.resetSnapshot;
     const std::string& scenePath = *loadBegin.scenePath;
     SceneLifecycleConsumerMask afterClearConsumers = 0;
 
@@ -981,11 +920,13 @@ SceneController::Load( const SceneLoadRequest& request,
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     renderer.ResetSceneRuntimePolicyFromConfig();
 
-    m_sceneController.Scene().Cameras().Reset();
-    m_sceneController.Scene().Clear();
+    sceneController.Scene().Cameras().Reset();
+    sceneController.Scene().Clear();
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::BeginCapacitySession();
 
     camera.ResetForSceneLoad( !scenePath.empty() );
-    m_debug.ResetForSceneLoad();
+    debug.ResetForSceneLoad();
+
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
@@ -994,6 +935,7 @@ SceneController::Load( const SceneLoadRequest& request,
     unsigned int rngSeed = static_cast<unsigned int>( time( nullptr ) );
     rngSeed ^= static_cast<unsigned int>( SceneState().loadCount ) * 2654435761u;
     rngSeed ^= static_cast<unsigned int>( SceneState().manualResetCount ) * 2246822519u;
+
     if ( rngSeed == 0 )
     {
         rngSeed = 1;
@@ -1003,17 +945,19 @@ SceneController::Load( const SceneLoadRequest& request,
     bool sceneMutualGravityEnabled = false;
     AuthoredTornadoSystemConfig sceneTornadoSystem;
 
-    // Each bit is attached to its concrete call above. SceneRuntime rejects the
+    // Each bit is attached to its concrete call above. SceneController rejects the
     // phase if a future edit drops an owner receipt without updating policy.
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, afterClearConsumers );
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, afterClearConsumers );
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
 
     // Branch on file-backed scene mode vs generated demo mode.
+
     if ( scenePath.empty() )
     {
         config.runtimeCapacity.sceneObjectCapacity = startup.sceneObjectCapacity;
-        m_sceneController.Scene().ApplyRuntimeConfig( config );
+        sceneController.Scene().ApplyRuntimeConfig( config );
         ApplySceneWorkerThreadSetting( config, workerPool, startup.workerThreads );
+
         if ( launchOptions.seedOverride > 0 )
         {
             rngSeed = launchOptions.seedOverride;
@@ -1021,75 +965,71 @@ SceneController::Load( const SceneLoadRequest& request,
 
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        const SkullbonezCore::Core::SbResult terrainResult = UseDefaultTerrain(
-            m_sceneController.Scene(),
-            assets,
-            config,
-            assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                            "terrain.raw",
-                                            config.assetPaths.terrainRaw.c_str() ),
-            renderFrame,
-            renderResources );
+        const SkullbonezCore::Core::SbResult
+            terrainResult = UseDefaultTerrain( sceneController.Scene(), assets, config,
+                                               assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                               "terrain.raw",
+                                                                               config.assetPaths.terrainRaw.c_str() ),
+                                               renderFrame, renderResources );
 
         if ( !terrainResult.ok )
         {
-            m_lastSceneLoadResult = terrainResult;
+            lastSceneLoadResult = terrainResult;
             LogSceneLoadFailure( terrainResult, scenePath );
-            return m_lastSceneLoadResult;
+            return lastSceneLoadResult;
         }
 
-        ApplyConfiguredWorldEnvironment( m_sceneController.Scene().Environment(),
-                                         config,
-                                         m_sceneController.Scene().Terrain().Get() );
+        ApplyConfiguredWorldEnvironment( sceneController.Scene().Environment(), config,
+                                         sceneController.Scene().Terrain().Get() );
 
-        ApplyNoWaterOverride( m_sceneController.Scene().Environment(),
-                              m_sceneController.Scene().Terrain().Get(),
+        ApplyNoWaterOverride( sceneController.Scene().Environment(), sceneController.Scene().Terrain().Get(),
                               launchOptions.noWater );
 
         if ( shouldPreserveRuntimeState )
         {
+
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.Scene().Environment(),
-                                                                     resetSnapshot.worldGravity,
-                                                                     resetSnapshot.worldFluidHeight,
-                                                                     resetSnapshot.worldFluidDensity );
+            const Environment::WorldOverrideChange
+                change = sceneController.Scene().Environment().ApplyOverride( resetSnapshot.worldGravity,
+                                                                              resetSnapshot.worldFluidHeight,
+                                                                              resetSnapshot.worldFluidDensity );
 
             recordCompletedWorldChange( change );
         }
 
         SceneState().isSceneMode = false;
-        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_sceneController.Scene() ) );
-        const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
-            BuildSceneGeneratedModelContext( SceneState(),
-                                             config,
-                                             m_sceneController.Scene(),
-                                             launchOptions.generatedObjectTypeOverride ),
-            SceneGeneratedPopulationRequest { sceneNavigation.overrides.modelCountOverride,
-                                              sceneNavigation.overrides.solverBallCountOverride,
-                                              sceneNavigation.overrides.solverBoxCountOverride,
-                                              0,
-                                              0,
-                                              SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECTS },
-            true );
+        SceneGeneratedSetup::SetUpCameras( sceneController.Scene() );
+        const bool hasUiSolverCount = sceneNavigation.overrides.solverBallCountOverride >= 0 ||
+                                      sceneNavigation.overrides.solverBoxCountOverride >= 0;
+
+        const GeneratedPopulationMode generatedMode = hasUiSolverCount ? GeneratedPopulationMode::Solver
+                                                                       : GeneratedPopulationMode::Models;
+
+        const int generatedModelCount = sceneNavigation.overrides.modelCountOverride >= 0
+                                            ? sceneNavigation.overrides.modelCountOverride
+                                            : SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECTS;
+
+        const SceneGeneratedSetupResult
+            generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels( SceneState(), config, sceneController.Scene(),
+                                                                           launchOptions.generatedObjectTypeOverride,
+                                                                           generatedMode, generatedModelCount,
+                                                                           sceneNavigation.overrides.solverBallCountOverride,
+                                                                           sceneNavigation.overrides
+                                                                               .solverBoxCountOverride );
 
         if ( !generatedSetup.status.ok )
         {
-            m_lastSceneLoadResult = generatedSetup.status;
+            lastSceneLoadResult = generatedSetup.status;
             LogSceneLoadFailure( generatedSetup.status, scenePath );
-            return m_lastSceneLoadResult;
+            return lastSceneLoadResult;
         }
 
         SkullbonezCore::UI::RunSceneBrowserState styleBrowser;
         styleBrowser.paths = sceneNavigation.browserPaths;
         styleBrowser.selectedCineModeSceneIndex = sceneNavigation.selectedCineModeSceneIndex;
-        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext { launchOptions,
-                                                               SceneState(),
-                                                               styleBrowser,
-                                                               m_sceneController.Scene(),
-                                                               assets,
-                                                               ActiveSceneCinematicConfig( SceneState(), config ),
-                                                               defaultCinematicRender } );
+        sceneController.ApplyDemoHeroStyle( launchOptions, styleBrowser, assets,
+                                            ActiveSceneCinematicConfig( SceneState(), config ), defaultCinematicRender );
 
         sceneNavigation.selectedCineModeSceneIndex = styleBrowser.selectedCineModeSceneIndex;
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1098,19 +1038,18 @@ SceneController::Load( const SceneLoadRequest& request,
     {
         SceneState().isSceneMode = true;
         AuthoredScene scene;
-        const SkullbonezCore::Core::SbResult sceneLoad = AuthoredScene::TryLoadFromFile( scenePath.c_str(),
-                                                                                         assets,
-                                                                                         scene );
+        const SkullbonezCore::Core::SbResult sceneLoad = AuthoredScene::TryLoadFromFile( scenePath.c_str(), assets, scene );
 
         if ( !sceneLoad.ok )
         {
-            m_lastSceneLoadResult = sceneLoad;
+            lastSceneLoadResult = sceneLoad;
             LogSceneLoadFailure( sceneLoad, scenePath );
-            return m_lastSceneLoadResult;
+            return lastSceneLoadResult;
         }
 
         hasSceneTornadoSystem = scene.HasTornadoSystem();
         sceneMutualGravityEnabled = scene.HasMutualGravityEnabled();
+
         if ( hasSceneTornadoSystem )
         {
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
@@ -1123,19 +1062,18 @@ SceneController::Load( const SceneLoadRequest& request,
         // applied before generated or authored population. Parsing an override
         // without activating it leaves the store at the startup default and
         // fails valid scenes at row 4,001.
-        m_sceneController.Scene().ApplyRuntimeConfig( config );
-        ApplySceneWorkerThreadSetting(
-            config,
-            workerPool,
-            scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : startup.workerThreads );
+        sceneController.Scene().ApplyRuntimeConfig( config );
+        ApplySceneWorkerThreadSetting( config, workerPool,
+                                       scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : startup.workerThreads );
 
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
         diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
-        m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
-        m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
-        m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
-        m_debug.physicsDebugContactLinger = scene.GetPhysicsDebugContactLinger();
+        debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
+        debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
+        debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
+        debug.physicsDebugContactLinger = scene.GetPhysicsDebugContactLinger();
+
         if ( scene.HasVsyncOverride() )
         {
             renderer.SetVsyncEnabled( scene.IsVsyncEnabled() );
@@ -1146,24 +1084,26 @@ SceneController::Load( const SceneLoadRequest& request,
             renderer.SetPipelineSyncEnabled( scene.IsPipelineSyncEnabled() );
         }
 
-        m_debug.isTextOnly = scene.IsTextOnly();
+        debug.isTextOnly = scene.IsTextOnly();
         SceneState().isEditableScene = scene.IsEditableScene();
-        m_debug.isWaterHidden = scene.IsWaterHidden();
-        m_debug.isTerrainHidden = scene.IsTerrainHidden();
-        m_debug.isCollisionVisualizer = scene.IsCollisionVisualizerEnabled();
-        m_debug.isBroadphaseOverlay = scene.IsBroadphaseOverlayEnabled();
-        m_debug.isWaterFreezeDebug = scene.IsWaterFreezeDebugEnabled();
-        m_debug.isWaterFlatDebug = scene.IsWaterFlatDebugEnabled();
+        debug.isWaterHidden = scene.IsWaterHidden();
+        debug.isTerrainHidden = scene.IsTerrainHidden();
+        debug.isCollisionVisualizer = scene.IsCollisionVisualizerEnabled();
+        debug.isBroadphaseOverlay = scene.IsBroadphaseOverlayEnabled();
+        debug.isWaterFreezeDebug = scene.IsWaterFreezeDebugEnabled();
+        debug.isWaterFlatDebug = scene.IsWaterFlatDebugEnabled();
         const int waterReflectionMode = std::clamp( scene.GetWaterReflectionMode(), 0, 2 );
-        m_debug.isWaterRTReflect = waterReflectionMode == 1;
-        m_debug.isWaterNoReflect = waterReflectionMode == 2;
-        if ( m_debug.isWaterFreezeDebug )
+        debug.isWaterRTReflect = waterReflectionMode == 1;
+        debug.isWaterNoReflect = waterReflectionMode == 2;
+
+        if ( debug.isWaterFreezeDebug )
         {
-            m_debug.frozenWaterTime = static_cast<float>( transaction.m_sceneTimeSeconds );
+            debug.frozenWaterTime = static_cast<float>( transaction.m_sceneTimeSeconds );
         }
 
         SceneState().timeScale = scene.GetTimeScale();
         SceneState().isFixedStep = scene.IsFixedStep();
+
         // Start with engine.cfg defaults, then apply only the cinematic fields
         // that the .scene.json file explicitly authored.
         SceneState().hasCinematicRenderingOverride = scene.HasCinematicRenderingOverride();
@@ -1174,8 +1114,7 @@ SceneController::Load( const SceneLoadRequest& request,
         SceneState().cinematicGamma = scene.GetCinematicGamma();
         SceneState().cinematicOverrideMask = scene.GetCinematicOverrideMask();
         SceneState().cinematicRender = config.cinematicRender;
-        ApplyCinematicSceneOverrides( SceneState().cinematicRender,
-                                      SceneState().cinematicOverrideMask,
+        ApplyCinematicSceneOverrides( SceneState().cinematicRender, SceneState().cinematicOverrideMask,
                                       scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
@@ -1187,12 +1126,8 @@ SceneController::Load( const SceneLoadRequest& request,
 #ifdef _DEBUG
         isAutomationScene = isAutomationScene || diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
-        PrepareSceneUiOptions(
-            SceneRuntimeUiOptionsContext { diagnosticsRuntime, m_debug, consumerOutputs.uiActivation },
-            UIOptions,
-            UINow,
-            preserveUIState,
-            isAutomationScene );
+        transaction.PrepareUiOptions( diagnosticsRuntime, debug, consumerOutputs.uiActivation, UIOptions, UINow,
+                                      preserveUIState, isAutomationScene );
 
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
@@ -1200,6 +1135,7 @@ SceneController::Load( const SceneLoadRequest& request,
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
+
         if ( scene.GetSeed() > 0 )
         {
             rngSeed = scene.GetSeed();
@@ -1215,22 +1151,20 @@ SceneController::Load( const SceneLoadRequest& request,
 
         // Scene terrain is authoritative.  A flat-slope test scene must not leak
         // its analytic terrain into the next height-map scene.
+
         if ( scene.HasFlatSlope() )
         {
-            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( m_sceneController.Scene(),
-                                                                                      assets,
-                                                                                      config,
-                                                                                      scene.GetFlatBaseY(),
+            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( sceneController.Scene(), assets,
+                                                                                      config, scene.GetFlatBaseY(),
                                                                                       scene.GetFlatSlopeX(),
-                                                                                      scene.GetFlatSlopeZ(),
-                                                                                      renderFrame,
+                                                                                      scene.GetFlatSlopeZ(), renderFrame,
                                                                                       renderResources );
 
             if ( !terrainResult.ok )
             {
-                m_lastSceneLoadResult = terrainResult;
+                lastSceneLoadResult = terrainResult;
                 LogSceneLoadFailure( terrainResult, scenePath );
-                return m_lastSceneLoadResult;
+                return lastSceneLoadResult;
             }
 
             SceneState().hasFlatSlope = true;
@@ -1240,115 +1174,120 @@ SceneController::Load( const SceneLoadRequest& request,
         }
         else
         {
-            const SkullbonezCore::Core::SbResult terrainResult = UseDefaultTerrain(
-                m_sceneController.Scene(),
-                assets,
-                config,
-                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
-                                                "terrain.raw",
-                                                config.assetPaths.terrainRaw.c_str() ),
-                renderFrame,
-                renderResources );
+            const SkullbonezCore::Core::SbResult
+                terrainResult = UseDefaultTerrain( sceneController.Scene(), assets, config,
+                                                   assets
+                                                       .RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
+                                                                                 "terrain.raw",
+                                                                                 config.assetPaths.terrainRaw.c_str() ),
+                                                   renderFrame, renderResources );
 
             if ( !terrainResult.ok )
             {
-                m_lastSceneLoadResult = terrainResult;
+                lastSceneLoadResult = terrainResult;
                 LogSceneLoadFailure( terrainResult, scenePath );
-                return m_lastSceneLoadResult;
+                return lastSceneLoadResult;
             }
 
             SceneState().hasFlatSlope = false;
         }
 
-        ApplyConfiguredWorldEnvironment( m_sceneController.Scene().Environment(),
-                                         config,
-                                         m_sceneController.Scene().Terrain().Get() );
+        ApplyConfiguredWorldEnvironment( sceneController.Scene().Environment(), config,
+                                         sceneController.Scene().Terrain().Get() );
 
         // Override world environment if scene specifies world values
+
         if ( scene.HasWorldOverride() )
         {
-            m_sceneController.Scene().Environment() = WorldEnvironment( scene.GetWorldFluidHeight(),
-                                                                        scene.GetWorldFluidDensity(),
-                                                                        config.worldForces.gasDensity,
-                                                                        scene.GetWorldGravity() );
+            sceneController.Scene().Environment() = WorldEnvironment( scene.GetWorldFluidHeight(),
+                                                                      scene.GetWorldFluidDensity(),
+                                                                      config.worldForces.gasDensity,
+                                                                      scene.GetWorldGravity() );
 
-            m_sceneController.Scene().Environment().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
-            m_sceneController.Scene().Environment().BindRuntimeConfig( config );
-            UpdateWorldTerrainBounds( m_sceneController.Scene().Environment(),
-                                      m_sceneController.Scene().Terrain().Get() );
+            sceneController.Scene().Environment().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
+            sceneController.Scene().Environment().BindRuntimeConfig( config );
+            UpdateWorldTerrainBounds( sceneController.Scene().Environment(), sceneController.Scene().Terrain().Get() );
         }
 
-        ApplyNoWaterOverride( m_sceneController.Scene().Environment(),
-                              m_sceneController.Scene().Terrain().Get(),
+        ApplyNoWaterOverride( sceneController.Scene().Environment(), sceneController.Scene().Terrain().Get(),
                               launchOptions.noWater );
 
         if ( shouldPreserveRuntimeState )
         {
+
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.Scene().Environment(),
-                                                                     resetSnapshot.worldGravity,
-                                                                     resetSnapshot.worldFluidHeight,
-                                                                     resetSnapshot.worldFluidDensity );
+            const Environment::WorldOverrideChange
+                change = sceneController.Scene().Environment().ApplyOverride( resetSnapshot.worldGravity,
+                                                                              resetSnapshot.worldFluidHeight,
+                                                                              resetSnapshot.worldFluidDensity );
 
             recordCompletedWorldChange( change );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_sceneController.Scene() ), scene );
+        SceneAuthoredSetup::SetUpCameras( sceneController.Scene(), scene );
 
-        const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
-            BuildSceneGeneratedModelContext( SceneState(),
-                                             config,
-                                             m_sceneController.Scene(),
-                                             launchOptions.generatedObjectTypeOverride ),
-            SceneGeneratedPopulationRequest { sceneNavigation.overrides.modelCountOverride,
-                                              sceneNavigation.overrides.solverBallCountOverride,
-                                              sceneNavigation.overrides.solverBoxCountOverride,
-                                              scene.GetSolverBallCount(),
-                                              scene.GetSolverBoxCount(),
-                                              0 },
-            false );
+        const bool hasUiSolverCount = sceneNavigation.overrides.solverBallCountOverride >= 0 ||
+                                      sceneNavigation.overrides.solverBoxCountOverride >= 0;
+
+        const bool hasUiModelCount = sceneNavigation.overrides.modelCountOverride >= 0;
+        const bool hasSceneSolverCount = scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0;
+        const GeneratedPopulationMode generatedMode = hasUiSolverCount
+                                                          ? GeneratedPopulationMode::Solver
+                                                          : ( hasUiModelCount ? GeneratedPopulationMode::Models
+                                                                              : ( hasSceneSolverCount
+                                                                                      ? GeneratedPopulationMode::Solver
+                                                                                      : GeneratedPopulationMode::None ) );
+
+        const int generatedBalls = hasUiSolverCount ? sceneNavigation.overrides.solverBallCountOverride
+                                                    : scene.GetSolverBallCount();
+
+        const int generatedBoxes = hasUiSolverCount ? sceneNavigation.overrides.solverBoxCountOverride
+                                                    : scene.GetSolverBoxCount();
+
+        const SceneGeneratedSetupResult
+            generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels( SceneState(), config, sceneController.Scene(),
+                                                                            launchOptions.generatedObjectTypeOverride,
+                                                                            generatedMode,
+                                                                            sceneNavigation.overrides.modelCountOverride,
+                                                                            generatedBalls, generatedBoxes );
 
         if ( !generatedModels.status.ok )
         {
-            m_lastSceneLoadResult = generatedModels.status;
+            lastSceneLoadResult = generatedModels.status;
             LogSceneLoadFailure( generatedModels.status, scenePath );
-            return m_lastSceneLoadResult;
+            return lastSceneLoadResult;
         }
 
         if ( !generatedModels.applied )
         {
-            const SkullbonezCore::Core::SbResult authoredSetup = SceneAuthoredSetup::SetUpSceneEntities(
-                BuildSceneAuthoredModelContext( SceneState(),
-                                                m_sceneController.Scene(),
-                                                consumerOutputs.automationGates ),
-                scene );
+            const SkullbonezCore::Core::SbResult
+                authoredSetup = SceneAuthoredSetup::SetUpSceneEntities( SceneState(), sceneController.Scene(),
+                                                                        consumerOutputs.automationGates, scene );
 
             if ( !authoredSetup.ok )
             {
-                m_lastSceneLoadResult = authoredSetup;
+                lastSceneLoadResult = authoredSetup;
                 LogSceneLoadFailure( authoredSetup, scenePath );
-                return m_lastSceneLoadResult;
+                return lastSceneLoadResult;
             }
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_sceneController.Scene().Physics().SetPhysicsRegressionLogPath(
-            diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
+        sceneController.Scene().Physics().SetPhysicsRegressionLogPath( diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
 
-        m_sceneController.Scene().Physics().SetPhysicsCollisionTimeLogPath(
-            diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
+        sceneController.Scene().Physics().SetPhysicsCollisionTimeLogPath( diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
 
         if ( diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_sceneController.Scene().Physics().SetPhysicsDiagnosticsPath(
-                diagnosticsRuntime.PhysicsDiagnostics().path );
+            sceneController.Scene().Physics().SetPhysicsDiagnosticsPath( diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
         // Ball-tracking camera: enabled when scene specifies a positive track_height
+
         if ( scene.GetTrackHeight() > 0.0f )
         {
             camera.trackHeight = scene.GetTrackHeight();
@@ -1369,6 +1308,7 @@ SceneController::Load( const SceneLoadRequest& request,
 #else
         const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
+
         if ( shouldPauseSnapshotState )
         {
             camera.mode = RunCameraMode::Inspect;
@@ -1378,8 +1318,8 @@ SceneController::Load( const SceneLoadRequest& request,
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_sceneController.Scene().Cameras().GetSelectedCameraName();
-            m_sceneController.Scene().Cameras().SetCameraXZBounds( activeCam, unbounded );
+            uint32_t activeCam = sceneController.Scene().Cameras().GetSelectedCameraName();
+            sceneController.Scene().Cameras().SetCameraXZBounds( activeCam, unbounded );
             camera.input.xMove = 0;
             camera.input.yMove = 0;
             camera.hasMouseLookLastClient = false;
@@ -1387,19 +1327,16 @@ SceneController::Load( const SceneLoadRequest& request,
         }
     }
 
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
+
     if ( shouldPreserveRuntimeState )
     {
-        RestoreSceneRuntimeResetSnapshot( m_sceneController,
-                                          sceneNavigation.overrides,
-                                          renderer,
-                                          m_debug,
-                                          camera,
-                                          resetSnapshot,
+        transaction.RestoreResetSnapshot( sceneController, sceneNavigation.overrides, renderer, debug, camera, resetSnapshot,
                                           suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
+
     if ( launchOptions.timeScaleOverride > 0.0f )
     {
         SceneState().timeScale = launchOptions.timeScaleOverride;
@@ -1419,25 +1356,26 @@ SceneController::Load( const SceneLoadRequest& request,
     {
         Gameplay::TornadoFieldConfig tornadoField;
         Gameplay::TornadoSystemConfig tornadoSystem;
-        ApplyTornadoDefaultsForActiveScene( tornadoField,
-                                            m_sceneController.Scene().Environment(),
+        ApplyTornadoDefaultsForActiveScene( tornadoField, sceneController.Scene().Environment(),
                                             ActiveSceneCinematicConfig( SceneState(), config ) );
 
         if ( hasSceneTornadoSystem )
         {
             tornadoSystem = ProjectAuthoredTornadoSystem( sceneTornadoSystem );
             tornadoField.enabled = false;
-            m_sceneController.Scene().Tornado().SetVisualEnabled( true );
+            sceneController.Scene().Tornado().SetVisualEnabled( true );
         }
 
-        m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
-        m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
+        sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+        sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
     }
 
-    Gameplay::TornadoFieldConfig tornadoField = m_sceneController.Scene().Tornado().GetFieldConfig();
-    Gameplay::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Tornado().GetSystemConfig();
+    Gameplay::TornadoFieldConfig tornadoField = sceneController.Scene().Tornado().GetFieldConfig();
+    Gameplay::TornadoSystemConfig tornadoSystem = sceneController.Scene().Tornado().GetSystemConfig();
+
     if ( launchOptions.hasTornadoOverride )
     {
+
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
         {
             tornadoSystem.enabled = launchOptions.tornadoEnabled;
@@ -1448,9 +1386,9 @@ SceneController::Load( const SceneLoadRequest& request,
             tornadoField.enabled = launchOptions.tornadoEnabled;
         }
 
-        if ( m_sceneController.Scene().Tornado().VisualAutoEnableWithTornado() )
+        if ( sceneController.Scene().Tornado().VisualAutoEnableWithTornado() )
         {
-            m_sceneController.Scene().Tornado().SetVisualEnabled( launchOptions.tornadoEnabled );
+            sceneController.Scene().Tornado().SetVisualEnabled( launchOptions.tornadoEnabled );
         }
     }
 
@@ -1460,17 +1398,19 @@ SceneController::Load( const SceneLoadRequest& request,
         tornadoSystem.visualizeVelocityField = true;
     }
 
-    m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
-    m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
+    sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+    sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
+
     if ( sceneMutualGravityEnabled )
     {
+
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
-        m_sceneController.Scene().Physics().SetSleepEnabled( false );
+        sceneController.Scene().Physics().SetSleepEnabled( false );
     }
     else if ( !shouldPreserveRuntimeState )
     {
-        m_sceneController.Scene().Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
+        sceneController.Scene().Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
     }
 
     if ( launchOptions.frameCountOverride > 0 )
@@ -1491,6 +1431,7 @@ SceneController::Load( const SceneLoadRequest& request,
 
     if ( launchOptions.graphicsStress )
     {
+
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
@@ -1514,60 +1455,50 @@ SceneController::Load( const SceneLoadRequest& request,
 
     if ( launchOptions.hasPhysicsDebugFlagsOverride )
     {
-        m_debug.physicsDebugFlags = launchOptions.physicsDebugFlagsOverride;
+        debug.physicsDebugFlags = launchOptions.physicsDebugFlagsOverride;
     }
 
     if ( launchOptions.hasPhysicsDebugTransparentOverride )
     {
-        m_debug.isPhysicsDebugTransparent = launchOptions.physicsDebugTransparentOverride;
+        debug.isPhysicsDebugTransparent = launchOptions.physicsDebugTransparentOverride;
     }
 
     if ( launchOptions.hasPhysicsDebugAlphaOverride )
     {
-        m_debug.physicsDebugAlpha = launchOptions.physicsDebugAlphaOverride;
+        debug.physicsDebugAlpha = launchOptions.physicsDebugAlphaOverride;
     }
 
     if ( launchOptions.hasPhysicsDebugContactLingerOverride )
     {
-        m_debug.physicsDebugContactLinger = launchOptions.physicsDebugContactLingerOverride;
+        debug.physicsDebugContactLinger = launchOptions.physicsDebugContactLingerOverride;
     }
 
 #ifdef _DEBUG
-    SkullbonezCore::Core::Log().WriteEventf(
-        "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
-        "fixed_step=%d physics=%d text=%d models=%d",
-        SceneState().currentSceneIndex,
-        SceneState().loadCount,
-        scenePath.empty() ? "generated" : scenePath.c_str(),
-        rendererName,
-        SceneState().targetFrameCount,
-        SceneState().rngSeed,
-        SceneState().isFixedStep ? 1 : 0,
-        SceneState().isScenePhysics ? 1 : 0,
-        SceneState().isSceneText ? 1 : 0,
-        SceneState().modelCount );
+    SkullbonezCore::Core::Log()
+        .WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u "
+                      "fixed_step=%d physics=%d text=%d models=%d",
+                      SceneState().currentSceneIndex, SceneState().loadCount,
+                      scenePath.empty() ? "generated" : scenePath.c_str(), rendererName, SceneState().targetFrameCount,
+                      SceneState().rngSeed, SceneState().isFixedStep ? 1 : 0, SceneState().isScenePhysics ? 1 : 0,
+                      SceneState().isSceneText ? 1 : 0, SceneState().modelCount );
 #endif
 
 #ifdef _DEBUG
-    diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_sceneController.Scene().Physics(),
-                                                   SceneState(),
-                                                   config,
-                                                   scenePath.c_str(),
-                                                   rendererName );
+    diagnosticsRuntime.BeginPhysicsDiagnosticsRun( sceneController.Scene().Physics(), SceneState(), config,
+                                                   scenePath.c_str(), rendererName );
 #endif
 
-    const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing(
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
+    const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
 
     if ( !rayTracingResult.ok )
     {
-        m_lastSceneLoadResult = rayTracingResult;
-        return m_lastSceneLoadResult;
+        lastSceneLoadResult = rayTracingResult;
+        return lastSceneLoadResult;
     }
 
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
-    m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
-    return m_lastSceneLoadResult;
+    sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
+    lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
+    return lastSceneLoadResult;
 }
 
 
@@ -1577,6 +1508,7 @@ SceneController::Load( const SceneLoadRequest& request,
 SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const
 {
     const std::string* scenePath = CurrentPath();
+
     if ( !State().isSceneMode || !scenePath || scenePath->empty() )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
@@ -1585,16 +1517,16 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( State().isEditableScene )
     {
-        const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement(
-            scenePath->c_str(),
-            Scene().GetSaveState(),
-            State().GetSaveState(),
-            view.debug.GetSaveState() );
+        const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement( scenePath->c_str(),
+                                                                                              Scene().GetSaveState(),
+                                                                                              State().GetSaveState(),
+                                                                                              view.debug.GetSaveState() );
 
         return saveResult;
     }
 
     std::ifstream input( *scenePath );
+
     if ( !input )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
@@ -1603,6 +1535,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     }
 
     Json root = Json::parse( input, nullptr, false );
+
     if ( root.is_discarded() )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
@@ -1632,6 +1565,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     runtime["vsync"] = view.renderer.VsyncEnabled();
     runtime["pipelineSync"] = view.renderer.PipelineSyncEnabled();
     playback["fixedStep"] = State().isFixedStep;
+
     if ( State().targetFrameCount > 0 )
     {
         playback["frames"] = State().targetFrameCount;
@@ -1661,6 +1595,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     debug["waterHidden"] = view.debug.isWaterHidden;
     debug["terrainHidden"] = view.debug.isTerrainHidden;
     debug["waterReflection"] = WaterReflectionJsonValue( view.debug.isWaterNoReflect, view.debug.isWaterRTReflect );
+
     if ( view.camera.trackBallRow.IsValid() && view.camera.trackHeight > 0.0f )
     {
         playback["trackHeight"] = view.camera.trackHeight;
@@ -1683,6 +1618,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     world["fluidHeight"] = Scene().Environment().GetFluidSurfaceHeight();
     world["fluidDensity"] = Scene().Environment().GetFluidDensity();
     const MutualGravitySettings& mutualGravity = Scene().Environment().GetMutualGravitySettings();
+
     if ( mutualGravity.enabled )
     {
         world["mutualGravity"] = {
@@ -1704,14 +1640,15 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         simulation["solverBalls"] = view.uiOverrides.modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
-    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 ||
-              view.uiOverrides.solverBallCountOverride >= 0 || view.uiOverrides.solverBoxCountOverride >= 0 )
+    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 || view.uiOverrides.solverBallCountOverride >= 0 ||
+              view.uiOverrides.solverBoxCountOverride >= 0 )
     {
         simulation["solverBalls"] = State().solverBallCount;
         simulation["solverBoxes"] = State().solverBoxCount;
     }
 
     std::ofstream output( *scenePath, std::ios::trunc );
+
     if ( !output )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
@@ -1720,11 +1657,11 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     }
 
     output << root.dump( 2 ) << '\n';
+
     if ( !output.good() )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Could not write active scene defaults: %s",
-                                                        scenePath->c_str() );
+                                                        "Could not write active scene defaults: %s", scenePath->c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

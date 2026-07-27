@@ -19,7 +19,7 @@ Glossary:
     committed beside the live physics body.
 
 Invariants:
-  - Context structs borrow SceneWorld as one owner and are not retained.
+  - Helpers borrow SceneWorld as one owner and retain no store pointer.
   - Authored scene setup preserves model insertion order and gate resolution.
   - Parsed asset provenance is copied into scene entities at creation.
   - Setup writes a value gate configuration; validation adopts and mutates it
@@ -61,38 +61,25 @@ struct SceneSessionState;
 class SceneWorld;
 struct SceneAutomationGateConfiguration;
 
-struct SceneAuthoredCameraContext
-{
-    SceneWorld& sceneWorld;
-};
-
-struct SceneAuthoredModelContext
-{
-    SceneSessionState& sceneState;
-    SceneWorld& sceneWorld;
-    SceneAutomationGateConfiguration& automationGates;
-};
-
-struct SceneSimpleRagdollAppendContext
-{
-    SceneSessionState& sceneState;
-    SceneWorld& sceneWorld;
-};
-
 class SceneAuthoredSetup
 {
   public:
+
     // Returns a recoverable result because scene data and editor placement can
     // fail capacity or identity constraints before the runtime loop owns them.
-    static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+    static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneWorld& sceneWorld,
                                                                const Physics::RagdollBuildOptions& options );
-    static void SetUpCameras( SceneAuthoredCameraContext context, const AuthoredScene& scene );
+    static void SetUpCameras( SceneWorld& sceneWorld, const AuthoredScene& scene );
+
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
-    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneAuthoredModelContext context,
+    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneSessionState& sceneState, SceneWorld& sceneWorld,
+                                                              SceneAutomationGateConfiguration& automationGates,
                                                               const AuthoredScene& scene );
-    static void SetUpRequiredContacts( SceneAuthoredModelContext context, const AuthoredScene& scene );
-    static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const AuthoredScene& scene );
+    static void SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates,
+                                       const AuthoredScene& scene );
+    static void SetUpRequiredBroadphaseXCells( SceneAutomationGateConfiguration& automationGates,
+                                               const AuthoredScene& scene );
 };
 
 } // namespace Runtime

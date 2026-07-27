@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-26
+Date: 2026-07-27
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,15 +10,207 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-25th-JUL-26` |
-| Current baseline | Concrete Parameter-Bag Elimination is complete at PB0-PB7; all 30 repair rows and three ceiling defects are closed. |
-| Current objective | No live implementation plan; await the next owner direction. |
-| Active/future progress | No live plans; active/future ledger denominator is 0. |
+| Branch | `nightrunner-26th-JUL-26` |
+| Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
+| Current objective | Architecture Follow-Up Campaign Round 5 is complete; Plan 12 closed SR0-SR2 with clear review and all mapped gates passing. |
+| Active/future progress | 7/7 (100%). No Round 5 implementation item remains live. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | PB7 `validate_full.bat` passes in 230.9 s: mandatory CPU/coverage, Automation/Replay, DX12 without refresh, and byte-exact 44,401-line Physics regression. |
-| Validation for current edits | PB7: 401 doctests, fast, DX12, 61-second stress, performance, Replay artifact/allocation/scrub-visual-fidelity, Physics, and full gates pass; final 91/91 comment audit and static closure proofs are clean. |
+| Last broad local gate | Plan 12 `tools\validate_full.bat` passes in 337 seconds: 421/421 tests and 2,410,274 assertions, CPU/coverage, DX12 renderer/runtime lanes, and byte-exact Physics. `validate_perf.bat` and independent review also pass with zero blockers. |
+| Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
+| Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
+| Validation for scene capacity SC0-SC1 | Current-source declaration census 43 fixed + 50 vector = 93 rows and 112,042,496-byte Debug payload lower bound. SC1 passes 408 doctests / 2,403,974 assertions, `validate_fast`, `validate_perf`, `validate_full`, byte-exact physics regression, standalone smoke, allocation guard, allocation-policy scans, aggregate governance, and a 32/32 touched-source comment audit. Independent review ended `ZERO BLOCKERS`. |
+| Validation for scene capacity SC2 | `ColliderRecord` is 80 bytes, per-kind backing relocation passes 40/40 focused assertions, and zero-hull capacity remains zero. `validate_physics`, `validate_perf`, and `validate_full` pass with byte-exact physics and unchanged DX12/physics budgets; all 44 touched source files were comment-audited. Independent review ended `ZERO BLOCKERS`. |
+| Validation for scene capacity SC3 | Exact scene topology commits before mutation; 300→200 yields zero growth and 300→2,000 yields 67 unique owner events. Logical joint shrink, 9,000-row fatal, editor ragdoll, and pinned mixed-generation RNG probes pass. `validate_fast`, `validate_physics`, `validate_perf`, and `validate_full` pass; 410 doctests / 2,406,382 assertions, byte-exact physics, accepted DX12, 17/17 comment audit. Independent review ended `ZERO BLOCKERS`. |
+| Validation for scene capacity SC4 | All 24 contact, narrowphase, broadphase, and force rows use scene-committed fixed lists; Debug contact tick growth is deleted. Focused Debug capacity coverage, allocation policy, `validate_fast`, `validate_physics`, and `validate_perf` pass with byte-exact 44,401-line physics output; 22/22 touched source files comment-audited. |
+| Validation for extraction-scar remediation | All 88 repairs are gone; the scanner reports only the unchanged WorkerPool retain. Fast, Physics, deep Physics, performance, and full gates pass; 410 doctests / 2,406,382 assertions, exact SkullScope JSON, byte-exact 44,401-line Physics CSV, 14/14 comment audit. Independent review ended `ZERO BLOCKERS`. |
+| Validation for render-backend service-bag removal | The eleven-pointer bag is deleted; capture is required and optional capability presence is explicit. Focused policy 5/5, fast, three consecutive DX12, one-minute graphics stress, full, and performance gates pass. Independent ownership review ended clear. |
+| Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
+
+Architecture Follow-Up Campaign Round 5 is complete at 7/7 phases, registered
+2026-07-26 from the same-day from-source architecture review of
+`nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
+no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
+`governance-shape-to-judgment-conversion` closed G0-G4 on 2026-07-27 and left
+the live ledger under rule 4. Its amended `AGENTS.md` / review-skill rules are
+now every sibling plan's closure test. Two inventories gate `validate_fast`
+step 4/8 on an unruled-fails/ruled-passes contract with no frozen count.
+Permanent closure evidence is
+`Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md`.
+`render-backend-service-bag-removal` deleted the eleven-pointer view, made
+capture required, made optional capability presence explicit at startup
+composition, and closed RB0-RB3 with clear independent review and unchanged
+baselines. `runtime-frame-view-retirement` FV0 measured the corrected current
+surface. The owner-ratified coordinator exception resolved FV1 without a source
+rewrite: the six named `Run` methods already coordinate through direct member
+reach and delegate concrete operands only. FV2 then deleted all four frame
+views and both emptied forwarding headers. FV3 removed the broad wrappers
+rejected by its first independent review, reconciled comments, and closed with
+clear review plus every mapped gate passing unchanged. Plan 5 then left the
+live ledger under rule 4. Plan 8 SR0
+ruled every operation to a concrete owner, existing GV transaction, or pure
+domain policy. SR1 moved the state-owning operations and deleted seven emptied
+implementation units. SR2 eliminated the residual filler names, assigned the
+scene-path queue, session state, and lifecycle ledger to `SceneSession`, and
+removed the `Runtime()` escape hatch. SR3 closed with a 60/60 comment audit,
+clear independent review, and unchanged Physics/DX12 baselines; plan 8 then
+left the live ledger under rule 4. Plan 9 OC0 fixed the eight-edge operator
+command phase order, every same-frame winner, operation destination, and
+acceptance-ledger consumer. OC1 installed the non-copyable value-only
+transaction, named the arbitration invariant in its header, and proved every
+legal edge plus all 82 illegal calls from reachable phases. OC2 moved all
+operations behind the transaction, unified the acceptance ledger, deleted the
+seven legacy result records, and removed all 71 `RunInternal` rows. OC3 closed
+with clear independent review, a 37/37 comment audit, the complete full gate,
+and clean one-minute graphics stress. Plan 9 then left the live ledger under
+rule 4; plan 10 CG0 is binding.
+`scene-sized-store-capacity` SC0 corrected the dense-store census from the
+review's 65 rows to 93 current rows and measured a 112,042,496-byte Debug
+payload lower bound per engine. SC1 then introduced registered runtime backing,
+preserved the separately governed ReplayPrediction exception, and closed the
+container defects. SC2 split collider payloads by shape kind and reduced the
+hot row from 7,228 to 80 bytes. SC3 then committed exact body, shape-kind, and
+joint topology before mutation while preserving monotonic backing, generated RNG,
+and Replay's existing owner. Plan 7 then removed all 88 repair-ruled extraction
+scars, preserved the sole WorkerPool retain, and left the live ledger under
+rule 4. SC4 converted the 24 hot contact, narrowphase, broadphase, and force rows
+and deleted contact-tick growth. Plan 10 CG0 assigned all five gate-named tests
+to existing subsystem owners, measured 231 assertions, and recorded the ten
+direct coverage baselines. CG1 deleted the gate-named file and preserved
+418/418 cases, 2,410,159 assertions, and every exact coverage percentage. CG2
+installed the permanent rule, passed all six CPU lanes, and closed with clear
+independent review; plan 10 then left the live ledger under rule 4. Plan 11 AF0
+now confines the candidate-header magic read to a table-based MSVC exception
+guard, proves an inaccessible predecessor page cannot fault global delete, and
+adds no registry, lock, allocation, system call, or extra header read to the
+owned path. Tests, format, allocation policy, and the full performance gate pass
+without regression. AF1 then installed the process-lifetime counter, the
+ratified Debug/Profile fatal and Release counted/reporting CRT fallback,
+checked allocation-size arithmetic, and joined the existing memory diagnostics
+without changing the zero-count UI fingerprint. Profile tests pass 418/418 and
+2,410,177 assertions; focused Release proof passes 122/122. AF2 independent
+review found two magic-only provenance bypasses; the candidate now uses a
+guarded whole-header copy and process-specific ownership cookie, and Profile
+passes 418/418 with 2,410,186 assertions. Plan 11 reached 2/3 when genuine
+provenance proved incompatible with literal instruction identity. The owner
+retained the safe cookie/header snapshot and replaced that clause with a clean
+`validate_perf.bat` no-regression contract. AF2 then closed with guarded
+whole-header provenance, zero foreign frees across performance and graphics
+stress, clean policy scans, all 421 tests, the default full gate, and
+independent review at `ZERO BLOCKERS`. Plan 11 left the live inventory under
+rule 4. The owner
+also allowed direct member reach in the `Run` phase coordinator while delegated
+operations remain concrete and at or below 12 parameters, unblocking plan 5.
+Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
+legacy-suffix/no-invariant gated rows. All 84 already carry CA0 rulings and the
+transitional verdict count is zero. Strict mode, source-drift checking, and the
+required fixtures pass. Plan 12 SR0 measured 176 named returning definitions
+plus one trailing-return lambda,
+retained the protected 511-byte failure payload, and selected sentinel-only
+success construction. SR1 implemented it without changing failure storage or
+call sites. SR2 corrected the initial census blocker and closed with clear
+repeat review plus passing tests, performance, and full validation. Plan 13
+subsequently ran last and closed.
+NA1 armed strict mode in `validate_fast`, recorded the
+permanent ownership rule and name-scope residual, and observed the gate reject a
+planted seven-member `FooFrameContext`. Final-source `validate_fast` passes;
+NA2 retired the transition and closed independently found qualified/decorated
+head, function-pointer, attribute, specialization, collision, bitfield,
+anonymous-union, inheritance, nested-storage, and zero-recognized-member
+bypasses. The final inventory is 1,176 discovered / 86 gated / 86 ruled / zero
+unruled, ambiguous, or transitional. All ruling reasons are concrete,
+independent review is clear, `validate_fast` passes, and all six CPU lanes pass
+with 418/418 tests and 2,410,186 assertions. Plan 14 then left the live ledger
+under rule 4. Plan 13 T0 then reproduced each 44,401-row physics run
+byte-exactly, matched the SkullScope query packet, and passed the four-case /
+47-assertion focused terrain-support oracle. No direct shoreline-scale test
+exists yet; T3 owns that known coverage gap.
+T1 renamed the cached build, `LocatePolygon`, and Physics terrain lookup around
+the real world-X-major cell convention, removed the misleading-name warnings,
+renamed every `quadric`, and made the exact-zero branch explicit. The focused
+47 assertions, `validate_physics`, `validate_physics_deep`, the 44,401-row CSV,
+and SkullScope packet all pass unchanged. T2 then made every
+`LocatePolygon` post read locally provable, added a 4-by-4 exact-upper-edge
+Debug fatal probe, and retained the method because its debug-visualizer caller
+needs triangle vertices. Format, all 418 unit tests / 2,410,193 assertions, the
+four-case / 47-assertion oracle, and byte-exact Physics pass. T3 then named the
+full and shoreline seed scales and documented the vertical-gravity,
+unit-normal, and equal-per-point assumptions. T4 replaced the synthetic edge
+evidence with a real tilted two-point terrain manifold, added malformed
+coordinate/scale fatal probes, completed the 4/4 whole-file comment audit, and
+cleared all five independent-review blockers. All 421 tests / 2,410,268
+assertions, byte-exact Physics, deep Physics, SkullScope, performance, and the
+default full gate pass. Plan 13 and Plan 12 are complete and removed from the
+live ledger under rule 4; Round 5 has no remaining queue item.
+Evidence:
+`Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-closure.md` and
+`Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md`
+and `Agentic/Reports/2026-07-27/sbresult-frame-path-cost-closure.md`
+and `Agentic/Reports/2026-07-27/terrain-contact-seed-t3.md` and
+`Agentic/Reports/2026-07-27/terrain-index-safety-t2.md` and
+`Agentic/Reports/2026-07-27/terrain-axis-convention-t1.md` and
+`Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-t0-baseline.md` and
+`Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-closure.md` and
+`Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-na1.md` and
+`Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-na0.md` and
+`Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md` and
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and
+`Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc4-hot-stage-lists.md` and
+`Agentic/Reports/2026-07-27/extraction-scar-remediation-closure.md`.
+Plan 8 SR0 evidence:
+`Agentic/Reports/2026-07-27/scene-runtime-verb-partition-sr0-census.md`.
+Plan 8 SR1 evidence:
+`Agentic/Reports/2026-07-27/scene-runtime-verb-partition-sr1-owner-moves.md`.
+Plan 8 SR2 evidence:
+`Agentic/Reports/2026-07-27/scene-runtime-verb-partition-sr2-residual-naming.md`.
+Plan 8 closure evidence:
+`Agentic/Reports/2026-07-27/scene-runtime-verb-partition-closure.md`.
+Plan 9 OC0 evidence:
+`Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md`.
+Plan 9 OC1 evidence:
+`Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc1-transaction.md`.
+Plan 9 OC2 evidence:
+`Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc2-owner-migration.md`.
+Plan 9 closure evidence:
+`Agentic/Reports/2026-07-27/operator-command-invariant-ownership-closure.md`.
+Plan 10 CG0 evidence:
+`Agentic/Reports/2026-07-27/coverage-gate-test-reorganization-cg0-map.md`.
+Plan 10 CG1 evidence:
+`Agentic/Reports/2026-07-27/coverage-gate-test-reorganization-cg1-move.md`.
+Plan 10 closure evidence:
+`Agentic/Reports/2026-07-27/coverage-gate-test-reorganization-closure.md`.
+
+SC2 removed the headline collider-row inflation: `ColliderRecord` is now 80
+bytes and borrows per-kind sphere, box, or hull backing; a zero-hull scene
+commits no hull storage. Owner ruling at registration remains: runtime capacity
+sized from the loaded scene, `MAX_SCENE_OBJECTS = 8192` retained as an absolute
+fail-loud ceiling, capacity monotonic within a process, no shrink path.
+
+Standing campaign constraints: no baseline, golden, schema, or config refresh in
+any plan; no render interface, virtual dispatch, or type erasure reintroduced;
+every PB0/GV1 explicit retain ruling carried forward untouched.
+All three blocking owner decisions were ruled 2026-07-27 and recorded in their
+owning plans: plan 5 FV0 takes concrete operands and no frame transaction; plan 11
+AF1 is lane-F fatal in Debug/Profile and counted in Release; plan 13 T3 ratifies
+the terrain seed rather than replacing it. Consequently **no Round 5 plan requires
+divergence authority and none may refresh a baseline** — the campaign is
+byte-exact throughout. Two smaller decisions received explicit safe defaults in
+the same pass (plan 13 T2 keeps `LocatePolygon` behind a guard and only reports on
+its debug caller; the Capability Slice Ownership Rule landed layer-agnostic).
+
+DONE. Nightrunner 26 July is complete at 3/3 and removed from the live
+inventory under rule 4. N26-1 caches dense solver scrub resolution and removes
+duplicate availability/copy work. N26-2 ratifies the owner's 125-column,
+compact-parameter, control-flow, assertion, comment, and parameter-order
+style. N26-3 publishes a selected-body-only held-drag path preview, performs
+no full prediction while held, schedules exactly one replacement on release,
+and retains the preview until that generation commits. Independent review's
+direct-consumer request-forwarding blocker was remediated and rechecked.
+Permanent evidence is
+`Agentic/Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
 NOW. The 2026-07-25 round-4 architecture campaign has no live plan.
 `concrete-parameter-bag-elimination` is complete at 8/8 and has left the live
@@ -484,6 +676,14 @@ are not certified. Full evidence:
 | Replay allocation policy (wide-signature W2 Physics) | 4.22 s | PASS; strict two-generation policy clean |
 | Replay v2 artifact (wide-signature W2 Physics) | 33.16 s | PASS |
 | Replay scrub (wide-signature W2 Physics) | 431.04 s | PASS; one-presentation fidelity and all false-pass controls |
+| focused N26-3 owner-request doctests | PASS | 2 cases / 24 assertions; held samples coalesce without refresh, finish emits one refresh, preview clears only for the armed generation |
+| `tools\validate_alt_velocity_visualization.bat` (N26-3 final) | PASS | instant and amortized paths; held preview visible, zero superseded restarts, click-off release retains preview through replacement |
+| `tools\validate_replay_scrub.bat` (N26 final) | PASS | 17 cases / 75 assertions; 2,401-tick 200-body fidelity and every causal, artifact, determinism, and duplicate-generation control |
+| `tools\validate_replay_allocation_policy.bat` (N26 final) | PASS | replay growth policy and registered-owner inventory clean |
+| `tools\validate_dependency_graph.bat` (N26 final) | PASS | Runtime package and Replay-family directions clean |
+| `tools\validate_perf.bat` (N26 final) | 58.55 s | PASS; allocation guard, structural selected-path proof, DX12 and Physics comparisons |
+| `tools\validate_full.bat` (N26 final) | PASS | 402 doctests, required runtime lanes, accepted DX12 baselines, byte-exact 44,401-line Physics regression |
+| `tools\run_graphics_stress.bat 1` (N26 final) | 60.83 s | PASS; PID 34120 bounded stop, crash-free, descriptor churn proof complete, empty stderr |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -491,4 +691,6 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No live implementation plan remains. Await the next owner direction.
+Continue `scene-sized-store-capacity` at SC5. Convert the sleep, terrain,
+diagnostics, world, and engine vectors while preserving the CCD clock and
+point-joint handle semantics.

@@ -30,6 +30,8 @@
 //   - Reused handle slots must increment generation before accepting new records.
 //   - Hot state has one authority: aligned SoA arrays; cold records do not
 //     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
+//   - Partially submerged box and convex-hull forces remain finite and produce
+//     an upward velocity response.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -40,25 +42,37 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+#include "TestCollisionShapeFixtures.h"
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/BuoyancySystem.h"
+#include "../SkullbonezSource/Physics/ConvexHullShape.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Physics/Stages/ExternalForceStage.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
 #include <cstddef>
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+#include <memory>
 
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeIf;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::BuoyancySystem;
+using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ModelRowHint;
@@ -69,10 +83,12 @@ using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayRestoreService;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+using SkullbonezTests::CollisionShapeFixtures::BoxShape;
 
 namespace
 {
@@ -95,6 +111,11 @@ ColliderRecord MakeColliderRecord( PhysicsBodyHandle body, uint32_t sceneObjectI
     return record;
 }
 
+CollisionShape MakeColliderShape( float radius )
+{
+    return BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f );
+}
+
 ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterialName )
 {
     ColliderAuthoringRecord record;
@@ -104,9 +125,16 @@ ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterial
 
 PhysicsBodyStore& TestBodyStore()
 {
-    // Why: PhysicsBodyStore owns fixed-capacity runtime arrays; static storage
-    // keeps the focused unit fixture off the doctest thread stack.
+    // Why: PhysicsBodyStore owns runtime-reserved arrays; static storage keeps
+    // the focused unit fixture off the doctest thread stack.
     static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     store.Clear();
     return store;
 }
@@ -116,8 +144,77 @@ ColliderStore& TestColliderStore()
     // Why: ColliderStore mirrors runtime fixed storage, so tests reuse one
     // static fixture and Clear() it between cases instead of stack-allocating it.
     static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( 16u, 4u, 4u );
+    }
     store.Clear();
     return store;
+}
+
+ColliderShapeKind ShapeKind( const CollisionShape& shape )
+{
+    if ( std::holds_alternative<BoundingBox>( shape ) )
+    {
+        return ColliderShapeKind::Box;
+    }
+    if ( std::holds_alternative<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>( shape ) )
+    {
+        return ColliderShapeKind::ConvexHull;
+    }
+    return ColliderShapeKind::Sphere;
+}
+
+void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+
+    PhysicsBodyCreateRecord body;
+    BuoyancyBodyFacts buoyancyFacts;
+    body.cold.sceneObjectId = SkullbonezCore::Physics::PhysicsSceneObjectId { sceneId };
+    body.cold.mass = 4.0f;
+    buoyancyFacts.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
+    buoyancyFacts.projectedSurfaceArea = SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea( shape );
+    buoyancyFacts.dragCoefficient = 0.4f;
+    body.cold.rotationalInertia = Vector3( 8.0f, 2.0f, 6.0f );
+    body.cold.angularVelocityLimit = 100.0f;
+    body.cold.usesWorldInertia = true;
+    body.hot.position = Vector3( 20.0f, 0.25f, 20.0f );
+    body.hot.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.35f );
+    body.hot.linearVelocity = Vector3( 3.0f, -1.0f, 2.0f );
+    body.hot.angularVelocity = Vector3( 1.0f, 2.0f, -1.0f );
+    body.hot.inverseMass = 0.25f;
+    body.hot.inverseRotationalInertia = Vector3( 0.125f, 0.5f, 1.0f / 6.0f );
+    body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shape );
+    const auto handle = bodies.CreateBodyRecord( body );
+    REQUIRE( handle.IsValid() );
+
+    ColliderRecord collider;
+    collider.body = handle;
+    collider.sceneObjectId = body.cold.sceneObjectId;
+    collider.shapeKind = ShapeKind( shape );
+    collider.boundingRadius = body.hot.boundingRadius;
+    collider.projectedSurfaceArea = buoyancyFacts.projectedSurfaceArea;
+    collider.dragCoefficient = buoyancyFacts.dragCoefficient;
+    REQUIRE( colliders.CreateColliderRecord( collider, shape ).IsValid() );
+
+    PhysicsWorldForces forces;
+    forces.gravity = -9.8f;
+    forces.fluidSurfaceHeight = 2.0f;
+    forces.fluidDensity = 1000.0f;
+    forces.gasDensity = 0.05f;
+    forces.angularDragMultiplier = 2.0f;
+    const Vector3 mutualForce( 1.0f, 0.0f, -0.5f );
+    REQUIRE( bodies.ApplyForces( forces, colliders, {}, buoyancyFacts, 0, 1.0f / 120.0f, &mutualForce ) );
+    const auto hot = bodies.HotFields();
+    CHECK( std::isfinite( hot.linearVelocityX[0] ) );
+    CHECK( std::isfinite( hot.linearVelocityY[0] ) );
+    CHECK( std::isfinite( hot.angularVelocityZ[0] ) );
+    CHECK( hot.linearVelocityY[0] > body.hot.linearVelocity.y );
 }
 } // namespace
 
@@ -135,6 +232,12 @@ TEST_CASE( "Buoyancy facts: refresh, swap-last erase, trim, and clear preserve d
     // stores. This focused lifecycle test catches field drift and compaction
     // mistakes without reaching through PhysicsEngine internals.
     static BuoyancySystem buoyancy;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        buoyancy.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
     buoyancy.Clear();
 
     PhysicsBodyCreateDesc first;
@@ -193,19 +296,17 @@ TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair moment
         PhysicsBodyCreateRecord left = MakeBodyRecord( 1u, Vector3( 0.0f, 0.0f, 0.0f ) );
         left.cold.mass = leftMass;
         left.hot.inverseMass = 1.0f / leftMass;
-        left.hot.linearVelocity =
-            Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ) );
+        left.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ),
+                                           random.Float( -5.0f, 5.0f ) );
         PhysicsBodyCreateRecord right = MakeBodyRecord( 2u, Vector3( 0.0f, 0.0f, 0.0f ) );
         right.cold.mass = rightMass;
         right.hot.inverseMass = 1.0f / rightMass;
-        right.hot.linearVelocity =
-            Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ) );
+        right.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ),
+                                            random.Float( -5.0f, 5.0f ) );
         const PhysicsBodyHandle leftHandle = store.CreateBodyRecord( left );
         const PhysicsBodyHandle rightHandle = store.CreateBodyRecord( right );
         const Vector3 momentumBefore = left.hot.linearVelocity * leftMass + right.hot.linearVelocity * rightMass;
-        const Vector3 impulse( random.Float( -12.0f, 12.0f ),
-                               random.Float( -12.0f, 12.0f ),
-                               random.Float( -12.0f, 12.0f ) );
+        const Vector3 impulse( random.Float( -12.0f, 12.0f ), random.Float( -12.0f, 12.0f ), random.Float( -12.0f, 12.0f ) );
 
         REQUIRE( store.ApplyBodyImpulse( leftHandle, impulse, Vector3( 0.0f, 0.0f, 0.0f ) ) );
         REQUIRE( store.ApplyBodyImpulse( rightHandle, impulse * -1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ) );
@@ -345,7 +446,7 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     secondSample.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
     sample.bodies.push_back( secondSample );
 
-    ReplayRestoreService::ResolvedBodyTable resolved{};
+    ReplayRestoreService::ResolvedBodyTable resolved {};
     char reason[128] = {};
     REQUIRE( ReplayRestoreService::ResolveBodiesForRestore( store, sample, resolved, reason, sizeof( reason ) ) );
     CHECK( resolved[0] == first );
@@ -357,9 +458,8 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     REQUIRE( store.RecordForHandle( second ) != nullptr );
     CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( first ) ) ).x ==
            1.0f );
-    CHECK(
-        PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
-        2.0f );
+    CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
+           2.0f );
 
     sample.bodies[0].id.value = 101u;
     sample.bodies[1].id.value = 101u;
@@ -429,7 +529,8 @@ TEST_CASE( "Physics handles: collider store resolves body, scene, and model hand
     body.index = 7u;
     body.generation = 1u;
 
-    const PhysicsColliderHandle collider = store.CreateColliderRecord( MakeColliderRecord( body, 707u, 3.0f ) );
+    const PhysicsColliderHandle collider = store.CreateColliderRecord( MakeColliderRecord( body, 707u, 3.0f ),
+                                                                       MakeColliderShape( 3.0f ) );
 
     CHECK( collider.IsValid() );
     CHECK( store.Count() == 1 );
@@ -445,15 +546,18 @@ TEST_CASE( "Physics handles: collider store resolves body, scene, and model hand
 TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handles" )
 {
     ColliderStore& store = TestColliderStore();
-    PhysicsBodyHandle bodyA{ 11u, 1u };
-    PhysicsBodyHandle bodyB{ 12u, 1u };
-    PhysicsBodyHandle bodyC{ 13u, 1u };
-    const PhysicsColliderHandle first =
-        store.CreateColliderRecord( MakeColliderRecord( bodyA, 111u, 1.0f ), MakeColliderAuthoringRecord( "stone" ) );
-    const PhysicsColliderHandle middle =
-        store.CreateColliderRecord( MakeColliderRecord( bodyB, 222u, 2.0f ), MakeColliderAuthoringRecord( "metal" ) );
-    const PhysicsColliderHandle last =
-        store.CreateColliderRecord( MakeColliderRecord( bodyC, 333u, 3.0f ), MakeColliderAuthoringRecord( "wood" ) );
+    PhysicsBodyHandle bodyA { 11u, 1u };
+    PhysicsBodyHandle bodyB { 12u, 1u };
+    PhysicsBodyHandle bodyC { 13u, 1u };
+    const PhysicsColliderHandle first = store.CreateColliderRecord( MakeColliderRecord( bodyA, 111u, 1.0f ),
+                                                                    MakeColliderShape( 1.0f ),
+                                                                    MakeColliderAuthoringRecord( "stone" ) );
+    const PhysicsColliderHandle middle = store.CreateColliderRecord( MakeColliderRecord( bodyB, 222u, 2.0f ),
+                                                                     MakeColliderShape( 2.0f ),
+                                                                     MakeColliderAuthoringRecord( "metal" ) );
+    const PhysicsColliderHandle last = store.CreateColliderRecord( MakeColliderRecord( bodyC, 333u, 3.0f ),
+                                                                   MakeColliderShape( 3.0f ),
+                                                                   MakeColliderAuthoringRecord( "wood" ) );
 
     CHECK( store.DestroyColliderRecord( middle ) );
 
@@ -467,8 +571,9 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     REQUIRE( store.AuthoringRecordForHandle( last ) != nullptr );
     CHECK( std::strcmp( store.AuthoringRecordForHandle( last )->contactMaterialName, "wood" ) == 0 );
 
-    const PhysicsColliderHandle replacement =
-        store.CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle{ 14u, 1u }, 444u, 4.0f ) );
+    const PhysicsColliderHandle replacement = store.CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 14u, 1u },
+                                                                                              444u, 4.0f ),
+                                                                          MakeColliderShape( 4.0f ) );
     CHECK( replacement.index == middle.index );
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
@@ -483,11 +588,12 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     const PhysicsBodyHandle first = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle middle = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
-    const PhysicsColliderHandle firstCollider =
-        colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ) );
-    const PhysicsColliderHandle middleCollider =
-        colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ) );
-    const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ) );
+    const PhysicsColliderHandle firstCollider = colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ),
+                                                                                MakeColliderShape( 1.0f ) );
+    const PhysicsColliderHandle middleCollider = colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ),
+                                                                                 MakeColliderShape( 2.0f ) );
+    const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ),
+                                                                               MakeColliderShape( 3.0f ) );
 
     REQUIRE( bodies.DestroyBodyRecord( middle ) );
     REQUIRE( colliders.DestroyColliderRecord( middleCollider ) );
@@ -498,6 +604,407 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     REQUIRE( colliders.Count() == 2 );
     CHECK( colliders.Data()[1].body == last );
     CHECK( colliders.Data()[1].sceneObjectId == MakePhysicsSceneObjectId( 333u ) );
+}
+
+TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes commit no hull payload" )
+{
+    CHECK( sizeof( ColliderRecord ) == 80u );
+
+    auto store = std::make_unique<ColliderStore>();
+    const CollisionShape sphereOne = MakeColliderShape( 1.0f );
+    const CollisionShape sphereTwo = MakeColliderShape( 2.0f );
+    const CollisionShape sphereThree = MakeColliderShape( 3.0f );
+    PhysicsColliderHandle first;
+    PhysicsColliderHandle middle;
+    PhysicsColliderHandle last;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store->ReserveCapacity( 3u );
+        store->ReserveShapeCapacity( 3u, 1u, 0u );
+        first = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), sphereOne );
+        middle = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 2u, 1u }, 202u, 2.0f ), sphereTwo );
+        last = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 3u, 1u }, 303u, 3.0f ), sphereThree );
+    }
+
+    REQUIRE( first.IsValid() );
+    REQUIRE( middle.IsValid() );
+    REQUIRE( last.IsValid() );
+    CHECK( store->SphereShapeCount() == 3u );
+    CHECK( store->BoxShapeCount() == 0u );
+    CHECK( store->HullShapeCount() == 0u );
+    CHECK( store->HullShapeCapacity() == 0u );
+    REQUIRE( GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape ) != nullptr );
+    CHECK( GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape )->GetRadius() == doctest::Approx( 3.0f ) );
+
+    const BoundingSphere* firstSphereBeforeGrowth = GetShapeIf<BoundingSphere>( &store->RecordForHandle( first )->shape );
+    const BoundingSphere* lastSphereBeforeGrowth = GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape );
+    REQUIRE( firstSphereBeforeGrowth != nullptr );
+    REQUIRE( lastSphereBeforeGrowth != nullptr );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store->ReserveShapeCapacity( 6u, 1u, 0u );
+    }
+
+    const BoundingSphere* firstSphereAfterGrowth = GetShapeIf<BoundingSphere>( &store->RecordForHandle( first )->shape );
+    const BoundingSphere* lastSphereAfterGrowth = GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape );
+    REQUIRE( firstSphereAfterGrowth != nullptr );
+    REQUIRE( lastSphereAfterGrowth != nullptr );
+    CHECK( store->SphereShapeCapacity() == 6u );
+    CHECK( firstSphereAfterGrowth != firstSphereBeforeGrowth );
+    CHECK( lastSphereAfterGrowth != lastSphereBeforeGrowth );
+    CHECK( firstSphereAfterGrowth->GetRadius() == doctest::Approx( 1.0f ) );
+    CHECK( lastSphereAfterGrowth->GetRadius() == doctest::Approx( 3.0f ) );
+    CHECK( store->HullShapeCapacity() == 0u );
+
+    std::unique_ptr<ColliderStore> copied;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        copied = std::make_unique<ColliderStore>( *store );
+    }
+
+    REQUIRE( copied->RecordForHandle( last ) != nullptr );
+    const BoundingSphere* sourceSphere = GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape );
+    const BoundingSphere* copiedSphere = GetShapeIf<BoundingSphere>( &copied->RecordForHandle( last )->shape );
+    REQUIRE( sourceSphere != nullptr );
+    REQUIRE( copiedSphere != nullptr );
+    CHECK( copiedSphere != sourceSphere );
+    CHECK( copiedSphere->GetRadius() == doctest::Approx( 3.0f ) );
+
+    std::unique_ptr<ColliderStore> moved;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        moved = std::make_unique<ColliderStore>( std::move( *copied ) );
+    }
+    REQUIRE( moved->RecordForHandle( last ) != nullptr );
+    const BoundingSphere* movedSphere = GetShapeIf<BoundingSphere>( &moved->RecordForHandle( last )->shape );
+    REQUIRE( movedSphere != nullptr );
+    CHECK( movedSphere != sourceSphere );
+    CHECK( movedSphere->GetRadius() == doctest::Approx( 3.0f ) );
+
+    REQUIRE( store->DestroyColliderRecord( middle ) );
+    CHECK( store->SphereShapeCount() == 2u );
+    REQUIRE( store->RecordForHandle( last ) != nullptr );
+    REQUIRE( GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape ) != nullptr );
+    CHECK( GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape )->GetRadius() == doctest::Approx( 3.0f ) );
+
+    ColliderRecord replacement = *store->RecordForHandle( first );
+    const CollisionShape box = BoundingBox( Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    REQUIRE( store->UpdateRecordForHandle( first, replacement, box ) );
+    CHECK( store->SphereShapeCount() == 1u );
+    CHECK( store->BoxShapeCount() == 1u );
+    REQUIRE( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape ) != nullptr );
+    CHECK( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape )->GetHalfExtents() ==
+           Vector3( 4.0f, 5.0f, 6.0f ) );
+    CHECK( store->HullShapeCapacity() == 0u );
+}
+
+
+TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owner once" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+
+    auto engine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 300u, 150u, 150u, 0u, 12u );
+    }
+
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).BoxShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 12u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 12u );
+
+    RuntimeReserveAllocator::ResetCounters();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 200u, 100u, 100u, 0u, 8u );
+    }
+
+    CHECK( RuntimeReserveAllocator::GrowthEventCount() == 0u );
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 300u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 150u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 12u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 8u );
+
+    RuntimeReserveAllocator::ResetCounters();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        engine->ReserveAuthoredBodyCapacity( 2000u, 1000u, 1000u, 0u, 24u );
+    }
+
+    RuntimeReserveGrowthEventView events[128] = {};
+    const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
+#if defined( _DEBUG )
+    REQUIRE( eventCount == 94 );
+#else
+    REQUIRE( eventCount == 91 );
+#endif
+    CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
+
+    for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+    {
+        CHECK( events[eventIndex].granted );
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( events[eventIndex].ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        REQUIRE( ownerStats.capacityReason != nullptr );
+        CHECK( ownerStats.capacityReason[0] != '\0' );
+        CHECK( std::strcmp( ownerStats.capacityReason, "Scene-sized PhysicsFixedList backing storage" ) != 0 );
+        CHECK( std::strcmp( ownerStats.capacityReason, "unspecified" ) != 0 );
+
+        for ( int earlierIndex = 0; earlierIndex < eventIndex; ++earlierIndex )
+        {
+            CHECK( std::strcmp( events[eventIndex].ownerName, events[earlierIndex].ownerName ) != 0 );
+        }
+    }
+
+    struct ExpectedFixedRowGrowth
+    {
+        const char* ownerName;
+        int requestedCapacity;
+    };
+    const ExpectedFixedRowGrowth expectedFixedRowGrowth[] = {
+        { "PhysicsEngine.m_authoredBodyDescs", 2000 },
+        { "PhysicsWorld.timeRemaining", 2000 },
+        { "PhysicsWorld.pointJointConstraints", 24 },
+        { "PhysicsForceStage.m_mutualGravityForces", 2000 },
+        { "PhysicsForceStage.m_mutualGravityPairForces", 130816 },
+        { "ExternalForceStage.fixedTreeReleaseWakeScratch", 2000 },
+        { "ExternalForceStage.releaseWakeBodies", 2000 },
+        { "PhysicsBroadphaseStage.candidatePairs", 8000 },
+        { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
+#if defined( _DEBUG )
+        { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
+        { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
+        { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs", 8000 },
+#endif
+        { "PhysicsNarrowphaseStage.events", 8000 },
+        { "PhysicsNarrowphaseStage.islands", 2000 },
+        { "PhysicsNarrowphaseStage.islandPairIndices", 8000 },
+        { "PhysicsNarrowphaseStage.islandWriteOffsets", 2000 },
+        { "PhysicsNarrowphaseStage.parent", 2000 },
+        { "PhysicsNarrowphaseStage.rank", 2000 },
+        { "PhysicsNarrowphaseStage.rootToIsland", 2000 },
+        { "PhysicsContactSolverStage.persistentContacts", 48000 },
+        { "PhysicsContactSolverStage.persistentContactCache", 48000 },
+        { "PhysicsContactSolverStage.persistentContactCounts", 2000 },
+        { "PhysicsContactSolverStage.persistentRestingContactCounts", 2000 },
+        { "PhysicsContactSolverStage.solverBodies", 2000 },
+        { "PhysicsContactSolverStage.collisionVisualBodies", 16000 },
+        { "PhysicsContactSolverStage.fixedContactBodies", 48000 },
+        { "PhysicsContactSolverStage.releaseWakeBodies", 2000 },
+        { "PhysicsContactSolverStage.fixedTreeReleases", 2000 },
+        { "PhysicsStepDiagnostics.collisionVisualContacts", 2000 },
+        { "PhysicsStepDiagnostics.physicsDebugContacts", 48000 },
+        { "PhysicsSleepController.m_sleepSupportedThisFrame", 2000 },
+        { "PhysicsSleepController.m_sleepInhibitedThisFrame", 2000 },
+        { "PhysicsSleepController.m_sleepState", 2000 },
+        { "PhysicsSleepController.m_sleepCounter", 2000 },
+        { "PhysicsSleepController.m_underwaterSleepLocked", 2000 },
+        { "PhysicsSleepController.m_sleepIslandVisualId", 2000 },
+        { "PhysicsSleepController.m_sleepIslandAssignedVisualId", 2000 },
+        { "PhysicsSleepController.m_sleepIslandParent", 2000 },
+        { "PhysicsSleepController.m_sleepIslandRank", 2000 },
+        { "PhysicsSleepController.m_sleepIslandHasAwake", 2000 },
+        { "PhysicsSleepController.m_sleepIslandHasSupportAnchor", 2000 },
+        { "PhysicsSleepController.m_sleepIslandEligible", 2000 },
+        { "PhysicsSleepController.m_sleepIslandCanSleep", 2000 },
+        { "PhysicsSleepController.m_sleepScratchFlags", 2000 },
+        { "PhysicsSleepController.m_sleepVisualIslandIds", 2000 },
+        { "PhysicsSleepController.m_sleepVisualIslandBodies", 2000 },
+        { "PhysicsSleepController.m_restingWakeQueueScratch", 2000 },
+        { "PhysicsTerrainStage.detectionCandidates", 2000 },
+        { "PhysicsTerrainStage.contactManifolds", 2000 },
+    };
+
+    for ( const ExpectedFixedRowGrowth& expected : expectedFixedRowGrowth )
+    {
+        int matchingEvents = 0;
+
+        for ( int eventIndex = 0; eventIndex < eventCount; ++eventIndex )
+        {
+
+            if ( std::strcmp( events[eventIndex].ownerName, expected.ownerName ) == 0 )
+            {
+                ++matchingEvents;
+                CHECK( events[eventIndex].requestedCapacity == expected.requestedCapacity );
+            }
+        }
+
+        CHECK( matchingEvents == 1 );
+    }
+
+    struct ExpectedRegisteredWithoutGrowth
+    {
+        const char* ownerName;
+        const char* capacityReason;
+    };
+    const ExpectedRegisteredWithoutGrowth expectedRegisteredWithoutGrowth[] = {
+        { "ColliderStore.hullShapes", SkullbonezCore::Physics::PhysicsCapacityReason::HullColliders },
+        { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+        { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
+        { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+    };
+#if defined( _DEBUG )
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 98 );
+#else
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 95 );
+#endif
+
+    for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
+    {
+        RuntimeReserveOwnerStatsView ownerStats = {};
+        REQUIRE( RuntimeReserveAllocator::CopyOwnerStatsByName( expected.ownerName, ownerStats ) );
+        CHECK( ownerStats.subsystem == RuntimeReserveSubsystem::Physics );
+        CHECK( std::strcmp( ownerStats.capacityReason, expected.capacityReason ) == 0 );
+    }
+
+    const std::span<const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView>
+        capacityRows = RuntimeReserveAllocator::CapacityRows();
+    int physicsCapacityRowCount = 0;
+    const char* productionPhysicsOwnerPrefixes[] = {
+        "BuoyancySystem.",         "ColliderStore.",          "ExternalForceStage.",
+        "PhysicsBodyStore.",       "PhysicsBroadphaseStage.", "PhysicsContactSolverStage.",
+        "PhysicsEngine",           "PhysicsForceStage.",      "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.", "PhysicsStepDiagnostics.", "PhysicsTerrainStage.",
+        "PhysicsWorld.",
+    };
+
+    for ( const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& row : capacityRows )
+    {
+
+        if ( row.subsystem != RuntimeReserveSubsystem::Physics )
+        {
+            continue;
+        }
+
+        bool isProductionPhysicsOwner = false;
+        for ( const char* prefix : productionPhysicsOwnerPrefixes )
+        {
+            const size_t prefixLength = std::strlen( prefix );
+            if ( std::strncmp( row.ownerName, prefix, prefixLength ) == 0 )
+            {
+                isProductionPhysicsOwner = true;
+                break;
+            }
+        }
+        if ( !isProductionPhysicsOwner )
+        {
+            continue;
+        }
+
+        ++physicsCapacityRowCount;
+        REQUIRE( row.ownerName != nullptr );
+        REQUIRE( row.capacityReason != nullptr );
+        CHECK( row.elementSizeBytes > 0 );
+        CHECK( row.currentCapacity >= row.liveCount );
+        CHECK( row.sessionHighWater >= row.liveCount );
+        CHECK( row.residentBytes ==
+               static_cast<uint64_t>( row.currentCapacity ) * static_cast<uint64_t>( row.elementSizeBytes ) );
+    }
+
+#if defined( _DEBUG )
+    CHECK( physicsCapacityRowCount == 98 );
+#else
+    CHECK( physicsCapacityRowCount == 95 );
+#endif
+
+    CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).RecordCapacity() == 2000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).SphereShapeCapacity() == 1000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).BoxShapeCapacity() == 1000u );
+    CHECK( PhysicsEngine::ReadColliders( *engine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 24u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 24u );
+}
+
+TEST_CASE( "External force fixed release uses scene-committed body scratch" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Physics::ExternalCylindricalForceField;
+    using SkullbonezCore::Physics::ExternalForceFrameInput;
+    using SkullbonezCore::Physics::ExternalForceStage;
+
+    PhysicsBodyStore& bodies = TestBodyStore();
+    PhysicsBodyCreateRecord body = MakeBodyRecord( 909u, Vector3( 1.0f, 1.0f, 0.0f ) );
+    body.cold.releasesFromFixedOnContact = true;
+    body.cold.contactReleaseImpulseThreshold = 0.0f;
+    body.hot.fixed = true;
+    REQUIRE( bodies.CreateBodyRecord( body ).IsValid() );
+
+    ExternalForceStage stage;
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveBodyCapacity( 1u );
+    }
+
+    ExternalCylindricalForceField field;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radiusMeters = 10.0f;
+    field.heightMeters = 10.0f;
+    field.inwardAccelerationMetersPerSecondSquared = 100.0f;
+    field.maxDeltaVelocityMetersPerSecond = 100.0f;
+
+    ExternalForceFrameInput input;
+    input.fields = std::span<const ExternalCylindricalForceField>( &field, 1u );
+
+    const std::span<const int> released = stage.ReleaseFixedBodies( input, bodies );
+    REQUIRE( released.size() == 1u );
+    CHECK( released.front() == 0 );
+    CHECK( bodies.HotFields().fixed[0] == 0u );
+    CHECK( stage.CollectMemoryBytes() == sizeof( int ) * 2u );
+}
+
+
+TEST_CASE( "Prediction physics clone commits the live scene-sized capacity profile" )
+{
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+
+    auto liveEngine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        liveEngine->ReserveAuthoredBodyCapacity( 200u, 80u, 120u, 0u, 7u );
+    }
+
+    auto predictionEngine = std::make_unique<PhysicsEngine>();
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        predictionEngine->ReserveSceneCapacityLike( *liveEngine );
+        *predictionEngine = *liveEngine;
+    }
+
+    CHECK( PhysicsEngine::ReadBodies( *predictionEngine ).RecordCapacity() == 200u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).RecordCapacity() == 200u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).SphereShapeCapacity() == 80u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).BoxShapeCapacity() == 120u );
+    CHECK( PhysicsEngine::ReadColliders( *predictionEngine ).HullShapeCapacity() == 0u );
+    CHECK( PhysicsEngine::ReadPointJointConstraints( *predictionEngine ).capacity() == 7u );
+    CHECK( PhysicsEngine::ReadPointJointCapacity( *predictionEngine ) == 7u );
+    CHECK( predictionEngine->CollectPhysicsWorldMemoryBytes() == liveEngine->CollectPhysicsWorldMemoryBytes() );
+    CHECK( predictionEngine->CollectDebugAndBroadphaseMemoryBytes() == liveEngine->CollectDebugAndBroadphaseMemoryBytes() );
+    CHECK( predictionEngine->CollectSceneSizedStoreMemoryBytes() == liveEngine->CollectSceneSizedStoreMemoryBytes() );
 }
 
 
@@ -513,12 +1020,11 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
     body.hot.linearVelocity = Vector3( 1.0f, 2.0f, 3.0f );
     body.hot.angularVelocity = Vector3( 0.4f, 0.5f, 0.6f );
     const PhysicsBodyHandle handle = bodies.CreateBodyRecord( body );
-    colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ) );
+    colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ), MakeColliderShape( 1.0f ) );
 
     const Vector3 mutualGravityImpulse( 9.0f, 8.0f, 7.0f );
     const BuoyancyBodyFacts buoyancyFacts;
-    REQUIRE(
-        bodies.ApplyForces( PhysicsWorldForces{}, colliders, {}, buoyancyFacts, 0, 1.0f, &mutualGravityImpulse ) );
+    REQUIRE( bodies.ApplyForces( PhysicsWorldForces {}, colliders, {}, buoyancyFacts, 0, 1.0f, &mutualGravityImpulse ) );
     auto hot = bodies.HotFields();
     CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
     CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );
@@ -539,9 +1045,17 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
     REQUIRE( bodies.RecordForHandle( handle ) != nullptr );
     CHECK_FALSE( bodies.RecordForHandle( handle )->hasPendingImpulse );
     CHECK( bodies.RecordForHandle( handle )->pendingImpulse == SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    CHECK( bodies.RecordForHandle( handle )->pendingImpulseApplicationPoint ==
-           SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( bodies.RecordForHandle( handle )->pendingImpulseApplicationPoint == SkullbonezCore::Math::Vector::ZERO_VECTOR );
 
     CHECK( std::isfinite( hot.linearVelocityX[0] ) );
     CHECK( std::isfinite( hot.angularVelocityX[0] ) );
+}
+
+
+TEST_CASE( "Coverage floor contract: box and hull buoyancy stay finite under partial submersion" )
+{
+    CheckUnderwaterForcePath( BoxShape( Vector3( 2.0f, 0.5f, 1.0f ) ), 601u );
+    CheckUnderwaterForcePath( SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile(
+                                  "SkullbonezData/hulls/pyramid.hull" ),
+                              602u );
 }

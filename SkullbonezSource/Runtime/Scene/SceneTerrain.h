@@ -58,12 +58,15 @@ class SceneTerrain
 
     void Replace( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope )
     {
+
         if ( !terrain )
         {
+
             // Lane F: publishing no terrain would invalidate every scene-world
             // consumer and violates the replacement transaction contract.
             SB_FATAL( "SceneTerrain", "Cannot publish a null scene terrain." );
         }
+
         m_terrain = std::move( terrain );
         m_isFlatSlope = isFlatSlope;
     }

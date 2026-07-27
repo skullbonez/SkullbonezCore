@@ -7,7 +7,8 @@ Summary:
   The memory tab shows cached runtime diagnostics and emits replay-memory policy
   requests. Runtime owns process sampling and replay reconfiguration; the F6
   overlay reads tracked/cached counters and reserve-growth events without
-  initiating diagnostics work.
+  initiating diagnostics work. The tab receives detached fixed capacity rows
+  and orders them by resident bytes without reaching into allocator storage.
 
 Glossary:
   Reserve growth event: A replay-approved vector reserve bump with a named owner,
@@ -23,6 +24,8 @@ Invariants:
     directly.
   - Reserve-growth rows are fixed-frame-data entries copied from the allocator's
     no-heap diagnostics ring.
+  - Capacity rows are detached frame values; UI never retains the allocator's
+    borrowed capacity span.
   - The F6 overlay retains important allocation events in fixed storage so
     steady gameplay diagnostics do not allocate while reporting allocations.
 
@@ -99,30 +102,12 @@ int ContentHeight();
 bool OverlayEnabled( const UIMemoryOverlayState& state );
 void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled );
 void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& data );
-void DrawOverlay( UIMemoryOverlayState& state,
-                  const UIDrawContext& draw,
-                  const InGameUIFrameData& data,
-                  float preferredX,
+void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float preferredX,
                   float preferredY );
-void Draw( const UIDrawContext& draw,
-           UIMemoryOverlayState& state,
-           const InGameUIFrameData& data,
-           float contentX,
-           float contentY,
-           float contentW,
-           float contentH,
-           float scrolledY,
-           int activeSlider,
-           int mouseX,
-           int mouseY );
-bool HandleContentClick( UIMemoryOverlayState& state,
-                         InGameUIInputResult& result,
-                         int& activeSlider,
-                         int mouseX,
-                         int mouseY,
-                         float contentX,
-                         float scrolledY,
-                         float contentW );
+void Draw( const UIDrawContext& draw, UIMemoryOverlayState& state, const InGameUIFrameData& data, float contentX,
+           float contentY, float contentW, float contentH, float scrolledY, int activeSlider, int mouseX, int mouseY );
+bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
+                         float contentX, float scrolledY, float contentW );
 bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UIMemoryOverlayState& state, int activeSlider, InGameUIInputResult& result );
 void ResetPreviewState( UIMemoryOverlayState& state );

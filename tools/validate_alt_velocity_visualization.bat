@@ -6,11 +6,10 @@ REM   N-body scene, proving prediction stays visible and consumes live samples.
 REM
 REM Invariants:
 REM   - The Automation build drives the normal UI and pointer-routing path.
-REM   - Every held-drag sample retains a visible prediction path.
-REM   - At least one in-flight build is superseded before pointer release.
-REM   - A 120-second Amortized replacement publishes changed velocity evidence
-REM     while pointer capture is still held.
-REM   - The newest sampled velocity owns the complete prediction after release.
+REM   - Every held-drag sample retains a visible selected-path preview.
+REM   - Held samples schedule no prediction restarts.
+REM   - Release schedules one authoritative replacement.
+REM   - The preview survives an Amortized release until that replacement commits.
 setlocal
 
 set "ROOT=%~dp0.."

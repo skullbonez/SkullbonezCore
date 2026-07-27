@@ -19,6 +19,7 @@ Glossary:
 
 Invariants:
   - RuntimeRenderPassResources owns backend/device resources and must be reset
+
     while the renderer backend is still alive.
   - Shadow receiver pointers are valid only until the next shadow reset or the
     next frame rebuilds ShadowPassResources.
@@ -43,6 +44,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+
 // Concept: pass resource structs name ownership before the frame graph exists.
 //
 // These structs are intentionally small. They do not implement rendering; they
@@ -51,6 +53,7 @@ namespace Runtime
 // per-frame payload belongs to it.
 struct ReflectionPassResources
 {
+
     // Lifetime: this render target is backend/device-owned. Resize and backend
     // teardown must reset it before the renderer releases the underlying GPU
     // resource memory.
@@ -59,6 +62,7 @@ struct ReflectionPassResources
 
 struct SkyPassResources
 {
+
     // The cube-map skybox is owned by the shared skybox subsystem. This pass
     // owns only the procedural cinematic atmosphere shader used when cinematic
     // mode asks the sky pass to draw a generated background.
@@ -67,6 +71,7 @@ struct SkyPassResources
 
 struct CinematicScenePassResources
 {
+
     // Full-resolution floating-point scene color/depth. World geometry renders
     // here first so volumetric light and tonemap can sample the completed scene.
     std::unique_ptr<Rendering::FramebufferDX12> hdrTarget;
@@ -74,6 +79,7 @@ struct CinematicScenePassResources
 
 struct VolumetricLightPassResources
 {
+
     // The shader writes the graph-managed half-resolution target materialized
     // by the active post chain; this owner retains only device-epoch shader state.
     std::unique_ptr<Rendering::ShaderDX12> shader;
@@ -81,6 +87,7 @@ struct VolumetricLightPassResources
 
 struct TonemapPassResources
 {
+
     // Final full-screen resolve from HDR scene color to the window backbuffer.
     // This is also where fog, bloom, grade, and optional volumetric light meet.
     std::unique_ptr<Rendering::ShaderDX12> shader;
@@ -88,6 +95,7 @@ struct TonemapPassResources
 
 struct FullscreenPassResources
 {
+
     // Shared dynamic vertex buffer for two-triangle full-screen passes. It
     // stores only clip-space position and UV; each shader decides what to sample.
     uint32_t quadVB = 0;
@@ -97,6 +105,7 @@ struct ShadowPassResources
 {
     ShadowPassResources()
     {
+
         // Why: object shadow caster streams are frame-rebuilt, but their
         // capacity is a startup/runtime-resource contract sized to the maximum
         // scene model pool. Exhaustion means the scene capacity budget changed,
@@ -119,6 +128,7 @@ struct ShadowPassResources
 
 struct RuntimeRenderPassResources
 {
+
     // Ownership map for pass-owned renderer resources. Runtime subsystems keep
     // long-lived world state elsewhere; this aggregate is only for resources
     // created by named render passes and released through pass reset hooks.

@@ -43,6 +43,9 @@ Related:
 #pragma once
 
 #include "SceneController.h"
+#include "SceneLoadPreparation.h"
+#include "SceneLoadPresentation.h"
+#include "SceneResetPreservation.h"
 
 #include <array>
 #include <cstddef>
@@ -69,14 +72,14 @@ class SceneLoadPhaseCursor
 
     static constexpr bool IsLegalTransition( Phase from, Phase to )
     {
-        return ( from == Phase::Idle && to == Phase::Load ) ||
-               ( from == Phase::Load && to == Phase::RuntimeReactions ) ||
+        return ( from == Phase::Idle && to == Phase::Load ) || ( from == Phase::Load && to == Phase::RuntimeReactions ) ||
                ( from == Phase::RuntimeReactions && to == Phase::Presentation ) ||
                ( from == Phase::Presentation && to == Phase::Complete );
     }
 
     bool TryAdvance( Phase next )
     {
+
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;
@@ -110,43 +113,26 @@ class SceneLoadTransaction
 
     // Captures detached per-batch values before any request is executed.
     // Concrete load owners are still borrowed only by Load below.
-    void CaptureSubmittedState( const CameraControlState& camera,
-                                const SceneLoadNavigationState& navigation,
-                                const OverlayDebugState& debug,
-                                const char* rendererName,
-                                double sceneTimeSeconds );
+    void CaptureSubmittedState( const CameraControlState& camera, const SceneLoadNavigationState& navigation,
+                                const OverlayDebugState& debug, const char* rendererName, double sceneTimeSeconds );
 
-    SkullbonezCore::Core::SbResult Load( SceneController& sceneController,
-                                         const SceneLoadRequest& request,
-                                         SkullbonezCore::Core::EngineConfig& config,
-                                         RunLaunchOptions& launchOptions,
+    SkullbonezCore::Core::SbResult Load( SceneController& sceneController, const SceneLoadRequest& request,
+                                         SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
                                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                                         const RunStartupState& startup,
-                                         Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool,
-                                         DiagnosticsRuntime& diagnosticsRuntime,
+                                         const RunStartupState& startup, Assets::AssetSystem& assets,
+                                         Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime,
                                          Rendering::Dx12FrameOwner* renderFrame,
-                                         Rendering::Dx12ResourceBuilder* renderResources,
-                                         RuntimeRenderer& renderer );
+                                         Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer );
 
-    void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions,
-                                RunTimerState& timers,
-                                RuntimeOverlayDiagnostics& overlays,
-                                SceneController& sceneController,
-                                InputRouter& inputRouter,
-                                RuntimeInteractionController& interaction,
-                                CameraControlState& camera,
-                                AttachedCameraController& attachedCamera,
-                                RuntimeTools& runtimeTools,
-                                ReplayRuntime& replayRuntime );
+    void ApplyRuntimeReactions( const RunLaunchOptions& launchOptions, RunTimerState& timers,
+                                RuntimeOverlayDiagnostics& overlays, SceneController& sceneController,
+                                InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                CameraControlState& camera, AttachedCameraController& attachedCamera,
+                                RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime );
 
-    void ApplyPresentationOutputs( Window& window,
-                                   UI::InGameUI& operatorUi,
-                                   RuntimeValidationHarness& validationHarness,
-                                   const RunLaunchOptions& launchOptions,
-                                   Rendering::Dx12RenderDevice* renderDevice,
-                                   bool rendererVsyncEnabled,
-                                   SceneController& sceneController );
+    void ApplyPresentationOutputs( Window& window, UI::InGameUI& operatorUi, RuntimeValidationHarness& validationHarness,
+                                   const RunLaunchOptions& launchOptions, Rendering::Dx12RenderDevice* renderDevice,
+                                   bool rendererVsyncEnabled, SceneController& sceneController );
 
     const SceneLoadNavigationState& NavigationForFollowingRequest( const SceneLoadNavigationState& submitted ) const
     {
@@ -197,6 +183,26 @@ class SceneLoadTransaction
     // caller follows the same reaction/presentation schedule.
     void FinishLoadPhase();
     void AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation );
+    static SceneLoadBeginResult PrepareLoad( const SceneController& controller,
+                                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                             const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                             const CameraControlState& camera, Rendering::Dx12FrameOwner* renderFrame,
+                                             bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
+                                             bool preserveRuntimeState );
+    static void CommitLoad( SceneController& controller, SceneLoadNavigationState& navigation,
+                            const SceneLoadBeginResult& prepared );
+    static SceneResetPreservationSnapshot
+    CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                          const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                          const CameraControlState& camera );
+    static void RestoreResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                      RuntimeRenderer& renderer, OverlayDebugState& debug, CameraControlState& camera,
+                                      const SceneResetPreservationSnapshot& snapshot, bool suppressExitOnComplete );
+    static void ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
+    static void PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
+                                  const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
+                                  bool automationScene );
+    static void ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
     SceneLoadRequest m_request = SceneLoadRequest::None();
     Outputs m_outputs;

@@ -39,10 +39,12 @@ inline bool ReplayTimelineHasFuture( float presentT ) noexcept
 
 inline bool ReplayAtPresentTrackPosition( float position, float presentT ) noexcept
 {
+
     if ( !ReplayTimelineHasFuture( presentT ) )
     {
         return position >= REPLAY_SCRUBBER_LIVE_THRESHOLD;
     }
+
     return std::fabs( position - presentT ) <= REPLAY_SCRUBBER_PRESENT_EPSILON;
 }
 
@@ -53,19 +55,23 @@ inline bool ReplayTrackPositionIsFuture( float position, float presentT ) noexce
 
 inline float ReplaySolverNormalizedFromTrack( float position, float presentT ) noexcept
 {
+
     if ( !ReplayTimelineHasFuture( presentT ) )
     {
         return std::clamp( position, 0.0f, 1.0f );
     }
+
     return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
 }
 
 inline float ReplayPredictionNormalizedFromTrack( float position, float presentT ) noexcept
 {
+
     if ( !ReplayTimelineHasFuture( presentT ) )
     {
         return 0.0f;
     }
+
     return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
 }
 } // namespace ReplayScrubberOperations

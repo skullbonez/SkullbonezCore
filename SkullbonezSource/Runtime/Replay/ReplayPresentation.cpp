@@ -37,6 +37,7 @@ namespace SkullbonezCore::Runtime
 {
 const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
 {
+
     switch ( mode )
     {
     case ReplayPathColorMode::LaneFlat:
@@ -91,6 +92,7 @@ void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeToo
 
 void ReplayPresentation::RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools )
 {
+
     if ( !m_launcherVisualBackupActive )
     {
         return;
@@ -111,21 +113,21 @@ float ReplayQueryColliderRadiusForModelIndex( const Physics::ColliderStore& coll
 {
     const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     const Physics::ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+
     if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
     {
         return 1.0f;
     }
 
-    return (std::max)( collider->boundingRadius > 0.0f
-                           ? collider->boundingRadius
-                           : Math::CollisionDetection::GetShapeBoundingRadius( collider->shape ),
+    return (std::max)( collider->boundingRadius > 0.0f ? collider->boundingRadius
+                                                       : Math::CollisionDetection::GetShapeBoundingRadius( collider->shape ),
                        1.0f );
 }
 
-Physics::PhysicsSceneObjectId ReplayQueryBodyIdForModelIndex( const Physics::PhysicsBodyStore& bodyStore,
-                                                              int modelIndex )
+Physics::PhysicsSceneObjectId ReplayQueryBodyIdForModelIndex( const Physics::PhysicsBodyStore& bodyStore, int modelIndex )
 {
     Physics::PhysicsSceneObjectId id;
+
     if ( const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
     {
         id = body->sceneObjectId;
@@ -134,27 +136,27 @@ Physics::PhysicsSceneObjectId ReplayQueryBodyIdForModelIndex( const Physics::Phy
     return id;
 }
 
-bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
-                                    const Math::Vector::Vector3& rayDirection,
-                                    const Math::Vector::Vector3& center,
-                                    float radius,
-                                    float& outT )
+bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                                    const Math::Vector::Vector3& center, float radius, float& outT )
 {
     const Math::Vector::Vector3 offset = rayOrigin - center;
     const float rayProjection = offset * rayDirection;
     const float radialDistance = ( offset * offset ) - radius * radius;
+
     if ( radialDistance > 0.0f && rayProjection > 0.0f )
     {
         return false;
     }
 
     const float discriminant = rayProjection * rayProjection - radialDistance;
+
     if ( discriminant < 0.0f )
     {
         return false;
     }
 
     outT = -rayProjection - sqrtf( discriminant );
+
     if ( outT < 0.0f )
     {
         outT = 0.0f;
@@ -164,12 +166,11 @@ bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
 }
 
 const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Physics::PhysicsBodyStore& bodyStore,
-                                                                       Physics::PhysicsSceneObjectId id,
-                                                                       int modelIndexHint,
-                                                                       int modelCount,
-                                                                       int& outModelIndex )
+                                                                       Physics::PhysicsSceneObjectId id, int modelIndexHint,
+                                                                       int modelCount, int& outModelIndex )
 {
     outModelIndex = -1;
+
     if ( id.value == 0 )
     {
         return nullptr;
@@ -180,6 +181,7 @@ const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Phy
     const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelIndexHint );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+
     if ( !record || record->sceneObjectId != id || modelIndex < 0 || modelIndex >= modelCount )
     {
         return nullptr;
@@ -194,6 +196,7 @@ const Physics::PhysicsBodyRecord* ReplayPresentationBodyRecordForModelIndex( con
 {
     const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+
     if ( !record || bodyStore.ModelIndexForHandle( body ) != modelIndex || !record->sceneObjectId.IsValid() )
     {
         return nullptr;
@@ -212,6 +215,7 @@ bool ReplayPresentationQueueRenderPoseOverride( Rendering::RenderInstanceStore& 
     const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( sceneObjectId );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
+
     if ( !record || record->sceneObjectId != sceneObjectId || modelIndex < 0 )
     {
         return false;
@@ -232,17 +236,13 @@ int ReplayPresentationRenderPoseModelHint( const ReplaySolverBodySample& ) noexc
 
 Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const ReplayBodyPresentationSample& body )
 {
-    return Math::Orientation::Quaternion( body.orientation[0],
-                                          body.orientation[1],
-                                          body.orientation[2],
+    return Math::Orientation::Quaternion( body.orientation[0], body.orientation[1], body.orientation[2],
                                           body.orientation[3] );
 }
 
 Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const ReplaySolverBodySample& body )
 {
-    return Math::Orientation::Quaternion( body.orientation[0],
-                                          body.orientation[1],
-                                          body.orientation[2],
+    return Math::Orientation::Quaternion( body.orientation[0], body.orientation[1], body.orientation[2],
                                           body.orientation[3] );
 }
 
@@ -255,31 +255,25 @@ Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const Rep
 template <typename BodySample>
 bool ReplayPresentationApplyBodyRenderPoses( Rendering::RenderInstanceStore& renderInstances,
                                              const Physics::PhysicsBodyStore& bodyStore,
-                                             const Physics::ColliderStore& colliderStore,
-                                             std::span<const BodySample> bodies,
-                                             std::span<uint8_t> matchedBodies,
-                                             int modelCount )
+                                             const Physics::ColliderStore& colliderStore, std::span<const BodySample> bodies,
+                                             std::span<uint8_t> matchedBodies, int modelCount )
 {
     bool queuedAny = false;
+
     for ( const BodySample& body : bodies )
     {
         int resolvedModelIndex = -1;
-        if ( !ReplayPresentationResolveReplayBody( bodyStore,
-                                                   body.id,
-                                                   ReplayPresentationRenderPoseModelHint( body ),
-                                                   modelCount,
-                                                   resolvedModelIndex ) )
+
+        if ( !ReplayPresentationResolveReplayBody( bodyStore, body.id, ReplayPresentationRenderPoseModelHint( body ),
+                                                   modelCount, resolvedModelIndex ) )
         {
             continue;
         }
 
         Math::Orientation::Quaternion orientation = ReplayPresentationRenderPoseOrientation( body );
         orientation.Normalise();
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        body.id,
-                                                        body.position,
+
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances, bodyStore, colliderStore, body.id, body.position,
                                                         orientation ) )
         {
             matchedBodies[static_cast<std::size_t>( resolvedModelIndex )] = 1;
@@ -293,20 +287,20 @@ bool ReplayPresentationApplyBodyRenderPoses( Rendering::RenderInstanceStore& ren
 bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore& renderInstances,
                                                   const Physics::PhysicsBodyStore& bodyStore,
                                                   const Physics::ColliderStore& colliderStore,
-                                                  std::span<const uint8_t> matchedBodies,
-                                                  int modelCount )
+                                                  std::span<const uint8_t> matchedBodies, int modelCount )
 {
     bool queuedAny = false;
     const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
+
         if ( matchedBodies[static_cast<std::size_t>( modelIndex )] != 0 )
         {
             continue;
         }
 
-        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore,
-                                                                                                  modelIndex );
+        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, modelIndex );
 
         if ( !bodyRecord )
         {
@@ -317,12 +311,9 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
         const Physics::PhysicsSceneObjectId sceneObjectId { bodyRecord->sceneObjectId };
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        sceneObjectId,
-                                                        hiddenReplayPosition,
-                                                        Math::Orientation::IDENTITY_QUATERNION ) )
+
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances, bodyStore, colliderStore, sceneObjectId,
+                                                        hiddenReplayPosition, Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
@@ -331,11 +322,12 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
     return queuedAny;
 }
 
-RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer,
-                                                Physics::PhysicsSceneObjectId id )
+RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer, Physics::PhysicsSceneObjectId id )
 {
+
     for ( RunReplayPathTarget& target : visualizer.targets )
     {
+
         if ( target.id.value == id.value )
         {
             return &target;
@@ -345,15 +337,14 @@ RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& vi
     return nullptr;
 }
 
-void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer,
-                                        Physics::PhysicsSceneObjectId id,
-                                        int modelIndex,
-                                        const char* name )
+void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer, Physics::PhysicsSceneObjectId id,
+                                        int modelIndex, const char* name )
 {
     visualizer.hasTarget = true;
     visualizer.targetId = id;
     visualizer.targetModelRow.value = modelIndex;
     visualizer.targetName[0] = '\0';
+
     if ( name && name[0] != '\0' )
     {
         strncpy_s( visualizer.targetName, sizeof( visualizer.targetName ), name, _TRUNCATE );
@@ -363,6 +354,7 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 
 ReplayPresentation::ReplayPresentation( Core::Profiler* )
 {
+
     // Runtime allocation policy: path target selection is a live replay UI
     // action, so it rotates entries within a fixed pre-gameplay vector budget.
     m_pathVisualizer.targets.reserve( REPLAY_PATH_MAX_ROOT_TARGETS );
@@ -395,8 +387,7 @@ bool ReplayPresentation::HasLauncherVisualBackup() const noexcept
 }
 
 
-void ReplayPresentation::BeginCameraInspection( RunCameraMode restoreMode,
-                                                uint32_t restoreCameraHash,
+void ReplayPresentation::BeginCameraInspection( RunCameraMode restoreMode, uint32_t restoreCameraHash,
                                                 const Math::Vector::Vector3& restoreEye,
                                                 const Math::Vector::Vector3& restoreView,
                                                 const Math::Vector::Vector3& restoreUp ) noexcept
@@ -428,12 +419,9 @@ void ReplayPresentation::SetCameraPauseOwnership( bool ownsPause ) noexcept
 }
 
 
-void ReplayPresentation::ApplyCameraFocus( const RunReplayCauseTreeRow& row,
-                                           int rowIndex,
-                                           RunReplayCameraFocusKind focusKind,
-                                           const Math::Vector::Vector3& resolvedPoint,
-                                           const Math::Vector::Vector3& resolvedNormal,
-                                           float resolvedRadius ) noexcept
+void ReplayPresentation::ApplyCameraFocus( const RunReplayCauseTreeRow& row, int rowIndex,
+                                           RunReplayCameraFocusKind focusKind, const Math::Vector::Vector3& resolvedPoint,
+                                           const Math::Vector::Vector3& resolvedNormal, float resolvedRadius ) noexcept
 {
     m_camera.focusKind = focusKind;
     m_camera.focusedId = row.id;
@@ -496,6 +484,7 @@ void ReplayPresentation::ClearPathState()
 
 void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore )
 {
+
     if ( !m_pathVisualizer.hasTarget || !m_pathVisualizer.pastPathVisible || m_pathVisualizer.targetId.value == 0 )
     {
         return;
@@ -506,6 +495,7 @@ void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bo
         RunReplayPathTarget target;
         target.id = m_pathVisualizer.targetId;
         target.modelRow = m_pathVisualizer.targetModelRow;
+
         if ( m_pathVisualizer.targetName[0] != '\0' )
         {
             strncpy_s( target.name, sizeof( target.name ), m_pathVisualizer.targetName, _TRUNCATE );
@@ -518,12 +508,14 @@ void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bo
     {
         const Physics::PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( target.id, target.modelRow.value );
         const int modelIndex = bodyStore.ModelIndexForHandle( handle );
+
         if ( modelIndex < 0 )
         {
             continue;
         }
 
         target.modelRow.value = modelIndex;
+
         if ( target.id.value == m_pathVisualizer.targetId.value )
         {
             m_pathVisualizer.targetModelRow.value = modelIndex;
@@ -550,15 +542,10 @@ void ReplayPresentation::ApplyArchivePathState( const RunReplayPathVisualizerSta
 }
 
 
-void ReplayPresentation::ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId,
-                                                    ReplayFrameIndex firstFrame,
-                                                    ReplayFrameIndex builtThroughFrame,
-                                                    uint64_t totalFramesEvicted,
-                                                    uint64_t fullRebuildCount,
-                                                    uint64_t incrementalTrimCount,
-                                                    bool valid,
-                                                    Physics::ModelRowHint targetModelRow,
-                                                    bool targetModelRowRepaired )
+void ReplayPresentation::ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId, ReplayFrameIndex firstFrame,
+                                                    ReplayFrameIndex builtThroughFrame, uint64_t totalFramesEvicted,
+                                                    uint64_t fullRebuildCount, uint64_t incrementalTrimCount, bool valid,
+                                                    Physics::ModelRowHint targetModelRow, bool targetModelRowRepaired )
 {
     m_pathVisualizer.pastTrajectory.targetId = targetId;
     m_pathVisualizer.pastTrajectory.firstFrame = firstFrame;
@@ -567,6 +554,7 @@ void ReplayPresentation::ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectI
     m_pathVisualizer.pastTrajectory.fullRebuildCount = fullRebuildCount;
     m_pathVisualizer.pastTrajectory.incrementalTrimCount = incrementalTrimCount;
     m_pathVisualizer.pastTrajectory.valid = valid;
+
     if ( targetModelRowRepaired )
     {
         m_pathVisualizer.targetModelRow = targetModelRow;
@@ -591,27 +579,27 @@ ReplayPathColorMode ReplayPresentation::CyclePathColorMode() noexcept
 
 bool ReplayPresentation::SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore )
 {
+
     if ( modelIndex < 0 )
     {
         return false;
     }
 
     const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+
     if ( !body || !body->sceneObjectId.IsValid() )
     {
         return false;
     }
 
-    return SetPathTarget( Physics::PhysicsSceneObjectId { body->sceneObjectId },
-                          Physics::ModelRowHint { modelIndex },
+    return SetPathTarget( Physics::PhysicsSceneObjectId { body->sceneObjectId }, Physics::ModelRowHint { modelIndex },
                           name );
 }
 
 
-bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id,
-                                        Physics::ModelRowHint modelRow,
-                                        const char* name )
+bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name )
 {
+
     if ( id.value == 0 || modelRow.value < 0 )
     {
         return false;
@@ -621,6 +609,7 @@ bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id,
     m_pathVisualizer.targetId = id;
     m_pathVisualizer.targetModelRow = modelRow;
     m_pathVisualizer.targetName[0] = '\0';
+
     if ( name && name[0] != '\0' )
     {
         strncpy_s( m_pathVisualizer.targetName, sizeof( m_pathVisualizer.targetName ), name, _TRUNCATE );
@@ -631,16 +620,17 @@ bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id,
 
 
 ReplayPathPickResult
-ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
-                                       const SceneEntityStore& entities,
+ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const SceneEntityStore& entities,
                                        const Physics::PhysicsBodyStore& bodyStore,
                                        const Physics::ColliderStore& colliderStore,
                                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                        const ReplaySolverFrameSample* currentSolverSample )
 {
     ReplayPathPickResult result;
+
     if ( !input.hasWorldRay )
     {
+
         if ( input.clearOnMiss )
         {
             ClearPathState();
@@ -653,15 +643,18 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
     const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
     const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
     {
+
         if ( !outName || outSize == 0 )
         {
             return;
         }
 
         outName[0] = '\0';
+
         if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
         {
             const char* displayName = presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
+
             if ( displayName[0] != '\0' )
             {
                 strncpy_s( outName, outSize, displayName, _TRUNCATE );
@@ -676,21 +669,25 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
     if ( currentSolverSample )
     {
         float bestT = FLT_MAX;
+
         for ( const ReplaySolverBodySample& body : currentSolverSample->bodies )
         {
             float radius = 1.0f;
+
             if ( body.modelRow.value >= 0 && body.modelRow.value < modelCount )
             {
                 radius = ReplayQueryColliderRadiusForModelIndex( colliderStore, body.modelRow.value ) + 1.0f;
             }
 
             float rayT = 0.0f;
+
             if ( ReplayQueryIntersectRaySphere( input.rayOrigin, input.rayDirection, body.position, radius, rayT ) &&
                  rayT < bestT )
             {
                 bestT = rayT;
                 pickedId = body.id;
                 pickedIndex = body.modelRow.value;
+
                 if ( body.name[0] != '\0' )
                 {
                     strncpy_s( pickedName, sizeof( pickedName ), body.name, _TRUNCATE );
@@ -708,6 +705,7 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
         request.rayDirection = input.rayDirection;
 
         RuntimePickResult pick;
+
         if ( RuntimePickService::TryPickModel( request, pick ) )
         {
             pickedIndex = pick.modelRow.value;
@@ -719,8 +717,7 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
     if ( pickedIndex >= 0 && pickedIndex < modelCount )
     {
         const SceneEntityRecord* pickedEntity = entities.TryGet( pickedIndex );
-        const int collectionIndex = pickedEntity &&
-                                            pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
+        const int collectionIndex = pickedEntity && pickedEntity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll
                                         ? entities.FindBySceneObjectId( pickedEntity->behaviorGroup.rootObjectId )
                                         : pickedIndex;
 
@@ -734,16 +731,20 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
 
     if ( pickedId.value != 0 )
     {
+
         if ( !input.additive )
         {
             m_pathVisualizer.targets.clear();
         }
 
         RunReplayPathTarget* target = FindReplayQueryPathTarget( m_pathVisualizer, pickedId );
+
         if ( !target )
         {
+
             // Invariant: constructor-reserved target storage rotates entries;
             // live picking never grows the vector.
+
             if ( m_pathVisualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )
             {
                 return result;
@@ -767,6 +768,7 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
 
         target->modelRow.value = pickedIndex;
         target->name[0] = '\0';
+
         if ( pickedName[0] != '\0' )
         {
             strncpy_s( target->name, sizeof( target->name ), pickedName, _TRUNCATE );
@@ -799,25 +801,23 @@ bool ReplayPresentation::ApplyPresentationSampleForRender( Rendering::RenderInst
                                                            const ReplayPresentationSample& sample )
 {
     const int modelCount = renderInstances.Count();
+
     if ( !PrepareRenderPoseBodyMatch( modelCount ) )
     {
         return false;
     }
 
     const std::span<uint8_t> matchedBodies( m_renderPoseBodyMatched.data(), static_cast<std::size_t>( modelCount ) );
-    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses(
-        renderInstances,
-        bodyStore,
-        colliderStore,
-        std::span<const ReplayBodyPresentationSample>( sample.bodies.data(), sample.bodies.size() ),
-        matchedBodies,
-        modelCount );
+    const bool
+        queuedBodies = ReplayPresentationApplyBodyRenderPoses( renderInstances, bodyStore, colliderStore,
+                                                               std::span<const ReplayBodyPresentationSample>( sample.bodies
+                                                                                                                  .data(),
+                                                                                                              sample.bodies
+                                                                                                                  .size() ),
+                                                               matchedBodies, modelCount );
 
-    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances,
-                                                                           bodyStore,
-                                                                           colliderStore,
-                                                                           matchedBodies,
-                                                                           modelCount );
+    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances, bodyStore, colliderStore,
+                                                                           matchedBodies, modelCount );
 
     return queuedBodies || queuedHidden;
 }
@@ -829,25 +829,22 @@ bool ReplayPresentation::ApplySolverSampleForRender( Rendering::RenderInstanceSt
                                                      const ReplaySolverFrameSample& sample )
 {
     const int modelCount = renderInstances.Count();
+
     if ( !PrepareRenderPoseBodyMatch( modelCount ) )
     {
         return false;
     }
 
     const std::span<uint8_t> matchedBodies( m_renderPoseBodyMatched.data(), static_cast<std::size_t>( modelCount ) );
-    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses(
-        renderInstances,
-        bodyStore,
-        colliderStore,
-        std::span<const ReplaySolverBodySample>( sample.bodies.data(), sample.bodies.size() ),
-        matchedBodies,
-        modelCount );
+    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses( renderInstances, bodyStore, colliderStore,
+                                                                      std::span<const ReplaySolverBodySample>( sample.bodies
+                                                                                                                   .data(),
+                                                                                                               sample.bodies
+                                                                                                                   .size() ),
+                                                                      matchedBodies, modelCount );
 
-    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances,
-                                                                           bodyStore,
-                                                                           colliderStore,
-                                                                           matchedBodies,
-                                                                           modelCount );
+    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances, bodyStore, colliderStore,
+                                                                           matchedBodies, modelCount );
 
     return queuedBodies || queuedHidden;
 }
@@ -855,13 +852,13 @@ bool ReplayPresentation::ApplySolverSampleForRender( Rendering::RenderInstanceSt
 
 bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 {
+
     if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         return false;
     }
 
-    std::fill( m_renderPoseBodyMatched.begin(),
-               m_renderPoseBodyMatched.begin() + static_cast<std::size_t>( modelCount ),
+    std::fill( m_renderPoseBodyMatched.begin(), m_renderPoseBodyMatched.begin() + static_cast<std::size_t>( modelCount ),
                uint8_t { 0 } );
 
     return true;

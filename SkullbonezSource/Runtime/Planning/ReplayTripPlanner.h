@@ -149,11 +149,13 @@ class ReplayTripPlanner
     bool QueueCommand( const ReplayTripPlannerCommand& command ) noexcept;
     ReplayTripPlannerVelocityMutation BeginFrame( const ReplayTripPlannerLiveInput& input ) noexcept;
     ReplayTripPlannerVelocityMutation ObservePrediction( const ReplayTripPlannerPredictionInput& input ) noexcept;
+
     // Returns the original live velocity through the normal Replay mutation
     // boundary. Callers must apply the result before discarding the plan.
     ReplayTripPlannerVelocityMutation CancelActivePlan() noexcept;
     void ConfirmVelocityApplied() noexcept;
     void Abort() noexcept;
+
     // Scene teardown may discard the old Physics world without rollback.
     void ResetForSceneDiscard() noexcept;
     const ReplayTripPlannerView& View() const noexcept;

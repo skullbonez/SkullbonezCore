@@ -450,6 +450,7 @@ struct RenderGraphTransientMaterializationStats
     size_t reusedThisCompile = 0;
     size_t releasedAtFrameEnd = 0;
     size_t descriptorRowsOwned = 0;
+
     // Lane R: backend materialization can fail because the device rejects an
     // allocation. Keep fixed diagnostics here so frame reports can describe the
     // skipped graph resource without allocating another string.
@@ -478,32 +479,36 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
     void reserve( size_t requested )
     {
+
         if ( requested > Capacity )
         {
-            SB_FATAL( "RenderGraph",
-                      "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu",
-                      requested,
+            SB_FATAL( "RenderGraph", "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu", requested,
                       Capacity );
         }
     }
 
     void clear()
     {
+
         for ( size_t index = 0; index < m_count; ++index )
         {
             m_values[index] = T();
         }
+
         m_count = 0;
     }
 
     void resize( size_t count )
     {
+
         if ( count > Capacity )
         {
             SB_FATAL( "RenderGraph", "Fixed-list resize capacity exceeded. count=%zu capacity=%zu", count, Capacity );
         }
+
         if ( count < m_count )
         {
+
             for ( size_t index = count; index < m_count; ++index )
             {
                 m_values[index] = T();
@@ -511,20 +516,24 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
         }
         else
         {
+
             for ( size_t index = m_count; index < count; ++index )
             {
                 m_values[index] = T();
             }
         }
+
         m_count = count;
     }
 
     void push_back( const T& value )
     {
+
         if ( m_count >= Capacity )
         {
             SB_FATAL( "RenderGraph", "Fixed-list push capacity exceeded. count=%zu capacity=%zu", m_count, Capacity );
         }
+
         m_values[m_count++] = value;
     }
 
@@ -584,8 +593,7 @@ struct RenderGraphCompileResult
 
     RenderGraphFixedList<RenderGraphTransitionDesc, RENDER_GRAPH_MAX_TRANSITIONS> transitions;
     RenderGraphFixedList<RenderGraphResourceLifetimeDesc, RENDER_GRAPH_MAX_RESOURCES> resourceLifetimes;
-    RenderGraphFixedList<RenderGraphTransientAllocationDesc, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS>
-        transientAllocations;
+    RenderGraphFixedList<RenderGraphTransientAllocationDesc, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS> transientAllocations;
     RenderGraphTransientAllocationDiagnostics transientDiagnostics;
 };
 
@@ -618,6 +626,7 @@ struct RenderGraphExecutionContractResult
 class RenderGraph
 {
   private:
+
     // Lifetime: this is the graph's sole erased callback record. payload is a
     // non-owning borrow of a concrete stack payload and is consumed synchronously
     // before the registration scope ends; typed public trampolines recover it.
@@ -636,22 +645,16 @@ class RenderGraph
     void Clear();
     void ReserveForRuntimePassGraph();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name,
-                                                   RenderGraphResourceAccess initialAccess,
+    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess,
                                                    RenderGraphNativeResourceToken nativeResource = {} );
     RenderGraphResourceHandle
-    AddTransientResource( const char* name,
-                          const RenderGraphTransientResourceDesc& desc,
+    AddTransientResource( const char* name, const RenderGraphTransientResourceDesc& desc,
                           RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
-    void AddRead( uint32_t passIndex,
-                  RenderGraphResourceHandle resource,
-                  RenderGraphResourceAccess access,
+    void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
                   uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
-    void AddWrite( uint32_t passIndex,
-                   RenderGraphResourceHandle resource,
-                   RenderGraphResourceAccess access,
+    void AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
                    uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
     template <auto Callback, typename Payload>
     void SetPassCallback( uint32_t passIndex, Payload& payload, bool enabled = true, const char* debugLabel = nullptr )
@@ -684,14 +687,17 @@ class RenderGraph
     std::string DumpText() const;
     RenderGraphCompileResult Compile() const;
     void Compile( RenderGraphCompileResult& result ) const;
+
     // Executes callback-owned passes in declaration order. The range overload
     // is the production path for newly appended one-shot callback payloads.
     RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
-    RenderGraphCallbackExecutionResult
-    ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass, uint32_t passCount ) const;
+    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass,
+                                                         uint32_t passCount ) const;
+
     // Passing a null/empty declaration name validates a capture-only graph with
     // no declaration-only edge; ordinary submitted frames pass "Present".
     RenderGraphExecutionContractResult ValidateFrameExecutionContract( const char* declarationOnlyPassName ) const;
+
     // Poisons erased one-frame callback borrows after execution and diagnostics.
     // Declarations remain available until Clear for frame-edge inspection.
     void ReleaseCallbackPayloadBorrows();

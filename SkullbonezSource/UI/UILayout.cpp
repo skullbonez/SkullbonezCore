@@ -51,6 +51,7 @@ int ClampSceneComboScroll( int scroll, int optionCount )
 int SceneComboScrollForSelection( int selectedIndex, int optionCount )
 {
     const int visibleCount = SceneComboVisibleCount( optionCount );
+
     if ( selectedIndex < 0 || visibleCount <= 0 )
     {
         return 0;
@@ -180,9 +181,7 @@ float SmoothStep( float t )
 UIRect LerpRect( const UIRect& from, const UIRect& to, float t )
 {
     const float e = SmoothStep( t );
-    return { from.x + ( to.x - from.x ) * e,
-             from.y + ( to.y - from.y ) * e,
-             from.w + ( to.w - from.w ) * e,
+    return { from.x + ( to.x - from.x ) * e, from.y + ( to.y - from.y ) * e, from.w + ( to.w - from.w ) * e,
              from.h + ( to.h - from.h ) * e };
 }
 

@@ -50,8 +50,8 @@ struct DiagnosticsPhysicsDebugValueUICommandResult
 };
 
 void StepDiagnosticsPhysicsPipelineStage( OverlayDebugState& debug, int direction );
-DiagnosticsPhysicsOverlayUICommandResult
-ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );
+DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommands( OverlayDebugState& debug,
+                                                                                   const UI::UIPhysicsCommands& commands );
 bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );
 DiagnosticsPhysicsDebugValueUICommandResult
 ApplyDiagnosticsPhysicsDebugValueUICommands( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands );

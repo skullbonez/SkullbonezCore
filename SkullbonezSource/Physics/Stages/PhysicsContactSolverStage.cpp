@@ -27,7 +27,6 @@ Related:
 #include "PhysicsContactSolverStage.h"
 
 #include "../../Core/FatalError.h"
-#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"
@@ -39,74 +38,74 @@ using namespace SkullbonezCore::Physics;
 
 namespace
 {
-constexpr int MAX_PIPELINE_TRACE_RECORDS = 4096;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
-
-#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                            \
-    VISIT( bodyA )                                                                                                     \
-    VISIT( bodyB )                                                                                                     \
-    VISIT( featureId )                                                                                                 \
-    VISIT( key )                                                                                                       \
-    VISIT( normal )                                                                                                    \
-    VISIT( tangent1 )                                                                                                  \
-    VISIT( tangent2 )                                                                                                  \
-    VISIT( rA )                                                                                                        \
-    VISIT( rB )                                                                                                        \
-    VISIT( penetration )                                                                                               \
-    VISIT( normalMass )                                                                                                \
-    VISIT( tangentMass1 )                                                                                              \
-    VISIT( tangentMass2 )                                                                                              \
-    VISIT( bias )                                                                                                      \
-    VISIT( frictionLimit )                                                                                             \
-    VISIT( accN )                                                                                                      \
-    VISIT( accT1 )                                                                                                     \
-    VISIT( accT2 )                                                                                                     \
-    VISIT( warmStarted )                                                                                               \
-    VISIT( isTerrain )                                                                                                 \
-    VISIT( supportsRestingPolicy )                                                                                     \
-    VISIT( allowsTangentFriction )                                                                                     \
-    VISIT( normalCoupledFriction )                                                                                     \
-    VISIT( inhibitsSleep )                                                                                             \
-    VISIT( manifoldPointCount )                                                                                        \
-    VISIT( terrainNormal )                                                                                             \
+#define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                                 \
+    VISIT( bodyA )                                                                                                          \
+    VISIT( bodyB )                                                                                                          \
+    VISIT( featureId )                                                                                                      \
+    VISIT( key )                                                                                                            \
+    VISIT( normal )                                                                                                         \
+    VISIT( tangent1 )                                                                                                       \
+    VISIT( tangent2 )                                                                                                       \
+    VISIT( rA )                                                                                                             \
+    VISIT( rB )                                                                                                             \
+    VISIT( penetration )                                                                                                    \
+    VISIT( normalMass )                                                                                                     \
+    VISIT( tangentMass1 )                                                                                                   \
+    VISIT( tangentMass2 )                                                                                                   \
+    VISIT( bias )                                                                                                           \
+    VISIT( frictionLimit )                                                                                                  \
+    VISIT( accN )                                                                                                           \
+    VISIT( accT1 )                                                                                                          \
+    VISIT( accT2 )                                                                                                          \
+    VISIT( warmStarted )                                                                                                    \
+    VISIT( isTerrain )                                                                                                      \
+    VISIT( supportsRestingPolicy )                                                                                          \
+    VISIT( allowsTangentFriction )                                                                                          \
+    VISIT( normalCoupledFriction )                                                                                          \
+    VISIT( inhibitsSleep )                                                                                                  \
+    VISIT( manifoldPointCount )                                                                                             \
+    VISIT( terrainNormal )                                                                                                  \
     VISIT( terrainWarmStart )
 
-#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                 \
-    VISIT( key )                                                                                                       \
-    VISIT( accN )                                                                                                      \
-    VISIT( accT1 )                                                                                                     \
+#define SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( VISIT )                                                                      \
+    VISIT( key )                                                                                                            \
+    VISIT( accN )                                                                                                           \
+    VISIT( accT1 )                                                                                                          \
     VISIT( accT2 )
 
-#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                         \
-    VISIT( rowCount )                                                                                                  \
-    VISIT( cachePreviousRows )                                                                                         \
-    VISIT( cacheHits )                                                                                                 \
-    VISIT( cacheMisses )                                                                                               \
-    VISIT( warmStartedRows )                                                                                           \
-    VISIT( positionCorrectionRows )                                                                                    \
-    VISIT( solverIterations )                                                                                          \
-    VISIT( positionCorrectionTotal )                                                                                   \
+#define SB_REPLAY_SOLVER_STATS_FIELDS( VISIT )                                                                              \
+    VISIT( rowCount )                                                                                                       \
+    VISIT( cachePreviousRows )                                                                                              \
+    VISIT( cacheHits )                                                                                                      \
+    VISIT( cacheMisses )                                                                                                    \
+    VISIT( warmStartedRows )                                                                                                \
+    VISIT( positionCorrectionRows )                                                                                         \
+    VISIT( solverIterations )                                                                                               \
+    VISIT( positionCorrectionTotal )                                                                                        \
     VISIT( positionCorrectionMax )
 
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 } // namespace
 
-PhysicsContactSolverStage::PhysicsContactSolverStage()
+PhysicsContactSolverStage::PhysicsContactSolverStage() = default;
+
+void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
-    m_persistentContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
-    m_persistentContactCache.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
-    m_persistentContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_persistentRestingContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_solverBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_sideEffects.pipelineRecords.reserve( MAX_PIPELINE_TRACE_RECORDS );
-    m_sideEffects.collisionVisualBodies.reserve( PHYSICS_COLLISION_VISUAL_BODY_RESERVE );
-    m_sideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-    m_sideEffects.releaseWakeBodies.reserve( 8 );
-    m_sideEffects.fixedTreeReleases.reserve( 8 );
+    const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
+    const std::size_t contactCapacity = PhysicsContactRowCapacity( bodyCapacity );
+    m_persistentContacts.Reserve( contactCapacity );
+    m_persistentContactCache.Reserve( contactCapacity );
+    m_persistentContactCounts.Reserve( bodyCapacity );
+    m_persistentRestingContactCounts.Reserve( bodyCapacity );
+    m_solverBodies.Reserve( bodyCapacity );
+    m_sideEffects.pipelineRecords.Reserve( PHYSICS_MAX_PIPELINE_TRACE_RECORDS );
+    m_sideEffects.collisionVisualBodies.Reserve( pairCapacity * 2u );
+    m_sideEffects.fixedContactBodies.Reserve( contactCapacity );
+    m_sideEffects.releaseWakeBodies.Reserve( bodyCapacity );
+    m_sideEffects.fixedTreeReleases.Reserve( bodyCapacity );
 }
 
 void PhysicsContactSolverStage::Clear()
@@ -124,8 +123,7 @@ void PhysicsContactSolverStage::Clear()
     m_sideEffects.fixedTreeReleases.clear();
 }
 
-void PhysicsContactSolverStage::PrepareSideEffects( int modelCount,
-                                                    std::size_t candidatePairCount,
+void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t candidatePairCount,
                                                     int pipelineRecordCapacity )
 {
     m_sideEffects.pipelineRecords.clear();
@@ -135,16 +133,18 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount,
     m_sideEffects.fixedTreeReleases.clear();
 
     // Invariant: preserving deterministic output requires every list to fit
-    // its construction-time reserve; allocating or dropping a command is not
+    // its scene-load reservation; allocating or dropping a command is not
     // an acceptable runtime fallback.
     assert( m_sideEffects.collisionVisualBodies.capacity() >= candidatePairCount * 2 );
     assert( m_sideEffects.fixedContactBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
-    assert( m_sideEffects.releaseWakeBodies.capacity() >= 8 );
-    assert( m_sideEffects.fixedTreeReleases.capacity() >= 8 );
+    assert( m_sideEffects.releaseWakeBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
+    assert( m_sideEffects.fixedTreeReleases.capacity() >= static_cast<std::size_t>( modelCount ) );
     assert( m_sideEffects.pipelineRecords.capacity() >= static_cast<std::size_t>( pipelineRecordCapacity ) );
+
     if ( m_sideEffects.collisionVisualBodies.capacity() < candidatePairCount * 2 ||
          m_sideEffects.fixedContactBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
-         m_sideEffects.releaseWakeBodies.capacity() < 8 || m_sideEffects.fixedTreeReleases.capacity() < 8 ||
+         m_sideEffects.releaseWakeBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
+         m_sideEffects.fixedTreeReleases.capacity() < static_cast<std::size_t>( modelCount ) ||
          m_sideEffects.pipelineRecords.capacity() < static_cast<std::size_t>( pipelineRecordCapacity ) )
     {
         SB_FATAL( "Physics/PhysicsContactSolverStage", "Persistent-contact consequence capacity exhausted." );
@@ -158,6 +158,7 @@ void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
         const uint64_t key = static_cast<uint64_t>( entry.key );
 
         const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
+
         if ( highBody == 0xffffu )
         {
             const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
@@ -169,8 +170,7 @@ void PhysicsContactCacheWakeAccess::ForgetBody( int bodyIndex ) const
         return lowBody == static_cast<uint32_t>( index ) || objectHighBody == static_cast<uint32_t>( index );
     };
 
-    m_cache.erase( std::remove_if( m_cache.begin(),
-                                   m_cache.end(),
+    m_cache.erase( std::remove_if( m_cache.begin(), m_cache.end(),
                                    [bodyIndex, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
                                    { return cacheEntryReferencesBody( entry, bodyIndex ); } ),
                    m_cache.end() );
@@ -183,8 +183,20 @@ PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()
 
 void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const
 {
-    outSnapshot.persistentContactCounts = m_persistentContactCounts;
-    outSnapshot.persistentRestingContactCounts = m_persistentRestingContactCounts;
+    outSnapshot.persistentContactCounts.clear();
+
+    for ( uint16_t count : m_persistentContactCounts )
+    {
+        outSnapshot.persistentContactCounts.push_back( count );
+    }
+
+    outSnapshot.persistentRestingContactCounts.clear();
+
+    for ( uint16_t count : m_persistentRestingContactCounts )
+    {
+        outSnapshot.persistentRestingContactCounts.push_back( count );
+    }
+
     for ( const PersistentContact& contact : m_persistentContacts )
     {
         PhysicsSolverPersistentContactSample sample;
@@ -210,10 +222,25 @@ void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSn
 
 void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
-    m_persistentContactCounts = snapshot.persistentContactCounts;
-    m_persistentRestingContactCounts = snapshot.persistentRestingContactCounts;
+    m_persistentContactCounts.Reserve( snapshot.persistentContactCounts.size() );
+    m_persistentContactCounts.clear();
+
+    for ( uint16_t count : snapshot.persistentContactCounts )
+    {
+        m_persistentContactCounts.push_back( count );
+    }
+
+    m_persistentRestingContactCounts.Reserve( snapshot.persistentRestingContactCounts.size() );
+    m_persistentRestingContactCounts.clear();
+
+    for ( uint16_t count : snapshot.persistentRestingContactCounts )
+    {
+        m_persistentRestingContactCounts.push_back( count );
+    }
+
     m_persistentContacts.clear();
-    m_persistentContacts.reserve( snapshot.persistentContacts.size() );
+    m_persistentContacts.Reserve( snapshot.persistentContacts.size() );
+
     for ( const PhysicsSolverPersistentContactSample& sample : snapshot.persistentContacts )
     {
         PersistentContact contact;
@@ -224,7 +251,8 @@ void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot&
     }
 
     m_persistentContactCache.clear();
-    m_persistentContactCache.reserve( snapshot.persistentContactCache.size() );
+    m_persistentContactCache.Reserve( snapshot.persistentContactCache.size() );
+
     for ( const PhysicsSolverContactCacheSample& sample : snapshot.persistentContactCache )
     {
         PersistentContactCacheEntry cache;
@@ -241,12 +269,12 @@ void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot&
     m_solverBodies.clear();
 }
 
-const std::vector<PersistentContact>& PhysicsContactSolverStage::GetPersistentContacts() const
+std::span<const PersistentContact> PhysicsContactSolverStage::GetPersistentContacts() const
 {
     return m_persistentContacts;
 }
 
-const std::vector<PersistentContactCacheEntry>& PhysicsContactSolverStage::GetPersistentContactCache() const
+std::span<const PersistentContactCacheEntry> PhysicsContactSolverStage::GetPersistentContactCache() const
 {
     return m_persistentContactCache;
 }
@@ -256,12 +284,12 @@ const PersistentContactSolverStats& PhysicsContactSolverStage::GetStats() const
     return m_persistentContactSolverStats;
 }
 
-const std::vector<uint16_t>& PhysicsContactSolverStage::GetPersistentContactCounts() const
+std::span<const uint16_t> PhysicsContactSolverStage::GetPersistentContactCounts() const
 {
     return m_persistentContactCounts;
 }
 
-const std::vector<uint16_t>& PhysicsContactSolverStage::GetPersistentRestingContactCounts() const
+std::span<const uint16_t> PhysicsContactSolverStage::GetPersistentRestingContactCounts() const
 {
     return m_persistentRestingContactCounts;
 }
@@ -273,16 +301,16 @@ const PersistentContactSolverSideEffects& PhysicsContactSolverStage::GetSideEffe
 
 uint64_t PhysicsContactSolverStage::CollectDynamicMemoryBytes() const
 {
-    uint64_t bytes = VectorCapacityBytes( m_persistentContacts );
-    bytes += VectorCapacityBytes( m_persistentContactCache );
-    bytes += VectorCapacityBytes( m_persistentContactCounts );
-    bytes += VectorCapacityBytes( m_persistentRestingContactCounts );
-    bytes += VectorCapacityBytes( m_solverBodies );
-    bytes += VectorCapacityBytes( m_sideEffects.pipelineRecords );
-    bytes += VectorCapacityBytes( m_sideEffects.collisionVisualBodies );
-    bytes += VectorCapacityBytes( m_sideEffects.fixedContactBodies );
-    bytes += VectorCapacityBytes( m_sideEffects.releaseWakeBodies );
-    bytes += VectorCapacityBytes( m_sideEffects.fixedTreeReleases );
+    uint64_t bytes = ListCapacityBytes( m_persistentContacts );
+    bytes += ListCapacityBytes( m_persistentContactCache );
+    bytes += ListCapacityBytes( m_persistentContactCounts );
+    bytes += ListCapacityBytes( m_persistentRestingContactCounts );
+    bytes += ListCapacityBytes( m_solverBodies );
+    bytes += ListCapacityBytes( m_sideEffects.pipelineRecords );
+    bytes += ListCapacityBytes( m_sideEffects.collisionVisualBodies );
+    bytes += ListCapacityBytes( m_sideEffects.fixedContactBodies );
+    bytes += ListCapacityBytes( m_sideEffects.releaseWakeBodies );
+    bytes += ListCapacityBytes( m_sideEffects.fixedTreeReleases );
     return bytes;
 }
 

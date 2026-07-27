@@ -219,27 +219,29 @@ class ImGuiEditorOwner
     void SelectSurface( DevelopmentUiMode surface ) noexcept;
     DevelopmentUiMode SelectedSurface() const noexcept;
     bool HasActivatedSurfaceSelection() const noexcept;
+
     // Applies one bounded presentation-only validation command. The caller
     // remains responsible for surface selection and native-window authority.
     SkullbonezCore::Core::SbResult ApplyAutomationCommand( const ImGuiEditorAutomationCommand& command ) noexcept;
     UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
+
     // Reports the runtime-owned result of a cold Tracy client start without
     // lending profiler lifetime authority to this presentation owner.
     void ReportTracyClientStartResult( bool started ) noexcept;
     SkullbonezCore::Core::SbResult CaptureGameViewport();
 
-    ImGuiEditorNativeMessageRoute
-    HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
+    ImGuiEditorNativeMessageRoute HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
     ImGuiEditorInputCapture CopyInputCapture() const noexcept;
+
     // Publishes the completed editor frame as the generic value consumed by
     // InputRouter; the input owner remains authoritative for arbitration.
     UiInputCaptureIntent ConsumeInputCaptureIntent() noexcept;
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
-    void BuildEditorShell( const UI::OperatorEditorFrameView& view,
-                           const ReplayOverlay::ReplayOverlayStateView& replay );
+    void BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay );
     ImGuiEditorFrameResult EndFrame();
+
     // Records draw data published by EndFrame. The caller must invoke this
     // synchronously from the current frame's graph callback before Present.
     SkullbonezCore::Core::SbResult RenderPreparedDrawData();
@@ -294,6 +296,7 @@ class ImGuiEditorOwner
     bool m_showRendering = true;
     bool m_showDiagnostics = true;
     bool m_showCausality = true;
+
     // Invariant: detail visibility and its row index are presentation-only;
     // neither value selects a replay row or enters authored serialization.
     bool m_showCausalityDetail = false;
@@ -305,6 +308,7 @@ class ImGuiEditorOwner
     char m_hierarchyFilter[64] = {};
     char m_assetFilter[64] = {};
     ImGuiEditorPropertyEditState m_propertyEdit;
+
     // Invariant: each authoring domain owns one active scalar identity so a
     // pointer release cannot commit a preview that originated in another rail.
     ImGuiEditorParameterizedEditState m_renderingEdit;

@@ -26,7 +26,6 @@ Related:
 
 #include <cstdint>
 #include <span>
-#include <vector>
 
 #include "../../Core/MainMemoryStats.h"
 
@@ -100,6 +99,7 @@ struct RenderToolOverlayView;
 
 struct RuntimeRenderFramePolicy
 {
+
     // Value-only presentation facts sampled after input and before submission.
     // RuntimeRenderer may not retain the debug, timer, camera, or tool owners
     // from which these facts were derived.
@@ -122,6 +122,13 @@ struct RuntimeRenderFramePolicy
     double totalSimulationSeconds = 0.0;
 };
 
+inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRenderFramePolicy& policy,
+                                    bool collisionStateColorsVisible, bool transparentBodyPass )
+{
+    return capabilityAvailable && policy.waterRTReflect && !policy.waterNoReflect && !collisionStateColorsVisible &&
+           !transparentBodyPass;
+}
+
 struct RuntimeRenderModelFrameView
 {
     Rendering::RenderInstanceStore& renderInstances;
@@ -130,13 +137,13 @@ struct RuntimeRenderModelFrameView
     Physics::PhysicsEngine& physicsEngine;
     std::span<const float> worldExtensionDebugLines;
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
-    const std::vector<uint8_t>& collisionVisualContacts;
+    std::span<const uint8_t> collisionVisualContacts;
     std::span<const uint8_t> sleepStates;
     std::span<const int> sleepIslandVisualIds;
     std::span<const uint8_t> sleepSupportedStates;
     std::span<const uint8_t> sleepInhibitedStates;
-    const std::vector<Physics::PhysicsDebugContact>& physicsDebugContacts;
-    const std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
+    std::span<const Physics::PhysicsDebugContact> physicsDebugContacts;
+    std::span<const Physics::PhysicsPipelineRecord> physicsPipelineTrace;
     Threading::WorkerPool* renderWorkerPool;
     int modelCount = 0;
     bool renderCollisionVolumes = false;

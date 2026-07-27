@@ -48,24 +48,20 @@ using namespace SkullbonezCore::Rendering;
 
 static DXGI_FORMAT ToDX12ColorFormat( FramebufferColorFormat format )
 {
+
     // Keep the public engine enum small and translate it once at the DX12 edge.
     // RGBA16F is the HDR format used by cinematic rendering.
     return ( format == FramebufferColorFormat::RGBA16F ) ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
 }
 
 
-FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
-                                  Dx12PipelineOwner& pipeline,
-                                  Dx12TextureOwner& textures,
-                                  Dx12DescriptorHeaps& descriptors,
-                                  Dx12DrawGate& drawGate,
-                                  Dx12ResourceRelease& resourceRelease,
-                                  FramebufferColorFormat colorFormat )
+FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
+                                  Dx12DescriptorHeaps& descriptors, Dx12DrawGate& drawGate,
+                                  Dx12ResourceRelease& resourceRelease, FramebufferColorFormat colorFormat )
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
-      m_drawGate( drawGate ), m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ),
-      m_depthTexture( nullptr ), m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ),
-      m_depthSrvIndex( UINT_MAX ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
-      m_height( 0 )
+      m_drawGate( drawGate ), m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ),
+      m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ), m_depthSrvIndex( UINT_MAX ), m_texHandle( 0 ),
+      m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -82,9 +78,11 @@ FramebufferDX12::~FramebufferDX12()
 
 bool FramebufferDX12::Create( int width, int height )
 {
+
     // Invariant: off-screen targets borrow stable descriptor, texture, pipeline,
     // retirement, and device owners. Without a device there is no recoverable
     // framebuffer creation boundary inside this helper.
+
     if ( !m_device.Device() )
     {
         SB_FATAL( "FramebufferDX12", "Create requires an initialized DX12 backend." );
@@ -102,6 +100,7 @@ bool FramebufferDX12::Create( int width, int height )
     colorDesc.Height = (UINT)height;
     colorDesc.DepthOrArraySize = 1;
     colorDesc.MipLevels = 1;
+
     // The color format is chosen by the render path. Reflections use normal
     // RGBA8; cinematic scene targets use RGBA16F to keep over-bright light.
     const DXGI_FORMAT colorFormat = ToDX12ColorFormat( m_colorFormat );
@@ -119,24 +118,20 @@ bool FramebufferDX12::Create( int width, int height )
     // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
     // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    const HRESULT colorResult = device->CreateCommittedResource( &defaultHeap,
-                                                                 D3D12_HEAP_FLAG_NONE,
-                                                                 &colorDesc,
-                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                                 &colorClear,
+    const HRESULT colorResult = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc,
+                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear,
                                                                  IID_PPV_ARGS( &m_colorTexture ) );
 
     if ( FAILED( colorResult ) )
     {
+
         // Lane R: off-screen targets are optional render resources for
         // reflection, shadow, and post passes. The factory returns null and the
         // owning pass skips until a later recreate succeeds.
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
-            static_cast<unsigned int>( colorResult ),
-            width,
-            height,
-            static_cast<unsigned int>( colorFormat ) );
+        SkullbonezCore::Core::Log()
+            .WriteEventf( "dx12_framebuffer_color_create_failed hresult=0x%08X width=%d height=%d format=%u",
+                          static_cast<unsigned int>( colorResult ), width, height,
+                          static_cast<unsigned int>( colorFormat ) );
 
         SkullbonezCore::Core::Log().FlushAll();
         return false;
@@ -151,6 +146,7 @@ bool FramebufferDX12::Create( int width, int height )
     depthDesc.Height = (UINT)height;
     depthDesc.DepthOrArraySize = 1;
     depthDesc.MipLevels = 1;
+
     // Typeless depth lets us create two descriptors over the same resource:
     // one DSV for depth testing and one SRV for post-process sampling.
     depthDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
@@ -166,20 +162,14 @@ bool FramebufferDX12::Create( int width, int height )
     // Initial state is shader-readable so the graph's first producer edge uses
     // the same before-state as every later frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    const HRESULT depthResult = device->CreateCommittedResource( &defaultHeap,
-                                                                 D3D12_HEAP_FLAG_NONE,
-                                                                 &depthDesc,
-                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-                                                                 &depthClear,
+    const HRESULT depthResult = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc,
+                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &depthClear,
                                                                  IID_PPV_ARGS( &m_depthTexture ) );
 
     if ( FAILED( depthResult ) )
     {
-        SkullbonezCore::Core::Log().WriteEventf(
-            "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
-            static_cast<unsigned int>( depthResult ),
-            width,
-            height );
+        SkullbonezCore::Core::Log().WriteEventf( "dx12_framebuffer_depth_create_failed hresult=0x%08X width=%d height=%d",
+                                                 static_cast<unsigned int>( depthResult ), width, height );
 
         SkullbonezCore::Core::Log().FlushAll();
         ResetResources();
@@ -194,6 +184,7 @@ bool FramebufferDX12::Create( int width, int height )
     const Dx12CpuDescriptorAllocation rtvAllocation = m_descriptors.AllocateRtv();
     m_rtvIndex = rtvAllocation.index;
     m_rtvHandle = rtvAllocation.cpuHandle;
+
     // Create a Render Target View (RTV). This descriptor tells the GPU how to
     // interpret the color texture when writing pixels to it during rendering.
     // Without this view, the GPU cannot use the texture as a render target.
@@ -207,6 +198,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+
     // Create a Depth Stencil View (DSV). This descriptor tells the GPU how to
     // read/write the depth texture during depth testing. Pixels that fail the
     // depth test are discarded.
@@ -221,6 +213,7 @@ bool FramebufferDX12::Create( int width, int height )
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
+
     // Create a Shader Resource View (SRV). This descriptor allows shaders to
     // sample/read the color texture. The same GPU resource can have multiple
     // views: RTV for writing, SRV for reading.
@@ -241,9 +234,7 @@ bool FramebufferDX12::Create( int width, int height )
     depthSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     depthSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     depthSrvDesc.Texture2D.MipLevels = 1;
-    device->CreateShaderResourceView( m_depthTexture,
-                                      &depthSrvDesc,
-                                      m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    device->CreateShaderResourceView( m_depthTexture, &depthSrvDesc, m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
 
     m_descriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex, m_depthTexture );
@@ -255,6 +246,7 @@ bool FramebufferDX12::Create( int width, int height )
 
 void FramebufferDX12::Bind() const
 {
+
     if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.PrepareFramebufferBind() )
     {
         return;
@@ -278,6 +270,7 @@ void FramebufferDX12::Bind() const
 
 void FramebufferDX12::Unbind() const
 {
+
     if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.CanRecord() )
     {
         return;
@@ -296,6 +289,7 @@ void FramebufferDX12::ResetResources()
     const bool backendReady = m_device.Device() != nullptr;
     UINT colorSrvToRetire = UINT_MAX;
     UINT depthSrvToRetire = UINT_MAX;
+
     if ( backendReady && m_texHandle != 0 )
     {
         colorSrvToRetire = m_textures.UnregisterSRV( m_texHandle );
@@ -308,6 +302,7 @@ void FramebufferDX12::ResetResources()
 
     if ( m_colorTexture )
     {
+
         if ( backendReady )
         {
             m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, Dx12CpuDescriptorKind::Rtv, m_rtvIndex );
@@ -323,6 +318,7 @@ void FramebufferDX12::ResetResources()
 
     if ( m_depthTexture )
     {
+
         if ( backendReady )
         {
             m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, Dx12CpuDescriptorKind::Dsv, m_dsvIndex );

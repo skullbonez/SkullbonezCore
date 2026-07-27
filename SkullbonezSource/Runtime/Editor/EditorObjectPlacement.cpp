@@ -33,7 +33,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneControllerState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneAuthoredSetup.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/CollisionShape.h"
@@ -59,13 +59,11 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 namespace
 {
@@ -73,9 +71,11 @@ constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, bool boxObject )
 {
+
     // Concept: editor-spawn material encodes placement mode before asset
     // recipes override it. Fixed bodies stay neutral, dynamic boxes keep the
     // legacy inverted-texture marker, and dynamic hulls use the blue editor tint.
+
     if ( fixedObject )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
@@ -93,6 +93,7 @@ void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, b
 
 PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution )
 {
+
     // Why: placement commit already owns the primitive geometry selected by the
     // editor. Pass that value into physics at append time so the collider store
     // receives exact shape facts without a legacy object record readback.
@@ -100,45 +101,35 @@ PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float re
 }
 
 
-PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape,
-                                          const Vector3& position,
-                                          const Quaternion& orientation,
-                                          const Vector3& linearVelocity,
-                                          const Vector3& angularVelocity,
-                                          const Vector3& rotationalInertia,
-                                          float mass,
+PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape, const Vector3& position,
+                                          const Quaternion& orientation, const Vector3& linearVelocity,
+                                          const Vector3& angularVelocity, const Vector3& rotationalInertia, float mass,
                                           float restitution )
 {
-    return MakePhysicsBodyCreateDesc( PhysicsSceneObjectId {},
-                                      shape,
-                                      position,
-                                      orientation,
-                                      linearVelocity,
-                                      angularVelocity,
-                                      rotationalInertia,
-                                      mass,
-                                      restitution,
-                                      PhysicsBodyMotionKind::Dynamic );
+    return MakePhysicsBodyCreateDesc( PhysicsSceneObjectId {}, shape, position, orientation, linearVelocity, angularVelocity,
+                                      rotationalInertia, mass, restitution, PhysicsBodyMotionKind::Dynamic );
 }
 
 
-static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementContext context,
-                                                      EditorObjectPlacementRequest request,
-                                                      int& outType,
-                                                      bool reportErrors )
+static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const Assets::AssetSystem& assets,
+                                                      int activeModelCapacity, EditorObjectPlacementRequest request,
+                                                      int& outType, bool reportErrors )
 {
+
     // Invariant: This preflight is the single capacity and asset-count gate
     // for both CanPlace and Place. Add new multi-part object families here
     // before adding their placement branch below.
-    const int modelCount = context.world.SceneEntityCount();
+    const int modelCount = world.SceneEntityCount();
     const int type = std::clamp( request.objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
-    const int buildingPartCount = building ? EditorBuildingPartCount( type, context.assets ) : 0;
+    const int buildingPartCount = building ? EditorBuildingPartCount( type, assets ) : 0;
     const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
+
     if ( building && buildingPartCount <= 0 )
     {
+
         if ( reportErrors )
         {
             fprintf( stderr, "[editor] Cannot place building asset: %s is missing or empty.\n", building->assetName );
@@ -152,8 +143,9 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
                                        : ( building ? buildingPartCount
                                                     : ( house ? house->partCount : ( tree ? tree->partCount : 1 ) ) );
 
-    if ( modelCount + requiredModelCount > context.activeModelCapacity )
+    if ( modelCount + requiredModelCount > activeModelCapacity )
     {
+
         if ( reportErrors )
         {
             fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
@@ -167,54 +159,55 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
 }
 
 
-bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request )
+bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity,
+                                         EditorObjectPlacementRequest request )
 {
     int type = 0;
-    return TryResolveEditorObjectPlacementPreflight( context, request, type, true );
+    return TryResolveEditorObjectPlacementPreflight( world, assets, activeModelCapacity, request, type, true );
 }
 
 
-bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
-                                      EditorObjectPlacementRequest request,
-                                      EditorObjectPlacementResult& outResult )
+bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene,
+                                      const Assets::AssetSystem& assets, int activeModelCapacity,
+                                      EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult )
 {
     int type = 0;
-    if ( !TryResolveEditorObjectPlacementPreflight( context, request, type, false ) )
+
+    if ( !TryResolveEditorObjectPlacementPreflight( world, assets, activeModelCapacity, request, type, false ) )
     {
         outResult = EditorObjectPlacementResult {};
 
         return false;
     }
 
-    const int modelCount = context.world.SceneEntityCount();
+    const int modelCount = world.SceneEntityCount();
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
     const Vector3& terrainPoint = request.terrainPoint;
     const bool fixedObject = request.fixedObject;
-    const Vector3 placementScale = EditorClampPlacementScale( type, context.editor.placementScale );
-    const int serial = context.editor.placedObjectSerial++;
+    const Vector3 placementScale = EditorClampPlacementScale( type, editor.placementScale );
+    const int serial = editor.placedObjectSerial++;
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    Geometry::Terrain* terrain = context.world.Terrain().Get();
+    Geometry::Terrain* terrain = world.Terrain().Get();
+
     if ( terrain && terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
         float ignoredHeight = 0.0f;
         terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
 
-    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, context.editor.autoTerrainAlign );
-    const Quaternion placementOrientation = EditorPlacementOrientation( type,
-                                                                        terrainNormal,
-                                                                        context.editor.autoTerrainAlign,
-                                                                        context.editor.placementYawRadians );
+    const bool alignToTerrain = EditorObjectAlignsToTerrainNormal( type, editor.autoTerrainAlign );
+    const Quaternion placementOrientation = EditorPlacementOrientation( type, terrainNormal, editor.autoTerrainAlign,
+                                                                        editor.placementYawRadians );
 
     Quaternion placementOrientationCopy = placementOrientation;
     const RotationMatrix placementRotation = placementOrientationCopy.GetOrientationMatrix();
     const bool placementFixed = tree && tree->forceFixed ? true : fixedObject;
     const bool ragdollStartsAsleep = type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
     const char* modePrefix = placementFixed ? "static"
-                                            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) ||
-                                                        building || ragdollStartsAsleep
+                                            : ( ( tree && tree->seedAsleep ) || ( house && house->seedAsleep ) || building ||
+                                                        ragdollStartsAsleep
                                                     ? "sleeping"
                                                     : "dynamic" );
 
@@ -224,16 +217,15 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     int lastPlacedModelIndex = -1;
     bool appendFailed = false;
 
-    auto addModel = [&]( SceneEntityCreateDesc model,
-                         PhysicsBodyCreateDesc bodyDesc,
-                         PhysicsColliderCreateDesc colliderDesc,
-                         bool modelFixed,
-                         bool modelStartsAsleep = false ) -> bool
+    auto addModel = [&]( SceneEntityCreateDesc model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc,
+                         bool modelFixed, bool modelStartsAsleep = false ) -> bool
     {
+
         // Lifetime: the transaction publishes the new scene, physics, and
         // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
+
         if ( bodyDesc.shape.valueless_by_exception() )
         {
             SB_FATAL( "Runtime/EditorObjectPlacement",
@@ -241,15 +233,15 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         }
 
         bodyDesc.motionKind = modelFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+
         if ( !model.sceneObjectId.IsValid() )
         {
-            model.sceneObjectId = context.scene.AllocateSceneObjectId();
+            model.sceneObjectId = scene.AllocateSceneObjectId();
         }
 
-        const int index = context.world.SceneEntityCount();
-        const auto appendResult = context.world.TryCreateSceneEntity( std::move( model ),
-                                                                      std::move( bodyDesc ),
-                                                                      std::move( colliderDesc ) );
+        const int index = world.SceneEntityCount();
+        const auto appendResult = world.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ),
+                                                              std::move( colliderDesc ) );
 
         if ( !appendResult.status.ok )
         {
@@ -260,15 +252,17 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
         lastPlacedBody = appendResult.body;
         lastPlacedModelIndex = index;
+
         if ( !modelFixed )
         {
+
             if ( modelStartsAsleep )
             {
-                SeedEditorPhysicsBodyAsleep( context.world, index );
+                SeedEditorPhysicsBodyAsleep( world, index );
             }
             else
             {
-                WakeEditorPhysicsBody( context.world, index );
+                WakeEditorPhysicsBody( world, index );
             }
         }
 
@@ -280,9 +274,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const float mass = CalculateSphereMass( radius );
 
         const Vector3 inertia = CalculateSphereInertia( radius, mass );
-        const Vector3 center( terrainPoint.x,
-                              terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON,
-                              terrainPoint.z );
+        const Vector3 center( terrainPoint.x, terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON, terrainPoint.z );
 
         SceneEntityCreateDesc model;
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, EDITOR_TEXTURE_MODE_INVERTED );
@@ -291,16 +283,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         model.SetName( name );
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         addModel( std::move( model ),
-                  MakeEditorBodyDesc( shape,
-                                      center,
-                                      IDENTITY_QUATERNION,
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      inertia,
-                                      mass,
-                                      restitution ),
-                  MakeEditorColliderDesc( shape, restitution ),
-                  placementFixed );
+                  MakeEditorBodyDesc( shape, center, IDENTITY_QUATERNION, Vector3( 0.0f, 0.0f, 0.0f ),
+                                      Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
+                  MakeEditorColliderDesc( shape, restitution ), placementFixed );
     };
 
     auto addBox = [&]()
@@ -309,12 +294,8 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
         const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
-        if ( !TryComputeEditorObjectCenter( type,
-                                            terrainPoint,
-                                            placementScale,
-                                            placementOrientation,
-                                            context.assets,
-                                            center ) )
+
+        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, assets, center ) )
         {
             return;
         }
@@ -326,19 +307,15 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         model.SetName( name );
         const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
         const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
+
         // Lifetime: materialize the variant once before descriptor creation.
         // The body helper borrows this stable value and the collider helper gets
         // its own copy, avoiding an implicit by-value conversion temporary.
         const CollisionShape bodyShape = shape;
-        PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc(
-            bodyShape,
-            center,
-            alignToTerrain ? placementOrientation : IDENTITY_QUATERNION,
-            Vector3( 0.0f, 0.0f, 0.0f ),
-            Vector3( 0.0f, 0.0f, 0.0f ),
-            inertia,
-            mass,
-            0.25f );
+        PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( bodyShape, center,
+                                                             alignToTerrain ? placementOrientation : IDENTITY_QUATERNION,
+                                                             Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                                             inertia, mass, 0.25f );
 
         PhysicsColliderCreateDesc colliderDesc = MakeEditorColliderDesc( shape, 0.25f );
         addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), placementFixed );
@@ -349,6 +326,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const char* label = EditorHullAssetToken( asset );
 
         const char* path = EditorHullAssetPath( asset );
+
         if ( !path )
         {
             return;
@@ -356,6 +334,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
 
         ConvexHullShape hull;
         const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+
         if ( !hullLoad.ok )
         {
             fprintf( stderr, "[editor] Cannot place hull asset %s: %s\n", label, hullLoad.error.message );
@@ -378,6 +357,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
         SceneEntityCreateDesc model;
         SkullbonezCore::Rendering::RenderMaterial rockMaterial;
+
         if ( TryEditorRockMaterial( asset, rockMaterial ) )
         {
             model.SetRenderMaterial( rockMaterial );
@@ -395,16 +375,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
         addModel( std::move( model ),
-                  MakeEditorBodyDesc( scaledHull,
-                                      center,
-                                      hullOrientation,
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      Vector3( 0.0f, 0.0f, 0.0f ),
-                                      scaledHull.ComputeBoxApproxInertia( mass ),
-                                      mass,
-                                      0.25f ),
-                  MakeEditorColliderDesc( scaledHull, 0.25f ),
-                  placementFixed );
+                  MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
+                                      Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeBoxApproxInertia( mass ), mass, 0.25f ),
+                  MakeEditorColliderDesc( scaledHull, 0.25f ), placementFixed );
     };
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
@@ -414,10 +387,10 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
+
             if ( !CachedEditorHullForAsset( part.hullAsset ) )
             {
-                fprintf( stderr,
-                         "[editor] Cannot place tree: missing hull asset %s.\n",
+                fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n",
                          EditorHullAssetToken( part.hullAsset ) );
 
                 return;
@@ -428,6 +401,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
             const ConvexHullShape* sourceHull = CachedEditorHullForAsset( part.hullAsset );
+
             if ( !sourceHull )
             {
                 continue;
@@ -437,8 +411,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             const Vector3 localOffset( part.offsetX, part.offsetY, part.offsetZ );
             const Vector3 authoredOrigin = terrainPoint +
                                            placementRotation *
-                                               ( localOffset +
-                                                 Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
+                                               ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
 
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
@@ -448,33 +421,28 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
             model.SetName( name );
-            model.sceneObjectId = context.scene.AllocateSceneObjectId();
+            model.sceneObjectId = scene.AllocateSceneObjectId();
+
             if ( partIndex == 0 )
             {
                 treeRootObjectId = model.sceneObjectId;
             }
 
             const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
+
             // Invariant: editor tree grouping is prefab metadata known before
             // append. Pass it directly instead of making the collection recover
             // group identity from display-name suffixes.
             model.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, treeRootObjectId, partIndex );
-            PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( hull,
-                                                                 center,
-                                                                 placementOrientation,
-                                                                 Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                 Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                 inertia,
-                                                                 mass,
-                                                                 part.restitution );
+            PhysicsBodyCreateDesc bodyDesc = MakeEditorBodyDesc( hull, center, placementOrientation,
+                                                                 Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                 inertia, mass, part.restitution );
 
             bodyDesc.releasesFromFixedOnContact = part.contactReleaseOnImpact;
             bodyDesc.contactReleaseImpulseThreshold = part.contactReleaseImpulseThreshold;
-            if ( !addModel( std::move( model ),
-                            std::move( bodyDesc ),
-                            MakeEditorColliderDesc( hull, part.restitution ),
-                            partFixed,
-                            treeDefinition.seedAsleep && !partFixed ) )
+
+            if ( !addModel( std::move( model ), std::move( bodyDesc ), MakeEditorColliderDesc( hull, part.restitution ),
+                            partFixed, treeDefinition.seedAsleep && !partFixed ) )
             {
                 return;
             }
@@ -498,17 +466,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
             model.SetName( name );
             const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
+
             if ( !addModel( std::move( model ),
-                            MakeEditorBodyDesc( shape,
-                                                center,
-                                                placementOrientation,
-                                                Vector3( 0.0f, 0.0f, 0.0f ),
-                                                Vector3( 0.0f, 0.0f, 0.0f ),
-                                                inertia,
-                                                mass,
-                                                part.restitution ),
-                            MakeEditorColliderDesc( shape, part.restitution ),
-                            placementFixed,
+                            MakeEditorBodyDesc( shape, center, placementOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
+                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, part.restitution ),
+                            MakeEditorColliderDesc( shape, part.restitution ), placementFixed,
                             houseDefinition.seedAsleep && !placementFixed ) )
             {
                 return;
@@ -521,165 +483,141 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         bool failed = false;
 
         const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
-        const bool ok = ForEachEditorBuildingPart(
-            type,
-            context.assets,
-            [&]( const Json& part )
-            {
-                if ( failed )
-                {
-                    return;
-                }
+        const bool ok = ForEachEditorBuildingPart( type, assets,
+                                                   [&]( const Json& part )
+                                                   {
 
-                const float restitution = EditorJsonFloatOr( part, "restitution", 0.08f );
-                const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
-                const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
-                Quaternion partCopy = partOrientation;
-                const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-                const Vector3 authoredOrigin = base + placementRotation * offset;
-                const std::string primitiveType = EditorAssetPrimitiveType( part );
-                auto finishPartModel = [&]( SceneEntityCreateDesc&& model,
-                                            PhysicsBodyCreateDesc bodyDesc,
-                                            PhysicsColliderCreateDesc colliderDesc )
-                {
-                    model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
+                                                       if ( failed )
+                                                       {
+                                                           return;
+                                                       }
 
-                    if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
-                    {
-                        Vector3 authoredVelocity;
-                        if ( TryReadEditorJsonVec3( *velocity, authoredVelocity ) )
-                        {
-                            bodyDesc.linearVelocity = authoredVelocity;
-                        }
-                    }
+                                                       const float restitution = EditorJsonFloatOr( part, "restitution", 0.08f );
+                                                       const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
+                                                       const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
+                                                       Quaternion partCopy = partOrientation;
+                                                       const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
+                                                       const Vector3 authoredOrigin = base + placementRotation * offset;
+                                                       const std::string primitiveType = EditorAssetPrimitiveType( part );
+                                                       auto finishPartModel = [&]( SceneEntityCreateDesc&& model, PhysicsBodyCreateDesc bodyDesc,
+                                                                                   PhysicsColliderCreateDesc colliderDesc )
+                                                       {
+                                                           model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
 
-                    if ( const Json* angularVelocity = EditorJsonFindMember( part, "angularVelocity" ) )
-                    {
-                        Vector3 authoredAngularVelocity;
-                        if ( TryReadEditorJsonVec3( *angularVelocity, authoredAngularVelocity ) )
-                        {
-                            bodyDesc.angularVelocity = authoredAngularVelocity;
-                        }
-                    }
+                                                           if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
+                                                           {
+                                                               Vector3 authoredVelocity;
 
-                    char name[64];
-                    const std::string partName = EditorJsonStringOr( part, "name", "part" );
-                    snprintf( name,
-                              sizeof( name ),
-                              "%s_%s_%03d_%s",
-                              modePrefix,
-                              buildingDefinition.label,
-                              serial,
-                              partName.c_str() );
+                                                               if ( TryReadEditorJsonVec3( *velocity, authoredVelocity ) )
+                                                               {
+                                                                   bodyDesc.linearVelocity = authoredVelocity;
+                                                               }
+                                                           }
 
-                    name[sizeof( name ) - 1] = '\0';
-                    model.SetName( name );
-                    const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
-                    const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
-                    bodyDesc.releasesFromFixedOnContact = EditorJsonBoolOr( part, "contactReleaseOnImpact", false );
-                    bodyDesc.contactReleaseImpulseThreshold = (std::max)( 0.0f,
-                                                                          EditorJsonFloatOr( part,
-                                                                                             "contactReleaseImpulseThre"
-                                                                                             "shold",
-                                                                                             1.0f ) );
+                                                           if ( const Json* angularVelocity = EditorJsonFindMember( part, "angularVelocity" ) )
+                                                           {
+                                                               Vector3 authoredAngularVelocity;
 
-                    if ( !addModel( std::move( model ),
-                                    std::move( bodyDesc ),
-                                    std::move( colliderDesc ),
-                                    partFixed,
-                                    partSleeping && !partFixed ) )
-                    {
-                        failed = true;
-                    }
-                };
+                                                               if ( TryReadEditorJsonVec3( *angularVelocity, authoredAngularVelocity ) )
+                                                               {
+                                                                   bodyDesc.angularVelocity = authoredAngularVelocity;
+                                                               }
+                                                           }
 
-                if ( primitiveType == "convexHull" )
-                {
-                    const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                    const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr
-                                                                         : CachedEditorBuildingHull( hullPath );
+                                                           char name[64];
+                                                           const std::string partName = EditorJsonStringOr( part, "name", "part" );
+                                                           snprintf( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, buildingDefinition.label, serial,
+                                                                     partName.c_str() );
 
-                    if ( !sourceHull )
-                    {
-                        failed = true;
-                        return;
-                    }
+                                                           name[sizeof( name ) - 1] = '\0';
+                                                           model.SetName( name );
+                                                           const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
+                                                           const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
+                                                           bodyDesc.releasesFromFixedOnContact = EditorJsonBoolOr( part, "contactReleaseOnImpact", false );
+                                                           bodyDesc.contactReleaseImpulseThreshold = (std::max)( 0.0f,
+                                                                                                                 EditorJsonFloatOr( part,
+                                                                                                                                    "contactReleaseImpulseThre"
+                                                                                                                                    "shold",
+                                                                                                                                    1.0f ) );
 
-                    ConvexHullShape hull = *sourceHull;
-                    const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
-                    const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
-                    const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
-                    SceneEntityCreateDesc model;
-                    finishPartModel( std::move( model ),
-                                     MakeEditorBodyDesc( hull,
-                                                         center,
-                                                         partOrientation,
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         inertia,
-                                                         mass,
-                                                         restitution ),
-                                     MakeEditorColliderDesc( hull, restitution ) );
+                                                           if ( !addModel( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ), partFixed,
+                                                                           partSleeping && !partFixed ) )
+                                                           {
+                                                               failed = true;
+                                                           }
+                                                       };
 
-                    return;
-                }
+                                                       if ( primitiveType == "convexHull" )
+                                                       {
+                                                           const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                           const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
 
-                if ( primitiveType == "box" )
-                {
-                    Vector3 halfExtents;
-                    if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                    {
-                        failed = true;
-                        return;
-                    }
+                                                           if ( !sourceHull )
+                                                           {
+                                                               failed = true;
+                                                               return;
+                                                           }
 
-                    const float mass = EditorJsonFloatOr( part, "mass", CalculateBoxMass( halfExtents ) );
-                    const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
-                    SceneEntityCreateDesc model;
-                    const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
-                    finishPartModel( std::move( model ),
-                                     MakeEditorBodyDesc( shape,
-                                                         authoredOrigin,
-                                                         partOrientation,
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         inertia,
-                                                         mass,
-                                                         restitution ),
-                                     MakeEditorColliderDesc( shape, restitution ) );
+                                                           ConvexHullShape hull = *sourceHull;
+                                                           const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
+                                                           const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
+                                                           const Vector3 inertia = hull.ComputeBoxApproxInertia( mass );
+                                                           SceneEntityCreateDesc model;
+                                                           finishPartModel( std::move( model ),
+                                                                            MakeEditorBodyDesc( hull, center, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
+                                                                            MakeEditorColliderDesc( hull, restitution ) );
 
-                    return;
-                }
+                                                           return;
+                                                       }
 
-                if ( primitiveType == "sphere" )
-                {
-                    float radius = 0.0f;
-                    if ( !TryReadEditorSphereRadius( part, radius ) )
-                    {
-                        failed = true;
-                        return;
-                    }
+                                                       if ( primitiveType == "box" )
+                                                       {
+                                                           Vector3 halfExtents;
 
-                    const float mass = EditorJsonFloatOr( part, "mass", CalculateSphereMass( radius ) );
-                    const Vector3 inertia = CalculateSphereInertia( radius, mass );
-                    SceneEntityCreateDesc model;
-                    const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-                    finishPartModel( std::move( model ),
-                                     MakeEditorBodyDesc( shape,
-                                                         authoredOrigin,
-                                                         partOrientation,
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         Vector3( 0.0f, 0.0f, 0.0f ),
-                                                         inertia,
-                                                         mass,
-                                                         restitution ),
-                                     MakeEditorColliderDesc( shape, restitution ) );
+                                                           if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                           {
+                                                               failed = true;
+                                                               return;
+                                                           }
 
-                    return;
-                }
+                                                           const float mass = EditorJsonFloatOr( part, "mass", CalculateBoxMass( halfExtents ) );
+                                                           const Vector3 inertia = CalculateBoxInertiaForHalfExtents( halfExtents, mass );
+                                                           SceneEntityCreateDesc model;
+                                                           const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
+                                                           finishPartModel( std::move( model ),
+                                                                            MakeEditorBodyDesc( shape, authoredOrigin, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
+                                                                            MakeEditorColliderDesc( shape, restitution ) );
 
-                failed = true;
-            } );
+                                                           return;
+                                                       }
+
+                                                       if ( primitiveType == "sphere" )
+                                                       {
+                                                           float radius = 0.0f;
+
+                                                           if ( !TryReadEditorSphereRadius( part, radius ) )
+                                                           {
+                                                               failed = true;
+                                                               return;
+                                                           }
+
+                                                           const float mass = EditorJsonFloatOr( part, "mass", CalculateSphereMass( radius ) );
+                                                           const Vector3 inertia = CalculateSphereInertia( radius, mass );
+                                                           SceneEntityCreateDesc model;
+                                                           const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
+                                                           finishPartModel( std::move( model ),
+                                                                            MakeEditorBodyDesc( shape, authoredOrigin, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                                                Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
+                                                                            MakeEditorColliderDesc( shape, restitution ) );
+
+                                                           return;
+                                                       }
+
+                                                       failed = true;
+                                                   } );
+
         if ( failed || !ok )
         {
             fprintf( stderr, "[editor] Cannot place building asset: %s.\n", buildingDefinition.assetName );
@@ -698,14 +636,8 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         options.scale = placementScale.x;
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
-        options.firstSceneObjectId = context.scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-        SceneSimpleRagdollAppendContext ragdollContext {
-            context.scene,
-            context.world,
-        };
-
-        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext,
-                                                                                                     options );
+        options.firstSceneObjectId = scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
+        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( world, options );
 
         if ( !appendResult.ok )
         {
@@ -762,6 +694,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         addHull( EditorHullAsset::TREE_ROOT_LARGE );
         break;
     case UI::EditorTab::OBJECT_TREE_SMALL:
+
         if ( tree )
         {
             addTree( *tree );
@@ -780,6 +713,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     case UI::EditorTab::OBJECT_TREE_BIG_ROOTED:
     case UI::EditorTab::OBJECT_TREE_CEDAR_ROOTED:
     case UI::EditorTab::OBJECT_TREE_PINE_SHEDDING:
+
         if ( tree )
         {
             addTree( *tree );
@@ -793,6 +727,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
     case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
+
         if ( building )
         {
             addBuilding( *building );
@@ -813,25 +748,25 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         return false;
     }
 
-    context.scene.modelCount = context.world.SceneEntityCount();
-    const bool placed = context.scene.modelCount > modelCount;
+    scene.modelCount = world.SceneEntityCount();
+    const bool placed = scene.modelCount > modelCount;
     outResult.placed = placed;
     outResult.modelCountBefore = modelCount;
-    outResult.modelCountAfter = context.scene.modelCount;
+    outResult.modelCountAfter = scene.modelCount;
     outResult.placedBody = lastPlacedBody;
+
     if ( placed && lastPlacedModelIndex >= 0 )
     {
-        outResult.placedCollider = context.world.Colliders().HandleForBodyHandle( lastPlacedBody );
+        outResult.placedCollider = world.Colliders().HandleForBodyHandle( lastPlacedBody );
     }
 
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;
-    outResult.autoTerrainAlign = context.editor.autoTerrainAlign;
+    outResult.autoTerrainAlign = editor.autoTerrainAlign;
     outResult.terrainPoint = terrainPoint;
     outResult.placementScale = placementScale;
-    outResult.placementYawRadians = context.editor.placementYawRadians;
+    outResult.placementYawRadians = editor.placementYawRadians;
     return placed;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

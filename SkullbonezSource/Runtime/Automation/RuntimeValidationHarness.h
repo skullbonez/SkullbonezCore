@@ -68,16 +68,13 @@ namespace Runtime
 {
 class CaptureController;
 class ReplayRuntime;
-struct RuntimeFrameHostView;
-struct RuntimeFrameInteractionView;
-struct RuntimeFramePresentationView;
-struct RuntimeFrameSceneView;
+class SceneController;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
-struct SceneRuntimeStyleContext;
 
 struct SceneAutomationGatePhysicsView
 {
+
     // Lifetime: post-physics diagnostics constructs this immutable view for one
     // synchronous observation; the tracker stores no scene or store pointer.
     const Physics::PhysicsBodyStore& bodyStore;
@@ -87,6 +84,7 @@ struct SceneAutomationGatePhysicsView
 
 struct SceneAutomationGateStatus
 {
+
     // Value-only completion facts consumed by scene advancement. Diagnostic
     // row ownership and missing-requirement reporting remain in validation.
     bool hasRequirements = false;
@@ -123,21 +121,23 @@ class RuntimeValidationHarness
 
     bool ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
     void MarkLiveStyleReady();
-    void TickLiveStyle( SceneRuntimeStyleContext context );
+    void TickLiveStyle( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                        SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                        const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
     bool HasPendingLiveStyleCapture() const;
     void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
-                                     RuntimeFrameInteractionView& interactionOwners,
-                                     RuntimeFrameSceneView& sceneOwners,
-                                     RuntimeFramePresentationView& presentationOwners,
-                                     ReplayRuntime& replayRuntime,
-                                     const Rendering::Dx12Diagnostics& renderDiagnostics,
-                                     // Prevents scene churn from reactivating the
-                                     // dormant Legacy surface during ImGui stress.
-                                     bool legacyDevelopmentUiActive );
+    GraphicsStressController& GraphicsStress()
+    {
+        return m_graphicsStress;
+    }
+    const GraphicsStressController& GraphicsStress() const
+    {
+        return m_graphicsStress;
+    }
     SceneAutomationGateTracker& SceneGates();
     const SceneAutomationGateTracker& SceneGates() const;
 

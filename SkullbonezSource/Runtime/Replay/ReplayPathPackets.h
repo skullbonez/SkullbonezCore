@@ -40,6 +40,7 @@ struct RunReplayPastTrajectoryBuildState
     Physics::PhysicsSceneObjectId targetId;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
+
     // Invariant: Eviction progress ties the retained path to the Recorder window so cached points
     // cannot silently outlive the history that established them.
     uint64_t totalFramesEvicted = 0;
@@ -84,6 +85,7 @@ struct RunReplayPathVisualizerState
     Physics::PhysicsSceneObjectId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
+
     // Invariant: Presentation reserves selected-target rows before gameplay;
     // per-frame path rebuilding reuses storage and never grows this vector.
     // Predicted future nodes publish separately from Runtime/Prediction.

@@ -44,6 +44,7 @@ void ReplayGuideArcs::Toggle() noexcept
 
 void ReplayGuideArcs::SetEnabled( bool enabled ) noexcept
 {
+
     if ( m_enabled == enabled )
     {
         return;
@@ -51,6 +52,7 @@ void ReplayGuideArcs::SetEnabled( bool enabled ) noexcept
 
     m_enabled = enabled;
     m_nextRefreshSeconds = 0.0;
+
     if ( !m_enabled )
     {
         ClearPublication();
@@ -89,8 +91,10 @@ void ReplayGuideArcs::ClearPublication() noexcept
 
 void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 {
+
     // Why: the disabled fast path is the common case and does not even resolve
     // orbital elements, preserving the plan's zero-cost default presentation.
+
     if ( !m_enabled )
     {
         return;
@@ -105,6 +109,7 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 
     // Invariant: all live-body resolution and orbital math remain behind this
     // five-second gate. Scene loads and toggles explicitly reset the deadline.
+
     if ( input.nowSeconds < m_nextRefreshSeconds )
     {
         return;
@@ -121,17 +126,17 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
     const float mu = input.gravitationalConstant * input.sun.mass;
     Math::Orbital::OrbitalElements earthElements;
     Math::Orbital::OrbitalElements marsElements;
-    const Math::Orbital::OrbitalStatus earthStatus = Math::Orbital::ElementsFromState(
-        input.earth.position - input.sun.position,
-        input.earth.linearVelocity - input.sun.linearVelocity,
-        mu,
-        earthElements );
+    const Math::Orbital::OrbitalStatus earthStatus = Math::Orbital::ElementsFromState( input.earth.position -
+                                                                                           input.sun.position,
+                                                                                       input.earth.linearVelocity -
+                                                                                           input.sun.linearVelocity,
+                                                                                       mu, earthElements );
 
-    const Math::Orbital::OrbitalStatus marsStatus = Math::Orbital::ElementsFromState(
-        input.mars.position - input.sun.position,
-        input.mars.linearVelocity - input.sun.linearVelocity,
-        mu,
-        marsElements );
+    const Math::Orbital::OrbitalStatus marsStatus = Math::Orbital::ElementsFromState( input.mars.position -
+                                                                                          input.sun.position,
+                                                                                      input.mars.linearVelocity -
+                                                                                          input.sun.linearVelocity,
+                                                                                      mu, marsElements );
 
     const std::size_t earthCount = earthStatus == Math::Orbital::OrbitalStatus::Ok
                                        ? Math::Orbital::SampleOrbitPolyline( earthElements, m_earthPoints )
@@ -168,13 +173,12 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 
 ReplayGuideArcsView ReplayGuideArcs::View() const noexcept
 {
-    return {
-        m_valid ? std::span<const Math::Vector::Vector3>( m_earthPoints ) : std::span<const Math::Vector::Vector3>(),
-        m_valid ? std::span<const Math::Vector::Vector3>( m_marsPoints ) : std::span<const Math::Vector::Vector3>(),
-        m_sunId,
-        m_earthId,
-        m_marsId,
-        m_enabled,
-        m_valid };
+    return { m_valid ? std::span<const Math::Vector::Vector3>( m_earthPoints ) : std::span<const Math::Vector::Vector3>(),
+             m_valid ? std::span<const Math::Vector::Vector3>( m_marsPoints ) : std::span<const Math::Vector::Vector3>(),
+             m_sunId,
+             m_earthId,
+             m_marsId,
+             m_enabled,
+             m_valid };
 }
 } // namespace SkullbonezCore::Runtime

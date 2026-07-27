@@ -115,6 +115,7 @@ class ReplayPorkchopPanel
     void ClearSweep() noexcept;
 
     std::array<float, REPLAY_PORKCHOP_CELL_COUNT> m_deltaV {};
+
     // Lifetime: the span borrows the owner's fixed array for the owner's whole
     // lifetime. ReplayRuntime never copies or moves this concrete owner.
     ReplayPorkchopPanelView m_view { m_deltaV };

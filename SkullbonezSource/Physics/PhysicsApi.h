@@ -109,17 +109,12 @@ struct PhysicsBodyCreateDesc
     const char* diagnosticName = nullptr;
 };
 
-inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId,
-                                                        const Math::CollisionDetection::CollisionShape& shape,
-                                                        const Math::Vector::Vector3& position,
-                                                        const Math::Orientation::Quaternion& orientation,
-                                                        const Math::Vector::Vector3& linearVelocity,
-                                                        const Math::Vector::Vector3& angularVelocity,
-                                                        const Math::Vector::Vector3& rotationalInertia,
-                                                        float mass,
-                                                        float restitution,
-                                                        PhysicsBodyMotionKind motionKind,
-                                                        const char* diagnosticName = nullptr )
+inline PhysicsBodyCreateDesc
+MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId, const Math::CollisionDetection::CollisionShape& shape,
+                           const Math::Vector::Vector3& position, const Math::Orientation::Quaternion& orientation,
+                           const Math::Vector::Vector3& linearVelocity, const Math::Vector::Vector3& angularVelocity,
+                           const Math::Vector::Vector3& rotationalInertia, float mass, float restitution,
+                           PhysicsBodyMotionKind motionKind, const char* diagnosticName = nullptr )
 {
     PhysicsBodyCreateDesc desc;
     desc.sceneObjectId = sceneObjectId;
@@ -135,16 +130,19 @@ inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sce
     desc.volume = Math::CollisionDetection::GetShapeVolume( desc.shape );
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
     desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
+
     if ( const auto* sphere = std::get_if<Math::CollisionDetection::BoundingSphere>( &desc.shape ) )
     {
         const float radius = sphere->GetRadius();
         const float radiusSq = radius * radius;
+
         // Invariant: sphere body descriptors must match the retired model-side
         // sphere cache multiplication order. The physics
         // regression CSV is sensitive enough to catch one-ulp volume drift.
         desc.volume = FOUR_OVER_THREE * _PI * radiusSq * radius;
         desc.projectedSurfaceArea = _PI * radiusSq;
     }
+
     desc.motionKind = motionKind;
     desc.usesWorldInertia = !std::holds_alternative<Math::CollisionDetection::BoundingSphere>( desc.shape );
     desc.diagnosticName = diagnosticName;
@@ -184,6 +182,7 @@ struct PhysicsColliderCreateDesc
 
 struct PhysicsAuthoredBodyRegistration
 {
+
     // One scene-creation commit publishes both physics rows. Either both
     // handles are valid or neither row remains live.
     PhysicsBodyHandle body;
@@ -195,11 +194,11 @@ struct PhysicsAuthoredBodyRegistration
     }
 };
 
-inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape,
-                                                         float restitution,
+inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape, float restitution,
                                                          uint32_t contactMaterialId,
                                                          const char* contactMaterialName = nullptr )
 {
+
     // Why: creation paths already know the exact primitive facts. Build the
     // collider import packet once there so PhysicsEngine owns the live row and
     // collection owners do not rediscover shape metrics on append.
@@ -208,10 +207,12 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetectio
     desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
     desc.restitution = restitution;
     desc.contactMaterialId = contactMaterialId;
+
     if ( contactMaterialName && contactMaterialName[0] != '\0' )
     {
         strncpy_s( desc.contactMaterialName, sizeof( desc.contactMaterialName ), contactMaterialName, _TRUNCATE );
     }
+
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
     desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
     return desc;

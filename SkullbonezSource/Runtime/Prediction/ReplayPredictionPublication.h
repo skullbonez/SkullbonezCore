@@ -48,6 +48,7 @@ class ReplayPredictionPublication
     void PublishSlot( std::size_t frameSlot, std::size_t frameCapacity ) noexcept
     {
         const std::size_t count = frameSlot < frameCapacity ? frameSlot + 1u : frameCapacity;
+
         if ( count > m_publishedCount.load( std::memory_order_relaxed ) )
         {
             m_publishedCount.store( count, std::memory_order_release );

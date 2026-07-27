@@ -5,6 +5,7 @@ Purpose:
 
 Summary:
   UICheckBox.cpp implements UI CheckBox widgets, layout, drawing, or UI state
+
   for the in-engine controls. As an implementation unit, keep edits anchored
   on UI request, layout, hit-test, and draw-command flow and on the
   glossary/invariants below.
@@ -52,11 +53,7 @@ bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 }
 
 
-void UICheckBox::DrawToggle( const UIDrawContext& draw,
-                             const char* label,
-                             bool checked,
-                             float accentR,
-                             float accentG,
+void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG,
                              float accentB ) const
 {
     const Style::UIPalette& palette = Style::Palette();
@@ -73,27 +70,12 @@ void UICheckBox::DrawToggle( const UIDrawContext& draw,
     const float knobSize = 10.0f;
     const float knobX = switchX + ( checked ? switchW - knobSize - 3.0f : 3.0f );
 
-    draw.Text( m_bounds.x,
-               m_bounds.y + 4.0f,
-               10.5f,
-               palette.textSecondary.r,
-               palette.textSecondary.g,
-               palette.textSecondary.b,
-               label );
+    draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, palette.textSecondary.r, palette.textSecondary.g,
+               palette.textSecondary.b, label );
 
-    draw.RoundedPanel( { switchX, switchY, switchW, switchH },
-                       switchH * 0.5f,
-                       checked ? onFill : offFill,
-                       palette.border );
+    draw.RoundedPanel( { switchX, switchY, switchW, switchH }, switchH * 0.5f, checked ? onFill : offFill, palette.border );
 
-    draw.RoundedRect( knobX,
-                      switchY + 3.0f,
-                      knobSize,
-                      knobSize,
-                      knobSize * 0.5f,
-                      knobFill.r,
-                      knobFill.g,
-                      knobFill.b,
+    draw.RoundedRect( knobX, switchY + 3.0f, knobSize, knobSize, knobSize * 0.5f, knobFill.r, knobFill.g, knobFill.b,
                       0.98f );
 }
 

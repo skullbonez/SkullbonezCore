@@ -49,7 +49,8 @@ enum class OverlayMode
 struct OverlayDebugState
 {
     OverlayMode overlayMode = OverlayMode::None;              // HUD overlay cycle state (0 key advances through timers, scene stats,
-                                                 // bars, and keys)
+
+    // bars, and keys)
     bool isWaterFreezeDebug = false;                          // Freeze ocean animation at current shape (toggle with 1)
     bool isWaterNoReflect = false;                            // Disable ocean reflection entirely (2 cycles: FBO to DXR to none)
     bool isWaterRTReflect = false;                            // Use DXR ray-traced reflection (DXR only if supported)
@@ -57,12 +58,15 @@ struct OverlayDebugState
     bool isTerrainHidden = false;                             // Hide terrain mesh (toggle with 4)
     bool isWaterHidden = false;                               // Hide water mesh (toggle with 5)
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw object axes, contact manifolds, and sleep state
-                                                              // (cycle with C)
+
+    // (cycle with C)
     bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines
-                                             // (toggle with 6)
+
+    // (toggle with 6)
     float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row
-                                             // disappears
+
+    // disappears
     int physicsDebugPipelineStageCursor = 0;                  // F7/F8-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
@@ -82,6 +86,7 @@ struct OverlayDebugState
 
     void ResetForSceneLoad()
     {
+
         // Operator HUD selection and top-text preference intentionally survive;
         // scene-authored presentation/debug values are rebuilt after this reset.
         isWaterFreezeDebug = false;

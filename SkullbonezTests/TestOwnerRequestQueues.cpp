@@ -21,8 +21,8 @@ Glossary:
     of authored scenes and resets stale layout/panel identity during migration.
   Lifecycle generation: Monotonic identity for one post-preflight scene-load
     attempt, including attempts that fail before activation.
-  Newest-state refresh: Coalescing bit that asks prediction to replace an
-    in-flight generation from the latest edited velocity.
+  Velocity preview command: Newest target and delta-v used to bend only the
+    selected committed path while a pointer drag is held.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -32,8 +32,8 @@ Invariants:
     schema before rewriting any bytes.
   - Shared editor views fingerprint semantic fields rather than object padding.
   - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
-  - Multiple velocity samples in one composition turn publish one refresh;
-    the next turn may publish another newest-state request.
+  - Held velocity samples never request simulation; release publishes exactly
+    one authoritative refresh after the newest preview value.
   - Compact causality reads only a bounded neighborhood of replay-owned rows and
     reports empty, stale, truncated, and capacity-limited states separately.
   - Preference migration may retain bounded filters but restores the current
@@ -65,16 +65,17 @@ Related:
 #include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneSessionState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneLoadRequest.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
 #include "../SkullbonezSource/UI/UITabPhysics.h"
@@ -174,23 +175,51 @@ struct SceneGeneratedControlTransactionTestAccess
 } // namespace Runtime
 } // namespace SkullbonezCore
 
-TEST_CASE( "Replay velocity drag publishes one coalesced newest-state refresh per frame" )
+TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {
     ReplayAuthoring authoring;
     ReplayVelocityEditDragStart start;
+    start.targetId.value = 17;
     authoring.BeginVelocityEditDrag( start );
 
-    authoring.QueueVelocityEditPredictionRefresh();
-    authoring.QueueVelocityEditPredictionRefresh();
+    authoring.QueueVelocityEditPreview( start.targetId, SkullbonezCore::Math::Vector::Vector3( 1.0f, 2.0f, 3.0f ) );
+    authoring.QueueVelocityEditPreview( start.targetId, SkullbonezCore::Math::Vector::Vector3( 4.0f, 5.0f, 6.0f ) );
     ReplayAuthoringPredictionRequest request = authoring.TakePredictionRequest();
-    CHECK( request.refreshPrediction );
+    CHECK( request.updateVelocityPreview );
+    CHECK_FALSE( request.finishVelocityPreview );
+    CHECK_FALSE( request.refreshPrediction );
     CHECK_FALSE( request.enablePrediction );
-    CHECK( request.liveVelocityEdit );
+    CHECK( request.velocityPreviewTargetId.value == 17 );
+    CHECK( request.velocityPreviewDelta.x == doctest::Approx( 4.0f ) );
+    CHECK( request.velocityPreviewDelta.y == doctest::Approx( 5.0f ) );
+    CHECK( request.velocityPreviewDelta.z == doctest::Approx( 6.0f ) );
 
     CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
-    authoring.QueueVelocityEditPredictionRefresh();
+    CHECK( authoring.FinishVelocityEditDrag() );
     request = authoring.TakePredictionRequest();
     CHECK( request.refreshPrediction );
+    CHECK( request.finishVelocityPreview );
+    CHECK_FALSE( request.updateVelocityPreview );
+    CHECK_FALSE( authoring.FinishVelocityEditDrag() );
+    CHECK_FALSE( authoring.TakePredictionRequest().refreshPrediction );
+}
+
+TEST_CASE( "Replay velocity preview survives until its release generation commits" )
+{
+    ReplayVelocityDragPreviewState preview;
+    SkullbonezCore::Physics::PhysicsSceneObjectId targetId;
+    targetId.value = 29;
+    preview.Update( targetId, SkullbonezCore::Math::Vector::Vector3( 2.0f, 0.0f, -1.0f ) );
+
+    CHECK( preview.active );
+    CHECK_FALSE( preview.awaitingAuthoritativeReplacement );
+    CHECK( preview.Finish( 8u ) );
+    CHECK_FALSE( preview.ClearAfterGeneration( 7u ) );
+    CHECK( preview.active );
+    CHECK( preview.awaitingAuthoritativeReplacement );
+    CHECK( preview.ClearAfterGeneration( 8u ) );
+    CHECK_FALSE( preview.active );
+    CHECK_FALSE( preview.awaitingAuthoritativeReplacement );
 }
 
 TEST_CASE( "Physics tab emits one typed request for every toggle row" )
@@ -335,7 +364,7 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 
 TEST_CASE( "Scene lifecycle generations publish failures and repeated scene loads exactly once" )
 {
-    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "alpha.scene.json" } );
     SceneLifecycleGenerationObserver clearObserver;
     SceneLifecycleGenerationObserver activationObserver;
 
@@ -723,7 +752,7 @@ TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
 {
     SkullbonezCore::UI::SceneNavigationModel navigation;
     navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
-    SceneRuntime scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
     scene.BeginLoad( 0 );
 
     const SceneLoadRequest current = LoadSceneFromBrowserIndex( navigation, 0, scene );
@@ -762,7 +791,7 @@ TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
     CHECK( loadNavigation.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
     CHECK( loadNavigation.overrides.modelCountOverride == 24 );
 
-    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "alpha.scene.json" } );
     scene.BeginLoad( 0 );
     const SceneLoadRequest request = loadNavigation.LoadSceneFromBrowserIndex( 1, scene );
     CHECK( request.HasLoad() );
@@ -784,7 +813,7 @@ TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
                                  "ordinary_two.scene.json",
                                  "cinematic_two.scene.json" };
     navigation.browser.selectedCineModeSceneIndex = 1;
-    SceneRuntime scene( std::vector<std::string> { "ordinary.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "ordinary.scene.json" } );
     scene.BeginLoad( 0 );
 
     CHECK( AdjacentCinematicModeBrowserIndex( navigation, 1, 0, false ) == 3 );
@@ -822,32 +851,30 @@ TEST_CASE( "CaptureController predicts scene captures before rendering" )
     strcpy_s( screenshot.screenshotPath, "Profile/capture_pin.bmp" );
     screenshot.screenshotFrame = 10;
 
-    RuntimeCaptureSceneContext context;
-    context.isSceneMode = true;
-    context.currentFrame = 8;
-    CHECK_FALSE( capture.IsScreenshotDue( context ) );
-    CHECK( capture.RequiresDeterministicPresentation( context ) );
-    context.currentFrame = 9;
-    CHECK( capture.IsScreenshotDue( context ) );
+    int currentFrame = 8;
+    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, 0.0 ) );
+    CHECK( capture.RequiresDeterministicPresentation( true, currentFrame, 0.0 ) );
+    currentFrame = 9;
+    CHECK( capture.IsScreenshotDue( true, currentFrame, 0.0 ) );
 
     // A millisecond threshold can cross while the frame is rendering. The
     // deterministic decision therefore pins the pending one-shot before due.
     screenshot.screenshotFrame = -1;
     screenshot.screenshotMs = 100;
-    context.elapsedMs = 99.0;
-    CHECK_FALSE( capture.IsScreenshotDue( context ) );
-    CHECK( capture.RequiresDeterministicPresentation( context ) );
-    context.elapsedMs = 101.0;
-    CHECK( capture.IsScreenshotDue( context ) );
+    double elapsedMs = 99.0;
+    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
+    CHECK( capture.RequiresDeterministicPresentation( true, currentFrame, elapsedMs ) );
+    elapsedMs = 101.0;
+    CHECK( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
 
     screenshot.screenshotMs = -1;
     screenshot.screenshotPath[0] = '\0';
     screenshot.screenshotInterval = 3;
     strcpy_s( screenshot.screenshotDir, "TestOutput/capture_pin" );
-    context.currentFrame = 1;
-    CHECK_FALSE( capture.IsScreenshotDue( context ) );
-    context.currentFrame = 2;
-    CHECK( capture.IsScreenshotDue( context ) );
+    currentFrame = 1;
+    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
+    currentFrame = 2;
+    CHECK( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
 }
 
 TEST_CASE( "CaptureController owns a fixed request budget" )

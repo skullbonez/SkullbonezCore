@@ -34,14 +34,13 @@ namespace Rendering
 namespace
 {
 
-void AppendDx12StateFlag( std::ostringstream& out,
-                          bool& wroteAny,
-                          D3D12_RESOURCE_STATES state,
-                          D3D12_RESOURCE_STATES flag,
+void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag,
                           const char* name )
 {
+
     if ( ( state & flag ) != 0 )
     {
+
         if ( wroteAny )
         {
             out << "|";
@@ -59,21 +58,16 @@ template <size_t N> void CopyLabel( char ( &destination )[N], const char* value 
 
 template <size_t N> void MakeBarrierSource( char ( &destination )[N], const char* prefix, const char* passName )
 {
-    snprintf( destination,
-              N,
-              "%s:%s",
-              ( prefix && prefix[0] != '\0' ) ? prefix : "Graph",
+    snprintf( destination, N, "%s:%s", ( prefix && prefix[0] != '\0' ) ? prefix : "Graph",
               ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
 }
 
-template <size_t N>
-void MakeBarrierSource( char ( &destination )[N], const char* prefix, const RenderGraphPassDesc& pass )
+template <size_t N> void MakeBarrierSource( char ( &destination )[N], const char* prefix, const RenderGraphPassDesc& pass )
 {
     MakeBarrierSource( destination, prefix, pass.name );
 }
 
-Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefix,
-                                                         const char* passName,
+Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefix, const char* passName,
                                                          const char* resourceName,
                                                          const Dx12RenderGraphSingleTransitionDesc& desc )
 {
@@ -100,6 +94,7 @@ Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefi
 
 bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
 {
+
     switch ( access )
     {
     case RenderGraphResourceAccess::RenderTarget:
@@ -145,6 +140,7 @@ bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, 
 
 std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
 {
+
     if ( state == D3D12_RESOURCE_STATE_COMMON )
     {
         return "COMMON";
@@ -152,10 +148,7 @@ std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
 
     std::ostringstream out;
     bool wroteAny = false;
-    AppendDx12StateFlag( out,
-                         wroteAny,
-                         state,
-                         D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
                          "VERTEX_AND_CONSTANT_BUFFER" );
 
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDEX_BUFFER, "INDEX_BUFFER" );
@@ -163,11 +156,7 @@ std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, "UNORDERED_ACCESS" );
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_WRITE, "DEPTH_WRITE" );
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_READ, "DEPTH_READ" );
-    AppendDx12StateFlag( out,
-                         wroteAny,
-                         state,
-                         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-                         "NON_PIXEL_SHADER_RESOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, "NON_PIXEL_SHADER_RESOURCE" );
 
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, "PIXEL_SHADER_RESOURCE" );
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_STREAM_OUT, "STREAM_OUT" );
@@ -177,6 +166,7 @@ std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_DEST, "RESOLVE_DEST" );
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_SOURCE, "RESOLVE_SOURCE" );
     AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PRESENT, "PRESENT" );
+
     if ( !wroteAny )
     {
         out << "UNKNOWN(" << static_cast<unsigned int>( state ) << ")";
@@ -186,8 +176,7 @@ std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
 }
 
 
-Dx12RenderGraphSingleTransitionResult
-EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc )
+Dx12RenderGraphSingleTransitionResult EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc )
 {
     Dx12RenderGraphSingleTransitionResult result;
     result.hasNativeResource = desc.resource != nullptr;
@@ -226,8 +215,7 @@ EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc&
 }
 
 
-Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char* sourcePrefix,
-                                                                     const char* passName,
+Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char* sourcePrefix, const char* passName,
                                                                      const char* resourceName,
                                                                      const Dx12RenderGraphSingleTransitionDesc& desc )
 {
@@ -248,6 +236,7 @@ Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderG
 {
     Dx12RenderGraphUavBarrierResult result;
     result.hasNativeResource = desc.resource != nullptr;
+
     if ( !result.hasNativeResource )
     {
         return result;
@@ -268,8 +257,7 @@ Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderG
 }
 
 
-Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* sourcePrefix,
-                                                                  const char* passName,
+Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* sourcePrefix, const char* passName,
                                                                   const char* resourceName,
                                                                   const Dx12RenderGraphUavBarrierDesc& desc )
 {
@@ -304,9 +292,7 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         singleDesc.after = transition.after;
         singleDesc.subresource = static_cast<UINT>( transition.subresource );
 
-        Dx12RenderGraphBarrierRecord record = MakeSingleTransitionRecord( desc.sourcePrefix,
-                                                                          pass.name,
-                                                                          resource.name,
+        Dx12RenderGraphBarrierRecord record = MakeSingleTransitionRecord( desc.sourcePrefix, pass.name, resource.name,
                                                                           singleDesc );
 
         if ( record.requiresUavOrderingReview )
@@ -336,9 +322,11 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         }
 
         ++result.transitionBarrierCount;
+
         if ( desc.mode == Dx12RenderGraphExecutionMode::EmitBarriers )
         {
             record = ExecuteDx12RenderGraphSingleTransition( desc.sourcePrefix, pass.name, resource.name, singleDesc );
+
             if ( record.emitted )
             {
                 ++result.emittedTransitionBarrierCount;
