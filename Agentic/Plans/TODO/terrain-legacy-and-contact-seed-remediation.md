@@ -4,7 +4,7 @@ Date: 2026-07-26
 Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 13 of the Architecture Follow-Up Campaign
-Round 5. Runs last in the campaign. 3/5 phases complete; T3 is binding.
+Round 5. Runs last in the campaign. 4/5 phases complete; T4 is binding.
 Impact area: `World/Terrain.{h,cpp}`, `Physics/PhysicsTerrainView.{h,cpp}`,
 `Physics/PersistentContactSolver.cpp`, `Runtime/Debug/PhysicsDebugVisualizer.cpp`
 Owner: physics + world
@@ -139,7 +139,7 @@ approximation with a named constant, a stated assumption, and a test.
   deliberately out-of-range probe trips the guard in Debug; physics CSV byte-exact;
   the debug visualizer still draws the same polygon.
 
-- [ ] **T3 — Document and test the ratified terrain contact support seed.**
+- [x] **T3 — Document and test the ratified terrain contact support seed.**
   **Owner ruling 2026-07-27: ratify the approximation. Do not replace the seed.**
   The reason, recorded so it is not relitigated: the seed works, its existing
   comment is already honest about what it is, and replacing it would cost a full

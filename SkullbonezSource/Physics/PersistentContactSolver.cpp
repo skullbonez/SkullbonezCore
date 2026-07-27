@@ -75,6 +75,8 @@ namespace Vector = SkullbonezCore::Math::Vector;
 namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
+constexpr float TERRAIN_RESTING_SUPPORT_SEED_SCALE = 1.0f;
+constexpr float TERRAIN_SHORELINE_SUPPORT_SEED_SCALE = 0.35f;
 } // namespace
 
 PersistentContactSolverStepPolicy
@@ -1018,7 +1020,17 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             // pushed out, and repeats as visible bobbing. This seed is not
             // written to the persistent cache, so the contact remains wakeable
             // and cannot become a hidden sleep anchor.
-            const float supportSeedScale = manifold.supportsRestingPolicy ? 1.0f : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
+            //
+            // Invariant: gravityMagnitude is the magnitude of the engine's
+            // vertical -Y gravity, and fabs(normal.y) is its supported fraction.
+            // The seed is therefore weight projected onto a terrain normal.
+            //
+            // Hazard: a future non-vertical gravity vector would make that
+            // scalar projection wrong. Directional gravity must replace both
+            // terms together rather than reusing this vertical approximation.
+            const float supportSeedScale = manifold.supportsRestingPolicy
+                                               ? TERRAIN_RESTING_SUPPORT_SEED_SCALE
+                                               : ( manifold.inhibitsSleep ? TERRAIN_SHORELINE_SUPPORT_SEED_SCALE : 0.0f );
 
             const float warmStartTotal = bodyRecords[static_cast<size_t>( manifold.bodyA )].mass *
                                          stepPolicy.gravityMagnitude * fabsf( manifold.normal.y ) * dt * supportSeedScale;
