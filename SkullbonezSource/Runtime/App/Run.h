@@ -240,6 +240,9 @@ class Run
                                                const FrameSimulationPhaseResult& simulation );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
+
+    // Cost: these frame-reachable Lane R returns use SbResult's sentinel-only
+    // success construction; the inline diagnostic tail is written only on failure.
     SkullbonezCore::Core::SbResult RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
                                                           const FramePresentationFacts& facts );
     void RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive );

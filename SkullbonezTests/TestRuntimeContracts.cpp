@@ -854,15 +854,31 @@ TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in orde
 
 TEST_CASE( "SbResult: success and formatted failure values propagate owner and message" )
 {
+    static_assert( sizeof( SkullbonezCore::Core::SbError::message ) == 512 );
+#if defined( _WIN64 )
+    static_assert( sizeof( SbResult ) == 528 );
+#endif
+
     const SbResult success = SbResult::Success();
     CHECK( success.ok );
     CHECK( std::strcmp( success.error.owner, "" ) == 0 );
     CHECK( std::strcmp( success.error.message, "" ) == 0 );
 
+    SbResult reassignedSuccess = SbResult::Failure( "Discarded", "discarded failure" );
+    reassignedSuccess = success;
+    CHECK( reassignedSuccess.ok );
+    CHECK( std::strcmp( reassignedSuccess.error.owner, "" ) == 0 );
+    CHECK( std::strcmp( reassignedSuccess.error.message, "" ) == 0 );
+
     const SbResult failure = SbResult::Failure( "SceneParser", "invalid body %d", 17 );
     CHECK_FALSE( failure.ok );
     CHECK( std::strcmp( failure.error.owner, "SceneParser" ) == 0 );
     CHECK( std::strcmp( failure.error.message, "invalid body 17" ) == 0 );
+
+    const SbResult copiedFailure = failure;
+    CHECK_FALSE( copiedFailure.ok );
+    CHECK( std::strcmp( copiedFailure.error.owner, "SceneParser" ) == 0 );
+    CHECK( std::strcmp( copiedFailure.error.message, "invalid body 17" ) == 0 );
 
     const SbResult defaultFailure = SbResult::Failure( nullptr, nullptr );
     CHECK_FALSE( defaultFailure.ok );

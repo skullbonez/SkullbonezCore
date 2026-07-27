@@ -1,16 +1,17 @@
 # SbResult Frame Path Cost
 
 Date: 2026-07-26
-Status: WAITING FOR PLAN 5 — owner accepted the recommended sequence on
-2026-07-27: finish `runtime-frame-view-retirement` first, then run SR0-SR2 so
-the same frame-phase signatures are not edited twice. Drafted from the
+Status: COMPLETE — SR0-SR2 closed on 2026-07-27. Sentinel-only success
+construction preserves the complete inline failure representation; corrected
+census, performance, full validation, and independent review are clear. Drafted from the
 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 12 of the Architecture Follow-Up Campaign
-Round 5. 0/3 phases complete.
+Round 5. 3/3 phases complete.
 Impact area: `Core/SbResult.h`, `Runtime/App/Run.{h,cpp}`,
 `Runtime/App/RunFrame.cpp`, every Lane R return site
 Owner: core
+Closure evidence: `../../Reports/2026-07-27/sbresult-frame-path-cost-closure.md`
 Priority: Low-Medium — not a bug and not a measured hot spot. It is a
 consistency defect: the one value type on the per-frame path that ignores the
 engine's own cost discipline.
@@ -75,7 +76,7 @@ inline diagnostic message, `[[nodiscard]]` enforcement, and zero heap ownership.
 
 ## Phases
 
-- [ ] **SR0 — Census return sites and rule the representation.**
+- [x] **SR0 — Census return sites and rule the representation.**
   Inventory every `SbResult`-returning function, classify each as per-frame,
   per-scene-load, or cold, and record which callers read `error` at all. Then rule
   the representation with evidence. Candidates to evaluate, not a predetermined
@@ -95,16 +96,29 @@ inline diagnostic message, `[[nodiscard]]` enforcement, and zero heap ownership.
   Acceptance: the ruling names one representation with measured evidence — the
   real maximum message length and a before-measurement from `validate_perf` — and
   states why the rejected options were rejected.
+  Closed 2026-07-27. The reconciled census found 176 named definitions plus one
+  trailing-return lambda: 57 frame-reachable callables, 51
+  scene-load/resource-build, and 69 cold/on-demand. The
+  protected real maximum is all 511 payload bytes, so the buffer cannot shrink.
+  The selected representation retains the 528-byte inline carrier but initializes
+  only the empty owner and leading message sentinel on success. Evidence:
+  `../../Reports/2026-07-27/sbresult-frame-path-cost-sr0-census.md`.
 
-- [ ] **SR1 — Implement the ruled representation.**
+- [x] **SR1 — Implement the ruled representation.**
   Apply SR0's ruling across every return site. If the outcome is "leave it and
   document it", SR1 is the header amendment plus the frame-path note, and the plan
   closes at 2/3 with that recorded as the deliberate result. Acceptance: every
   failure message is byte-identical to before in logs and automation reports;
   `[[nodiscard]]` holds at every site; no heap ownership introduced; no new
   aggregate created to carry the result.
+  Closed 2026-07-27. `SbError` default construction writes only `owner = ""`
+  and `message[0] = '\0'`; `Failure` retains the same inline `vsnprintf` path.
+  Tests pin the 512-byte failure capacity and 528-byte Win64 carrier.
+  `validate_tests` and `validate_perf` pass with no measured regression.
+  Evidence:
+  `../../Reports/2026-07-27/sbresult-frame-path-cost-sr1-closure.md`.
 
-- [ ] **SR2 — Reconcile, review, and hand off.**
+- [x] **SR2 — Reconcile, review, and hand off.**
   Publish the before/after `sizeof(SbResult)` and the per-frame measurement.
   Complete the comment audit for `Core/SbResult.h` — its Invariants block must
   describe the final representation, and the header should state the frame-path
@@ -114,6 +128,11 @@ inline diagnostic message, `[[nodiscard]]` enforcement, and zero heap ownership.
   review clear; `validate_perf.bat` shows no regression and the recorded
   improvement if any; `validate_full.bat` passes with every Lane R failure message
   unchanged.
+  Closed 2026-07-27. The first independent review blocked an incomplete census;
+  all 15 missed named definitions and the trailing-return lambda were added.
+  Repeat review passed with zero blockers. The 528-byte before/after carrier,
+  final performance measurements, comment audit, and full gate are recorded in
+  `../../Reports/2026-07-27/sbresult-frame-path-cost-sr2-closure.md`.
 
 ## Dependencies And Decisions
 

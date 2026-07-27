@@ -773,11 +773,15 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 4/7 (57%). Plan 11
+Architecture Follow-Up Campaign Round 5 is complete at 7/7 (100%). Plan 11
 closed AF2 and left the live inventory under rule 4. Plan 5 closed FV0-FV3:
 all four frame views are deleted, delegated operations are concrete and capped
 at 12 operands, independent review is clear, and every mapped gate passes.
-Plan 12 is now binding.
+Plan 12 SR0 measured 176 named returning definitions plus one lambda and selected sentinel-only
+success construction because the protected 511-byte failure maximum forbids a
+smaller buffer. SR1 implemented the ruling without changing failure storage or
+call sites. SR2 corrected the initial census-review blocker, then closed with
+zero review blockers and passing tests, performance, and full validation.
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -2153,7 +2157,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 9 | [operator-command-invariant-ownership](../Reports/2026-07-27/operator-command-invariant-ownership-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; one value-only transaction owns phase order, arbitration, and the ledger, and every final gate is clear |
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
 | 11 | [allocator-foreign-pointer-safety](../Reports/2026-07-27/allocator-foreign-pointer-safety-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; guarded complete-header provenance, zero foreign frees, measured performance, and independent review are clear |
-| 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | In progress | 0/3 | **Binding next:** SR0 census, real message maximum, and before performance measurement |
+| 12 | [sbresult-frame-path-cost](../Reports/2026-07-27/sbresult-frame-path-cost-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; sentinel-only success preserves all failure diagnostics, review is clear, and every mapped gate passes |
 | 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
 
