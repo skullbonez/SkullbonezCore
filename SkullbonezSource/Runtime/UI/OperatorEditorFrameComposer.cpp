@@ -25,12 +25,10 @@ Invariants:
   - Both surfaces observe identical scene, replay, and rendering values.
 
 Related:
-  - OperatorEditorFrameComposer.h
-  - RuntimeFrameViews.h
+  - Runtime/App/Run.h owns the private frame-coordinator declaration.
+  - RuntimeFrameViews.h retains the value-only late-UI facts.
   - Agentic/Reference/comment-style-guide.md
 */
-#include "OperatorEditorFrameComposer.h"
-
 #include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
@@ -212,28 +210,34 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
 }
 
-void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners,
-             RuntimeRenderer& renderer, ReplayRuntime& replayRuntime, const RuntimeUiTextFrameFacts& facts,
-             SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
-             const ReplayOverlay::ReplayOverlayStateView& replayOverlay, const RuntimeRenderModelFrameView& renderModels )
-{
-    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    RunTimerState& timers = sceneOwners.timers;
-    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
-    OverlayDebugState& debug = presentationEdit.State();
-    SceneController& sceneController = sceneOwners.sceneController;
-    SceneSessionState& scene = sceneController.State();
-    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
-    RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
-    CameraControlState& camera = interactionOwners.camera;
-    SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
-    Window& window = host.window;
-    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
+} // namespace OperatorEditorFrameComposer
 
-    // Lifetime: the two owner views and value-only facts exist only for this
-    // late UI call; no render or UI owner retains them.
+using namespace OperatorEditorFrameComposer;
+
+void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
+                                      SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
+                                      const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+                                      const RuntimeRenderModelFrameView& renderModels )
+{
+    DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
+    RunTimerState& timers = m_timers;
+    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
+    OverlayDebugState& debug = presentationEdit.State();
+    SceneController& sceneController = m_sceneController;
+    SceneSessionState& scene = sceneController.State();
+    SkullbonezCore::Core::EngineConfig& config = m_config;
+    RuntimeTools& runtimeTools = m_runtimeTools;
+    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
+    RuntimeInputContext& runtimeInput = m_inputRouter.RuntimeContext();
+    CameraControlState& camera = m_camera;
+    SkullbonezCore::Threading::WorkerPool& workerPool = m_workerPool;
+    Window& window = m_window;
+    RunLaunchOptions& launchOptions = m_launchOptions;
+    RuntimeRenderer& renderer = Renderer();
+    ReplayRuntime& replayRuntime = m_replayRuntime;
+
+    // Lifetime: value-only facts exist only for this late UI call; no render or
+    // UI owner retains a coordinator borrow.
     const SkullbonezCore::UI::RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
     const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
@@ -340,7 +344,7 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
     }
 
     operatorEditorView.assets = { sharedEditor.objectType, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
-                                  host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
+                                  m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -618,18 +622,18 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
         UiOperatorSubmissionGraphInvocation uiOperatorSubmission;
         uiOperatorSubmission.ui = &ui;
         uiOperatorSubmission.renderTargetPreviews = &renderTargetPreviews;
-        uiOperatorSubmission.assets = &host.assets;
+        uiOperatorSubmission.assets = &m_assets;
 
         UiReplayGraphInvocation uiReplay;
         uiReplay.overlay = &replayOverlay;
-        uiReplay.profiler = host.profiler;
+        uiReplay.profiler = m_profiler;
         uiReplay.legacySurfaceActive = facts.legacyDevelopmentUiActive;
         uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
         uiReplay.gesture = facts.interactionGestureKind;
         uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
         uiReplay.nowSeconds = timers.simulationTimer.GetTotalTime();
 
-        PROFILE_BEGIN( host.profiler, "Frame/UI" );
+        PROFILE_BEGIN( m_profiler, "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
 
@@ -639,7 +643,7 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
                                                             uiOperatorDiagnostics, uiOperatorSettings, uiOperatorInteraction,
                                                             uiOperatorPresentation, uiOperatorSubmission, uiReplay );
         }
-        PROFILE_END( host.profiler, "Frame/UI" );
+        PROFILE_END( m_profiler, "Frame/UI" );
     }
     else
     {
@@ -648,6 +652,5 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
 }
 
 
-} // namespace OperatorEditorFrameComposer
 } // namespace Runtime
 } // namespace SkullbonezCore

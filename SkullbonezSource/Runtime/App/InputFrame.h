@@ -4,11 +4,11 @@ Purpose:
   Declares the stateless once-per-frame input orchestration boundary.
 
 Summary:
-  Run owns top-level frame order and calls ProcessInputFrame once. The function
-  receives non-copyable frame views for that turn, while InputRouter alone
-  retains device, semantic-action, focus, and pointer-presentation state between
-  frames. The selected operator surface and optional automation/probe queues
-  converge in this turn before established domain-owner commands are applied.
+  Run owns top-level frame order and coordinates this input turn directly.
+  InputRouter alone retains device, semantic-action, focus, and
+  pointer-presentation state between frames. The selected operator surface and
+  optional automation/probe queues converge before established domain-owner
+  commands are applied.
 
 Glossary:
   Input turn: Ordered frame interval that samples hardware, offers actions to
@@ -21,15 +21,15 @@ Glossary:
     are interpreted; Run applies process-wide policy without rescanning input.
 
 Invariants:
-  - No frame view or referenced owner is retained after ProcessInputFrame returns.
-  - The function is called once per rendered frame, after automation injection.
+  - No borrowed owner is retained after the input coordinator returns.
+  - The coordinator is called once per rendered frame, after automation injection.
   - InputRouter remains the only owner of sampled device and semantic edge state.
   - Process requests contain no owner references and are consumed in the same
     frame immediately after ProcessInputFrame returns.
 
 Related:
   - InputRouter.h owns input state and routing policy.
-  - RuntimeFrameViews.h defines the stack-only borrow convention.
+  - Run.h defines the direct coordinator/concrete delegation convention.
   - RunFrame.cpp owns top-level frame order.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
 */
@@ -37,7 +37,6 @@ Related:
 
 #include "../Input/InputRouter.h"
 #include "ReplayRuntime.h"
-#include "../RuntimeFrameViews.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UIInput.h"
 
@@ -180,32 +179,10 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, RuntimeFrameInteractionView& interactionOwners,
-                                          RunTimerState& timers, SceneController& sceneController,
-                                          ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
-                                          const RuntimeInputFrameFacts& facts );
-RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
-                                                  RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
-                                                  RuntimeFrameSceneView& sceneOwners,
-                                                  RuntimeFramePresentationView& presentationOwners,
-                                                  ReplayRuntime& replayRuntime, const RuntimeInputFrameFacts& facts );
-RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
-                                                  RuntimeFrameInteractionView& interactionOwners,
-                                                  SceneController& sceneController, ReplayRuntime& replayRuntime,
-                                                  RunCameraMode replayCurrentCameraMode );
-
 struct InputFrameExecutionResult
 {
     bool requestDevelopmentUiSurfaceSwap = false;
 };
 
-// Executes one input turn through synchronous concrete-owner borrows. This is
-// composition, not an owner: all durable input state remains in inputRouter.
-InputFrameExecutionResult ProcessInputFrame( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
-                                             RuntimeFrameSceneView& sceneOwners,
-                                             RuntimeFramePresentationView& presentationOwners, ReplayRuntime& replayRuntime,
-                                             UiInputCaptureIntent externalUiCapture,
-                                             UI::OperatorEditorCommandQueues externalEditorCommands = {},
-                                             bool legacyDevelopmentUiActive = true );
 } // namespace Runtime
 } // namespace SkullbonezCore

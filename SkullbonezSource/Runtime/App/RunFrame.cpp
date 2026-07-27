@@ -9,9 +9,9 @@ Summary:
   boundaries and call direction and on the glossary/invariants below.
 
 Mental model:
-  Execute is the visible phase schedule. Each private phase borrows only the
-  established frame views plus small value results, performs one contiguous
-  span of the schedule, and returns control without retaining frame state.
+  Execute is the visible phase schedule. Each private `Run` coordinator reaches
+  composed members directly, delegates concrete operands, performs one
+  contiguous span, and returns without retaining frame state.
 
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
@@ -26,8 +26,8 @@ Glossary:
     failed side effect from being reported as a successful frame transition.
   Presentation pin: Per-frame alpha override to exact current solver state for
     scheduled and auto-cycle capture automation.
-  Frame view: Non-copyable stack record of references used to name per-call
-    borrows without moving ownership out of the composition root.
+  UI text facts: Value-only late-presentation snapshot shared by the operator
+    surfaces without exposing mutable owners.
   Submitted-frame mark: Development profiler boundary emitted only after DX12
     accepts a successful Present for the game frame.
   Shared editor view: Frame-owned storage passed to the operator-editor
@@ -43,7 +43,7 @@ Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
     in a stable order used by validation and replay comparisons.
   - Capture pinning is decided before physics and camera work for that frame.
-  - Frame views are created once per frame turn and never retained by helpers.
+  - Delegated operations receive concrete operands and retain none.
   - A successful submitted game frame emits exactly one development profiler
     frame mark; failed or capture-only turns emit none.
   - A development surface swap hides the source before the target begins a frame.
@@ -53,7 +53,7 @@ Invariants:
     without reconstructing or overriding their domain decisions.
 
 Related:
-  - SkullbonezSource/Runtime/RuntimeFrameViews.h defines the frame-helper calling convention.
+  - SkullbonezSource/Runtime/App/Run.h defines the frame-coordinator calling convention.
   - SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -64,7 +64,6 @@ Related:
 #include "../RuntimeFrameViews.h"
 #include "../UI/RuntimeViewModel.h"
 #include "../Render/RenderModelFramePublisher.h"
-#include "../UI/OperatorEditorFrameComposer.h"
 #include "Window.h"
 #include "../../Core/WorkerPool.h"
 #include "InputFrame.h"
@@ -255,29 +254,6 @@ double Run::BeginFrameTurn()
     return secondsPerFrame;
 }
 
-RuntimeFrameHostView Run::BuildFrameHostView()
-{
-    return RuntimeFrameHostView { m_applicationExit, m_diagnosticsRuntime, m_assets, m_workerPool, m_window, m_profiler };
-}
-
-RuntimeFrameInteractionView Run::BuildFrameInteractionView()
-{
-    return RuntimeFrameInteractionView { m_inputRouter, m_interaction,  m_attachedCamera,
-                                         *m_operatorUi, m_runtimeTools, m_camera };
-}
-
-RuntimeFrameSceneView Run::BuildFrameSceneView()
-{
-    return RuntimeFrameSceneView { m_config,     m_launchOptions,  m_startup, m_timers, *m_overlayDiagnostics,
-                                   m_simulation, m_sceneController };
-}
-
-RuntimeFramePresentationView Run::BuildFramePresentationView()
-{
-    return RuntimeFramePresentationView { m_renderDefaults, *m_validationHarness, Renderer(), BackbufferCapture(),
-                                          m_shaderDevelopment };
-}
-
 void Run::BeginFrameDiagnosticsPhase()
 {
 
@@ -288,14 +264,11 @@ void Run::BeginFrameDiagnosticsPhase()
 }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction,
-                                                                     RuntimeFrameSceneView& scene )
+InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 {
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
-    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation, m_window,
-                                                                                          interaction, scene,
-                                                                                          automationReplayView,
+    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( automationReplayView,
                                                                                           Renderer().FrameGraphSnapshot() );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -315,8 +288,9 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFram
 
     if ( result.applyCameraMode )
     {
-        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, interaction, m_sceneController,
-                                       m_replayRuntime, m_inputRouter.RuntimeContext() );
+        m_inputRouter.ApplyCameraMode( result.cameraMode, RuntimeInputActionSource::Runtime, m_runtimeTools, m_interaction,
+                                       m_attachedCamera, m_camera, m_sceneController, m_replayRuntime,
+                                       m_inputRouter.RuntimeContext() );
     }
 
     (void)m_replayRuntime.ApplyFrameIntent( result.replayIntent );
@@ -330,8 +304,9 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFram
                                                                                 sceneState.isSceneMode,
                                                                                 cameraModeEnabledMask );
 
-        m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, interaction,
-                                                m_sceneController, m_replayRuntime, normalizedRestoreMode );
+        m_inputRouter.SetWorldInteractionOwner( result.worldInteractionOwner, result.worldInteractionReason, m_runtimeTools,
+                                                m_interaction, m_attachedCamera, m_camera, m_sceneController,
+                                                m_replayRuntime, normalizedRestoreMode );
     }
 
     if ( !result.status.ok )
@@ -348,9 +323,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase( RuntimeFram
 }
 #endif
 
-Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                                               RuntimeFrameSceneView& scene, RuntimeFramePresentationView& presentation,
-                                               const InteractionAutomationFrameResult* automationBeforeInput )
+Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
     UiInputCaptureIntent developmentUiCapture;
     SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
@@ -378,9 +351,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host, Runti
 #else
     (void)automationBeforeInput;
 #endif
-    [[maybe_unused]] const InputFrameExecutionResult inputFrameResult = ProcessInputFrame( host, interaction, scene,
-                                                                                           presentation, m_replayRuntime,
-                                                                                           developmentUiCapture,
+    [[maybe_unused]] const InputFrameExecutionResult inputFrameResult = ProcessInputFrame( developmentUiCapture,
                                                                                            developmentEditorCommands,
                                                                                            legacyDevelopmentUiActive );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -411,7 +382,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host, Runti
     return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
 }
 
-Run::FrameSimulationPhaseResult Run::RunSimulationPhase( RuntimeFrameSceneView& scene, double secondsPerFrame,
+Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
                                                          const SceneFrameProceedPolicy& proceedPolicy )
 {
     m_sceneController.Scene().BeginCollisionVisualFrame();
@@ -443,50 +414,45 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( RuntimeFrameSceneView& 
         // Invariant: prediction publication completes before overlay and render
         // construction. Render cannot decide whether the private engine advances.
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-        m_replayRuntime.UpdatePrediction( scene.sceneController.Scene().Physics(), scene.sceneController.Scene().Tornado(),
-                                          scene.sceneController.Scene().Entities(), scene.config,
-                                          scene.sceneController.Scene().Environment().GetPhysicsWorldForces(), m_workerPool,
-                                          scene.sceneController.State().isScenePhysics,
-                                          scene.timers.simulationTimer.GetTimeSinceLastStart(),
-                                          scene.timers.simulationTimer.GetTotalTime() );
+        m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(), m_sceneController.Scene().Tornado(),
+                                          m_sceneController.Scene().Entities(), m_config,
+                                          m_sceneController.Scene().Environment().GetPhysicsWorldForces(), m_workerPool,
+                                          m_sceneController.State().isScenePhysics,
+                                          m_timers.simulationTimer.GetTimeSinceLastStart(),
+                                          m_timers.simulationTimer.GetTotalTime() );
     }
-    scene.overlays.UpdatePostPhysics( scene.sceneController.Scene(), *m_validationHarness,
-                                      scene.config.bodySimulation.contactEpsilon, secondsPerFrame );
+    m_overlayDiagnostics->UpdatePostPhysics( m_sceneController.Scene(), *m_validationHarness,
+                                             m_config.bodySimulation.contactEpsilon, secondsPerFrame );
 
     return FrameSimulationPhaseResult { interpolationAlpha, capturePresentationPinned };
 }
 
-Run::FrameRenderPhaseResult Run::PrepareRenderPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                                                     RuntimeFrameSceneView& scene,
-                                                     RuntimeFramePresentationView& presentation,
-                                                     bool legacyDevelopmentUiActive,
+Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiActive,
                                                      const FrameSimulationPhaseResult& simulation )
 {
 
     // Concept: graphics stress is render/runtime churn, not UI command work. It
     // runs once per rendered frame in headless and interactive configurations.
-    presentation.validationHarness.ExecuteGraphicsStressFrame( host, interaction, scene, presentation, m_replayRuntime,
-                                                               presentation.renderer.RenderDiagnostics(),
-                                                               legacyDevelopmentUiActive );
+    ExecuteGraphicsStressFrame( Renderer().RenderDiagnostics(), legacyDevelopmentUiActive );
 
-    const float presentationAlpha = ResolvePresentationAlpha( scene.config, simulation.capturePresentationPinned,
+    const float presentationAlpha = ResolvePresentationAlpha( m_config, simulation.capturePresentationPinned,
                                                               simulation.interpolationAlpha );
 
-    if ( presentation.renderer.PipelineSyncEnabled() )
+    if ( Renderer().PipelineSyncEnabled() )
     {
-        PROFILE_BEGIN( host.profiler, "Frame/PipelineSync" );
+        PROFILE_BEGIN( m_profiler, "Frame/PipelineSync" );
         SkullbonezCore::Core::SbResult finishResult = SkullbonezCore::Core::SbResult::Success();
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
-            finishResult = presentation.renderer.RenderFrame().FinishAndReopen( presentation.renderer.RenderDiagnostics() );
+            finishResult = Renderer().RenderFrame().FinishAndReopen( Renderer().RenderDiagnostics() );
         }
-        PROFILE_END( host.profiler, "Frame/PipelineSync" );
+        PROFILE_END( m_profiler, "Frame/PipelineSync" );
 
         if ( !finishResult.ok )
         {
-            scene.timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END( host.profiler );
-            host.applicationExit.RequestOwnedFailure( finishResult );
+            m_timers.frameTimer.StopTimer();
+            PROFILE_FRAME_END( m_profiler );
+            m_applicationExit.RequestOwnedFailure( finishResult );
             return FrameRenderPhaseResult { finishResult, presentationAlpha };
         }
     }
@@ -514,10 +480,8 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
     PROFILE_END( m_profiler, "Frame/Render" );
 }
 
-SkullbonezCore::Core::SbResult
-Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                            RuntimeFrameSceneView& scene, RuntimeFramePresentationView& presentation,
-                            const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts )
+SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                           const FramePresentationFacts& facts )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -530,9 +494,9 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
 
         if ( !viewportCapture.ok )
         {
-            scene.timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END( host.profiler );
-            host.applicationExit.RequestOwnedFailure( viewportCapture );
+            m_timers.frameTimer.StopTimer();
+            PROFILE_FRAME_END( m_profiler );
+            m_applicationExit.RequestOwnedFailure( viewportCapture );
             return viewportCapture;
         }
     }
@@ -542,9 +506,8 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
 #endif
-    const RuntimeUiTextFrameFacts uiTextFacts { RuntimeCameraModeEnabledMask( scene.sceneController.State().isSceneMode,
-                                                                              scene.sceneController.Scene()
-                                                                                  .SceneEntityCount() ),
+    const RuntimeUiTextFrameFacts uiTextFacts { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                              m_sceneController.Scene().SceneEntityCount() ),
                                                 m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
                                                                                        : RunCameraModeLabel( m_camera.mode ),
                                                 m_runtimeTools.LauncherFireModeLabel(),
@@ -562,8 +525,7 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
                                                                m_interaction.Gesture().kind,
                                                                renderModels.presentationRecords, renderModels.bodyStore );
 
-    OperatorEditorFrameComposer::Render( host, interaction, scene, presentation.renderer, m_replayRuntime, uiTextFacts,
-                                         operatorEditorView, replayOverlay, renderModels );
+    ComposeOperatorEditorFrame( uiTextFacts, operatorEditorView, replayOverlay, renderModels );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
@@ -591,9 +553,9 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
 
         if ( !imguiResult.status.ok )
         {
-            scene.timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END( host.profiler );
-            host.applicationExit.RequestOwnedFailure( imguiResult.status );
+            m_timers.frameTimer.StopTimer();
+            PROFILE_FRAME_END( m_profiler );
+            m_applicationExit.RequestOwnedFailure( imguiResult.status );
             return imguiResult.status;
         }
 
@@ -629,7 +591,7 @@ Run::RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionV
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction, bool legacyDevelopmentUiActive )
+void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 {
     PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
     {
@@ -649,12 +611,9 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
 
 #endif
     const InteractionAutomationFrameResult
-        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, interaction,
-                                                                      m_sceneController,
-                                                                      m_replayRuntime.BuildAutomationView(),
+        automationAfterRender = TickInteractionAutomationAfterRender( m_replayRuntime.BuildAutomationView(),
                                                                       automationDevelopmentUiView,
-                                                                      Renderer().FrameGraphSnapshot(),
-                                                                      m_diagnosticsRuntime.Capture(), BackbufferCapture() );
+                                                                      Renderer().FrameGraphSnapshot() );
 
     if ( !automationAfterRender.status.ok )
     {
@@ -668,7 +627,6 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
 
     PROFILE_END( m_profiler, "Frame/PostDraw/InteractionAutomation" );
 #else
-    (void)interaction;
     (void)legacyDevelopmentUiActive;
 #endif
 }
@@ -756,24 +714,18 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         const double secondsPerFrame = BeginFrameTurn();
 
-        // Lifetime: each stack view is built once and never retained.
-        RuntimeFrameHostView host = BuildFrameHostView();
-        RuntimeFrameInteractionView interaction = BuildFrameInteractionView();
-        RuntimeFrameSceneView scene = BuildFrameSceneView();
-        RuntimeFramePresentationView presentation = BuildFramePresentationView();
         BeginFrameDiagnosticsPhase();
         PROFILE_BEGIN( m_profiler, "Frame/Input" );
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-        const auto automationResult = RunAutomationBeforeInputPhase( interaction, scene );
+        const auto automationResult = RunAutomationBeforeInputPhase();
         const InteractionAutomationFrameResult* automation = &automationResult;
 #else
         const InteractionAutomationFrameResult* automation = nullptr;
 #endif
-        const FrameInputPhaseResult input = RunInputPhase( host, interaction, scene, presentation, automation );
+        const FrameInputPhaseResult input = RunInputPhase( automation );
         PROFILE_END( m_profiler, "Frame/Input" );
-        const auto simulation = RunSimulationPhase( scene, secondsPerFrame, input.proceedPolicy );
-        const auto render = PrepareRenderPhase( host, interaction, scene, presentation, input.legacyDevelopmentUiActive,
-                                                simulation );
+        const auto simulation = RunSimulationPhase( secondsPerFrame, input.proceedPolicy );
+        const auto render = PrepareRenderPhase( input.legacyDevelopmentUiActive, simulation );
 
         if ( !render.status.ok )
         {
@@ -785,14 +737,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
         const auto facts = FramePresentationFacts { render.presentationAlpha, simulation.capturePresentationPinned,
                                                     secondsPerFrame, input.legacyDevelopmentUiActive };
 
-        const auto operatorUiResult = RenderOperatorUiPhase( host, interaction, scene, presentation, models, facts );
+        const auto operatorUiResult = RenderOperatorUiPhase( models, facts );
 
         if ( !operatorUiResult.ok )
         {
             return m_applicationExit.Resolve( 0 );
         }
 
-        RunPostDrawDiagnosticsPhase( interaction, input.legacyDevelopmentUiActive );
+        RunPostDrawDiagnosticsPhase( input.legacyDevelopmentUiActive );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
 

@@ -69,10 +69,6 @@ namespace Runtime
 class CaptureController;
 class ReplayRuntime;
 class SceneController;
-struct RuntimeFrameHostView;
-struct RuntimeFrameInteractionView;
-struct RuntimeFramePresentationView;
-struct RuntimeFrameSceneView;
 struct RunLaunchOptions;
 struct RunStartupOverrides;
 
@@ -134,13 +130,14 @@ class RuntimeValidationHarness
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
-    void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners,
-                                     RuntimeFrameSceneView& sceneOwners, RuntimeFramePresentationView& presentationOwners,
-                                     ReplayRuntime& replayRuntime, const Rendering::Dx12Diagnostics& renderDiagnostics,
-
-                                     // Prevents scene churn from reactivating the
-                                     // dormant Legacy surface during ImGui stress.
-                                     bool legacyDevelopmentUiActive );
+    GraphicsStressController& GraphicsStress()
+    {
+        return m_graphicsStress;
+    }
+    const GraphicsStressController& GraphicsStress() const
+    {
+        return m_graphicsStress;
+    }
     SceneAutomationGateTracker& SceneGates();
     const SceneAutomationGateTracker& SceneGates() const;
 

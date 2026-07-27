@@ -544,7 +544,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Automation\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
@@ -589,7 +588,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />

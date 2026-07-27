@@ -862,9 +862,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h">
-      <Filter>Header Files\Runtime\Automation</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
@@ -1010,9 +1007,6 @@
       <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">
-      <Filter>Header Files\Runtime\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimePickGeometry.h">

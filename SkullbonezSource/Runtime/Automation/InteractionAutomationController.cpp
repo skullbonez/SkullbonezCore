@@ -52,6 +52,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
 */
 #include "InteractionAutomationController.h"
+#include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Camera/AttachedCameraController.h"
 #include "../Capture/CaptureController.h"
@@ -3483,19 +3484,20 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
     return state.status.Result();
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, RuntimeFrameInteractionView& interactionOwners,
-                                                                                                RuntimeFrameSceneView& sceneOwners, const ReplayAutomationView& replayView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult
+Run::TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayView,
+                                           const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
-    Window* window = &windowOwner;
-    const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
-    SceneController& scene = sceneOwners.sceneController;
-    RunTimerState& timers = sceneOwners.timers;
-    CameraControlState& camera = interactionOwners.camera;
-    InputRouter& inputRouter = interactionOwners.inputRouter;
-    RuntimeInteractionController& interaction = interactionOwners.interaction;
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    UI::InGameUI& ui = interactionOwners.operatorUi;
+    InteractionAutomationController& state = m_interactionAutomation;
+    Window* window = &m_window;
+    const SkullbonezCore::Core::EngineConfig& config = m_config;
+    SceneController& scene = m_sceneController;
+    RunTimerState& timers = m_timers;
+    CameraControlState& camera = m_camera;
+    InputRouter& inputRouter = m_inputRouter;
+    RuntimeInteractionController& interaction = m_interaction;
+    RuntimeTools& runtimeTools = m_runtimeTools;
+    UI::InGameUI& ui = *m_operatorUi;
     InteractionAutomationFrameResult result;
 
     if ( !state.enabled || state.finished )
@@ -3903,16 +3905,20 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     return result;
 }
 
-InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeFrameInteractionView& interactionOwners, SceneController& scene,
-                                                                                                const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
+InteractionAutomationFrameResult
+Run::TickInteractionAutomationAfterRender( const ReplayAutomationView& replayView,
+                                           const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                           const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RuntimeInteractionController& interaction = interactionOwners.interaction;
-    InputRouter& inputRouter = interactionOwners.inputRouter;
-    CameraControlState& camera = interactionOwners.camera;
-    UI::InGameUI& ui = interactionOwners.operatorUi;
+    InteractionAutomationController& state = m_interactionAutomation;
+    RuntimeTools& runtimeTools = m_runtimeTools;
+    RuntimeInteractionController& interaction = m_interaction;
+    InputRouter& inputRouter = m_inputRouter;
+    CameraControlState& camera = m_camera;
+    UI::InGameUI& ui = *m_operatorUi;
+    SceneController& scene = m_sceneController;
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    Rendering::Dx12BackbufferCapture& backbufferCapture = BackbufferCapture();
     InteractionAutomationFrameResult result;
 
     if ( !state.enabled || state.finished )

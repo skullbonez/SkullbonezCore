@@ -9,9 +9,9 @@ Summary:
   direction and on the glossary/invariants below.
 
 Mental model:
-  Run is the process composition root and sequencer. It borrows concrete owners,
-  constructs stack-only frame views, and calls narrow phases without becoming
-  the storage owner for input, scene, replay, rendering, or UI policy.
+  Run is the process composition root and frame sequencer. Its ordered
+  coordinators may reach composed members directly; delegated domain operations
+  receive only the concrete owners and values they use.
 
 Glossary:
   Attached camera target: Runtime follow selection where Run owns the selected
@@ -42,7 +42,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
-  - SkullbonezSource/Runtime/RuntimeFrameViews.h
+  - SkullbonezSource/Runtime/App/InputFrame.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
@@ -60,6 +60,7 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Assets/AssetSystem.h"
 #include "ApplicationExitState.h"
+#include "InputFrame.h"
 #include "../Camera/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -116,18 +117,21 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
-}
+struct OperatorEditorFrameView;
+} // namespace UI
 namespace Runtime
 {
 class Window;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
 struct InteractionAutomationFrameResult;
-struct RuntimeFrameHostView;
-struct RuntimeFrameInteractionView;
-struct RuntimeFramePresentationView;
-struct RuntimeFrameSceneView;
+struct ReplayPathPickInput;
 struct RuntimeRenderModelFrameView;
+struct RuntimeUiTextFrameFacts;
+namespace ReplayOverlay
+{
+struct ReplayOverlayStateView;
+}
 
 /* -- Skullbonez Run
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -216,34 +220,46 @@ class Run
 
     bool PumpFrameMessages( int& messageExitCode );                                              // Bounded Win32 drain; true ends the frame loop.
     double BeginFrameTurn();                                                                     // Starts timing/profiling and validates renderer composition.
-    RuntimeFrameHostView BuildFrameHostView();                                                   // Constructs this turn's process-service borrow slice.
-    RuntimeFrameInteractionView BuildFrameInteractionView();                                     // Constructs this turn's input/UI borrow slice.
-    RuntimeFrameSceneView BuildFrameSceneView();                                                 // Constructs this turn's scene-policy borrow slice.
-    RuntimeFramePresentationView BuildFramePresentationView();                                   // Constructs this turn's render/validation borrow slice.
     void BeginFrameDiagnosticsPhase();                                                           // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    InteractionAutomationFrameResult RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction,
-                                                                    RuntimeFrameSceneView& scene );
+    InteractionAutomationFrameResult RunAutomationBeforeInputPhase();
+    InteractionAutomationFrameResult
+    TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayView,
+                                          const Rendering::RenderSceneSnapshot& renderSnapshot );
+    InteractionAutomationFrameResult
+    TickInteractionAutomationAfterRender( const ReplayAutomationView& replayView,
+                                          const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                          const Rendering::RenderSceneSnapshot& renderSnapshot );
 #endif
-    FrameInputPhaseResult RunInputPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                                         RuntimeFrameSceneView& scene, RuntimeFramePresentationView& presentation,
-                                         const InteractionAutomationFrameResult* automationBeforeInput );
-    FrameSimulationPhaseResult RunSimulationPhase( RuntimeFrameSceneView& scene, double secondsPerFrame,
-                                                   const SceneFrameProceedPolicy& proceedPolicy );
-    FrameRenderPhaseResult PrepareRenderPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                                               RuntimeFrameSceneView& scene, RuntimeFramePresentationView& presentation,
-                                               bool legacyDevelopmentUiActive,
+    FrameInputPhaseResult RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput );
+    FrameSimulationPhaseResult RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy );
+    FrameRenderPhaseResult PrepareRenderPhase( bool legacyDevelopmentUiActive,
                                                const FrameSimulationPhaseResult& simulation );
     RuntimeRenderModelFrameView PublishRenderModelsPhase();
     void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
-    SkullbonezCore::Core::SbResult
-    RenderOperatorUiPhase( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interaction,
-                           RuntimeFrameSceneView& scene, RuntimeFramePresentationView& presentation,
-                           const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& facts );
-    void RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction, bool legacyDevelopmentUiActive );
+    SkullbonezCore::Core::SbResult RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                          const FramePresentationFacts& facts );
+    void RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive );
     void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
     SkullbonezCore::Core::SbResult PresentFramePhase();
     bool CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy );
+
+    // Ordered frame sub-coordinators retain direct composition-root reach. The
+    // domain operations they call receive concrete operands only.
+    InputFrameExecutionResult ProcessInputFrame( UiInputCaptureIntent externalUiCapture,
+                                                 UI::OperatorEditorCommandQueues externalEditorCommands,
+                                                 bool legacyDevelopmentUiActive );
+    RuntimeUIFrameResult BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
+                                              const RuntimeInputFrameFacts& facts );
+    RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
+                                                      const RuntimeInputFrameFacts& facts );
+    RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, RunCameraMode replayCurrentCameraMode );
+    SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
+    void ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDiagnostics, bool legacyDevelopmentUiActive );
+    void ApplyGraphicsStressAction( class GraphicsStressController& stress );
+    void ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts, UI::OperatorEditorFrameView& operatorEditorView,
+                                     const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
+                                     const RuntimeRenderModelFrameView& renderModels );
 
     void Render( const RuntimeRenderModelFrameView& renderModels,
                  float presentationAlpha );                                                      // Skips 3D in text-only runs, then records passes for the current camera state.

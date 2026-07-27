@@ -5,10 +5,10 @@ Status: IN PROGRESS — owner ruling received 2026-07-27: the `Run` phase
 coordinator may retain direct member reach while every delegated operation takes
 only concrete operands. The 12-parameter ceiling applies to delegated
 operations, not to a coordinator's internal member reach. FV0 is complete and
-FV1 is complete and FV2 is binding. Drafted from the 2026-07-26
+FV2 is complete and FV3 is binding. Drafted from the 2026-07-26
 from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
-Round 5. 2/4 phases complete.
+Round 5. 3/4 phases complete.
 Impact area: `Runtime/RuntimeFrameViews.h`, `Runtime/App/Run.h`,
 `Runtime/App/RunFrame.cpp`, `Runtime/App/InputFrameExecution.cpp`,
 `Runtime/Capture/RuntimeStressController.cpp`
@@ -139,7 +139,7 @@ that operation can affect.
   tree with byte-exact output. Evidence:
   `../../Reports/2026-07-27/runtime-frame-view-retirement-fv1-closure.md`.
 
-- [ ] **FV2 — Convert the remaining phases and delete the views.**
+- [x] **FV2 — Convert the remaining phases and delete the views.**
   Apply concrete operands to `RunInputPhase`, `RunSimulationPhase`,
   `PrepareRenderPhase`, `PublishRenderModelsPhase`, `RenderWorldPhase`,
   `RenderOperatorUiPhase`, `RunPostDrawDiagnosticsPhase`, `FinishFrameWorkPhase`,
@@ -156,6 +156,12 @@ that operation can affect.
   returns no rows; `RuntimeFrameViews.h` is deleted or contains only
   `RuntimeUiTextFrameFacts` and forward declarations; DX12 baselines unchanged;
   capture restart and stress paths behave identically.
+  Closed 2026-07-27. The four views and two emptied forwarding headers are
+  deleted; private `Run` coordinators use direct member reach while delegated
+  `InputRouter` calls use concrete signatures capped at 12 parameters.
+  Debug/Profile/Automation builds, `validate_fast`, the DX12 gate, and a
+  61.1-second graphics-stress run pass without baseline change. Evidence:
+  `../../Reports/2026-07-27/runtime-frame-view-retirement-fv2-closure.md`.
 
 - [ ] **FV3 — Reconcile, review, and hand off.**
   Complete the comment audit for every touched file, with particular attention to

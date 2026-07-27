@@ -359,17 +359,6 @@ SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutoma
                                                                const char* scriptPath, const char* reportPath );
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
-InteractionAutomationFrameResult
-TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window,
-                                      RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners,
-                                      const ReplayAutomationView& replayView,
-                                      const Rendering::RenderSceneSnapshot& renderSnapshot );
-InteractionAutomationFrameResult
-TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeFrameInteractionView& interactionOwners,
-                                      SceneController& scene, const ReplayAutomationView& replayView,
-                                      const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                      const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
-                                      Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 } // namespace Runtime
 } // namespace SkullbonezCore

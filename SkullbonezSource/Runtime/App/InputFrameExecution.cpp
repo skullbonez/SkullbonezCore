@@ -37,12 +37,12 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#include "Run.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #endif
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
-#include "../Capture/RuntimeStressController.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -96,35 +96,36 @@ using SkullbonezCore::UI::InGameUITab;
 // InputRouter owns sampling, edge memory, semantic order, and pointer policy;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
-// Lifetime: all four frame views and the ReplayRuntime owner are borrowed for
-// this call and are never stored.
-InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners,
-                                                                      RuntimeFramePresentationView& presentationOwners, ReplayRuntime& replayRuntime, UiInputCaptureIntent externalUiCapture,
-                                                                      UI::OperatorEditorCommandQueues externalEditorCommands, bool legacyDevelopmentUiActive )
+// Lifetime: the Run coordinator reaches composed owners only for this ordered
+// input turn; delegated operations receive concrete operands and retain none.
+InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalUiCapture,
+                                                  UI::OperatorEditorCommandQueues externalEditorCommands,
+                                                  bool legacyDevelopmentUiActive )
 {
     InputFrameExecutionResult result;
-    InputRouter& inputRouter = interactionOwners.inputRouter;
-    SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
-    RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
-    const RunStartupState& startup = sceneOwners.startup;
-    RunTimerState& timers = sceneOwners.timers;
-    CameraControlState& camera = interactionOwners.camera;
-    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    InputRouter& inputRouter = m_inputRouter;
+    SkullbonezCore::Core::EngineConfig& config = m_config;
+    RunLaunchOptions& launchOptions = m_launchOptions;
+    const RunStartupState& startup = m_startup;
+    RunTimerState& timers = m_timers;
+    CameraControlState& camera = m_camera;
+    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
-    ApplicationExitState& applicationExit = host.applicationExit;
-    RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
-    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    Assets::AssetSystem& assets = host.assets;
-    Threading::WorkerPool& workerPool = host.workerPool;
-    Window& window = host.window;
-    RuntimeInteractionController& interaction = interactionOwners.interaction;
-    AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
-    SimulationSystem& simulation = sceneOwners.simulation;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
-    RuntimeValidationHarness& validationHarness = presentationOwners.validationHarness;
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RuntimeRenderer& renderer = presentationOwners.renderer;
-    SceneController& sceneController = sceneOwners.sceneController;
+    ApplicationExitState& applicationExit = m_applicationExit;
+    RenderDefaultsStore& renderDefaults = m_renderDefaults;
+    DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
+    Assets::AssetSystem& assets = m_assets;
+    Threading::WorkerPool& workerPool = m_workerPool;
+    Window& window = m_window;
+    RuntimeInteractionController& interaction = m_interaction;
+    AttachedCameraController& attachedCamera = m_attachedCamera;
+    SimulationSystem& simulation = m_simulation;
+    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
+    RuntimeValidationHarness& validationHarness = *m_validationHarness;
+    RuntimeTools& runtimeTools = m_runtimeTools;
+    RuntimeRenderer& renderer = Renderer();
+    SceneController& sceneController = m_sceneController;
+    ReplayRuntime& replayRuntime = m_replayRuntime;
 
     // Lifetime: these aliases expose InputRouter-owned frame state only for
     // this synchronous routing pass; Run retains neither value as member state.
@@ -151,7 +152,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         diagnosticsRuntime.Capture().DisableAutomationExit();
     };
 
-    const auto RunUIStressActions = [&]()
+    const auto runUIStressBatch = [&]()
     {
 
         // Invariant: the scene-authored stress harness mutates Legacy UI state.
@@ -164,10 +165,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         }
 
         presentationEdit.Commit();
-        const SkullbonezCore::Core::SbResult
-            result = SkullbonezCore::Runtime::RunUIStressActions( host, interactionOwners, sceneOwners, renderer,
-                                                                  replayRuntime,
-                                                                  NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
+        const SkullbonezCore::Core::SbResult result = this->RunUIStressActions( NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
 
         presentationEdit.Refresh();
         return result;
@@ -182,7 +180,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             return false;
         }
 
-        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( presentationOwners.backbufferCapture );
+        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( BackbufferCapture() );
 
         if ( !batch.status.ok )
         {
@@ -336,9 +334,10 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         inputRouter.DeferPointerPresentationCommit();
     }
 
-    if ( inputRouter.HandleUnfocusedFrame( interactionOwners, sceneController, replayRuntime, runtimeInput ) )
+    if ( inputRouter.HandleUnfocusedFrame( runtimeTools, interaction, attachedCamera, camera, ui, sceneController,
+                                           replayRuntime, runtimeInput ) )
     {
-        const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
+        const SkullbonezCore::Core::SbResult stressResult = runUIStressBatch();
 
         if ( !stressResult.ok )
         {
@@ -369,8 +368,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     auto completeEditorPlacementModeTransition = [&]( RuntimeInputActionSource source,
                                                      const EditorPlacementModeChangeResult& placementMode )
     {
-        inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, interactionOwners,
-                                              sceneController, replayRuntime,
+        inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, runtimeTools,
+                                              interaction, attachedCamera, camera, sceneController, replayRuntime,
                                               NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
 
         if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) ) )
@@ -380,7 +379,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
         inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
 
-        inputRouter.RecordModeAction( interactionOwners, runtimeInput, RuntimeInputAction::ToggleEditorTool, source );
+        inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                      RuntimeInputAction::ToggleEditorTool, source );
     };
 
     auto applyEditorPlacementModeToggle = [&]( RuntimeInputActionSource source )
@@ -425,9 +425,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
-        sceneLoad.CaptureSubmittedState( camera,
-                                         CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ),
-                                         debug, renderer.RendererName(), timers.simulationTimer.GetTotalTime() );
+        sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
+                                         renderer.RendererName(), timers.simulationTimer.GetTotalTime() );
 
         const bool loaded = sceneLoad
                                 .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
@@ -435,11 +434,11 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                        &renderer.RenderResources(), renderer )
                                 .ok;
 
-        sceneLoad.ApplyRuntimeReactions( launchOptions, timers, sceneOwners.overlays, sceneController, inputRouter,
+        sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter,
                                          interaction, camera, attachedCamera, runtimeTools, replayRuntime );
 
-        sceneLoad.ApplyPresentationOutputs( window, interactionOwners.operatorUi, validationHarness, launchOptions,
-                                            &renderer.RenderDevice(), renderer.VsyncEnabled(), sceneController );
+        sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                            renderer.VsyncEnabled(), sceneController );
 
         presentationEdit.Refresh();
         return loaded;
@@ -511,13 +510,16 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
             break;
         case RuntimeInputAction::CycleCameraMode:
-            inputRouter.CycleCameraMode( interactionOwners, sceneController, replayRuntime, runtimeInput );
+            inputRouter.CycleCameraMode( runtimeTools, interaction, attachedCamera, camera, sceneController, replayRuntime,
+                                         runtimeInput );
+
             break;
         case RuntimeInputAction::ToggleFlyCamera:
         {
             const RunCameraMode passiveMode = SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo;
             inputRouter.ApplyCameraMode( camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
-                                         event.source, interactionOwners, sceneController, replayRuntime, runtimeInput );
+                                         event.source, runtimeTools, interaction, attachedCamera, camera, sceneController,
+                                         replayRuntime, runtimeInput );
 
             break;
         }
@@ -525,15 +527,15 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
             if ( camera.mode == RunCameraMode::Launcher )
             {
-                inputRouter.ApplyCameraMode( camera.modeBeforeLauncher, event.source, interactionOwners, sceneController,
-                                             replayRuntime, runtimeInput );
+                inputRouter.ApplyCameraMode( camera.modeBeforeLauncher, event.source, runtimeTools, interaction,
+                                             attachedCamera, camera, sceneController, replayRuntime, runtimeInput );
             }
             else
             {
                 camera.modeBeforeLauncher = camera.mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : camera.mode;
 
-                inputRouter.ApplyCameraMode( RunCameraMode::Launcher, event.source, interactionOwners, sceneController,
-                                             replayRuntime, runtimeInput );
+                inputRouter.ApplyCameraMode( RunCameraMode::Launcher, event.source, runtimeTools, interaction,
+                                             attachedCamera, camera, sceneController, replayRuntime, runtimeInput );
             }
 
             break;
@@ -551,7 +553,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
             if ( RunCameraModeIsAttached( camera.mode ) && attachedCamera.CycleMode( sceneController.Scene() ) )
             {
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput,
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
                                               RuntimeInputAction::CycleAttachedCameraSubmode,
                                               RuntimeInputActionSource::Keyboard );
             }
@@ -576,7 +578,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                 inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
                                                                                           replayRuntime.BuildInputView() ) );
 
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, RuntimeInputAction::ToggleAttachedCameraPin,
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                              RuntimeInputAction::ToggleAttachedCameraPin,
                                               RuntimeInputActionSource::Keyboard );
             }
 
@@ -617,7 +620,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                     inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
                                                                                               replayRuntime.BuildInputView() ) );
 
-                    inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                    inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                                  event.action, event.source );
                 }
             }
             else if ( DemoDirectorPlayback::BeginGrab( camera, sceneController.Scene().Cameras() ) )
@@ -628,7 +632,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                 inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
                                                                                           replayRuntime.BuildInputView() ) );
 
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -639,7 +644,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                  camera.director.grabbed ) ) &&
                  DemoDirectorPlayback::SetCurrentPhasePose( camera, sceneController.Scene().Cameras() ) )
             {
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -650,7 +656,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                  camera.director.grabbed ) ) &&
                  DemoDirectorPlayback::SelectNextPhaseForAuthoring( camera, sceneController.Scene().Cameras() ) )
             {
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -661,7 +668,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                  camera.director.grabbed ) ) &&
                  DemoDirectorPlayback::SaveShotList( camera ) )
             {
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -686,7 +694,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         case RuntimeInputAction::ReloadShadersFromSource:
         {
 
-            if ( !presentationOwners.shaderDevelopment )
+            if ( !m_shaderDevelopment )
             {
                 fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
                 break;
@@ -696,8 +704,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SkullbonezCore::Core::SbResult reloadResult = presentationOwners.shaderDevelopment->get()
-                                                                    .ReloadShadersFromSource();
+            const SkullbonezCore::Core::SbResult reloadResult = m_shaderDevelopment->get().ReloadShadersFromSource();
 
             if ( !reloadResult.ok )
             {
@@ -790,7 +797,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                     }
                 }
 
-                inputRouter.RecordModeAction( interactionOwners, runtimeInput, event.action, event.source );
+                inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput, event.action,
+                                              event.source );
             }
 
             break;
@@ -869,7 +877,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         if ( velocityEditResult.setWorldOwner )
         {
             inputRouter.SetWorldInteractionOwner( velocityEditResult.worldOwner, InteractionExitReason::EnterReplay,
-                                                  interactionOwners, sceneController, replayRuntime,
+                                                  runtimeTools, interaction, attachedCamera, camera, sceneController,
+                                                  replayRuntime,
                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ) );
         }
     }
@@ -887,8 +896,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                    externalEditorCommands,
                                                    legacyDevelopmentUiActive };
 
-    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( window, interactionOwners, timers, sceneController,
-                                                              replayRuntime, replayPointerRay, uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( replayPointerRay, uiSamplingFacts );
 
     if ( uiFrameResult.frameActive )
     {
@@ -903,9 +911,9 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
                                                                        uiFrameResult.commands.ui.userInteracted,
                                                                        timers.simulationTimer.GetTotalTime(),
-                                                                       legacyDevelopmentUiActive, diagnosticsRuntime,
-                                                                       interactionOwners, sceneController,
-                                                                       sceneOwners.overlays,
+                                                                       legacyDevelopmentUiActive, diagnosticsRuntime, camera,
+                                                                       attachedCamera, runtimeTools, ui, sceneController,
+                                                                       *m_overlayDiagnostics,
                                                                        replayRuntime.BuildInputView() );
 
         presentationEdit.Refresh();
@@ -926,18 +934,16 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                 legacyDevelopmentUiActive };
 
     presentationEdit.Commit();
-    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult, keyboardToggleEditorMode, host, interactionOwners,
-                                                 sceneOwners, presentationOwners, replayRuntime, commandFacts );
+    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult, keyboardToggleEditorMode, commandFacts );
 
     presentationEdit.Refresh();
 
     if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
     {
-        uiFrameResult.status = RunUIStressActions();
+        uiFrameResult.status = runUIStressBatch();
     }
 
-    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult, interactionOwners, sceneController, replayRuntime,
-                                                 NormalizeCameraModeForCurrentScene( camera.mode ) );
+    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult, NormalizeCameraModeForCurrentScene( camera.mode ) );
 
     if ( uiFrameResult.enterInteractiveScene )
     {
@@ -1013,9 +1019,10 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     // owner can mutate selection, camera, or scene state. Consumers receive the
     // existing semantic pointer value plus only their focused leaf operands.
     const RuntimePointerRouteResult
-        pointerResult = inputRouter.RouteRuntimePointer( inputSnapshot.pointer, camera.mode, replayInput.inspectionActive,
+        pointerResult = inputRouter.RouteRuntimePointer( inputSnapshot.pointer, replayInput.inspectionActive,
                                                          SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), window,
-                                                         assets, interactionOwners, sceneController, replayRuntime,
+                                                         assets, runtimeTools, attachedCamera, interaction, camera,
+                                                         sceneController, replayRuntime,
                                                          NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
 
     if ( pointerResult.enteredInteractiveScene )
@@ -1025,8 +1032,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
     for ( std::size_t actionIndex = 0; actionIndex < pointerResult.modeActionCount; ++actionIndex )
     {
-        inputRouter.RecordModeAction( interactionOwners, runtimeInput, pointerResult.modeActions[actionIndex],
-                                      RuntimeInputActionSource::Mouse );
+        inputRouter.RecordModeAction( camera, runtimeTools, interaction, attachedCamera, runtimeInput,
+                                      pointerResult.modeActions[actionIndex], RuntimeInputActionSource::Mouse );
     }
 
     if ( ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
@@ -1041,8 +1048,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     }
     else
     {
-        inputRouter.DispatchCaptureActions( inputActions, diagnosticsRuntime, interactionOwners, sceneController,
-                                            sceneOwners.overlays.PresentationSnapshot().GetSaveState(),
+        inputRouter.DispatchCaptureActions( inputActions, diagnosticsRuntime, camera, attachedCamera, ui, sceneController,
+                                            m_overlayDiagnostics->PresentationSnapshot().GetSaveState(),
                                             replayRuntime.BuildInputView() );
 
         const RuntimeInteractionFramePolicy inputPolicy = interaction.BuildFramePolicy( inputSnapshot.frameInput );
@@ -1077,7 +1084,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     const bool processedDefaults = DrainRenderDefaultRequests();
     const bool processedCapture = DrainCaptureRequests();
     presentationEdit.Commit();
-    const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() );
+    const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( ui.SceneNavigation() );
 
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),
@@ -1088,11 +1095,11 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                                 workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
                                                                 &renderer.RenderResources(), renderer );
 
-    sceneLoad.ApplyRuntimeReactions( launchOptions, timers, sceneOwners.overlays, sceneController, inputRouter, interaction,
+    sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter, interaction,
                                      camera, attachedCamera, runtimeTools, replayRuntime );
 
-    sceneLoad.ApplyPresentationOutputs( window, interactionOwners.operatorUi, validationHarness, launchOptions,
-                                        &renderer.RenderDevice(), renderer.VsyncEnabled(), sceneController );
+    sceneLoad.ApplyPresentationOutputs( window, ui, validationHarness, launchOptions, &renderer.RenderDevice(),
+                                        renderer.VsyncEnabled(), sceneController );
 
     presentationEdit.Refresh();
 
