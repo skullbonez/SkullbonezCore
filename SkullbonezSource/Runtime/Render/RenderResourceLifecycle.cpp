@@ -44,13 +44,12 @@ namespace Rendering = SkullbonezCore::Rendering;
 RenderResourceLifecycle::RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                                                   Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                                  std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing, const RenderWorldView& world,
-                                                  const SceneSessionState& scene )
+                                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable,
+                                                  const RenderWorldView& world, const SceneSessionState& scene )
     : m_renderDevice( renderDevice ), m_renderFrame( renderFrame ), m_renderGraph( renderGraph ),
       m_renderResources( renderResources ), m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ),
-      m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ), m_lifecycleLog( &renderDevice, scene ),
-      m_assets( world.assets ), m_terrain( world.terrain ), m_config( world.config ),
+      m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ), m_raytracingAvailable( raytracingAvailable ),
+      m_lifecycleLog( &renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ), m_config( world.config ),
       m_primitiveBatches( std::in_place, &renderResources, &renderTextures, &renderGeometry ),
       m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( world.profiler, m_gpuTiming )
 {
@@ -134,12 +133,12 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( int modelCapacity )
 {
 
-    if ( !m_raytracing )
+    if ( !m_raytracingAvailable )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Rendering::Dx12RaytracingOwner& rayTracing = m_raytracing->get();
+    Rendering::Dx12RaytracingOwner& rayTracing = m_raytracing;
 
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
 
@@ -225,9 +224,9 @@ bool RenderResourceLifecycle::ShouldRenderUiText( const OverlayDebugState& debug
 }
 
 
-void RenderResourceLifecycle::SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing )
+void RenderResourceLifecycle::SetUiTextDxrReflectionPreviewTexture( uint32_t textureHandle )
 {
-    m_uiTextPass.SetRayTracingCapability( rayTracing );
+    m_uiTextPass.SetDxrReflectionPreviewTexture( textureHandle );
 }
 
 

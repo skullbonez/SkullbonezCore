@@ -263,7 +263,7 @@ void UiTextPass::ReleaseGpuResources( Rendering::Dx12TextureOwner* renderTexture
 {
     m_uiDrawSubmission.ReleaseGpuResources( renderGeometry );
     Text2d::DeleteFont( m_textBatch, renderTextures, renderGeometry );
-    m_renderRayTracing = nullptr;
+    m_dxrReflectionPreviewTexture = 0;
 }
 
 
@@ -279,9 +279,9 @@ bool UiTextPass::ShouldRender( const OverlayDebugState& debug, const SceneSessio
 }
 
 
-void UiTextPass::SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing )
+void UiTextPass::SetDxrReflectionPreviewTexture( uint32_t textureHandle )
 {
-    m_renderRayTracing = renderRayTracing;
+    m_dxrReflectionPreviewTexture = textureHandle;
 }
 
 
@@ -1083,7 +1083,7 @@ void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameU
     // recorded catalog index for this same frame.
     RuntimeRenderTargetPreviewSnapshot resolvedPreviews = renderTargetPreviews;
     {
-        const uint32_t dxrReflection = m_renderRayTracing ? m_renderRayTracing->GetReflectionUAVTexture() : 0;
+        const uint32_t dxrReflection = m_dxrReflectionPreviewTexture;
 
         if ( resolvedPreviews.count < static_cast<int>( resolvedPreviews.targets.size() ) )
         {

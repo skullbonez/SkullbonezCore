@@ -1026,11 +1026,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
     // every exit instead of requiring each fallback to duplicate an end call.
     PROFILE_GPU_SCOPED( inputs.gpuTiming, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Render/Reflection" );
-    const auto renderCapabilities = inputs.renderDiagnostics.GetCapabilities();
-    Rendering::Dx12RaytracingOwner* rayTracing = inputs.rayTracing;
-    const bool useDxrReflection = renderCapabilities.supportsDxrReflection && rayTracing &&
-                                  inputs.waterRayTracingReflection && !inputs.waterNoReflection &&
-                                  !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
+    Rendering::Dx12RaytracingOwner& rayTracing = inputs.rayTracing;
+    const bool useDxrReflection = inputs.useDxrReflection;
 
     output.usedDxr = useDxrReflection;
 
@@ -1047,7 +1044,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
-        rayTracing->BuildTLAS( std::span<const Matrix4>( m_dxrReflectionTransforms, static_cast<std::size_t>( ballCount ) ) );
+        rayTracing.BuildTLAS( std::span<const Matrix4>( m_dxrReflectionTransforms, static_cast<std::size_t>( ballCount ) ) );
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
@@ -1094,8 +1091,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
             return output;
         }
 
-        rayTracing->DispatchReflectionRays( reflection );
-        output.reflectionTextureHandle = rayTracing->GetReflectionUAVTexture();
+        rayTracing.DispatchReflectionRays( reflection );
+        output.reflectionTextureHandle = rayTracing.GetReflectionUAVTexture();
         output.reflectionSampleViewProjection = inputs.camera.viewProjection;
     }
     else

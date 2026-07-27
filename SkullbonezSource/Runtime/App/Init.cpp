@@ -218,15 +218,10 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
             return 1;
         };
 
-        std::optional<std::reference_wrapper<Dx12RaytracingOwner>> raytracing;
+        const bool raytracingAvailable = renderBackend.Diagnostics().GetCapabilities().supportsDxrReflection;
 
-        if ( renderBackend.Diagnostics().GetCapabilities().supportsDxrReflection )
-        {
-            raytracing.emplace( renderBackend.Raytracing() );
-        }
-
-        std::optional<std::reference_wrapper<Dx12ShaderDevelopment>> shaderDevelopment;
-        shaderDevelopment.emplace( renderBackend.ShaderDevelopment() );
+        std::optional<std::reference_wrapper<Dx12ShaderDevelopment>> shaderDevelopment {
+            std::ref( renderBackend.ShaderDevelopment() ) };
 
         const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend.RenderDevice(),
                                                                                    renderBackend.Frame(),
@@ -234,8 +229,9 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
                                                                                    renderBackend.ResourceBuilder(),
                                                                                    renderBackend.Textures(),
                                                                                    renderBackend.Geometry(),
-                                                                                   renderBackend.Diagnostics(), raytracing,
-                                                                                   shaderDevelopment
+                                                                                   renderBackend.Diagnostics(),
+                                                                                   renderBackend.Raytracing(),
+                                                                                   raytracingAvailable, shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                                                                                    ,
                                                                                    renderBackend.DevelopmentUiRenderer()

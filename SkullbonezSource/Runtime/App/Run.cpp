@@ -297,8 +297,8 @@ SkullbonezCore::Core::SbResult
 Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                         Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                         Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                        Rendering::Dx12Diagnostics& renderDiagnostics,
-                        std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
+                        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                        bool raytracingAvailable,
                         std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                         ,
@@ -306,12 +306,13 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
 #endif
 )
 {
-    m_renderer.emplace( renderDevice, renderFrame, renderGraph, renderResources, renderTextures, renderGeometry,
-                        renderDiagnostics, raytracing,
-                        RenderWorldView { m_assets, m_sceneController.Scene().Cameras(), m_sceneController.Scene().Terrain(),
-                                          m_window, m_config, m_sceneController.Scene().Environment(),
-                                          m_overlayDiagnostics->RenderResources(), m_profiler },
-                        m_sceneController.State() );
+    m_renderer = std::make_unique<RuntimeRenderer>( renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
+                                                    renderGeometry, renderDiagnostics, raytracing, raytracingAvailable,
+                                                    RenderWorldView { m_assets, m_sceneController.Scene().Cameras(),
+                                                                      m_sceneController.Scene().Terrain(), m_window,
+                                                                      m_config, m_sceneController.Scene().Environment(),
+                                                                      m_overlayDiagnostics->RenderResources(), m_profiler },
+                                                    m_sceneController.State() );
 
     m_shaderDevelopment = shaderDevelopment;
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
@@ -529,7 +530,7 @@ void Run::Initialise()
         return;
     }
 
-    assert( m_renderer.has_value() && "Run requires a renderer before Initialise()" );
+    assert( m_renderer && "Run requires a renderer before Initialise()" );
     auto& renderResources = Renderer().RenderResources();
     const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = Renderer().RenderDiagnostics();
 

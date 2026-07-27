@@ -44,7 +44,7 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
     const OverlayDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
-    Renderer().ResourceLifecycle().SetUiTextRayTracingCapability( nullptr );
+    Renderer().ResourceLifecycle().SetUiTextDxrReflectionPreviewTexture( 0 );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
 
@@ -100,7 +100,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                      ->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                                          m_timers.simulationTimer.GetTotalTime() );
 
-    const bool renderReady = m_renderer.has_value();
+    const bool renderReady = static_cast<bool>( m_renderer );
 
     if ( !renderReady )
     {

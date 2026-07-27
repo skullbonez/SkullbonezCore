@@ -1,7 +1,7 @@
 //
 // File: SkullbonezTests/TestRuntimeValueSeams.cpp
 // Purpose:
-//   Lock CPU-only interaction-policy and replay-overlay value seams.
+//   Lock CPU-only interaction, render-policy, and replay-overlay value seams.
 //
 // Summary:
 //   These tests exercise the frame-policy matrix and the screen-space control
@@ -36,6 +36,7 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
 #include <cmath>
@@ -65,6 +66,20 @@ int RectCenterY( const SkullbonezCore::UI::UIRect& rect )
     return static_cast<int>( std::round( rect.y + rect.h * 0.5f ) );
 }
 } // namespace
+
+TEST_CASE( "Render policy: unavailable raytracing cannot select DXR reflection" )
+{
+    RuntimeRenderFramePolicy policy;
+    policy.waterRTReflect = true;
+    CHECK_FALSE( ShouldUseDxrReflection( false, policy, false, false ) );
+    CHECK( ShouldUseDxrReflection( true, policy, false, false ) );
+
+    policy.waterNoReflect = true;
+    CHECK_FALSE( ShouldUseDxrReflection( true, policy, false, false ) );
+    policy.waterNoReflect = false;
+    CHECK_FALSE( ShouldUseDxrReflection( true, policy, true, false ) );
+    CHECK_FALSE( ShouldUseDxrReflection( true, policy, false, true ) );
+}
 
 TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
 {

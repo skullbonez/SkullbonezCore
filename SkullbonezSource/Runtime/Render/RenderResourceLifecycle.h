@@ -4,9 +4,10 @@ Purpose:
   Owns renderer resources whose validity follows the active DX12 backend epoch.
 
 Summary:
-  RenderResourceLifecycle binds the established backend and world owner views,
-  creates process and scene resources, and projects safe preview values. Frame
-  ordering remains in RuntimeRenderer; backend-epoch state does not.
+  RenderResourceLifecycle binds concrete backend owners and the established
+  world owner view, creates process and scene resources, and projects safe
+  preview values. Frame ordering remains in RuntimeRenderer; backend-epoch
+  state does not.
 
 Glossary:
   Backend epoch: The interval during which one set of concrete DX12 owners is
@@ -62,9 +63,8 @@ class RenderResourceLifecycle
     RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                              Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                             Rendering::Dx12Diagnostics& renderDiagnostics,
-                             std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
-                             const RenderWorldView& world, const SceneSessionState& scene );
+                             Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                             bool raytracingAvailable, const RenderWorldView& world, const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
     SkullbonezCore::Core::SbResult InitialiseProcessResources( bool dumpTextureAssets );
@@ -76,7 +76,7 @@ class RenderResourceLifecycle
     bool ShouldRenderUiText( const OverlayDebugState& debug, const SceneSessionState& scene, bool crossScenePauseLocked,
                              const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
                              bool replayPathVisualizerHasTarget ) const;
-    void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* rayTracing );
+    void SetUiTextDxrReflectionPreviewTexture( uint32_t textureHandle );
 
   private:
     friend class RuntimeRenderer;
@@ -109,9 +109,13 @@ class RenderResourceLifecycle
     {
         return m_renderDiagnostics;
     }
-    const std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>>& Raytracing() const
+    Rendering::Dx12RaytracingOwner& Raytracing() const
     {
         return m_raytracing;
+    }
+    bool RaytracingAvailable() const
+    {
+        return m_raytracingAvailable;
     }
 
     // Lifetime: teardown remains ordered by RuntimeRenderer because pass
@@ -181,7 +185,8 @@ class RenderResourceLifecycle
     Rendering::Dx12TextureOwner& m_renderTextures;
     Rendering::Dx12GeometryOwner& m_renderGeometry;
     Rendering::Dx12Diagnostics& m_renderDiagnostics;
-    std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> m_raytracing;
+    Rendering::Dx12RaytracingOwner& m_raytracing;
+    bool m_raytracingAvailable = false;
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;

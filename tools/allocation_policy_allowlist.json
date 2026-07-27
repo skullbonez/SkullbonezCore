@@ -39,6 +39,17 @@
       "removal_or_wrapper_plan": "Replace with composition-root arena storage if process-lifetime runtime owners move to a typed startup allocator."
     },
     {
+      "path": "SkullbonezSource/Runtime/App/Run.cpp",
+      "patterns": [
+        "std::make_unique<RuntimeRenderer>"
+      ],
+      "owner": "RuntimeRenderer process-lifetime render orchestration owner",
+      "phase": "startup_backend_bind",
+      "reason": "Run creates RuntimeRenderer only after the concrete DX12 backend owners exist; explicit heap ownership gives the deferred renderer a stable address without nullable downstream capability propagation.",
+      "cap": "One RuntimeRenderer allocation per process launch.",
+      "removal_or_wrapper_plan": "Replace with composition-root arena storage if deferred process-lifetime runtime owners move to a typed startup allocator."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp",
       "patterns": [
         "std::make_unique<RuntimeOverlayDiagnostics>"

@@ -249,7 +249,7 @@ double Run::BeginFrameTurn()
     // Lifetime: every facet is a startup-owned borrow for this synchronous
     // frame turn. A missing facet is a composition invariant failure.
 
-    if ( !m_renderer.has_value() )
+    if ( !m_renderer )
     {
         SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
     }

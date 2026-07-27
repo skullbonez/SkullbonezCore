@@ -27,7 +27,7 @@ Glossary:
     higher composition without exposing its content owner to this renderer.
 
 Invariants:
-  - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
+  - RuntimeRenderer owns pass instances; Run engages one after backend binding.
   - One graph accumulates world, late UI, development UI, and Present rows in
     execution order; wrappers never clear or reconstruct it mid-frame.
   - Backend resource release begins only after a successful GPU drain, then
@@ -234,9 +234,8 @@ class RuntimeRenderer
     RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                      Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                      Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                     Rendering::Dx12Diagnostics& renderDiagnostics,
-                     std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
-                     const RenderWorldView& world, SceneSessionState& scene );
+                     Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                     bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This

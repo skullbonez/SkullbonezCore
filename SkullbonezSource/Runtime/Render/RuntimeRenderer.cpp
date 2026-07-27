@@ -1127,9 +1127,7 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
 {
     Rendering::Dx12GraphTransientPool& renderGraph = m_resources.RenderGraph();
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const bool useDxrCandidate = pass.rayTracing && pass.renderDiagnostics.GetCapabilities().supportsDxrReflection &&
-                                 pass.waterRayTracingReflection && !pass.waterNoReflection &&
-                                 !pass.collisionStateColorsVisible && !pass.transparentBodyPass;
+    const bool useDxrCandidate = pass.useDxrReflection;
 
     Rendering::RenderGraphResourceHandle objectShadowResource;
 
@@ -1154,7 +1152,7 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
 
     if ( useDxrCandidate )
     {
-        const uint32_t reflectionHandle = pass.rayTracing->GetReflectionUAVTexture();
+        const uint32_t reflectionHandle = pass.rayTracing.GetReflectionUAVTexture();
         producedReflection = graph.AddExternalResource( "DxrReflectionTexture",
                                                         Rendering::RenderGraphResourceAccess::PixelShaderResource,
                                                         renderGraph.ResolveGraphResourceToken( reflectionHandle ) );
@@ -1861,11 +1859,10 @@ RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Ren
                                   Rendering::Dx12GraphTransientPool& renderGraph,
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics,
-                                  std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
-                                  const RenderWorldView& world, SceneSessionState& scene )
+                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                                  bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene )
     : m_resources( renderDevice, renderFrame, renderGraph, renderResources, renderTextures, renderGeometry,
-                   renderDiagnostics, raytracing, world, scene ),
+                   renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
       m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
@@ -1995,9 +1992,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
     const ReplayRenderFrameView& replayFrame = context.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
-    const auto& raytracingCapability = m_resources.Raytracing();
-    Rendering::Dx12RaytracingOwner* raytracing = raytracingCapability ? &raytracingCapability->get() : nullptr;
-    m_resources.UiText().SetRayTracingCapability( raytracing );
+    Rendering::Dx12RaytracingOwner& raytracing = m_resources.Raytracing();
+    const bool raytracingAvailable = m_resources.RaytracingAvailable();
+    m_resources.UiText().SetDxrReflectionPreviewTexture( raytracingAvailable ? raytracing.GetReflectionUAVTexture() : 0 );
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_resources.Config().ordinaryRender;
     SkullbonezCore::Core::CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
@@ -2144,6 +2141,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? policy.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
+    const bool useDxrReflection = ShouldUseDxrReflection( raytracingAvailable, policy, collisionStateColorsVisible,
+                                                          debugTransparentBodyPass );
+
     const bool waterModeOff = cinematicRender && activeCinematic && activeCinematic->waterMode == 0;
     const bool waterVisibleThisFrame = !policy.waterHidden && !waterModeOff;
     const bool reflectionPassNeeded = waterVisibleThisFrame && !policy.waterNoReflect;
@@ -2181,6 +2181,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                       renderDiagnostics,
                                                       &m_resources.GpuTiming(),
                                                       raytracing,
+                                                      useDxrReflection,
                                                       reflectionView,
                                                       reflectionViewProjection,
                                                       waterY,
@@ -2188,10 +2189,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                       windowHeight,
                                                       activeCinematic,
                                                       objectShadowFrame,
-                                                      policy.waterRTReflect,
-                                                      policy.waterNoReflect,
                                                       collisionStateColorsVisible,
-                                                      debugTransparentBodyPass,
                                                       collisionVisualizerAlphaOverride,
                                                       bodyRenderAlpha,
                                                       static_cast<float>( policy.totalSimulationSeconds ) };
@@ -2627,7 +2625,7 @@ RenderDiagnosticsReadout RuntimeRenderer::BuildDiagnosticsReadout() const
 
 bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 {
-    m_resources.UiText().SetRayTracingCapability( nullptr );
+    m_resources.UiText().SetDxrReflectionPreviewTexture( 0 );
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
 
     if ( policy.textOnly )

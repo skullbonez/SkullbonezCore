@@ -157,8 +157,8 @@ class Run
     RenderDefaultsStore m_renderDefaults;                                                        // Deferred ordinary/cinematic engine.cfg persistence owner.
     RunStartupState m_startup;                                                                   // engine.cfg startup capacity/thread defaults restored by demo resets.
 
-    // Subsystem owners below are ordered by lifetime dependency. Render-host
-    // bindings borrow from these objects; they do not own them.
+    // Subsystem owners below are ordered by lifetime dependency. Renderer and
+    // frame bindings borrow from these objects; they do not own them.
     DiagnosticsRuntime m_diagnosticsRuntime;                                                     // Capture, perf, and queryable physics diagnostics owner.
     RunTimerState m_timers;                                                                      // Frame/simulation timers and rolling timing values
     InputRouter m_inputRouter;                                                                   // Owns keyboard/pointer edge memory and binding-context enforcement.
@@ -188,7 +188,7 @@ class Run
     std::unique_ptr<RuntimeOverlayDiagnostics> m_overlayDiagnostics;
     std::unique_ptr<RuntimeValidationHarness> m_validationHarness;                               // Owns opt-in live-style and graphics-stress controls.
     Rendering::Dx12BackbufferCapture& m_backbufferCapture;                                       // Required process-lifetime screenshot/readback owner.
-    std::optional<RuntimeRenderer> m_renderer;                                                   // Engaged once startup binds the concrete backend owners.
+    std::unique_ptr<RuntimeRenderer> m_renderer;                                                 // Created once startup binds the concrete backend owners.
     std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>>
         m_shaderDevelopment;                                                                     // Explicit developer-only shader reload capability.
 
@@ -201,12 +201,12 @@ class Run
 
     RuntimeRenderer& Renderer()
     {
-        assert( m_renderer.has_value() );
+        assert( m_renderer );
         return *m_renderer;
     }
     const RuntimeRenderer& Renderer() const
     {
-        assert( m_renderer.has_value() );
+        assert( m_renderer );
         return *m_renderer;
     }
     Rendering::Dx12BackbufferCapture& BackbufferCapture() const
@@ -271,8 +271,8 @@ class Run
     BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                        Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                        Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                       Rendering::Dx12Diagnostics& renderDiagnostics,
-                       std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
+                       Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
+                       bool raytracingAvailable,
                        std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                        ,

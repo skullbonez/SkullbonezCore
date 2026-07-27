@@ -122,6 +122,13 @@ struct RuntimeRenderFramePolicy
     double totalSimulationSeconds = 0.0;
 };
 
+inline bool ShouldUseDxrReflection( bool capabilityAvailable, const RuntimeRenderFramePolicy& policy,
+                                    bool collisionStateColorsVisible, bool transparentBodyPass )
+{
+    return capabilityAvailable && policy.waterRTReflect && !policy.waterNoReflect && !collisionStateColorsVisible &&
+           !transparentBodyPass;
+}
+
 struct RuntimeRenderModelFrameView
 {
     Rendering::RenderInstanceStore& renderInstances;

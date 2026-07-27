@@ -10,7 +10,7 @@
     "aggregates":  [
                        {
                            "key":  "BackbufferAcquireGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:355",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:354",
                            "members":  3,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -46,7 +46,7 @@
                        },
                        {
                            "key":  "CinematicPostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:342",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:341",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -55,7 +55,7 @@
                        },
                        {
                            "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:402",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:401",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -64,7 +64,7 @@
                        },
                        {
                            "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:412",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:407",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -208,7 +208,7 @@
                        },
                        {
                            "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:366",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:365",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -272,7 +272,7 @@
                        {
                            "key":  "ReflectionPassInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:290",
-                           "members":  24,
+                           "members":  22,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
                            "reason":  "Distinct concrete render-pass input; it is a pass boundary rather than a cross-domain authority bag.",
@@ -325,7 +325,7 @@
                        },
                        {
                            "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:391",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:390",
                            "members":  8,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -658,7 +658,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:430",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:425",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -685,7 +685,7 @@
                        },
                        {
                            "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:371",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:370",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -721,7 +721,7 @@
                        },
                        {
                            "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:375",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -730,7 +730,7 @@
                        },
                        {
                            "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:335",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:330",
                            "members":  13,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -757,7 +757,7 @@
                        },
                        {
                            "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:381",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:380",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",

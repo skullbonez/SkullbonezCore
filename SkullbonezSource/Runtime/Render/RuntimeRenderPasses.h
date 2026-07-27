@@ -302,7 +302,8 @@ struct ReflectionPassInputs
     Rendering::Dx12FrameOwner& renderFrame;
     Rendering::Dx12Diagnostics& renderDiagnostics;
     Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
-    Rendering::Dx12RaytracingOwner* rayTracing = nullptr;
+    Rendering::Dx12RaytracingOwner& rayTracing;
+    bool useDxrReflection = false;                   // Composition capability and frame policy resolved by RuntimeRenderer.
     Math::Transformation::Matrix4 reflectionView;
     Math::Transformation::Matrix4 reflectionViewProjection;
     float waterY = 0.0f;
@@ -310,13 +311,7 @@ struct ReflectionPassInputs
     int windowHeight = 1;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* objectShadow;
-    bool waterRayTracingReflection;                  // Frame snapshot of the debug water reflection mode.
-    bool waterNoReflection;                          // Frame snapshot of the water reflection disable switch.
     bool collisionStateColorsVisible;                // Reflection must match the selected body visualization mode.
-
-    // Disables DXR reflection because the mirrored raster path can honor
-    // debug alpha and collision-state rendering.
-    bool transparentBodyPass;
     float collisionVisualizerAlphaOverride;          // Forwarded to reflected collision-state geometry.
     float bodyAlpha;                                 // Forwarded to reflected production body rendering.
     float simulationTimeSeconds;                     // Timer sample consumed by the DXR reflection shader.
@@ -851,7 +846,7 @@ class UiTextPass
     bool ShouldRender( const OverlayDebugState& debug, const SceneSessionState& scene, bool crossScenePauseLocked,
                        const CameraControlState& camera, const UI::InGameUI& ui, bool replayScrubberVisible,
                        bool replayPathVisualizerHasTarget ) const;
-    void SetRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
+    void SetDxrReflectionPreviewTexture( uint32_t textureHandle );
     float BeginFrame( RunTimerState& timers, const RuntimeRenderModelFrameView& models, double secondsPerFrame, int screenW,
                       int screenH );
     void RenderChromeStatus( const UiTextViewport& viewport, const OverlayDebugState& debug, bool crossScenePauseLocked,
@@ -921,7 +916,7 @@ class UiTextPass
     UI::UIRuntimeReserveCapacityRow m_reserveCapacityRows[UI::UI_RUNTIME_RESERVE_CAPACITY_ROW_MAX];
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     Rendering::RenderGpuTimingOwner* m_gpuTiming = nullptr;
-    Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;
+    uint32_t m_dxrReflectionPreviewTexture = 0;
 };
 
 } // namespace Runtime
