@@ -4,7 +4,7 @@ Date: 2026-07-26
 Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 13 of the Architecture Follow-Up Campaign
-Round 5. Runs last in the campaign. 2/5 phases complete; T2 is binding.
+Round 5. Runs last in the campaign. 3/5 phases complete; T3 is binding.
 Impact area: `World/Terrain.{h,cpp}`, `Physics/PhysicsTerrainView.{h,cpp}`,
 `Physics/PersistentContactSolver.cpp`, `Runtime/Debug/PhysicsDebugVisualizer.cpp`
 Owner: physics + world
@@ -127,7 +127,7 @@ approximation with a named constant, a stated assumption, and a test.
   in either file warns that a name is misleading; physics CSV byte-exact; terrain
   focused tests pass; `validate_physics.bat` and `validate_physics_deep.bat` pass.
 
-- [ ] **T2 — Make terrain index safety local and provable.**
+- [x] **T2 — Make terrain index safety local and provable.**
   State the bound at the index site. Add the derivation as an `Invariant:` comment
   where `targetQuad` is computed, and add a debug assertion or lane-F guard so an
   out-of-range index is caught at the read rather than depending on a constant

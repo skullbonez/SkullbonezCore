@@ -762,13 +762,14 @@ XZBounds Terrain::GetXZBounds()
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
 
-    if ( !IsInBounds( xPosition, zPosition ) )
-    {
-        SB_FATAL( "Terrain", "Coordinates out of terrain bounds in LocatePolygon: x=%.3f z=%.3f.", xPosition, zPosition );
-    }
-
     if ( m_isFlatSlope )
     {
+
+        if ( !IsInBounds( xPosition, zPosition ) )
+        {
+            SB_FATAL( "Terrain", "Coordinates out of terrain bounds in LocatePolygon: x=%.3f z=%.3f.", xPosition,
+                      zPosition );
+        }
 
         // Analytic flat-slope terrain returns three points on the plane
         // y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z.
@@ -784,15 +785,39 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
         return tri;
     }
 
+    const float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
+
+    if ( m_postsPerSide < 2 || scaledStepSize <= 0.0f )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon grid is invalid: postsPerSide=%d scaledStepSize=%.3f.", m_postsPerSide,
+                  scaledStepSize );
+    }
+
     // Terrain posts are stored world-X-major, matching TranslatePostings.
-    int worldZCell = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
-    int worldXCell = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
+    int worldZCell = static_cast<int>( floorf( zPosition / scaledStepSize ) );
+    int worldXCell = static_cast<int>( floorf( xPosition / scaledStepSize ) );
+    const int quadsPerSide = m_postsPerSide - 1;
 
-    // Use the bottom-right post as the target quad so the A/B split below can
-    // work in one local coordinate frame.
-    int targetQuad = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
+    if ( worldXCell < 0 || worldZCell < 0 || worldXCell >= quadsPerSide || worldZCell >= quadsPerSide )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon cell out of range: x=%.3f z=%.3f worldXCell=%d worldZCell=%d quadsPerSide=%d.",
+                  xPosition, zPosition, worldXCell, worldZCell, quadsPerSide );
+    }
 
-    float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
+    // Invariant: the strict cell guard caps both cells at postsPerSide - 2.
+    // Therefore the four named indices span [0, postsPerSide^2 - 1]. The
+    // storage-size guard pins that derivation to the actual backing vector.
+    const int targetPostIndex = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
+    const int previousRowPostIndex = targetPostIndex - m_postsPerSide;
+    const int previousRowNextPostIndex = previousRowPostIndex + 1;
+    const int targetNextPostIndex = targetPostIndex + 1;
+
+    if ( previousRowPostIndex < 0 || targetNextPostIndex < 0 ||
+         static_cast<std::size_t>( targetNextPostIndex ) >= m_postData.size() )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon post window out of range: first=%d target=%d last=%d postCount=%zu.",
+                  previousRowPostIndex, targetPostIndex, targetNextPostIndex, m_postData.size() );
+    }
 
     // Express the query relative to the target quad's bottom-right post. The Z
     // component points back into the quad and is therefore negative.
@@ -836,17 +861,17 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     {
 
         // TRIANGLE A
-        targetPolygon.v1 = m_postData[targetQuad].vPosition;
-        targetPolygon.v2 = m_postData[targetQuad - m_postsPerSide].vPosition;
-        targetPolygon.v3 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
+        targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
+        targetPolygon.v2 = m_postData[previousRowPostIndex].vPosition;
+        targetPolygon.v3 = m_postData[previousRowNextPostIndex].vPosition;
     }
     else
     {
 
         // TRIANGLE B
-        targetPolygon.v1 = m_postData[targetQuad].vPosition;
-        targetPolygon.v2 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
-        targetPolygon.v3 = m_postData[targetQuad + 1].vPosition;
+        targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
+        targetPolygon.v2 = m_postData[previousRowNextPostIndex].vPosition;
+        targetPolygon.v3 = m_postData[targetNextPostIndex].vPosition;
     }
 
     return targetPolygon;

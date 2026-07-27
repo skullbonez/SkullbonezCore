@@ -773,7 +773,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 5/15 (33%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 6/15 (40%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -823,8 +823,11 @@ four-case / 47-assertion focused terrain-support oracle. The missing direct
 shoreline-scale test is the expected T3 gap, not a baseline mismatch. T1 is
 complete with world-X/world-Z cell names, `quad` terminology, and explicit
 zero comparison; all focused, physics, deep physics, and SkullScope oracles
-remain exact. T2 is binding; plans 5 and 11 are blocked and plan 12 waits for
-plan 5.
+remain exact. T2 locally proves every `LocatePolygon` post read, adds an exact
+upper-edge Debug fatal probe, and retains the method because its sole
+debug-visualizer caller needs triangle vertices the cache view does not expose.
+The focused oracle and byte-exact Physics gate pass. T3 is binding; plans 5 and
+11 are blocked and plan 12 waits for plan 5.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2134,7 +2137,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Blocked | 2/3 | [AF2 blocker](../Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md): genuine provenance validation necessarily adds owned-path work, conflicting with the literal “no happy-path cost added” requirement; owner must permit measured cost or replace provenance |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
-| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | In progress | 2/5 | **Binding next task: T2**. Axis/cell names now state the world-X-major convention and all byte-exact oracles pass |
+| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | In progress | 3/5 | **Binding next task: T3**. Every `LocatePolygon` post read now has a local bound proof and lane-F guard; the byte-exact Physics oracle passes |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
 
 ## Features

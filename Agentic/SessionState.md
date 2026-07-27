@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked and plan 12 waits for plan 5; `terrain-legacy-and-contact-seed-remediation` T2 is binding. |
-| Active/future progress | 5/15 (33%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked and plan 12 waits for plan 5; `terrain-legacy-and-contact-seed-remediation` T3 is binding. |
+| Active/future progress | 6/15 (40%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -113,8 +113,13 @@ T1 renamed the cached build, `LocatePolygon`, and Physics terrain lookup around
 the real world-X-major cell convention, removed the misleading-name warnings,
 renamed every `quadric`, and made the exact-zero branch explicit. The focused
 47 assertions, `validate_physics`, `validate_physics_deep`, the 44,401-row CSV,
-and SkullScope packet all pass unchanged. T2 is binding.
+and SkullScope packet all pass unchanged. T2 then made every
+`LocatePolygon` post read locally provable, added a 4-by-4 exact-upper-edge
+Debug fatal probe, and retained the method because its debug-visualizer caller
+needs triangle vertices. Format, all 418 unit tests / 2,410,193 assertions, the
+four-case / 47-assertion oracle, and byte-exact Physics pass. T3 is binding.
 Evidence:
+`Agentic/Reports/2026-07-27/terrain-index-safety-t2.md` and
 `Agentic/Reports/2026-07-27/terrain-axis-convention-t1.md` and
 `Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-t0-baseline.md` and
 `Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-closure.md` and

@@ -14,7 +14,8 @@ Glossary:
     quad.
 
 Invariants:
-  - X/Z posting orientation intentionally preserves the legacy swapped mapping.
+  - Cache rows are world-X cells and columns are world-Z cells, matching
+    Terrain's world-X-major post construction.
   - The diagonal comparison and plane-height expression are byte-order
     sensitive and must not be algebraically rearranged.
   - Out-of-bounds sampling is a lane-F caller invariant failure.

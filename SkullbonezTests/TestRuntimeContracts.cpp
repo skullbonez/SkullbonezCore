@@ -42,6 +42,7 @@
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
+#include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
 #include "../SkullbonezSource/Core/SbResult.h"
@@ -53,6 +54,7 @@
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
+#include "../SkullbonezSource/World/Terrain.h"
 #include "TestFatalCases.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -357,6 +359,55 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "terrain-locate-cell-range" ) == 0 )
+    {
+        char temporaryDirectory[MAX_PATH] = {};
+        char heightMapPath[MAX_PATH] = {};
+
+        if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 ||
+             GetTempFileNameA( temporaryDirectory, "sbt", 0, heightMapPath ) == 0 )
+        {
+            return false;
+        }
+
+        HANDLE heightMap = CreateFileA( heightMapPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY,
+                                        nullptr );
+
+        if ( heightMap == INVALID_HANDLE_VALUE )
+        {
+            DeleteFileA( heightMapPath );
+            return false;
+        }
+
+        constexpr std::array<unsigned char, 16> PIXELS = {};
+        DWORD written = 0u;
+        const bool wroteHeightMap = WriteFile( heightMap, PIXELS.data(), static_cast<DWORD>( PIXELS.size() ), &written,
+                                               nullptr ) != FALSE &&
+                                    written == static_cast<DWORD>( PIXELS.size() );
+
+        CloseHandle( heightMap );
+
+        SkullbonezCore::Core::EngineConfig config;
+        config.terrainGeometry.scale = 1.0f;
+        std::unique_ptr<SkullbonezCore::Geometry::Terrain> terrain;
+        const SbResult created = wroteHeightMap
+                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( heightMapPath, 4, 1,
+                                                                                                         1, config, terrain )
+                                     : SbResult::Failure( "Tests/Terrain", "height-map write failed" );
+
+        DeleteFileA( heightMapPath );
+
+        if ( !created.ok || !terrain )
+        {
+            return false;
+        }
+
+        // The exact upper X edge maps to cell 3 when only cells 0..2 exist.
+        // This must terminate at LocatePolygon's local cell/index guard.
+        (void)terrain->LocatePolygon( 3.0f, 0.0f );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "allocation-foreign-page-boundary" ) == 0 )
     {
         SYSTEM_INFO systemInfo = {};
@@ -383,8 +434,7 @@ bool RunRuntimeFatalCase( const char* caseName )
         // must classify it as unreadable.
         auto* foreignPointer = committedPage + sizeof( ForeignAllocationHeaderLayout ) - sizeof( uint64_t );
         auto* candidate = foreignPointer - sizeof( ForeignAllocationHeaderLayout );
-        auto* readableMagic =
-            reinterpret_cast<uint32_t*>( candidate + offsetof( ForeignAllocationHeaderLayout, magic ) );
+        auto* readableMagic = reinterpret_cast<uint32_t*>( candidate + offsetof( ForeignAllocationHeaderLayout, magic ) );
         *readableMagic = FOREIGN_ALLOCATION_HEADER_MAGIC;
 
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
@@ -428,8 +478,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -439,11 +488,9 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
 
         ::operator delete( foreignPointer );
-        const bool counted =
-            SkullbonezCore::Core::Allocation::RuntimeAllocationForeignFreeCount() == 1u;
+        const bool counted = SkullbonezCore::Core::Allocation::RuntimeAllocationForeignFreeCount() == 1u;
 
-        const bool guardFailed =
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardHasGameplayViolations();
+        const bool guardFailed = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardHasGameplayViolations();
 
         SkullbonezCore::Core::Allocation::PrintRuntimeAllocationSummary( stdout );
         return counted && guardFailed;
@@ -819,6 +866,9 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
                        "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
 
+    ExpectFatalCase( "terrain-locate-cell-range",
+                     { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
+
     ExpectFatalCase( "spatial-grid-nan",
                      { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
 
@@ -850,21 +900,22 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld",
                                                      "requested=9", "capacity=8", "retained_capacity=12" } );
+
 #if defined( _DEBUG ) || defined( SKULLBONEZ_PROFILE_ENABLED ) || defined( SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL )
     ExpectFatalCase( "allocation-foreign-page-boundary",
-                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics",
-                       "owner=0", "header=unreadable", "foreign_free_count=1" } );
+                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0",
+                       "header=unreadable", "foreign_free_count=1" } );
+
     ExpectFatalCase( "allocation-foreign-shaped-header",
-                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics",
-                       "owner=0", "header=bad_provenance", "foreign_free_count=1" } );
+                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics", "owner=0",
+                       "header=bad_provenance", "foreign_free_count=1" } );
 #else
     ExpectCleanChildCase( "allocation-foreign-crt-release",
                           { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic",
                             "foreign_free_count=1", "mode=measure", "foreign_frees=1", "VIOLATION:" } );
 #endif
-    ExpectFatalCase( "allocation-size-overflow",
-                     { "FATAL[Runtime/Allocation]", "global operator new failed",
-                       "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
+    ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed",
+                                                   "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )
