@@ -5,8 +5,7 @@
                      "remove":  "Authority-free; delete it and let callers take the real owners.",
                      "retain":  "Owns a real invariant or binding requirement stated in the reason.",
                      "retain-prior":  "Already ruled by a named earlier plan; carried forward unchanged.",
-                     "repair":  "Confirmed defect owned by the named plan; not yet implemented.",
-                     "pre-existing-unreviewed":  "Temporary migration verdict owned by ceremonial-aggregate-elimination CA0. It requires an exact declaration site, is printed on every run, and must reach zero before NA2 removes this verdict."
+                     "repair":  "Confirmed defect owned by the named plan; not yet implemented."
                  },
     "aggregates":  [
                        {
@@ -24,7 +23,7 @@
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Render",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named BackendResourceReleaseContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "One backend teardown step must use the same phase label and the same optional UI/tools participants; splitting them permits lifecycle diagnostics and resource release to describe different retiring phases.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -33,7 +32,7 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/BuoyancySystem.h",
-                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named BuoyancyBodyFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Volume, projected area, drag, submersion, and contact epsilon are one pose-time sample used by a single force calculation; combining coefficients from different samples changes the computed force.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -42,7 +41,7 @@
                            "members":  1,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Capture",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named CaptureRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "The path is the value identity of one queued capture command; the controller may accept, defer, or reject that command without exposing capture-system ownership.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -87,7 +86,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorInteractionPreviewInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Mouse-ray validity, arbitration blocks, active gizmo state, and scale mode are sampled together for one preview decision; mixing frames can display a preview for an input the UI already consumed.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -96,7 +95,7 @@
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named EditorObjectPlacementRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Object kind, fixed/dynamic policy, and terrain point constitute one placement command whose acceptance is atomic; applying only part would create the wrong body at the right location or vice versa.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -123,7 +122,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorToolOverlayTraceInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Trace lifetime, gizmo gesture, scale mode, and attached-camera state are the single-frame conditions for one overlay trace; they must not be combined across arbitration frames.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -132,7 +131,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named EditorViewportPlacementInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Buttons, modifiers, client position, wheel delta, and viewport-capture state are one sampled pointer event; placement consumes them atomically so a coordinate cannot be paired with another event's buttons.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -141,7 +140,16 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: cohesive gameplay/frame value used across the force stage.",
+                           "reason":  "The force-field set, exposure/cooldown durations, step duration, and serial/parallel evaluation mode are frozen for one force-stage tick; every body in that tick must use the same configuration generation.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "FramePresentationFacts",
+                           "site":  "SkullbonezSource/Runtime/App/RunFrame.cpp:200",
+                           "members":  4,
+                           "verdict":  "retain",
+                           "owner":  "NA2 / Runtime/App",
+                           "reason":  "Presentation alpha, capture pinning, frame duration, and active UI lane are sampled once after simulation and consumed by one frame publication; mixing ticks would publish mismatched visual and capture state.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -159,7 +167,7 @@
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/DevelopmentTools",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ImGuiEditorCausalityContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Selected rows, causal links, replay tick, truncation state, and prediction state describe one causality projection generation; selection indices are valid only against that same row/link snapshot.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -168,7 +176,16 @@
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/DevelopmentTools",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ImGuiEditorFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Display extent, DPI, delta time, and Tracy connection flags are sampled once at editor-frame begin and must drive one ImGui frame; mixing samples invalidates scaling and profiler-mode presentation.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "Input",
+                           "site":  "SkullbonezSource/Runtime/Input/Input.h:128",
+                           "members":  0,
+                           "verdict":  "retain",
+                           "owner":  "NA2 / Runtime/Input",
+                           "reason":  "Static operations normalize Win32 device sampling and deterministic automation overrides behind one platform boundary; callers cannot mutate the nested injection buffers or bypass the sampling policy.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -177,7 +194,7 @@
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Automation",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named InteractionAutomationReportInputs boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Status, script identity, scene path, owners, camera/UI state, and render snapshot are captured at one automation completion boundary so the report cannot combine evidence from different runs.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -186,7 +203,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
-                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named KeyboardContextFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Keyboard availability and the scene, camera, launcher, director, editor, replay, and UI arbitration outcomes are one input-turn snapshot; command routing must use a single arbitration result.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -204,7 +221,7 @@
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named LauncherReproSnapshotContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "World/scene identity, launch options, physics/render switches, diagnostics, renderer identity, and elapsed simulation time are captured together to make one reproducible launcher snapshot.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -231,7 +248,7 @@
                            "members":  81,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Startup",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ParsedArgs boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "All command-line switches are normalized once into one immutable startup interpretation; cross-field defaults and explicitness flags must be resolved together before initialization reads them.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -240,7 +257,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/PhysicsDiagnosticsSink.h",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named PhysicsDiagnosticsFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "World, body/collider stores, names, writer, and delta time identify one diagnostics sample; emitting a row requires all references to describe the same physics frame.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -249,7 +266,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named PointerPresentationPolicyInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Editor and replay capture/look flags are evaluated as one policy snapshot to choose exactly one pointer presentation; independent reads could expose a cursor during an owned-look gesture.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -258,7 +275,7 @@
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named PrimitiveBatchShaderParams boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Builder state, transforms, lighting, clipping, cinematic/shadow policy, primitive kind, and alpha bind one shader draw submission; partial reuse would issue geometry under mismatched render state.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -267,7 +284,7 @@
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain and wide-signature W1: concrete hot render-command resource/value boundary.",
+                           "reason":  "Render resources, textures, geometry, diagnostics, assets, config, and renderer belong to one primitive-renderer composition generation; issuing a batch across generations would bind incompatible resource owners.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -294,7 +311,7 @@
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: concrete DX12 resource-lifetime boundary.",
+                           "reason":  "Cinematic mode, asset/resource/texture/geometry owners, and target dimensions define one render-resource creation generation; all created resources must share the same owners and extent.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -303,7 +320,7 @@
                            "members":  8,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayAuthoringPredictionRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Velocity target/delta and the enable, refresh, cache, baseline, preview, and finish flags encode one authoring transition; their combinations select mutually dependent prediction actions.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -312,7 +329,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayEventInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Frame, branch, kind, flags, numeric payload, data word, and text are one append-only replay event record; hashing and playback require those fields to share one event identity.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -321,7 +338,7 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayFailureProbeRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Status/action, target frame, rollback reference, and mismatch injection define one failure experiment; the probe result is meaningful only when all controls belong to the same attempt.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -339,7 +356,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayGuideArcsUpdateInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "The three bodies, gravity constant, epoch, and mutual-gravity mode are one orbital sample used to rebuild guide arcs; mixing epochs or gravity policy produces internally inconsistent curves.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -348,7 +365,7 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayInteractionExitInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Workspace departure, prior ownership, restore mode, camera follow, and director capture form one interaction-exit arbitration result; cleanup must apply that result atomically.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -357,7 +374,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayInterceptUpdateInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Prediction frames, ship/target identity and radii, generation/topology versions, source mode, and enable state identify one intercept computation; stale generations must not be paired with current identities.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -366,7 +383,7 @@
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayKeyboardVelocityEditInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Modifier state, toggle permission, world ownership, and sample time are one keyboard-edit decision point; applying them from different turns could mutate velocity after ownership changed.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -375,7 +392,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayLiveRestoreRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Restore kind, solver sample, frame, branch/hash controls, interaction mode, message track, time, and path define one transactional restore attempt with one success/failure outcome.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -384,7 +401,7 @@
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayMemoryPolicyRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Preset, retention duration, and byte budget are one memory-policy change; validation and application must reject or commit the combination rather than expose partially updated limits.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -393,7 +410,7 @@
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Editor mode, current gesture, and scene frame are one overlay-build snapshot; the resulting controls must correspond to the same interaction turn and rendered frame.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -402,7 +419,7 @@
                            "members":  2,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Prediction",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayPathChildDrawContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Node storage and its validated count are one bounded traversal range; keeping them together prevents a draw walk from using a count derived from another topology buffer.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -420,7 +437,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Prediction",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayPathVisualizerRenderContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Prediction generation, profiler/path owners, physics/entities/tracer, present sample, and overlay flag bind one visualization submission; the sample-validity bit governs every participating owner.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -429,7 +446,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayPorkchopSweepInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Departure/target bodies, sun, gravity constant, epoch, and mutual-gravity policy are one orbital boundary condition for a sweep; all generated cells must share it.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -438,7 +455,7 @@
                            "members":  5,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "Wide-signature W1 accepted cohesive replay topology publication state.",
+                           "reason":  "Prediction state, topology nodes/collection, root identity, and ragdoll-visual policy are one future-publication snapshot; traversal must not pair a root with another prediction generation's node collection.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -447,7 +464,7 @@
                            "members":  8,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayPredictionGhostDrawRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Model row, transform, alpha, tint, and tint strength are one immutable ghost draw command; the renderer consumes or drops the command as a unit.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -456,7 +473,7 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayProbeRestoreRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Probe status, selected sample/frame, latest frame, and expected hash capture one restore assertion; comparing pieces from different selections would make the probe non-deterministic.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -465,7 +482,7 @@
                            "members":  2,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayProbeSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Action and path are the complete value identity of one save-probe command; dispatch and reporting use the same pair without retaining a subsystem owner.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -474,7 +491,7 @@
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplaySaveProbeArtifactContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Artifact path plus presentation, solver, event, and world snapshots are captured at one save boundary so serialization cannot combine state from different replay generations.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -483,7 +500,7 @@
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplaySceneTimelineResetInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Scene identity, preservation mode, topology counts, seed, capacity, generation override, and UI overrides define one timeline origin; reset commits that complete origin before recording resumes.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -492,7 +509,7 @@
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayScrubberSurfaceInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Screen extent, track, gesture, loaded state, tool capabilities, target availability, and drag/hot-zone policy are one layout hit-test snapshot; geometry and interaction must share it.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -510,7 +527,7 @@
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named ReplayStartupRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Load/save paths and scrub, restore, checkpoint, target, branch, and failure probe modes are normalized into one startup command; initialization validates their mutually dependent combinations once.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -519,7 +536,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named ReplayTransportHostContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Window, normalized current/restore modes, follow/director ownership, and time are one transport-host arbitration snapshot; mode transitions and camera release consume it atomically.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -528,7 +545,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayTripPlannerLiveInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Bodies, gravity policy, horizon, target selection, advance state, and target label are one live-planning sample; the displayed transfer must use the same physics inputs and selection identity.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -537,7 +554,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Planning",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayTripPlannerPredictionInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Prediction frames, intercept, identities, generation, completion/cancellation, advance state, and target availability describe one prediction result generation; stale frames cannot be published under newer status.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -546,7 +563,7 @@
                            "members":  15,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
-                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named ReplayVisualPacketBufferFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Presence, hashes, and byte sizes for ordinary/priority lines, ribbons, and expanded vertices are one packet fingerprint; comparisons require every digest and extent from the same encoded buffer.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -555,7 +572,7 @@
                            "members":  16,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
-                           "reason":  "PB0 explicit retain: top-level value-only replay input-turn message.",
+                           "reason":  "Window, pointer arbitration/ray/wheel, replay modes, camera/director ownership, editor/physics/UI state, viewport extent, and time are frozen for one replay workspace input turn.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -573,7 +590,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named RuntimeCameraMovementInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Keyboard/mouse deltas, height limits, ownership modes, and authored-scene state are one camera-control sample; movement applies only after the complete ownership predicate is resolved.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -582,7 +599,7 @@
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
-                           "reason":  "Current-tip review retains this behavior owner: its fields form the named RuntimeInputContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "This behavior owner maintains current/previous modes, focus/capture state, and a bounded transition ring; its methods enforce ordered transition history rather than merely carrying call operands.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -591,7 +608,7 @@
                            "members":  8,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
-                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named RuntimeInputFrameFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Replay camera modes, enabled-mask, action suppression, scene capacity, external command sources, and active UI lane are resolved once for one input frame; downstream routing reads one coherent verdict.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -600,7 +617,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Interaction",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named RuntimeInteractionFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Physics/step, replay hold, pause lock, look ownership, forced-run, and time-scale facts are one interaction policy sample; the controller chooses one advance state from the complete predicate.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -618,7 +635,7 @@
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Core/Allocation",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named RuntimeReserveGrowthRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Owner/target identity, phase/frame provenance, old/requested capacities, and element size are one auditable reserve transaction; policy validation and byte accounting must use the same request.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -627,7 +644,7 @@
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/RuntimeFrameViews.h",
-                           "reason":  "Current-tip review retains this snapshot facts: its fields form the named RuntimeUiTextFrameFacts boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Camera/launcher labels, interaction kinds, presentation state, frame duration, and active UI lane are one text-projection snapshot; all visible labels must describe the same frame.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -636,7 +653,7 @@
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Scene",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneLoadRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Acceptance, scene index, run-entry choice, preservation flags, exit suppression, and manual-reset marker form one admitted load command; queue arbitration commits or rejects the combination.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -645,7 +662,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Scene",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Request kind, scene index/text, and preservation/exit flags are the immutable value stored in the scene queue; FIFO identity and later dispatch depend on retaining them together.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -654,7 +671,7 @@
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
-                           "reason":  "Current-tip review retains this domain request: its fields form the named SceneSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Path plus world, session, and presentation borrows identify one same-frame snapshot write; serialization requires all three owners at one capture boundary and retains none afterward.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -672,7 +689,7 @@
                            "members":  8,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Simulation",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named SimulationTickInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Frame duration, time scale, scene/fixed-step modes, advance intent, step request, and step permission determine one simulation tick; the scheduler resolves the full set before advancing.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -681,7 +698,7 @@
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/SleepIslandSystem.h",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named SleepSupportPropagationContext boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Sleep state, support edges, and this-frame support marks are one propagation workspace; the traversal mutates all three under one graph walk and must not mix storage generations.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -708,7 +725,7 @@
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named ToolOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Trace lifetime, gizmo/scale gesture, and attached-camera state are one tool-overlay sampling result; overlay geometry is built once from that coherent interaction state.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -744,7 +761,7 @@
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
-                           "reason":  "Current-tip review retains this bounded input value: its fields form the named WaterReflectionInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Sample transform, texture identity, reflection-disable state, and raytracing mode bind one reflection sample; shading must not pair a texture with another mode's projection.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -753,7 +770,7 @@
                            "members":  19,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
-                           "reason":  "Current-tip review retains this cohesive domain value: its fields form the named WaterStyleParams boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
+                           "reason":  "Tint, transparency, reflection/fresnel/glint, wave perturbation, sun color, basin bounds, mode, and cinematic flag are one validated water-style value applied consistently across rendering passes.",
                            "destructures_at_entry":  "no"
                        },
                        {

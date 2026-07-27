@@ -51,6 +51,7 @@ Invariants:
     `FooFrameData`. This is a visibility measure, not proof of ownership; the
     AGENTS.md review question remains authoritative for deliberately renamed
     bags.
+  - The migration verdict `pre-existing-unreviewed` is retired and rejected.
   - Recorded site/member counts are source-drift checks, never an allowance or
     budget.
   - The source scan is read-only; an explicit `--output` path may receive the
@@ -62,13 +63,12 @@ Related:
   - Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md
   - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
   - Agentic/Reports/2026-07-27/ceremonial-aggregate-elimination-ca0-summary.md
+  - Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-closure.md
 """
 
 from __future__ import annotations
 
 import argparse
-import contextlib
-import io
 import json
 import re
 import sys
@@ -79,11 +79,12 @@ from cpp_source_scan import line_of_offset, mask_cpp, tracked_files
 
 DEFAULT_ROOTS = ["SkullbonezSource"]
 RULINGS_RELATIVE = "tools/aggregate_ownership_rulings.json"
-TRANSITIONAL_VERDICT = "pre-existing-unreviewed"
-ACCEPTED_VERDICTS = ("remove", "retain", "retain-prior", "repair", TRANSITIONAL_VERDICT)
+RETIRED_TRANSITIONAL_VERDICT = "pre-existing-unreviewed"
+ACCEPTED_VERDICTS = ("remove", "retain", "retain-prior", "repair")
 
 # Suffix families the repository has historically used for per-operation data.
-# They rank manual review context only; discovery and gating are suffix-free.
+# Discovery remains suffix-free; strict gating is deliberately bounded to these
+# families when the type states no invariant of its own.
 LEGACY_SUFFIXES = (
     "Context",
     "Inputs",
@@ -98,15 +99,50 @@ LEGACY_SUFFIXES = (
     "Facts",
 )
 
-TYPE_RE = re.compile(r"\b(?P<kind>struct|class)\s+(?P<name>[A-Za-z_]\w*)\s*(?::[^{;]*)?\{", re.M)
+BALANCED_ONE_LEVEL_PARENS = r"\((?:[^()]|\([^()]*\))*\)"
+TYPE_DECORATOR = (
+    rf"(?:\[\[[^\]]+\]\]|alignas\s*{BALANCED_ONE_LEVEL_PARENS}|"
+    rf"__declspec\s*{BALANCED_ONE_LEVEL_PARENS}|[A-Z][A-Z0-9_]*(?:_API|_EXPORT))"
+)
+TYPE_PATTERN = r"""
+    \b(?P<kind>struct|class)\s+
+    (?:__TYPE_DECORATOR__\s+)*
+    (?:(?:[A-Za-z_]\w*)::)*
+    (?P<name>[A-Za-z_]\w*)\s*
+    (?:<[^;{}]*>)?\s*
+    (?:final\s*)?
+    (?::(?P<bases>[^{;]*))?
+    \{
+    """
+TYPE_RE = re.compile(TYPE_PATTERN.replace("__TYPE_DECORATOR__", TYPE_DECORATOR), re.M | re.X)
 MEMBER_RE = re.compile(
     r"""
     ^[ \t]*
+    (?:\[\[[^\]]+\]\]\s*)*
     (?!(?:public|private|protected|using|typedef|static_assert|friend|template|return|class|struct|union|enum)\b)
     (?P<decl>[A-Za-z_][\w:<>,\s\*&\[\]]*?)
     \s(?P<name>[A-Za-z_]\w*)
     \s*(?:\[[^\]]*\])?
     \s*(?:=[^;]*)?;
+    """,
+    re.X | re.M,
+)
+FUNCTION_POINTER_MEMBER_RE = re.compile(
+    r"""
+    ^[ \t]*
+    (?:\[\[[^\]]+\]\]\s*)*
+    (?P<decl>[A-Za-z_][\w:<>,\s\*&\[\]]*?)
+    \(\s*(?:[A-Za-z_]\w*::)?[*&]\s*(?P<name>[A-Za-z_]\w*)\s*\)
+    \s*\([^;]*\)\s*(?:const\s*)?(?:noexcept\s*)?;
+    """,
+    re.X | re.M,
+)
+BITFIELD_MEMBER_RE = re.compile(
+    r"""
+    ^[ \t]*
+    (?:\[\[[^\]]+\]\]\s*)*
+    (?P<decl>[A-Za-z_][\w:<>,\s\*&\[\]]*?)
+    \s(?P<name>[A-Za-z_]\w*)\s*:(?!:)\s*[^;]+;
     """,
     re.X | re.M,
 )
@@ -126,6 +162,7 @@ class Aggregate:
     has_stated_invariant: bool
     construction_sites: list[str] = field(default_factory=list)
     parameter_sites: list[str] = field(default_factory=list)
+    duplicate_definition_sites: list[str] = field(default_factory=list)
 
     def key(self) -> str:
         return self.name
@@ -195,6 +232,11 @@ def _matched_brace_body(masked: str, open_index: int) -> tuple[str, int] | None:
     return None
 
 
+def _is_enum_class(masked: str, class_offset: int) -> bool:
+    prefix = masked[max(0, class_offset - 32) : class_offset]
+    return bool(re.search(r"\benum\s*$", prefix))
+
+
 def _doc_comment_above(text: str, offset: int) -> str:
     """Contiguous comment block immediately preceding the declaration."""
     start = text.rfind("\n\n", 0, offset)
@@ -224,13 +266,33 @@ def _count_members(body: str) -> tuple[int, list[str], list[str]]:
 
     names: list[str] = []
     declarations: list[str] = []
-    for match in MEMBER_RE.finditer(top_level):
+    matches = sorted(
+        [
+            *MEMBER_RE.finditer(top_level),
+            *FUNCTION_POINTER_MEMBER_RE.finditer(top_level),
+            *BITFIELD_MEMBER_RE.finditer(top_level),
+        ],
+        key=lambda match: match.start(),
+    )
+    for match in matches:
         decl = match.group("decl")
         # A method declaration has a parameter list; a member does not.
         if "(" in decl or ")" in decl:
             continue
         names.append(match.group("name"))
         declarations.append(decl.strip())
+
+    # Anonymous unions carry data even though the outer-body brace masker hides
+    # their fields. Count their alternatives so a `*Services` owner union cannot
+    # disappear from the bounded gate.
+    for union_match in re.finditer(r"\bunion\s*\{", body):
+        open_index = body.find("{", union_match.start())
+        union_body = _matched_brace_body(body, open_index)
+        if union_body is None or not re.match(r"\s*;", body[union_body[1] :]):
+            continue
+        _, union_names, union_declarations = _count_members(union_body[0])
+        names.extend(union_names)
+        declarations.extend(f"anonymous union {decl}" for decl in union_declarations)
     return (len(names), names, declarations)
 
 
@@ -252,15 +314,22 @@ def collect_aggregates(repo: Path, roots: list[str]) -> dict[str, Aggregate]:
         masked = mask_cpp(text)
         masked_cache[file_path] = masked
         for match in TYPE_RE.finditer(masked):
+            if _is_enum_class(masked, match.start()):
+                continue
             name = match.group("name")
             open_index = masked.find("{", match.start())
             body = _matched_brace_body(masked, open_index)
             if body is None:
                 continue
             member_count, member_names, member_declarations = _count_members(body[0])
-            if member_count == 0:
+            if member_count == 0 and not name.endswith(LEGACY_SUFFIXES):
                 continue
             line = line_of_offset(masked, match.start("name"))
+            definition_site = f"{relative}:{line}"
+            existing = aggregates.get(name)
+            if existing is not None:
+                existing.duplicate_definition_sites.append(definition_site)
+                continue
             # A forward declaration has no body content worth reading; skip it in
             # favour of the definition, wherever that lives.
             aggregates[name] = Aggregate(
@@ -329,6 +398,11 @@ def report(
     flagged = {name: item for name, item in aggregates.items() if item.signals()}
     review = {name: item for name, item in aggregates.items() if item.is_review_candidate()}
     gated = {name: item for name, item in aggregates.items() if item.is_gated_candidate()}
+    ambiguous = sorted(
+        name
+        for name, item in aggregates.items()
+        if name.endswith(LEGACY_SUFFIXES) and item.duplicate_definition_sites
+    )
     unruled = sorted(name for name in gated if name not in rulings)
     stale = sorted(name for name in rulings if name not in gated)
     invalid: list[str] = []
@@ -346,7 +420,7 @@ def report(
             )
         if ruling.get("verdict") not in ACCEPTED_VERDICTS:
             invalid.append(f"{name}: invalid verdict {ruling.get('verdict')!r}")
-        if ruling.get("verdict") == TRANSITIONAL_VERDICT:
+        if ruling.get("verdict") == RETIRED_TRANSITIONAL_VERDICT:
             transitional_count += 1
         if not isinstance(ruling.get("owner"), str) or not ruling["owner"].strip():
             invalid.append(f"{name}: owner is missing")
@@ -367,6 +441,7 @@ def report(
             f"state_own_invariant={stated} signalled={len(flagged)} "
             f"review={len(review)} gated={len(gated)} "
             f"ruled={len(gated) - len(unruled)} unruled={len(unruled)} "
+            f"ambiguous_gated_names={len(ambiguous)} "
             f"pre_existing_unreviewed={transitional_count}"
         )
         for name in sorted(flagged):
@@ -406,13 +481,21 @@ def report(
                     "use --format json or markdown for the complete list"
                 )
 
-    if (strict and unruled) or stale or invalid:
+    if (strict and (unruled or ambiguous)) or stale or invalid:
         if verbose:
             if strict and unruled:
                 print(
                     f"FAIL: {len(unruled)} gated aggregate(s) require an owner "
                     f"ruling in {RULINGS_RELATIVE}: {', '.join(unruled)}"
                 )
+            if strict and ambiguous:
+                for name in ambiguous:
+                    item = aggregates[name]
+                    sites = [f"{item.path}:{item.line}", *item.duplicate_definition_sites]
+                    print(
+                        f"FAIL: gated aggregate name {name} has multiple definitions; "
+                        f"rulings require an unambiguous type identity: {', '.join(sites)}"
+                    )
             if stale:
                 print(f"FAIL: {len(stale)} stale aggregate ruling(s): {', '.join(stale)}")
             for error in invalid:
@@ -559,6 +642,105 @@ struct WidgetRequest
 };
 """
 
+FIXTURE_DECORATED_CLASS_HEADS = """
+class FinalContext final
+{
+    int first;
+    int second;
+};
+
+struct alignas( alignof( int ) ) AlignedInput
+{
+    int first;
+    int second;
+};
+
+struct [[nodiscard]] AttributedRequest
+{
+    int first;
+    int second;
+};
+
+struct Outer::QualifiedContext
+{
+    int first;
+    int second;
+};
+
+struct SKORE_API ExportedContext
+{
+    int first;
+    int second;
+};
+
+class __declspec(dllexport) MsvcInput
+{
+    int first;
+    int second;
+};
+
+template <typename T>
+struct PartialRequest<T*>
+{
+    int first;
+    int second;
+};
+
+struct CallbackServices
+{
+    void (*run)(int);
+};
+
+struct AttributedFacts
+{
+    [[maybe_unused]] int value;
+};
+
+struct PackedContext
+{
+    unsigned first : 1;
+    unsigned second : 1;
+};
+
+struct OwnerServices
+{
+    union
+    {
+        World* world;
+        Scene* scene;
+    };
+};
+
+struct ServiceBase
+{
+    int owner;
+};
+
+struct InheritedServices : ServiceBase
+{
+};
+
+struct NestedContext
+{
+    struct Storage
+    {
+        World* world;
+        Scene* scene;
+    } storage;
+};
+
+struct MacroContext
+{
+    SKORE_FIELD(World*, world)
+};
+
+enum class IgnoredRequest
+{
+    First,
+    Second,
+};
+"""
+
 FIXTURE_COMMENTED_STRUCT = """
 /*
 struct GhostContext
@@ -573,17 +755,24 @@ def _parse(source: str) -> dict[str, Aggregate]:
     masked = mask_cpp(source)
     found: dict[str, Aggregate] = {}
     for match in TYPE_RE.finditer(masked):
+        if _is_enum_class(masked, match.start()):
+            continue
         name = match.group("name")
         body = _matched_brace_body(masked, masked.find("{", match.start()))
         if body is None:
             continue
         count, names, declarations = _count_members(body[0])
-        if count == 0:
+        if count == 0 and not name.endswith(LEGACY_SUFFIXES):
+            continue
+        line = line_of_offset(masked, match.start("name"))
+        existing = found.get(name)
+        if existing is not None:
+            existing.duplicate_definition_sites.append(f"fixture.h:{line}")
             continue
         found[name] = Aggregate(
             name=name,
             path="fixture.h",
-            line=line_of_offset(masked, match.start("name")),
+            line=line,
             member_count=count,
             member_names=names,
             member_declarations=declarations,
@@ -713,6 +902,40 @@ def self_test() -> int:
         verbose=False,
     ) != 0:
         failures.append("a ruled legacy-suffix aggregate must pass the gate")
+    duplicate_legacy = _parse(FIXTURE_LEGACY_REQUEST + "\n" + FIXTURE_LEGACY_REQUEST)
+    if report(
+        duplicate_legacy,
+        {"WidgetRequest": valid_legacy_ruling},
+        strict=True,
+        verbose=False,
+    ) == 0:
+        failures.append("a duplicate gated type name must not reuse one ruling")
+    decorated = _parse(FIXTURE_DECORATED_CLASS_HEADS)
+    expected_decorated = {
+        "FinalContext",
+        "AlignedInput",
+        "AttributedRequest",
+        "QualifiedContext",
+        "ExportedContext",
+        "MsvcInput",
+        "PartialRequest",
+        "CallbackServices",
+        "AttributedFacts",
+        "PackedContext",
+        "OwnerServices",
+        "ServiceBase",
+        "InheritedServices",
+        "NestedContext",
+        "MacroContext",
+        "Storage",
+    }
+    if set(decorated) != expected_decorated:
+        failures.append(
+            "decorated, qualified, specialized, and function-pointer-bearing class heads "
+            f"must be discovered (got {sorted(decorated)})"
+        )
+    elif report(decorated, {}, strict=True, verbose=False) == 0:
+        failures.append("decorated bounded class heads must not evade strict rulings")
     prior_ruling = dict(valid_legacy_ruling, verdict="retain-prior")
     if report(
         legacy_request,
@@ -723,19 +946,17 @@ def self_test() -> int:
         failures.append("a retain-prior legacy-suffix ruling must pass the gate")
     transitional_ruling = dict(
         valid_legacy_ruling,
-        verdict=TRANSITIONAL_VERDICT,
+        verdict=RETIRED_TRANSITIONAL_VERDICT,
         owner="ceremonial-aggregate-elimination CA0",
         reason="fixture transition",
     )
-    captured = io.StringIO()
-    with contextlib.redirect_stdout(captured):
-        transitional_code = report(
-            legacy_request,
-            {"WidgetRequest": transitional_ruling},
-            strict=True,
-        )
-    if transitional_code != 0 or "pre_existing_unreviewed=1" not in captured.getvalue():
-        failures.append("a transitional ruling must pass and increment the reported count")
+    if report(
+        legacy_request,
+        {"WidgetRequest": transitional_ruling},
+        strict=True,
+        verbose=False,
+    ) == 0:
+        failures.append("the retired transitional verdict must be unusable")
     wrong_site_ruling = dict(transitional_ruling, site="fixture.h:999")
     if report(
         legacy_request,
@@ -743,7 +964,7 @@ def self_test() -> int:
         strict=True,
         verbose=False,
     ) == 0:
-        failures.append("a transitional ruling whose declaration site moved must fail")
+        failures.append("a retired transitional ruling whose declaration site moved must fail")
     if report(legacy_request, {}, strict=False, verbose=False) != 0:
         failures.append("report-only mode must not enforce missing bounded rulings")
 
@@ -788,6 +1009,7 @@ def main() -> int:
                 "stated_invariant": item.has_stated_invariant,
                 "construction_sites": sorted(set(item.construction_sites)),
                 "parameter_sites": sorted(set(item.parameter_sites)),
+                "duplicate_definition_sites": item.duplicate_definition_sites,
                 "signals": item.signals(),
                 "review_candidate": item.is_review_candidate(),
                 "ruling": rulings.get(item.name),
