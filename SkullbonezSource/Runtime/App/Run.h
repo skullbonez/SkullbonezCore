@@ -198,10 +198,20 @@ class Run
 
     // Concept: these value-only results carry decisions between adjacent frame
     // phases. They are stack state, not replacement owners or retained context.
-    struct FrameInputPhaseResult;
+    struct FrameInputPhaseResult
+    {
+        SceneFrameProceedPolicy proceedPolicy;
+        bool legacyDevelopmentUiActive = true;
+    };
     struct FrameSimulationPhaseResult;
     struct FrameRenderPhaseResult;
-    struct FramePresentationFacts;
+    struct FramePresentationFacts
+    {
+        float presentationAlpha = 1.0f;
+        bool capturePresentationPinned = false;
+        double secondsPerFrame = 0.0;
+        bool legacyDevelopmentUiActive = true;
+    };
 
     RuntimeRenderer& Renderer()
     {
@@ -223,13 +233,6 @@ class Run
     void BeginFrameDiagnosticsPhase();                                                           // Publishes prior GPU timing, then resets draw counters.
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
     InteractionAutomationFrameResult RunAutomationBeforeInputPhase();
-    InteractionAutomationFrameResult
-    TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayView,
-                                          const Rendering::RenderSceneSnapshot& renderSnapshot );
-    InteractionAutomationFrameResult
-    TickInteractionAutomationAfterRender( const ReplayAutomationView& replayView,
-                                          const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                          const Rendering::RenderSceneSnapshot& renderSnapshot );
 #endif
     FrameInputPhaseResult RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput );
     FrameSimulationPhaseResult RunSimulationPhase( double secondsPerFrame, const SceneFrameProceedPolicy& proceedPolicy );
@@ -246,20 +249,9 @@ class Run
 
     // Ordered frame sub-coordinators retain direct composition-root reach. The
     // domain operations they call receive concrete operands only.
-    InputFrameExecutionResult ProcessInputFrame( UiInputCaptureIntent externalUiCapture,
-                                                 UI::OperatorEditorCommandQueues externalEditorCommands,
-                                                 bool legacyDevelopmentUiActive );
-    RuntimeUIFrameResult BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
-                                              const RuntimeInputFrameFacts& facts );
-    RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
-                                                      const RuntimeInputFrameFacts& facts );
-    RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, RunCameraMode replayCurrentCameraMode );
+    RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
+                                                  const RuntimeInputFrameFacts& facts );
     SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
-    void ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDiagnostics, bool legacyDevelopmentUiActive );
-    void ApplyGraphicsStressAction( class GraphicsStressController& stress );
-    void ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts, UI::OperatorEditorFrameView& operatorEditorView,
-                                     const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-                                     const RuntimeRenderModelFrameView& renderModels );
 
     void Render( const RuntimeRenderModelFrameView& renderModels,
                  float presentationAlpha );                                                      // Skips 3D in text-only runs, then records passes for the current camera state.

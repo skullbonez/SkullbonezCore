@@ -98,11 +98,35 @@ using SkullbonezCore::UI::InGameUITab;
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: the Run coordinator reaches composed owners only for this ordered
 // input turn; delegated operations receive concrete operands and retain none.
-InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalUiCapture,
-                                                  UI::OperatorEditorCommandQueues externalEditorCommands,
-                                                  bool legacyDevelopmentUiActive )
+Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
-    InputFrameExecutionResult result;
+    UiInputCaptureIntent externalUiCapture;
+    SkullbonezCore::UI::OperatorEditorCommandQueues externalEditorCommands;
+    bool legacyDevelopmentUiActive = true;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    externalUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
+    externalEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+
+    if ( automationBeforeInput )
+    {
+        const SkullbonezCore::Core::SbResult submitStatus = m_interactionAutomation
+                                                                .SubmitOperatorEditorReplayCommand( *automationBeforeInput,
+                                                                                                    externalEditorCommands );
+
+        if ( !submitStatus.ok )
+        {
+            m_applicationExit.RequestOwnedFailure( submitStatus );
+        }
+    }
+#else
+    (void)automationBeforeInput;
+#endif
+    legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#else
+    (void)automationBeforeInput;
+#endif
+    bool requestDevelopmentUiSurfaceSwap = false;
     InputRouter& inputRouter = m_inputRouter;
     SkullbonezCore::Core::EngineConfig& config = m_config;
     RunLaunchOptions& launchOptions = m_launchOptions;
@@ -132,6 +156,36 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
     InputActions& inputActions = inputRouter.Actions();
     const auto SceneState = [&]() -> SceneSessionState& { return sceneController.State(); };
+
+    const auto CompleteInputPhase = [&]()
+    {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
+        if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
+        {
+
+            // Invariant: scene load may apply a Legacy default during input. An
+            // explicit process selection wins before either UI begins its frame.
+            SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+        }
+
+        if ( requestDevelopmentUiSurfaceSwap )
+        {
+            SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
+        }
+
+        // RunInputPhase may consume Ctrl+0 after its snapshot; resample only
+        // after every pre-render swap so both surfaces cannot draw concurrently.
+        legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#endif
+        const SceneFrameProceedPolicy proceedPolicy = sceneController.BuildFrameProceedPolicy( inputRouter.RuntimeSnapshot().frameInput.stepHeld );
+
+        validationHarness.TickLiveStyle( launchOptions, sceneController, ui.SceneNavigation().browser, assets,
+                                         ActiveSceneCinematicConfig( sceneController.State(), config ),
+                                         renderDefaults.CinematicBaseline() );
+
+        return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
+    };
 
     const auto NormalizeCameraModeForCurrentScene = [&]( RunCameraMode mode )
     {
@@ -239,7 +293,7 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
         std::fflush( stderr );
         applicationExit.RequestOwnedFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
-        return result;
+        return CompleteInputPhase();
     }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -351,7 +405,7 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
         }
 
         commitPointerPresentation();
-        return result;
+        return CompleteInputPhase();
     }
 
     const bool UIBlocksKeyboardBeforeInput = ui.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
@@ -774,7 +828,7 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
 
                 // The input owner interprets the chord once; Run retains only
                 // the process-wide decision about which surface becomes active.
-                result.requestDevelopmentUiSurfaceSwap = true;
+                requestDevelopmentUiSurfaceSwap = true;
             }
 
             const DiagnosticsUIKeyboardShortcutResult
@@ -896,7 +950,9 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
                                                    externalEditorCommands,
                                                    legacyDevelopmentUiActive };
 
-    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( replayPointerRay, uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( window, inputRouter, camera, runtimeTools, attachedCamera,
+                                                              interaction, ui, timers, sceneController, replayRuntime,
+                                                              replayPointerRay, uiSamplingFacts );
 
     if ( uiFrameResult.frameActive )
     {
@@ -934,7 +990,7 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
                                                 legacyDevelopmentUiActive };
 
     presentationEdit.Commit();
-    uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult, keyboardToggleEditorMode, commandFacts );
+    uiFrameResult = ApplyInputCommandsPhase( uiFrameResult, keyboardToggleEditorMode, commandFacts );
 
     presentationEdit.Refresh();
 
@@ -943,7 +999,9 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
         uiFrameResult.status = runUIStressBatch();
     }
 
-    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult, NormalizeCameraModeForCurrentScene( camera.mode ) );
+    uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult, inputRouter, camera, runtimeTools, interaction,
+                                                 attachedCamera, ui, sceneController, replayRuntime,
+                                                 NormalizeCameraModeForCurrentScene( camera.mode ) );
 
     if ( uiFrameResult.enterInteractiveScene )
     {
@@ -988,7 +1046,7 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
         applicationExit.RequestOwnedFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         commitPointerPresentation();
-        return result;
+        return CompleteInputPhase();
     }
 
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
@@ -1108,5 +1166,5 @@ InputFrameExecutionResult Run::ProcessInputFrame( UiInputCaptureIntent externalU
     }
 
     commitPointerPresentation();
-    return result;
+    return CompleteInputPhase();
 }

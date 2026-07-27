@@ -862,6 +862,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Capture\RuntimeStressController.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\RuntimeOverlayDiagnostics.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>

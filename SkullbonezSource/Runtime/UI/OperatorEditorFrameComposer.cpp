@@ -9,9 +9,10 @@ Summary:
   either development UI surface consumes it.
 
 Mental model:
-  This is a projection owner, not a service locator: it performs the complete
-  UI-specific traversal and draw preparation during one call, then releases
-  every borrowed runtime owner before control returns to the frame sequencer.
+  Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
+  It reaches process-owned members for one ordered UI phase, builds one shared
+  value projection, submits Legacy and ImGui presentation, and retains no frame
+  values after returning to the frame sequencer.
 
 Glossary:
   Shared editor view: One UI-facing value projection used by Legacy and ImGui.
@@ -43,6 +44,7 @@ Related:
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -214,11 +216,50 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
 
 using namespace OperatorEditorFrameComposer;
 
-void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
-                                      SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
-                                      const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-                                      const RuntimeRenderModelFrameView& renderModels )
+SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                                           const FramePresentationFacts& presentationFacts )
 {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+
+    // Invariant: copy the completed world backbuffer before either operator
+    // surface draws, preserving one presentation owner at a time.
+
+    if ( m_imguiEditor.IsVisible() )
+    {
+        const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
+
+        if ( !viewportCapture.ok )
+        {
+            m_timers.frameTimer.StopTimer();
+            PROFILE_FRAME_END( m_profiler );
+            m_applicationExit.RequestOwnedFailure( viewportCapture );
+            return viewportCapture;
+        }
+    }
+#endif
+    SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
+#endif
+    const RuntimeUiTextFrameFacts uiTextFacts { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                              m_sceneController.Scene().SceneEntityCount() ),
+                                                m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
+                                                                                       : RunCameraModeLabel( m_camera.mode ),
+                                                m_runtimeTools.LauncherFireModeLabel(),
+                                                RunCameraModeUsesLauncher( m_camera.mode ),
+                                                m_interaction.Gesture().kind,
+                                                m_interaction.Gesture().gizmoKind,
+                                                presentationFacts.presentationAlpha,
+                                                presentationFacts.capturePresentationPinned,
+                                                presentationFacts.secondsPerFrame,
+                                                presentationFacts.legacyDevelopmentUiActive };
+
+    const ReplayOverlay::ReplayOverlayStateView
+        replayOverlay = m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
+                                                               m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
+                                                               m_interaction.Gesture().kind,
+                                                               renderModels.presentationRecords, renderModels.bodyStore );
+
     DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
     RunTimerState& timers = m_timers;
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
@@ -267,7 +308,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
     sharedRendering.shadowsEnabled = sharedShadows;
     sharedRendering.cinematicRendering = sharedCinematicRendering;
     sharedRendering.presentationInterpolation = config.runtimeRender.presentationInterpolation;
-    sharedRendering.presentationAlpha = facts.presentationAlpha;
+    sharedRendering.presentationAlpha = uiTextFacts.presentationAlpha;
     sharedRendering.terrainHidden = debug.isTerrainHidden;
     sharedRendering.waterHidden = debug.isWaterHidden;
     sharedRendering.waterFrozen = debug.isWaterFreezeDebug;
@@ -276,10 +317,10 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
     FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
     const char* sharedGizmoMode = "translate";
 
-    if ( facts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
+    if ( uiTextFacts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
     {
 
-        switch ( facts.interactionGizmoKind )
+        switch ( uiTextFacts.interactionGizmoKind )
         {
         case RuntimeGizmoDragKind::Rotate:
             sharedGizmoMode = "rotate";
@@ -294,7 +335,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         }
     }
 
-    operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
+    operatorEditorView.viewport = { uiTextFacts.cameraModeLabel, sharedGizmoMode, uiTextFacts.presentationPinned };
 
     operatorEditorView.replay = { sharedReplayHud.memoryPreset,           sharedReplayHud.requestedRetentionSeconds,
                                   sharedReplayHud.requestedBudgetMiB,     sharedReplayHud.presentationRetentionSeconds,
@@ -481,7 +522,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
                                                            sceneController.QueueSize(), diagnosticsRuntime.Capture(),
                                                            config.runtimeRender.presentationInterpolation,
-                                                           facts.presentationPinned, facts.presentationAlpha );
+                                                           uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         renderTargetPreviews = renderer.ResourceLifecycle()
                                    .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
@@ -499,7 +540,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
         diagnostics.workerThreadCount = workerPool.GetThreadCount();
         diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
-        diagnostics.fps = facts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / facts.secondsPerFrame ) : 0.0f;
+        diagnostics.fps = uiTextFacts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / uiTextFacts.secondsPerFrame ) : 0.0f;
         diagnostics.renderMs = ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
 
         diagnostics.physicsMs = ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) *
@@ -559,7 +600,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
                                                            sceneController.QueueSize(), diagnosticsRuntime.Capture(),
                                                            config.runtimeRender.presentationInterpolation,
-                                                           facts.presentationPinned, facts.presentationAlpha );
+                                                           uiTextFacts.presentationPinned, uiTextFacts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
@@ -581,9 +622,9 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         uiChrome.scene = &scene;
         uiChrome.camera = &camera;
         uiChrome.sceneQueueSize = sceneController.QueueSize();
-        uiChrome.cameraModeLabel = facts.cameraModeLabel;
-        uiChrome.launcherFireModeLabel = facts.launcherFireModeLabel;
-        uiChrome.launcherCameraMode = facts.isLauncherCameraMode;
+        uiChrome.cameraModeLabel = uiTextFacts.cameraModeLabel;
+        uiChrome.launcherFireModeLabel = uiTextFacts.launcherFireModeLabel;
+        uiChrome.launcherCameraMode = uiTextFacts.isLauncherCameraMode;
         uiChrome.replayHud = &replayHud;
         uiChrome.viewport = { window.ClientWidth(), window.ClientHeight() };
 
@@ -607,8 +648,8 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         uiOperatorInteraction.runtimeInput = &runtimeInput;
         uiOperatorInteraction.camera = &camera;
         uiOperatorInteraction.ui = &ui;
-        uiOperatorInteraction.cameraModeEnabledMask = facts.cameraModeEnabledMask;
-        uiOperatorInteraction.cameraModeLabel = facts.cameraModeLabel;
+        uiOperatorInteraction.cameraModeEnabledMask = uiTextFacts.cameraModeEnabledMask;
+        uiOperatorInteraction.cameraModeLabel = uiTextFacts.cameraModeLabel;
 
         UiOperatorPresentationGraphInvocation uiOperatorPresentation;
         uiOperatorPresentation.scene = &scene;
@@ -627,9 +668,9 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
         UiReplayGraphInvocation uiReplay;
         uiReplay.overlay = &replayOverlay;
         uiReplay.profiler = m_profiler;
-        uiReplay.legacySurfaceActive = facts.legacyDevelopmentUiActive;
+        uiReplay.legacySurfaceActive = uiTextFacts.legacyDevelopmentUiActive;
         uiReplay.scenePhysicsEnabled = scene.isScenePhysics;
-        uiReplay.gesture = facts.interactionGestureKind;
+        uiReplay.gesture = uiTextFacts.interactionGestureKind;
         uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
         uiReplay.nowSeconds = timers.simulationTimer.GetTotalTime();
 
@@ -639,7 +680,7 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
 
             // Lifetime: caller-owned ABI records and every direct borrow remain
             // valid until the synchronous UI-text graph completes below.
-            timers.lastUIDrawCalls = renderer.RenderUiText( timers, renderModels, facts.secondsPerFrame, uiChrome,
+            timers.lastUIDrawCalls = renderer.RenderUiText( timers, renderModels, uiTextFacts.secondsPerFrame, uiChrome,
                                                             uiOperatorDiagnostics, uiOperatorSettings, uiOperatorInteraction,
                                                             uiOperatorPresentation, uiOperatorSubmission, uiReplay );
         }
@@ -649,6 +690,66 @@ void Run::ComposeOperatorEditorFrame( const RuntimeUiTextFrameFacts& facts,
     {
         timers.lastUIDrawCalls = 0;
     }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
+    const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
+    const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus
+        tracyStatus = SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
+
+    const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput { m_window.ClientWidth(),
+                                                                    m_window.ClientHeight(),
+                                                                    dpiScale,
+                                                                    static_cast<float>( presentationFacts.secondsPerFrame ),
+                                                                    tracyStatus.initialized,
+                                                                    tracyStatus.viewerConnected,
+                                                                    tracyStatus.heavyMode };
+
+    if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
+    {
+        m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
+        DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
+
+        if ( imguiResult.status.ok )
+        {
+            imguiResult.status = Renderer().RenderDevelopmentUi( m_imguiEditor );
+        }
+
+        if ( !imguiResult.status.ok )
+        {
+            m_timers.frameTimer.StopTimer();
+            PROFILE_FRAME_END( m_profiler );
+            m_applicationExit.RequestOwnedFailure( imguiResult.status );
+            return imguiResult.status;
+        }
+
+        if ( imguiResult.commands.requestSurfaceSwap )
+        {
+            SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
+        }
+
+        if ( imguiResult.commands.requestTracyStandardCapture )
+        {
+            bool tracyStarted = false;
+#if defined( TRACY_ENABLE )
+
+            if ( m_tracyClientOwner )
+            {
+                CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+                tracyStarted = m_tracyClientOwner->StartStandardCapture();
+
+                if ( tracyStarted )
+                {
+                    m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
+                    m_workerPool.BindProfiler( m_profiler );
+                }
+            }
+#endif
+            m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
+        }
+    }
+#endif
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../App/Run.h"
+#include "RuntimeStressController.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Camera/AttachedCameraController.h"
@@ -342,27 +343,16 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeOverlayDiagno
 
 } // namespace
 
-void Run::ApplyGraphicsStressAction( GraphicsStressController& stress )
+void SkullbonezCore::Runtime::ApplyGraphicsStressPresentationAction( int action, GraphicsStressController& stress, const SkullbonezCore::Assets::AssetSystem& assets,
+                                                                     RunLaunchOptions& launchOptions, SkullbonezCore::Core::EngineConfig& config, RuntimeOverlayDiagnostics& overlays,
+                                                                     SceneController& sceneController, RunTimerState& timers, SkullbonezCore::UI::InGameUI& ui,
+                                                                     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, RuntimeRenderer& renderer )
 {
-    const SkullbonezCore::Assets::AssetSystem& assets = m_assets;
-    RunLaunchOptions& launchOptions = m_launchOptions;
-    SkullbonezCore::Core::EngineConfig& config = m_config;
-    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     OverlayDebugState& debug = presentationEdit.State();
-    SceneController& sceneController = m_sceneController;
     SceneSessionState& scene = sceneController.State();
-    RunTimerState& timers = m_timers;
-    CameraControlState& camera = m_camera;
-    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = m_renderDefaults.CinematicBaseline();
-    SimulationSystem& simulation = m_simulation;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    RuntimeRenderer& renderer = Renderer();
-    ReplayRuntime& replayRuntime = m_replayRuntime;
-    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
-    SkullbonezCore::Runtime::SceneController& models = sceneController;
 
-    switch ( stress.NextAction() )
+    switch ( action )
     {
     case 0:
     {
@@ -462,6 +452,22 @@ void Run::ApplyGraphicsStressAction( GraphicsStressController& stress )
         debug.physicsDebugAlpha = stress.NextFloat( 0.05f, 1.0f );
         debug.physicsDebugContactLinger = stress.NextFloat( 0.0f, 5.0f );
         break;
+    default:
+        break;
+    }
+}
+
+void SkullbonezCore::Runtime::ApplyGraphicsStressRuntimeAction( int action, GraphicsStressController& stress, RunLaunchOptions& launchOptions, RuntimeOverlayDiagnostics& overlays,
+                                                                SceneController& sceneController, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui,
+                                                                SimulationSystem& simulation, RuntimeTools& runtimeTools, ReplayRuntime& replayRuntime )
+{
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
+    OverlayDebugState& debug = presentationEdit.State();
+    SceneSessionState& scene = sceneController.State();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
+
+    switch ( action )
+    {
     case 15:
     {
         const float timeScale = stress.NextFloat( 0.05f, 4.0f );
@@ -490,22 +496,22 @@ void Run::ApplyGraphicsStressAction( GraphicsStressController& stress )
         break;
     case 19:
     {
-        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = models.Scene().Tornado().GetFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = sceneController.Scene().Tornado().GetFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
-        models.Scene().Tornado().SetVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.Scene().Tornado().SetFieldConfig( tornadoField );
+        sceneController.Scene().Tornado().SetVisualEnabled( stress.NextInt( 2 ) != 0 );
+        sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
         break;
     }
     case 20:
     {
-        SkullbonezCore::Gameplay::TornadoVisualSettings tornadoVisual = models.Scene().Tornado().VisualSettings();
+        SkullbonezCore::Gameplay::TornadoVisualSettings tornadoVisual = sceneController.Scene().Tornado().VisualSettings();
         tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
         tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
         tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
         tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
         tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
-        models.Scene().Tornado().SetVisualSettings( tornadoVisual );
+        sceneController.Scene().Tornado().SetVisualSettings( tornadoVisual );
         break;
     }
     case 21:
@@ -517,7 +523,7 @@ void Run::ApplyGraphicsStressAction( GraphicsStressController& stress )
         simulation.Reset();
         break;
     case 23:
-        models.Scene().Physics().SetSleepEnabled( !models.Scene().Physics().IsSleepEnabled() );
+        sceneController.Scene().Physics().SetSleepEnabled( !sceneController.Scene().Physics().IsSleepEnabled() );
         break;
     case 24:
         debug.isTopTextHidden = !debug.isTopTextHidden;
@@ -1010,36 +1016,14 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
 }
 
 
-void Run::ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDiagnostics, bool legacyDevelopmentUiActive )
+bool SkullbonezCore::Runtime::PrepareGraphicsStressChurn( GraphicsStressController& stress, Window& window,
+                                                          RuntimeRenderer& renderer,
+                                                          const Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-    GraphicsStressController& stress = m_validationHarness->GraphicsStress();
-    Window* window = &m_window;
-    SkullbonezCore::Core::EngineConfig& config = m_config;
-    RunLaunchOptions& launchOptions = m_launchOptions;
-    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = m_renderDefaults.CinematicBaseline();
-    const RunStartupState& startup = m_startup;
-    DiagnosticsRuntime& diagnosticsRuntime = m_diagnosticsRuntime;
-    RunTimerState& timers = m_timers;
-    Assets::AssetSystem& assets = m_assets;
-    Threading::WorkerPool& workerPool = m_workerPool;
-    InputRouter& inputRouter = m_inputRouter;
-    RuntimeInteractionController& interaction = m_interaction;
-    CameraControlState& camera = m_camera;
-    AttachedCameraController& attachedCamera = m_attachedCamera;
-    UI::InGameUI& ui = *m_operatorUi;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    RuntimeRenderer& renderer = Renderer();
-    SceneController& sceneController = m_sceneController;
-    ReplayRuntime& replayRuntime = m_replayRuntime;
 
-    // Concept: graphics stress is a deterministic fuzzer over scene loading,
-    // cinematic controls, render-path toggles, and heavy generated-scene resets.
-    // Keep every mutation reproducible from the launch seed so a crash line in
-    // latest_stdout.txt can be replayed exactly under cdb.
-
-    if ( !stress.IsEnabled() || !window )
+    if ( !stress.IsEnabled() )
     {
-        return;
+        return false;
     }
 
     stress.BeginFrame();
@@ -1051,42 +1035,6 @@ void Run::ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDi
 
         fflush( stdout );
     }
-
-    auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request ) -> bool
-    {
-
-        if ( !request.accepted )
-        {
-            return false;
-        }
-
-        SceneLoadTransaction sceneLoad;
-        sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ),
-                                         m_overlayDiagnostics->PresentationSnapshot(), renderer.RendererName(),
-                                         timers.simulationTimer.GetTotalTime() );
-
-        const bool loaded = sceneLoad
-                                .Load( sceneController, request, config, launchOptions, defaultCinematicRender, startup,
-                                       assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
-                                       &renderer.RenderResources(), renderer )
-                                .ok;
-
-        if ( !legacyDevelopmentUiActive )
-        {
-
-            // Invariant: scene churn may update diagnostics and runtime state,
-            // but it cannot reactivate the mutually exclusive Legacy surface.
-            sceneLoad.PreserveInactiveDevelopmentUi();
-        }
-
-        sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter,
-                                         interaction, camera, attachedCamera, runtimeTools, replayRuntime );
-
-        sceneLoad.ApplyPresentationOutputs( *window, ui, *m_validationHarness, launchOptions, &renderer.RenderDevice(),
-                                            renderer.VsyncEnabled(), sceneController );
-
-        return loaded;
-    };
 
     const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();
 
@@ -1103,21 +1051,16 @@ void Run::ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDi
 
     if ( stress.ShouldIssueDescriptorResize() )
     {
-
-        // A request counts only after diagnostics observes the backend's
-        // publication generation advance on a later frame.
         stress.ObserveRecreationGeneration( preActionRenderStats.recreationGeneration );
         const int edge = ( stress.DescriptorResizeCount() & 1 ) == 0 ? 1280 : 1281;
 
-        if ( !SetWindowPos( window->NativeWindowHandle(), nullptr, 0, 0, edge, 720, SWP_NOMOVE | SWP_NOZORDER ) )
+        if ( !SetWindowPos( window.NativeWindowHandle(), nullptr, 0, 0, edge, 720, SWP_NOMOVE | SWP_NOZORDER ) )
         {
             SB_FATAL( "GraphicsStress", "Descriptor churn SetWindowPos failed. resize=%d", stress.DescriptorResizeCount() );
         }
 
         stress.RecordDescriptorResize();
-
         const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
-
         const uint32_t churnTexture = renderer.RenderTextures().CreateTexture2D( churnPixel, 1, 1, 4,
                                                                                  Rendering::TextureMipPolicy::SingleLevel,
                                                                                  Rendering::TextureFilterPolicy::Nearest );
@@ -1154,65 +1097,43 @@ void Run::ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDi
         fflush( stdout );
     }
 
-    if ( !stress.InDescriptorChurnQuietWindow() && stress.SceneLoadDue() )
+    return true;
+}
+
+GraphicsStressSceneLoadPlan SkullbonezCore::Runtime::PlanGraphicsStressSceneLoad( GraphicsStressController& stress,
+                                                                                  SceneController& sceneController,
+                                                                                  SkullbonezCore::UI::InGameUI& ui )
+{
+    GraphicsStressSceneLoadPlan plan;
+
+    if ( stress.InDescriptorChurnQuietWindow() || !stress.SceneLoadDue() )
     {
-
-        // Hazard: suite order is the durable test contract. Browser fallback is
-        // useful for manual app launches, but automated repros must prefer the
-        // checked-in graphics_stress.suite.json scene queue.
-        SceneLoadRequest request = SceneLoadRequest::None();
-        int selectedSceneIndex = -1;
-        const char* selectedSceneSource = "none";
-
-        if ( sceneController.QueueSize() > 0 )
-        {
-            selectedSceneIndex = stress.NextInt( sceneController.QueueSize() );
-            selectedSceneSource = "queue";
-            request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
-        }
-        else if ( !ui.SceneNavigation().browser.paths.empty() )
-        {
-            selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
-            selectedSceneSource = "browser";
-            request = LoadSceneFromBrowserIndex( ui.SceneNavigation(), selectedSceneIndex, sceneController );
-        }
-
-        if ( executeSceneLoadRequest( request ) )
-        {
-            stress.RecordSceneLoad();
-            printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
-                    stress.SceneLoadsRequested(), stress.FramesRun(), selectedSceneSource, selectedSceneIndex,
-                    request.index );
-
-            fflush( stdout );
-        }
-        else
-        {
-            printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n", stress.FramesRun(),
-                    selectedSceneSource, selectedSceneIndex );
-
-            fflush( stdout );
-        }
+        return plan;
     }
 
-    if ( legacyDevelopmentUiActive )
+    plan.scheduled = true;
+
+    if ( sceneController.QueueSize() > 0 )
     {
-        ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
-        ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
+        plan.selectedSceneIndex = stress.NextInt( sceneController.QueueSize() );
+        plan.selectedSceneSource = "queue";
+        plan.request = SceneLoadRequest::Load( plan.selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
+    }
+    else if ( !ui.SceneNavigation().browser.paths.empty() )
+    {
+        plan.selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
+        plan.selectedSceneSource = "browser";
+        plan.request = LoadSceneFromBrowserIndex( ui.SceneNavigation(), plan.selectedSceneIndex, sceneController );
     }
 
-    sceneController.EnterInteractiveRun();
+    return plan;
+}
 
-    const int actionCount = stress.InDescriptorChurnQuietWindow() ? 0 : stress.ActionCount();
-
-    // Invariant: random values stay inside the same broad ranges exposed by the
-    // runtime UI. The stress test should crash bad DX12 lifetime/state tracking,
-    // not manufacture impossible physics or render data.
-
-    for ( int i = 0; i < actionCount; ++i )
-    {
-        ApplyGraphicsStressAction( stress );
-    }
+void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressController& stress,
+                                                         DiagnosticsRuntime& diagnosticsRuntime, RunTimerState& timers,
+                                                         SceneController& sceneController, ReplayRuntime& replayRuntime,
+                                                         const Rendering::Dx12Diagnostics& renderDiagnostics )
+{
 
     if ( stress.ShouldPrintFrameSummary() )
     {
@@ -1222,70 +1143,73 @@ void Run::ExecuteGraphicsStressFrame( const Rendering::Dx12Diagnostics& renderDi
         fflush( stdout );
     }
 
-    if ( stress.ShouldLogMemory() )
+    if ( !stress.ShouldLogMemory() )
     {
-
-        // Why: long stress runs need memory attribution before shutdown. If the
-        // process is killed after a climb, this stdout line survives with the
-        // same seed/frame/scene-load position as the repro log.
-        const SkullbonezCore::Core::MainMemoryStats& memoryStats = diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
-                                                                                                              CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene().Entities(),
-                                                                                                                                                                    sceneController.Scene().CollectGameplayMemoryBytes(),
-                                                                                                                                                                    sceneController.Scene().CollectGameplayDebugMemoryBytes(),
-                                                                                                                                                                    sceneController.Scene().Physics(),
-                                                                                                                                                                    sceneController.Scene().RenderInstances() } ),
-                                                                                                              timers.simulationTimer.GetTotalTime(), true );
-
-        const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
-        printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
-                "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
-                "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
-                "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
-                "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
-                "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
-                "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
-                "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
-                "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
-                "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
-                "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
-                "srv_static_high_water=%u "
-                "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
-                stress.FramesRun(), stress.SceneLoadsRequested(),
-                static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
-                static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
-                static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
-                static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
-                static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
-                static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
-                static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
-                static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
-                static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ), renderStats.available ? 1 : 0,
-                renderStats.adapterMemoryAvailable ? 1 : 0,
-                static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
-                static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
-                static_cast<unsigned long long>( renderStats.localBudgetBytes ),
-                static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
-                static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
-                static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
-                static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
-                static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
-                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
-                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
-                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
-                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
-                static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
-                static_cast<unsigned long long>( renderStats.uploadFlushCount ),
-                static_cast<unsigned long long>( renderStats.uploadDropCount ), renderStats.textureRegistryCount,
-                renderStats.textureRegistryCapacity, renderStats.psoCacheCount,
-                static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
-                static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
-                static_cast<unsigned long long>( renderStats.precompiledPsoCount ), renderStats.graphTransientCount,
-                renderStats.graphTransientCapacity, renderStats.rtvDescriptorsUsed, renderStats.rtvDescriptorsCapacity,
-                renderStats.dsvDescriptorsUsed, renderStats.dsvDescriptorsCapacity, renderStats.srvStaticDescriptorsUsed,
-                renderStats.srvStaticDescriptorsCapacity, renderStats.srvStaticDescriptorsHighWater,
-                renderStats.srvTransientDescriptorsUsedThisFrame, renderStats.srvTransientDescriptorsCapacityPerFrame,
-                renderStats.srvTransientDescriptorsPeakThisRun );
-
-        fflush( stdout );
+        return;
     }
+
+    const SkullbonezCore::Core::MainMemoryStats&
+        memoryStats = diagnosticsRuntime
+                          .RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
+                                                   CollectSceneMemoryStats( SceneMemoryDiagnosticsView { sceneController.Scene().Entities(),
+                                                                                                         sceneController.Scene()
+                                                                                                             .CollectGameplayMemoryBytes(),
+                                                                                                         sceneController.Scene()
+                                                                                                             .CollectGameplayDebugMemoryBytes(),
+                                                                                                         sceneController.Scene().Physics(),
+                                                                                                         sceneController.Scene()
+                                                                                                             .RenderInstances() } ),
+                                                   timers.simulationTimer.GetTotalTime(), true );
+
+    const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
+    printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
+            "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
+            "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
+            "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
+            "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
+            "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+            "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
+            "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
+            "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
+            "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
+            "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+            "srv_static_high_water=%u "
+            "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
+            stress.FramesRun(), stress.SceneLoadsRequested(),
+            static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
+            static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
+            static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
+            static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
+            static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
+            static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
+            static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
+            static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
+            static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ), renderStats.available ? 1 : 0,
+            renderStats.adapterMemoryAvailable ? 1 : 0,
+            static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
+            static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
+            static_cast<unsigned long long>( renderStats.localBudgetBytes ),
+            static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
+            static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
+            static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
+            static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
+            static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::Constants )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::DynamicVertex )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::InstanceData )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::TextureRows )] ),
+            static_cast<unsigned long long>( renderStats.uploadCategoryPeakBytes[static_cast<std::size_t>( SkullbonezCore::Rendering::RenderUploadCategory::RetainedGeometry )] ),
+            static_cast<unsigned long long>( renderStats.uploadFlushCount ),
+            static_cast<unsigned long long>( renderStats.uploadDropCount ), renderStats.textureRegistryCount,
+            renderStats.textureRegistryCapacity, renderStats.psoCacheCount,
+            static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
+            static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
+            static_cast<unsigned long long>( renderStats.precompiledPsoCount ), renderStats.graphTransientCount,
+            renderStats.graphTransientCapacity, renderStats.rtvDescriptorsUsed, renderStats.rtvDescriptorsCapacity,
+            renderStats.dsvDescriptorsUsed, renderStats.dsvDescriptorsCapacity, renderStats.srvStaticDescriptorsUsed,
+            renderStats.srvStaticDescriptorsCapacity, renderStats.srvStaticDescriptorsHighWater,
+            renderStats.srvTransientDescriptorsUsedThisFrame, renderStats.srvTransientDescriptorsCapacityPerFrame,
+            renderStats.srvTransientDescriptorsPeakThisRun );
+
+    fflush( stdout );
 }

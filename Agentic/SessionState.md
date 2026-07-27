@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 11 is closed; Plan 5 FV2 deleted the four frame views and FV3 is binding, while plan 12 remains sequenced after plan 5. |
-| Active/future progress | 3/7 (43%). Plans 5 and 12 are the live queue; completed plan 11 is excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is closed with clear review and unchanged baselines; plan 12 SR0 is binding. |
+| Active/future progress | 4/7 (57%). Plan 12 is the live queue; completed plans 5 and 11 are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Allocator AF2 passes the default full and performance gates with `foreign_frees=0`; 421/421 tests and 2,410,268 assertions, allocation-policy scans, and one-minute graphics stress pass. Independent review ended `ZERO BLOCKERS`. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -28,7 +28,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/7 phases, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 4/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -45,9 +45,10 @@ baselines. `runtime-frame-view-retirement` FV0 measured the corrected current
 surface. The owner-ratified coordinator exception resolved FV1 without a source
 rewrite: the six named `Run` methods already coordinate through direct member
 reach and delegate concrete operands only. FV2 then deleted all four frame
-views and both emptied forwarding headers; Debug/Profile/Automation builds,
-fast validation, DX12 comparison, and bounded stress pass. FV3 is binding at
-3/4. Plan 8 SR0
+views and both emptied forwarding headers. FV3 removed the broad wrappers
+rejected by its first independent review, reconciled comments, and closed with
+clear review plus every mapped gate passing unchanged. Plan 5 then left the
+live ledger under rule 4. Plan 8 SR0
 ruled every operation to a concrete owner, existing GV transaction, or pure
 domain policy. SR1 moved the state-owning operations and deleted seven emptied
 implementation units. SR2 eliminated the residual filler names, assigned the
@@ -104,7 +105,7 @@ operations remain concrete and at or below 12 parameters, unblocking plan 5.
 Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
 legacy-suffix/no-invariant gated rows. All 84 already carry CA0 rulings and the
 transitional verdict count is zero. Strict mode, source-drift checking, and the
-required fixtures pass. Plan 12 remains sequenced after plan 5; plan 13
+required fixtures pass. Plan 12 is now binding after plan 5; plan 13
 subsequently ran last and closed.
 NA1 armed strict mode in `validate_fast`, recorded the
 permanent ownership rule and name-scope residual, and observed the gate reject a
@@ -136,7 +137,7 @@ coordinate/scale fatal probes, completed the 4/4 whole-file comment audit, and
 cleared all five independent-review blockers. All 421 tests / 2,410,268
 assertions, byte-exact Physics, deep Physics, SkullScope, performance, and the
 default full gate pass. Plan 13 is complete and removed from the live ledger
-under rule 4; plans 5 and 11 remain blocked and plan 12 waits for plan 5.
+under rule 4; plan 12 is the sole live queue item.
 Evidence:
 `Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-closure.md` and
 `Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md`

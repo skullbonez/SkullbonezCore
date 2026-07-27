@@ -1,14 +1,14 @@
 # Runtime Frame View Retirement
 
 Date: 2026-07-26
-Status: IN PROGRESS — owner ruling received 2026-07-27: the `Run` phase
+Status: COMPLETE — owner ruling received 2026-07-27: the `Run` phase
 coordinator may retain direct member reach while every delegated operation takes
 only concrete operands. The 12-parameter ceiling applies to delegated
-operations, not to a coordinator's internal member reach. FV0 is complete and
-FV2 is complete and FV3 is binding. Drafted from the 2026-07-26
+operations, not to a coordinator's internal member reach. FV0-FV3 are complete.
+Drafted from the 2026-07-26
 from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
-Round 5. 3/4 phases complete.
+Round 5. 4/4 phases complete.
 Impact area: `Runtime/RuntimeFrameViews.h`, `Runtime/App/Run.h`,
 `Runtime/App/RunFrame.cpp`, `Runtime/App/InputFrameExecution.cpp`,
 `Runtime/Capture/RuntimeStressController.cpp`
@@ -163,7 +163,7 @@ that operation can affect.
   61.1-second graphics-stress run pass without baseline change. Evidence:
   `../../Reports/2026-07-27/runtime-frame-view-retirement-fv2-closure.md`.
 
-- [ ] **FV3 — Reconcile, review, and hand off.**
+- [x] **FV3 — Reconcile, review, and hand off.**
   Complete the comment audit for every touched file, with particular attention to
   `Run.h`'s Mental model block and `RuntimeFrameViews.h` — both currently describe
   the retired convention. Obtain one independent ownership review answering: can
@@ -173,6 +173,14 @@ that operation can affect.
   `validate_dx12_renderer.bat` runs, `run_graphics_stress.bat 1`,
   `validate_physics.bat`, and `validate_replay_visual_fidelity.bat` pass with no
   baseline, golden, or config change.
+  Closed 2026-07-27. The first independent review rejected broad member
+  wrappers with implicit whole-owner reach. The corrective pass removed them,
+  kept top-level sequencing in the permitted `Run` coordinators, and split
+  delegated input, automation, UI, and graphics-stress work into concrete
+  signatures capped at 12 operands. The final independent verdict is **PASS —
+  ZERO BLOCKERS**. All mapped gates pass without a baseline, golden, config,
+  schema, or budget change. Evidence:
+  `../../Reports/2026-07-27/runtime-frame-view-retirement-fv3-closure.md`.
 
 ## Dependencies And Decisions
 

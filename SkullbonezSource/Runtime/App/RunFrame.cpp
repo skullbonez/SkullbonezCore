@@ -73,6 +73,7 @@ Related:
 #include "../Scene/SceneLoadTransaction.h"
 
 #include "../Capture/CaptureSystem.h"
+#include "../Capture/RuntimeStressController.h"
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
@@ -178,12 +179,6 @@ void CaptureReplayPostStep( RuntimeTools& runtimeTools, SkullbonezCore::Runtime:
 
 } // namespace
 
-struct Run::FrameInputPhaseResult
-{
-    SceneFrameProceedPolicy proceedPolicy;
-    bool legacyDevelopmentUiActive = true;
-};
-
 struct Run::FrameSimulationPhaseResult
 {
     float interpolationAlpha = 1.0f;
@@ -194,14 +189,6 @@ struct Run::FrameRenderPhaseResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     float presentationAlpha = 1.0f;
-};
-
-struct Run::FramePresentationFacts
-{
-    float presentationAlpha = 1.0f;
-    bool capturePresentationPinned = false;
-    double secondsPerFrame = 0.0;
-    bool legacyDevelopmentUiActive = true;
 };
 
 bool Run::PumpFrameMessages( int& messageExitCode )
@@ -268,7 +255,12 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 {
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
-    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( automationReplayView,
+    const InteractionAutomationFrameResult result = TickInteractionAutomationBeforeInput( m_interactionAutomation, m_window,
+                                                                                          m_config, m_sceneController,
+                                                                                          m_timers, m_camera, m_inputRouter,
+                                                                                          m_interaction, m_runtimeTools,
+                                                                                          *m_operatorUi,
+                                                                                          automationReplayView,
                                                                                           Renderer().FrameGraphSnapshot() );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -323,65 +315,6 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 }
 #endif
 
-Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
-{
-    UiInputCaptureIntent developmentUiCapture;
-    SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
-    bool legacyDevelopmentUiActive = true;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    developmentUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
-    developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
-#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-
-    if ( automationBeforeInput )
-    {
-        const SkullbonezCore::Core::SbResult
-            submitStatus = m_interactionAutomation.SubmitOperatorEditorReplayCommand( *automationBeforeInput,
-                                                                                      developmentEditorCommands );
-
-        if ( !submitStatus.ok )
-        {
-            m_applicationExit.RequestOwnedFailure( submitStatus );
-        }
-    }
-#else
-    (void)automationBeforeInput;
-#endif
-    legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
-#else
-    (void)automationBeforeInput;
-#endif
-    [[maybe_unused]] const InputFrameExecutionResult inputFrameResult = ProcessInputFrame( developmentUiCapture,
-                                                                                           developmentEditorCommands,
-                                                                                           legacyDevelopmentUiActive );
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    if ( m_launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
-    {
-
-        // Invariant: scene load may apply a Legacy default during input. An
-        // explicit process selection wins before either UI begins its frame.
-        SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
-    }
-
-    if ( inputFrameResult.requestDevelopmentUiSurfaceSwap )
-    {
-        SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
-    }
-
-    // ProcessInputFrame may consume Ctrl+0 after its snapshot; resample only
-    // after every pre-render swap so both surfaces cannot draw concurrently.
-    legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
-#endif
-    const SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy( m_inputRouter.RuntimeSnapshot().frameInput.stepHeld );
-
-    m_validationHarness->TickLiveStyle( m_launchOptions, m_sceneController, m_operatorUi->SceneNavigation().browser,
-                                        m_assets, ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
-                                        m_renderDefaults.CinematicBaseline() );
-
-    return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
-}
-
 Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
                                                          const SceneFrameProceedPolicy& proceedPolicy )
 {
@@ -431,9 +364,95 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
                                                      const FrameSimulationPhaseResult& simulation )
 {
 
-    // Concept: graphics stress is render/runtime churn, not UI command work. It
-    // runs once per rendered frame in headless and interactive configurations.
-    ExecuteGraphicsStressFrame( Renderer().RenderDiagnostics(), legacyDevelopmentUiActive );
+    // Concept: graphics stress is render/runtime churn, not UI command work.
+    // This top-level phase coordinates its concrete planning, load, action, and
+    // diagnostics operations without delegating the composition root.
+    GraphicsStressController& graphicsStress = m_validationHarness->GraphicsStress();
+
+    if ( PrepareGraphicsStressChurn( graphicsStress, m_window, Renderer(), Renderer().RenderDiagnostics() ) )
+    {
+        const GraphicsStressSceneLoadPlan stressLoad = PlanGraphicsStressSceneLoad( graphicsStress, m_sceneController,
+                                                                                    *m_operatorUi );
+
+        if ( stressLoad.request.accepted )
+        {
+            SceneLoadTransaction sceneLoad;
+            sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
+                                             m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
+                                             m_timers.simulationTimer.GetTotalTime() );
+
+            const bool loaded = sceneLoad
+                                    .Load( m_sceneController, stressLoad.request, m_config, m_launchOptions,
+                                           m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
+                                           m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
+                                           Renderer() )
+                                    .ok;
+
+            if ( !legacyDevelopmentUiActive )
+            {
+                sceneLoad.PreserveInactiveDevelopmentUi();
+            }
+
+            sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController,
+                                             m_inputRouter, m_interaction, m_camera, m_attachedCamera, m_runtimeTools,
+                                             m_replayRuntime );
+
+            sceneLoad.ApplyPresentationOutputs( m_window, *m_operatorUi, *m_validationHarness, m_launchOptions,
+                                                &Renderer().RenderDevice(), Renderer().VsyncEnabled(), m_sceneController );
+
+            if ( loaded )
+            {
+                graphicsStress.RecordSceneLoad();
+                printf( "[graphics-stress] scene_load=%d frame=%d source=%s selected_index=%d action_index=%d\n",
+                        graphicsStress.SceneLoadsRequested(), graphicsStress.FramesRun(), stressLoad.selectedSceneSource,
+                        stressLoad.selectedSceneIndex, stressLoad.request.index );
+            }
+            else
+            {
+                printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
+                        graphicsStress.FramesRun(), stressLoad.selectedSceneSource, stressLoad.selectedSceneIndex );
+            }
+
+            fflush( stdout );
+        }
+        else if ( stressLoad.scheduled )
+        {
+            printf( "[graphics-stress] scene_load_skipped frame=%d source=%s selected_index=%d\n",
+                    graphicsStress.FramesRun(), stressLoad.selectedSceneSource, stressLoad.selectedSceneIndex );
+
+            fflush( stdout );
+        }
+
+        if ( legacyDevelopmentUiActive )
+        {
+            m_operatorUi->SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
+            m_operatorUi->SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
+        }
+
+        m_sceneController.EnterInteractiveRun();
+        const int actionCount = graphicsStress.InDescriptorChurnQuietWindow() ? 0 : graphicsStress.ActionCount();
+
+        for ( int index = 0; index < actionCount; ++index )
+        {
+            const int action = graphicsStress.NextAction();
+
+            if ( action <= 14 )
+            {
+                ApplyGraphicsStressPresentationAction( action, graphicsStress, m_assets, m_launchOptions, m_config,
+                                                       *m_overlayDiagnostics, m_sceneController, m_timers, *m_operatorUi,
+                                                       m_renderDefaults.CinematicBaseline(), Renderer() );
+            }
+            else
+            {
+                ApplyGraphicsStressRuntimeAction( action, graphicsStress, m_launchOptions, *m_overlayDiagnostics,
+                                                  m_sceneController, m_camera, *m_operatorUi, m_simulation, m_runtimeTools,
+                                                  m_replayRuntime );
+            }
+        }
+
+        FinishGraphicsStressFrame( graphicsStress, m_diagnosticsRuntime, m_timers, m_sceneController, m_replayRuntime,
+                                   Renderer().RenderDiagnostics() );
+    }
 
     const float presentationAlpha = ResolvePresentationAlpha( m_config, simulation.capturePresentationPinned,
                                                               simulation.interpolationAlpha );
@@ -480,117 +499,6 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
     PROFILE_END( m_profiler, "Frame/Render" );
 }
 
-SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                                           const FramePresentationFacts& facts )
-{
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
-    // Invariant: copy the completed world backbuffer before either operator
-    // surface draws, preserving one presentation owner at a time.
-
-    if ( m_imguiEditor.IsVisible() )
-    {
-        const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
-
-        if ( !viewportCapture.ok )
-        {
-            m_timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( viewportCapture );
-            return viewportCapture;
-        }
-    }
-#endif
-
-    SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
-#endif
-    const RuntimeUiTextFrameFacts uiTextFacts { RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
-                                                                              m_sceneController.Scene().SceneEntityCount() ),
-                                                m_camera.mode == RunCameraMode::Attach ? m_attachedCamera.ModeLabel()
-                                                                                       : RunCameraModeLabel( m_camera.mode ),
-                                                m_runtimeTools.LauncherFireModeLabel(),
-                                                RunCameraModeUsesLauncher( m_camera.mode ),
-                                                m_interaction.Gesture().kind,
-                                                m_interaction.Gesture().gizmoKind,
-                                                facts.presentationAlpha,
-                                                facts.capturePresentationPinned,
-                                                facts.secondsPerFrame,
-                                                facts.legacyDevelopmentUiActive };
-
-    const ReplayOverlay::ReplayOverlayStateView
-        replayOverlay = m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
-                                                               m_operatorUi->IsVisible(), m_operatorUi->IsMinimized(),
-                                                               m_interaction.Gesture().kind,
-                                                               renderModels.presentationRecords, renderModels.bodyStore );
-
-    ComposeOperatorEditorFrame( uiTextFacts, operatorEditorView, replayOverlay, renderModels );
-
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
-    const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
-    const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus
-        tracyStatus = SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
-
-    const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput { m_window.ClientWidth(),
-                                                                    m_window.ClientHeight(),
-                                                                    dpiScale,
-                                                                    static_cast<float>( facts.secondsPerFrame ),
-                                                                    tracyStatus.initialized,
-                                                                    tracyStatus.viewerConnected,
-                                                                    tracyStatus.heavyMode };
-
-    if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
-    {
-        m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
-        DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
-
-        if ( imguiResult.status.ok )
-        {
-            imguiResult.status = Renderer().RenderDevelopmentUi( m_imguiEditor );
-        }
-
-        if ( !imguiResult.status.ok )
-        {
-            m_timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( imguiResult.status );
-            return imguiResult.status;
-        }
-
-        if ( imguiResult.commands.requestSurfaceSwap )
-        {
-            SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
-        }
-
-        if ( imguiResult.commands.requestTracyStandardCapture )
-        {
-            bool tracyStarted = false;
-#if defined( TRACY_ENABLE )
-
-            if ( m_tracyClientOwner )
-            {
-
-                // Why: this explicit cold diagnostics action starts Tracy before
-                // recreating workers so their instrumentation names are bound.
-                CoreAllocation::RuntimeAllocationScope tracyStartScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-                tracyStarted = m_tracyClientOwner->StartStandardCapture();
-
-                if ( tracyStarted )
-                {
-                    m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
-                    m_workerPool.BindProfiler( m_profiler );
-                }
-            }
-#endif
-            m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
-        }
-    }
-#endif
-    return SkullbonezCore::Core::SbResult::Success();
-}
-
 void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 {
     PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
@@ -611,9 +519,13 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 
 #endif
     const InteractionAutomationFrameResult
-        automationAfterRender = TickInteractionAutomationAfterRender( m_replayRuntime.BuildAutomationView(),
+        automationAfterRender = TickInteractionAutomationAfterRender( m_interactionAutomation, m_runtimeTools, m_interaction,
+                                                                      m_inputRouter, m_camera, *m_operatorUi,
+                                                                      m_sceneController,
+                                                                      m_replayRuntime.BuildAutomationView(),
                                                                       automationDevelopmentUiView,
-                                                                      Renderer().FrameGraphSnapshot() );
+                                                                      Renderer().FrameGraphSnapshot(),
+                                                                      m_diagnosticsRuntime.Capture(), BackbufferCapture() );
 
     if ( !automationAfterRender.status.ok )
     {

@@ -25,7 +25,7 @@ Invariants:
   - The coordinator is called once per rendered frame, after automation injection.
   - InputRouter remains the only owner of sampled device and semantic edge state.
   - Process requests contain no owner references and are consumed in the same
-    frame immediately after ProcessInputFrame returns.
+    frame immediately after RunInputPhase returns.
 
 Related:
   - InputRouter.h owns input state and routing policy.
@@ -179,10 +179,16 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-struct InputFrameExecutionResult
-{
-    bool requestDevelopmentUiSurfaceSwap = false;
-};
-
+RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera,
+                                          RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera,
+                                          RuntimeInteractionController& interaction, UI::InGameUI& ui, RunTimerState& timers,
+                                          SceneController& sceneController, ReplayRuntime& replayRuntime,
+                                          const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts );
+RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
+                                                  CameraControlState& camera, RuntimeTools& runtimeTools,
+                                                  RuntimeInteractionController& interaction,
+                                                  AttachedCameraController& attachedCamera, UI::InGameUI& ui,
+                                                  SceneController& sceneController, ReplayRuntime& replayRuntime,
+                                                  RunCameraMode replayCurrentCameraMode );
 } // namespace Runtime
 } // namespace SkullbonezCore

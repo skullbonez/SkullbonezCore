@@ -3484,20 +3484,12 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
     return state.status.Result();
 }
 
-InteractionAutomationFrameResult
-Run::TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayView,
-                                           const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
+                                                                                                SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter,
+                                                                                                RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui,
+                                                                                                const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
-    InteractionAutomationController& state = m_interactionAutomation;
-    Window* window = &m_window;
-    const SkullbonezCore::Core::EngineConfig& config = m_config;
-    SceneController& scene = m_sceneController;
-    RunTimerState& timers = m_timers;
-    CameraControlState& camera = m_camera;
-    InputRouter& inputRouter = m_inputRouter;
-    RuntimeInteractionController& interaction = m_interaction;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    UI::InGameUI& ui = *m_operatorUi;
+    Window* window = &windowOwner;
     InteractionAutomationFrameResult result;
 
     if ( !state.enabled || state.finished )
@@ -3841,7 +3833,7 @@ Run::TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayVie
             if ( available && !result.hasOperatorEditorReplayCommand )
             {
                 result.hasOperatorEditorReplayCommand = true;
-                result.operatorEditorReplayCommand.type = UI::OperatorEditorReplayCommandType::Scrub;
+                result.operatorEditorReplayCommand.type = SkullbonezCore::UI::OperatorEditorReplayCommandType::Scrub;
                 result.operatorEditorReplayCommand.value = action.numberValue;
             }
             else
@@ -3905,20 +3897,12 @@ Run::TickInteractionAutomationBeforeInput( const ReplayAutomationView& replayVie
     return result;
 }
 
-InteractionAutomationFrameResult
-Run::TickInteractionAutomationAfterRender( const ReplayAutomationView& replayView,
-                                           const InteractionAutomationDevelopmentUiView& developmentUiView,
-                                           const Rendering::RenderSceneSnapshot& renderSnapshot )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction,
+                                                                                                InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene,
+                                                                                                const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView,
+                                                                                                const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture,
+                                                                                                Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
-    InteractionAutomationController& state = m_interactionAutomation;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    RuntimeInteractionController& interaction = m_interaction;
-    InputRouter& inputRouter = m_inputRouter;
-    CameraControlState& camera = m_camera;
-    UI::InGameUI& ui = *m_operatorUi;
-    SceneController& scene = m_sceneController;
-    CaptureController& capture = m_diagnosticsRuntime.Capture();
-    Rendering::Dx12BackbufferCapture& backbufferCapture = BackbufferCapture();
     InteractionAutomationFrameResult result;
 
     if ( !state.enabled || state.finished )

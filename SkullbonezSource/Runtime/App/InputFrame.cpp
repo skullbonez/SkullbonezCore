@@ -520,20 +520,14 @@ void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, Recor
 // Concept: UI sampling and replay workspace arbitration publish the post-UI
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
-RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replayPointerRay,
-                                               const RuntimeInputFrameFacts& facts )
+RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera,
+                                          RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera,
+                                          RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui,
+                                          RunTimerState& timers, SceneController& sceneController,
+                                          ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
+                                          const RuntimeInputFrameFacts& facts )
 {
-    Window& window = m_window;
-    InputRouter& inputRouter = m_inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
-    CameraControlState& camera = m_camera;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    AttachedCameraController& attachedCamera = m_attachedCamera;
-    RuntimeInteractionController& interaction = m_interaction;
-    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
-    RunTimerState& timers = m_timers;
-    SceneController& sceneController = m_sceneController;
-    ReplayRuntime& replayRuntime = m_replayRuntime;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
@@ -595,7 +589,7 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
 
     // Invariant: replay workspace tools execute during this input turn, before
     // the completed interaction policy exists. Publish current post-UI pointer
-    // and key facts now; ProcessInputFrame republishes the final policy facts below.
+    // and key facts now; RunInputPhase republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput {}, result.suppressWorldActionThisFrame );
     replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput { windowHandle,
                                                              ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
@@ -623,8 +617,8 @@ RuntimeUIFrameResult Run::BeginRuntimeUIFrame( const ReplayPathPickInput& replay
 
 // Lifetime: command application borrows composed owners synchronously through
 // the Run coordinator; no owner is retained by a delegated operation.
-RuntimeUIFrameResult Run::ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
-                                                       const RuntimeInputFrameFacts& facts )
+RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
+                                                   const RuntimeInputFrameFacts& facts )
 {
     InputRouter& inputRouter = m_inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
@@ -1011,7 +1005,7 @@ RuntimeUIFrameResult Run::ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult resu
     }
 
     // Invariant: the one-frame step request joins the routed Space level later
-    // in ProcessInputFrame. It is meaningful only while the scene-flow owner is
+    // in RunInputPhase. It is meaningful only while the scene-flow owner is
     // paused and is never retained as Run business state.
     result.requestSceneStep = uiCommands.scene.requestSingleStep && sceneController.CrossScenePauseLocked();
     const DiagnosticsPhysicsOverlayUICommandResult
@@ -1248,17 +1242,14 @@ RuntimeUIFrameResult Run::ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult resu
     return result;
 }
 
-RuntimeUIFrameResult Run::FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, RunCameraMode replayCurrentCameraMode )
+RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, InputRouter& inputRouter,
+                                                  CameraControlState& camera, RuntimeTools& runtimeTools,
+                                                  RuntimeInteractionController& interaction,
+                                                  AttachedCameraController& attachedCamera, SkullbonezCore::UI::InGameUI& ui,
+                                                  SceneController& sceneController, ReplayRuntime& replayRuntime,
+                                                  RunCameraMode replayCurrentCameraMode )
 {
-    InputRouter& inputRouter = m_inputRouter;
     RuntimeInputContext& runtimeInput = inputRouter.RuntimeContext();
-    CameraControlState& camera = m_camera;
-    RuntimeTools& runtimeTools = m_runtimeTools;
-    RuntimeInteractionController& interaction = m_interaction;
-    AttachedCameraController& attachedCamera = m_attachedCamera;
-    SkullbonezCore::UI::InGameUI& ui = *m_operatorUi;
-    SceneController& sceneController = m_sceneController;
-    ReplayRuntime& replayRuntime = m_replayRuntime;
 
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
