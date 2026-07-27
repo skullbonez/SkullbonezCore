@@ -61,3 +61,12 @@ One constraint must change before plan 5 can continue. The bounded choices are:
 FV1 made no source edit. Plan 5 is blocked at 1/4 and plan 12 remains blocked on
 its frame-signature dependency. The orchestrator advances to dependency-clear
 plan 8, `scene-runtime-verb-partition-consolidation`.
+
+## Resolution — 2026-07-27
+
+The owner selected recommendation 1: `Run` phase coordinators may retain direct
+member reach, while every delegated operation still receives only concrete
+operands and remains at or below 12 parameters. This removes the conflict
+described above without introducing a carrier or widening `Run::Execute`.
+FV1 subsequently closed with unchanged source and a byte-exact physics pass;
+see `runtime-frame-view-retirement-fv1-closure.md`.

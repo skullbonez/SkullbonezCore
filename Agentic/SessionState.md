@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 11 is closed; Plan 5 FV1 is binding under the owner-ruled `Run` coordinator exception, and plan 12 remains sequenced after plan 5. |
-| Active/future progress | 1/7 (14%). Plans 5 and 12 are the live queue; completed plan 11 is excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 11 is closed; Plan 5 FV1 is complete under the owner-ruled `Run` coordinator exception, FV2 is binding, and plan 12 remains sequenced after plan 5. |
+| Active/future progress | 2/7 (29%). Plans 5 and 12 are the live queue; completed plan 11 is excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Allocator AF2 passes the default full and performance gates with `foreign_frees=0`; 421/421 tests and 2,410,268 assertions, allocation-policy scans, and one-minute graphics stress pass. Independent review ended `ZERO BLOCKERS`. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -28,7 +28,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 1/7 phases, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 2/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -42,9 +42,10 @@ Permanent closure evidence is
 capture required, made optional capability presence explicit at startup
 composition, and closed RB0-RB3 with clear independent review and unchanged
 baselines. `runtime-frame-view-retirement` FV0 measured the corrected current
-surface, but FV1 proved the fixed-step coordinator cannot satisfy the
-concrete-only endpoint, 12-parameter ceiling, short schedule, and carrier ban
-simultaneously. Plan 5 is blocked at 1/4 pending owner direction; plan 8 SR0
+surface. The owner-ratified coordinator exception resolved FV1 without a source
+rewrite: the six named `Run` methods already coordinate through direct member
+reach and delegate concrete operands only. Byte-exact physics passes; FV2 is
+binding at 2/4. Plan 8 SR0
 ruled every operation to a concrete owner, existing GV transaction, or pure
 domain policy. SR1 moved the state-owning operations and deleted seven emptied
 implementation units. SR2 eliminated the residual filler names, assigned the

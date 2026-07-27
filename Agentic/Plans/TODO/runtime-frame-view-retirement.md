@@ -5,10 +5,10 @@ Status: IN PROGRESS — owner ruling received 2026-07-27: the `Run` phase
 coordinator may retain direct member reach while every delegated operation takes
 only concrete operands. The 12-parameter ceiling applies to delegated
 operations, not to a coordinator's internal member reach. FV0 is complete and
-FV1 is binding. Drafted from the 2026-07-26
+FV1 is complete and FV2 is binding. Drafted from the 2026-07-26
 from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
-Round 5. 1/4 phases complete.
+Round 5. 2/4 phases complete.
 Impact area: `Runtime/RuntimeFrameViews.h`, `Runtime/App/Run.h`,
 `Runtime/App/RunFrame.cpp`, `Runtime/App/InputFrameExecution.cpp`,
 `Runtime/Capture/RuntimeStressController.cpp`
@@ -114,7 +114,7 @@ that operation can affect.
   named decompositions at or below the 12-parameter ceiling. Evidence:
   `../../Reports/2026-07-27/runtime-frame-view-retirement-fv0-census.md`.
 
-- [ ] **FV1 — Make the convention uniform.**
+- [x] **FV1 — Make the convention uniform.**
   Apply the coordinator exception consistently to `TickPhysics`, `UpdateLogic`,
   `AfterPhysicsStep`, `TickScreenshots`, `TickAutoCycle`, and
   `TickSceneAdvance`. Ordered `Run` coordinators retain direct member reach;
@@ -134,6 +134,10 @@ that operation can affect.
   still takes concrete operands and remains at or below 12 parameters. This is
   the smallest authority/source change; it does not permit a replacement bag,
   callback pack, `Run&` parameter, or frame transaction.
+  Closed 2026-07-27. The six named helpers already match that ruling, so no
+  source edit was required. `validate_physics.bat` passes from the unchanged
+  tree with byte-exact output. Evidence:
+  `../../Reports/2026-07-27/runtime-frame-view-retirement-fv1-closure.md`.
 
 - [ ] **FV2 — Convert the remaining phases and delete the views.**
   Apply concrete operands to `RunInputPhase`, `RunSimulationPhase`,
