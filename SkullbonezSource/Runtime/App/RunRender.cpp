@@ -32,11 +32,10 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Interaction/OperatorCommandApplier.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 

@@ -4,10 +4,12 @@ Date: 2026-07-26
 Status: IN PROGRESS — OC0 closed 2026-07-27 with the exact eight-edge phase
 order, same-frame winner table, operation destinations, and complete acceptance
 ledger census. OC1 installed and exhaustively proved the non-copyable,
-value-only transaction. OC2 is binding. Drafted from the 2026-07-26 from-source
+value-only transaction. OC2 moved all operations behind the phase owner,
+unified the acceptance ledger, and removed `RunInternal`. OC3 is binding.
+Drafted from the 2026-07-26 from-source
 architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 9 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 2/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 3/4 phases
 complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.{h,cpp}`,
 `Runtime/App/InputRouter.Interactions.cpp`, `Runtime/App/InputFrame.cpp`,
@@ -139,7 +141,7 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   children, while the legal walk reaches `Complete`. Evidence:
   `../../Reports/2026-07-27/operator-command-invariant-ownership-oc1-transaction.md`.
 
-- [ ] **OC2 — Move the operations onto the transaction and unify the ledger.**
+- [x] **OC2 — Move the operations onto the transaction and unify the ledger.**
   Convert every apply operation to a transaction phase. Replace the seven result
   records with one acceptance ledger the transaction produces, keeping exactly the
   fields OC0 proved have consumers. Delete `namespace RunInternal`. Acceptance:
@@ -147,6 +149,13 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   apply function over a command context remains; every UI tab control behaves
   identically; the acceptance flags `InputFrame` records are unchanged;
   automation interaction reports are unchanged.
+  Closed 2026-07-27. All operator mutations now execute through the seven
+  ordered transaction phases; one value-only ledger supplies every retained
+  `InputFrame` and replay consumer. The seven result records, seventeen legacy
+  apply entry points, and all 71 `RunInternal` rows are gone. Physics, unit,
+  format, ownership, project/filter, Profile, and Debug gates pass with no
+  baseline or report-format change. Evidence:
+  `../../Reports/2026-07-27/operator-command-invariant-ownership-oc2-owner-migration.md`.
 
 - [ ] **OC3 — Reconcile, review, and hand off.**
   Complete the comment audit for touched files, correcting every header that

@@ -44,41 +44,6 @@ void OperatorCommandTransaction::AdvanceOrFatal( OperatorCommandPhaseCursor::Pha
     }
 }
 
-void OperatorCommandTransaction::ApplyDeviceAndMode()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::DeviceAndMode, "ApplyDeviceAndMode" );
-}
-
-void OperatorCommandTransaction::ApplyPhysicsControl()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::PhysicsControl, "ApplyPhysicsControl" );
-}
-
-void OperatorCommandTransaction::ApplyRuntimePresentation()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::RuntimePresentation, "ApplyRuntimePresentation" );
-}
-
-void OperatorCommandTransaction::ApplySimulationPolicy()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::SimulationPolicy, "ApplySimulationPolicy" );
-}
-
-void OperatorCommandTransaction::ApplyPhysicsMaterial()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::PhysicsMaterial, "ApplyPhysicsMaterial" );
-}
-
-void OperatorCommandTransaction::ApplyWorldPolicy()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::WorldPolicy, "ApplyWorldPolicy" );
-}
-
-void OperatorCommandTransaction::ApplyCinematicPolicy()
-{
-    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::CinematicPolicy, "ApplyCinematicPolicy" );
-}
-
 void OperatorCommandTransaction::Complete()
 {
     AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::Complete, "Complete" );

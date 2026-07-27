@@ -43,7 +43,6 @@ Related:
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "../Direction/DemoDirectorPlayback.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../../Core/Log.h"
@@ -63,7 +62,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 
 
@@ -654,7 +652,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
 
     CancelPointerPresentation();
     runtimeTools.CancelMousePickup( *this, interaction );
-    RunInternal::ResetEditorUnfocusedInputState( runtimeTools.Editor(), interaction );
+    ResetEditorUnfocusedInputState( runtimeTools.Editor(), interaction );
     InputController::ResetUnfocusedInput( camera );
     InputController::BeginFrame( runtimeInput,
                                  BuildRuntimeInputModeState( camera.mode, runtimeTools.Editor(), interaction.Gesture(),
@@ -714,11 +712,11 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
         switch ( event.action )
         {
         case RuntimeInputAction::SaveSceneSnapshot:
-            RunInternal::HandleEditorSceneSaveHotkey( sceneController.Scene(), sceneController.State(), presentation, true );
+            HandleEditorSceneSaveHotkey( sceneController.Scene(), sceneController.State(), presentation, true );
 
             break;
         case RuntimeInputAction::SaveScreenshot:
-            RunInternal::HandleEditorScreenshotHotkey( diagnosticsRuntime.Capture(), true );
+            HandleEditorScreenshotHotkey( diagnosticsRuntime.Capture(), true );
             break;
         case RuntimeInputAction::ResetScene:
 

@@ -198,7 +198,7 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestOperatorCommandApplier.cpp">
+    <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp">

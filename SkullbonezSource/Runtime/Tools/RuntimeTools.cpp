@@ -196,7 +196,7 @@ bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool
 void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, SceneWorld& world,
                                                         RuntimeInteractionController& interaction )
 {
-    RunInternal::ClearEditorManipulationState( m_editor, interaction );
+    ClearEditorManipulationState( m_editor, interaction );
     m_editor.viewportLookActive = false;
     m_editor.placementModeEnabled = false;
     m_editor.hotGizmoAxis = -1;
@@ -927,9 +927,8 @@ void RuntimeTools::PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSy
     // Invariant: one owner clears and rebuilds the shared tracer exactly once
     // before replay appends its records for the same frame.
     m_editorTracer.Clear();
-    RunInternal::BuildEditorToolOverlayTrace( m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer,
-                                              { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode,
-                                                input.gesture, input.attachedCameraTargetIndex,
-                                                input.attachedCameraActiveFollow } );
+    BuildEditorToolOverlayTrace( m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer,
+                                 { input.rayLingerSeconds, input.inspectGizmoActive, input.scaleMode, input.gesture,
+                                   input.attachedCameraTargetIndex, input.attachedCameraActiveFollow } );
 }
 } // namespace SkullbonezCore::Runtime

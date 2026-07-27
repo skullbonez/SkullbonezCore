@@ -554,6 +554,21 @@ void WorldEnvironment::SetFluidDensity( float density )
     m_fluidDensity = density;
 }
 
+WorldOverrideChange WorldEnvironment::ApplyOverride( float gravity, float fluidHeight, float fluidDensity )
+{
+    WorldOverrideChange change;
+    change.previousGravity = GetGravity();
+    change.previousFluidHeight = GetFluidSurfaceHeight();
+    change.previousFluidDensity = GetFluidDensity();
+    change.gravity = gravity;
+    change.fluidHeight = fluidHeight;
+    change.fluidDensity = fluidDensity;
+    SetGravity( gravity );
+    SetFluidSurfaceHeight( fluidHeight );
+    SetFluidDensity( fluidDensity );
+    return change;
+}
+
 
 const SkullbonezCore::Physics::MutualGravitySettings& WorldEnvironment::GetMutualGravitySettings() const
 {

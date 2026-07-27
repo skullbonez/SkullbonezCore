@@ -303,8 +303,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 
             colliderDesc.friction = collider->friction;
 
-            if ( !RunInternal::ResetEditorModelMotionAndWake( world, modelIndices[index], update,
-                                                              std::move( colliderDesc ) ) )
+            if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update, std::move( colliderDesc ) ) )
             {
 
                 // Lane F: preflight resolved this owned body/collider. Failure
@@ -315,7 +314,7 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         else
         {
 
-            if ( !RunInternal::ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
+            if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
             {
 
                 // Lane F: stable-id preflight makes an update rejection an
@@ -408,7 +407,7 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmo
     }
     else
     {
-        const int groupCount = RunInternal::ValidCapturedEditorGizmoGroupCount( m_editor, world.SceneEntityCount() );
+        const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, world.SceneEntityCount() );
         const int count = groupCount > 0 ? groupCount : 1;
 
         for ( int groupIndex = 0; groupIndex < count; ++groupIndex )
@@ -540,7 +539,7 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, SceneSessionState& scen
 
 bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
-    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
+    const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Place;
 
@@ -580,7 +579,7 @@ bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, SceneSessionStat
 
 bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, SceneSessionState& scene )
 {
-    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
+    const int modelIndex = ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Delete;
 

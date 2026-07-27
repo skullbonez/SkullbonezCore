@@ -59,13 +59,11 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 namespace
 {
@@ -770,6 +768,5 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
     outResult.placementYawRadians = editor.placementYawRadians;
     return placed;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

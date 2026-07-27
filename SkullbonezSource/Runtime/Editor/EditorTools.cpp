@@ -48,8 +48,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace RunInternal
-{
 namespace
 {
 constexpr int EDITOR_MOUSE_WHEEL_DELTA = 120;
@@ -487,6 +485,5 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 }
 
 
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -33,7 +33,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
-  - SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h
+  - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
   - SkullbonezSource/UI/UICommands.h
   - Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md
 */
@@ -41,13 +41,49 @@ Related:
 
 #include "../Camera/RuntimeCameraMode.h"
 #include "../../UI/UICommands.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <cstdint>
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Core
+{
+class EngineConfig;
+struct CinematicRenderConfig;
+struct OrdinaryRenderConfig;
+} // namespace Core
+namespace Environment
+{
+class WorldEnvironment;
+}
+namespace Rendering
+{
+class Dx12RenderDevice;
+}
+namespace Threading
+{
+class WorkerPool;
+}
+namespace UI
+{
+struct RunSceneBrowserState;
+struct RunSceneUIOverrideState;
+} // namespace UI
 namespace Runtime
 {
+class RenderDefaultsStore;
+class RuntimeRenderer;
+class SceneController;
+struct SceneSessionState;
+class SceneWorld;
+class SimulationSystem;
+struct OverlayDebugState;
+struct RunLaunchOptions;
 struct OperatorCommandTransactionTestAccess;
 
 class OperatorCommandPhaseCursor
@@ -100,17 +136,6 @@ class OperatorCommandPhaseCursor
     Phase m_phase = Phase::Idle;
 };
 
-// Detached before/after values for one accepted world-policy mutation.
-struct WorldOverrideChange
-{
-    float previousGravity = 0.0f;
-    float previousFluidHeight = 0.0f;
-    float previousFluidDensity = 0.0f;
-    float gravity = 0.0f;
-    float fluidHeight = 0.0f;
-    float fluidDensity = 0.0f;
-};
-
 // One value-only record replaces the scattered command-result families in OC2.
 // Every field has a named InputFrame or replay consumer in the OC0 census.
 struct OperatorCommandAcceptanceLedger
@@ -144,7 +169,7 @@ struct OperatorCommandAcceptanceLedger
     int frictionApplySettingsActionCount = 0;
 
     bool worldOverrideAccepted = false;
-    WorldOverrideChange worldOverride;
+    Environment::WorldOverrideChange worldOverride;
 
     bool toggledCinematicRendering = false;
     bool queuedCinematicSkyDefaultsSave = false;
@@ -160,15 +185,19 @@ class OperatorCommandTransaction
     OperatorCommandTransaction( const OperatorCommandTransaction& ) = delete;
     OperatorCommandTransaction& operator=( const OperatorCommandTransaction& ) = delete;
 
-    // OC1 installs and proves the invariant edges. OC2 supplies the synchronous
-    // concrete-owner borrows and command kernels behind these exact phase calls.
-    void ApplyDeviceAndMode();
-    void ApplyPhysicsControl();
-    void ApplyRuntimePresentation();
-    void ApplySimulationPolicy();
-    void ApplyPhysicsMaterial();
-    void ApplyWorldPolicy();
-    void ApplyCinematicPolicy();
+    void ApplyDeviceAndMode( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice& renderDevice );
+    void ApplyPhysicsControl( SceneWorld& world );
+    void ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene, Core::EngineConfig& config,
+                                   RunLaunchOptions& launchOptions, RenderDefaultsStore& renderDefaults, bool graphicsReady,
+                                   double simulationSeconds, SimulationSystem& simulation );
+    void ApplySimulationPolicy( SceneSessionState& scene, UI::RunSceneUIOverrideState& uiOverrides,
+                                Core::EngineConfig& config, Threading::WorkerPool& workerPool );
+    void ApplyPhysicsMaterial( Core::EngineConfig& config, SceneWorld& world );
+    void ApplyWorldPolicy( Environment::WorldEnvironment& world );
+    void ApplyCinematicPolicy( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                               UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                               Core::CinematicRenderConfig& activeCinematic,
+                               const Core::CinematicRenderConfig& defaultCinematic, RenderDefaultsStore& renderDefaults );
     void Complete();
 
     OperatorCommandPhaseCursor::Phase Phase() const
@@ -185,6 +214,7 @@ class OperatorCommandTransaction
     friend struct OperatorCommandTransactionTestAccess;
 
     void AdvanceOrFatal( OperatorCommandPhaseCursor::Phase next, const char* operation );
+    static void ApplyOrdinaryRenderParam( Core::OrdinaryRenderConfig& ordinary, UI::UIRenderParam param, float rawValue );
 
     UI::InGameUICommands m_commands;
     OperatorCommandAcceptanceLedger m_acceptance;

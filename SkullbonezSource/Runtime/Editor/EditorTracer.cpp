@@ -64,13 +64,12 @@ Related:
 #include <vector>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::Ragdoll;
-using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace
 {

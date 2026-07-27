@@ -56,8 +56,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace RunInternal
-{
 int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin,
                         const Vector3& rayDirection )
 {
@@ -512,6 +510,5 @@ void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& worl
     editor.hotRotationAxis = HitEditorRotationGizmoAxis( editor, world, rayOrigin, rayDirection );
     editor.hotGizmoAxis = editor.hotRotationAxis < 0 ? HitEditorGizmoAxis( editor, world, rayOrigin, rayDirection ) : -1;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

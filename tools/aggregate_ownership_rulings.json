@@ -82,7 +82,7 @@
                        },
                        {
                            "key":  "EditorInteractionPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:72",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:70",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -91,7 +91,7 @@
                        },
                        {
                            "key":  "EditorObjectPlacementRequest",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:99",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:97",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -118,7 +118,7 @@
                        },
                        {
                            "key":  "EditorToolOverlayTraceInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:88",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:86",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -469,7 +469,7 @@
                        },
                        {
                            "key":  "ReplaySaveProbeArtifactContext",
-                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:486",
+                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:484",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -748,7 +748,7 @@
                        },
                        {
                            "key":  "WaterStyleParams",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:92",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:103",
                            "members":  19,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",

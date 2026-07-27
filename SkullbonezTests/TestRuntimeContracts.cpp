@@ -126,6 +126,7 @@ namespace
 std::string ReadHandleText( HANDLE file )
 {
     std::string text;
+
     if ( file == INVALID_HANDLE_VALUE || SetFilePointer( file, 0, nullptr, FILE_BEGIN ) == INVALID_SET_FILE_POINTER )
     {
         return text;
@@ -133,26 +134,25 @@ std::string ReadHandleText( HANDLE file )
 
     char buffer[4096] = {};
     DWORD bytesRead = 0;
+
     while ( ReadFile( file, buffer, sizeof( buffer ), &bytesRead, nullptr ) && bytesRead > 0 )
     {
         text.append( buffer, buffer + bytesRead );
     }
+
     return text;
 }
 
 std::string ReadSharedFileText( const char* path )
 {
-    HANDLE file = CreateFileA( path,
-                               GENERIC_READ,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                               nullptr,
-                               OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL,
-                               nullptr );
+    HANDLE file = CreateFileA( path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
+
     if ( file == INVALID_HANDLE_VALUE )
     {
         return {};
     }
+
     std::string text = ReadHandleText( file );
     CloseHandle( file );
     return text;
@@ -170,6 +170,7 @@ FatalChildResult RunFatalChild( const char* caseName )
 {
     FatalChildResult result;
     const char* executable = RuntimeTestExecutablePath();
+
     if ( !executable )
     {
         return result;
@@ -177,6 +178,7 @@ FatalChildResult RunFatalChild( const char* caseName )
 
     char temporaryDirectory[MAX_PATH] = {};
     char outputPath[MAX_PATH] = {};
+
     if ( GetTempPathA( MAX_PATH, temporaryDirectory ) == 0 ||
          GetTempFileNameA( temporaryDirectory, "sbf", 0, outputPath ) == 0 )
     {
@@ -184,13 +186,10 @@ FatalChildResult RunFatalChild( const char* caseName )
     }
 
     SECURITY_ATTRIBUTES security = { sizeof( security ), nullptr, TRUE };
-    HANDLE output = CreateFileA( outputPath,
-                                 GENERIC_READ | GENERIC_WRITE,
-                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                 &security,
-                                 CREATE_ALWAYS,
-                                 FILE_ATTRIBUTE_TEMPORARY,
-                                 nullptr );
+    HANDLE output = CreateFileA( outputPath, GENERIC_READ | GENERIC_WRITE,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &security, CREATE_ALWAYS,
+                                 FILE_ATTRIBUTE_TEMPORARY, nullptr );
+
     if ( output == INVALID_HANDLE_VALUE )
     {
         DeleteFileA( outputPath );
@@ -206,28 +205,24 @@ FatalChildResult RunFatalChild( const char* caseName )
     startup.hStdOutput = output;
     startup.hStdError = output;
     PROCESS_INFORMATION process = {};
-    result.launched = CreateProcessA( nullptr,
-                                      commandLine,
-                                      nullptr,
-                                      nullptr,
-                                      TRUE,
-                                      CREATE_NO_WINDOW,
-                                      nullptr,
-                                      nullptr,
-                                      &startup,
-                                      &process ) != FALSE;
+    result.launched = CreateProcessA( nullptr, commandLine, nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr,
+                                      &startup, &process ) != FALSE;
+
     if ( result.launched )
     {
         constexpr DWORD FATAL_CHILD_TIMEOUT_MS = 10000;
         const DWORD waitResult = WaitForSingleObject( process.hProcess, FATAL_CHILD_TIMEOUT_MS );
+
         if ( waitResult == WAIT_TIMEOUT )
         {
+
             // Hazard: terminate only the exact child process handle created for
             // this probe. A regressed fatal contract must not hang validation.
             result.timedOut = true;
             TerminateProcess( process.hProcess, 0xDEADu );
             WaitForSingleObject( process.hProcess, 5000 );
         }
+
         GetExitCodeProcess( process.hProcess, &result.exitCode );
         CloseHandle( process.hThread );
         CloseHandle( process.hProcess );
@@ -243,6 +238,7 @@ FatalChildResult RunFatalChild( const char* caseName )
 void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
 {
 #if defined( __SANITIZE_ADDRESS__ )
+
     // ASan reports the deliberate abort as a sanitizer signal. The healthy
     // ASan lane targets the concurrent logger test; normal CPU gates own fatal
     // child proof.
@@ -254,6 +250,7 @@ void ExpectFatalCase( const char* caseName, std::initializer_list<const char*> e
     REQUIRE( child.launched );
     REQUIRE_FALSE( child.timedOut );
     CHECK( child.exitCode != 0 );
+
     for ( const char* expected : expectedDiagnostics )
     {
         CHECK( child.output.find( expected ) != std::string::npos );
@@ -274,10 +271,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 {
     unsigned int operatorPhaseFrom = 0u;
     unsigned int operatorPhaseTo = 0u;
-    if ( sscanf_s( caseName,
-                   "operator-command-phase-%u-%u",
-                   &operatorPhaseFrom,
-                   &operatorPhaseTo ) == 2 )
+
+    if ( sscanf_s( caseName, "operator-command-phase-%u-%u", &operatorPhaseFrom, &operatorPhaseTo ) == 2 )
     {
         using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
         using SkullbonezCore::Runtime::OperatorCommandTransaction;
@@ -293,6 +288,7 @@ bool RunRuntimeFatalCase( const char* caseName )
                                       Phase::CinematicPolicy,
                                       Phase::Complete,
                                       Phase::Count };
+
         if ( operatorPhaseFrom >= phases.size() - 1u || operatorPhaseTo >= phases.size() )
         {
             return false;
@@ -300,18 +296,22 @@ bool RunRuntimeFatalCase( const char* caseName )
 
         SkullbonezCore::UI::InGameUICommands commands;
         OperatorCommandTransaction transaction( commands );
+
         for ( unsigned int phaseIndex = 1u; phaseIndex <= operatorPhaseFrom; ++phaseIndex )
         {
             OperatorCommandTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
         }
+
         OperatorCommandTransactionTestAccess::Advance( transaction, phases[operatorPhaseTo] );
         return true;
     }
 
     if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 4> values(
-            "fatal.physics-fixed-list.runtime", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 4>
+            values( "fatal.physics-fixed-list.runtime",
+                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+
         {
             RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
             values.Reserve( 1u );
@@ -320,107 +320,121 @@ bool RunRuntimeFatalCase( const char* caseName )
         values.push_back( 2 );
         return true;
     }
+
     if ( std::strcmp( caseName, "physics-fixed-list-compile-capacity" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values(
-            "fatal.physics-fixed-list.compile", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2>
+            values( "fatal.physics-fixed-list.compile",
+                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+
         RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
         values.Reserve( 3u );
         return true;
     }
+
     if ( std::strcmp( caseName, "physics-fixed-list-phase" ) == 0 )
     {
-        SkullbonezCore::Physics::PhysicsFixedList<int, 2> values(
-            "fatal.physics-fixed-list.phase", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
+        SkullbonezCore::Physics::PhysicsFixedList<int, 2>
+            values( "fatal.physics-fixed-list.phase", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity );
         values.Reserve( 1u );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-nan" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
         grid.Insert( 7, Vector3( std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f ), 1.0f );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-extent" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
         grid.Insert( 11, Vector3( SpatialGrid::MAX_WORLD_COORDINATE + 1.0f, 0.0f, 0.0f ), 1.0f );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-zero-cell" ) == 0 )
     {
         static SpatialGrid grid( 0.0f );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-nan-cell" ) == 0 )
     {
         static SpatialGrid grid( std::numeric_limits<float>::quiet_NaN() );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-tiny-cell" ) == 0 )
     {
         static SpatialGrid grid( SpatialGrid::MIN_CELL_SIZE * 0.5f );
         return true;
     }
+
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
         static SpatialGrid grid( 1.0f );
         grid.Clear();
         constexpr int persistentCells = SpatialGrid::MAX_BUCKETS / 2;
+
         for ( int cell = 0; cell < persistentCells; ++cell )
         {
             grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
         }
+
         // Hazard: repeated Insert calls now move one persistent body. Fill the
         // remaining legal cells through the bounded swept-overlay path, then
         // request one genuinely new cell to exercise the Lane F table limit.
         const Vector3 sweepStart( static_cast<float>( persistentCells ) + 0.25f, 0.25f, 0.25f );
-        grid.InsertSwept( persistentCells,
-                          sweepStart,
-                          Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
+        grid.InsertSwept( persistentCells, sweepStart, Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
                           0.0f );
-        grid.Insert( persistentCells + 1,
-                     Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
+
+        grid.Insert( persistentCells + 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
                      0.0f );
+
         return true;
     }
+
     if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
     {
-        static SkullbonezCore::Physics::PhysicsCandidatePairList edges {
-            "TestRuntimeContracts.sleepSupportEdges",
-            SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
-        };
+        static SkullbonezCore::Physics::PhysicsCandidatePairList
+            edges { "TestRuntimeContracts.sleepSupportEdges",
+                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
+
         for ( std::size_t edgeIndex = 0; edgeIndex <= MAX_SLEEP_SUPPORT_EDGES; ++edgeIndex )
         {
             AppendSleepSupportEdge( edges, 0, 1 );
         }
+
         return true;
     }
+
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
         LockOrderValidator lockOrderValidator;
         WorkerPool pool( lockOrderValidator );
         pool.Initialise( 1 );
-        std::atomic<bool> started{ false };
-        std::atomic<bool> release{ false };
+        std::atomic<bool> started { false };
+        std::atomic<bool> release { false };
         {
-            AmortizedTask task( 1,
-                                1,
+            AmortizedTask task( 1, 1,
                                 [&]( int, int )
                                 {
                                     started.store( true, std::memory_order_release );
+
                                     while ( !release.load( std::memory_order_acquire ) )
                                     {
                                         std::this_thread::yield();
                                     }
                                 } );
             task.SubmitTick( pool );
+
             while ( !started.load( std::memory_order_acquire ) )
             {
                 std::this_thread::yield();
@@ -428,6 +442,7 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
         return true;
     }
+
     if ( std::strcmp( caseName, "worker-fatal-log" ) == 0 )
     {
         LockOrderValidator lockOrderValidator;
@@ -435,11 +450,13 @@ bool RunRuntimeFatalCase( const char* caseName )
         pool.Initialise( 1 );
         WorkerFatalProbe probe;
         pool.SubmitNoAlloc( probe );
+
         for ( ;; )
         {
             std::this_thread::yield();
         }
     }
+
     if ( std::strcmp( caseName, "scene-capacity-hard-ceiling" ) == 0 )
     {
         auto engine = std::make_unique<PhysicsEngine>();
@@ -447,6 +464,7 @@ bool RunRuntimeFatalCase( const char* caseName )
         engine->ReserveAuthoredBodyCapacity( 9000u, 9000u, 0u, 0u, 0u );
         return true;
     }
+
     if ( std::strcmp( caseName, "point-joint-scene-capacity" ) == 0 )
     {
         auto engine = std::make_unique<PhysicsEngine>();
@@ -456,24 +474,21 @@ bool RunRuntimeFatalCase( const char* caseName )
             engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 12u );
             engine->ReserveAuthoredBodyCapacity( 2u, 2u, 0u, 0u, 8u );
 
-            const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
-                SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+            const SkullbonezCore::Math::CollisionDetection::CollisionShape
+                shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
 
             for ( uint32_t bodyIndex = 0u; bodyIndex < 2u; ++bodyIndex )
             {
                 const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId { bodyIndex + 1u };
-                const auto bodyDesc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-                    sceneObjectId,
-                    shape,
-                    Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
-                    SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                    Vector3( 0.0f, 0.0f, 0.0f ),
-                    Vector3( 0.0f, 0.0f, 0.0f ),
-                    Vector3( 1.0f, 1.0f, 1.0f ),
-                    1.0f,
-                    0.0f,
-                    SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
-                    "fatal-point-joint-body" );
+                const auto bodyDesc = SkullbonezCore::Physics::
+                    MakePhysicsBodyCreateDesc( sceneObjectId, shape,
+                                               Vector3( static_cast<float>( bodyIndex ) * 3.0f, 0.0f, 0.0f ),
+                                               SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                               Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
+                                               Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
+                                               SkullbonezCore::Physics::PhysicsBodyMotionKind::Dynamic,
+                                               "fatal-point-joint-body" );
+
                 auto colliderDesc = SkullbonezCore::Physics::MakeColliderCreateDesc( shape, 0.0f, 0u, "fatal" );
                 colliderDesc.sceneObjectId = sceneObjectId;
                 const auto registration = engine->RegisterAuthoredBody( bodyDesc, colliderDesc );
@@ -495,8 +510,10 @@ bool RunRuntimeFatalCase( const char* caseName )
         {
             (void)engine->CreatePointJoint( desc );
         }
+
         return true;
     }
+
     return false;
 }
 
@@ -510,28 +527,30 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     std::vector<std::thread> threads;
     threads.reserve( threadCount );
+
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back(
-            [threadIndex, path, writesPerThread]()
-            {
-                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                {
-                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
-                    if ( writeIndex % 16 == 0 )
-                    {
-                        SkullbonezCore::Core::EngineLog::Get().WriteEventf(
-                            "runtime_contract_log_test thread=%d write=%d",
-                            threadIndex,
-                            writeIndex );
-                    }
-                }
-            } );
+        threads.emplace_back( [threadIndex, path, writesPerThread]()
+                              {
+
+                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                                  {
+                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+
+                                      if ( writeIndex % 16 == 0 )
+                                      {
+                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                                              threadIndex, writeIndex );
+                                      }
+                                  }
+                              } );
     }
+
     for ( std::thread& thread : threads )
     {
         thread.join();
     }
+
     SkullbonezCore::Core::EngineLog::Get().FlushAll();
     SkullbonezCore::Core::EngineLog::Get().CloseAllForTests();
 
@@ -555,34 +574,39 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
 
     WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
-    std::atomic<bool> started{ false };
-    std::atomic<bool> release{ false };
-    AmortizedTask inFlightTask( 1,
-                                1,
+    std::atomic<bool> started { false };
+    std::atomic<bool> release { false };
+    AmortizedTask inFlightTask( 1, 1,
                                 [&]( int, int )
                                 {
                                     started.store( true, std::memory_order_release );
+
                                     while ( !release.load( std::memory_order_acquire ) )
                                     {
                                         std::this_thread::yield();
                                     }
                                 } );
     inFlightTask.SubmitTick( workerPool );
+
     while ( !started.load( std::memory_order_acquire ) )
     {
         std::this_thread::yield();
     }
+
     CHECK_FALSE( inFlightTask.Reset() );
     release.store( true, std::memory_order_release );
+
     while ( inFlightTask.IsInFlight() )
     {
         std::this_thread::yield();
     }
+
     workerPool.Shutdown();
 }
 
 TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic collection" )
 {
+
     for ( const int threadCount : { 0, 2 } )
     {
         LockOrderValidator lockOrderValidator;
@@ -617,10 +641,12 @@ TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in orde
     REQUIRE( chunkCount >= 1 );
     CHECK( chunks[0].begin == 3 );
     CHECK( chunks[chunkCount - 1].end == 14 );
+
     for ( int index = 0; index < chunkCount; ++index )
     {
         CHECK( chunks[index].chunkIndex == index );
         CHECK( chunks[index].begin < chunks[index].end );
+
         if ( index > 0 )
         {
             CHECK( chunks[index - 1].end == chunks[index].begin );
@@ -654,69 +680,55 @@ TEST_CASE( "SbResult: success and formatted failure values propagate owner and m
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
 {
     ExpectFatalCase( "physics-fixed-list-runtime-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded",
-                       "owner=fatal.physics-fixed-list.runtime",
-                       "requested=2",
-                       "runtime_capacity=1",
-                       "compile_capacity=4",
-                       "ceiling=runtime_reservation" } );
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.runtime", "requested=2",
+                       "runtime_capacity=1", "compile_capacity=4", "ceiling=runtime_reservation" } );
+
     ExpectFatalCase( "physics-fixed-list-compile-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded",
-                       "owner=fatal.physics-fixed-list.compile",
-                       "requested=3",
-                       "runtime_capacity=0",
-                       "compile_capacity=2",
-                       "ceiling=compile_time_ceiling" } );
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.compile", "requested=3",
+                       "runtime_capacity=0", "compile_capacity=2", "ceiling=compile_time_ceiling" } );
+
     ExpectFatalCase( "physics-fixed-list-phase",
-                     { "FATAL: PhysicsFixedList reserve denied",
-                       "owner=fatal.physics-fixed-list.phase",
-                       "requested=1",
-                       "runtime_capacity=0",
-                       "compile_capacity=2",
-                       "phase=startup" } );
+                     { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
+                       "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
+
     ExpectFatalCase( "spatial-grid-nan",
                      { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
+
     ExpectFatalCase( "spatial-grid-extent",
                      { "FATAL[Physics/SpatialGrid]", "body=11", "max=(100002,1,1)", "max_world_coordinate=100000" } );
+
     ExpectFatalCase( "spatial-grid-zero-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0", "minimum=0.5" } );
+
     ExpectFatalCase( "spatial-grid-nan-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=nan", "minimum=0.5" } );
+
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
-    ExpectFatalCase( "spatial-grid-bucket-capacity",
-                     { "FATAL[Physics/SpatialGrid]",
-                       "bucket capacity exceeded",
-                       "capacity=8192",
-                       "active=8192",
-                       "phase=steady_gameplay" } );
+
+    ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
+                                                       "capacity=8192", "active=8192", "phase=steady_gameplay" } );
+
     ExpectFatalCase( "sleep-support-edge-capacity",
-                     { "FATAL[Physics/SleepSupportEdges]",
-                       "Sleep support edge capacity exceeded",
-                       "requested=32769",
-                       "capacity=32768",
-                       "high_water=32768",
-                       "phase=steady_gameplay" } );
+                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769",
+                       "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
+
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
+
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
-    ExpectFatalCase( "scene-capacity-hard-ceiling",
-                     { "FATAL[Physics/SceneCapacity]",
-                       "owner=Physics/PhysicsEngine",
-                       "requested_bodies=9000",
-                       "ceiling=8192" } );
-    ExpectFatalCase( "point-joint-scene-capacity",
-                     { "FATAL[Physics/PointJoint]",
-                       "owner=Physics/PhysicsWorld",
-                       "requested=9",
-                       "capacity=8",
-                       "retained_capacity=12" } );
+    ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine",
+                                                      "requested_bodies=9000", "ceiling=8192" } );
+
+    ExpectFatalCase( "point-joint-scene-capacity", { "FATAL[Physics/PointJoint]", "owner=Physics/PhysicsWorld",
+                                                     "requested=9", "capacity=8", "retained_capacity=12" } );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )
 {
     using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
     using SkullbonezCore::Runtime::OperatorCommandTransaction;
+    using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
     using Phase = OperatorCommandPhaseCursor::Phase;
     constexpr std::array phases { Phase::Idle,
                                   Phase::DeviceAndMode,
@@ -731,41 +743,35 @@ TEST_CASE( "Operator command transaction enforces every phase edge through Lane 
 
     for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
     {
+
         for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < phases.size() - 2u && toIndex == fromIndex + 1u;
             CHECK( OperatorCommandPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
+
             if ( fromIndex == phases.size() - 1u || expected )
             {
                 continue;
             }
 
             char caseName[96] = {};
-            std::snprintf( caseName,
-                           sizeof( caseName ),
-                           "operator-command-phase-%zu-%zu",
-                           fromIndex,
-                           toIndex );
-            ExpectFatalCase( caseName,
-                             { "FATAL[Runtime/OperatorCommandTransaction]",
-                               "Illegal phase transition",
-                               "operation=ExhaustiveFatalProbe" } );
+            std::snprintf( caseName, sizeof( caseName ), "operator-command-phase-%zu-%zu", fromIndex, toIndex );
+            ExpectFatalCase( caseName, { "FATAL[Runtime/OperatorCommandTransaction]", "Illegal phase transition",
+                                         "operation=ExhaustiveFatalProbe" } );
         }
     }
 
     SkullbonezCore::UI::InGameUICommands commands;
     OperatorCommandTransaction transaction( commands );
     CHECK( transaction.Phase() == Phase::Idle );
-    transaction.ApplyDeviceAndMode();
-    transaction.ApplyPhysicsControl();
-    transaction.ApplyRuntimePresentation();
-    transaction.ApplySimulationPolicy();
-    transaction.ApplyPhysicsMaterial();
-    transaction.ApplyWorldPolicy();
-    transaction.ApplyCinematicPolicy();
-    transaction.Complete();
+
+    for ( std::size_t phaseIndex = 1u; phaseIndex < phases.size() - 1u; ++phaseIndex )
+    {
+        OperatorCommandTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+    }
+
     CHECK( transaction.Phase() == Phase::Complete );
     CHECK_FALSE( transaction.Acceptance().toggledVsync );
     static_assert( !std::is_copy_constructible_v<OperatorCommandTransaction> );

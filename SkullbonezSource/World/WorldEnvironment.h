@@ -89,6 +89,17 @@ struct WaterReflectionInput
     bool raytraced = false;                                                                           // Reflection texture came from the DXR path instead of raster capture.
 };
 
+// Detached before/after values produced by one atomic world-policy mutation.
+struct WorldOverrideChange
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+};
+
 struct WaterStyleParams
 {
     float tintR = 0.05f;                                                                              // Linear water tint red channel.
@@ -170,6 +181,9 @@ class WorldEnvironment
     void SetGravity( float gravity );                                                                 // Updates gravity for future force integration ticks.
     float GetFluidDensity() const;                                                                    // Fluid density in kg/m^3 for buoyancy and drag.
     void SetFluidDensity( float density );                                                            // Updates fluid density for future force integration ticks.
+    WorldOverrideChange
+    ApplyOverride( float gravity, float fluidHeight,
+                   float fluidDensity );                                                              // Applies one detached world-policy tuple and returns before/after values.
     const Physics::MutualGravitySettings&
     GetMutualGravitySettings() const;                                                                 // Pairwise attraction settings for authored space scenes.
     void SetMutualGravitySettings( const Physics::MutualGravitySettings& settings );                  // Updates future mutual-gravity ticks.

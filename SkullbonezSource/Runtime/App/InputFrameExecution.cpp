@@ -60,7 +60,6 @@ Related:
 #include "../UI/RuntimeViewModel.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
@@ -88,7 +87,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Hardware::InputState;
 using SkullbonezCore::UI::InGameUITab;
@@ -367,9 +365,9 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                  true, UIBlocksKeyboardBeforeInput, ui.BlocksCameraMouse() || externalUiCapture.mouse );
 
     bool keyboardToggleEditorMode = false;
-    RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
+    EditorKeyboardShortcutResult keyboardEditorToolShortcut;
     auto completeEditorPlacementModeTransition = [&]( RuntimeInputActionSource source,
-                                                     const RunInternal::EditorPlacementModeChangeResult& placementMode )
+                                                     const EditorPlacementModeChangeResult& placementMode )
     {
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, interactionOwners,
                                               sceneController, replayRuntime,
@@ -389,8 +387,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     {
         EnterInteractiveSceneRun();
 
-        const RunInternal::EditorPlacementModeChangeResult
-            placementMode = RunInternal::ToggleEditorPlacementMode( runtimeTools.Editor(), interaction );
+        const EditorPlacementModeChangeResult placementMode = ToggleEditorPlacementMode( runtimeTools.Editor(),
+                                                                                         interaction );
 
         completeEditorPlacementModeTransition( source, placementMode );
     };
@@ -462,9 +460,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
         if ( event.action == RuntimeInputAction::ToggleEditorTool )
         {
-            keyboardEditorToolShortcut = RunInternal::HandleEditorKeyboardShortcut( event.action,
-                                                                                    event.edge != InputActionEdge::Released,
-                                                                                    event.edge == InputActionEdge::Pressed );
+            keyboardEditorToolShortcut = HandleEditorKeyboardShortcut( event.action, event.edge != InputActionEdge::Released,
+                                                                       event.edge == InputActionEdge::Pressed );
 
             continue;
         }

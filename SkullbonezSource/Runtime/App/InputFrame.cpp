@@ -45,9 +45,10 @@ Related:
 #include "Window.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
+#include "../Render/RenderDefaultsStore.h"
 #include "../../Core/Profiler.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Interaction/OperatorCommandApplier.h"
+#include "../Interaction/OperatorCommandTransaction.h"
 #include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
@@ -71,7 +72,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUICommands;
 using SkullbonezCore::UI::InGameUIInputResult;
@@ -332,7 +332,7 @@ void RecordDiagnosticsPhysicsOverlayUIActions( const DiagnosticsPhysicsOverlayUI
 }
 
 template <typename RecordAction>
-void RecordTornadoToggleUIActions( const TornadoUICommandResult& commands, RecordAction recordAction )
+void RecordTornadoToggleUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
     if ( commands.toggledTornado )
@@ -340,29 +340,29 @@ void RecordTornadoToggleUIActions( const TornadoUICommandResult& commands, Recor
         recordAction( RuntimeInputAction::ToggleTornado );
     }
 
-    if ( commands.toggledVisualShell )
+    if ( commands.toggledTornadoVisualShell )
     {
         recordAction( RuntimeInputAction::ToggleTornadoVisualShell );
     }
 
-    if ( commands.toggledFieldVectors )
+    if ( commands.toggledTornadoFieldVectors )
     {
         recordAction( RuntimeInputAction::ToggleTornadoFieldVectors );
     }
 }
 
 template <typename RecordAction>
-void RecordTornadoApplySettingsUIActions( const TornadoUICommandResult& commands, RecordAction recordAction )
+void RecordTornadoApplySettingsUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
-    for ( int actionIndex = 0; actionIndex < commands.applySettingsActionCount; ++actionIndex )
+    for ( int actionIndex = 0; actionIndex < commands.tornadoApplySettingsActionCount; ++actionIndex )
     {
         recordAction( RuntimeInputAction::ApplyTornadoSettings );
     }
 }
 
 template <typename RecordAction>
-void RecordRuntimePresentationUIActions( const RuntimePresentationUICommandResult& commands, RecordAction recordAction )
+void RecordRuntimePresentationUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
     if ( commands.toggledTerrainHidden )
@@ -407,7 +407,7 @@ void RecordRuntimePresentationUIActions( const RuntimePresentationUICommandResul
 }
 
 template <typename RecordAction>
-void RecordRuntimePresentationWaterUIActions( const RuntimePresentationUICommandResult& commands, RecordAction recordAction )
+void RecordRuntimePresentationWaterUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
     if ( commands.toggledWaterReflection )
@@ -422,7 +422,7 @@ void RecordRuntimePresentationWaterUIActions( const RuntimePresentationUICommand
 }
 
 template <typename RecordAction>
-void RecordRunSimulationUIActions( const RunSimulationUICommandResult& commands, RecordAction recordAction )
+void RecordRunSimulationUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
     if ( commands.setTimeScale )
@@ -453,25 +453,25 @@ void RecordDiagnosticsPhysicsDebugValueUIActions( const DiagnosticsPhysicsDebugV
 }
 
 template <typename RecordAction>
-void RecordPhysicsFrictionUIActions( const PhysicsFrictionUICommandResult& commands, RecordAction recordAction )
+void RecordPhysicsFrictionUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
-    for ( int actionIndex = 0; actionIndex < commands.applySettingsActionCount; ++actionIndex )
+    for ( int actionIndex = 0; actionIndex < commands.frictionApplySettingsActionCount; ++actionIndex )
     {
         recordAction( RuntimeInputAction::ApplyPhysicsFrictionSettings );
     }
 }
 
 template <typename RecordAction>
-void RecordCinematicTuningUIActions( const CinematicTuningUICommandResult& commands, RecordAction recordAction )
+void RecordCinematicTuningUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
 
-    if ( commands.toggledFeature )
+    if ( commands.toggledCinematicFeature )
     {
         recordAction( RuntimeInputAction::ToggleCinematicFeature );
     }
 
-    if ( commands.appliedParam )
+    if ( commands.appliedCinematicParam )
     {
         recordAction( RuntimeInputAction::ApplyCinematicParam );
     }
@@ -669,6 +669,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     }
 
     const InGameUICommands& uiCommands = result.commands;
+    OperatorCommandTransaction operatorCommands( uiCommands );
+    const OperatorCommandAcceptanceLedger& operatorAcceptance = operatorCommands.Acceptance();
 
     // Concept: operator transport values are normalized with every other
     // editor command, then translated once into replay-domain vocabulary.
@@ -779,9 +781,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     {
         result.enterInteractiveScene = true;
 
-        const RunInternal::EditorPlacementModeChangeResult
-            placementMode = toggle ? RunInternal::ToggleEditorPlacementMode( runtimeTools.Editor(), interaction )
-                                   : RunInternal::SetEditorPlacementMode( runtimeTools.Editor(), interaction, true, false );
+        const EditorPlacementModeChangeResult placementMode = toggle ? ToggleEditorPlacementMode( runtimeTools.Editor(),
+                                                                                                  interaction )
+                                                                     : SetEditorPlacementMode( runtimeTools.Editor(),
+                                                                                               interaction, true, false );
 
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, interactionOwners,
                                               sceneController, replayRuntime, facts.replayRestoreCameraMode );
@@ -811,9 +814,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            RunInternal::EnterEditorModeState( runtimeTools.Editor(), interaction,
-                                               NormalizeRuntimeCameraMode( camera.mode, sceneController.State().isSceneMode,
-                                                                           facts.cameraModeEnabledMask ) );
+            EnterEditorModeState( runtimeTools.Editor(), interaction,
+                                  NormalizeRuntimeCameraMode( camera.mode, sceneController.State().isSceneMode,
+                                                              facts.cameraModeEnabledMask ) );
 
             runtimeTools.CancelMousePickup( inputRouter, interaction );
             camera.mode = RunCameraMode::Inspect;
@@ -842,7 +845,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            RunInternal::ExitEditorModeState( runtimeTools.Editor(), interaction );
+            ExitEditorModeState( runtimeTools.Editor(), interaction );
             camera.mode = restoreMode;
 
             if ( wasFlyMode &&
@@ -862,22 +865,22 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( renderer, &renderer.RenderDevice(), uiCommands.renderer ) )
+    operatorCommands.ApplyDeviceAndMode( renderer, renderer.RenderDevice() );
+
+    if ( operatorAcceptance.toggledVsync )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
     }
 
-    const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
-
-    if ( cameraModeCommand.accepted )
+    if ( operatorAcceptance.cameraModeAccepted )
     {
-        inputRouter.ApplyCameraMode( cameraModeCommand.mode, RuntimeInputActionSource::UI, interactionOwners,
+        inputRouter.ApplyCameraMode( operatorAcceptance.cameraMode, RuntimeInputActionSource::UI, interactionOwners,
                                      sceneController, replayRuntime, runtimeInput );
     }
 
-    const RunInternal::EditorPlacementPreModeUICommandResult
-        editorPreModeCommands = RunInternal::ApplyEditorPlacementPreModeUICommands( runtimeTools.Editor(), interaction,
-                                                                                    uiCommands.editor );
+    const EditorPlacementPreModeUICommandResult
+        editorPreModeCommands = ApplyEditorPlacementPreModeUICommands( runtimeTools.Editor(), interaction,
+                                                                       uiCommands.editor );
 
     if ( editorPreModeCommands.setPlaceStatic )
     {
@@ -906,9 +909,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         applyEditorPlacementMode( true );
     }
 
-    const RunInternal::EditorPlacementPostModeUICommandResult
-        editorPostModeCommands = RunInternal::ApplyEditorPlacementPostModeUICommands( runtimeTools.Editor(), interaction,
-                                                                                      uiCommands.editor );
+    const EditorPlacementPostModeUICommandResult
+        editorPostModeCommands = ApplyEditorPlacementPostModeUICommands( runtimeTools.Editor(), interaction,
+                                                                         uiCommands.editor );
 
     if ( editorPostModeCommands.toggledPlaceStatic )
     {
@@ -1013,46 +1016,42 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
     }
 
-    if ( ApplyPhysicsSleepPolicyUICommand( sceneController.Scene(), uiCommands.physics ) )
+    operatorCommands.ApplyPhysicsControl( sceneController.Scene() );
+
+    if ( operatorAcceptance.toggledPhysicsSleepPolicy )
     {
         recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
     }
 
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
-    const TornadoUICommandResult tornadoCommands = ApplyTornadoUICommands( sceneController.Scene(), uiCommands.physics );
-
-    RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
+    RecordTornadoToggleUIActions( operatorAcceptance, recordUIAction );
 
     if ( runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::ToggleRayCastVisualization );
     }
 
-    RecordTornadoApplySettingsUIActions( tornadoCommands, recordUIAction );
+    RecordTornadoApplySettingsUIActions( operatorAcceptance, recordUIAction );
 
     if ( ApplyDiagnosticsTerrainContactProbeUICommand( debug, uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::ToggleTerrainContactProbe );
     }
 
-    if ( ApplyRuntimeTextOnlyUICommand( debug, uiCommands.sceneOptions ) )
+    operatorCommands.ApplyRuntimePresentation( debug, sceneController.State(), config, launchOptions, renderDefaults, true,
+                                               timers.simulationTimer.GetTimeSinceLastStart(), simulation );
+
+    if ( operatorAcceptance.toggledTextOnly )
     {
         recordUIAction( RuntimeInputAction::ToggleTextOnly );
     }
 
-    if ( ApplySceneFixedStepUICommand( sceneController.State(), simulation, uiCommands.sceneOptions ) )
+    if ( operatorAcceptance.toggledFixedStep )
     {
         recordUIAction( RuntimeInputAction::ToggleFixedStep );
     }
 
-    const RuntimePresentationUICommandResult
-        presentationCommands = ApplyRuntimePresentationUICommands( debug, sceneController.State(), config, launchOptions,
-                                                                   renderDefaults, true,
-                                                                   timers.simulationTimer.GetTimeSinceLastStart(),
-                                                                   uiCommands.sceneOptions, uiCommands.renderTuning,
-                                                                   uiCommands.water );
-
-    RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
+    RecordRuntimePresentationUIActions( operatorAcceptance, recordUIAction );
 
     if ( uiCommands.replayMemory.requestPolicy )
     {
@@ -1070,15 +1069,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         }
     }
 
-    RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
-    const RunSimulationUICommandResult runSimulationCommands = ApplyRunSimulationUICommands( sceneController.State(),
-                                                                                             ui.SceneNavigation().overrides,
-                                                                                             config, workerPool,
-                                                                                             uiCommands.sceneOptions,
-                                                                                             uiCommands.run,
-                                                                                             uiCommands.profiler );
-
-    RecordRunSimulationUIActions( runSimulationCommands, recordUIAction );
+    RecordRuntimePresentationWaterUIActions( operatorAcceptance, recordUIAction );
+    operatorCommands.ApplySimulationPolicy( sceneController.State(), ui.SceneNavigation().overrides, config, workerPool );
+    RecordRunSimulationUIActions( operatorAcceptance, recordUIAction );
     const DiagnosticsPhysicsDebugValueUICommandResult
         physicsDebugValueCommands = ApplyDiagnosticsPhysicsDebugValueUICommands( debug, uiCommands.physics );
 
@@ -1103,11 +1096,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::SetLauncherProjectileSpeed );
     }
 
-    const PhysicsFrictionUICommandResult physicsFrictionCommands = ApplyPhysicsFrictionUICommands( config,
-                                                                                                   sceneController.Scene(),
-                                                                                                   uiCommands.physics );
-
-    RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
+    operatorCommands.ApplyPhysicsMaterial( config, sceneController.Scene() );
+    RecordPhysicsFrictionUIActions( operatorAcceptance, recordUIAction );
     const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action )
     {
 
@@ -1151,7 +1141,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::SetModelCount );
     }
 
-    if ( runSimulationCommands.setWorkerThreads )
+    if ( operatorAcceptance.setWorkerThreads )
     {
         recordUIAction( RuntimeInputAction::SetWorkerThreads );
     }
@@ -1202,10 +1192,11 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
 
-    WorldOverrideChange worldOverride;
+    operatorCommands.ApplyWorldPolicy( sceneController.Scene().Environment() );
 
-    if ( ApplyWorldWaterUICommands( sceneController.Scene().Environment(), uiCommands.water, worldOverride ) )
+    if ( operatorAcceptance.worldOverrideAccepted )
     {
+        const Environment::WorldOverrideChange& worldOverride = operatorAcceptance.worldOverride;
         replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( worldOverride.previousGravity,
                                                                                      worldOverride.previousFluidHeight,
                                                                                      worldOverride.previousFluidDensity, worldOverride.gravity,
@@ -1217,32 +1208,27 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic = ActiveSceneCinematicConfig( sceneController.State(),
                                                                                                config );
 
-    if ( ApplyCinematicRenderingToggleUICommand( launchOptions, sceneController.State(), activeCinematic,
-                                                 uiCommands.cinematic ) )
+    operatorCommands.ApplyCinematicPolicy( launchOptions, sceneController, ui.SceneNavigation().browser, assets,
+                                           activeCinematic, renderDefaults.CinematicBaseline(), renderDefaults );
+
+    if ( operatorAcceptance.toggledCinematicRendering )
     {
         recordUIAction( RuntimeInputAction::ToggleCinematicRendering );
     }
 
-    if ( QueueCinematicSkyDefaultsUICommand( renderDefaults, uiCommands.cinematic ) )
+    if ( operatorAcceptance.queuedCinematicSkyDefaultsSave )
     {
         recordUIAction( RuntimeInputAction::SaveSkyDefaults );
     }
 
-    if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
+    if ( operatorAcceptance.selectedCinematicMode )
     {
         result.enterInteractiveScene = true;
-        ApplyCinematicModeUICommand( launchOptions, sceneController, ui.SceneNavigation().browser, assets, activeCinematic,
-                                     renderDefaults.CinematicBaseline(), uiCommands.cinematic );
-
         recordUIAction( RuntimeInputAction::SelectCinematicScene );
     }
 
-    const CinematicTuningUICommandResult cinematicTuningCommands = ApplyCinematicTuningUICommands( launchOptions,
-                                                                                                   sceneController.State(),
-                                                                                                   activeCinematic,
-                                                                                                   uiCommands.cinematic );
-
-    RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
+    RecordCinematicTuningUIActions( operatorAcceptance, recordUIAction );
+    operatorCommands.Complete();
     const SceneUICommandSubmissionResult sceneUICommands = sceneController.SubmitUIRequests( uiCommands.scene );
 
     if ( !sceneUICommands.status.ok )

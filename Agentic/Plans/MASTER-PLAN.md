@@ -763,7 +763,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/25 (12%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/25 (16%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -777,7 +777,9 @@ with clear review and unchanged baselines, then left the live inventory under
 rule 4. Plan 9 `operator-command-invariant-ownership` closed OC0 with the exact
 phase order, arbitration winners, operation destinations, and acceptance-ledger
 consumers. OC1 installed the non-copyable value-only transaction and proved all
-82 illegal calls from reachable phases fatal; OC2 is binding.
+82 illegal calls from reachable phases fatal. OC2 moved every operation behind
+the phase owner, unified the ledger, and removed all 71 `RunInternal` rows; OC3
+is binding.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2083,7 +2085,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 6 | [render-backend-service-bag-removal](../Reports/2026-07-27/render-backend-service-bag-removal-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; the eleven-pointer bag is deleted, optional capability presence is explicit, and all final gates pass without baseline refresh |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](../Reports/2026-07-27/scene-runtime-verb-partition-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; seven verb units are gone, residual names match owners/domains, and review plus all final gates are clear |
-| 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | In progress | 2/4 | OC1 installed and exhaustively proved the value-only phase transaction; **binding next task: OC2** |
+| 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | In progress | 3/4 | OC2 moved all command operations behind the transaction, unified the ledger, and removed `RunInternal`; **binding next task: OC3** |
 | 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 ratified 2026-07-27: fatal in Debug/Profile, counted in Release |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.cpp
+File: SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp
 Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
   tornado gameplay settings, and worker-thread overrides.
@@ -23,13 +23,15 @@ Invariants:
   - Tornado commands mutate Gameplay-owned field/system/visual values in place.
 
 Related:
-  - SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.h
+  - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
 */
-#include "OperatorCommandApplier.h"
+#include "OperatorCommandTransaction.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneCinematicPolicy.h"
 
 #include "../Render/RuntimeRenderer.h"
+#include "../Render/RenderDefaultsStore.h"
 #include "../../Core/WorkerPool.h"
 #include "../Scene/SceneWorld.h"
 #include "../Simulation/SimulationSystem.h"
@@ -47,7 +49,12 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace RunInternal
+using Environment::WorldEnvironment;
+using UI::UICinematicFeature;
+using UI::UICinematicParam;
+using UI::UIRenderParam;
+
+namespace
 {
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
@@ -195,6 +202,8 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
     }
 }
 
+} // namespace
+
 Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     constexpr float twoPi = 6.28318530718f;
@@ -206,177 +215,136 @@ Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderCon
     return direction;
 }
 
-void ApplyWorkerThreadCountOverride( SkullbonezCore::Core::EngineConfig& config,
-                                     SkullbonezCore::Threading::WorkerPool& workerPool, int requestedWorkerThreads )
+void OperatorCommandTransaction::ApplyDeviceAndMode( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice& renderDevice )
 {
-    const int clampedWorkerThreads = requestedWorkerThreads < 0
-                                         ? -1
-                                         : std::clamp( requestedWorkerThreads, 0,
-                                                       SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::DeviceAndMode, "ApplyDeviceAndMode" );
 
-    const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
-    config.runtimeCapacity.workerThreads = clampedWorkerThreads;
-
-    if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
+    if ( m_commands.renderer.toggleVsync )
     {
-        workerPool.Initialise( clampedWorkerThreads );
+        const bool vsyncEnabled = !renderer.VsyncEnabled();
+        renderer.SetVsyncEnabled( vsyncEnabled );
+        renderDevice.SetVsyncEnabled( vsyncEnabled );
+        m_acceptance.toggledVsync = true;
+    }
+
+    if ( m_commands.run.requestedCameraMode >= 0 &&
+         m_commands.run.requestedCameraMode < static_cast<int>( RunCameraMode::Count ) )
+    {
+        m_acceptance.cameraModeAccepted = true;
+        m_acceptance.cameraMode = static_cast<RunCameraMode>( m_commands.run.requestedCameraMode );
     }
 }
 
-bool ApplyRenderVsyncUICommand( RuntimeRenderer& renderer, Rendering::Dx12RenderDevice* renderDevice,
-                                const UI::UIRendererCommands& commands )
+void OperatorCommandTransaction::ApplyPhysicsControl( SceneWorld& world )
 {
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::PhysicsControl, "ApplyPhysicsControl" );
+    const UI::UIPhysicsCommands& commands = m_commands.physics;
 
-    if ( !commands.toggleVsync )
+    if ( commands.togglePhysicsSleepPolicy )
     {
-        return false;
+        world.Physics().SetSleepEnabled( !world.Physics().IsSleepEnabled() );
+        m_acceptance.toggledPhysicsSleepPolicy = true;
     }
 
-    const bool vsyncEnabled = !renderer.VsyncEnabled();
-    renderer.SetVsyncEnabled( vsyncEnabled );
+    Gameplay::TornadoGameplay& tornado = world.Tornado();
 
-    if ( renderDevice )
+    if ( commands.toggleTornado )
     {
-        renderDevice->SetVsyncEnabled( vsyncEnabled );
+        const bool enabled = tornado.ToggleEnabled();
+
+        if ( tornado.VisualAutoEnableWithTornado() )
+        {
+            tornado.SetVisualEnabled( enabled );
+        }
+
+        m_acceptance.toggledTornado = true;
     }
 
-    return true;
+    if ( commands.toggleTornadoVisualShell )
+    {
+        tornado.ToggleVisualEnabled();
+        m_acceptance.toggledTornadoVisualShell = true;
+    }
+
+    if ( commands.toggleTornadoFieldVectors )
+    {
+        tornado.ToggleFieldVectors();
+        m_acceptance.toggledTornadoFieldVectors = true;
+    }
+
+    if ( commands.requestTornadoRadius )
+    {
+        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius, UI::Layout::UI_TORNADO_RADIUS_MIN,
+                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
+
+        ++m_acceptance.tornadoApplySettingsActionCount;
+    }
+
+    if ( commands.requestTornadoHeight )
+    {
+        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight, UI::Layout::UI_TORNADO_HEIGHT_MIN,
+                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
+
+        ++m_acceptance.tornadoApplySettingsActionCount;
+    }
+
+    if ( commands.requestTornadoInward )
+    {
+        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward, UI::Layout::UI_TORNADO_INWARD_MIN,
+                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
+
+        ++m_acceptance.tornadoApplySettingsActionCount;
+    }
+
+    if ( commands.requestTornadoSwirl )
+    {
+        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl, UI::Layout::UI_TORNADO_SWIRL_MIN,
+                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
+
+        ++m_acceptance.tornadoApplySettingsActionCount;
+    }
+
+    if ( commands.requestTornadoLift )
+    {
+        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift, UI::Layout::UI_TORNADO_LIFT_MIN, UI::Layout::UI_TORNADO_LIFT_MAX ) );
+        ++m_acceptance.tornadoApplySettingsActionCount;
+    }
 }
 
-bool ApplySceneFixedStepUICommand( SceneSessionState& scene, SimulationSystem& simulation,
-                                   const UI::UISceneOptionCommands& commands )
+void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& debug, SceneSessionState& scene,
+                                                           SkullbonezCore::Core::EngineConfig& config,
+                                                           RunLaunchOptions& launchOptions,
+                                                           RenderDefaultsStore& renderDefaults, bool graphicsReady,
+                                                           double simulationSeconds, SimulationSystem& simulation )
 {
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::RuntimePresentation, "ApplyRuntimePresentation" );
+    const UI::UISceneOptionCommands& sceneOptions = m_commands.sceneOptions;
+    const UI::UIRenderCommands& renderTuning = m_commands.renderTuning;
+    const UI::UIWaterCommands& water = m_commands.water;
 
-    if ( !commands.toggleFixedStep )
+    if ( sceneOptions.toggleTextOnly )
     {
-        return false;
+        debug.isTextOnly = !debug.isTextOnly;
+        m_acceptance.toggledTextOnly = true;
     }
 
-    scene.isFixedStep = !scene.isFixedStep;
-    simulation.Reset();
-    return true;
-}
-
-
-RunCameraModeUICommandResult DecodeRunCameraModeUICommand( const UI::UIRunCommands& commands )
-{
-    RunCameraModeUICommandResult result;
-
-    if ( commands.requestedCameraMode < 0 || commands.requestedCameraMode >= static_cast<int>( RunCameraMode::Count ) )
+    if ( sceneOptions.toggleFixedStep )
     {
-        return result;
+        scene.isFixedStep = !scene.isFixedStep;
+        simulation.Reset();
+        m_acceptance.toggledFixedStep = true;
     }
-
-    result.accepted = true;
-    result.mode = static_cast<RunCameraMode>( commands.requestedCameraMode );
-    return result;
-}
-
-
-RunSimulationUICommandResult
-ApplyRunSimulationUICommands( SceneSessionState& scene, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                              SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Threading::WorkerPool& workerPool,
-                              const UI::UISceneOptionCommands& sceneOptions, const UI::UIRunCommands& run,
-                              const UI::UIProfilerCommands& profiler )
-{
-    RunSimulationUICommandResult result;
-
-    if ( sceneOptions.requestedTimeScale > 0.0f )
-    {
-        uiOverrides.timeScaleOverride = std::clamp( sceneOptions.requestedTimeScale, 0.10f, 10.00f );
-        scene.timeScale = uiOverrides.timeScaleOverride;
-        result.setTimeScale = true;
-    }
-
-    if ( run.requestedSeed > 0 )
-    {
-
-        // Invariant: seed edits reset rngState immediately so generated rebuilds
-        // and live frame code observe the same deterministic starting point.
-        scene.rngSeed = static_cast<unsigned int>( std::clamp( run.requestedSeed, 1, 999999 ) );
-        scene.rngState = scene.rngSeed;
-        result.setRunSeed = true;
-    }
-
-    if ( profiler.requestedWorkerThreads >= -1 )
-    {
-        ApplyWorkerThreadCountOverride( config, workerPool, profiler.requestedWorkerThreads );
-        result.setWorkerThreads = true;
-    }
-
-    return result;
-}
-
-WorldOverrideChange ApplyUIWorldOverride( WorldEnvironment& world, float gravity, float fluidHeight, float fluidDensity )
-{
-    WorldOverrideChange change;
-    change.previousGravity = world.GetGravity();
-    change.previousFluidHeight = world.GetFluidSurfaceHeight();
-    change.previousFluidDensity = world.GetFluidDensity();
-    change.gravity = gravity;
-    change.fluidHeight = fluidHeight;
-    change.fluidDensity = fluidDensity;
-    world.SetGravity( gravity );
-    world.SetFluidSurfaceHeight( fluidHeight );
-    world.SetFluidDensity( fluidDensity );
-    return change;
-}
-
-bool ApplyWorldWaterUICommands( WorldEnvironment& world, const UI::UIWaterCommands& commands,
-                                WorldOverrideChange& outChange )
-{
-
-    if ( !commands.requestWorldGravity && !commands.requestWorldFluidHeight && !commands.requestWorldFluidDensity )
-    {
-        return false;
-    }
-
-    // Invariant: Water-tab sliders are partial requests. Unspecified fields keep
-    // their current world values so a gravity edit does not rewrite fluid policy.
-    const float gravity = commands.requestWorldGravity ? commands.requestedWorldGravity : world.GetGravity();
-    const float fluidHeight = commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight
-                                                               : world.GetFluidSurfaceHeight();
-
-    const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
-                                                                 : world.GetFluidDensity();
-
-    outChange = ApplyUIWorldOverride( world, std::clamp( gravity, -100.0f, 0.0f ),
-                                      std::clamp( fluidHeight, -100.0f, 200.0f ), std::clamp( fluidDensity, 0.0f, 5.0f ) );
-
-    return true;
-}
-
-bool ApplyRuntimeTextOnlyUICommand( OverlayDebugState& debug, const UI::UISceneOptionCommands& commands )
-{
-
-    if ( !commands.toggleTextOnly )
-    {
-        return false;
-    }
-
-    debug.isTextOnly = !debug.isTextOnly;
-    return true;
-}
-
-RuntimePresentationUICommandResult
-ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState& scene,
-                                    SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions,
-                                    RenderDefaultsStore& renderDefaults, bool graphicsReady, double simulationSeconds,
-                                    const UI::UISceneOptionCommands& sceneOptions, const UI::UIRenderCommands& renderTuning,
-                                    const UI::UIWaterCommands& water )
-{
-    RuntimePresentationUICommandResult result;
 
     if ( sceneOptions.toggleTerrainHidden )
     {
         debug.isTerrainHidden = !debug.isTerrainHidden;
-        result.toggledTerrainHidden = true;
+        m_acceptance.toggledTerrainHidden = true;
     }
 
     if ( sceneOptions.toggleWaterHidden )
     {
         debug.isWaterHidden = !debug.isWaterHidden;
-        result.toggledWaterHidden = true;
+        m_acceptance.toggledWaterHidden = true;
     }
 
     if ( sceneOptions.toggleWaterFreeze )
@@ -388,13 +356,13 @@ ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState&
             debug.frozenWaterTime = static_cast<float>( simulationSeconds );
         }
 
-        result.toggledWaterFreeze = true;
+        m_acceptance.toggledWaterFreeze = true;
     }
 
     if ( sceneOptions.toggleWaterFlat )
     {
         debug.isWaterFlatDebug = !debug.isWaterFlatDebug;
-        result.toggledWaterFlat = true;
+        m_acceptance.toggledWaterFlat = true;
     }
 
     if ( sceneOptions.toggleShadows )
@@ -411,25 +379,25 @@ ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState&
             config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
         }
 
-        result.toggledSceneShadows = true;
+        m_acceptance.toggledSceneShadows = true;
     }
 
     if ( renderTuning.toggleShadows )
     {
         config.ordinaryRender.shadow.enabled = !config.ordinaryRender.shadow.enabled;
-        result.toggledRenderShadows = true;
+        m_acceptance.toggledRenderShadows = true;
     }
 
     if ( renderTuning.saveDefaults )
     {
         renderDefaults.SubmitOrdinarySave();
-        result.queuedRenderDefaultsSave = true;
+        m_acceptance.queuedRenderDefaultsSave = true;
     }
 
     if ( renderTuning.requestedParam != UIRenderParam::None )
     {
-        ApplyOrdinaryRenderUIParam( config.ordinaryRender, renderTuning.requestedParam, renderTuning.requestedValue );
-        result.appliedRenderTuning = true;
+        ApplyOrdinaryRenderParam( config.ordinaryRender, renderTuning.requestedParam, renderTuning.requestedValue );
+        m_acceptance.appliedRenderTuning = true;
     }
 
     if ( water.toggleWaterReflection )
@@ -445,7 +413,7 @@ ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState&
             debug.isWaterRTReflect = false;
         }
 
-        result.toggledWaterReflection = true;
+        m_acceptance.toggledWaterReflection = true;
     }
 
     if ( water.requestedWaterReflectionMode >= 0 )
@@ -453,123 +421,54 @@ ApplyRuntimePresentationUICommands( OverlayDebugState& debug, SceneSessionState&
         const int mode = std::clamp( water.requestedWaterReflectionMode, 0, 2 );
         debug.isWaterRTReflect = mode == 1;
         debug.isWaterNoReflect = mode == 2;
-        result.setWaterReflectionMode = true;
+        m_acceptance.setWaterReflectionMode = true;
     }
-
-    return result;
 }
 
-bool ApplyCinematicRenderingToggleUICommand( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                             SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                             const UI::UICinematicCommands& commands )
+void OperatorCommandTransaction::ApplySimulationPolicy( SceneSessionState& scene,
+                                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                        SkullbonezCore::Core::EngineConfig& config,
+                                                        SkullbonezCore::Threading::WorkerPool& workerPool )
 {
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::SimulationPolicy, "ApplySimulationPolicy" );
 
-    if ( !commands.toggleRendering )
+    if ( m_commands.sceneOptions.requestedTimeScale > 0.0f )
     {
-        return false;
+        uiOverrides.timeScaleOverride = std::clamp( m_commands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
+        scene.timeScale = uiOverrides.timeScaleOverride;
+        m_acceptance.setTimeScale = true;
     }
 
-    // Master Cine switch. Clearing the launch override lets the runtime toggle
-    // become the new source of truth after launch arguments have been consumed.
-    const bool currentlyEnabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
-                                                                              : cinematic.enabled;
-
-    cinematic.enabled = !currentlyEnabled;
-    launchOptions.hasCinematicRenderingOverride = false;
-
-    if ( scene.isSceneMode )
+    if ( m_commands.run.requestedSeed > 0 )
     {
-        scene.hasCinematicRenderingOverride = true;
-        scene.isCinematicRenderingEnabled = cinematic.enabled;
-        scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
-        scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+        scene.rngSeed = static_cast<unsigned int>( std::clamp( m_commands.run.requestedSeed, 1, 999999 ) );
+        scene.rngState = scene.rngSeed;
+        m_acceptance.setRunSeed = true;
     }
 
-    return true;
-}
-
-bool QueueCinematicSkyDefaultsUICommand( RenderDefaultsStore& renderDefaults, const UI::UICinematicCommands& commands )
-{
-
-    if ( !commands.saveSkyDefaults )
+    if ( m_commands.profiler.requestedWorkerThreads >= -1 )
     {
-        return false;
-    }
+        const int requested = m_commands.profiler.requestedWorkerThreads;
+        const int clamped = requested < 0
+                                ? -1
+                                : std::clamp( requested, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
 
-    renderDefaults.SubmitCinematicSave();
-    return true;
-}
+        const int resolved = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clamped );
+        config.runtimeCapacity.workerThreads = clamped;
 
-
-bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands )
-{
-    return commands.requestedModeSceneIndex >= -1;
-}
-
-
-bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneController& sceneController,
-                                  UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
-                                  SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                  const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
-                                  const UI::UICinematicCommands& commands )
-{
-
-    if ( !HasCinematicModeUICommand( commands ) )
-    {
-        return false;
-    }
-
-    // Invariant: input action reporting tracks the accepted UI request. The
-    // underlying style loader can fail closed for a bad/missing scene, but the
-    // InputFrame transition record still preserves the accepted selection.
-    (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, sceneBrowser, assets, activeCinematic, defaultCinematic,
-                                                      commands.requestedModeSceneIndex );
-    return true;
-}
-
-CinematicTuningUICommandResult ApplyCinematicTuningUICommands( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                                               SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                                               const UI::UICinematicCommands& commands )
-{
-    CinematicTuningUICommandResult result;
-
-    if ( commands.requestedFeature != UICinematicFeature::None )
-    {
-
-        if ( commands.requestedFeature == UICinematicFeature::Shadows )
+        if ( workerPool.GetThreadCount() != resolved )
         {
-            launchOptions.hasCinematicShadowsOverride = false;
+            workerPool.Initialise( clamped );
         }
 
-        ToggleCinematicUIFeature( cinematic, scene, commands.requestedFeature );
-        result.toggledFeature = true;
+        m_acceptance.setWorkerThreads = true;
     }
-
-    if ( commands.requestedParam != UICinematicParam::None )
-    {
-        ApplyCinematicUIParam( cinematic, scene, commands.requestedParam, commands.requestedValue );
-        result.appliedParam = true;
-    }
-
-    return result;
 }
 
-bool ApplyPhysicsSleepPolicyUICommand( SceneWorld& world, const UI::UIPhysicsCommands& commands )
+void OperatorCommandTransaction::ApplyPhysicsMaterial( SkullbonezCore::Core::EngineConfig& config, SceneWorld& world )
 {
-
-    if ( !commands.togglePhysicsSleepPolicy )
-    {
-        return false;
-    }
-
-    world.Physics().SetSleepEnabled( !world.Physics().IsSleepEnabled() );
-    return true;
-}
-
-PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( SkullbonezCore::Core::EngineConfig& config, SceneWorld& world,
-                                                               const UI::UIPhysicsCommands& commands )
-{
-    PhysicsFrictionUICommandResult result;
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::PhysicsMaterial, "ApplyPhysicsMaterial" );
+    const UI::UIPhysicsCommands& commands = m_commands.physics;
     bool runtimePhysicsConfigChanged = false;
 
     if ( commands.requestTerrainFrictionCoeff )
@@ -579,7 +478,7 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( SkullbonezCore::C
                                                            UI::Layout::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
-        ++result.applySettingsActionCount;
+        ++m_acceptance.frictionApplySettingsActionCount;
     }
 
     if ( commands.requestObjectFrictionCoeff )
@@ -589,7 +488,7 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( SkullbonezCore::C
                                                                  UI::Layout::UI_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
-        ++result.applySettingsActionCount;
+        ++m_acceptance.frictionApplySettingsActionCount;
     }
 
     if ( commands.requestRollingFrictionCoeff )
@@ -599,93 +498,99 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( SkullbonezCore::C
                                                                   UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX );
 
         runtimePhysicsConfigChanged = true;
-        ++result.applySettingsActionCount;
+        ++m_acceptance.frictionApplySettingsActionCount;
     }
 
     if ( runtimePhysicsConfigChanged )
     {
-
-        // Invariant: SceneWorld caches per-model runtime tuning so
-        // existing bodies and newly added bodies must observe the same live
-        // physics settings immediately after UI config edits.
         world.ApplyRuntimeConfig( config );
     }
-
-    return result;
 }
 
-TornadoUICommandResult ApplyTornadoUICommands( SceneWorld& world, const UI::UIPhysicsCommands& commands )
+void OperatorCommandTransaction::ApplyWorldPolicy( WorldEnvironment& world )
 {
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::WorldPolicy, "ApplyWorldPolicy" );
+    const UI::UIWaterCommands& commands = m_commands.water;
 
-    // Why: InputFrame routes accepted UI actions through InputController mode
-    // bookkeeping; this helper owns the gameplay mutation and tornado sync.
-    TornadoUICommandResult result;
-    Gameplay::TornadoGameplay& tornado = world.Tornado();
-
-    if ( commands.toggleTornado )
+    if ( !commands.requestWorldGravity && !commands.requestWorldFluidHeight && !commands.requestWorldFluidDensity )
     {
-        const bool enabled = tornado.ToggleEnabled();
+        return;
+    }
 
-        if ( tornado.VisualAutoEnableWithTornado() )
+    const float gravity = commands.requestWorldGravity ? commands.requestedWorldGravity : world.GetGravity();
+    const float fluidHeight = commands.requestWorldFluidHeight ? commands.requestedWorldFluidHeight
+                                                               : world.GetFluidSurfaceHeight();
+
+    const float fluidDensity = commands.requestWorldFluidDensity ? commands.requestedWorldFluidDensity
+                                                                 : world.GetFluidDensity();
+
+    m_acceptance.worldOverride = world.ApplyOverride( std::clamp( gravity, -100.0f, 0.0f ),
+                                                      std::clamp( fluidHeight, -100.0f, 200.0f ),
+                                                      std::clamp( fluidDensity, 0.0f, 5.0f ) );
+
+    m_acceptance.worldOverrideAccepted = true;
+}
+
+void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                                                       UI::RunSceneBrowserState& sceneBrowser,
+                                                       const Assets::AssetSystem& assets,
+                                                       SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                                       RenderDefaultsStore& renderDefaults )
+{
+    AdvanceOrFatal( OperatorCommandPhaseCursor::Phase::CinematicPolicy, "ApplyCinematicPolicy" );
+    const UI::UICinematicCommands& commands = m_commands.cinematic;
+    SceneSessionState& scene = sceneController.State();
+
+    if ( commands.toggleRendering )
+    {
+        const bool currentlyEnabled = launchOptions.hasCinematicRenderingOverride ? launchOptions.cinematicRendering
+                                                                                  : activeCinematic.enabled;
+
+        activeCinematic.enabled = !currentlyEnabled;
+        launchOptions.hasCinematicRenderingOverride = false;
+
+        if ( scene.isSceneMode )
         {
-            tornado.SetVisualEnabled( enabled );
+            scene.hasCinematicRenderingOverride = true;
+            scene.isCinematicRenderingEnabled = activeCinematic.enabled;
+            scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+            scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
         }
 
-        result.toggledTornado = true;
+        m_acceptance.toggledCinematicRendering = true;
     }
 
-    if ( commands.toggleTornadoVisualShell )
+    if ( commands.saveSkyDefaults )
     {
-        tornado.ToggleVisualEnabled();
-        result.toggledVisualShell = true;
+        renderDefaults.SubmitCinematicSave();
+        m_acceptance.queuedCinematicSkyDefaultsSave = true;
     }
 
-    if ( commands.toggleTornadoFieldVectors )
+    if ( commands.requestedModeSceneIndex >= -1 )
     {
-        tornado.ToggleFieldVectors();
-        result.toggledFieldVectors = true;
+        (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, sceneBrowser, assets, activeCinematic,
+                                                          defaultCinematic, commands.requestedModeSceneIndex );
+        m_acceptance.selectedCinematicMode = true;
     }
 
-    if ( commands.requestTornadoRadius )
+    if ( commands.requestedFeature != UICinematicFeature::None )
     {
-        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius, UI::Layout::UI_TORNADO_RADIUS_MIN,
-                                            UI::Layout::UI_TORNADO_RADIUS_MAX ) );
 
-        ++result.applySettingsActionCount;
+        if ( commands.requestedFeature == UICinematicFeature::Shadows )
+        {
+            launchOptions.hasCinematicShadowsOverride = false;
+        }
+
+        ToggleCinematicUIFeature( activeCinematic, scene, commands.requestedFeature );
+        m_acceptance.toggledCinematicFeature = true;
     }
 
-    if ( commands.requestTornadoHeight )
+    if ( commands.requestedParam != UICinematicParam::None )
     {
-        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight, UI::Layout::UI_TORNADO_HEIGHT_MIN,
-                                            UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
-
-        ++result.applySettingsActionCount;
+        ApplyCinematicUIParam( activeCinematic, scene, commands.requestedParam, commands.requestedValue );
+        m_acceptance.appliedCinematicParam = true;
     }
-
-    if ( commands.requestTornadoInward )
-    {
-        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward, UI::Layout::UI_TORNADO_INWARD_MIN,
-                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
-
-        ++result.applySettingsActionCount;
-    }
-
-    if ( commands.requestTornadoSwirl )
-    {
-        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl, UI::Layout::UI_TORNADO_SWIRL_MIN,
-                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
-
-        ++result.applySettingsActionCount;
-    }
-
-    if ( commands.requestTornadoLift )
-    {
-        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift, UI::Layout::UI_TORNADO_LIFT_MIN, UI::Layout::UI_TORNADO_LIFT_MAX ) );
-
-        ++result.applySettingsActionCount;
-    }
-
-    return result;
 }
 
 void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
@@ -990,7 +895,8 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
 
-void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue )
+void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                                           UIRenderParam param, float rawValue )
 {
 
     switch ( param )
@@ -1166,6 +1072,5 @@ void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cine
         scene.uiCinematicOverrideMask |= touchedMask;
     }
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

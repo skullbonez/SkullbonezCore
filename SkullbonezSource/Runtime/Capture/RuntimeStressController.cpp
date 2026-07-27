@@ -41,7 +41,6 @@ Related:
 #include "../App/RunStartupState.h"
 #include "../App/RunTimerState.h"
 #include "../Interaction/RuntimeInteractionController.h"
-#include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneLoadRequest.h"
@@ -67,8 +66,10 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Runtime::RunInternal;
+using SkullbonezCore::Environment::WorldOverrideChange;
 using SkullbonezCore::UI::InGameUITab;
+using SkullbonezCore::UI::UICinematicFeature;
+using SkullbonezCore::UI::UICinematicParam;
 
 namespace
 {
@@ -323,7 +324,7 @@ void ApplyUIStressAction( SkullbonezCore::UI::InGameUI& ui, RuntimeFrameSceneVie
 
         if ( allowRuntimeChurn )
         {
-            const WorldOverrideChange change = ApplyUIWorldOverride( world, gravity, fluidHeight, fluidDensity );
+            const WorldOverrideChange change = world.ApplyOverride( gravity, fluidHeight, fluidDensity );
             replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
                                                                                          change.previousFluidDensity, change.gravity,
                                                                                          change.fluidHeight, change.fluidDensity ) );
@@ -470,9 +471,9 @@ void ApplyGraphicsStressAction( const SkullbonezCore::Assets::AssetSystem& asset
     }
     case 16:
     {
-        const WorldOverrideChange change = ApplyUIWorldOverride( world, -stress.NextFloat( 0.0f, 80.0f ),
-                                                                 stress.NextFloat( -80.0f, 160.0f ),
-                                                                 stress.NextFloat( 0.0f, 5.0f ) );
+        const WorldOverrideChange change = world.ApplyOverride( -stress.NextFloat( 0.0f, 80.0f ),
+                                                                stress.NextFloat( -80.0f, 160.0f ),
+                                                                stress.NextFloat( 0.0f, 5.0f ) );
 
         replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity, change.previousFluidHeight,
                                                                                      change.previousFluidDensity, change.gravity,

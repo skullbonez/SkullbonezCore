@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - SkullbonezSource/Runtime/Interaction/OperatorCommandApplier.cpp
+  - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once

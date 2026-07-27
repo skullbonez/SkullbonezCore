@@ -44,8 +44,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace RunInternal
-{
 EditorInteractionPreviewResult UpdateEditorInteractionPreview( RunEditorPlacementState& editor, SceneWorld& world,
                                                                RuntimeInteractionController& interaction,
                                                                const Assets::AssetSystem& assets,
@@ -237,6 +235,5 @@ void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const R
         }
     }
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

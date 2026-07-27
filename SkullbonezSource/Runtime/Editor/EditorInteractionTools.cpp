@@ -82,7 +82,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::UI::Layout;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
@@ -264,8 +263,6 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 Vector3 EditorAxisVector( int axis )
 {
@@ -956,7 +953,6 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayD
 }
 
 
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore
 
@@ -972,8 +968,6 @@ constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis,
                                   RuntimeGizmoDragKind gizmoKind, int clientX, int clientY )
@@ -1062,7 +1056,6 @@ int PeekSelectedEditorModelIndex( const RunEditorPlacementState& editor, const P
     Physics::ModelRowHint hint = editor.selectedModelRow;
     return bodyStore.ResolveModelRow( editor.selectedBody, hint );
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore
 
@@ -1891,8 +1884,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace RunInternal
-{
 bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Vector3& rayOrigin, const Vector3& rayDirection,
                                    EditorTerrainPlacement& outPlacement )
 {
@@ -2141,6 +2132,5 @@ bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry:
     editor.placementRayHit = terrainPoint;
     return true;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

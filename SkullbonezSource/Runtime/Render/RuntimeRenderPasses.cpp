@@ -51,7 +51,7 @@ Related:
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
-#include "../Interaction/OperatorCommandApplier.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
@@ -78,7 +78,6 @@ using SkullbonezCore::Rendering::PrimitiveRenderContext;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Textures = SkullbonezCore::Textures;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Math::Vector::Vector3;

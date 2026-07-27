@@ -55,13 +55,11 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Math::Vector::Vector3;
-using Json = SkullbonezCore::Runtime::RunInternal::EditorPlacementJson;
+using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
 namespace SkullbonezCore
 {
 namespace Runtime
-{
-namespace RunInternal
 {
 
 constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
@@ -2111,6 +2109,5 @@ bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementSc
     outHull.ScaleAxis( 2, scale.z );
     return true;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

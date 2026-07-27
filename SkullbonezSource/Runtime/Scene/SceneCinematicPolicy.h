@@ -39,6 +39,11 @@ namespace Assets
 {
 class AssetSystem;
 }
+namespace UI
+{
+enum class UICinematicFeature;
+enum class UICinematicParam;
+} // namespace UI
 namespace Runtime
 {
 class AuthoredScene;
@@ -54,5 +59,12 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
                                        bool graphicsReady );
+Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+void ApplyCinematicUIParam( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
+                            UI::UICinematicParam param, float rawValue );
+void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
+                                       bool enabled );
+void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cinematic, SceneSessionState& scene,
+                               UI::UICinematicFeature feature );
 } // namespace Runtime
 } // namespace SkullbonezCore

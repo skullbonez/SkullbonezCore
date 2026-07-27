@@ -66,8 +66,6 @@ struct RunEditorPlacementState;
 struct RunMousePickupState;
 struct RunRayCastTestState;
 
-namespace RunInternal
-{
 
 struct EditorInteractionPreviewInput
 {
@@ -103,6 +101,5 @@ void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const R
                                   const RunMousePickupState& mousePickup, const SceneWorld& world,
                                   const Assets::AssetSystem& assets, EditorTracer& tracer,
                                   const EditorToolOverlayTraceInput& input );
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

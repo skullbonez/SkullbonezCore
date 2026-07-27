@@ -42,9 +42,9 @@ Related:
 #include "../Diagnostics/RuntimeDiagnostics.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Scene/SceneController.h"
+#include "../Scene/SceneGeneratedSetup.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
-#include "../Interaction/OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayRestoreService.h"
 #include "../Replay/ReplayRestoreTransactions.h"
@@ -77,7 +77,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime::ReplayValidationInternal

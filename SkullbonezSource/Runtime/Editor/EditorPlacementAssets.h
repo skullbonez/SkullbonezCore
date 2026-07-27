@@ -50,8 +50,6 @@ class AssetSystem;
 }
 namespace Runtime
 {
-namespace RunInternal
-{
 using EditorPlacementJson = nlohmann::ordered_json;
 
 inline constexpr float EDITOR_PLACEMENT_SURFACE_EPSILON = 0.02f;
@@ -219,6 +217,5 @@ template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Ass
 
     return true;
 }
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -50,7 +50,6 @@ Related:
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Interaction/OperatorCommandApplier.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Camera/AttachedCameraController.h"
 #include "../Input/InputRouter.h"
@@ -103,7 +102,6 @@ using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::MeshDX12;
-using namespace SkullbonezCore::Runtime::RunInternal;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -812,7 +810,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
     OverlayDebugState& debug = consumerOutputs.presentation;
     CameraControlState& camera = consumerOutputs.camera;
-    const auto recordCompletedWorldChange = [&]( const WorldOverrideChange& change )
+    const auto recordCompletedWorldChange = [&]( const Environment::WorldOverrideChange& change )
     {
 
         if ( consumerOutputs.completedWorldChangeCount >= consumerOutputs.completedWorldChanges.size() )
@@ -992,10 +990,10 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            const WorldOverrideChange change = ApplyUIWorldOverride( sceneController.Scene().Environment(),
-                                                                     resetSnapshot.worldGravity,
-                                                                     resetSnapshot.worldFluidHeight,
-                                                                     resetSnapshot.worldFluidDensity );
+            const Environment::WorldOverrideChange
+                change = sceneController.Scene().Environment().ApplyOverride( resetSnapshot.worldGravity,
+                                                                              resetSnapshot.worldFluidHeight,
+                                                                              resetSnapshot.worldFluidDensity );
 
             recordCompletedWorldChange( change );
         }
@@ -1220,10 +1218,10 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            const WorldOverrideChange change = ApplyUIWorldOverride( sceneController.Scene().Environment(),
-                                                                     resetSnapshot.worldGravity,
-                                                                     resetSnapshot.worldFluidHeight,
-                                                                     resetSnapshot.worldFluidDensity );
+            const Environment::WorldOverrideChange
+                change = sceneController.Scene().Environment().ApplyOverride( resetSnapshot.worldGravity,
+                                                                              resetSnapshot.worldFluidHeight,
+                                                                              resetSnapshot.worldFluidDensity );
 
             recordCompletedWorldChange( change );
         }

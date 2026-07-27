@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `operator-command-invariant-ownership` OC2 is binding. |
-| Active/future progress | 3/25 (12%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `operator-command-invariant-ownership` OC3 is binding. |
+| Active/future progress | 4/25 (16%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Scene-runtime SR3 `validate_full.bat` passes: 417/417 doctests and every CPU/runtime lane, DX12 run `20260727T033441Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
@@ -27,7 +27,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/25, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 4/25, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -54,7 +54,10 @@ left the live ledger under rule 4. Plan 9 OC0 fixed the eight-edge operator
 command phase order, every same-frame winner, operation destination, and
 acceptance-ledger consumer. OC1 installed the non-copyable value-only
 transaction, named the arbitration invariant in its header, and proved every
-legal edge plus all 82 illegal calls from reachable phases. OC2 is binding.
+legal edge plus all 82 illegal calls from reachable phases. OC2 moved all
+operations behind the transaction, unified the acceptance ledger, deleted the
+seven legacy result records, and removed all 71 `RunInternal` rows. OC3 is
+binding.
 `scene-sized-store-capacity` SC0 corrected the dense-store census from the
 review's 65 rows to 93 current rows and measured a 112,042,496-byte Debug
 payload lower bound per engine. SC1 then introduced registered runtime backing,
@@ -65,7 +68,7 @@ joint topology before mutation while preserving monotonic backing, generated RNG
 and Replay's existing owner. Plan 7 then removed all 88 repair-ruled extraction
 scars, preserved the sole WorkerPool retain, and left the live ledger under
 rule 4. SC4 converted the 24 hot contact, narrowphase, broadphase, and force rows
-and deleted contact-tick growth. Plan 9 OC2 is now binding. Evidence:
+and deleted contact-tick growth. Plan 9 OC3 is now binding. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and
@@ -83,6 +86,8 @@ Plan 9 OC0 evidence:
 `Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md`.
 Plan 9 OC1 evidence:
 `Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc1-transaction.md`.
+Plan 9 OC2 evidence:
+`Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc2-owner-migration.md`.
 
 SC2 removed the headline collider-row inflation: `ColliderRecord` is now 80
 bytes and borrows per-kind sphere, box, or hull backing; a zero-hull scene

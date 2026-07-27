@@ -57,7 +57,7 @@ Related:
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Planning/ReplayOverlayPackets.h"
-#include "../Interaction/OperatorCommandApplier.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
@@ -93,7 +93,6 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;

@@ -87,8 +87,6 @@ class SceneWorld;
 struct RunEditorPlacementState;
 struct SceneSessionState;
 
-namespace RunInternal
-{
 struct EditorTerrainPlacement
 {
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -291,6 +289,5 @@ void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& worl
 void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
                                   const GameObjects::PresentationSaveState& presentation, bool wasPressed );
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed );
-} // namespace RunInternal
 } // namespace Runtime
 } // namespace SkullbonezCore
