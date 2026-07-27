@@ -1274,17 +1274,17 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneNavigationModel.Browser.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Runtime scene-load storage surface",
+      "owner": "Runtime scene-browser storage surface",
       "phase": "scene_load",
-      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
-      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
+      "reason": "The scene browser rebuilds its path, display-name, and pointer views while enumerating authored scene files.",
+      "cap": "Bounded by the number of authored scene files beneath the configured scene-data root.",
+      "removal_or_wrapper_plan": "Move scene-browser storage to a fixed-capacity browser-owned buffer, then delete these patterns."
     },
     {
       "path": "SkullbonezSource/Runtime/Tools/RuntimeTools.cpp",
