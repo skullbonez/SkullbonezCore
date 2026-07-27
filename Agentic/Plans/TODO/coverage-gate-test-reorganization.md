@@ -1,10 +1,10 @@
 # Coverage Gate Test Reorganization
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 10 of the Architecture Follow-Up Campaign
-Round 5. 0/3 phases complete.
+Round 5. 1/3 phases complete; CG1 is binding.
 Impact area: `SkullbonezTests/TestCoverageFloorContracts.cpp`,
 `tools/coverage_floors.json`, `tools/check_coverage.py`, `SKULLBONEZ_TESTS.vcxproj`
 Owner: test
@@ -73,7 +73,7 @@ around it.
 
 ## Phases
 
-- [ ] **CG0 — Map every test to its owning subsystem.**
+- [x] **CG0 — Map every test to its owning subsystem.**
   For each `TEST_CASE` in the file, record the subsystem whose behavior it pins,
   the existing test file that owns that subsystem, and the coverage lines it is
   currently responsible for reaching. Candidate destinations from the current tree:
