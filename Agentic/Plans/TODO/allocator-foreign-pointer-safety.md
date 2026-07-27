@@ -1,10 +1,14 @@
 # Allocator Foreign Pointer Safety
 
 Date: 2026-07-26
-Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
+Status: BLOCKED AT AF2 — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 11 of the Architecture Follow-Up Campaign
-Round 5. 2/3 phases complete; AF2 is binding.
+Round 5. 2/3 phases complete. Independent review proved genuine provenance
+requires additional owned-path work, which conflicts with the literal
+zero-happy-path-cost acceptance. Owner ruling required: retain the safe
+pointer-bound cookie and interpret the constraint as no measurable perf
+regression, or provide a different ownership rule.
 Impact area: `Core/Allocation/RuntimeAllocationTracker.cpp`
 Owner: core allocation
 Priority: High severity, low frequency — this is the sharpest memory-safety edge

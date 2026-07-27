@@ -802,7 +802,13 @@ performance gate without regression. AF1 installed the process-lifetime
 tripwire, the ratified Debug/Profile fatal and Release counted/reporting CRT
 fallback, checked allocation-size arithmetic, and joined the existing memory
 diagnostics without changing the zero-count UI fingerprint. AF2 is binding
-because plan 5 remains blocked.
+only after independent review found and the candidate closed two magic-only
+provenance bypasses with a guarded whole-header copy and a process-specific
+ownership cookie. Plan 11 is blocked at 2/3 because genuine provenance adds
+owned-path work while AF2 also requires literally “no happy-path cost added.”
+An owner ruling must either permit the measured provenance cost or replace the
+provenance requirement. Plan 14 NA0 is binding; plan 5 and plan 11 are blocked,
+plan 12 waits for plan 5, and plan 13 runs last.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2110,10 +2116,10 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 8 | [scene-runtime-verb-partition-consolidation](../Reports/2026-07-27/scene-runtime-verb-partition-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; seven verb units are gone, residual names match owners/domains, and review plus all final gates are clear |
 | 9 | [operator-command-invariant-ownership](../Reports/2026-07-27/operator-command-invariant-ownership-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; one value-only transaction owns phase order, arbitration, and the ledger, and every final gate is clear |
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
-| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | In progress | 2/3 | **Binding next task: AF2**. Debug/Profile fatal and Release counted/reporting fallback are proved |
+| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Blocked | 2/3 | [AF2 blocker](../Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md): genuine provenance validation necessarily adds owned-path work, conflicting with the literal “no happy-path cost added” requirement; owner must permit measured cost or replace provenance |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 ratified 2026-07-27: ratify the seed. No plan in the campaign now requests divergence authority |
-| 14 | [new-aggregate-ruling-gate](TODO/new-aggregate-ruling-gate.md) | Not started | 0/3 | **May run immediately**, ahead of plan 4. NA0/NA1 arm the gate so it protects during the campaign; NA2 retires the transitional verdict after plan 4's CA4 |
+| 14 | [new-aggregate-ruling-gate](TODO/new-aggregate-ruling-gate.md) | Not started | 0/3 | **Binding next task: NA0**. Plan 4 CA4 is already closed, so NA0-NA2 may proceed |
 
 ## Features
 

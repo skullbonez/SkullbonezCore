@@ -172,6 +172,20 @@ struct FatalChildResult
     std::string output;
 };
 
+struct ForeignAllocationHeaderLayout
+{
+    void* raw = nullptr;
+    uint64_t size = 0u;
+    uint32_t phase = 0u;
+    uint32_t flags = 0u;
+    uint16_t owner = 0u;
+    uint16_t reserved = 0u;
+    uint32_t magic = 0u;
+    uint64_t ownershipCookie = 0u;
+};
+
+constexpr uint32_t FOREIGN_ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
+
 FatalChildResult RunFatalChild( const char* caseName )
 {
     FatalChildResult result;
@@ -355,16 +369,54 @@ bool RunRuntimeFatalCase( const char* caseName )
             return false;
         }
 
-        auto* foreignPointer = static_cast<unsigned char*>( region ) + pageSize;
+        auto* committedPage = static_cast<unsigned char*>( region ) + pageSize;
 
-        if ( VirtualAlloc( foreignPointer, pageSize, MEM_COMMIT, PAGE_READWRITE ) != foreignPointer )
+        if ( VirtualAlloc( committedPage, pageSize, MEM_COMMIT, PAGE_READWRITE ) != committedPage )
         {
             VirtualFree( region, 0u, MEM_RELEASE );
             return false;
         }
 
+        // The candidate begins eight bytes inside the inaccessible page, but
+        // its magic field is readable in the committed page. A magic-only
+        // probe would admit it and then fault on raw; the whole-header copy
+        // must classify it as unreadable.
+        auto* foreignPointer = committedPage + sizeof( ForeignAllocationHeaderLayout ) - sizeof( uint64_t );
+        auto* candidate = foreignPointer - sizeof( ForeignAllocationHeaderLayout );
+        auto* readableMagic =
+            reinterpret_cast<uint32_t*>( candidate + offsetof( ForeignAllocationHeaderLayout, magic ) );
+        *readableMagic = FOREIGN_ALLOCATION_HEADER_MAGIC;
+
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         ::operator delete( foreignPointer );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
+    {
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+
+        if ( !candidate )
+        {
+            return false;
+        }
+
+        SYSTEM_INFO systemInfo = {};
+        GetSystemInfo( &systemInfo );
+        candidate->raw = VirtualAlloc( nullptr, systemInfo.dwPageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
+
+        if ( !candidate->raw )
+        {
+            std::free( candidate );
+            return false;
+        }
+
+        candidate->size = 64u;
+        candidate->phase = static_cast<uint32_t>( RuntimeAllocationPhase::Diagnostics );
+        candidate->magic = FOREIGN_ALLOCATION_HEADER_MAGIC;
+        candidate->ownershipCookie = 0u;
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+        ::operator delete( candidate + 1 );
         return true;
     }
 
@@ -802,6 +854,9 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "allocation-foreign-page-boundary",
                      { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics",
                        "owner=0", "header=unreadable", "foreign_free_count=1" } );
+    ExpectFatalCase( "allocation-foreign-shaped-header",
+                     { "FATAL[Runtime/Allocation]", "unprovable foreign pointer delete", "phase=diagnostics",
+                       "owner=0", "header=bad_provenance", "foreign_free_count=1" } );
 #else
     ExpectCleanChildCase( "allocation-foreign-crt-release",
                           { "[allocation-guard] FOREIGN_FREE", "phase=diagnostics", "owner=0", "header=bad_magic",

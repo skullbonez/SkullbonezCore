@@ -12,7 +12,7 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `allocator-foreign-pointer-safety` AF2 is binding. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked; `new-aggregate-ruling-gate` NA0 is binding. |
 | Active/future progress | 3/18 (17%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
@@ -85,8 +85,15 @@ without regression. AF1 then installed the process-lifetime counter, the
 ratified Debug/Profile fatal and Release counted/reporting CRT fallback,
 checked allocation-size arithmetic, and joined the existing memory diagnostics
 without changing the zero-count UI fingerprint. Profile tests pass 418/418 and
-2,410,177 assertions; focused Release proof passes 122/122. AF2 is binding
-because plan 5 remains blocked. Evidence:
+2,410,177 assertions; focused Release proof passes 122/122. AF2 independent
+review found two magic-only provenance bypasses; the candidate now uses a
+guarded whole-header copy and process-specific ownership cookie, and Profile
+passes 418/418 with 2,410,186 assertions. Plan 11 is blocked at 2/3 because
+genuine provenance validation adds owned-path work while AF2 literally requires
+no happy-path cost. The owner must permit measured cost or replace provenance.
+Plan 14 NA0 is binding; plan 12 waits for blocked plan 5 and plan 13 runs last.
+Evidence:
+`Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and

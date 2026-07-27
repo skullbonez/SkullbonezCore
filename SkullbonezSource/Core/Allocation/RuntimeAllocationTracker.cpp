@@ -15,8 +15,8 @@ Glossary:
     header; scopes on other threads cannot overwrite it.
   Reentrancy guard: Thread-local flag that prevents tracker internals from
     recursively recording their own emergency work.
-  Foreign pointer: Address passed to global delete without a readable tracker
-    header produced by this hook.
+  Foreign pointer: Address passed to global delete without a readable,
+    pointer-bound tracker header produced by this hook.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
   Development tool owner: A thread-local, hard-capped ImGui or Tracy scope that
     is permitted only when the shared development capability is compiled.
@@ -35,8 +35,9 @@ Invariants:
   - Allocation phase and reserve owner are both calling-thread state. Keeping
     only one thread-local would create impossible phase/owner pairs.
   - Heavy-mode allocation/free events pair only within one viewer connection.
-  - A foreign pointer cannot fault the process while the hook probes for its
-    header; only a readable matching header admits tracker-owned field access.
+  - A foreign pointer cannot fault the process while the hook copies its
+    candidate header; only a fully readable, pointer-bound provenance cookie
+    admits tracker-owned field access.
 
 Related:
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
@@ -93,6 +94,7 @@ struct AllocationHeader
     uint16_t owner;
     uint16_t reserved;
     uint32_t magic;
+    uint64_t ownershipCookie;
 #if defined( TRACY_ENABLE )
     uint64_t tracyConnectionId;
 #endif
@@ -132,6 +134,37 @@ std::atomic<uint64_t> s_totalBytes { 0 };
 PhaseCounters s_phaseCounters[static_cast<int>( RuntimeAllocationPhase::Count )] = {};
 CallsiteCounters s_callsiteCounters[MAX_ALLOCATION_CALLSITES] = {};
 thread_local bool s_insideAllocationHook = false;
+
+uint64_t MixOwnershipCookieValue( uint64_t cookie, uint64_t value ) noexcept
+{
+    cookie ^= value + 0x9E3779B97F4A7C15ull + ( cookie << 6u ) + ( cookie >> 2u );
+    cookie ^= cookie >> 30u;
+    cookie *= 0xBF58476D1CE4E5B9ull;
+    cookie ^= cookie >> 27u;
+    cookie *= 0x94D049BB133111EBull;
+    return cookie ^ ( cookie >> 31u );
+}
+
+uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* userPointer ) noexcept
+{
+
+    // Provenance token: ASLR makes the process-local atomic address different
+    // each launch, while binding every header field to its exact user pointer
+    // prevents a readable copied/shaped header from authorizing another address.
+    uint64_t cookie = 0xD1B54A32D192ED03ull ^ static_cast<uint64_t>( reinterpret_cast<uintptr_t>( &s_foreignFrees ) );
+
+    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( reinterpret_cast<uintptr_t>( userPointer ) ) );
+    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( reinterpret_cast<uintptr_t>( header.raw ) ) );
+    cookie = MixOwnershipCookieValue( cookie, header.size );
+    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.phase ) << 32u | header.flags );
+    cookie = MixOwnershipCookieValue( cookie, static_cast<uint64_t>( header.owner ) << 48u |
+                                                  static_cast<uint64_t>( header.reserved ) << 32u | header.magic );
+
+#if defined( TRACY_ENABLE )
+    cookie = MixOwnershipCookieValue( cookie, header.tracyConnectionId );
+#endif
+    return cookie;
+}
 
 uintptr_t ProcessImageBase() noexcept
 {
@@ -432,6 +465,7 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     header->owner = static_cast<uint16_t>( owner );
     header->reserved = 0u;
     header->magic = ALLOCATION_HEADER_MAGIC;
+    header->ownershipCookie = 0u;
 #if defined( TRACY_ENABLE )
     header->tracyConnectionId = 0u;
 #endif
@@ -461,20 +495,22 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         s_insideAllocationHook = false;
     }
 
+    header->ownershipCookie = AllocationOwnershipCookie( *header, reinterpret_cast<void*>( userAddress ) );
     return reinterpret_cast<void*>( userAddress );
 }
 
-bool TryReadAllocationHeaderMagic( const AllocationHeader* header, uint32_t& magic ) noexcept
+bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& copy ) noexcept
 {
 #if defined( _WIN32 ) && defined( _MSC_VER )
 
-    // Hazard: a foreign pointer can sit at the first byte of a committed page
-    // while the candidate header lies in an inaccessible predecessor page.
-    // MSVC SEH is table-based on the successful path and confines that one
-    // ownership-token read without a VirtualQuery syscall or hook registry.
+    // Hazard: magic alone is not provenance. A foreign candidate can expose
+    // only the magic bytes while raw/size remain inaccessible, or can shape a
+    // readable public magic value around a non-CRT raw pointer. Copy the entire
+    // candidate under table-based SEH before validating its pointer-bound
+    // process cookie; no candidate field is read after a partial copy.
     __try
     {
-        magic = header->magic;
+        copy = *header;
         return true;
     }
     __except ( EXCEPTION_EXECUTE_HANDLER )
@@ -484,8 +520,8 @@ bool TryReadAllocationHeaderMagic( const AllocationHeader* header, uint32_t& mag
 #else
 
     // The shipping global hook is Win32/MSVC-owned. Other toolchain builds keep
-    // the existing direct probe until they acquire an equivalent signal guard.
-    magic = header->magic;
+    // the existing direct copy until they acquire an equivalent signal guard.
+    copy = *header;
     return true;
 #endif
 }
@@ -552,35 +588,41 @@ void FreeTrackedMemory( void* pointer ) noexcept
     auto* header = reinterpret_cast<AllocationHeader*>( reinterpret_cast<unsigned char*>( pointer ) -
                                                         sizeof( AllocationHeader ) );
 
-    uint32_t headerMagic = 0u;
+    AllocationHeader headerCopy = {};
 
-    if ( !TryReadAllocationHeaderMagic( header, headerMagic ) )
+    if ( !TryCopyAllocationHeader( header, headerCopy ) )
     {
         HandleForeignFree( pointer, "unreadable" );
         return;
     }
 
-    if ( headerMagic != ALLOCATION_HEADER_MAGIC )
+    if ( headerCopy.magic != ALLOCATION_HEADER_MAGIC )
     {
         HandleForeignFree( pointer, "bad_magic" );
         return;
     }
 
-    // Lifetime: the header remains valid until raw is freed below. Copy counter
-    // data before clearing the magic so a double-delete fails closed into the
-    // foreign-pointer path instead of subtracting active bytes twice.
+    if ( headerCopy.ownershipCookie != AllocationOwnershipCookie( headerCopy, pointer ) )
+    {
+        HandleForeignFree( pointer, "bad_provenance" );
+        return;
+    }
+
+    // Lifetime: the guarded, provenance-checked snapshot remains valid after
+    // raw is freed below. Clearing the live magic makes a double-delete fail
+    // closed into the foreign-pointer path instead of subtracting twice.
 
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
 #if defined( TRACY_ENABLE )
-        SkullbonezCore::Core::Allocation::RecordTracyFree( pointer, header->tracyConnectionId );
+        SkullbonezCore::Core::Allocation::RecordTracyFree( pointer, headerCopy.tracyConnectionId );
 #endif
-        RecordFree( *header );
+        RecordFree( headerCopy );
         s_insideAllocationHook = false;
     }
 
-    void* raw = header->raw;
+    void* raw = headerCopy.raw;
     header->magic = 0u;
     std::free( raw );
 }
