@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked; `new-aggregate-ruling-gate` NA0 is binding. |
-| Active/future progress | 3/18 (17%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked; `new-aggregate-ruling-gate` NA1 is binding. |
+| Active/future progress | 4/18 (22%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -91,8 +91,13 @@ guarded whole-header copy and process-specific ownership cookie, and Profile
 passes 418/418 with 2,410,186 assertions. Plan 11 is blocked at 2/3 because
 genuine provenance validation adds owned-path work while AF2 literally requires
 no happy-path cost. The owner must permit measured cost or replace provenance.
-Plan 14 NA0 is binding; plan 12 waits for blocked plan 5 and plan 13 runs last.
+Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
+legacy-suffix/no-invariant gated rows. All 84 already carry CA0 rulings and the
+transitional verdict count is zero. Strict mode, source-drift checking, and the
+required fixtures pass; NA1 is binding. Plan 12 waits for blocked plan 5 and
+plan 13 runs last.
 Evidence:
+`Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-na0.md` and
 `Agentic/Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and

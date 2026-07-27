@@ -773,7 +773,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/18 (17%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/18 (22%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -808,7 +808,11 @@ ownership cookie. Plan 11 is blocked at 2/3 because genuine provenance adds
 owned-path work while AF2 also requires literally “no happy-path cost added.”
 An owner ruling must either permit the measured provenance cost or replace the
 provenance requirement. Plan 14 NA0 is binding; plan 5 and plan 11 are blocked,
-plan 12 waits for plan 5, and plan 13 runs last.
+plan 12 waits for plan 5, and plan 13 runs last. Plan 14 NA0 re-measured 1,167
+discovered types and the bounded 84-row suffix/no-invariant gated set. All 84
+already have CA0 rulings and the transitional verdict count is zero. Explicit
+strict mode, source-drift validation, and planted transition fixtures are in
+place; NA1 is binding.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2119,7 +2123,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Blocked | 2/3 | [AF2 blocker](../Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md): genuine provenance validation necessarily adds owned-path work, conflicting with the literal “no happy-path cost added” requirement; owner must permit measured cost or replace provenance |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 ratified 2026-07-27: ratify the seed. No plan in the campaign now requests divergence authority |
-| 14 | [new-aggregate-ruling-gate](TODO/new-aggregate-ruling-gate.md) | Not started | 0/3 | **Binding next task: NA0**. Plan 4 CA4 is already closed, so NA0-NA2 may proceed |
+| 14 | [new-aggregate-ruling-gate](TODO/new-aggregate-ruling-gate.md) | In progress | 1/3 | **Binding next task: NA1**. Strict mode covers 84/84 bounded rows; the transition count is already zero after CA4 |
 
 ## Features
 

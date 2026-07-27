@@ -1,11 +1,12 @@
 {
     "schema":  2,
-    "purpose":  "Owner rulings for the governance aggregate and extraction-scar inventories. Aggregate rows cover every mechanically signalled borrowed-member courier and every legacy-suffix review candidate. Counts are observations, never allowances; an unruled review row fails the gate.",
+    "purpose":  "Owner rulings for the governance aggregate and extraction-scar inventories. Aggregate rows cover the bounded gate: every legacy-suffix candidate that states no invariant of its own. Discovery and review context remain wider. Counts are observations, never allowances; an unruled gated row fails strict mode.",
     "verdicts":  {
                      "remove":  "Authority-free; delete it and let callers take the real owners.",
                      "retain":  "Owns a real invariant or binding requirement stated in the reason.",
                      "retain-prior":  "Already ruled by a named earlier plan; carried forward unchanged.",
-                     "repair":  "Confirmed defect owned by the named plan; not yet implemented."
+                     "repair":  "Confirmed defect owned by the named plan; not yet implemented.",
+                     "pre-existing-unreviewed":  "Temporary migration verdict owned by ceremonial-aggregate-elimination CA0. It requires an exact declaration site, is printed on every run, and must reach zero before NA2 removes this verdict."
                  },
     "aggregates":  [
                        {

@@ -4,9 +4,8 @@ File: inventory_authority_free_aggregates.py
 Purpose:
   Report aggregate types that carry data for one operation without owning an
   invariant, so a reviewer can rule each one instead of pattern-matching a name.
-  The CA0 census also carries the complete legacy-suffix review surface so a
-  previously reviewed value cannot disappear merely because it lacks the
-  strongest borrowed-member signal.
+  Strict mode gates the bounded legacy-suffix family when the type states no
+  invariant of its own. Suffix-free discovery remains wider review context.
 
 Summary:
   The repository historically described context bags, service bags, and
@@ -43,10 +42,15 @@ Invariants:
   - Comments, literals, and preprocessor lines cannot create a row or a member.
   - The inventory reports and ranks; it never decides. Only the ruling file
     decides, and only an owner edits the ruling file.
-  - An unruled aggregate carrying a signal or a legacy review suffix fails the
-    gate. A ruled row passes only as evidence that an owner has judged it.
+  - In strict mode, an unruled aggregate with a legacy review suffix and no
+    stated invariant fails the gate. A ruled row passes only as evidence that
+    an owner has judged it.
   - Discovery never depends on a type suffix or on choosing `struct` over
     `class`; renaming cannot remove a shape from the inventory.
+  - The bounded gate is name-scoped and therefore evadable by renaming a bag
+    `FooFrameData`. This is a visibility measure, not proof of ownership; the
+    AGENTS.md review question remains authoritative for deliberately renamed
+    bags.
   - Recorded site/member counts are source-drift checks, never an allowance or
     budget.
   - The source scan is read-only; an explicit `--output` path may receive the
@@ -63,6 +67,8 @@ Related:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import re
 import sys
@@ -73,6 +79,8 @@ from cpp_source_scan import line_of_offset, mask_cpp, tracked_files
 
 DEFAULT_ROOTS = ["SkullbonezSource"]
 RULINGS_RELATIVE = "tools/aggregate_ownership_rulings.json"
+TRANSITIONAL_VERDICT = "pre-existing-unreviewed"
+ACCEPTED_VERDICTS = ("remove", "retain", "retain-prior", "repair", TRANSITIONAL_VERDICT)
 
 # Suffix families the repository has historically used for per-operation data.
 # They rank manual review context only; discovery and gating are suffix-free.
@@ -161,6 +169,15 @@ class Aggregate:
 
     def is_review_candidate(self) -> bool:
         return bool(self.signals()) or self.name.endswith(LEGACY_SUFFIXES)
+
+    def is_gated_candidate(self) -> bool:
+        """Bounded strict-mode surface; discovery and review remain wider.
+
+        The suffix family is intentionally centralized here. Expanding this to
+        every discovered data record would turn the ruling file into a second
+        copy of the type system and bury the ownership signal.
+        """
+        return self.name.endswith(LEGACY_SUFFIXES) and not self.has_stated_invariant
 
 
 def _matched_brace_body(masked: str, open_index: int) -> tuple[str, int] | None:
@@ -302,13 +319,21 @@ def load_rulings(repo: Path) -> dict[str, dict]:
     return {row["key"]: row for row in data.get("aggregates", [])}
 
 
-def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: bool = True) -> int:
+def report(
+    aggregates: dict[str, Aggregate],
+    rulings: dict[str, dict],
+    *,
+    strict: bool,
+    verbose: bool = True,
+) -> int:
     flagged = {name: item for name, item in aggregates.items() if item.signals()}
     review = {name: item for name, item in aggregates.items() if item.is_review_candidate()}
-    unruled = sorted(name for name in review if name not in rulings)
-    stale = sorted(name for name in rulings if name not in review)
+    gated = {name: item for name, item in aggregates.items() if item.is_gated_candidate()}
+    unruled = sorted(name for name in gated if name not in rulings)
+    stale = sorted(name for name in rulings if name not in gated)
     invalid: list[str] = []
-    for name, item in review.items():
+    transitional_count = 0
+    for name, item in gated.items():
         ruling = rulings.get(name)
         if ruling is None:
             continue
@@ -319,8 +344,10 @@ def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: 
             invalid.append(
                 f"{name}: members is {ruling.get('members')!r}, expected {item.member_count}"
             )
-        if ruling.get("verdict") not in ("remove", "retain", "retain-prior", "repair"):
+        if ruling.get("verdict") not in ACCEPTED_VERDICTS:
             invalid.append(f"{name}: invalid verdict {ruling.get('verdict')!r}")
+        if ruling.get("verdict") == TRANSITIONAL_VERDICT:
+            transitional_count += 1
         if not isinstance(ruling.get("owner"), str) or not ruling["owner"].strip():
             invalid.append(f"{name}: owner is missing")
         if not isinstance(ruling.get("reason"), str) or not ruling["reason"].strip():
@@ -338,8 +365,9 @@ def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: 
         print(
             f"Authority-free aggregate inventory: candidates={len(aggregates)} "
             f"state_own_invariant={stated} signalled={len(flagged)} "
-            f"review={len(review)} ruled={len(review) - len(unruled)} "
-            f"unruled={len(unruled)}"
+            f"review={len(review)} gated={len(gated)} "
+            f"ruled={len(gated) - len(unruled)} unruled={len(unruled)} "
+            f"pre_existing_unreviewed={transitional_count}"
         )
         for name in sorted(flagged):
             item = flagged[name]
@@ -378,11 +406,11 @@ def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: 
                     "use --format json or markdown for the complete list"
                 )
 
-    if unruled or stale or invalid:
+    if (strict and unruled) or stale or invalid:
         if verbose:
-            if unruled:
+            if strict and unruled:
                 print(
-                    f"FAIL: {len(unruled)} aggregate review row(s) have no owner "
+                    f"FAIL: {len(unruled)} gated aggregate(s) require an owner "
                     f"ruling in {RULINGS_RELATIVE}: {', '.join(unruled)}"
                 )
             if stale:
@@ -391,7 +419,10 @@ def report(aggregates: dict[str, Aggregate], rulings: dict[str, dict], verbose: 
                 print(f"FAIL: {error}")
         return 1
     if verbose:
-        print("PASS: every signalled and legacy-review aggregate carries an owner ruling.")
+        if strict:
+            print("PASS: every bounded gated aggregate carries an owner ruling.")
+        else:
+            print("PASS: aggregate inventory report completed (strict ruling gate disabled).")
     return 0
 
 
@@ -603,10 +634,14 @@ def self_test() -> int:
         owner[key].construction_sites.append("fixture.cpp:10")
         if owner[key].signals():
             failures.append("a multi-member invariant owner must not gain a shape signal")
+        if report(owner, {}, strict=True, verbose=False) != 0:
+            failures.append("a suffix-family aggregate with its own invariant must stay outside the gate")
 
     renamed = _parse(FIXTURE_RENAMED_SINGLE_MEMBER)
     if "FooPayload" not in renamed or "single-borrow-member" not in renamed["FooPayload"].signals():
         failures.append("renaming a single-member aggregate outside legacy suffixes must not hide it")
+    elif report(renamed, {}, strict=True, verbose=False) != 0:
+        failures.append("a non-suffix signal must remain review context rather than widen the gate")
 
     class_shape = _parse(FIXTURE_CLASS_SINGLE_MEMBER)
     if "FooContext" not in class_shape or "single-borrow-member" not in class_shape["FooContext"].signals():
@@ -651,9 +686,14 @@ def self_test() -> int:
         "destructures_at_entry": "yes",
         "post_removal_signature": "Take(SceneWorld&) — 1 parameter",
     }
-    if report(gate, {}, verbose=False) == 0:
+    if report(gate, {}, strict=True, verbose=False) == 0:
         failures.append("an unruled signalled aggregate must fail the gate")
-    if report(gate, {"TornadoUICommandContext": valid_ruling}, verbose=False) != 0:
+    if report(
+        gate,
+        {"TornadoUICommandContext": valid_ruling},
+        strict=True,
+        verbose=False,
+    ) != 0:
         failures.append("a ruled aggregate must pass the gate")
     legacy_item = legacy_request["WidgetRequest"]
     valid_legacy_ruling = {
@@ -664,10 +704,48 @@ def self_test() -> int:
         "reason": "fixture invariant",
         "destructures_at_entry": "no",
     }
-    if report(legacy_request, {}, verbose=False) == 0:
+    if report(legacy_request, {}, strict=True, verbose=False) == 0:
         failures.append("an unruled legacy-suffix aggregate must fail the gate")
-    if report(legacy_request, {"WidgetRequest": valid_legacy_ruling}, verbose=False) != 0:
+    if report(
+        legacy_request,
+        {"WidgetRequest": valid_legacy_ruling},
+        strict=True,
+        verbose=False,
+    ) != 0:
         failures.append("a ruled legacy-suffix aggregate must pass the gate")
+    prior_ruling = dict(valid_legacy_ruling, verdict="retain-prior")
+    if report(
+        legacy_request,
+        {"WidgetRequest": prior_ruling},
+        strict=True,
+        verbose=False,
+    ) != 0:
+        failures.append("a retain-prior legacy-suffix ruling must pass the gate")
+    transitional_ruling = dict(
+        valid_legacy_ruling,
+        verdict=TRANSITIONAL_VERDICT,
+        owner="ceremonial-aggregate-elimination CA0",
+        reason="fixture transition",
+    )
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        transitional_code = report(
+            legacy_request,
+            {"WidgetRequest": transitional_ruling},
+            strict=True,
+        )
+    if transitional_code != 0 or "pre_existing_unreviewed=1" not in captured.getvalue():
+        failures.append("a transitional ruling must pass and increment the reported count")
+    wrong_site_ruling = dict(transitional_ruling, site="fixture.h:999")
+    if report(
+        legacy_request,
+        {"WidgetRequest": wrong_site_ruling},
+        strict=True,
+        verbose=False,
+    ) == 0:
+        failures.append("a transitional ruling whose declaration site moved must fail")
+    if report(legacy_request, {}, strict=False, verbose=False) != 0:
+        failures.append("report-only mode must not enforce missing bounded rulings")
 
     for failure in failures:
         print(f"FAIL: {failure}")
@@ -682,6 +760,11 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path("."), help="Repository root")
     parser.add_argument("--roots", nargs="*", default=DEFAULT_ROOTS, help="Repository-relative scan roots")
     parser.add_argument("--self-test", action="store_true", help="Run planted fixtures")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail when a bounded gated aggregate has no owner ruling",
+    )
     parser.add_argument("--format", choices=("text", "json", "markdown"), default="text")
     parser.add_argument("--output", type=Path, help="Optional output path for JSON or Markdown")
     args = parser.parse_args()
@@ -724,7 +807,7 @@ def main() -> int:
         else:
             print(rendered, end="")
         return 0
-    return report(aggregates, rulings)
+    return report(aggregates, rulings, strict=args.strict)
 
 
 if __name__ == "__main__":

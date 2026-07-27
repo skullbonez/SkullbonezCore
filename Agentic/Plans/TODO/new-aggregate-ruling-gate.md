@@ -1,9 +1,9 @@
 # New Aggregate Ruling Gate
 
 Date: 2026-07-27
-Status: NOT STARTED — registered in `MASTER-PLAN.md` on 2026-07-27 as plan 14 of
+Status: IN PROGRESS — registered in `MASTER-PLAN.md` on 2026-07-27 as plan 14 of
 the Architecture Follow-Up Campaign Round 5, from the same-day owner review of
-what the campaign does and does not close. 0/3 phases complete.
+what the campaign does and does not close. 1/3 phases complete; NA1 is binding.
 Impact area: `tools/inventory_authority_free_aggregates.py`,
 `tools/aggregate_ownership_rulings.json`, `tools/validate_fast.bat`,
 `tools/README.md`, `AGENTS.md`
@@ -112,7 +112,7 @@ it.
 
 ## Phases
 
-- [ ] **NA0 — Define the gated set, then add strict mode and the bounded
+- [x] **NA0 — Define the gated set, then add strict mode and the bounded
   transition verdict.**
   Re-measure first, against the tool as it actually exists (see Concurrency Note).
   Then define the **gated set** explicitly in the tool and in its header, bounded
