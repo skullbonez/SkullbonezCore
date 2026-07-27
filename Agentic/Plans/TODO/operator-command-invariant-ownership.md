@@ -1,10 +1,12 @@
 # Operator Command Invariant Ownership
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
-review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
+Status: IN PROGRESS — OC0 closed 2026-07-27 with the exact eight-edge phase
+order, same-frame winner table, operation destinations, and complete acceptance
+ledger census. OC1 is binding. Drafted from the 2026-07-26 from-source
+architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 9 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 0/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 1/4 phases
 complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.{h,cpp}`,
 `Runtime/App/InputRouter.Interactions.cpp`, `Runtime/App/InputFrame.cpp`,
@@ -100,7 +102,7 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
 
 ## Phases
 
-- [ ] **OC0 — Census the ordering and arbitration invariant.**
+- [x] **OC0 — Census the ordering and arbitration invariant.**
   Enumerate every operator-command apply operation, the state each mutates, and
   every ordering or arbitration constraint currently expressed in a comment or
   implied by call-site sequence in `InputRouter.Interactions.cpp` and
@@ -111,6 +113,13 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   arbitration rule is written as a specification before any implementation; every
   result flag has a named consumer; any flag with no consumer is listed for
   deletion.
+  Closed 2026-07-27. The binding cursor is
+  `DeviceAndMode -> PhysicsControl -> RuntimePresentation -> SimulationPolicy
+  -> PhysicsMaterial -> WorldPolicy -> CinematicPolicy -> Complete`, with every
+  interleaved concrete-owner/GV3 barrier recorded. Every operation, same-frame
+  winner, and acceptance consumer is ruled; the sole unused artifact is the
+  discarded Boolean return of `ApplyCinematicModeUICommand`. Evidence:
+  `../../Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md`.
 
 - [ ] **OC1 — Install the operator command transaction.**
   Add a non-copyable `OperatorCommandTransaction` (name subject to OC0's finding)
