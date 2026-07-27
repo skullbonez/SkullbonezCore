@@ -232,7 +232,7 @@ class Terrain
     void GenerateNormals();                                                                           // Post normals are shared by lighting and terrain contacts.
     void BuildMesh();                                                                                 // Builds renderer geometry from the collision-authoritative posts.
     void BuildFlatSlopeMesh();                                                                        // Analytic flat slope scenes bypass RAW height data but still need vertex storage.
-    int GetPixelHeightAt( int xCoord, int yCoord );                                                   // RAW pixel height before terrain post translation.
+    int GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate );                               // RAW pixel height before terrain post translation.
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

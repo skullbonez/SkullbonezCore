@@ -4,21 +4,23 @@ Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Summary:
-  PhysicsDebugVisualizer.cpp draws physics contacts, axes, sleep state, and
-  pipeline diagnostics. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  Current-frame solver records become colored line primitives. Contact rows
+  linger briefly for readability, while terrain probes draw the exact triangle
+  selected by the World terrain owner.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Pipeline record: Bounded diagnostic breadcrumb emitted by one physics stage.
+  Feature ID: Deterministic contact identifier used to match a row across
+  frames.
+  Linger cache: Presentation-only contact history that fades after solver rows
+  disappear.
+  Terrain contact probe: Exact selected terrain triangle plus the vertical
+  sphere-center contact line used for comparison.
 
 Invariants:
-  - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+  - Diagnostic state never feeds physics, sleep, collision response, or terrain
+    selection.
+  - Terrain probes check bounds before asking Terrain for the selected polygon.
 
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h

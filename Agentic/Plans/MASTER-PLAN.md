@@ -773,7 +773,9 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 7/15 (47%).
+NOW. Architecture Follow-Up Campaign Round 5 has no executable non-blocked
+item. The retained live ledger is 3/10 (30%): plan 5 is blocked at FV1, plan 11
+is blocked at AF2, and plan 12 waits for plan 5.
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -807,8 +809,8 @@ provenance bypasses with a guarded whole-header copy and a process-specific
 ownership cookie. Plan 11 is blocked at 2/3 because genuine provenance adds
 owned-path work while AF2 also requires literally “no happy-path cost added.”
 An owner ruling must either permit the measured provenance cost or replace the
-provenance requirement. Plan 14 NA0 is binding; plan 5 and plan 11 are blocked,
-plan 12 waits for plan 5, and plan 13 runs last. Plan 14 NA0 re-measured 1,167
+provenance requirement. Plan 14 NA0 then ran while plans 5 and 11 were blocked,
+plan 12 waited for plan 5, and plan 13 remained last. Plan 14 NA0 re-measured 1,167
 discovered types and the bounded 84-row suffix/no-invariant gated set. All 84
 already have CA0 rulings and the transitional verdict count is zero. Explicit
 strict mode, source-drift validation, and planted transition fixtures are in
@@ -827,11 +829,15 @@ remain exact. T2 locally proves every `LocatePolygon` post read, adds an exact
 upper-edge Debug fatal probe, and retains the method because its sole
 debug-visualizer caller needs triangle vertices the cache view does not expose.
 The focused oracle and byte-exact Physics gate pass. T3 names the full and
-shoreline seed scales, records the vertical-gravity hazard, and adds 35
-assertions covering first-frame rest, shoreline no-bob versus zero seed, and a
-one-iteration three-box stack at all three strengths. Physics, deep Physics,
-and SkullScope remain exact. T4 is binding; plans 5 and 11 are blocked and plan
-12 waits for plan 5.
+shoreline seed scales, records the complete
+vertical-gravity/unit-normal/equal-point assumption set, and pins first-frame
+rest, a real classified two-point terrain edge, stage sleep inhibition, and a
+one-iteration three-box stack at all three strengths. T4 closed the 4/4
+whole-file comment audit and all five independent-review findings. Format,
+421/421 tests and 2,410,268 assertions, byte-exact Physics and deep Physics,
+exact SkullScope, performance, and the default full gate pass without baseline
+refresh. Plan 13 then left the live inventory under rule 4. Plans 5 and 11
+remain blocked and plan 12 waits for plan 5; there is no next non-blocked item.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2141,7 +2147,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Blocked | 2/3 | [AF2 blocker](../Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md): genuine provenance validation necessarily adds owned-path work, conflicting with the literal “no happy-path cost added” requirement; owner must permit measured cost or replace provenance |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
-| 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | In progress | 4/5 | **Binding next task: T4**. Named seed scales, vertical-gravity assumptions, and 35 focused assertions preserve byte-exact Physics and SkullScope |
+| 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
 
 ## Features

@@ -30,7 +30,7 @@ Glossary:
   Friction: Tangent impulse that resists sliding along the contact plane.
   Feature ID: Deterministic contact identifier used to match rows across frames
 
-  for warm starting.
+    for warm starting.
   Resting footprint: Stable multi-point support patch that can seed sleep and
   cached support impulses.
   Step policy: Once-per-solve normalized view of authored contact bounds used
@@ -1022,8 +1022,10 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             // and cannot become a hidden sleep anchor.
             //
             // Invariant: gravityMagnitude is the magnitude of the engine's
-            // vertical -Y gravity, and fabs(normal.y) is its supported fraction.
-            // The seed is therefore weight projected onto a terrain normal.
+            // vertical -Y gravity, the manifold normal is unit length, and
+            // fabs(normal.y) is its supported fraction. The total weight seed is
+            // projected onto that normal and divided evenly across every point
+            // in the non-empty manifold.
             //
             // Hazard: a future non-vertical gravity vector would make that
             // scalar projection wrong. Directional gravity must replace both

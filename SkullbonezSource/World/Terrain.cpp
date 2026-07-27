@@ -1,20 +1,22 @@
 /*
 File: SkullbonezSource/World/Terrain.cpp
 Purpose:
-  Stores terrain mesh, height queries, and terrain rendering resources.
+  Owns heightfield posts, detached physics cells, terrain meshes, and terrain
+  rendering resources.
 
 Summary:
-  Terrain.cpp stores terrain mesh, height queries, and terrain rendering
-  resources. As an implementation unit, keep edits anchored on world-state
-  ownership, terrain/environment data, and physics/render handoff and on the
-  glossary/invariants below.
+  RAW height samples become one world-X-major post grid. Collision queries,
+  cached physics planes, render meshes, shadows, and debug geometry all derive
+  from that same grid so they cannot describe different surfaces.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Post: One sampled terrain vertex with a world-space position and smoothed
+  normal.
+  Quad: Four adjacent posts split into two authored collision/render triangles.
+  Physics terrain cell: Detached pair of triangle planes for one quad, borrowed
+  by Physics without retaining the World owner.
+  Render relief: Shader-only height displacement that must not alter the CPU
+  collision surface.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -44,6 +46,8 @@ Related:
 #endif
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <memory>
 
 
@@ -409,6 +413,10 @@ void Terrain::BuildCollisionCache()
 
     m_cachedCollisionData.resize( quadsPerSide * quadsPerSide );
 
+    // Invariant: both cell loops stop at postsPerSide - 2. The target post is
+    // the next-X/current-Z corner, so target, previous-X, previous-X/next-Z,
+    // and next-Z all remain inside the BuildTerrain-sized post grid.
+
     for ( int worldXCell = 0; worldXCell < quadsPerSide; ++worldXCell )
     {
 
@@ -499,9 +507,9 @@ void Terrain::QueryCollisionDataUnchecked( float xPosition, float zPosition, flo
 }
 
 
-int Terrain::GetPixelHeightAt( int xCoord, int yCoord )
+int Terrain::GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate )
 {
-    return m_terrainData[xCoord + yCoord * m_mapSize];
+    return m_terrainData[worldXCoordinate + worldZCoordinate * m_mapSize];
 }
 
 
@@ -771,9 +779,10 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
                       zPosition );
         }
 
-        // Analytic flat-slope terrain returns three points on the plane
+        // Concept: analytic flat-slope terrain returns three points on the plane
         // y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z.
-        // Winding order: CCW from above so ComputePlane produces an upward-facing normal (n.y > 0)
+        // Invariant: +Z then +X is counter-clockwise from above, so
+        // ComputePlane produces an upward-facing normal.
         Triangle tri;
         float y0 = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
         float y2 = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * ( zPosition + 100.0f );
@@ -787,6 +796,12 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 
     const float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
 
+    if ( !std::isfinite( xPosition ) || !std::isfinite( zPosition ) || !std::isfinite( scaledStepSize ) )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon query is not finite: x=%.3f z=%.3f scaledStepSize=%.3f.", xPosition, zPosition,
+                  scaledStepSize );
+    }
+
     if ( m_postsPerSide < 2 || scaledStepSize <= 0.0f )
     {
         SB_FATAL( "Terrain", "Terrain polygon grid is invalid: postsPerSide=%d scaledStepSize=%.3f.", m_postsPerSide,
@@ -794,8 +809,20 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     }
 
     // Terrain posts are stored world-X-major, matching TranslatePostings.
-    int worldZCell = static_cast<int>( floorf( zPosition / scaledStepSize ) );
-    int worldXCell = static_cast<int>( floorf( xPosition / scaledStepSize ) );
+    const float worldZCellFloat = floorf( zPosition / scaledStepSize );
+    const float worldXCellFloat = floorf( xPosition / scaledStepSize );
+
+    if ( !std::isfinite( worldXCellFloat ) || !std::isfinite( worldZCellFloat ) ||
+         worldXCellFloat < static_cast<float>( ( std::numeric_limits<int>::min )() ) ||
+         worldZCellFloat < static_cast<float>( ( std::numeric_limits<int>::min )() ) ||
+         worldXCellFloat >= static_cast<float>( ( std::numeric_limits<int>::max )() ) ||
+         worldZCellFloat >= static_cast<float>( ( std::numeric_limits<int>::max )() ) )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon cell is not representable: x=%.3f z=%.3f.", xPosition, zPosition );
+    }
+
+    const int worldZCell = static_cast<int>( worldZCellFloat );
+    const int worldXCell = static_cast<int>( worldXCellFloat );
     const int quadsPerSide = m_postsPerSide - 1;
 
     if ( worldXCell < 0 || worldZCell < 0 || worldXCell >= quadsPerSide || worldZCell >= quadsPerSide )
@@ -807,71 +834,67 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // Invariant: the strict cell guard caps both cells at postsPerSide - 2.
     // Therefore the four named indices span [0, postsPerSide^2 - 1]. The
     // storage-size guard pins that derivation to the actual backing vector.
-    const int targetPostIndex = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
-    const int previousRowPostIndex = targetPostIndex - m_postsPerSide;
-    const int previousRowNextPostIndex = previousRowPostIndex + 1;
-    const int targetNextPostIndex = targetPostIndex + 1;
+    const std::size_t postsPerSide = static_cast<std::size_t>( m_postsPerSide );
 
-    if ( previousRowPostIndex < 0 || targetNextPostIndex < 0 ||
-         static_cast<std::size_t>( targetNextPostIndex ) >= m_postData.size() )
+    if ( postsPerSide > ( std::numeric_limits<std::size_t>::max )() / postsPerSide )
     {
-        SB_FATAL( "Terrain", "Terrain polygon post window out of range: first=%d target=%d last=%d postCount=%zu.",
-                  previousRowPostIndex, targetPostIndex, targetNextPostIndex, m_postData.size() );
+        SB_FATAL( "Terrain", "Terrain polygon post-grid size overflow: postsPerSide=%zu.", postsPerSide );
     }
 
-    // Express the query relative to the target quad's bottom-right post. The Z
-    // component points back into the quad and is therefore negative.
+    const std::size_t worldXCellIndex = static_cast<std::size_t>( worldXCell );
+    const std::size_t worldZCellIndex = static_cast<std::size_t>( worldZCell );
+    const std::size_t targetPostIndex = worldXCellIndex * postsPerSide + worldZCellIndex + postsPerSide;
+    const std::size_t previousXPostIndex = targetPostIndex - postsPerSide;
+    const std::size_t previousXNextZPostIndex = previousXPostIndex + 1u;
+    const std::size_t targetNextZPostIndex = targetPostIndex + 1u;
+
+    if ( targetNextZPostIndex >= m_postData.size() )
+    {
+        SB_FATAL( "Terrain", "Terrain polygon post window out of range: first=%zu target=%zu last=%zu postCount=%zu.",
+                  previousXPostIndex, targetPostIndex, targetNextZPostIndex, m_postData.size() );
+    }
+
+    // Express the query relative to the target quad's next-X/current-Z post.
+    // The Z component points back into the quad and is therefore negative.
     float negativeLocalZ = -( scaledStepSize - ( fmodf( zPosition, scaledStepSize ) ) );
     float localX = fmodf( xPosition, scaledStepSize );
 
-    // vars to help safely determine the gradient of the vector expressed by
-    // negativeLocalZ and localX
+    // Why: the authored diagonal split is expressed as a local X/Z gradient.
+    // Keep the vertical case explicit so the comparison never divides by zero.
     float gradient = 0.0f;
     bool isGradientInfinite = false;
-
-    // test to see if rise is infinitely greater than run
 
     if ( localX == 0.0f )
     {
         isGradientInfinite = true;
     }
 
-    // avoid a division by zero
-
     if ( !isGradientInfinite )
     {
         gradient = negativeLocalZ / localX;
     }
 
-    // triangle structure for the target polygon
     Triangle targetPolygon {};
 
-    /*
-        The following test checks to see if triangle A or B has been hit
-
-        |\---|						 \										  |
-        | \ A|						  \  <- grad = -1   ------- <- grad = 0   | <- grad = infinite
-        |B \ |						   \									  |
-        |---\|<- object space origin    \									  |
-
-        (NOTE: The gradient of the cross section is equal to -1)
-    */
+    // Invariant: gradient -1 is the quad diagonal. The strict comparison and
+    // vertical-case choice preserve the same triangle on the diagonal as the
+    // cached PhysicsTerrainView lookup.
 
     if ( isGradientInfinite || gradient < -1.0f )
     {
 
         // TRIANGLE A
         targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
-        targetPolygon.v2 = m_postData[previousRowPostIndex].vPosition;
-        targetPolygon.v3 = m_postData[previousRowNextPostIndex].vPosition;
+        targetPolygon.v2 = m_postData[previousXPostIndex].vPosition;
+        targetPolygon.v3 = m_postData[previousXNextZPostIndex].vPosition;
     }
     else
     {
 
         // TRIANGLE B
         targetPolygon.v1 = m_postData[targetPostIndex].vPosition;
-        targetPolygon.v2 = m_postData[previousRowNextPostIndex].vPosition;
-        targetPolygon.v3 = m_postData[targetNextPostIndex].vPosition;
+        targetPolygon.v2 = m_postData[previousXNextZPostIndex].vPosition;
+        targetPolygon.v3 = m_postData[targetNextZPostIndex].vPosition;
     }
 
     return targetPolygon;
@@ -882,16 +905,20 @@ void Terrain::TranslatePostings()
 {
     int indexCounter = 0;
 
-    for ( int X = 0; X < m_mapSize; X += m_stepSize )
+    // Invariant: the loaded heightfield contract makes map size an exact
+    // multiple of step size, so these world-X/world-Z loops write exactly
+    // postsPerSide * postsPerSide entries into the BuildTerrain-sized post vector.
+
+    for ( int worldXCoordinate = 0; worldXCoordinate < m_mapSize; worldXCoordinate += m_stepSize )
     {
 
-        for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
+        for ( int worldZCoordinate = 0; worldZCoordinate < m_mapSize; worldZCoordinate += m_stepSize )
         {
-            m_postData[indexCounter].vPosition.SetAll( static_cast<float>( X ) * Config().terrainGeometry.scale,
-                                                       static_cast<float>( GetPixelHeightAt( X, Z ) ) *
-                                                           Config().terrainGeometry.heightScale *
-                                                           Config().terrainGeometry.scale,
-                                                       static_cast<float>( Z ) * Config().terrainGeometry.scale );
+            m_postData[indexCounter]
+                .vPosition.SetAll( static_cast<float>( worldXCoordinate ) * Config().terrainGeometry.scale,
+                                   static_cast<float>( GetPixelHeightAt( worldXCoordinate, worldZCoordinate ) ) *
+                                       Config().terrainGeometry.heightScale * Config().terrainGeometry.scale,
+                                   static_cast<float>( worldZCoordinate ) * Config().terrainGeometry.scale );
 
             ++indexCounter;
         }
@@ -902,50 +929,56 @@ void Terrain::TranslatePostings()
 void Terrain::GenerateNormals()
 {
 
-    // flags to indicate special cases
-    bool isFirstRow = true;
-    bool isFinalRow = false;
-    bool isFirstCol = true;
-    bool isFinalCol = false;
+    // Concept: each post normal is the weighted sum of the adjacent triangle
+    // face normals. Corners, edges, and interior posts have different valid
+    // neighborhoods.
+    // Invariant: the outer loop advances world X, the inner loop advances world
+    // Z, and postIndex = worldXPost * m_postsPerSide + worldZPost. The four
+    // boundary flags admit only neighboring-post reads that exist in that
+    // world-X-major grid.
+    bool isFirstXPost = true;
+    bool isFinalXPost = false;
+    bool isFirstZPost = true;
+    bool isFinalZPost = false;
 
-    for ( int row = 0; row < m_postsPerSide; ++row )
+    for ( int worldXPost = 0; worldXPost < m_postsPerSide; ++worldXPost )
     {
 
-        if ( row > 0 )
+        if ( worldXPost > 0 )
         {
-            isFirstRow = false;
+            isFirstXPost = false;
         }
 
-        if ( row == m_postsPerSide - 1 )
+        if ( worldXPost == m_postsPerSide - 1 )
         {
-            isFinalRow = true;
+            isFinalXPost = true;
         }
 
-        for ( int col = 0; col < m_postsPerSide; ++col )
+        for ( int worldZPost = 0; worldZPost < m_postsPerSide; ++worldZPost )
         {
-            int postingIndex = row * m_postsPerSide + col;
+            const int postIndex = worldXPost * m_postsPerSide + worldZPost;
 
-            m_postData[postingIndex].vNormal.Zero();
+            m_postData[postIndex].vNormal.Zero();
 
-            if ( col == 0 )
+            if ( worldZPost == 0 )
             {
-                isFirstCol = true;
+                isFirstZPost = true;
             }
             else
             {
-                isFirstCol = false;
+                isFirstZPost = false;
             }
 
-            if ( col == m_postsPerSide - 1 )
+            if ( worldZPost == m_postsPerSide - 1 )
             {
-                isFinalCol = true;
+                isFinalZPost = true;
             }
             else
             {
-                isFinalCol = false;
+                isFinalZPost = false;
             }
 
-            if ( isFirstCol )
+            if ( isFirstZPost )
             {
 
                 // x 0 0 0  - we are an 'x'
@@ -953,7 +986,7 @@ void Terrain::GenerateNormals()
                 // x 0 0 0
                 // x 0 0 0
 
-                if ( isFirstRow )
+                if ( isFirstXPost )
                 {
 
                     // x 0 0 0  - we are 'x'
@@ -961,17 +994,17 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    rightPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    nextZPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
 
-                    // right-down m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( rightPost, downPost );
+                    // +Z/+X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( nextZPost, nextXPost );
                 }
-                else if ( isFinalRow )
+                else if ( isFinalXPost )
                 {
 
                     // 0 0 0 0  - we are 'x'
@@ -979,20 +1012,20 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // x 0 0 0
 
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
-                    Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
+                    Vector3 previousXNextZPost = m_postData[postIndex - m_postsPerSide + 1].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    topPost -= m_postData[postingIndex].vPosition;
-                    topRightPost -= m_postData[postingIndex].vPosition;
-                    rightPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousXPost -= m_postData[postIndex].vPosition;
+                    previousXNextZPost -= m_postData[postIndex].vPosition;
+                    nextZPost -= m_postData[postIndex].vPosition;
 
-                    // top-top-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topPost, topRightPost );
+                    // -X/-X+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXPost, previousXNextZPost );
 
-                    // top-right-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topRightPost, rightPost );
+                    // -X+Z/+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXNextZPost, nextZPost );
                 }
                 else
                 {
@@ -1002,28 +1035,28 @@ void Terrain::GenerateNormals()
                     // x 0 0 0
                     // 0 0 0 0
 
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
-                    Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
+                    Vector3 previousXNextZPost = m_postData[postIndex - m_postsPerSide + 1].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    topPost -= m_postData[postingIndex].vPosition;
-                    topRightPost -= m_postData[postingIndex].vPosition;
-                    rightPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousXPost -= m_postData[postIndex].vPosition;
+                    previousXNextZPost -= m_postData[postIndex].vPosition;
+                    nextZPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
 
-                    // top-top-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topPost, topRightPost );
+                    // -X/-X+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXPost, previousXNextZPost );
 
-                    // top-right-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topRightPost, rightPost );
+                    // -X+Z/+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXNextZPost, nextZPost );
 
-                    // right-down m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( rightPost, downPost );
+                    // +Z/+X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( nextZPost, nextXPost );
                 }
             }
-            else if ( isFinalCol )
+            else if ( isFinalZPost )
             {
 
                 // 0 0 0 x  - we are an 'x'
@@ -1031,7 +1064,7 @@ void Terrain::GenerateNormals()
                 // 0 0 0 x
                 // 0 0 0 x
 
-                if ( isFirstRow )
+                if ( isFirstXPost )
                 {
 
                     // 0 0 0 x  - we are 'x'
@@ -1039,22 +1072,22 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
-                    Vector3 downLeftPost = m_postData[postingIndex + m_postsPerSide - 1].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
+                    Vector3 nextXPreviousZPost = m_postData[postIndex + m_postsPerSide - 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
-                    downLeftPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
+                    nextXPreviousZPost -= m_postData[postIndex].vPosition;
 
-                    // down-down-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downPost, downLeftPost );
+                    // +X/+X-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPost, nextXPreviousZPost );
 
-                    // down-left-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downLeftPost, leftPost );
+                    // +X-Z/-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPreviousZPost, previousZPost );
                 }
-                else if ( isFinalRow )
+                else if ( isFinalXPost )
                 {
 
                     // 0 0 0 0  - we are 'x'
@@ -1062,15 +1095,15 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 x
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    topPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    previousXPost -= m_postData[postIndex].vPosition;
 
-                    // top-left m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( leftPost, topPost );
+                    // -Z/-X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( previousZPost, previousXPost );
                 }
                 else
                 {
@@ -1080,25 +1113,25 @@ void Terrain::GenerateNormals()
                     // 0 0 0 x
                     // 0 0 0 0
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
-                    Vector3 downLeftPost = m_postData[postingIndex + m_postsPerSide - 1].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
+                    Vector3 nextXPreviousZPost = m_postData[postIndex + m_postsPerSide - 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    topPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
-                    downLeftPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    previousXPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
+                    nextXPreviousZPost -= m_postData[postIndex].vPosition;
 
-                    // top-left m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( leftPost, topPost );
+                    // -Z/-X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( previousZPost, previousXPost );
 
-                    // down-down-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downPost, downLeftPost );
+                    // +X/+X-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPost, nextXPreviousZPost );
 
-                    // down-left-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downLeftPost, leftPost );
+                    // +X-Z/-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPreviousZPost, previousZPost );
                 }
             }
             else
@@ -1109,7 +1142,7 @@ void Terrain::GenerateNormals()
                 // 0 x x 0
                 // 0 x x 0
 
-                if ( isFirstRow )
+                if ( isFirstXPost )
                 {
 
                     // 0 x x 0  - we are an 'x'
@@ -1117,27 +1150,27 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 0 0 0
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
-                    Vector3 downLeftPost = m_postData[postingIndex + m_postsPerSide - 1].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
+                    Vector3 nextXPreviousZPost = m_postData[postIndex + m_postsPerSide - 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    rightPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
-                    downLeftPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    nextZPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
+                    nextXPreviousZPost -= m_postData[postIndex].vPosition;
 
-                    // right-down m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( rightPost, downPost );
+                    // +Z/+X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( nextZPost, nextXPost );
 
-                    // down-down-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downPost, downLeftPost );
+                    // +X/+X-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPost, nextXPreviousZPost );
 
-                    // down-left-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downLeftPost, leftPost );
+                    // +X-Z/-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPreviousZPost, previousZPost );
                 }
-                else if ( isFinalRow )
+                else if ( isFinalXPost )
                 {
 
                     // 0 0 0 0  - we are an 'x'
@@ -1145,25 +1178,25 @@ void Terrain::GenerateNormals()
                     // 0 0 0 0
                     // 0 x x 0
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
-                    Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
+                    Vector3 previousXNextZPost = m_postData[postIndex - m_postsPerSide + 1].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    topPost -= m_postData[postingIndex].vPosition;
-                    topRightPost -= m_postData[postingIndex].vPosition;
-                    rightPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    previousXPost -= m_postData[postIndex].vPosition;
+                    previousXNextZPost -= m_postData[postIndex].vPosition;
+                    nextZPost -= m_postData[postIndex].vPosition;
 
-                    // top-left m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( leftPost, topPost );
+                    // -Z/-X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( previousZPost, previousXPost );
 
-                    // top-top-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topPost, topRightPost );
+                    // -X/-X+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXPost, previousXNextZPost );
 
-                    // top-right-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topRightPost, rightPost );
+                    // -X+Z/+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXNextZPost, nextZPost );
                 }
                 else
                 {
@@ -1173,46 +1206,47 @@ void Terrain::GenerateNormals()
                     // 0 x x 0
                     // 0 0 0 0
 
-                    Vector3 leftPost = m_postData[postingIndex - 1].vPosition;
-                    Vector3 topPost = m_postData[postingIndex - m_postsPerSide].vPosition;
-                    Vector3 topRightPost = m_postData[postingIndex - m_postsPerSide + 1].vPosition;
-                    Vector3 rightPost = m_postData[postingIndex + 1].vPosition;
-                    Vector3 downPost = m_postData[postingIndex + m_postsPerSide].vPosition;
-                    Vector3 downLeftPost = m_postData[postingIndex + m_postsPerSide - 1].vPosition;
+                    Vector3 previousZPost = m_postData[postIndex - 1].vPosition;
+                    Vector3 previousXPost = m_postData[postIndex - m_postsPerSide].vPosition;
+                    Vector3 previousXNextZPost = m_postData[postIndex - m_postsPerSide + 1].vPosition;
+                    Vector3 nextZPost = m_postData[postIndex + 1].vPosition;
+                    Vector3 nextXPost = m_postData[postIndex + m_postsPerSide].vPosition;
+                    Vector3 nextXPreviousZPost = m_postData[postIndex + m_postsPerSide - 1].vPosition;
 
-                    // make neighbours relative to target post (conversion to polar coordinates)
-                    leftPost -= m_postData[postingIndex].vPosition;
-                    topPost -= m_postData[postingIndex].vPosition;
-                    topRightPost -= m_postData[postingIndex].vPosition;
-                    rightPost -= m_postData[postingIndex].vPosition;
-                    downPost -= m_postData[postingIndex].vPosition;
-                    downLeftPost -= m_postData[postingIndex].vPosition;
+                    // Translate neighboring posts into vectors from the target post.
+                    previousZPost -= m_postData[postIndex].vPosition;
+                    previousXPost -= m_postData[postIndex].vPosition;
+                    previousXNextZPost -= m_postData[postIndex].vPosition;
+                    nextZPost -= m_postData[postIndex].vPosition;
+                    nextXPost -= m_postData[postIndex].vPosition;
+                    nextXPreviousZPost -= m_postData[postIndex].vPosition;
 
-                    // top-left m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( leftPost, topPost );
+                    // -Z/-X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( previousZPost, previousXPost );
 
-                    // top-top-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topPost, topRightPost );
+                    // -X/-X+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXPost, previousXNextZPost );
 
-                    // top-right-right m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( topRightPost, rightPost );
+                    // -X+Z/+Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( previousXNextZPost, nextZPost );
 
-                    // right-down m_normal (1/4 weight)
-                    m_postData[postingIndex].vNormal += 0.25f * CrossProduct( rightPost, downPost );
+                    // +Z/+X face normal (1/4 weight)
+                    m_postData[postIndex].vNormal += 0.25f * CrossProduct( nextZPost, nextXPost );
 
-                    // down-down-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downPost, downLeftPost );
+                    // +X/+X-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPost, nextXPreviousZPost );
 
-                    // down-left-left m_normal (1/8 weight)
-                    m_postData[postingIndex].vNormal += 0.125f * CrossProduct( downLeftPost, leftPost );
+                    // +X-Z/-Z face normal (1/8 weight)
+                    m_postData[postIndex].vNormal += 0.125f * CrossProduct( nextXPreviousZPost, previousZPost );
                 }
             }
 
-            // A fully degenerate neighborhood can cancel every weighted face.
+            // Hazard: a fully degenerate neighborhood can cancel every
+            // weighted face; publish +Y instead of a NaN render normal.
 
-            if ( !m_postData[postingIndex].vNormal.TryNormalise() )
+            if ( !m_postData[postIndex].vNormal.TryNormalise() )
             {
-                m_postData[postingIndex].vNormal = Vector3( 0.0f, 1.0f, 0.0f );
+                m_postData[postIndex].vNormal = Vector3( 0.0f, 1.0f, 0.0f );
             }
         }
     }
@@ -1223,7 +1257,8 @@ void Terrain::GenerateNormals()
 void Terrain::BuildMesh()
 {
 
-    // 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)
+    // Two triangles per quad, three vertices per triangle, and eight floats per
+    // vertex (position 3 + normal 3 + texture coordinate 2).
     int quadsPerSide = m_postsPerSide - 1;
     int totalQuads = quadsPerSide * quadsPerSide;
     int totalVerts = totalQuads * 6;
@@ -1244,22 +1279,27 @@ std::vector<float> Terrain::BuildRenderVertexData() const
     std::vector<float> vertexData;
     vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
 
-    for ( int row = 0; row < quadsPerSide; ++row )
+    // Invariant: both cell loops stop at postsPerSide - 2, so the four named
+    // post indices below remain in [0, postsPerSide * postsPerSide - 1].
+
+    for ( int worldXCell = 0; worldXCell < quadsPerSide; ++worldXCell )
     {
 
-        for ( int col = 0; col < quadsPerSide; ++col )
+        for ( int worldZCell = 0; worldZCell < quadsPerSide; ++worldZCell )
         {
-            float texCoordS = ( static_cast<float>( col ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
-            float texCoordT = ( static_cast<float>( row ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
-            float texCoordSP1 = ( static_cast<float>( col + 1 ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordS = ( static_cast<float>( worldZCell ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordT = ( static_cast<float>( worldXCell ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordSP1 = ( static_cast<float>( worldZCell + 1 ) / static_cast<float>( m_postsPerSide ) ) *
+                                m_textureWrap;
 
-            float texCoordTP1 = ( static_cast<float>( row + 1 ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordTP1 = ( static_cast<float>( worldXCell + 1 ) / static_cast<float>( m_postsPerSide ) ) *
+                                m_textureWrap;
 
-            const int idx = row * m_postsPerSide + col;
-            const TerrainPost& p00 = m_postData[idx];
-            const TerrainPost& p10 = m_postData[idx + 1];
-            const TerrainPost& p01 = m_postData[idx + m_postsPerSide];
-            const TerrainPost& p11 = m_postData[idx + m_postsPerSide + 1];
+            const int firstPostIndex = worldXCell * m_postsPerSide + worldZCell;
+            const TerrainPost& postX0Z0 = m_postData[firstPostIndex];
+            const TerrainPost& postX0Z1 = m_postData[firstPostIndex + 1];
+            const TerrainPost& postX1Z0 = m_postData[firstPostIndex + m_postsPerSide];
+            const TerrainPost& postX1Z1 = m_postData[firstPostIndex + m_postsPerSide + 1];
 
             // Helper lambda: push the same floating-point world position that
             // collision queries use. Render, shadows, DXR, and physics now share
@@ -1278,15 +1318,15 @@ std::vector<float> Terrain::BuildRenderVertexData() const
                 vertexData.push_back( t );
             };
 
-            // Triangle 1 (upper-left): v1, v2, v3
-            pushVertex( p00, texCoordS, texCoordT );
-            pushVertex( p10, texCoordSP1, texCoordT );
-            pushVertex( p01, texCoordS, texCoordTP1 );
+            // Triangle A: current X/current Z, current X/next Z, next X/current Z.
+            pushVertex( postX0Z0, texCoordS, texCoordT );
+            pushVertex( postX0Z1, texCoordSP1, texCoordT );
+            pushVertex( postX1Z0, texCoordS, texCoordTP1 );
 
-            // Triangle 2 (lower-right): v3, v2, v5
-            pushVertex( p01, texCoordS, texCoordTP1 );
-            pushVertex( p10, texCoordSP1, texCoordT );
-            pushVertex( p11, texCoordSP1, texCoordTP1 );
+            // Triangle B: next X/current Z, current X/next Z, next X/next Z.
+            pushVertex( postX1Z0, texCoordS, texCoordTP1 );
+            pushVertex( postX0Z1, texCoordSP1, texCoordT );
+            pushVertex( postX1Z1, texCoordSP1, texCoordTP1 );
         }
     }
 
@@ -1330,14 +1370,14 @@ void Terrain::BuildFlatSlopeMesh()
         vertexData.push_back( ( z / gridMax ) * textureWrap );
     };
 
-    for ( int row = 0; row < gridN; ++row )
+    for ( int worldZCell = 0; worldZCell < gridN; ++worldZCell )
     {
 
-        for ( int col = 0; col < gridN; ++col )
+        for ( int worldXCell = 0; worldXCell < gridN; ++worldXCell )
         {
-            float x0 = col * step;
+            float x0 = worldXCell * step;
             float x1 = x0 + step;
-            float z0 = row * step;
+            float z0 = worldZCell * step;
             float z1 = z0 + step;
 
             // Triangle 1 — CCW from above (+Y), front face up

@@ -14,8 +14,8 @@ Glossary:
     quad.
 
 Invariants:
-  - Cache rows are world-X cells and columns are world-Z cells, matching
-    Terrain's world-X-major post construction.
+  - Cache storage advances world X in its outer index and world Z in its inner
+    index, matching Terrain's world-X-major post construction.
   - The diagonal comparison and plane-height expression are byte-order
     sensitive and must not be algebraically rearranged.
   - Out-of-bounds sampling is a lane-F caller invariant failure.
@@ -86,8 +86,8 @@ void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, P
         return;
     }
 
-    // Invariant: cache rows are world-X cells and columns are world-Z cells,
-    // matching Terrain's world-X-major post construction.
+    // Invariant: cache storage advances world X in its outer index and world Z
+    // in its inner index, matching Terrain's world-X-major post construction.
     const int worldZCell = static_cast<int>( floorf( z / scaledStepSize ) );
     const int worldXCell = static_cast<int>( floorf( x / scaledStepSize ) );
 

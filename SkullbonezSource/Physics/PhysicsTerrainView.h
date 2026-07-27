@@ -16,7 +16,7 @@ Glossary:
 
 Invariants:
   - The view stores no World type, owner pointer, callback, or virtual seam.
-  - Heightfield cell order matches World terrain's row-major collision cache.
+  - Heightfield cell order matches World terrain's world-X-major collision cache.
   - Quad selection, diagonal selection, and height arithmetic preserve the
     pre-boundary float-operation order.
   - The scene terrain owner outlives every retained view and clears Physics

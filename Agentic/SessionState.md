@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plans 5 and 11 are blocked and plan 12 waits for plan 5; `terrain-legacy-and-contact-seed-remediation` T4 is binding. |
-| Active/future progress | 7/15 (47%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5 has no executable non-blocked item. Plans 5 and 11 are marked blocked; plan 12 waits for plan 5. |
+| Active/future progress | 3/10 (30%). Completed plan 13 is excluded under rule 4; the retained ledger is two blocked plans and one dependency wait. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
+| Last broad local gate | Terrain T4 `validate_full.bat` passes and re-confirms the 44,401-line byte-exact Physics oracle. Format, 421/421 tests and 2,410,268 assertions, deep Physics/SkullScope, and performance also pass; independent review ended `ZERO BLOCKERS`. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
 | Validation for scene capacity SC0-SC1 | Current-source declaration census 43 fixed + 50 vector = 93 rows and 112,042,496-byte Debug payload lower bound. SC1 passes 408 doctests / 2,403,974 assertions, `validate_fast`, `validate_perf`, `validate_full`, byte-exact physics regression, standalone smoke, allocation guard, allocation-policy scans, aggregate governance, and a 32/32 touched-source comment audit. Independent review ended `ZERO BLOCKERS`. |
@@ -28,7 +28,8 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 3/18, registered
+NOW. Architecture Follow-Up Campaign Round 5 retains 3/10 phases with no
+executable non-blocked item, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -94,7 +95,8 @@ no happy-path cost. The owner must permit measured cost or replace provenance.
 Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
 legacy-suffix/no-invariant gated rows. All 84 already carry CA0 rulings and the
 transitional verdict count is zero. Strict mode, source-drift checking, and the
-required fixtures pass. Plan 12 waits for blocked plan 5 and plan 13 runs last.
+required fixtures pass. Plan 12 waits for blocked plan 5; plan 13 subsequently
+ran last and closed.
 NA1 armed strict mode in `validate_fast`, recorded the
 permanent ownership rule and name-scope residual, and observed the gate reject a
 planted seven-member `FooFrameContext`. Final-source `validate_fast` passes;
@@ -118,12 +120,17 @@ and SkullScope packet all pass unchanged. T2 then made every
 Debug fatal probe, and retained the method because its debug-visualizer caller
 needs triangle vertices. Format, all 418 unit tests / 2,410,193 assertions, the
 four-case / 47-assertion oracle, and byte-exact Physics pass. T3 then named the
-full and shoreline seed scales, documented the vertical-gravity hazard, and
-added 35 assertions for first-frame rest, shoreline no-bob versus zero seed,
-and a one-iteration three-box stack. All 421 tests / 2,410,228 assertions,
-byte-exact Physics, deep Physics, and SkullScope pass. T4 is binding.
+full and shoreline seed scales and documented the vertical-gravity,
+unit-normal, and equal-per-point assumptions. T4 replaced the synthetic edge
+evidence with a real tilted two-point terrain manifold, added malformed
+coordinate/scale fatal probes, completed the 4/4 whole-file comment audit, and
+cleared all five independent-review blockers. All 421 tests / 2,410,268
+assertions, byte-exact Physics, deep Physics, SkullScope, performance, and the
+default full gate pass. Plan 13 is complete and removed from the live ledger
+under rule 4; plans 5 and 11 remain blocked and plan 12 waits for plan 5.
 Evidence:
-`Agentic/Reports/2026-07-27/terrain-contact-seed-t3.md` and
+`Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md`
+and `Agentic/Reports/2026-07-27/terrain-contact-seed-t3.md` and
 `Agentic/Reports/2026-07-27/terrain-index-safety-t2.md` and
 `Agentic/Reports/2026-07-27/terrain-axis-convention-t1.md` and
 `Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-t0-baseline.md` and

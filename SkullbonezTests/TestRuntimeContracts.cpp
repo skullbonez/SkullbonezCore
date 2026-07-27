@@ -359,7 +359,12 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
-    if ( std::strcmp( caseName, "terrain-locate-cell-range" ) == 0 )
+    const bool terrainLocateCellRange = std::strcmp( caseName, "terrain-locate-cell-range" ) == 0;
+    const bool terrainLocateNonFinite = std::strcmp( caseName, "terrain-locate-nonfinite" ) == 0;
+    const bool terrainLocateUnrepresentable = std::strcmp( caseName, "terrain-locate-unrepresentable" ) == 0;
+    const bool terrainLocateInvalidScale = std::strcmp( caseName, "terrain-locate-invalid-scale" ) == 0;
+
+    if ( terrainLocateCellRange || terrainLocateNonFinite || terrainLocateUnrepresentable || terrainLocateInvalidScale )
     {
         char temporaryDirectory[MAX_PATH] = {};
         char heightMapPath[MAX_PATH] = {};
@@ -402,9 +407,19 @@ bool RunRuntimeFatalCase( const char* caseName )
             return false;
         }
 
+        if ( terrainLocateInvalidScale )
+        {
+            config.terrainGeometry.scale = ( std::numeric_limits<float>::quiet_NaN )();
+        }
+
         // The exact upper X edge maps to cell 3 when only cells 0..2 exist.
-        // This must terminate at LocatePolygon's local cell/index guard.
-        (void)terrain->LocatePolygon( 3.0f, 0.0f );
+        // NaN and an invalid scale must terminate before floor-to-integer
+        // conversion; a finite maximum float must terminate before the integer
+        // cast. These probes exercise LocatePolygon's local query guards.
+        const float xPosition = terrainLocateNonFinite
+                                    ? ( std::numeric_limits<float>::quiet_NaN )()
+                                    : ( terrainLocateUnrepresentable ? ( std::numeric_limits<float>::max )() : 3.0f );
+        (void)terrain->LocatePolygon( xPosition, 0.0f );
         return true;
     }
 
@@ -444,7 +459,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
+            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -478,7 +494,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -577,7 +594,8 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -705,20 +723,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back( [threadIndex, path, writesPerThread]()
-                              {
+        threads.emplace_back(
+            [threadIndex, path, writesPerThread]()
+            {
+                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                {
+                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
 
-                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                                  {
-                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
-
-                                      if ( writeIndex % 16 == 0 )
-                                      {
-                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                                              threadIndex, writeIndex );
-                                      }
-                                  }
-                              } );
+                    if ( writeIndex % 16 == 0 )
+                    {
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                            threadIndex, writeIndex );
+                    }
+                }
+            } );
     }
 
     for ( std::thread& thread : threads )
@@ -868,6 +886,13 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "terrain-locate-cell-range",
                      { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
+
+    ExpectFatalCase( "terrain-locate-nonfinite", { "FATAL[Terrain]", "Terrain polygon query is not finite", "x=nan" } );
+
+    ExpectFatalCase( "terrain-locate-unrepresentable", { "FATAL[Terrain]", "Terrain polygon cell is not representable" } );
+
+    ExpectFatalCase( "terrain-locate-invalid-scale",
+                     { "FATAL[Terrain]", "Terrain polygon query is not finite", "scaledStepSize=nan" } );
 
     ExpectFatalCase( "spatial-grid-nan",
                      { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
