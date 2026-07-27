@@ -72,7 +72,7 @@ python "%~dp0inventory_authority_free_aggregates.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --self-test
 if errorlevel 1 exit /b 8
-python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.."
+python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
 if errorlevel 1 exit /b 8

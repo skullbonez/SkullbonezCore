@@ -436,14 +436,26 @@ surface rather than one at a time. See Capability Slice Ownership below.
 `tools/inventory_authority_free_aggregates.py` reports the mechanically decidable
 part of this — member counts, stated invariants, and lexical construction and
 consumer sites — with owner verdicts in
-`tools/aggregate_ownership_rulings.json`. An **unruled** signalled aggregate
-fails `validate_fast`; a **ruled** one passes, because an owner has answered for
-it. The inventory deliberately does not gate on the destructuring test, because
+`tools/aggregate_ownership_rulings.json`. An **unruled** member of the bounded
+gate defined below fails `validate_fast`; a **ruled** one passes, because an
+owner has answered for it. Structural signals remain visible even outside that
+bounded set. The inventory deliberately does not gate on the destructuring test, because
 distinguishing a construction from a same-named local is not decidable without a
 compiler database; that half stays a review question and a bad mechanical proxy
 for it would recreate the frozen-metric failure this rule replaced. No count in
 the inventory or the ruling file is a threshold, and adding a ruling row is never
 a way to raise an allowance.
+
+The permanent mechanical gate is deliberately bounded: every discovered
+aggregate whose name uses a candidate suffix family and whose own documentation
+states no `Invariant:` block requires a row in
+`tools/aggregate_ownership_rulings.json` before it can land. The row must state
+an ownership reason a reviewer can disagree with; “carries data for the frame
+packet” or a restatement of the type name is not a ruling. Suffix-free discovery
+and structural signals remain wider review context. A name-scoped gate is
+evadable by calling a new bag `FooFrameData`, so this gate shrinks the evasion
+surface rather than proving ownership; the review questions above remain
+responsible for deliberately renamed bags.
 
 ## Capability Slice Ownership Rule
 
@@ -700,7 +712,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
-| `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations and both repository scans |
+| `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |

@@ -3,7 +3,7 @@
 Date: 2026-07-27
 Status: IN PROGRESS — registered in `MASTER-PLAN.md` on 2026-07-27 as plan 14 of
 the Architecture Follow-Up Campaign Round 5, from the same-day owner review of
-what the campaign does and does not close. 1/3 phases complete; NA1 is binding.
+what the campaign does and does not close. 2/3 phases complete; NA2 is binding.
 Impact area: `tools/inventory_authority_free_aggregates.py`,
 `tools/aggregate_ownership_rulings.json`, `tools/validate_fast.bat`,
 `tools/README.md`, `AGENTS.md`
@@ -162,7 +162,7 @@ it.
   that a `pre-existing-unreviewed` row whose site no longer resolves fails.
   Removing any fixture guard must fail the self-test.
 
-- [ ] **NA1 — Arm the gate and state the rule.**
+- [x] **NA1 — Arm the gate and state the rule.**
   Wire strict mode into `tools/validate_fast.bat` step `[4/8]`, replacing the
   current non-strict repository scan. Update `tools/README.md` and the
   `AGENTS.md` File To Validation Mapping row. Add the rule to the
