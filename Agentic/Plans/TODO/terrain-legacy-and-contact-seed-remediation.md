@@ -4,7 +4,7 @@ Date: 2026-07-26
 Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 13 of the Architecture Follow-Up Campaign
-Round 5. Runs last in the campaign. 1/5 phases complete; T1 is binding.
+Round 5. Runs last in the campaign. 2/5 phases complete; T2 is binding.
 Impact area: `World/Terrain.{h,cpp}`, `Physics/PhysicsTerrainView.{h,cpp}`,
 `Physics/PersistentContactSolver.cpp`, `Runtime/Debug/PhysicsDebugVisualizer.cpp`
 Owner: physics + world
@@ -116,7 +116,7 @@ approximation with a named constant, a stated assumption, and a test.
   passing; any pre-existing mismatch is reported and blocks the plan rather than
   being absorbed.
 
-- [ ] **T1 — Resolve the axis convention in code.**
+- [x] **T1 — Resolve the axis convention in code.**
   Replace the crossed names with names that describe what the values are, so no
   comment is required to prevent a rotation. Both sides move together:
   `Terrain::LocatePolygon`, `Terrain::QueryCollisionDataUnchecked`, the cached

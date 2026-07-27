@@ -409,24 +409,24 @@ void Terrain::BuildCollisionCache()
 
     m_cachedCollisionData.resize( quadsPerSide * quadsPerSide );
 
-    for ( int zPosting = 0; zPosting < quadsPerSide; ++zPosting )
+    for ( int worldXCell = 0; worldXCell < quadsPerSide; ++worldXCell )
     {
 
-        for ( int xPosting = 0; xPosting < quadsPerSide; ++xPosting )
+        for ( int worldZCell = 0; worldZCell < quadsPerSide; ++worldZCell )
         {
-            int targetQuadric = zPosting * m_postsPerSide + xPosting + m_postsPerSide;
+            int targetQuad = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
 
             Triangle triA;
-            triA.v1 = m_postData[targetQuadric].vPosition;
-            triA.v2 = m_postData[targetQuadric - m_postsPerSide].vPosition;
-            triA.v3 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
+            triA.v1 = m_postData[targetQuad].vPosition;
+            triA.v2 = m_postData[targetQuad - m_postsPerSide].vPosition;
+            triA.v3 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
 
             Triangle triB;
-            triB.v1 = m_postData[targetQuadric].vPosition;
-            triB.v2 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
-            triB.v3 = m_postData[targetQuadric + 1].vPosition;
+            triB.v1 = m_postData[targetQuad].vPosition;
+            triB.v2 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
+            triB.v3 = m_postData[targetQuad + 1].vPosition;
 
-            Physics::PhysicsTerrainCell& cached = m_cachedCollisionData[zPosting * quadsPerSide + xPosting];
+            Physics::PhysicsTerrainCell& cached = m_cachedCollisionData[worldXCell * quadsPerSide + worldZCell];
             cached.triangleA = GeometricMath::ComputePlane( triA );
             cached.triangleB = GeometricMath::ComputePlane( triB );
 
@@ -784,33 +784,29 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
         return tri;
     }
 
-    // NOTE:  X and Z params are switched in this method to account for world
-    // co-ordinate space find which quadric we are in (treat m_terrain as orthagonal
-    // XZ projection to locate the quadric)
-    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
-    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
+    // Terrain posts are stored world-X-major, matching TranslatePostings.
+    int worldZCell = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
+    int worldXCell = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainGeometry.scale ) ) );
 
     // Use the bottom-right post as the target quad so the A/B split below can
     // work in one local coordinate frame.
-    int targetQuadric = zPosting * m_postsPerSide + xPosting + m_postsPerSide;
+    int targetQuad = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
 
     float scaledStepSize = m_stepSize * Config().terrainGeometry.scale;
 
-    // NOTE:  X and Z params are switched in this method to account for world
-    // co-ordinate space make our X and Z positions relative to the target quadric
-    // (as we are essentially generating a 2d vector relative to the bottom right
-    // post of the target quadric, the xRelativePosition needs to be negated)
-    float xRelativePosition = -( scaledStepSize - ( fmodf( zPosition, scaledStepSize ) ) );
-    float zRelativePosition = fmodf( xPosition, scaledStepSize );
+    // Express the query relative to the target quad's bottom-right post. The Z
+    // component points back into the quad and is therefore negative.
+    float negativeLocalZ = -( scaledStepSize - ( fmodf( zPosition, scaledStepSize ) ) );
+    float localX = fmodf( xPosition, scaledStepSize );
 
     // vars to help safely determine the gradient of the vector expressed by
-    // xRelativePosition and zRelativePosition
+    // negativeLocalZ and localX
     float gradient = 0.0f;
     bool isGradientInfinite = false;
 
     // test to see if rise is infinitely greater than run
 
-    if ( !zRelativePosition )
+    if ( localX == 0.0f )
     {
         isGradientInfinite = true;
     }
@@ -819,7 +815,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 
     if ( !isGradientInfinite )
     {
-        gradient = xRelativePosition / zRelativePosition;
+        gradient = negativeLocalZ / localX;
     }
 
     // triangle structure for the target polygon
@@ -840,17 +836,17 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     {
 
         // TRIANGLE A
-        targetPolygon.v1 = m_postData[targetQuadric].vPosition;
-        targetPolygon.v2 = m_postData[targetQuadric - m_postsPerSide].vPosition;
-        targetPolygon.v3 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
+        targetPolygon.v1 = m_postData[targetQuad].vPosition;
+        targetPolygon.v2 = m_postData[targetQuad - m_postsPerSide].vPosition;
+        targetPolygon.v3 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
     }
     else
     {
 
         // TRIANGLE B
-        targetPolygon.v1 = m_postData[targetQuadric].vPosition;
-        targetPolygon.v2 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
-        targetPolygon.v3 = m_postData[targetQuadric + 1].vPosition;
+        targetPolygon.v1 = m_postData[targetQuad].vPosition;
+        targetPolygon.v2 = m_postData[targetQuad - m_postsPerSide + 1].vPosition;
+        targetPolygon.v3 = m_postData[targetQuad + 1].vPosition;
     }
 
     return targetPolygon;

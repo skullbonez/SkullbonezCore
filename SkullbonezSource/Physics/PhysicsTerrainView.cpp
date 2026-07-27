@@ -85,22 +85,22 @@ void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, P
         return;
     }
 
-    // Invariant: the historic terrain cache maps Z to xPosting and X to
-    // zPosting. The names look crossed, but changing them rotates the surface.
-    const int xPosting = static_cast<int>( floorf( z / scaledStepSize ) );
-    const int zPosting = static_cast<int>( floorf( x / scaledStepSize ) );
+    // Invariant: cache rows are world-X cells and columns are world-Z cells,
+    // matching Terrain's world-X-major post construction.
+    const int worldZCell = static_cast<int>( floorf( z / scaledStepSize ) );
+    const int worldXCell = static_cast<int>( floorf( x / scaledStepSize ) );
 
-    if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
+    if ( worldZCell < 0 || worldXCell < 0 || worldZCell >= quadsPerSide || worldXCell >= quadsPerSide )
     {
         SB_FATAL( "Physics/PhysicsTerrainView",
-                  "Terrain cache index out of range: x=%.3f z=%.3f xPosting=%d zPosting=%d quadsPerSide=%d.", x, z, xPosting,
-                  zPosting, quadsPerSide );
+                  "Terrain cache index out of range: x=%.3f z=%.3f worldXCell=%d worldZCell=%d quadsPerSide=%d.", x, z,
+                  worldXCell, worldZCell, quadsPerSide );
     }
 
-    const float localZ = z - ( xPosting * scaledStepSize );
-    const float localX = x - ( zPosting * scaledStepSize );
+    const float localZ = z - ( worldZCell * scaledStepSize );
+    const float localX = x - ( worldXCell * scaledStepSize );
     const bool isTriangleA = ( localX <= TOLERANCE ) || ( ( scaledStepSize - localZ ) > localX );
-    const PhysicsTerrainCell& cell = cells[static_cast<std::size_t>( zPosting * quadsPerSide + xPosting )];
+    const PhysicsTerrainCell& cell = cells[static_cast<std::size_t>( worldXCell * quadsPerSide + worldZCell )];
     const Plane& plane = isTriangleA ? cell.triangleA : cell.triangleB;
 
     // Invariant: keep the subtraction and division order byte-identical to the
