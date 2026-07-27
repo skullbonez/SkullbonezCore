@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h
+File: SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
 Purpose:
   Declares authored scene UI-option application outside Run.
 
@@ -53,10 +53,6 @@ struct SceneUiActivation
     bool forceVisible = false;
     bool forceUnminimized = false;
 };
-
-void PrepareSceneUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
-                            const SceneUIOptions& options, double nowSeconds, bool preserveUIState, bool automationScene );
-void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

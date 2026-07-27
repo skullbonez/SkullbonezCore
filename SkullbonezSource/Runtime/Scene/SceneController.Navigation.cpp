@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp
+File: SkullbonezSource/Runtime/Scene/SceneController.Navigation.cpp
 Purpose:
   Implements SceneController lifecycle requests and UI command submission.
 
@@ -19,11 +19,10 @@ Invariants:
   - UI command submission preserves same-frame request order.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"
 #include "../../UI/UICommands.h"
 
@@ -75,37 +74,37 @@ int SceneController::PerfPass() const
     return m_perfPass;
 }
 
-SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands )
+SceneRuntimeUICommandResult SceneController::SubmitUIRequests( const UI::UISceneCommands& commands )
 {
     SceneRuntimeUICommandResult result;
 
     if ( commands.resetScene )
     {
-        sceneController.SubmitResetCurrentScene();
+        SubmitResetCurrentScene();
         result.resetScene = true;
     }
 
     if ( commands.resetSceneDefaults )
     {
-        sceneController.SubmitResetCurrentScene( false, true, false );
+        SubmitResetCurrentScene( false, true, false );
         result.resetSceneDefaults = true;
     }
 
     if ( commands.requestDemoScene )
     {
-        sceneController.SubmitLoadDemoScene();
+        SubmitLoadDemoScene();
         result.loadDemoScene = true;
     }
 
     if ( commands.saveSceneDefaults )
     {
-        sceneController.SubmitSaveCurrentDefaults();
+        SubmitSaveCurrentDefaults();
         result.saveSceneDefaults = true;
     }
 
     if ( commands.createScene )
     {
-        result.status = sceneController.SubmitCreateScene( commands.requestedSceneName );
+        result.status = SubmitCreateScene( commands.requestedSceneName );
 
         if ( !result.status.ok )
         {
@@ -117,7 +116,7 @@ SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneControl
 
     if ( commands.requestedSceneIndex >= 0 )
     {
-        sceneController.SubmitLoadBrowserIndex( commands.requestedSceneIndex );
+        SubmitLoadBrowserIndex( commands.requestedSceneIndex );
         result.selectScene = true;
     }
 

@@ -62,11 +62,9 @@ Related:
 #include "../App/Window.h"
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
-#include "SceneRuntimeLoad.h"
+#include "SceneLoadPreparation.h"
 #include "SceneSaveOperations.h"
-#include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
-#include "SceneRuntimeUiOptions.h"
 #include "../Editor/EditorTools.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/Ragdoll.h"
@@ -790,10 +788,10 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window, UI::InGameU
         // Why: scene creation writes editor-authored IO inside the scene owner,
         // but UI keeps display names and stable c-string views. Rebuild those
         // views after the request batch returns to the UI boundary.
-        RefreshSceneBrowserList( operatorUi.SceneNavigation().browser );
+        operatorUi.SceneNavigation().RefreshBrowserList();
     }
 
-    ApplySceneUiActivation( operatorUi, outputs.uiActivation );
+    ApplyUiActivation( operatorUi, outputs.uiActivation );
     validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
     AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Complete, "CompletePresentation" );
 }
@@ -865,12 +863,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const auto SceneState = [this]() -> SceneSessionState& { return State(); };
 
     SkullbonezCore::Core::SbResult lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
-    const SceneRuntimeLoadBeginResult loadBegin = PrepareSceneRuntimeLoad( sceneController, sceneNavigation.overrides,
-                                                                           renderer, debug, camera, renderFrame,
-                                                                           request.enterInteractiveSceneRun ||
-                                                                               launchOptions.interactiveSceneRun,
-                                                                           index, suppressExitOnComplete,
-                                                                           preserveRuntimeState );
+    const SceneLoadBeginResult loadBegin = transaction.PrepareLoad( sceneController, sceneNavigation.overrides, renderer,
+                                                                    debug, camera, renderFrame,
+                                                                    request.enterInteractiveSceneRun ||
+                                                                        launchOptions.interactiveSceneRun,
+                                                                    index, suppressExitOnComplete, preserveRuntimeState );
 
     if ( !loadBegin.status.ok )
     {
@@ -899,7 +896,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     diagnosticsRuntime.BeforeSceneUnload( SceneState(), unloadingScenePath ? unloadingScenePath->c_str() : nullptr );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
-    CommitSceneRuntimeLoad( sceneController, sceneNavigation, loadBegin );
+    transaction.CommitLoad( sceneController, sceneNavigation, loadBegin );
     consumerOutputs.applyNavigation = true;
 
     if ( request.markManualReset )
@@ -915,7 +912,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
     const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
-    const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
+    const SceneResetPreservationSnapshot& resetSnapshot = loadBegin.resetSnapshot;
     const std::string& scenePath = *loadBegin.scenePath;
     SceneLifecycleConsumerMask afterClearConsumers = 0;
 
@@ -1033,8 +1030,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SkullbonezCore::UI::RunSceneBrowserState styleBrowser;
         styleBrowser.paths = sceneNavigation.browserPaths;
         styleBrowser.selectedCineModeSceneIndex = sceneNavigation.selectedCineModeSceneIndex;
-        ApplyDemoHeroStyleOverride( launchOptions, SceneState(), styleBrowser, sceneController.Scene(), assets,
-                                    ActiveSceneCinematicConfig( SceneState(), config ), defaultCinematicRender );
+        sceneController.ApplyDemoHeroStyle( launchOptions, styleBrowser, assets,
+                                            ActiveSceneCinematicConfig( SceneState(), config ), defaultCinematicRender );
 
         sceneNavigation.selectedCineModeSceneIndex = styleBrowser.selectedCineModeSceneIndex;
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1131,8 +1128,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #ifdef _DEBUG
         isAutomationScene = isAutomationScene || diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
-        PrepareSceneUiOptions( diagnosticsRuntime, debug, consumerOutputs.uiActivation, UIOptions, UINow, preserveUIState,
-                               isAutomationScene );
+        transaction.PrepareUiOptions( diagnosticsRuntime, debug, consumerOutputs.uiActivation, UIOptions, UINow,
+                                      preserveUIState, isAutomationScene );
 
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
@@ -1336,7 +1333,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( shouldPreserveRuntimeState )
     {
-        RestoreSceneRuntimeResetSnapshot( sceneController, sceneNavigation.overrides, renderer, debug, camera, resetSnapshot,
+        transaction.RestoreResetSnapshot( sceneController, sceneNavigation.overrides, renderer, debug, camera, resetSnapshot,
                                           suppressExitOnComplete );
     }
 

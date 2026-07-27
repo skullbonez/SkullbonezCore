@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp
+File: SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp
 Purpose:
   Implements scene load-begin orchestration outside Run.
 
@@ -22,11 +22,12 @@ Invariants:
     changes; failed preparation leaves every owner unchanged.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
+  - SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeLoad.h"
+#include "SceneLoadTransaction.h"
+#include "SceneLoadPreparation.h"
 #include "../../Core/WindowConstants.h"
 #include "SceneController.h"
 #include "SceneRuntime.h"
@@ -125,96 +126,15 @@ int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, cons
 } // namespace
 
 
-void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser )
+SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& controller,
+                                                        const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                                        const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                                        const CameraControlState& camera,
+                                                        Rendering::Dx12FrameOwner* renderFrame,
+                                                        bool interactiveSceneRunRequested, int index,
+                                                        bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-
-    // Concept: The browser owns three parallel arrays: normalized paths, display
-    // names, and stable c-string pointers into the display-name storage.
-    sceneBrowser.paths.clear();
-    sceneBrowser.names.clear();
-    sceneBrowser.namePtrs.clear();
-
-    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
-
-    // Lane R: the browser is an editor convenience, so inaccessible paths
-    // clear the listing and report through the log instead of terminating.
-    std::error_code error;
-
-    if ( !std::filesystem::exists( sceneDir, error ) || error )
-    {
-
-        if ( error )
-        {
-            SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",
-                                                     error.message().c_str() );
-        }
-
-        return;
-    }
-
-    std::filesystem::directory_iterator iterator( sceneDir, error );
-    const std::filesystem::directory_iterator end;
-
-    while ( !error && iterator != end )
-    {
-        const std::filesystem::directory_entry& entry = *iterator;
-        std::error_code entryError;
-
-        if ( entry.is_regular_file( entryError ) && !entryError && IsSceneJsonFile( entry.path() ) )
-        {
-            sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
-        }
-
-        iterator.increment( error );
-    }
-
-    if ( error )
-    {
-        SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", error.message().c_str() );
-
-        sceneBrowser.paths.clear();
-    }
-
-    std::sort( sceneBrowser.paths.begin(), sceneBrowser.paths.end() );
-    sceneBrowser.paths.erase( std::unique( sceneBrowser.paths.begin(), sceneBrowser.paths.end() ),
-                              sceneBrowser.paths.end() );
-
-    sceneBrowser.names.reserve( sceneBrowser.paths.size() );
-    sceneBrowser.namePtrs.reserve( sceneBrowser.paths.size() );
-
-    for ( const std::string& path : sceneBrowser.paths )
-    {
-        sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
-    }
-
-    for ( const std::string& name : sceneBrowser.names )
-    {
-        sceneBrowser.namePtrs.push_back( name.c_str() );
-    }
-}
-
-
-int CurrentSceneBrowserIndex( const SceneController& controller,
-                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser )
-{
-    const std::string* currentScenePath = controller.CurrentPath();
-
-    if ( !currentScenePath )
-    {
-        return -1;
-    }
-
-    return SceneBrowserIndexForPath( sceneBrowser.paths, *currentScenePath );
-}
-
-
-SceneRuntimeLoadBeginResult
-PrepareSceneRuntimeLoad( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                         const RuntimeRenderer& renderer, const OverlayDebugState& debug, const CameraControlState& camera,
-                         Rendering::Dx12FrameOwner* renderFrame, bool interactiveSceneRunRequested, int index,
-                         bool suppressExitOnComplete, bool preserveRuntimeState )
-{
-    SceneRuntimeLoadBeginResult result;
+    SceneLoadBeginResult result;
 
     if ( !controller.HasEntry( index ) )
     {
@@ -246,7 +166,7 @@ PrepareSceneRuntimeLoad( const SceneController& controller, const SkullbonezCore
 
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, uiOverrides, renderer, debug, camera );
+        result.resetSnapshot = CaptureResetSnapshot( controller, uiOverrides, renderer, debug, camera );
     }
 
     result.shouldLoad = true;
@@ -254,8 +174,8 @@ PrepareSceneRuntimeLoad( const SceneController& controller, const SkullbonezCore
 }
 
 
-void CommitSceneRuntimeLoad( SceneController& controller, SceneLoadNavigationState& navigation,
-                             const SceneRuntimeLoadBeginResult& prepared )
+void SceneLoadTransaction::CommitLoad( SceneController& controller, SceneLoadNavigationState& navigation,
+                                       const SceneLoadBeginResult& prepared )
 {
 
     // Invariant: preparation has validated the index and drained the device;
@@ -269,7 +189,7 @@ void CommitSceneRuntimeLoad( SceneController& controller, SceneLoadNavigationSta
 
     if ( !prepared.shouldPreserveRuntimeState )
     {
-        ClearSceneRuntimeUIOverrides( navigation.overrides );
+        ClearUiOverrides( navigation.overrides );
     }
 
     controller.BeginLoad( prepared.index );

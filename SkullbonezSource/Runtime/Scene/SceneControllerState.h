@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UISceneNavigationModel.h
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
+  - SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once

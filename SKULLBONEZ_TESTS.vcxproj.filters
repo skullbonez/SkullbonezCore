@@ -345,8 +345,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
-      <Filter>Source Files\Runtime\Scene</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
       <Filter>Source Files\Runtime\Startup</Filter>

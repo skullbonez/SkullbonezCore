@@ -1,12 +1,13 @@
 # Scene Runtime Verb Partition Consolidation
 
 Date: 2026-07-26
-Status: IN PROGRESS — SR0 closed 2026-07-27 with every operation ruled to a
-concrete owner, existing GV transaction, or pure domain policy. SR1 is binding.
+Status: IN PROGRESS — SR0-SR1 closed 2026-07-27. State-owning operations now
+sit behind `SceneController`, `SceneNavigationModel`, `RenderDefaultsStore`, or
+the existing GV2 transaction. SR2 is binding.
 Drafted from the 2026-07-26 from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 8 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 1/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 2/4 phases
 complete.
 Impact area: `Runtime/Scene/SceneRuntime*.{h,cpp}`,
 `Runtime/Scene/SceneController.*`, `Runtime/Scene/SceneRequestExecution.cpp`,
@@ -102,7 +103,7 @@ named after a verb.
   transaction is justified because load/reset/UI work is already ordered by
   GV2 and generated-control work by GV3.
 
-- [ ] **SR1 — Move the state-owning operations to their owners.**
+- [x] **SR1 — Move the state-owning operations to their owners.**
   Implement destinations (a) and (b): style, UI options, defaults, and reset
   operations become methods on the concrete owner of the state they touch, or
   phases of the existing transactions. `SceneRuntimeReset`'s
@@ -114,6 +115,10 @@ named after a verb.
   context struct; scene reset, live style, cinematic mode, UI options, and
   defaults behave identically; scene snapshot and lifecycle tests pass; physics
   CSV byte-exact.
+  Closed 2026-07-27. Seven implementation units disappeared; owner methods and
+  the GV2 private load/reset/presentation phases preserve their exact ordering.
+  Fast, Physics, and full gates pass without baseline motion. Evidence:
+  `../../Reports/2026-07-27/scene-runtime-verb-partition-sr1-owner-moves.md`.
 
 - [ ] **SR2 — Resolve the residual naming.**
   Rename any surviving unit to the owner or domain concept it actually carries,

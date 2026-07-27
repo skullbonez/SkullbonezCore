@@ -71,7 +71,6 @@ Related:
 #include "../Replay/ReplayRestoreTransactions.h"
 #include "../Planning/ReplayOverlayPackets.h"
 #include "../Direction/DemoDirectorPlayback.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Scene/SceneLoadTransaction.h"
 
 #include "../Capture/CaptureSystem.h"
@@ -406,9 +405,8 @@ Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host, Runti
 #endif
     const SceneFrameProceedPolicy proceedPolicy = m_sceneController.BuildFrameProceedPolicy( m_inputRouter.RuntimeSnapshot().frameInput.stepHeld );
 
-    m_validationHarness->TickLiveStyle( m_launchOptions, m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
-                                        m_sceneController.Scene(), m_assets,
-                                        ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
+    m_validationHarness->TickLiveStyle( m_launchOptions, m_sceneController, m_operatorUi->SceneNavigation().browser,
+                                        m_assets, ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                         m_renderDefaults.CinematicBaseline() );
 
     return FrameInputPhaseResult { proceedPolicy, legacyDevelopmentUiActive };
@@ -939,9 +937,8 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
         const DemoDirectorTickResult
-            directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions,
-                                                         m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
-                                                         m_sceneController.Scene(), m_assets,
+            directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions, m_sceneController,
+                                                         m_operatorUi->SceneNavigation().browser, m_assets,
                                                          ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                                          m_renderDefaults.CinematicBaseline(),
                                                          static_cast<float>( secondsPerFrame ) );
@@ -1291,9 +1288,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
     const DemoDirectorTickResult
-        directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions,
-                                                     m_sceneController.State(), m_operatorUi->SceneNavigation().browser,
-                                                     m_sceneController.Scene(), m_assets,
+        directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions, m_sceneController,
+                                                     m_operatorUi->SceneNavigation().browser, m_assets,
                                                      ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                                      m_renderDefaults.CinematicBaseline(), cameraDt );
 

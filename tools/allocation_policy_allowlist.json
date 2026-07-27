@@ -1251,7 +1251,7 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneController.Creation.cpp",
       "patterns": [
         ".push_back("
       ],
@@ -1262,7 +1262,7 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp",
+      "path": "SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp",
       "patterns": [
         ".insert(",
         ".push_back("
@@ -1274,7 +1274,7 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",

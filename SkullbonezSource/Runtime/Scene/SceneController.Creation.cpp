@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp
+File: SkullbonezSource/Runtime/Scene/SceneController.Creation.cpp
 Purpose:
-  Creates starter scene files and returns scene-control actions outside Run.
+  Implements SceneController-owned authored-scene creation.
 
 Summary:
-  Creating a scene is scene-runtime policy: sanitize a user-facing name, create
+  Creating a scene is SceneController policy: sanitize a user-facing name, create
   a deterministic starter scene, append the path to the scene queue, and ask
   the caller to load it interactively. UI refresh is a returned consumer effect.
 
@@ -22,13 +22,12 @@ Invariants:
     base plus numeric suffix behavior.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.h
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeCreate.h"
-#include "../../Core/WindowConstants.h"
 #include "SceneController.h"
+#include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
 
@@ -198,7 +197,7 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
 
 } // namespace
 
-SceneLoadRequest CreateSceneFromUI( SceneController& controller, const char* requestedName )
+SceneLoadRequest SceneController::CreateScene( const char* requestedName )
 {
 
     // Concept: Creating a scene queues a load action instead of loading
@@ -232,7 +231,7 @@ SceneLoadRequest CreateSceneFromUI( SceneController& controller, const char* req
     }
 
     const std::string normalizedPath = NormalizeScenePathForCreate( scenePath.generic_string() );
-    return SceneLoadRequest::Load( controller.Append( normalizedPath ), true, true, false, true );
+    return SceneLoadRequest::Load( Append( normalizedPath ), true, true, false, true );
 }
 
 } // namespace Runtime

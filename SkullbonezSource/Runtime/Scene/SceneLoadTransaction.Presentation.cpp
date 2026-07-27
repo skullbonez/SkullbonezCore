@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp
+File: SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Presentation.cpp
 Purpose:
   Applies authored scene UI options through a scene-runtime boundary.
 
@@ -21,11 +21,12 @@ Invariants:
     preservation.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h
+  - SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/UI/UI.h
 */
-#include "SceneRuntimeUiOptions.h"
+#include "SceneLoadTransaction.h"
+#include "SceneLoadPresentation.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../../Scene/AuthoredScene.h"
@@ -37,8 +38,9 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void PrepareSceneUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
-                            const SceneUIOptions& options, double nowSeconds, bool preserveUIState, bool automationScene )
+void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug,
+                                             SceneUiActivation& activation, const SceneUIOptions& options, double nowSeconds,
+                                             bool preserveUIState, bool automationScene )
 {
     activation.authoredOptions = options;
     activation.nowSeconds = nowSeconds;
@@ -71,7 +73,7 @@ void PrepareSceneUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& 
 }
 
 
-void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
+void SceneLoadTransaction::ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
 {
 
     if ( activation.hasAuthoredOptions && !activation.preserveUIState )

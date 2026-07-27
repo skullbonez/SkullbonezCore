@@ -27,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
 */
 #include "OperatorCommandApplier.h"
+#include "../Scene/SceneController.h"
 
 #include "../Render/RuntimeRenderer.h"
 #include "../../Core/WorkerPool.h"
@@ -506,9 +507,8 @@ bool HasCinematicModeUICommand( const UI::UICinematicCommands& commands )
 }
 
 
-bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                  UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                  const Assets::AssetSystem& assets,
+bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                                  UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
                                   SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                                   const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
                                   const UI::UICinematicCommands& commands )
@@ -522,8 +522,8 @@ bool ApplyCinematicModeUICommand( RunLaunchOptions& launchOptions, SceneSessionS
     // Invariant: input action reporting tracks the accepted UI request. The
     // underlying style loader can fail closed for a bad/missing scene, but the
     // InputFrame transition record still preserves the accepted selection.
-    (void)ApplyCinematicModeFromBrowserIndex( launchOptions, scene, sceneBrowser, world, assets, activeCinematic,
-                                              defaultCinematic, commands.requestedModeSceneIndex );
+    (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, sceneBrowser, assets, activeCinematic, defaultCinematic,
+                                                      commands.requestedModeSceneIndex );
     return true;
 }
 

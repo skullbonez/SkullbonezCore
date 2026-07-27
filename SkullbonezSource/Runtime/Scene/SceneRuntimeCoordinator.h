@@ -103,7 +103,5 @@ struct SceneRuntimeUICommandResult
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
-SceneRuntimeUICommandResult SubmitSceneUIRequests( SceneController& sceneController, const UI::UISceneCommands& commands );
-
 } // namespace Runtime
 } // namespace SkullbonezCore

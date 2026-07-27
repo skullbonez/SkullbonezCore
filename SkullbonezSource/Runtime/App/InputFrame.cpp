@@ -47,10 +47,8 @@ Related:
 #include "../Render/RuntimeRenderer.h"
 #include "../../Core/Profiler.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Scene/SceneRuntimeCreate.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneRuntimeGeneratedControls.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Scene/SceneRuntimeStyle.h"
 #include "../Scene/SceneController.h"
 #include "../../Core/Log.h"
@@ -533,7 +531,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, RuntimeFrameInteractio
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
-    const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
+    const int selectedSceneBrowserIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
     const HWND windowHandle = window.NativeWindowHandle();
     const SkullbonezCore::UI::InputControl::UIInputSnapshot uiInput = BuildUIInputSnapshot( inputRouter.DeviceFrame(),
                                                                                             inputRouter.UiSnapshot().mouse,
@@ -1233,9 +1231,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     if ( HasCinematicModeUICommand( uiCommands.cinematic ) )
     {
         result.enterInteractiveScene = true;
-        ApplyCinematicModeUICommand( launchOptions, sceneController.State(), ui.SceneNavigation().browser,
-                                     sceneController.Scene(), assets, activeCinematic, renderDefaults.CinematicBaseline(),
-                                     uiCommands.cinematic );
+        ApplyCinematicModeUICommand( launchOptions, sceneController, ui.SceneNavigation().browser, assets, activeCinematic,
+                                     renderDefaults.CinematicBaseline(), uiCommands.cinematic );
 
         recordUIAction( RuntimeInputAction::SelectCinematicScene );
     }
@@ -1246,7 +1243,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                                                    uiCommands.cinematic );
 
     RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
-    const SceneRuntimeUICommandResult sceneUICommands = SubmitSceneUIRequests( sceneController, uiCommands.scene );
+    const SceneRuntimeUICommandResult sceneUICommands = sceneController.SubmitUIRequests( uiCommands.scene );
 
     if ( !sceneUICommands.status.ok )
     {

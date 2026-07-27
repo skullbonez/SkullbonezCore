@@ -68,6 +68,7 @@ namespace Runtime
 {
 class CaptureController;
 class ReplayRuntime;
+class SceneController;
 struct RuntimeFrameHostView;
 struct RuntimeFrameInteractionView;
 struct RuntimeFramePresentationView;
@@ -124,9 +125,9 @@ class RuntimeValidationHarness
 
     bool ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
     void MarkLiveStyleReady();
-    void TickLiveStyle( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                        SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                        const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+    void TickLiveStyle( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                        SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                        SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
     bool HasPendingLiveStyleCapture() const;
     void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );

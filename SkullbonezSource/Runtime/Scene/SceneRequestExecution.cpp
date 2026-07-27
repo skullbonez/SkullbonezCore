@@ -32,7 +32,6 @@ Related:
 #include "SceneLoadTransaction.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../Tools/RuntimeTools.h"
-#include "SceneRuntimeCreate.h"
 #include "../../Core/FatalError.h"
 #include "../../UI/UI.h"
 
@@ -109,7 +108,7 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
             break;
         case SceneRequestType::CreateScene:
         {
-            const SceneLoadRequest createRequest = CreateSceneFromUI( sceneController, request.text );
+            const SceneLoadRequest createRequest = sceneController.CreateScene( request.text );
 
             accepted = executeSceneLoadRequest( createRequest );
 

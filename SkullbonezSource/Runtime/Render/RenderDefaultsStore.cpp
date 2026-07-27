@@ -18,12 +18,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp
+  - SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp
 */
 #include "RenderDefaultsStore.h"
 
 #include "../../Core/FatalError.h"
-#include "../Scene/SceneRuntimeDefaults.h"
 
 namespace SkullbonezCore
 {
@@ -85,8 +84,8 @@ RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::Ordinar
         --m_count;
 
         const SkullbonezCore::Core::SbResult saveResult = request == RenderDefaultsRequestType::Ordinary
-                                                              ? SaveRenderDefaults( ordinary )
-                                                              : SaveSkyDefaults( cinematic );
+                                                              ? PersistOrdinary( ordinary )
+                                                              : PersistCinematic( cinematic );
 
         if ( saveResult.ok )
         {

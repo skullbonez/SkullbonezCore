@@ -52,6 +52,7 @@ namespace Runtime
 {
 struct RunLaunchOptions;
 struct SceneSessionState;
+class SceneController;
 class SceneWorld;
 
 // Concept: Director consumes a value-only reveal sample and returns a command.
@@ -80,9 +81,9 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const CameraControlState& camera );
 DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
-                             RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             RunLaunchOptions& launchOptions, SceneController& sceneController,
+                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+                             SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Runtime

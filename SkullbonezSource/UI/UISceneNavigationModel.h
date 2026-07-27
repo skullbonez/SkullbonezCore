@@ -42,6 +42,7 @@ struct RunSceneBrowserState
     std::vector<std::string> names;
     std::vector<const char*> namePtrs;
     int selectedCineModeSceneIndex = -1; // -1=Demo/default look, otherwise scene-browser index of live cine/concept
+    int CurrentIndexForPath( const std::string* currentScenePath ) const;
 
     // look
 };
@@ -61,6 +62,7 @@ struct SceneNavigationModel
     // UI owner's lifetime; Runtime consumers may borrow but never retain them.
     RunSceneBrowserState browser;
     RunSceneUIOverrideState overrides;
+    void RefreshBrowserList();
 };
 } // namespace UI
 } // namespace SkullbonezCore

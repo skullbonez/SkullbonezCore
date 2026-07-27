@@ -42,7 +42,7 @@ Related:
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
-#include "SceneRuntimeUiOptions.h"
+#include "SceneLoadPresentation.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
 #include "../Diagnostics/OverlayDebugState.h"
@@ -91,6 +91,7 @@ struct SceneNavigationModel;
 } // namespace UI
 namespace Runtime
 {
+class AuthoredScene;
 class AttachedCameraController;
 class DiagnosticsRuntime;
 class InputRouter;
@@ -204,6 +205,17 @@ class SceneController
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
+    bool ApplyCinematicBrowserStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                                     const Assets::AssetSystem& assets,
+                                     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index );
+    void ApplyLiveStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                         const AuthoredScene& styleScene );
+    bool ApplyDemoHeroStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                             const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
 
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose operation completes successfully. The transaction
@@ -223,7 +235,9 @@ class SceneController
     void SubmitResetCurrentScene( bool preserveUIState = true, bool suppressExitOnComplete = true,
                                   bool preserveRuntimeState = true );
     SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
+    SceneLoadRequest CreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
+    SceneRuntimeUICommandResult SubmitUIRequests( const UI::UISceneCommands& commands );
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
     SceneRuntime& Runtime();

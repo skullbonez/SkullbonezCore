@@ -21,7 +21,7 @@ Invariants:
     the call.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.Style.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -54,21 +54,5 @@ ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore
 bool IsSceneCinematicRenderingEnabled( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config,
                                        const RunLaunchOptions& launchOptions, const OverlayDebugState& debug,
                                        bool graphicsReady );
-bool ApplyCinematicModeFromBrowserIndex( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                         SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                         const Assets::AssetSystem& assets,
-                                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index );
-void ApplyLiveStyleScene( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                          SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
-                          const AuthoredScene& styleScene );
-bool ApplyDemoHeroStyleOverride( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                 SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                 const Assets::AssetSystem& assets,
-                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
-
 } // namespace Runtime
 } // namespace SkullbonezCore

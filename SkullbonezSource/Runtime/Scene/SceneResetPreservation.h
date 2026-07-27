@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h
+File: SkullbonezSource/Runtime/Scene/SceneResetPreservation.h
 Purpose:
   Defines scene reset preserve/restore policy outside Run.
 
@@ -50,7 +50,7 @@ struct SceneSessionState;
 
 // Captures the part of a live run that belongs to the operator's current scene
 // configuration rather than the simulation instance.
-struct SceneRuntimeResetSnapshot
+struct SceneResetPreservationSnapshot
 {
     RenderPresentationSettings renderPresentation; // Renderer-owned values restored after the new scene is populated.
     bool physicsSleepEnabled = true;
@@ -92,15 +92,6 @@ struct SceneRuntimeResetSnapshot
     float autoCycleAccum = 0.0f;
     int autoCycleShotsTaken = 0;
 };
-
-SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
-                                                            const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                            const RuntimeRenderer& renderer, const OverlayDebugState& debug,
-                                                            const CameraControlState& camera );
-void RestoreSceneRuntimeResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                       RuntimeRenderer& renderer, OverlayDebugState& debug, CameraControlState& camera,
-                                       const SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );
-void ClearSceneRuntimeUIOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

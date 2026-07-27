@@ -40,7 +40,6 @@ Related:
 #include "../Tools/RuntimeFileWriter.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Scene/SceneSaveOperations.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
@@ -287,7 +286,7 @@ Run::Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::C
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    RefreshSceneBrowserList( m_operatorUi->SceneNavigation().browser );
+    m_operatorUi->SceneNavigation().RefreshBrowserList();
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );

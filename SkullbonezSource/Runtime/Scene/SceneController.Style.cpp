@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
+File: SkullbonezSource/Runtime/Scene/SceneController.Style.cpp
 Purpose:
-  Applies live scene style and cinematic override state outside Run.
+  Implements SceneController-owned live style and cinematic state changes.
 
 Summary:
   Live style changes are scene-runtime behavior: they retint/reset existing
@@ -22,11 +22,12 @@ Invariants:
     authored generated ragdolls.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeStyle.h"
+#include "SceneController.h"
 #include "../../Core/WindowConstants.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "SceneWorld.h"
@@ -295,12 +296,15 @@ void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& 
 }
 
 
-bool ApplyCinematicModeFromBrowserIndex( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                         SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                         const Assets::AssetSystem& assets,
-                                         SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, int index )
+bool SceneController::ApplyCinematicBrowserStyle( RunLaunchOptions& launchOptions,
+                                                  SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                                  const Assets::AssetSystem& assets,
+                                                  SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                                  const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                                  int index )
 {
+    SceneSessionState& scene = State();
+    SceneWorld& world = Scene();
     launchOptions.hasCinematicRenderingOverride = false;
 
     if ( index < 0 )
@@ -361,12 +365,14 @@ bool ApplyCinematicModeFromBrowserIndex( RunLaunchOptions& launchOptions, SceneS
 }
 
 
-void ApplyLiveStyleScene( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                          SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
-                          const AuthoredScene& styleScene )
+void SceneController::ApplyLiveStyle( RunLaunchOptions& launchOptions,
+                                      SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                      SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
+                                      const AuthoredScene& styleScene )
 {
+    SceneSessionState& scene = State();
+    SceneWorld& world = Scene();
     launchOptions.hasCinematicRenderingOverride = false;
     ApplyObjectMaterials( world, styleScene );
 
@@ -390,12 +396,13 @@ void ApplyLiveStyleScene( RunLaunchOptions& launchOptions, SceneSessionState& sc
 }
 
 
-bool ApplyDemoHeroStyleOverride( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                 SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                 const Assets::AssetSystem& assets,
-                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
-                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
+bool SceneController::ApplyDemoHeroStyle( RunLaunchOptions& launchOptions,
+                                          SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                          const Assets::AssetSystem& assets,
+                                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
+    SceneSessionState& scene = State();
 
     if ( !launchOptions.demoHeroStyle || scene.isSceneMode )
     {
@@ -413,7 +420,7 @@ bool ApplyDemoHeroStyleOverride( RunLaunchOptions& launchOptions, SceneSessionSt
         return false;
     }
 
-    ApplyLiveStyleScene( launchOptions, scene, sceneBrowser, world, activeCinematic, defaultCinematic, styleScene );
+    ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
     return true;
 }

@@ -24,6 +24,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "LiveStyleController.h"
+#include "../Scene/SceneController.h"
 #include "../../Core/PlatformWin32.h"
 #include "../Capture/CaptureController.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
@@ -264,9 +265,8 @@ void LiveStyleController::MarkReady()
 }
 
 
-void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneSessionState& scene,
-                                SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, SceneWorld& world,
-                                const Assets::AssetSystem& assets,
+void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneController& sceneController,
+                                SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
@@ -287,7 +287,7 @@ void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneSessionSta
 
         if ( loadResult.ok )
         {
-            ApplyLiveStyleScene( launchOptions, scene, sceneBrowser, world, activeCinematic, defaultCinematic, styleScene );
+            sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
             ++m_styleApplyCount;
             WriteStatus( "style_applied", m_stylePath );
             printf( "[style-harness] Applied %s\n", m_stylePath );

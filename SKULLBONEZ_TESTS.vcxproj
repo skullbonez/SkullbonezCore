@@ -284,7 +284,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Tools\RuntimeFileWriter.cpp" />

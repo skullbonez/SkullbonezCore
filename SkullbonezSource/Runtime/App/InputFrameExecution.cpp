@@ -60,10 +60,8 @@ Related:
 #include "../UI/RuntimeViewModel.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
-#include "../Scene/SceneRuntimeCreate.h"
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneRuntimeGeneratedControls.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Scene/SceneLoadTransaction.h"
 #include "../Scene/SceneRuntimeStyle.h"
 #include "../Scene/SceneController.h"
@@ -805,7 +803,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         {
             const int direction = event.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
             EnterInteractiveSceneRun();
-            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
+            const int currentSceneBrowserIndex = ui.SceneNavigation().browser.CurrentIndexForPath( sceneController.CurrentPath() );
 
             const bool isCinematicTabActive = ui.GetActiveTab() == InGameUITab::Cinematic;
             UI::SceneNavigationModel& sceneNavigation = ui.SceneNavigation();
@@ -813,13 +811,13 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                                                                           currentSceneBrowserIndex, isCinematicTabActive );
 
             const bool appliedCinematic = cinematicIndex >= 0 &&
-                                          ApplyCinematicModeFromBrowserIndex( launchOptions, SceneState(),
-                                                                              ui.SceneNavigation().browser,
-                                                                              sceneController.Scene(), assets,
-                                                                              ActiveSceneCinematicConfig( SceneState(),
-                                                                                                          config ),
-                                                                              renderDefaults.CinematicBaseline(),
-                                                                              cinematicIndex );
+                                          sceneController
+                                              .ApplyCinematicBrowserStyle( launchOptions, ui.SceneNavigation().browser,
+                                                                           assets,
+                                                                           ActiveSceneCinematicConfig( SceneState(),
+                                                                                                       config ),
+                                                                           renderDefaults.CinematicBaseline(),
+                                                                           cinematicIndex );
 
             if ( !appliedCinematic )
             {

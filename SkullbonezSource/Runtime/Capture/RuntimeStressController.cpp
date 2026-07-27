@@ -403,10 +403,9 @@ void ApplyGraphicsStressAction( const SkullbonezCore::Assets::AssetSystem& asset
     {
         const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
         const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
-        (void)ApplyCinematicModeFromBrowserIndex( launchOptions, scene, ui.SceneNavigation().browser,
-                                                  sceneController.Scene(), assets,
-                                                  ActiveSceneCinematicConfig( scene, config ), defaultCinematicRender,
-                                                  browserIndex );
+        (void)sceneController.ApplyCinematicBrowserStyle( launchOptions, ui.SceneNavigation().browser, assets,
+                                                          ActiveSceneCinematicConfig( scene, config ),
+                                                          defaultCinematicRender, browserIndex );
 
         break;
     }

@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.cpp
+File: SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp
 Purpose:
-  Persists scene UI render defaults to engine.cfg outside the Run composition root.
+  Implements RenderDefaultsStore's engine.cfg persistence.
 
 Summary:
   The Render and Sky tabs mutate live config structs. Saving defaults is a
@@ -20,11 +20,10 @@ Invariants:
     surface.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeDefaults.h
-  - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
+  - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeDefaults.h"
+#include "RenderDefaultsStore.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 
@@ -335,7 +334,8 @@ void StampCurrentConfigVersion( std::vector<std::string>& lines )
 
 } // namespace
 
-SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
+SkullbonezCore::Core::SbResult
+RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary )
 {
 
     // Concept: Saving ordinary defaults is a text rewrite, not a full config
@@ -455,7 +455,8 @@ SkullbonezCore::Core::SbResult SaveRenderDefaults( const SkullbonezCore::Core::O
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult SaveSkyDefaults( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+SkullbonezCore::Core::SbResult
+RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
     SkullbonezCore::Core::EngineConfig versionProbe;

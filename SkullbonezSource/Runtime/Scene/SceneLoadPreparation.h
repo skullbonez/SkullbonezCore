@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
+File: SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
 Purpose:
   Declares scene load orchestration helpers owned by scene runtime code.
 
@@ -16,20 +16,20 @@ Glossary:
   Scene browser: UI-facing list of available scene files.
 
 Invariants:
-  - PrepareSceneRuntimeLoad returns intent/state without mutating any owner.
-  - CommitSceneRuntimeLoad is called only after a successful GPU drain, lifecycle
+  - SceneLoadTransaction preparation returns intent/state without mutating any owner.
+  - Commit runs only after a successful GPU drain, lifecycle
     generation start, and BeforeSceneUnload consumers have completed.
   - Runtime state preservation is captured before SceneController begins load.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp
+  - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
 
 #include "SceneControllerState.h"
-#include "SceneRuntimeReset.h"
+#include "SceneResetPreservation.h"
 #include "../../Core/SbResult.h"
 
 #include <string>
@@ -47,7 +47,7 @@ struct CameraControlState;
 struct OverlayDebugState;
 class RuntimeRenderer;
 
-struct SceneRuntimeLoadBeginResult
+struct SceneLoadBeginResult
 {
 
     // Lane R: a failed GPU drain leaves shouldLoad false so SceneController can
@@ -58,20 +58,9 @@ struct SceneRuntimeLoadBeginResult
     bool suppressAutomationExit = false;
     bool shouldPreserveRuntimeState = false;
     int index = -1;
-    SceneRuntimeResetSnapshot resetSnapshot;
+    SceneResetPreservationSnapshot resetSnapshot;
     const std::string* scenePath = nullptr;
 };
-
-SceneRuntimeLoadBeginResult
-PrepareSceneRuntimeLoad( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                         const RuntimeRenderer& renderer, const OverlayDebugState& debug, const CameraControlState& camera,
-                         Rendering::Dx12FrameOwner* renderFrame, bool interactiveSceneRunRequested, int index,
-                         bool suppressExitOnComplete, bool preserveRuntimeState );
-void CommitSceneRuntimeLoad( SceneController& controller, SceneLoadNavigationState& navigation,
-                             const SceneRuntimeLoadBeginResult& prepared );
-void RefreshSceneBrowserList( SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
-int CurrentSceneBrowserIndex( const SceneController& controller,
-                              const SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

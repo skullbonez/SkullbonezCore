@@ -39,7 +39,6 @@ Related:
 #include "../App/Window.h"
 #include "../../Core/WorkerPool.h"
 #include "../Planning/ReplayOverlayPackets.h"
-#include "../Scene/SceneRuntimeLoad.h"
 #include "../Capture/CaptureSystem.h"
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
@@ -248,7 +247,7 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
     // secondary editor receive this exact object, not independently sampled owners.
     operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
                                  uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
-                                 CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+                                 uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() ),
                                  static_cast<int>( uiSceneBrowser.namePtrs.size() ),
                                  scene.currentFrame,
                                  sceneController.Scene().SceneEntityCount(),
@@ -616,7 +615,7 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
         uiOperatorPresentation.operatorEditorView = &operatorEditorView;
         uiOperatorPresentation.sceneHasCurrentEntry = sceneController.HasCurrentEntry();
         uiOperatorPresentation.currentScenePath = uiScenePath ? uiScenePath->c_str() : nullptr;
-        uiOperatorPresentation.currentSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, uiSceneBrowser );
+        uiOperatorPresentation.currentSceneBrowserIndex = uiSceneBrowser.CurrentIndexForPath( sceneController.CurrentPath() );
 
         UiOperatorSubmissionGraphInvocation uiOperatorSubmission;
         uiOperatorSubmission.ui = &ui;

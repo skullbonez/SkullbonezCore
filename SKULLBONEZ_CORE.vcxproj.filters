@@ -282,34 +282,37 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.Browser.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Creation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Navigation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
-      <Filter>Source Files\Runtime\Scene</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Preparation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Reset.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Style.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Presentation.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera\AttachedCameraController.cpp">
@@ -1081,31 +1084,25 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.h">
-      <Filter>Header Files\Runtime\Scene</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.h">
-      <Filter>Header Files\Runtime\Scene</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPreparation.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPresentation.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h">

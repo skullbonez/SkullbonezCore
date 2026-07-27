@@ -43,6 +43,9 @@ Related:
 #pragma once
 
 #include "SceneController.h"
+#include "SceneLoadPreparation.h"
+#include "SceneLoadPresentation.h"
+#include "SceneResetPreservation.h"
 
 #include <array>
 #include <cstddef>
@@ -180,6 +183,26 @@ class SceneLoadTransaction
     // caller follows the same reaction/presentation schedule.
     void FinishLoadPhase();
     void AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, const char* operation );
+    static SceneLoadBeginResult PrepareLoad( const SceneController& controller,
+                                             const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                             const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                                             const CameraControlState& camera, Rendering::Dx12FrameOwner* renderFrame,
+                                             bool interactiveSceneRunRequested, int index, bool suppressExitOnComplete,
+                                             bool preserveRuntimeState );
+    static void CommitLoad( SceneController& controller, SceneLoadNavigationState& navigation,
+                            const SceneLoadBeginResult& prepared );
+    static SceneResetPreservationSnapshot
+    CaptureResetSnapshot( const SceneController& controller, const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                          const RuntimeRenderer& renderer, const OverlayDebugState& debug,
+                          const CameraControlState& camera );
+    static void RestoreResetSnapshot( SceneController& controller, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
+                                      RuntimeRenderer& renderer, OverlayDebugState& debug, CameraControlState& camera,
+                                      const SceneResetPreservationSnapshot& snapshot, bool suppressExitOnComplete );
+    static void ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides );
+    static void PrepareUiOptions( DiagnosticsRuntime& diagnostics, OverlayDebugState& debug, SceneUiActivation& activation,
+                                  const SceneUIOptions& options, double nowSeconds, bool preserveUIState,
+                                  bool automationScene );
+    static void ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
     SceneLoadRequest m_request = SceneLoadRequest::None();
     Outputs m_outputs;
