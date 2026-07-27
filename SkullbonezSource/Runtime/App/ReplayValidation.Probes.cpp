@@ -1959,9 +1959,9 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 restoreRequest.injectTargetHashMismatchForProbe = request.forceHashMismatch;
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
-                step.succeeded = RestoreV2ArtifactTargetStateImpl( transaction, restoreRequest, world, scene, debug,
-                                                                   runtimeTools, simulation, config, assets, workerPool,
-                                                                   uiOverrides, generatedObjectTypeOverride );
+                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, world, scene, debug,
+                                                               runtimeTools, simulation, config, assets, workerPool,
+                                                               uiOverrides, generatedObjectTypeOverride );
 
                 PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
                 strncpy_s( reason, transaction.FailureReason(), _TRUNCATE );

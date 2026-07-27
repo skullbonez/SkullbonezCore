@@ -337,8 +337,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
             if ( body.useWorldInertia )
             {
-                Quaternion orientation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( i ) );
-                body.orientation = orientation.GetOrientationMatrix();
+                body.orientation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( i ) ).GetOrientationMatrix();
             }
         }
     }
@@ -873,9 +872,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
                     if ( supportedBodyIsBox )
                     {
-                        Quaternion orientation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( supportedIndex ) );
+                        const auto rotation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( supportedIndex ) )
+                                                  .GetOrientationMatrix();
 
-                        const auto rotation = orientation.GetOrientationMatrix();
                         const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
                         const float faceDotX = fabsf( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ) * supportNormal );
                         const float faceDotY = fabsf( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ) * supportNormal );

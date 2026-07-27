@@ -6,8 +6,7 @@
 // Summary:
 //   Quaternion behavior is a small but engine-specific contract: component
 //   signs, multiplication order, and normalization all feed physics and camera
-//   orientation. These tests describe the current API before later math library
-//   extraction changes the build shape around it.
+//   orientation. These tests pin that public contract for every current caller.
 //
 // Glossary:
 //   Identity quaternion: No-rotation value (0,0,0,1).
@@ -17,6 +16,9 @@
 // Invariants:
 //   - Normalise() resets a zero quaternion to identity.
 //   - RotateAboutAxis() uses the current engine component sign convention.
+//   - Golden cases pin anti-Hamilton operand order and the transposed-Hamilton
+//     orientation matrix exposed by the public header.
+//   - Orientation-matrix conversion accepts an immutable quaternion.
 //   - Repeated multiplication must stay close enough to unit length for a later
 //     Normalise() pass to repair it deterministically.
 //
@@ -104,6 +106,31 @@ TEST_CASE( "Quaternion: axis-angle round trip returns to identity" )
     value.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), -kHalfPi );
 
     CheckQuaternionNear( value, QuaternionComponents{} );
+}
+
+
+TEST_CASE( "Quaternion: multiplication evaluates the Hamilton right operand times the left operand" )
+{
+    const Quaternion left( 1.0f, 2.0f, 3.0f, 4.0f );
+    const Quaternion right( -2.0f, 5.0f, 7.0f, -3.0f );
+
+    // Concept: asymmetric components distinguish the engine's anti-Hamilton
+    // operand order from textbook Hamilton(left * right).
+    CheckQuaternionNear( left * right, QuaternionComponents{ -10.0f, 27.0f, 10.0f, -41.0f } );
+}
+
+
+TEST_CASE( "Quaternion: orientation matrix transposes the Hamilton active rotation" )
+{
+    constexpr float HALF_ROOT_TWO = 0.70710677f;
+    const Quaternion positiveZQuarterTurn( 0.0f, 0.0f, HALF_ROOT_TWO, HALF_ROOT_TWO );
+
+    // Invariant: the public matrix convention maps +X to -Y for this positive
+    // Hamilton Z quarter-turn. A textbook active matrix would map it to +Y.
+    const Vector3 rotated = positiveZQuarterTurn.GetOrientationMatrix() * Vector3( 1.0f, 0.0f, 0.0f );
+    CHECK( rotated.x == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.y == doctest::Approx( -1.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.z == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
 }
 
 
@@ -205,7 +232,7 @@ TEST_CASE( "Quaternion: sub-tolerance XYZ displacement is an identity-preserving
 
 TEST_CASE( "Quaternion: orientation matrix exposes identity support extent and arbitrary rotation" )
 {
-    Quaternion identity;
+    const Quaternion identity;
     const auto identityMatrix = identity.GetOrientationMatrix();
     CHECK( identityMatrix.SupportExtentY( Vector3( 2.0f, 3.0f, 4.0f ) ) == doctest::Approx( 3.0f ) );
 

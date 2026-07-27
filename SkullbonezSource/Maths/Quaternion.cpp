@@ -17,6 +17,8 @@ Invariants:
     matrices or solver rows.
   - RotateAboutXYZ treats xyz as one angular-displacement vector rather than an
     ordered Euler rotation.
+  - lhs * rhs computes Hamilton(rhs * lhs), while GetOrientationMatrix returns
+    the transpose of the Hamilton active-rotation matrix.
 
 Related:
   - SkullbonezSource/Maths/Quaternion.h
@@ -115,7 +117,7 @@ void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 }
 
 
-RotationMatrix Quaternion::GetOrientationMatrix()
+RotationMatrix Quaternion::GetOrientationMatrix() const
 {
 
     // The engine uses right-handed object orientation math; render projection is

@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-27
+Date: 2026-07-28
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,10 +10,11 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-26th-JUL-26` |
-| Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5 is complete; Plan 12 closed SR0-SR2 with clear review and all mapped gates passing. |
-| Active/future progress | 7/7 (100%). No Round 5 implementation item remains live. |
+| Branch | `nightrunner-28th-JUL-26` |
+| Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
+| Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
+| Active/future progress | 0/24 (0%). Plan 1 BL0 is next; BL1 requires the owner performance-threshold and witness-matrix answers recorded in the plan. |
+| Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Plan 12 `tools\validate_full.bat` passes in 337 seconds: 421/421 tests and 2,410,274 assertions, CPU/coverage, DX12 renderer/runtime lanes, and byte-exact Physics. `validate_perf.bat` and independent review also pass with zero blockers. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -27,6 +28,19 @@ plan inventory.
 | Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
+
+The Principal Engineer Feedback Campaign is live at 0/24. Its seven TODO plans
+cover Physics body layout evidence, Replay restore/wide-signature governance,
+PhysicsFixedList copy semantics, compact SbResult success values, explicit
+vector dot products, isolated deterministic terrain fixtures, and generated
+dependency proofs. The bounded registration response removes the exact Replay
+pure forwarder, publishes the anti-Hamilton/transposed-matrix quaternion
+contract in the public header, makes orientation conversion const, gives the
+identity values one inline definition, and enables first-party IDE warning
+errors. The owner permits AoS only when representative performance is not
+meaningfully degraded. The warm-start key guard is deliberately applied only
+after the response commit and left uncommitted for owner review; do not refresh
+baselines.
 
 Architecture Follow-Up Campaign Round 5 is complete at 7/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
@@ -691,6 +705,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `scene-sized-store-capacity` at SC5. Convert the sleep, terrain,
-diagnostics, world, and engine vectors while preserving the CCD clock and
-point-joint handle semantics.
+Continue `physics-body-hot-layout-evidence` at BL0. Capture the current layout,
+consumer, allocation, and performance evidence. Before BL1 selects AoS, obtain
+the owner's definition of meaningful performance degradation and required
+benchmark witnesses from the questions already embedded in the plan. Preserve
+the uncommitted warm-start review diff until the owner accepts or rejects it.

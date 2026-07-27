@@ -1425,17 +1425,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
                                                   SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                   GeneratedObjectTypeOverride& generatedObjectTypeOverride )
 {
-    return RestoreV2ArtifactTargetStateImpl( transaction, request, world, scene, debug, runtimeTools, simulation, config,
-                                             assets, workerPool, uiOverrides, generatedObjectTypeOverride );
-}
-
-
-bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world,
-                                                      SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                      const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
-                                                      SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                      GeneratedObjectTypeOverride& generatedObjectTypeOverride )
-{
     RunReplayV2TargetRestoreResult& outResult = transaction.Result();
     outResult = RunReplayV2TargetRestoreResult();
 

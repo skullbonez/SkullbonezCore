@@ -527,13 +527,6 @@ class ReplayRuntime
                                                   SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                   GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 #endif
-    bool RestoreV2ArtifactTargetStateImpl( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                           SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
-                                           RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                           const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                                           Threading::WorkerPool& workerPool,
-                                           SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                           GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
     Core::Profiler* m_profiler;

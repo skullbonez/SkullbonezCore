@@ -41,20 +41,20 @@ namespace Transformation
 /* -- Rotation Matrix
 ----------------------------------------------------------------------------------------------------------------------------------------
 
-    A matrix used to hold rotation data for multiplycation with vectors.
+    A matrix used to hold rotation data for multiplication with vectors.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class RotationMatrix
 {
 
   public:
-    RotationMatrix();                                                                         // Initializes to identity rotation.
+    RotationMatrix();                                                    // Initializes to identity rotation.
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
-                    float f33 );                                                              // Explicit row-major component construction.
+                    float f33 );                                         // Explicit row-major component construction.
     ~RotationMatrix() = default;
-    void Identity();                                                                          // Resets to no-rotation matrix.
-    Vector::Vector3 operator*( const Vector::Vector3& v ) const;                              // Applies this rotation to v.
-    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;                             // Legacy spelling for applying this rotation to v.
-    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const;                      // R^T * v (inverse rotation for orthogonal matrices)
+    void Identity();                                                     // Resets to no-rotation matrix.
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;         // Applies this rotation to v.
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;        // Legacy spelling for applying this rotation to v.
+    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
     // dot(abs(row_Y), v) is the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
@@ -79,12 +79,11 @@ class RotationMatrix
 #endif
 
   private:
-    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                                        // Row-major 3x3 basis vectors.
+    float m11, m12, m13, m21, m22, m23, m31, m32, m33;                   // Row-major 3x3 basis vectors.
 };
 
-const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Shared no-rotation
-
-// matrix.
+// One program-wide no-rotation matrix shared by every including translation unit.
+inline const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f );
 
 // Rotate vPoint around normalized arbitrary axis vAxis by fRadians.
 inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis,

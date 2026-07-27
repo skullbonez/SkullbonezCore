@@ -221,8 +221,7 @@ BoxWorld MakeBoxWorld( const ObjectContactBodyView& body, const BoundingBox& box
     //   Convert the engine's local box shape plus body orientation into an OBB
     //   basis. Catto's equations downstream operate in world space; this is the
     //   conversion from Skullbonez body pose and shape state to solver row geometry.
-    Quaternion q = body.orientation;
-    RotationMatrix rot = q.GetOrientationMatrix();
+    const RotationMatrix rot = body.orientation.GetOrientationMatrix();
 
     BoxWorld out;
     out.halfExtents = box.GetHalfExtents();
@@ -239,8 +238,7 @@ Vector3 SphereCenter( const ObjectContactBodyView& body, const BoundingSphere& s
     // ENGINE-SPECIFIC:
     //   Spheres can carry a local shape offset. Rotate it through the body
     //   orientation before building Catto-style world-space contact arms.
-    Quaternion q = body.orientation;
-    RotationMatrix rot = q.GetOrientationMatrix();
+    const RotationMatrix rot = body.orientation.GetOrientationMatrix();
     return body.position + rot * sphere.GetPosition();
 }
 
@@ -503,8 +501,7 @@ bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody, const Bound
 {
     BoxWorld bw = MakeBoxWorld( boxBody, box );
     Vector3 sphereCenter = SphereCenter( sphereBody, sphere );
-    Quaternion q = boxBody.orientation;
-    RotationMatrix rot = q.GetOrientationMatrix();
+    const RotationMatrix rot = boxBody.orientation.GetOrientationMatrix();
     Vector3 local = rot.TransposeMultiply( sphereCenter - bw.center );
 
     Vector3 closestLocal( ClampFloat( local.x, -bw.halfExtents.x, bw.halfExtents.x ),
@@ -1199,8 +1196,7 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
 
 PolytopeWorld MakeHullPolytope( const ObjectContactBodyView& body, const ConvexHullShape& hull )
 {
-    Quaternion q = body.orientation;
-    RotationMatrix rot = q.GetOrientationMatrix();
+    const RotationMatrix rot = body.orientation.GetOrientationMatrix();
 
     PolytopeWorld out;
     out.center = body.position + rot * hull.GetPosition();

@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-26
+Date: 2026-07-28
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -184,6 +184,18 @@ Rules:
    discoverable here.
 
 ### Portfolio Progress Ledger
+
+The denominator grew 0 → 24 on 2026-07-28 when the owner registered the
+seven-plan Principal Engineer Feedback Campaign from the current-tree review at
+main tip `0768593d`: physics body hot-layout evidence (4 tasks), Replay restore
+and wide-signature governance (4), PhysicsFixedList copy contract (3), compact
+SbResult success path (4), explicit vector dot-product API (3), deterministic
+terrain fixture isolation (3), and generated dependency proofs (3). The
+bounded one-task response that registered the campaign also removes the exact
+Replay pure forwarder, publishes the quaternion convention in its public
+header, makes orientation conversion const, gives identity constants one inline
+definition, and enables `/WX` for first-party IDE builds; completed immediate
+work does not inflate the live denominator.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -767,6 +779,15 @@ caller should move, and plan 1's Capability Slice Ownership Rule landed
 layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
+
+The Principal Engineer Feedback Campaign is binding at 0/24 (0%). Execute its
+seven plans in table order below. `physics-body-hot-layout-evidence` BL0 may
+measure immediately, but BL1 cannot select AoS until the owner defines
+“meaningful” performance degradation and the required witness matrix. If that
+decision is still unanswered after BL0, record the blocker and continue with
+plan 2 under the orchestrator blocker-continuation rule. No plan may refresh a
+physics, Replay, visual, or performance baseline without explicit owner
+authority.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -1411,11 +1432,15 @@ ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no
 comment changes yet; the Present GPU-timer dead-store finding it carries stays
 recorded there for when the plan is restored.
 
-Deliberately not planned (owner may revisit): AoS `PhysicsBodyRecord` layout
-reshaping and terrain warm-start/clamp heuristic replacement — both working,
-honestly documented, and baseline-entangled; undertake only with a concrete
-perf or stacking-stability motivation. Repeated glossary-header deduplication
-is available as a documentation-only plan if the owner wants it (currently
+Historical 2026-07-12 owner ruling: full-record AoS `PhysicsBodyRecord`
+reshaping and terrain warm-start/clamp heuristic replacement were deliberately
+not planned because they were working, documented, and baseline-entangled.
+The 2026-07-28 principal-feedback campaign supersedes that ruling only for the
+hot-store layout evidence question: `TODO/physics-body-hot-layout-evidence.md`
+reopens measured SoA/AoS/hybrid comparison, with AoS selectable only when it
+does not meaningfully degrade representative performance. Terrain heuristic
+replacement remains parked. Repeated glossary-header deduplication is
+available as a documentation-only plan if the owner wants it (currently
 excluded by the same no-comment-changes ruling).
 
 ## Adversarial Review Remediation Round 3 (2026-07-13)
@@ -2160,6 +2185,35 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 12 | [sbresult-frame-path-cost](../Reports/2026-07-27/sbresult-frame-path-cost-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; sentinel-only success preserves all failure diagnostics, review is clear, and every mapped gate passes |
 | 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
+
+## Principal Engineer Feedback Campaign (2026-07-28)
+
+Source: owner-supplied principal-engineer review verified against main tip
+`0768593d` on `nightrunner-28th-JUL-26`. The bounded immediate response fixes
+only behavior-neutral, locally provable items. Ownership, ABI, lifetime,
+performance, and governance redesigns remain explicit plans.
+
+Binding owner directions:
+
+- AoS may replace the Physics body SoA only if it does not meaningfully degrade
+  representative performance; the exact threshold and witness matrix are
+  questions in plan 1.
+- The warm-start key capacity guard is the final actionable local change. It is
+  intentionally left uncommitted after the campaign-registration commit for
+  owner review; no baseline may be refreshed by the agent.
+- The current 12-parameter ceiling remains binding until plan 2 records a new
+  owner ruling. No implementation may hide a wide operation in a courier,
+  forwarding facade, capability slice, callback pack, or renamed context.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [physics-body-hot-layout-evidence](TODO/physics-body-hot-layout-evidence.md) | Ready | 0/4 | BL0 current-layout census and benchmark; BL1 awaits the owner threshold/witness answers |
+| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Ready | 0/4 | RG0 current exact-ceiling ownership census |
+| 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
+| 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |
+| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
+| 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
+| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 
 ## Features
 
