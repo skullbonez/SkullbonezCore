@@ -748,14 +748,14 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 4/33 (12%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 5/33 (15%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
 `ceremonial-aggregate-elimination` closed and left the live inventory on
 2026-07-27. Plan 6 `render-backend-service-bag-removal` closed RB0-RB3 and left
-the live inventory under rule 4. Plan 5 `runtime-frame-view-retirement` is now
-unblocked; FV0 is the binding next task.
+the live inventory under rule 4. Plan 5 `runtime-frame-view-retirement` closed
+FV0 on 2026-07-27; FV1 is the binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2057,7 +2057,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
 | 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
 | 4 | [ceremonial-aggregate-elimination](../Reports/2026-07-27/ceremonial-aggregate-elimination-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; all 35 couriers are gone, independent no-bag review is clear, and the default full gate passes byte-exact baselines |
-| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | Plan 6 is closed. Endpoint ratified 2026-07-27: concrete operands, no frame transaction. **Binding next task: FV0** |
+| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | In progress | 1/4 | FV0 measured 12 top-level phases, six direct helpers, and 21 view consumers; wide rows have named decompositions under the ceiling. **Binding next task: FV1** |
 | 6 | [render-backend-service-bag-removal](../Reports/2026-07-27/render-backend-service-bag-removal-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; the eleven-pointer bag is deleted, optional capability presence is explicit, and all final gates pass without baseline refresh |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |

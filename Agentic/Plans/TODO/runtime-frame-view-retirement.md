@@ -1,10 +1,11 @@
 # Runtime Frame View Retirement
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
-review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
+Status: IN PROGRESS — FV0 closed on 2026-07-27 with the current 12-phase,
+six-helper, and 21-consumer census; FV1 is binding. Drafted from the 2026-07-26
+from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
-Round 5. 0/4 phases complete.
+Round 5. 1/4 phases complete.
 Impact area: `Runtime/RuntimeFrameViews.h`, `Runtime/App/Run.h`,
 `Runtime/App/RunFrame.cpp`, `Runtime/App/InputFrameExecution.cpp`,
 `Runtime/Capture/RuntimeStressController.cpp`
@@ -81,7 +82,7 @@ of what that phase can affect.
 
 ## Phases
 
-- [ ] **FV0 — Census the frame surface against the ratified endpoint.**
+- [x] **FV0 — Census the frame surface against the ratified endpoint.**
   **Owner ruling 2026-07-27: endpoint (a), concrete operands.** Delete all four
   views; each phase takes only the owners it uses. The rejected alternative was a
   frame-turn phase-cursor transaction. The owner's reason, recorded so a later
@@ -102,6 +103,12 @@ of what that phase can affect.
   but honest argument list is the accepted outcome here — reintroducing an
   aggregate to shorten one is a closure failure under the Invariant Ownership
   Rule.
+  Closed 2026-07-27. The current surface is 23 required owner references plus
+  one optional shader capability. FV0 measured all twelve top-level phase
+  helpers, all six plan-named direct helpers, and the complete 21-consumer view
+  blast radius. Five wide top-level rows and five wide direct helpers have
+  named decompositions at or below the 12-parameter ceiling. Evidence:
+  `../../Reports/2026-07-27/runtime-frame-view-retirement-fv0-census.md`.
 
 - [ ] **FV1 — Make the convention uniform.**
   Apply concrete operands to `TickPhysics`, `UpdateLogic`,
