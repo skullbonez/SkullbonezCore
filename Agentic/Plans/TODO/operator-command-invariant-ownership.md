@@ -3,10 +3,11 @@
 Date: 2026-07-26
 Status: IN PROGRESS — OC0 closed 2026-07-27 with the exact eight-edge phase
 order, same-frame winner table, operation destinations, and complete acceptance
-ledger census. OC1 is binding. Drafted from the 2026-07-26 from-source
+ledger census. OC1 installed and exhaustively proved the non-copyable,
+value-only transaction. OC2 is binding. Drafted from the 2026-07-26 from-source
 architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 9 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 1/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 2/4 phases
 complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.{h,cpp}`,
 `Runtime/App/InputRouter.Interactions.cpp`, `Runtime/App/InputFrame.cpp`,
@@ -121,7 +122,7 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   discarded Boolean return of `ApplyCinematicModeUICommand`. Evidence:
   `../../Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md`.
 
-- [ ] **OC1 — Install the operator command transaction.**
+- [x] **OC1 — Install the operator command transaction.**
   Add a non-copyable `OperatorCommandTransaction` (name subject to OC0's finding)
   that owns the phase cursor for the OC0 order, makes an out-of-order or repeated
   phase call lane-F fatal, stores values and the cursor only, retains no owner
@@ -131,6 +132,12 @@ same value, and produces one acceptance ledger. `RunInternal` is gone.
   phase-cursor test walks the legal order and asserts a fatal on every illegal
   transition; the transaction stores no long-lived owner pointer; the header states
   the invariant.
+  Closed 2026-07-27. `OperatorCommandTransaction` copies the normalized value
+  packet, owns one acceptance ledger and the exact eight-edge cursor, and stores
+  no owner pointer or reference. The complete 10-by-10 cursor matrix is checked;
+  all 82 illegal calls from reachable phases terminate in isolated Lane-F
+  children, while the legal walk reaches `Complete`. Evidence:
+  `../../Reports/2026-07-27/operator-command-invariant-ownership-oc1-transaction.md`.
 
 - [ ] **OC2 — Move the operations onto the transaction and unify the ledger.**
   Convert every apply operation to a transaction phase. Replace the seven result

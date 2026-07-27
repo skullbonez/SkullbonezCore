@@ -52,6 +52,9 @@
     <Filter Include="Source Files\Runtime\Interaction">
       <UniqueIdentifier>{7D5AC876-4C0D-4E1D-966B-9A18B82E2788}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Settings">
+      <UniqueIdentifier>{EDCF1E64-1F8D-4620-98E4-4FB92B55E02D}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{BDDE69D6-F660-4474-9BE8-0666D06D289E}</UniqueIdentifier>
     </Filter>
@@ -359,6 +362,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime\Interaction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>

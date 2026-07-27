@@ -47,12 +47,14 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
+#include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "TestFatalCases.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -77,6 +79,20 @@ using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
+
+namespace SkullbonezCore
+{
+namespace Runtime
+{
+struct OperatorCommandTransactionTestAccess
+{
+    static void Advance( OperatorCommandTransaction& transaction, OperatorCommandPhaseCursor::Phase next )
+    {
+        transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
+    }
+};
+} // namespace Runtime
+} // namespace SkullbonezCore
 
 TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
 {
@@ -256,6 +272,42 @@ struct WorkerFatalProbe
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    unsigned int operatorPhaseFrom = 0u;
+    unsigned int operatorPhaseTo = 0u;
+    if ( sscanf_s( caseName,
+                   "operator-command-phase-%u-%u",
+                   &operatorPhaseFrom,
+                   &operatorPhaseTo ) == 2 )
+    {
+        using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
+        using SkullbonezCore::Runtime::OperatorCommandTransaction;
+        using SkullbonezCore::Runtime::OperatorCommandTransactionTestAccess;
+        using Phase = OperatorCommandPhaseCursor::Phase;
+        constexpr std::array phases { Phase::Idle,
+                                      Phase::DeviceAndMode,
+                                      Phase::PhysicsControl,
+                                      Phase::RuntimePresentation,
+                                      Phase::SimulationPolicy,
+                                      Phase::PhysicsMaterial,
+                                      Phase::WorldPolicy,
+                                      Phase::CinematicPolicy,
+                                      Phase::Complete,
+                                      Phase::Count };
+        if ( operatorPhaseFrom >= phases.size() - 1u || operatorPhaseTo >= phases.size() )
+        {
+            return false;
+        }
+
+        SkullbonezCore::UI::InGameUICommands commands;
+        OperatorCommandTransaction transaction( commands );
+        for ( unsigned int phaseIndex = 1u; phaseIndex <= operatorPhaseFrom; ++phaseIndex )
+        {
+            OperatorCommandTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+        }
+        OperatorCommandTransactionTestAccess::Advance( transaction, phases[operatorPhaseTo] );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
     {
         SkullbonezCore::Physics::PhysicsFixedList<int, 4> values(
@@ -659,4 +711,63 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                        "requested=9",
                        "capacity=8",
                        "retained_capacity=12" } );
+}
+
+TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )
+{
+    using SkullbonezCore::Runtime::OperatorCommandPhaseCursor;
+    using SkullbonezCore::Runtime::OperatorCommandTransaction;
+    using Phase = OperatorCommandPhaseCursor::Phase;
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::DeviceAndMode,
+                                  Phase::PhysicsControl,
+                                  Phase::RuntimePresentation,
+                                  Phase::SimulationPolicy,
+                                  Phase::PhysicsMaterial,
+                                  Phase::WorldPolicy,
+                                  Phase::CinematicPolicy,
+                                  Phase::Complete,
+                                  Phase::Count };
+
+    for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
+    {
+        for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
+        {
+            const bool expected = fromIndex < phases.size() - 2u && toIndex == fromIndex + 1u;
+            CHECK( OperatorCommandPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+
+            // Count is a sentinel and cannot become the cursor's current state.
+            if ( fromIndex == phases.size() - 1u || expected )
+            {
+                continue;
+            }
+
+            char caseName[96] = {};
+            std::snprintf( caseName,
+                           sizeof( caseName ),
+                           "operator-command-phase-%zu-%zu",
+                           fromIndex,
+                           toIndex );
+            ExpectFatalCase( caseName,
+                             { "FATAL[Runtime/OperatorCommandTransaction]",
+                               "Illegal phase transition",
+                               "operation=ExhaustiveFatalProbe" } );
+        }
+    }
+
+    SkullbonezCore::UI::InGameUICommands commands;
+    OperatorCommandTransaction transaction( commands );
+    CHECK( transaction.Phase() == Phase::Idle );
+    transaction.ApplyDeviceAndMode();
+    transaction.ApplyPhysicsControl();
+    transaction.ApplyRuntimePresentation();
+    transaction.ApplySimulationPolicy();
+    transaction.ApplyPhysicsMaterial();
+    transaction.ApplyWorldPolicy();
+    transaction.ApplyCinematicPolicy();
+    transaction.Complete();
+    CHECK( transaction.Phase() == Phase::Complete );
+    CHECK_FALSE( transaction.Acceptance().toggledVsync );
+    static_assert( !std::is_copy_constructible_v<OperatorCommandTransaction> );
+    static_assert( !std::is_copy_assignable_v<OperatorCommandTransaction> );
 }

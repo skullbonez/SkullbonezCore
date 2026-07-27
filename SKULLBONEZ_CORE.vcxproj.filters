@@ -570,6 +570,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandApplier.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\UiDrawSubmission.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
@@ -1001,6 +1004,9 @@
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandApplier.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Interaction\OperatorCommandTransaction.h">
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Interaction\RuntimeInteractionController.h">

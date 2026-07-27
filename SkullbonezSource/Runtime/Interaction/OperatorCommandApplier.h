@@ -44,6 +44,7 @@ Related:
 */
 #pragma once
 
+#include "OperatorCommandTransaction.h"
 #include "../Render/RenderDefaultsStore.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Camera/RuntimeCameraMode.h"
@@ -122,18 +123,6 @@ struct RunSimulationUICommandResult
     bool setTimeScale = false;
     bool setRunSeed = false;
     bool setWorkerThreads = false;
-};
-
-// Value result of one accepted world tuning mutation. Replay may record these
-// facts, but the world-tuning owner does not receive replay authority.
-struct WorldOverrideChange
-{
-    float previousGravity = 0.0f;
-    float previousFluidHeight = 0.0f;
-    float previousFluidDensity = 0.0f;
-    float gravity = 0.0f;
-    float fluidHeight = 0.0f;
-    float fluidDensity = 0.0f;
 };
 
 struct RunCameraModeUICommandResult

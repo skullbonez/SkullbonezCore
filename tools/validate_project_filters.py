@@ -364,6 +364,7 @@ RUNTIME_INTERACTION_PREFIXES = (
 RUNTIME_SETTINGS_PREFIXES = (
     "LiveStyleController",
     "OperatorCommandApplier",
+    "OperatorCommandTransaction",
 )
 
 RUNTIME_SCENE_PREFIXES = (
