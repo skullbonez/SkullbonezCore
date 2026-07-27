@@ -43,7 +43,7 @@ Related:
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Input/InputController.h"
 #include "OverlayDebugState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"

@@ -69,13 +69,13 @@ Related:
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneSessionState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneLoadRequest.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
 #include "../SkullbonezSource/UI/UITabPhysics.h"
@@ -364,7 +364,7 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 
 TEST_CASE( "Scene lifecycle generations publish failures and repeated scene loads exactly once" )
 {
-    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "alpha.scene.json" } );
     SceneLifecycleGenerationObserver clearObserver;
     SceneLifecycleGenerationObserver activationObserver;
 
@@ -752,7 +752,7 @@ TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
 {
     SkullbonezCore::UI::SceneNavigationModel navigation;
     navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
-    SceneRuntime scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
     scene.BeginLoad( 0 );
 
     const SceneLoadRequest current = LoadSceneFromBrowserIndex( navigation, 0, scene );
@@ -791,7 +791,7 @@ TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
     CHECK( loadNavigation.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
     CHECK( loadNavigation.overrides.modelCountOverride == 24 );
 
-    SceneRuntime scene( std::vector<std::string> { "alpha.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "alpha.scene.json" } );
     scene.BeginLoad( 0 );
     const SceneLoadRequest request = loadNavigation.LoadSceneFromBrowserIndex( 1, scene );
     CHECK( request.HasLoad() );
@@ -813,7 +813,7 @@ TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
                                  "ordinary_two.scene.json",
                                  "cinematic_two.scene.json" };
     navigation.browser.selectedCineModeSceneIndex = 1;
-    SceneRuntime scene( std::vector<std::string> { "ordinary.scene.json" } );
+    SceneSession scene( std::vector<std::string> { "ordinary.scene.json" } );
     scene.BeginLoad( 0 );
 
     CHECK( AdjacentCinematicModeBrowserIndex( navigation, 1, 0, false ) == 3 );

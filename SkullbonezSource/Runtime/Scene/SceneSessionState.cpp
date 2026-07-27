@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
+File: SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
 Purpose:
-  Owns scene queue and scene-run state for the application runtime.
+  Implements per-scene session state and queue-path policy.
 
 Summary:
-  SceneRuntime is intentionally narrow. It owns queue/index bookkeeping and
-  session values. SceneController/SceneWorld perform cold mutation, while
-  SceneLoadTransaction sequences the runtime and presentation reactions.
+  SceneSessionState owns reset, identity-allocation, and persistence views.
+  Stateless path helpers normalize controller-owned scene queue entries.
 
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
@@ -16,17 +15,15 @@ Glossary:
 
 Invariants:
   - Queue paths are normalized with forward slashes for comparisons.
-  - Generated demo scenes are represented by an empty queue path.
-  - Cinematic deck detection is filename-based and must match browser/load
-    helpers.
   - Scene object id 0 is reserved as "not assigned"; live allocations must never
     wrap or cross the uint32 id ceiling.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneSessionState.h
+  - SkullbonezSource/Runtime/Scene/SceneController.cpp
   - Agentic/Reference/runtime-reference.md
 */
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -39,6 +36,16 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
+
+namespace
+{
+bool IsCineScenePath( const std::string& path )
+{
+    const char* name = SceneFileNameFromPath( path.c_str() );
+    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
+           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
+}
+} // namespace
 
 
 SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveState() const
@@ -75,17 +82,6 @@ std::string SkullbonezCore::Runtime::NormalizeSceneQueuePath( const std::string&
 }
 
 
-namespace
-{
-bool IsCineScenePath( const std::string& path )
-{
-    const char* name = SceneFileNameFromPath( path.c_str() );
-    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
-}
-} // namespace
-
-
 const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
 {
 
@@ -112,7 +108,7 @@ void SceneSessionState::ResetForLoad( const SkullbonezCore::Core::CinematicRende
 {
 
     // Lifetime: This clears per-load runtime state only. Queue position, scene
-    // paths, and manual reset counts stay with SceneRuntime/SceneController.
+    // paths, and manual reset counts stay with SceneController.
     isScenePhysics = true;
     isSceneText = true;
     targetFrameCount = -1;
@@ -167,7 +163,7 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
          countValue > maxSceneObjectId - nextSceneObjectId )
     {
-        SB_FATAL( "SceneRuntime", "Scene object id range exhausted. next=%u requested=%u max=%u", nextSceneObjectId,
+        SB_FATAL( "SceneSessionState", "Scene object id range exhausted. next=%u requested=%u max=%u", nextSceneObjectId,
                   countValue, maxSceneObjectId );
     }
 
@@ -206,73 +202,61 @@ void SceneSessionState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics:
     nextSceneObjectId = nextId;
 }
 
-
-SceneRuntime::SceneRuntime( std::vector<std::string> queue ) : m_queue( std::move( queue ) )
+SceneSession::SceneSession( std::vector<std::string> queue ) : m_queue( std::move( queue ) )
 {
 }
 
-
-SceneSessionState& SceneRuntime::State()
+SceneSessionState& SceneSession::State()
 {
     return m_state;
 }
 
-
-const SceneSessionState& SceneRuntime::State() const
+const SceneSessionState& SceneSession::State() const
 {
     return m_state;
 }
 
-
-bool SceneRuntime::HasEntry( int index ) const
+bool SceneSession::HasEntry( int index ) const
 {
     return index >= 0 && index < static_cast<int>( m_queue.size() );
 }
 
-
-bool SceneRuntime::HasCurrentEntry() const
+bool SceneSession::HasCurrentEntry() const
 {
     return HasEntry( m_state.currentSceneIndex );
 }
 
-
-const std::string* SceneRuntime::CurrentPath() const
+const std::string* SceneSession::CurrentPath() const
 {
     return HasCurrentEntry() ? &m_queue[m_state.currentSceneIndex] : nullptr;
 }
 
-
-const std::string& SceneRuntime::PathAt( int index ) const
+const std::string& SceneSession::PathAt( int index ) const
 {
     return m_queue[index];
 }
 
-
-int SceneRuntime::QueueSize() const
+int SceneSession::QueueSize() const
 {
     return static_cast<int>( m_queue.size() );
 }
 
-
-int SceneRuntime::CurrentIndex() const
+int SceneSession::CurrentIndex() const
 {
     return m_state.currentSceneIndex;
 }
 
-
-int SceneRuntime::NextIndex() const
+int SceneSession::NextIndex() const
 {
     return m_state.currentSceneIndex + 1;
 }
 
-
-const std::vector<std::string>& SceneRuntime::Queue() const
+const std::vector<std::string>& SceneSession::Queue() const
 {
     return m_queue;
 }
 
-
-void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
+void SceneSession::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
 {
 
     // Hazard: generation zero is the observer sentinel. Wrapping would make a
@@ -280,7 +264,7 @@ void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy&
 
     if ( m_lifecyclePacket.generation == UINT64_MAX )
     {
-        SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle generation exhausted." );
+        SB_FATAL( "Runtime/SceneSession", "Scene lifecycle generation exhausted." );
     }
 
     ++m_lifecyclePacket.generation;
@@ -291,15 +275,13 @@ void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy&
     m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
 }
 
-
-void SceneRuntime::BeginLoad( int index )
+void SceneSession::BeginLoad( int index )
 {
     m_state.currentSceneIndex = index;
     ++m_state.loadCount;
 }
 
-
-void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
+void SceneSession::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
 
     // Hazard: accepting a skipped or repeated phase would publish plausible
@@ -308,7 +290,7 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
 
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
-        SB_FATAL( "Runtime/SceneRuntime", "Invalid scene lifecycle transition. previous=%s next=%s",
+        SB_FATAL( "Runtime/SceneSession", "Invalid scene lifecycle transition. previous=%s next=%s",
                   SceneRuntimeLifecycleEventName( m_lastLifecycleEvent ), SceneRuntimeLifecycleEventName( event ) );
     }
 
@@ -316,7 +298,7 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
 
     if ( consumers != requiredConsumers )
     {
-        SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
+        SB_FATAL( "Runtime/SceneSession", "Scene lifecycle consumer mismatch. phase=%s expected=0x%X actual=0x%X",
                   SceneRuntimeLifecycleEventName( event ), requiredConsumers, consumers );
     }
 
@@ -325,20 +307,17 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
     m_lifecyclePacket.sceneMode = m_state.isSceneMode;
 }
 
-
-const SceneLifecyclePacket& SceneRuntime::LifecyclePacket() const
+const SceneLifecyclePacket& SceneSession::LifecyclePacket() const
 {
     return m_lifecyclePacket;
 }
 
-
-void SceneRuntime::MarkManualReset()
+void SceneSession::MarkManualReset()
 {
     ++m_state.manualResetCount;
 }
 
-
-int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
+int SceneSession::FindNormalizedPath( const std::string& normalizedPath ) const
 {
 
     for ( int i = 0; i < QueueSize(); ++i )
@@ -353,8 +332,7 @@ int SceneRuntime::FindNormalizedPath( const std::string& normalizedPath ) const
     return -1;
 }
 
-
-int SceneRuntime::FindGeneratedDemo() const
+int SceneSession::FindGeneratedDemo() const
 {
 
     for ( int i = 0; i < QueueSize(); ++i )
@@ -369,15 +347,13 @@ int SceneRuntime::FindGeneratedDemo() const
     return -1;
 }
 
-
-int SceneRuntime::Append( std::string path )
+int SceneSession::Append( std::string path )
 {
     m_queue.push_back( std::move( path ) );
     return QueueSize() - 1;
 }
 
-
-bool SceneRuntime::CurrentQueueIsCinematicDeck() const
+bool SceneSession::CurrentQueueIsCinematicDeck() const
 {
 
     if ( !HasCurrentEntry() || m_queue.size() <= 1 )
@@ -397,8 +373,7 @@ bool SceneRuntime::CurrentQueueIsCinematicDeck() const
     return true;
 }
 
-
-int SceneRuntime::AdjacentQueueIndex( int direction ) const
+int SceneSession::AdjacentQueueIndex( int direction ) const
 {
     const int queueCount = QueueSize();
 

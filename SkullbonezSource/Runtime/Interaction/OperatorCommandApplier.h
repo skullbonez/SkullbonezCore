@@ -47,7 +47,7 @@ Related:
 #include "../Render/RenderDefaultsStore.h"
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Camera/RuntimeCameraMode.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../../UI/UICommands.h"
 
 namespace SkullbonezCore

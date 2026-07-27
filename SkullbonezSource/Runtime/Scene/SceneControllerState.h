@@ -35,7 +35,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-class SceneRuntime;
+class SceneSession;
 struct SceneLoadRequest;
 
 // Value snapshot passed into one cold load transaction. Browser display names
@@ -47,19 +47,19 @@ struct SceneLoadNavigationState
     SkullbonezCore::UI::RunSceneUIOverrideState overrides;
     int selectedCineModeSceneIndex = -1;
 
-    SceneLoadRequest LoadSceneFromBrowserIndex( int index, SceneRuntime& scene ) const;
-    SceneLoadRequest LoadDemoScene( SceneRuntime& scene ) const;
+    SceneLoadRequest LoadSceneFromBrowserIndex( int index, SceneSession& scene ) const;
+    SceneLoadRequest LoadDemoScene( SceneSession& scene ) const;
 };
 
 // Runtime owns navigation policy because these decisions borrow the concrete
 // scene queue. The UI model remains a passive presentation value.
 SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index,
-                                            SceneRuntime& scene );
-SceneLoadRequest LoadDemoScene( SceneRuntime& scene );
+                                            SceneSession& scene );
+SceneLoadRequest LoadDemoScene( SceneSession& scene );
 int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
                                        int currentSceneBrowserIndex, bool isCinematicTabActive );
 SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
-                                    int currentSceneBrowserIndex, SceneRuntime& scene );
+                                    int currentSceneBrowserIndex, SceneSession& scene );
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const SkullbonezCore::UI::SceneNavigationModel& navigation );
 void ApplySceneLoadNavigationState( SkullbonezCore::UI::SceneNavigationModel& navigation,
                                     const SceneLoadNavigationState& state );

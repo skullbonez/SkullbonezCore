@@ -748,7 +748,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 7/33 (21%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 8/33 (24%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -757,8 +757,9 @@ under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
 the live inventory under rule 4. Plan 5 `runtime-frame-view-retirement` closed
 FV0, then blocked at FV1 because its concrete-only endpoint, parameter ceiling,
 short schedule, and carrier ban are jointly unsatisfiable for the fixed-step
-coordinator. Plan 8 `scene-runtime-verb-partition-consolidation` closed SR0-SR1;
-state-owning operations are behind concrete owners or GV2, and SR2 is binding.
+coordinator. Plan 8 `scene-runtime-verb-partition-consolidation` closed SR0-SR2;
+state-owning operations and residual names are behind concrete owners,
+transactions, or pure domain concepts, and SR3 is binding.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2063,7 +2064,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Blocked | 1/4 | [FV1 blocker](../Reports/2026-07-27/runtime-frame-view-retirement-fv1-blocker.md): the fixed-step coordinator cannot simultaneously use only concrete operands, stay at 12 parameters, keep `Run::Execute` short, and avoid every coordination carrier |
 | 6 | [render-backend-service-bag-removal](../Reports/2026-07-27/render-backend-service-bag-removal-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; the eleven-pointer bag is deleted, optional capability presence is explicit, and all final gates pass without baseline refresh |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
-| 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | In progress | 2/4 | SR0-SR1 ruled and moved state-owning operations; **binding next task: SR2** |
+| 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | In progress | 3/4 | SR0-SR2 ruled and moved state-owning operations, then resolved the residual owner/domain naming; **binding next task: SR3** |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |
 | 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | Not started | 0/3 | After plans 2 and 7 change the physics source these tests cover |
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 ratified 2026-07-27: fatal in Debug/Profile, counted in Release |

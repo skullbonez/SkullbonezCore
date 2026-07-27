@@ -30,7 +30,7 @@ Related:
 #include "SceneLoadPreparation.h"
 #include "../../Core/WindowConstants.h"
 #include "SceneController.h"
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 #include "../../Core/Log.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 

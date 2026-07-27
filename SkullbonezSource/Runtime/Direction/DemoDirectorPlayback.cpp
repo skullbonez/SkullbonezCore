@@ -16,7 +16,7 @@ Glossary:
     selected.
   Director advance: Manual, timer, or reveal-synced rule that selects the next
     authored phase without changing simulation ownership.
-  Phase style: Optional `.style.json` applied through SceneRuntimeStyle when a
+  Phase style: Optional `.style.json` applied through SceneCinematicPolicy when a
     phase becomes active.
   Lane R result: Recoverable style-load failure that skips the phase style while
     Director playback continues.
@@ -29,7 +29,7 @@ Invariants:
     listener, replay, and screenshot paths keep using the normal camera owner.
   - Camera and style writes derive from the same borrowed SceneWorld so phase
     playback cannot combine presentation state from different scenes.
-  - Phase style writes go through SceneRuntimeStyle so material/cinematic
+  - Phase style writes go through SceneCinematicPolicy so material/cinematic
     changes stay inside the existing render-facing scene owner.
   - Reveal-rate writes only affect replay overlay presentation timing; they
     must not mark prediction dirty or rebuild private physics state.
@@ -41,7 +41,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
 */
 #include "DemoDirectorPlayback.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneWorld.h"
 

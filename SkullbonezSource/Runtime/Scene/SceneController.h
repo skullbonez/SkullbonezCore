@@ -10,7 +10,7 @@ Summary:
   scene; callers borrow it instead of reaching domains through forwarding.
 
 Glossary:
-  Scene runtime: Current scene state plus queue navigation data.
+  Scene session: Current scene state plus controller-owned queue navigation data.
   Scene queue: Ordered authored scene list, with an empty path selecting the
     generated demo scene.
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
@@ -29,7 +29,7 @@ Invariants:
   - Queue index lookups must normalize path separators before matching.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneSessionState.h
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
@@ -40,8 +40,8 @@ Related:
 #include "SceneAutomationGateConfiguration.h"
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
-#include "SceneRuntime.h"
-#include "SceneRuntimeCoordinator.h"
+#include "SceneSessionState.h"
+#include "SceneLoadRequest.h"
 #include "SceneLoadPresentation.h"
 #include "SceneWorld.h"
 #include "../Camera/CameraControlState.h"
@@ -160,14 +160,11 @@ struct SceneLoadCompletedWorldChange
     float fluidDensity = 0.0f;
 };
 
-class SceneController
+class SceneController : public SceneSession
 {
   public:
     SceneController();
     explicit SceneController( std::vector<std::string> queue );
-
-    SceneSessionState& State();
-    const SceneSessionState& State() const;
 
     // Borrow the concrete active-scene owner. SceneController deliberately has
     // no duplicate entity/physics/camera/terrain/render forwarding surface.
@@ -183,25 +180,7 @@ class SceneController
                                           bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                           double elapsedSeconds );
 
-    bool HasEntry( int index ) const;
-    bool HasCurrentEntry() const;
-    const std::string* CurrentPath() const;
-    const std::string& PathAt( int index ) const;
-    int QueueSize() const;
-    int CurrentIndex() const;
-    int NextIndex() const;
-    const std::vector<std::string>& Queue() const;
-
-    void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
-    void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
-    const SceneLifecyclePacket& LifecyclePacket() const;
-    void MarkManualReset();
-    int FindNormalizedPath( const std::string& normalizedPath ) const;
-    int FindGeneratedDemo() const;
-    int Append( std::string path );
-    bool CurrentQueueIsCinematicDeck() const;
-    int AdjacentQueueIndex( int direction ) const;
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
@@ -237,11 +216,9 @@ class SceneController
     SkullbonezCore::Core::SbResult SubmitCreateScene( const char* requestedName );
     SceneLoadRequest CreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
-    SceneRuntimeUICommandResult SubmitUIRequests( const UI::UISceneCommands& commands );
+    SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
-    SceneRuntime& Runtime();
-    const SceneRuntime& Runtime() const;
 
   private:
     friend class SceneLoadTransaction;
@@ -258,7 +235,6 @@ class SceneController
           Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
           SceneLoadTransaction& transaction );
 
-    SceneRuntime m_runtime;               // Scene queue and active scene-run state
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.
     bool m_crossScenePauseLocked = false; // Operator scene-flow lock preserved across load transactions.

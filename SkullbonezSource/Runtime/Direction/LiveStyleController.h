@@ -25,12 +25,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/LiveStyleController.cpp
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
+  - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 
 #include <cstdint>
 

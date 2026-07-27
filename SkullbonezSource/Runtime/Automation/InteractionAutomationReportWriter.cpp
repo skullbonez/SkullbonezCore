@@ -41,7 +41,7 @@ Related:
 #include "../Replay/ReplayV2Artifact.h"
 #include "../Camera/CameraControlState.h"
 #include "../Tools/RuntimeFileWriter.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../Tools/RuntimeTools.h"
 

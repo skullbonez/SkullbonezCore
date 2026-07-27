@@ -48,8 +48,8 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/OperatorCommandApplier.h"
-#include "../Scene/SceneRuntimeGeneratedControls.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneGeneratedControlTransaction.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
@@ -478,7 +478,7 @@ void RecordCinematicTuningUIActions( const CinematicTuningUICommandResult& comma
 }
 
 template <typename RecordAction>
-void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, RecordAction recordAction )
+void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, RecordAction recordAction )
 {
 
     if ( commands.resetScene )
@@ -1108,7 +1108,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                                                    uiCommands.physics );
 
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
-    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
+    const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action )
     {
 
         if ( action.resetReplayTimeline )
@@ -1243,7 +1243,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                                                                                    uiCommands.cinematic );
 
     RecordCinematicTuningUIActions( cinematicTuningCommands, recordUIAction );
-    const SceneRuntimeUICommandResult sceneUICommands = sceneController.SubmitUIRequests( uiCommands.scene );
+    const SceneUICommandSubmissionResult sceneUICommands = sceneController.SubmitUIRequests( uiCommands.scene );
 
     if ( !sceneUICommands.status.ok )
     {
@@ -1251,7 +1251,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
         return result;
     }
 
-    RecordSceneRuntimeUIActions( sceneUICommands, recordUIAction );
+    RecordSceneUIActions( sceneUICommands, recordUIAction );
 
     return result;
 }

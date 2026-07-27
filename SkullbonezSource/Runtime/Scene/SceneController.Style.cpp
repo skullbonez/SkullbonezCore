@@ -26,7 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeStyle.h"
+#include "SceneCinematicPolicy.h"
 #include "SceneController.h"
 #include "../../Core/WindowConstants.h"
 #include "../Diagnostics/OverlayDebugState.h"

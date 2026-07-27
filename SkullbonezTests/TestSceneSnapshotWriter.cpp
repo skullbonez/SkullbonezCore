@@ -43,7 +43,7 @@ Related:
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
-#include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneSessionState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneSaveOperations.h"
 #include "../SkullbonezSource/Scene/SceneSnapshotWriter.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"

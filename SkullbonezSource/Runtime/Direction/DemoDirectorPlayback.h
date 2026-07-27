@@ -19,7 +19,7 @@ Invariants:
   - Helpers must stay presentation-only and must not mutate physics state.
   - Per-frame camera writes derive CameraCollection from the same SceneWorld
     used for style writes, so callers cannot pair mismatched scene owners.
-  - Style writes go through SceneRuntimeStyle so object material/cinematic
+  - Style writes go through SceneCinematicPolicy so object material/cinematic
     changes remain in the existing scene-style owner.
   - Reveal pacing writes stay on replay presentation state and do not rebuild
     prediction physics samples.

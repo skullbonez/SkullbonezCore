@@ -9,7 +9,7 @@ Summary:
   presentation consumers instead of mutating render feedback through relays.
 
 Glossary:
-  Scene runtime: Mutable per-scene queue, completion, and automation state.
+  Scene session: Mutable per-scene queue, completion, and automation state.
   Scene queue: Ordered list of authored scenes or demo entries to run.
   Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
   Post-step output: Borrowed bounded physics facts consumed before the next step.
@@ -17,31 +17,24 @@ Glossary:
     that can advance scene work.
 
 Invariants:
-  - Controller accessors must preserve the existing SceneRuntime semantics.
+  - Scene queue, session, and lifecycle state have one concrete owner.
   - Interactive scene requests cannot bypass the controller-owned ring.
   - Frame completion returns value-only load/quit/hold intent to the process shell.
   - Physics post-step spans borrow fixed-capacity rows only until the next step.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
+  - SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
 */
 #include "SceneController.h"
 #include "../Automation/RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"
-#include "../../Core/Log.h"
-#include "../../Core/WorkerPool.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsDiagnosticsSink.h"
-#include "../../Physics/PhysicsWorldForces.h"
 
-#include <cstdarg>
-#include <cstdio>
 #include <cstring>
 #include <utility>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -59,21 +52,21 @@ SceneController::SceneController()
 
 void SceneController::EnterInteractiveRun()
 {
-    m_runtime.State().isInteractiveRun = true;
-    m_runtime.State().isExitOnComplete = false;
+    State().isInteractiveRun = true;
+    State().isExitOnComplete = false;
 }
 
 
 bool SceneController::CanAutomationQuit() const
 {
-    return !m_runtime.State().isInteractiveRun;
+    return !State().isInteractiveRun;
 }
 
 
 void SceneController::MarkInteractiveRunComplete()
 {
-    m_runtime.State().isTestComplete = true;
-    m_runtime.State().isExitOnComplete = false;
+    State().isTestComplete = true;
+    State().isExitOnComplete = false;
 }
 
 
@@ -98,22 +91,9 @@ SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepReque
 }
 
 
-SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
+SceneController::SceneController( std::vector<std::string> queue ) : SceneSession( std::move( queue ) )
 {
 }
-
-
-SceneSessionState& SceneController::State()
-{
-    return m_runtime.State();
-}
-
-
-const SceneSessionState& SceneController::State() const
-{
-    return m_runtime.State();
-}
-
 
 SceneWorld& SceneController::Scene()
 {
@@ -124,66 +104,6 @@ SceneWorld& SceneController::Scene()
 const SceneWorld& SceneController::Scene() const
 {
     return m_world;
-}
-
-
-bool SceneController::HasEntry( int index ) const
-{
-    return m_runtime.HasEntry( index );
-}
-
-
-bool SceneController::HasCurrentEntry() const
-{
-    return m_runtime.HasCurrentEntry();
-}
-
-
-const std::string* SceneController::CurrentPath() const
-{
-    return m_runtime.CurrentPath();
-}
-
-
-const std::string& SceneController::PathAt( int index ) const
-{
-    return m_runtime.PathAt( index );
-}
-
-
-int SceneController::QueueSize() const
-{
-    return m_runtime.QueueSize();
-}
-
-
-int SceneController::CurrentIndex() const
-{
-    return m_runtime.CurrentIndex();
-}
-
-
-int SceneController::NextIndex() const
-{
-    return m_runtime.NextIndex();
-}
-
-
-const std::vector<std::string>& SceneController::Queue() const
-{
-    return m_runtime.Queue();
-}
-
-
-void SceneController::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
-{
-    m_runtime.BeginLoadAttempt( index, lifecyclePolicy );
-}
-
-
-void SceneController::BeginLoad( int index )
-{
-    m_runtime.BeginLoad( index );
 }
 
 
@@ -210,51 +130,8 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
                   SceneRuntimeLifecycleEventName( event ), entityCount, bodyCount, colliderCount );
     }
 
-    m_runtime.RecordLifecycleEvent( event, consumers );
+    SceneSession::RecordLifecycleEvent( event, consumers );
 }
-
-
-const SceneLifecyclePacket& SceneController::LifecyclePacket() const
-{
-    return m_runtime.LifecyclePacket();
-}
-
-
-void SceneController::MarkManualReset()
-{
-    m_runtime.MarkManualReset();
-}
-
-
-int SceneController::FindNormalizedPath( const std::string& normalizedPath ) const
-{
-    return m_runtime.FindNormalizedPath( normalizedPath );
-}
-
-
-int SceneController::FindGeneratedDemo() const
-{
-    return m_runtime.FindGeneratedDemo();
-}
-
-
-int SceneController::Append( std::string path )
-{
-    return m_runtime.Append( std::move( path ) );
-}
-
-
-bool SceneController::CurrentQueueIsCinematicDeck() const
-{
-    return m_runtime.CurrentQueueIsCinematicDeck();
-}
-
-
-int SceneController::AdjacentQueueIndex( int direction ) const
-{
-    return m_runtime.AdjacentQueueIndex( direction );
-}
-
 
 void SceneController::SubmitLoadBrowserIndex( int index )
 {
@@ -358,7 +235,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         return result;
     }
 
-    ++m_runtime.State().currentFrame;
+    ++State().currentFrame;
     const bool hasRequiredSceneGate = automationGates.hasRequirements;
     const bool requiredSceneComplete = automationGates.complete;
 
@@ -366,9 +243,9 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
     {
         result.finishReason = reason;
 
-        if ( m_runtime.State().isExitOnComplete && CanAutomationQuit() )
+        if ( State().isExitOnComplete && CanAutomationQuit() )
         {
-            result.loadRequest = AdvanceScene( perfTestActive, m_runtime.State().isInteractiveRun );
+            result.loadRequest = AdvanceScene( perfTestActive, State().isInteractiveRun );
             result.requestQuit = !result.loadRequest.HasLoad();
             result.quitIfLoadFails = true;
             result.restartFrame = true;
@@ -377,7 +254,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
 
         if ( CanAutomationQuit() )
         {
-            m_runtime.State().isTestComplete = true;
+            State().isTestComplete = true;
         }
         else
         {
@@ -386,7 +263,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         }
     };
 
-    if ( hasRequiredSceneGate && requiredSceneComplete && !m_runtime.State().isTestComplete )
+    if ( hasRequiredSceneGate && requiredSceneComplete && !State().isTestComplete )
     {
         finishInteractiveOrQueueNext( "required_scene_gates" );
 
@@ -396,12 +273,11 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         }
     }
 
-    if ( m_runtime.State().targetFrameCount > 0 && !screenshotSaved &&
-         m_runtime.State().currentFrame >= m_runtime.State().targetFrameCount )
+    if ( State().targetFrameCount > 0 && !screenshotSaved && State().currentFrame >= State().targetFrameCount )
     {
         const bool frameCountCompletesScene = !hasRequiredSceneGate || requiredSceneComplete;
 
-        if ( !m_runtime.State().isTestComplete )
+        if ( !State().isTestComplete )
         {
             result.finishReason = frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing";
         }
@@ -420,21 +296,20 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         }
     }
 
-    if ( !m_runtime.State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
+    if ( !State().isSceneMode && !manualCameraActive && elapsedSeconds > 20.0 )
     {
-        result.loadRequest = SceneLoadRequest::Load( m_runtime.State().currentSceneIndex, m_runtime.State().isInteractiveRun,
-                                                     m_runtime.State().isInteractiveRun,
-                                                     m_runtime.State().isInteractiveRun );
+        result.loadRequest = SceneLoadRequest::Load( State().currentSceneIndex, State().isInteractiveRun,
+                                                     State().isInteractiveRun, State().isInteractiveRun );
 
         result.restartFrame = true;
         result.restartSimulationTimerAfterLoad = true;
         return result;
     }
 
-    if ( perfTestActive && m_runtime.State().targetFrameCount <= 0 && elapsedSeconds > SCENE_PERF_PASS_SECONDS )
+    if ( perfTestActive && State().targetFrameCount <= 0 && elapsedSeconds > SCENE_PERF_PASS_SECONDS )
     {
         result.finishReason = "perf_duration";
-        result.loadRequest = AdvanceScene( true, m_runtime.State().isInteractiveRun );
+        result.loadRequest = AdvanceScene( true, State().isInteractiveRun );
         result.restartFrame = true;
 
         if ( !result.loadRequest.HasLoad() )
@@ -455,18 +330,6 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
     }
 
     return result;
-}
-
-
-SceneRuntime& SceneController::Runtime()
-{
-    return m_runtime;
-}
-
-
-const SceneRuntime& SceneController::Runtime() const
-{
-    return m_runtime;
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

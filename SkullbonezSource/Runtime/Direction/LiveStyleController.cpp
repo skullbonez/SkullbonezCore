@@ -28,7 +28,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 #include "../Capture/CaptureController.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../../Scene/AuthoredScene.h"
 #include <cstdio>
 #include <cstring>

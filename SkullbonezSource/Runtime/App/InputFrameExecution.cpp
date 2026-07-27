@@ -61,9 +61,9 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/OperatorCommandApplier.h"
-#include "../Scene/SceneRuntimeGeneratedControls.h"
+#include "../Scene/SceneGeneratedControlTransaction.h"
 #include "../Scene/SceneLoadTransaction.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Scene/SceneController.h"
 #include "../../Core/Log.h"
 #include "../../Physics/ColliderStore.h"
@@ -821,7 +821,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
             if ( !appliedCinematic )
             {
-                executeSceneLoadRequest( LoadAdjacentScene( sceneNavigation, direction, currentSceneBrowserIndex, sceneController.Runtime() ) );
+                executeSceneLoadRequest( LoadAdjacentScene( sceneNavigation, direction, currentSceneBrowserIndex, sceneController ) );
             }
 
             break;

@@ -33,7 +33,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneControllerState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneAuthoredSetup.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/CollisionShape.h"

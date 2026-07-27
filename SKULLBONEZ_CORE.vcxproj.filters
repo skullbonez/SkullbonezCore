@@ -273,7 +273,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp">
@@ -300,7 +300,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Preparation.cpp">
@@ -1078,7 +1078,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSessionState.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.h">
@@ -1087,10 +1087,10 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadRequest.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPreparation.h">
@@ -1099,7 +1099,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h">
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCinematicPolicy.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPresentation.h">

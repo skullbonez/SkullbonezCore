@@ -32,7 +32,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../App/RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneEntityStore.h"

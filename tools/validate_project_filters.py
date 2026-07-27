@@ -379,19 +379,14 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneTerrain",
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",
-    "SceneRuntime",
-    "SceneRuntimeCreate",
-    "SceneRuntimeCoordinator",
-    "SceneRuntimeDefaults",
+    "SceneCinematicPolicy",
     "SceneRequestQueue",
     "SceneSaveOperations",
     "SceneEntityStore",
+    "SceneGeneratedControlTransaction",
     "SceneNavigationModel",
-    "SceneRuntimeGeneratedControls",
-    "SceneRuntimeLoad",
-    "SceneRuntimeReset",
-    "SceneRuntimeStyle",
-    "SceneRuntimeUiOptions",
+    "SceneLoadRequest",
+    "SceneSessionState",
 )
 
 CORE_ALLOCATION_PREFIXES = (

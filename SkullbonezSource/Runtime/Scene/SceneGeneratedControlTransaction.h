@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
+File: SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h
 Purpose:
   Declares the phase-enforcing generated-scene rebuild transaction.
 
@@ -39,7 +39,7 @@ Related:
 
 #include "SceneControllerState.h"
 #include "SceneGeneratedSetup.h"
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 #include "../Camera/CameraControlState.h"
 #include "../../Core/SbResult.h"
 
@@ -101,7 +101,7 @@ class SceneGeneratedControlPhaseCursor
     Phase m_phase = Phase::Idle;
 };
 
-struct SceneRuntimeGeneratedControlAction
+struct SceneGeneratedControlAction
 {
 
     // Lane R: callers must terminate the current command/frame when a GPU
@@ -114,7 +114,7 @@ struct SceneRuntimeGeneratedControlAction
 struct SceneGeneratedUICommandResult
 {
     bool accepted = false;
-    SceneRuntimeGeneratedControlAction action;
+    SceneGeneratedControlAction action;
 };
 
 // Invariant:

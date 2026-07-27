@@ -1228,7 +1228,7 @@
       "removal_or_wrapper_plan": "Replace optional emplacement with an in-place lifecycle-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneSessionState.cpp",
       "patterns": [
         ".push_back("
       ],
@@ -1239,7 +1239,7 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.h",
+      "path": "SkullbonezSource/Runtime/Scene/SceneSessionState.h",
       "patterns": [
         "std::string",
         "std::vector<"

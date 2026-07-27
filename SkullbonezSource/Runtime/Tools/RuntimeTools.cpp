@@ -59,7 +59,7 @@ Related:
 #include "../Interaction/RuntimeInteractionCommands.h"
 #include "../Interaction/RuntimeInteractionController.h"
 #include "../Replay/ReplayToolPackets.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 

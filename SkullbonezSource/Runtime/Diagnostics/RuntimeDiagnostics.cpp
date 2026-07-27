@@ -39,7 +39,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Core/Profiler.h"
 #include "../Replay/ReplayRecorder.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../../Core/PlatformWin32.h"
 
 #include <array>

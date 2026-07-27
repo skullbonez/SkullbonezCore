@@ -27,7 +27,7 @@ Related:
 
 #include "EditorTools.h"
 #include "../Scene/SceneControllerState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"

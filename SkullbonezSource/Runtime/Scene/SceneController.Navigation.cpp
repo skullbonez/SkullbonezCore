@@ -74,9 +74,9 @@ int SceneController::PerfPass() const
     return m_perfPass;
 }
 
-SceneRuntimeUICommandResult SceneController::SubmitUIRequests( const UI::UISceneCommands& commands )
+SceneUICommandSubmissionResult SceneController::SubmitUIRequests( const UI::UISceneCommands& commands )
 {
-    SceneRuntimeUICommandResult result;
+    SceneUICommandSubmissionResult result;
 
     if ( commands.resetScene )
     {

@@ -1,13 +1,13 @@
 # Scene Runtime Verb Partition Consolidation
 
 Date: 2026-07-26
-Status: IN PROGRESS — SR0-SR1 closed 2026-07-27. State-owning operations now
-sit behind `SceneController`, `SceneNavigationModel`, `RenderDefaultsStore`, or
-the existing GV2 transaction. SR2 is binding.
+Status: IN PROGRESS — SR0-SR2 closed 2026-07-27. State-owning operations and
+residual names now sit behind concrete owners, transactions, or pure domain
+concepts. SR3 is binding.
 Drafted from the 2026-07-26 from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 8 of the Architecture Follow-Up Campaign
-Round 5. Starts after `ceremonial-aggregate-elimination` closes. 2/4 phases
+Round 5. Starts after `ceremonial-aggregate-elimination` closes. 3/4 phases
 complete.
 Impact area: `Runtime/Scene/SceneRuntime*.{h,cpp}`,
 `Runtime/Scene/SceneController.*`, `Runtime/Scene/SceneRequestExecution.cpp`,
@@ -120,7 +120,7 @@ named after a verb.
   Fast, Physics, and full gates pass without baseline motion. Evidence:
   `../../Reports/2026-07-27/scene-runtime-verb-partition-sr1-owner-moves.md`.
 
-- [ ] **SR2 — Resolve the residual naming.**
+- [x] **SR2 — Resolve the residual naming.**
   Rename any surviving unit to the owner or domain concept it actually carries,
   eliminating `Runtime` as a filler token per the Migration Cleanup Review Rule.
   `SceneRuntimeCoordinator` must either be a real named owner with stated
@@ -133,6 +133,13 @@ named after a verb.
   `rg -n 'SceneRuntime(Create|Style|UiOptions|Defaults|GeneratedControls|Reset|Coordinator)' SkullbonezSource SkullbonezTests`
   returns no rows, or only rows for a unit whose header states the owner it
   implements; project and filter files match the source tree exactly.
+  Closed 2026-07-27. The queue, session state, and lifecycle ledger now belong
+  to `SceneSession`, folded directly into `SceneController` without a
+  forwarding accessor. Residual headers and types carry their load-request,
+  cinematic-policy, generated-control-transaction, or UI-submission names.
+  Tracked-source search returns zero forbidden rows; production and test project
+  filters match exactly. Evidence:
+  `../../Reports/2026-07-27/scene-runtime-verb-partition-sr2-residual-naming.md`.
 
 - [ ] **SR3 — Reconcile, review, and hand off.**
   Re-run the SR0 census. Complete the comment audit for every touched file.

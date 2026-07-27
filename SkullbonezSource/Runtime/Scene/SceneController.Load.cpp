@@ -61,10 +61,10 @@ Related:
 #include "../App/RunTimerState.h"
 #include "../App/Window.h"
 #include "../Render/RuntimeRenderer.h"
-#include "SceneRuntimeCoordinator.h"
+#include "SceneLoadRequest.h"
 #include "SceneLoadPreparation.h"
 #include "SceneSaveOperations.h"
-#include "SceneRuntimeStyle.h"
+#include "SceneCinematicPolicy.h"
 #include "../Editor/EditorTools.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/Ragdoll.h"
@@ -947,7 +947,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     bool sceneMutualGravityEnabled = false;
     AuthoredTornadoSystemConfig sceneTornadoSystem;
 
-    // Each bit is attached to its concrete call above. SceneRuntime rejects the
+    // Each bit is attached to its concrete call above. SceneController rejects the
     // phase if a future edit drops an owner receipt without updating policy.
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared, afterClearConsumers );
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );

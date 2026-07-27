@@ -44,9 +44,9 @@ Related:
 #include "../Interaction/OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
 #include "../Scene/SceneLoadTransaction.h"
-#include "../Scene/SceneRuntimeCoordinator.h"
-#include "../Scene/SceneRuntimeGeneratedControls.h"
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneLoadRequest.h"
+#include "../Scene/SceneGeneratedControlTransaction.h"
+#include "../Scene/SceneCinematicPolicy.h"
 #include "../Tools/RuntimeTools.h"
 #include "../App/Window.h"
 #include "../../Assets/AssetSystem.h"
@@ -921,7 +921,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host, Runtime
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
     const int generatedObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
 
-    const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
+    const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
 
         if ( !action.status.ok )
@@ -1178,7 +1178,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         {
             selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
             selectedSceneSource = "browser";
-            request = LoadSceneFromBrowserIndex( ui.SceneNavigation(), selectedSceneIndex, sceneController.Runtime() );
+            request = LoadSceneFromBrowserIndex( ui.SceneNavigation(), selectedSceneIndex, sceneController );
         }
 
         if ( executeSceneLoadRequest( request ) )

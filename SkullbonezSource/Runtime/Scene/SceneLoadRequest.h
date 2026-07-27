@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
+File: SkullbonezSource/Runtime/Scene/SceneLoadRequest.h
 Purpose:
-  Declares scene navigation load decisions and UI request submission helpers.
+  Declares value-only scene load and UI submission results.
 
 Summary:
   SceneController owns queue navigation, borrows the UI-owned browser value for
@@ -23,7 +23,7 @@ Invariants:
   - SceneController converts one borrowed browser selection into a value request.
   - Navigation results contain values only; they retain no Run backpointer,
     callback, or borrowed execution context.
-  - Scene queue indices stay owned by SceneController/SceneRuntime.
+  - Scene queue indices stay owned by SceneController.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
@@ -89,7 +89,7 @@ struct SceneLoadRequest
     }
 };
 
-struct SceneRuntimeUICommandResult
+struct SceneUICommandSubmissionResult
 {
 
     // Invariant: flags report accepted UI commands for InputFrame transition

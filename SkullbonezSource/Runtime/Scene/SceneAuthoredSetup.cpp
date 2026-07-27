@@ -39,7 +39,7 @@ Related:
 #include "SceneAuthoredSetup.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 #include "../Camera/CameraCollection.h"
 #include "../Editor/EditorHullAssets.h"
 #include "SceneController.h"

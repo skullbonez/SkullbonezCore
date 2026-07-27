@@ -28,7 +28,7 @@ Related:
 #include "SceneLoadTransaction.h"
 #include "SceneResetPreservation.h"
 #include "SceneController.h"
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../../World/WorldEnvironment.h"
 

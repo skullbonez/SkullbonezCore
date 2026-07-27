@@ -36,7 +36,7 @@ Related:
 #include "../Diagnostics/OverlayDebugState.h"
 #include "../Render/RuntimeRenderer.h"
 #include "../Scene/SceneWorld.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"

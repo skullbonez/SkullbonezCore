@@ -1,12 +1,11 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntime.h
+File: SkullbonezSource/Runtime/Scene/SceneSessionState.h
 Purpose:
-  Owns scene queue and scene-run state for the application runtime.
+  Defines per-scene session state and queue-path policy.
 
 Summary:
-  SceneRuntime owns queue/index bookkeeping and session values.
-  SceneController owns lifecycle and cold mutation, while Run coordinates
-  higher-level process work around those concrete owners.
+  SceneSessionState holds values that reset or advance with scene loads.
+  SceneController owns this state together with queue and lifecycle policy.
 
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
@@ -17,8 +16,8 @@ Glossary:
     and the last ordered phase that attempt reached.
 
 Invariants:
-  - `SceneSessionState::ResetForLoad` resets per-load state but preserves queue and
-    manual-run ownership held by SceneRuntime/SceneController.
+  - `SceneSessionState::ResetForLoad` resets per-load state but preserves
+    controller-owned queue and manual-run state.
   - Empty scene paths mean generated demo scene and are not filesystem paths.
   - Lifecycle generation advances once before the first mutation of every load
     attempt that crossed preflight, including attempts that later fail.
@@ -26,7 +25,8 @@ Invariants:
     reset.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
+  - SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
@@ -49,10 +49,6 @@ namespace SkullbonezCore
 namespace Physics
 {
 class PhysicsBodyStore;
-}
-namespace Runtime
-{
-class SceneController;
 }
 namespace Runtime
 {
@@ -113,11 +109,14 @@ struct SceneSessionState
     SkullbonezCore::Core::CinematicRenderConfig cinematicRender;
 };
 
-class SceneRuntime
+// Owns the queue/session/lifecycle ledger shared by SceneController and
+// render-free policy tests. SceneController inherits this surface directly;
+// there is no forwarding sub-owner or runtime escape hatch.
+class SceneSession
 {
   public:
-    SceneRuntime() = default;
-    explicit SceneRuntime( std::vector<std::string> queue );
+    SceneSession() = default;
+    explicit SceneSession( std::vector<std::string> queue );
 
     SceneSessionState& State();
     const SceneSessionState& State() const;
@@ -131,8 +130,6 @@ class SceneRuntime
     int NextIndex() const;
     const std::vector<std::string>& Queue() const;
 
-    // Opens the generation only after preflight succeeds, before any load
-    // mutation or lifecycle event. BeginLoad later commits queue state.
     void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
@@ -150,5 +147,6 @@ class SceneRuntime
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
     SceneLifecyclePacket m_lifecyclePacket;
 };
+
 } // namespace Runtime
 } // namespace SkullbonezCore

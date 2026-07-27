@@ -63,7 +63,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../App/Window.h"
 #include "../Scene/SceneController.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../App/InputFrame.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Editor/EditorTools.h"

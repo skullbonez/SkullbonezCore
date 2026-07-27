@@ -16,7 +16,7 @@
       "mode": "deny",
       "target_prefixes": ["Assets", "Gameplay", "Scene", "World", "Runtime", "UI"],
       "positive_target": "Core/Common.h",
-      "negative_targets": ["Assets/AssetKeys.h", "Scene/AuthoredScene.h", "Runtime/Scene/SceneRuntime.h"],
+      "negative_targets": ["Assets/AssetKeys.h", "Scene/AuthoredScene.h", "Runtime/Scene/SceneSessionState.h"],
       "negative_include_fixtures": [
         {
           "target": "World/Terrain.h",
@@ -198,7 +198,7 @@
       "mode": "allow",
       "target_scope": "Runtime",
       "allowed_target_prefixes": ["Runtime/Simulation", "Runtime/Interaction", "Runtime/Scene"],
-      "positive_target": "Runtime/Scene/SceneRuntime.h",
+      "positive_target": "Runtime/Scene/SceneSessionState.h",
       "negative_target": "Runtime/App/ReplayRuntime.h"
     },
     {

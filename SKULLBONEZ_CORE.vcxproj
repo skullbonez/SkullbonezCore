@@ -329,7 +329,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.Browser.cpp" />
@@ -338,7 +338,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Navigation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestExecution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Preparation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.Reset.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Style.cpp" />
@@ -611,14 +611,14 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSessionState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCoordinator.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeGeneratedControls.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadRequest.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedControlTransaction.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPreparation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneResetPreservation.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCinematicPolicy.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadPresentation.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Planning\ReplayOverlayRenderer.h" />

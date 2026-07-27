@@ -94,11 +94,11 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
         switch ( request.type )
         {
         case SceneRequestType::LoadBrowserIndex:
-            accepted = executeSceneLoadRequest( navigation.LoadSceneFromBrowserIndex( request.index, sceneController.Runtime() ) );
+            accepted = executeSceneLoadRequest( navigation.LoadSceneFromBrowserIndex( request.index, sceneController ) );
 
             break;
         case SceneRequestType::LoadDemoScene:
-            accepted = executeSceneLoadRequest( navigation.LoadDemoScene( sceneController.Runtime() ) );
+            accepted = executeSceneLoadRequest( navigation.LoadDemoScene( sceneController ) );
             break;
         case SceneRequestType::ResetCurrentScene:
             accepted = executeSceneLoadRequest( sceneController.ResetCurrentScene( request.preserveUIState,

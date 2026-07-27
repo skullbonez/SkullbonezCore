@@ -281,7 +281,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.Persistence.cpp" />

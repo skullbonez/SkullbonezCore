@@ -81,7 +81,7 @@ Related:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorOwner.h"
 #endif
-#include "../Scene/SceneRuntimeStyle.h"
+#include "../Scene/SceneCinematicPolicy.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"

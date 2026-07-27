@@ -54,7 +54,7 @@ Related:
 #include "../UI/RuntimeViewModel.h"
 #include "../App/RunTimerState.h"
 #include "../Scene/SceneControllerState.h"
-#include "../Scene/SceneRuntime.h"
+#include "../Scene/SceneSessionState.h"
 #include "../Scene/SceneWorld.h"
 #include "../Tools/RuntimeTools.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"

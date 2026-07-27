@@ -336,7 +336,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSessionState.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneSaveOperations.cpp">

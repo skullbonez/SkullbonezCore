@@ -631,7 +631,7 @@
                        },
                        {
                            "key":  "SceneLoadRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h:50",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneLoadRequest.h:50",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Scene",

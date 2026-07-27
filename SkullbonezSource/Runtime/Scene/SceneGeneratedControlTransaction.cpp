@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp
+File: SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.cpp
 Purpose:
   Implements the phase-enforcing generated-scene rebuild transaction.
 
@@ -24,11 +24,11 @@ Invariants:
   - Camera tracking is clamped against the post-rebuild model count.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h
+  - SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
-#include "SceneRuntimeGeneratedControls.h"
+#include "SceneGeneratedControlTransaction.h"
 #include "SceneController.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Simulation/SimulationSystem.h"

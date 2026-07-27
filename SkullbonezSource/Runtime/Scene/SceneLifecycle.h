@@ -4,7 +4,7 @@ Purpose:
   Defines the allocation-free value protocol for scene lifecycle publication.
 
 Summary:
-  SceneRuntime advances one monotonic generation for each accepted load attempt
+  SceneController advances one monotonic generation for each accepted load attempt
   after preflight succeeds. Reactive owners compare that generation at fixed
   frame boundaries and apply each relevant phase at most once.
 
@@ -24,7 +24,7 @@ Invariants:
     or dynamically growing storage.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneRuntime.h
+  - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-22/owner-fanout-reduction-of0-census.md
 */

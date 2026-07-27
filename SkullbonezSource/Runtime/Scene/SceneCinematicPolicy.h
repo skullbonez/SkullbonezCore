@@ -1,7 +1,7 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h
+File: SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
 Purpose:
-  Declares live scene style and cinematic override helpers outside Run.
+  Declares cinematic render-state policy shared by scene-facing owners.
 
 Summary:
   Scene style changes mutate render-facing scene state and object materials
@@ -28,7 +28,7 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
-#include "SceneRuntime.h"
+#include "SceneSessionState.h"
 #include "../App/RunLaunchOptions.h"
 
 #include <cstdint>
