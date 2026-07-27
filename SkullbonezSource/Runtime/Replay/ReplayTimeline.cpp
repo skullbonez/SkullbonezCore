@@ -345,18 +345,17 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
     }
 }
 
-ReplayTimelineCaptureResult
+const ReplaySolverFrameSample*
 ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
                               const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
                               Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
                               const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
                               const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch )
 {
-    ReplayTimelineCaptureResult result;
 
     if ( !m_recordingEnabled )
     {
-        return result;
+        return nullptr;
     }
 
     const uint32_t eventCursor = m_events.GetStats().nextSequence;
@@ -384,8 +383,7 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
 
             m_artifactHashLog.AppendSolver( *solverSample );
             ReportLatestCaptureMismatch();
-            result.solverSample = solverSample;
-            return result;
+            return solverSample;
         }
     }
 
@@ -400,6 +398,6 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
     }
 
     ReportLatestCaptureMismatch();
-    return result;
+    return nullptr;
 }
 } // namespace SkullbonezCore::Runtime

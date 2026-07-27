@@ -401,7 +401,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
     {
         EnterInteractiveSceneRun();
 
-        const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
+        const RunInternal::EditorPlacementModeChangeResult
+            placementMode = RunInternal::ToggleEditorPlacementMode( runtimeTools.Editor(), interaction );
 
         completeEditorPlacementModeTransition( source, placementMode );
     };
@@ -696,14 +697,9 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
         case RuntimeInputAction::TogglePhysicsDebugTransparent:
         case RuntimeInputAction::ReportRendererRuntimeRetired:
         case RuntimeInputAction::ToggleBroadphaseOverlay:
-            HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext { debug, camera.trackBallRow.value,
-                                                                                    sceneController.Scene()
-                                                                                        .SceneEntityCount(),
-                                                                                    renderBackendView.renderDiagnostics,
-                                                                                    SceneState().isSceneMode,
-                                                                                    timers.simulationTimer
-                                                                                        .GetTimeSinceLastStart() },
-                                               event.action, true );
+            HandleDiagnosticsKeyboardShortcut( debug, camera.trackBallRow.value, sceneController.Scene().SceneEntityCount(),
+                                               renderBackendView.renderDiagnostics, SceneState().isSceneMode,
+                                               timers.simulationTimer.GetTimeSinceLastStart(), event.action, true );
 
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
@@ -793,9 +789,10 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
                 result.requestDevelopmentUiSurfaceSwap = true;
             }
 
-            const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext { ui, debug, SceneState(), diagnosticsRuntime.Capture(),
-                                                                                                                                                   timers.simulationTimer.GetTotalTime() },
-                                                                                                            event.action, true );
+            const DiagnosticsUIKeyboardShortcutResult
+                shortcutResult = HandleDiagnosticsUIKeyboardShortcut( ui, debug, SceneState(), diagnosticsRuntime.Capture(),
+                                                                      timers.simulationTimer.GetTotalTime(), event.action,
+                                                                      true );
 
             if ( shortcutResult.triggered )
             {
@@ -923,11 +920,11 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
 
         presentationEdit.Commit();
         const bool quitRequested = inputRouter.DispatchAfterUiDismiss( inputActions,
-                                                                       { uiFrameResult.commands.ui.userInteracted,
-                                                                         timers.simulationTimer.GetTotalTime(),
-                                                                         legacyDevelopmentUiActive },
-                                                                       diagnosticsRuntime, interactionOwners,
-                                                                       sceneController, sceneOwners.overlays,
+                                                                       uiFrameResult.commands.ui.userInteracted,
+                                                                       timers.simulationTimer.GetTotalTime(),
+                                                                       legacyDevelopmentUiActive, diagnosticsRuntime,
+                                                                       interactionOwners, sceneController,
+                                                                       sceneOwners.overlays,
                                                                        replayRuntime.BuildInputView() );
 
         presentationEdit.Refresh();
@@ -1081,11 +1078,11 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             inputRouter.RequestCursorVisible( false );
         }
 
-        const RuntimeCameraInputFrameResult cameraInputResult = InputController::
-            ApplyCameraInputFrame( camera, RuntimeCameraInputFrameContext { inputSnapshot.appFocused, cameraMouseLookActive,
-                                                                            mouseOwnsCursor,
-                                                                            inputPolicy.cameraKeyboardControlsActive,
-                                                                            &inputRouter.DeviceFrame() } );
+        const RuntimeCameraInputFrameResult
+            cameraInputResult = InputController::ApplyCameraInputFrame( camera, inputSnapshot.appFocused,
+                                                                        cameraMouseLookActive, mouseOwnsCursor,
+                                                                        inputPolicy.cameraKeyboardControlsActive,
+                                                                        inputRouter.DeviceFrame() );
 
         if ( cameraInputResult.applyCursorOwnership )
         {

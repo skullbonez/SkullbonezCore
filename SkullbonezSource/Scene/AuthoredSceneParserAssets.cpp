@@ -55,19 +55,19 @@ constexpr uint32_t ASSET_LIBRARY_FORMAT_VERSION = 1;
 const Assets::AssetLibrarySourceAsset* AuthoredSceneParser::FindRegisteredAssetLibrary( const std::string& token ) const
 {
 
-    if ( !m_assets.assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
+    if ( !m_assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".assets.json" ) )
     {
         return nullptr;
     }
 
-    if ( const Assets::AssetLibrarySourceAsset* library = m_assets.assets->FindAssetLibrarySourceAsset( token.c_str() ) )
+    if ( const Assets::AssetLibrarySourceAsset* library = m_assets->FindAssetLibrarySourceAsset( token.c_str() ) )
     {
         return library;
     }
 
     const std::string prefixedToken = std::string( "assetlib." ) + token;
-    return m_assets.assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() );
+    return m_assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() );
 }
 
 std::string AuthoredSceneParser::ResolveAssetLibraryPath( const std::string& token ) const

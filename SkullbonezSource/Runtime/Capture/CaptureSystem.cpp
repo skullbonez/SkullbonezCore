@@ -221,15 +221,16 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12
 }
 #endif
 
-bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context )
+bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
+                                     double elapsedMs )
 {
 
-    if ( !context.isSceneMode )
+    if ( !isSceneMode )
     {
         return false;
     }
 
-    if ( screenshot.isScreenshotAndExit && context.currentFrame == 0 )
+    if ( screenshot.isScreenshotAndExit && currentFrame == 0 )
     {
         return true;
     }
@@ -237,27 +238,27 @@ bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, const
     if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
     {
 
-        if ( screenshot.screenshotFrame > 0 && ( context.currentFrame + 1 ) >= screenshot.screenshotFrame )
+        if ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame )
         {
             return true;
         }
 
-        if ( screenshot.screenshotMs > 0 && context.elapsedMs >= screenshot.screenshotMs )
+        if ( screenshot.screenshotMs > 0 && elapsedMs >= screenshot.screenshotMs )
         {
             return true;
         }
     }
 
     return screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' &&
-           ( context.currentFrame + 1 ) % screenshot.screenshotInterval == 0;
+           ( currentFrame + 1 ) % screenshot.screenshotInterval == 0;
 }
 
 
-bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
-                                                       const RuntimeCaptureSceneContext& context )
+bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode,
+                                                       int currentFrame, double elapsedMs )
 {
 
-    if ( !context.isSceneMode )
+    if ( !isSceneMode )
     {
         return false;
     }
@@ -271,26 +272,26 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
         return true;
     }
 
-    return IsScreenshotDue( screenshot, context );
+    return IsScreenshotDue( screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
-                                                     const RuntimeCaptureSceneContext& context, CaptureController& capture,
-                                                     Rendering::Dx12BackbufferCapture& backend )
+RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
+                                                     int currentFrame, double elapsedMs, const char* currentScenePath,
+                                                     CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
 
-    if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
+    if ( isSceneMode && screenshot.isScreenshotAndExit && currentFrame == 0 )
     {
 
-        if ( !context.currentScenePath )
+        if ( !currentScenePath )
         {
             return {};
         }
 
         char outPath[256];
-        BuildScreenshotAndExitPath( context.currentScenePath, outPath, sizeof( outPath ) );
+        BuildScreenshotAndExitPath( currentScenePath, outPath, sizeof( outPath ) );
         const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, outPath );
 
         if ( !captureResult.ok )
@@ -299,19 +300,19 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
         }
 
         return { true, RuntimeCaptureCompletion::ScreenshotAndExit,
-                 CompletionAutomation( context.isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
+                 CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::Quit ) };
     }
 
-    if ( context.isSceneMode && screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
+    if ( isSceneMode && screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
     {
         bool shouldCapture = false;
 
-        if ( screenshot.screenshotFrame > 0 && ( context.currentFrame + 1 ) >= screenshot.screenshotFrame )
+        if ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame )
         {
             shouldCapture = true;
         }
 
-        if ( screenshot.screenshotMs > 0 && context.elapsedMs >= screenshot.screenshotMs )
+        if ( screenshot.screenshotMs > 0 && elapsedMs >= screenshot.screenshotMs )
         {
             shouldCapture = true;
         }
@@ -328,14 +329,14 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
             screenshot.isScreenshotSaved = true;
             return { true, RuntimeCaptureCompletion::Screenshot,
-                     CompletionAutomation( context.isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
+                     CompletionAutomation( isInteractiveRun, RuntimeCaptureAutomation::AdvanceSceneOrQuit ) };
         }
     }
 
-    if ( context.isSceneMode && screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' )
+    if ( isSceneMode && screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' )
     {
 
-        if ( ( context.currentFrame + 1 ) % screenshot.screenshotInterval == 0 )
+        if ( ( currentFrame + 1 ) % screenshot.screenshotInterval == 0 )
         {
             ++screenshot.intervalCaptureCount;
             char intervalPath[512];

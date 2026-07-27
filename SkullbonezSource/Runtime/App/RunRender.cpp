@@ -146,7 +146,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                                     debug.isCollisionVisualizer,
                                                                                     debugTransparentBodyPass );
 
-    const RenderReplayOverlayView replayOverlay { replayFrame };
 
     Gameplay::TornadoVisualTimeCandidates visualTime;
     visualTime.simulationSourceSeconds = framePolicy.simulationSeconds;
@@ -177,7 +176,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    const bool replaySubmissionRendered = m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayOverlay, toolOverlay, worldExtension,
+    const bool replaySubmissionRendered = m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext { renderModels, framePolicy, replayFrame, toolOverlay, worldExtension,
                                                                                                             activeCinematic, cinematicRequested } );
 
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered, m_sceneController.State().currentFrame,

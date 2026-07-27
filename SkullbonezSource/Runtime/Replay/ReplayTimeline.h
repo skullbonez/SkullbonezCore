@@ -192,11 +192,6 @@ struct ReplayMemoryPolicyApplyResult
     bool recordersReset = false;
 };
 
-struct ReplayTimelineCaptureResult
-{
-    const ReplaySolverFrameSample* solverSample = nullptr;
-};
-
 struct ReplayTimelineMemoryStats
 {
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categoryBytes;
@@ -255,13 +250,12 @@ class ReplayTimeline
     // exposing temporary sample storage to the composition root.
     bool LoadPresentationArtifact( const char* path );
     bool NextPresentationSavePath( char* outPath, std::size_t outPathSize );
-    ReplayTimelineCaptureResult CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
-                                              const ReplayCameraSample& camera,
-                                              const ReplayLauncherVisualSample& launcherVisual,
-                                              Physics::PhysicsEngine& physics,
-                                              const Gameplay::TornadoGameplay& tornadoGameplay,
-                                              const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
-                                              const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch );
+    const ReplaySolverFrameSample*
+    CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world,
+                  const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual,
+                  Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay,
+                  const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore, const ReplayBranchInfo& branch );
     void RecordEvent( const ReplayEventInput& input );
 
     // Concept: event sequencing belongs to the timeline owner. The caller

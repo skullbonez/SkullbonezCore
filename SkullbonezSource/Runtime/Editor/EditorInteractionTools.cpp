@@ -975,12 +975,12 @@ namespace Runtime
 {
 namespace RunInternal
 {
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, RuntimeGizmoDragKind gizmoKind,
-                                  int clientX, int clientY )
+bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis,
+                                  RuntimeGizmoDragKind gizmoKind, int clientX, int clientY )
 {
 
-    if ( context.interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
-         context.interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
+    if ( interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
+         interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
     {
         return false;
     }
@@ -990,7 +990,7 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, in
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = clientX;
     gesture.startY = clientY;
-    gesture.body = context.world.BodyStore().HandleForModelIndex( modelIndex );
+    gesture.body = world.BodyStore().HandleForModelIndex( modelIndex );
     gesture.axis = axis;
     gesture.angular = gizmoKind == RuntimeGizmoDragKind::Rotate;
     gesture.gizmoKind = gizmoKind;
@@ -998,45 +998,45 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, in
     RuntimeGestureCommand command;
     command.gesture = gesture;
     RuntimeGestureEvent event;
-    return context.interaction.ApplyGestureCommand( command, event );
+    return interaction.ApplyGestureCommand( command, event );
 }
 
 
-void EndEditorGizmoDragGesture( EditorGizmoContext context )
+void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction )
 {
 
-    if ( context.interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag )
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag )
     {
         RuntimeGestureCommand command;
         command.action = RuntimeGestureCommandAction::End;
         command.gesture.kind = RuntimeInteractionGestureKind::GizmoDrag;
         command.reason = InteractionExitReason::EndGesture;
         RuntimeGestureEvent event;
-        (void)context.interaction.ApplyGestureCommand( command, event );
+        (void)interaction.ApplyGestureCommand( command, event );
     }
 }
 
 
-void EndEditorPlacementScaleGesture( EditorGizmoContext context )
+void EndEditorPlacementScaleGesture( RuntimeInteractionController& interaction )
 {
 
-    if ( context.interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
+    if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
     {
         RuntimeGestureCommand command;
         command.action = RuntimeGestureCommandAction::End;
         command.gesture.kind = RuntimeInteractionGestureKind::EditorPlacementScaleDrag;
         command.reason = InteractionExitReason::EndGesture;
         RuntimeGestureEvent event;
-        (void)context.interaction.ApplyGestureCommand( command, event );
+        (void)interaction.ApplyGestureCommand( command, event );
     }
 }
 
 
-void CancelEditorGizmoDragState( EditorGizmoContext context )
+void CancelEditorGizmoDragState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    EndEditorGizmoDragGesture( context );
-    context.editor.gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;
-    context.editor.gizmoDragGroupCount = 0;
+    EndEditorGizmoDragGesture( interaction );
+    editor.gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;
+    editor.gizmoDragGroupCount = 0;
 }
 
 
@@ -1134,11 +1134,14 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
-    const EditorInteractionPreviewResult
-        previewResult = UpdateEditorInteractionPreview( { m_editor, world, interaction, assets },
-                                                        { input.blocksCameraMouse, input.inspectGizmoActive,
-                                                          input.hasWorldRay, input.rayOrigin, input.rayDirection,
-                                                          input.controlDown } );
+    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview( m_editor, world, interaction,
+                                                                                         assets,
+                                                                                         { input.blocksCameraMouse,
+                                                                                           input.inspectGizmoActive,
+                                                                                           input.hasWorldRay,
+                                                                                           input.rayOrigin,
+                                                                                           input.rayDirection,
+                                                                                           input.controlDown } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1149,7 +1152,7 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 
         command.claimSelectionOwner = false;
         ApplySelectionCommand( command, world );
-        CancelEditorGizmoDragState( { m_editor, world, interaction } );
+        CancelEditorGizmoDragState( m_editor, interaction );
     }
 
     return selectedModelIndex;
@@ -1215,16 +1218,16 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased, bool suppress
 
     if ( leftReleased && !suppressWorldAction && m_editor.placementPreviewVisible )
     {
-        EditorObjectPlacementContext placementContext { m_editor, world, scene, assets, activeModelCapacity };
         EditorObjectPlacementRequest placementRequest { m_editor.objectType, m_editor.placeStaticObject,
                                                         m_editor.placementTerrainPoint };
 
         EditorObjectPlacementResult placementResult;
 
-        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+        if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, activeModelCapacity, placementRequest ) )
         {
             result.enteredInteractiveScene = true;
-            PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+            PlaceEditorObjectAtTerrainPoint( m_editor, world, scene, assets, activeModelCapacity, placementRequest,
+                                             placementResult );
 
             if ( placementResult.placed )
             {
@@ -1278,19 +1281,18 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 
     if ( input.leftDown && !input.suppressWorldAction && input.hasWorldRay )
     {
-        EditorGizmoContext gizmoContext { m_editor, world, interaction };
 
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
-            ScaleSelectedEditorObjectAlongAxis( gizmoContext, input.rayOrigin, input.rayDirection );
+            ScaleSelectedEditorObjectAlongAxis( m_editor, world, interaction, input.rayOrigin, input.rayDirection );
         }
         else if ( gesture.gizmoKind == RuntimeGizmoDragKind::Rotate )
         {
-            RotateSelectedEditorObjectAroundAxis( gizmoContext, input.rayOrigin, input.rayDirection );
+            RotateSelectedEditorObjectAroundAxis( m_editor, world, interaction, input.rayOrigin, input.rayDirection );
         }
         else
         {
-            MoveSelectedEditorObjectAlongAxis( gizmoContext, input.rayOrigin, input.rayDirection );
+            MoveSelectedEditorObjectAlongAxis( m_editor, world, interaction, input.rayOrigin, input.rayDirection );
         }
     }
 
@@ -1391,7 +1393,7 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
         RecordEditorTransformHistory( world, gesture.gizmoKind, input.selectedModelIndex );
     }
 
-    CancelEditorGizmoDragState( { m_editor, world, interaction } );
+    CancelEditorGizmoDragState( m_editor, interaction );
     result.endedGesture = true;
     return result;
 }
@@ -1414,8 +1416,6 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scal
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const ColliderStore& colliderStore = world.Colliders();
-    EditorGizmoContext gizmoContext { m_editor, world, interaction };
-
     outPlan.owner = inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo;
     outPlan.reason = inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
     outPlan.selectedBody = m_editor.selectedBody;
@@ -1434,7 +1434,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scal
         const ColliderRecord* selectedCollider = nullptr;
         float axisParameter = 0.0f;
 
-        if ( !TryEditorAxisRayParameter( gizmoContext, m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisParameter ) ||
+        if ( !TryEditorAxisRayParameter( m_editor, world, m_editor.hotGizmoAxis, rayOrigin, rayDirection, axisParameter ) ||
              !TryResolveEditorBodyCollider( bodyStore, colliderStore, m_editor.selectedBody, m_editor.selectedCollider,
                                             selectedModelIndex, selectedBody, selectedCollider ) )
         {
@@ -1461,7 +1461,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scal
         Vector3 selectionOrigin;
         float selectionRadius = 1.0f;
 
-        if ( TryEditorRotationRayAngle( gizmoContext, m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) &&
+        if ( TryEditorRotationRayAngle( m_editor, world, m_editor.hotRotationAxis, rayOrigin, rayDirection, startAngle ) &&
              selectedBody &&
              TryGetEditorSelectionFrame( world, m_editor.selectedBody, m_editor.selectedCollider, selectedModelIndex,
                                          selectionOrigin, selectionRadius ) )
@@ -1525,7 +1525,6 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
         return result;
     }
 
-    EditorGizmoContext gizmoContext { m_editor, world, interaction };
     result.attempted = true;
     const RuntimeGizmoDragKind gizmoKind = plan.kind == EditorGizmoGestureKind::Rotate  ? RuntimeGizmoDragKind::Rotate
                                            : plan.kind == EditorGizmoGestureKind::Scale ? RuntimeGizmoDragKind::Scale
@@ -1538,7 +1537,8 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
         return result;
     }
 
-    if ( !BeginEditorGizmoDragGesture( gizmoContext, selectedModelIndex, plan.axis, gizmoKind, plan.clientX, plan.clientY ) )
+    if ( !BeginEditorGizmoDragGesture( world, interaction, selectedModelIndex, plan.axis, gizmoKind, plan.clientX,
+                                       plan.clientY ) )
     {
         return result;
     }
@@ -2067,17 +2067,18 @@ bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, 
 }
 
 
-bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int objectType,
+bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry::Terrain* terrain,
+                                      const Assets::AssetSystem& assets, bool scaleGestureActive, int objectType,
                                       const EditorTerrainPlacement* mousePlacement )
 {
     Vector3 terrainPoint;
     Vector3 rayOrigin;
     bool terrainAlreadyIncludesAltitude = false;
 
-    if ( context.scaleGestureActive )
+    if ( scaleGestureActive )
     {
-        terrainPoint = context.editor.placementScaleTerrainPoint;
-        rayOrigin = context.editor.placementScaleRayOrigin;
+        terrainPoint = editor.placementScaleTerrainPoint;
+        rayOrigin = editor.placementScaleRayOrigin;
         terrainAlreadyIncludesAltitude = true;
     }
     else
@@ -2091,16 +2092,16 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int
         terrainPoint = mousePlacement->position;
         rayOrigin = mousePlacement->rayOrigin;
 
-        if ( context.terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
+        if ( terrain && EDITOR_PLACEMENT_SNAP > 0.0f )
         {
             const float snappedX = roundf( terrainPoint.x / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
             const float snappedZ = roundf( terrainPoint.z / EDITOR_PLACEMENT_SNAP ) * EDITOR_PLACEMENT_SNAP;
 
-            if ( context.terrain->IsInBounds( snappedX, snappedZ ) )
+            if ( terrain->IsInBounds( snappedX, snappedZ ) )
             {
                 terrainPoint.x = snappedX;
                 terrainPoint.z = snappedZ;
-                terrainPoint.y = context.terrain->GetTerrainHeightAt( snappedX, snappedZ );
+                terrainPoint.y = terrain->GetTerrainHeightAt( snappedX, snappedZ );
             }
         }
     }
@@ -2110,35 +2111,34 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int
 
         // Invariant: Placement altitude is applied before normal/orientation
         // lookup so preview and commit agree about the authored terrain point.
-        terrainPoint.y += static_cast<float>( context.editor.placementAltitudeSteps ) *
-                          EditorPlacementAltitudeStepSize( objectType, context.editor.placementScale, context.assets );
+        terrainPoint.y += static_cast<float>( editor.placementAltitudeSteps ) *
+                          EditorPlacementAltitudeStepSize( objectType, editor.placementScale, assets );
     }
 
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
 
-    if ( context.terrain && context.terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
+    if ( terrain && terrain->IsInBounds( terrainPoint.x, terrainPoint.z ) )
     {
         float ignoredHeight = 0.0f;
-        context.terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
+        terrain->GetTerrainHeightAndNormalAt( terrainPoint.x, terrainPoint.z, ignoredHeight, terrainNormal );
     }
 
-    const Quaternion placementOrientation = EditorPlacementOrientation( objectType, terrainNormal,
-                                                                        context.editor.autoTerrainAlign,
-                                                                        context.editor.placementYawRadians );
+    const Quaternion placementOrientation = EditorPlacementOrientation( objectType, terrainNormal, editor.autoTerrainAlign,
+                                                                        editor.placementYawRadians );
 
     Vector3 center;
 
-    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, context.editor.placementScale, placementOrientation,
-                                        context.assets, center ) )
+    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, editor.placementScale, placementOrientation, assets,
+                                        center ) )
     {
         return false;
     }
 
-    context.editor.placementTerrainPoint = terrainPoint;
-    context.editor.placementCenter = center;
-    context.editor.placementOrientation = placementOrientation;
-    context.editor.placementRayOrigin = rayOrigin;
-    context.editor.placementRayHit = terrainPoint;
+    editor.placementTerrainPoint = terrainPoint;
+    editor.placementCenter = center;
+    editor.placementOrientation = placementOrientation;
+    editor.placementRayOrigin = rayOrigin;
+    editor.placementRayHit = terrainPoint;
     return true;
 }
 } // namespace RunInternal

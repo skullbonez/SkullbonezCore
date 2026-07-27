@@ -63,34 +63,6 @@ class AuthoredScene;
 enum class RuntimeInputAction;
 struct OverlayDebugState;
 
-struct DiagnosticsKeyboardShortcutContext
-{
-
-    // Lifetime: borrowed for one already-routed action only; InputRouter owns
-    // the edge and diagnostics mutates only debug presentation state.
-    OverlayDebugState& debug;
-    int& cameraTrackBallIndex;
-
-    // Value-only entity count keeps diagnostics outside scene lifecycle authority.
-    int sceneEntityCount = 0;
-    const Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
-    bool sceneMode = false;
-    double simulationSeconds = 0.0;
-};
-
-struct DiagnosticsUIKeyboardShortcutContext
-{
-
-    // Lifetime: borrowed for one keyboard dispatch only; the handler mutates UI
-    // overlay visibility, automation flags, and debug presentation state, then
-    // reports any cursor/action bookkeeping still owned by the composition root.
-    UI::InGameUI& ui;
-    OverlayDebugState& debug;
-    SceneSessionState& scene;
-    CaptureController& capture;
-    double nowSeconds = 0.0;
-};
-
 struct DiagnosticsUIKeyboardShortcutResult
 {
     bool handled = false;                                    // True when the action belongs to the diagnostics UI keyboard group.
@@ -98,9 +70,12 @@ struct DiagnosticsUIKeyboardShortcutResult
     bool releaseMouseToUI = false;                           // True when Run should refresh cursor ownership and release capture.
 };
 
-bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context, RuntimeInputAction action,
-                                        bool wasPressed );
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
+                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
+                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed );
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
+                                                                         SceneSessionState& scene,
+                                                                         CaptureController& capture, double nowSeconds,
                                                                          RuntimeInputAction action, bool wasPressed );
 
 class DiagnosticsRuntime
@@ -128,7 +103,7 @@ class DiagnosticsRuntime
     void OpenScenePerfLog( const char* path, int pass );
     void ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass );
     bool PerfTestActive() const;
-    void TickPerfLog( const RuntimePerfTickContext& context );
+    void TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
 
     // Accepts replay accounting already published by the composition root so

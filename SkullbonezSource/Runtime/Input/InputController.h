@@ -264,19 +264,6 @@ struct RuntimeMouseEdges
     bool rightReleased = false;
 };
 
-struct RuntimeCameraInputFrameContext
-{
-
-    // Concept: Run resolves high-level ownership first; InputController only
-    // consumes the camera-local facts needed to update mouse-look and WASD
-    // movement for this frame.
-    bool appFocused = true;
-    bool cameraMouseLookActive = false;
-    bool mouseLookOwnsCursor = false;
-    bool cameraKeyboardControlsActive = false;
-    const DeviceInputFrame* deviceFrame = nullptr;
-};
-
 struct RuntimeCameraInputFrameResult
 {
     bool applyCursorOwnership = false;
@@ -350,8 +337,10 @@ class InputController
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
     static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );
-    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera,
-                                                                const RuntimeCameraInputFrameContext& context );
+    static RuntimeCameraInputFrameResult ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
+                                                                bool cameraMouseLookActive, bool mouseLookOwnsCursor,
+                                                                bool cameraKeyboardControlsActive,
+                                                                const DeviceInputFrame& deviceFrame );
     static void ApplyCameraMovement( CameraControlState& camera, Environment::CameraCollection& cameras,
                                      Geometry::Terrain& terrain, const RuntimeCameraMovementInput& input );
 };

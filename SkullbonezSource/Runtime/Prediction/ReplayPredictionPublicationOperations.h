@@ -47,16 +47,6 @@ namespace Runtime
 {
 namespace ReplayPredictionPublicationOperations
 {
-struct ReplayPastRootRebuildContext
-{
-    ReplayTrajectoryStore* store = nullptr;
-    ReplayTrajectoryRecord* record = nullptr;
-    Physics::ModelRowHint targetModelRow;
-    ReplayFrameIndex firstFrame = 0;
-    bool hasSample = false;
-    bool ok = true;
-};
-
 struct ReplayPredictionAffectedBodyTrail
 {
     Physics::PhysicsSceneObjectId id;

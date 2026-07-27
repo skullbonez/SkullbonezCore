@@ -123,16 +123,6 @@ class Window;
 struct OverlayDebugState;
 struct RuntimeFrameInteractionView;
 
-// Operation-specific facts for the after-UI escape pass. The frame-selected
-// surface bit prevents Escape from opening the dormant Legacy UI while ImGui
-// owns window focus.
-struct RuntimeAfterUiDismissInput
-{
-    bool uiUserInteracted = false;
-    double nowSeconds = 0.0;
-    bool legacyUiActive = true;
-};
-
 struct EditorPointerRouteResult
 {
     static constexpr std::size_t MAX_MODE_ACTIONS = 2;
@@ -416,7 +406,7 @@ class InputRouter
                           ReplayRuntime& replayRuntime, RuntimeInputContext& runtimeInput );
     bool HandleUnfocusedFrame( RuntimeFrameInteractionView& interactionOwners, SceneController& sceneController,
                                ReplayRuntime& replayRuntime, RuntimeInputContext& runtimeInput );
-    bool DispatchAfterUiDismiss( InputActions& actions, const RuntimeAfterUiDismissInput& input,
+    bool DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive,
                                  DiagnosticsRuntime& diagnosticsRuntime, RuntimeFrameInteractionView& interactionOwners,
                                  SceneController& sceneController, RuntimeOverlayDiagnostics& overlays,
                                  const ReplayInputView& replayInput );

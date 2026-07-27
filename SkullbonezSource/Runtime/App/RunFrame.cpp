@@ -419,22 +419,21 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( RuntimeFrameSceneView& 
                                                          const SceneFrameProceedPolicy& proceedPolicy )
 {
     m_sceneController.Scene().BeginCollisionVisualFrame();
-    const std::string* captureScenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureSceneContext captureContext { m_sceneController.State().isSceneMode,
-                                                      m_sceneController.State().isInteractiveRun,
-                                                      m_sceneController.State().currentFrame,
-                                                      m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
-                                                      captureScenePath ? captureScenePath->c_str() : nullptr };
 
     // Invariant: capture pinning is fixed before physics and camera work. A
     // scheduled screenshot renders exact solver poses for this whole turn.
-    const bool
-        capturePresentationPinned = m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
-                                    ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
-                                    m_validationHarness->HasPendingLiveStyleCapture()
+    const bool capturePresentationPinned = m_diagnosticsRuntime.Capture()
+                                               .RequiresDeterministicPresentation( m_sceneController.State().isSceneMode,
+                                                                                   m_sceneController.State().currentFrame,
+                                                                                   m_timers.simulationTimer
+                                                                                           .GetTimeSinceLastStart() *
+                                                                                       1000.0 ) ||
+                                           ( m_sceneController.State().isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
+                                           m_validationHarness->HasPendingLiveStyleCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-                                    || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
-                                                                                    m_sceneController.State().currentFrame )
+                                           || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
+                                                                                           m_sceneController.State()
+                                                                                               .currentFrame )
 #endif
         ;
 
@@ -734,9 +733,8 @@ bool Run::CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy )
         m_timers.gpuFrameWorkMs = profilerTimes.gpuFrameWorkMs;
     }
 #endif
-    m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext { m_sceneController.PerfPass() + 1,
-                                                               m_sceneController.State().currentFrame + 1,
-                                                               m_timers.physicsTime, m_timers.renderTime } );
+    m_diagnosticsRuntime.TickPerfLog( m_sceneController.PerfPass() + 1, m_sceneController.State().currentFrame + 1,
+                                      m_timers.physicsTime, m_timers.renderTime );
 
     return TickSceneAdvance( proceedPolicy );
 }
@@ -1046,15 +1044,13 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
     }
 
     const std::string* scenePath = m_sceneController.CurrentPath();
-    const RuntimeCaptureResult
-        result = m_diagnosticsRuntime.Capture()
-                     .TickScreenshots( RuntimeCaptureSceneContext { m_sceneController.State().isSceneMode,
-                                                                    m_sceneController.State().isInteractiveRun,
-                                                                    m_sceneController.State().currentFrame,
-                                                                    m_timers.simulationTimer.GetTimeSinceLastStart() *
-                                                                        1000.0,
-                                                                    scenePath ? scenePath->c_str() : nullptr },
-                                       m_renderBackendView.RequireBackbufferCapture() );
+    const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture()
+                                            .TickScreenshots( m_sceneController.State().isSceneMode,
+                                                              m_sceneController.State().isInteractiveRun,
+                                                              m_sceneController.State().currentFrame,
+                                                              m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
+                                                              scenePath ? scenePath->c_str() : nullptr,
+                                                              m_renderBackendView.RequireBackbufferCapture() );
 
     if ( result.restartFrame )
     {

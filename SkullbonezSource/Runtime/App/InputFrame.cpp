@@ -781,11 +781,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     {
         result.enterInteractiveScene = true;
 
-        const RunInternal::EditorGizmoContext editorContext { runtimeTools.Editor(), sceneController.Scene(), interaction };
-
         const RunInternal::EditorPlacementModeChangeResult
-            placementMode = toggle ? RunInternal::ToggleEditorPlacementMode( editorContext )
-                                   : RunInternal::SetEditorPlacementMode( editorContext, true, false );
+            placementMode = toggle ? RunInternal::ToggleEditorPlacementMode( runtimeTools.Editor(), interaction )
+                                   : RunInternal::SetEditorPlacementMode( runtimeTools.Editor(), interaction, true, false );
 
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner, InteractionExitReason::EnterEdit, interactionOwners,
                                               sceneController, replayRuntime, facts.replayRestoreCameraMode );
@@ -815,7 +813,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            RunInternal::EnterEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction },
+            RunInternal::EnterEditorModeState( runtimeTools.Editor(), interaction,
                                                NormalizeRuntimeCameraMode( camera.mode, sceneController.State().isSceneMode,
                                                                            facts.cameraModeEnabledMask ) );
 
@@ -846,7 +844,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode, attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
 
-            RunInternal::ExitEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
+            RunInternal::ExitEditorModeState( runtimeTools.Editor(), interaction );
             camera.mode = restoreMode;
 
             if ( wasFlyMode &&
@@ -879,10 +877,9 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
                                      sceneController, replayRuntime, runtimeInput );
     }
 
-    const RunInternal::EditorGizmoContext editorGizmoContext { runtimeTools.Editor(), sceneController.Scene(), interaction };
-
     const RunInternal::EditorPlacementPreModeUICommandResult
-        editorPreModeCommands = RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext, uiCommands.editor );
+        editorPreModeCommands = RunInternal::ApplyEditorPlacementPreModeUICommands( runtimeTools.Editor(), interaction,
+                                                                                    uiCommands.editor );
 
     if ( editorPreModeCommands.setPlaceStatic )
     {
@@ -912,7 +909,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result, b
     }
 
     const RunInternal::EditorPlacementPostModeUICommandResult
-        editorPostModeCommands = RunInternal::ApplyEditorPlacementPostModeUICommands( editorGizmoContext,
+        editorPostModeCommands = RunInternal::ApplyEditorPlacementPostModeUICommands( runtimeTools.Editor(), interaction,
                                                                                       uiCommands.editor );
 
     if ( editorPostModeCommands.toggledPlaceStatic )

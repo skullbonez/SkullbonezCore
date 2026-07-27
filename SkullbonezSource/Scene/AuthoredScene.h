@@ -63,11 +63,11 @@ namespace Runtime
 {
 class AuthoredScene;
 class AuthoredSceneParser;
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets,
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
                                                                  AuthoredScene& outScene );
-SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets,
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
                                                               AuthoredScene& outScene );
 
 struct SceneCamera
@@ -522,8 +522,8 @@ class AuthoredScene
 
     // Parser-local construction helpers populate the immutable scene record in
     // one pass; runtime systems use public read-only access below.
-    friend AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-    friend AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+    friend AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+    friend AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
     friend class AuthoredSceneParser;
 
     std::vector<SceneCamera> m_cameras;

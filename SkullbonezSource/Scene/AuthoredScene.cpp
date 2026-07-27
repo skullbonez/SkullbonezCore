@@ -54,7 +54,7 @@ namespace
 }
 
 
-SkullbonezCore::Core::SbResult TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets,
+SkullbonezCore::Core::SbResult TryLoadSceneFile( const char* path, const SkullbonezCore::Assets::AssetSystem* assets,
                                                  bool styleOnly, AuthoredScene& outScene )
 {
     return styleOnly ? TryLoadStyleSceneFromFileImpl( path, assets, outScene )
@@ -70,51 +70,51 @@ AuthoredScene::AuthoredScene()
 
 AuthoredScene AuthoredScene::LoadFromFile( const char* path )
 {
-    return LoadAuthoredSceneFromFileImpl( path, Assets::AssetContext {} );
+    return LoadAuthoredSceneFromFileImpl( path, nullptr );
 }
 
 
 SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( const char* path, AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, Assets::AssetContext {}, false, outScene );
+    return TryLoadSceneFile( path, nullptr, false, outScene );
 }
 
 
 AuthoredScene AuthoredScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
 {
-    return LoadAuthoredSceneFromFileImpl( path, Assets::AssetContext { &assets } );
+    return LoadAuthoredSceneFromFileImpl( path, &assets );
 }
 
 
 SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets,
                                                                AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, Assets::AssetContext { &assets }, false, outScene );
+    return TryLoadSceneFile( path, &assets, false, outScene );
 }
 
 
 AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path )
 {
-    return LoadStyleSceneFromFileImpl( path, Assets::AssetContext {} );
+    return LoadStyleSceneFromFileImpl( path, nullptr );
 }
 
 
 SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( const char* path, AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, Assets::AssetContext {}, true, outScene );
+    return TryLoadSceneFile( path, nullptr, true, outScene );
 }
 
 
 AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
 {
-    return LoadStyleSceneFromFileImpl( path, Assets::AssetContext { &assets } );
+    return LoadStyleSceneFromFileImpl( path, &assets );
 }
 
 
 SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets,
                                                                     AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, Assets::AssetContext { &assets }, true, outScene );
+    return TryLoadSceneFile( path, &assets, true, outScene );
 }
 
 

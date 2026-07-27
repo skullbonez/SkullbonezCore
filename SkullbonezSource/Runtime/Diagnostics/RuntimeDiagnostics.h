@@ -150,14 +150,6 @@ struct ReplayRestoreResultDiagnostic
 };
 #endif
 
-struct RuntimePerfTickContext
-{
-    int pass = 0;
-    int frame = 0;
-    float physicsTimeSeconds = 0.0f;
-    float renderTimeSeconds = 0.0f;
-};
-
 struct RuntimeProfilerFrameTimes
 {
     float physicsTimeSeconds = 0.0f;
@@ -184,8 +176,8 @@ class RuntimeDiagnostics
     static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
                                   SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context,
-                             SkullbonezCore::Core::Profiler* profiler );
+    static void TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
+                             float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG

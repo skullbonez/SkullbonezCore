@@ -60,23 +60,25 @@ void CaptureController::DisableAutomationExit()
 }
 
 
-bool CaptureController::IsScreenshotDue( const RuntimeCaptureSceneContext& context ) const
+bool CaptureController::IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const
 {
-    return CaptureSystem::IsScreenshotDue( m_screenshot, context );
+    return CaptureSystem::IsScreenshotDue( m_screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
-bool CaptureController::RequiresDeterministicPresentation( const RuntimeCaptureSceneContext& context ) const
+bool CaptureController::RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const
 {
-    return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, context );
+    return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
-RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
+RuntimeCaptureResult CaptureController::TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame,
+                                                         double elapsedMs, const char* currentScenePath,
                                                          Rendering::Dx12BackbufferCapture& backend )
 {
-    return CaptureSystem::TickScreenshots( m_screenshot, context, *this, backend );
+    return CaptureSystem::TickScreenshots( m_screenshot, isSceneMode, isInteractiveRun, currentFrame, elapsedMs,
+                                           currentScenePath, *this, backend );
 }
 
 

@@ -1037,9 +1037,8 @@ void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const Backbuff
     ExecuteGraphCallbacksOrFatal( graph, 1u, inputs.clearFrameTargets ? "BackbufferClear" : "UiTargetAcquire" );
 }
 
-ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs )
+ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowPassInputs& pass )
 {
-    const ShadowPassInputs& pass = inputs.pass;
     Rendering::Dx12GraphTransientPool& renderGraph = *m_resources.Backend().renderGraph;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const GraphFramebufferResources
@@ -1124,9 +1123,8 @@ void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderCameraLightin
 }
 
 
-ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs )
+ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const ReflectionPassInputs& pass )
 {
-    const ReflectionPassInputs& pass = inputs.pass;
     Rendering::Dx12GraphTransientPool& renderGraph = *m_resources.Backend().renderGraph;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const bool useDxrCandidate = pass.rayTracing && pass.renderDiagnostics.GetCapabilities().supportsDxrReflection &&
@@ -1993,7 +1991,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     }
 
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
-    const ReplayRenderFrameView& replayFrame = context.replayOverlay.replayFrame;
+    const ReplayRenderFrameView& replayFrame = context.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
     m_resources.UiText().SetRayTracingCapability( m_resources.Backend().raytracing );
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_resources.Config().ordinaryRender;
@@ -2112,7 +2110,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                               policy.terrainHidden,
                                               policy.collisionVisualizer };
 
-        shadowPass = ExecuteShadowThroughRenderGraph( { shadowInputs } );
+        shadowPass = ExecuteShadowThroughRenderGraph( shadowInputs );
 
         shadowPassExecuted = true;
     }
@@ -2193,7 +2191,7 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                                       bodyRenderAlpha,
                                                       static_cast<float>( policy.totalSimulationSeconds ) };
 
-        reflection = ExecuteReflectionThroughRenderGraph( { reflectionInputs } );
+        reflection = ExecuteReflectionThroughRenderGraph( reflectionInputs );
     }
 
     if ( useCinematicTarget )

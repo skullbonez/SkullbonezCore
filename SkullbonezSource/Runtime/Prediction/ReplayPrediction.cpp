@@ -1552,63 +1552,58 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
         return update;
     }
 
-    ReplayPastRootRebuildContext rebuild;
-    rebuild.store = &m_state.trajectoryStore;
-    rebuild.record = record;
-    const bool
-        traversalOk = solver.ForEachBodyPositionChronological( path.targetId,
-                                                               [&]( ReplayFrameIndex frameIndex,
-                                                                    SkullbonezCore::Physics::ModelRowHint modelRow,
-                                                                    const Vector3& position )
-                                                               {
+    Physics::ModelRowHint targetModelRow;
+    ReplayFrameIndex firstFrame = 0;
+    bool hasSample = false;
+    bool rebuildOk = true;
+    const bool traversalOk = solver.ForEachBodyPositionChronological( path.targetId,
+                                                                      [&]( ReplayFrameIndex frameIndex, SkullbonezCore::Physics::ModelRowHint modelRow, const Vector3& position )
+                                                                      {
 
-                                                                   if ( !rebuild.ok )
-                                                                   {
-                                                                       return;
-                                                                   }
+                                                                      if ( !rebuildOk )
+                                                                      {
+                                                                      return;
+                                                                      }
 
-                                                                   rebuild.ok = AppendReplayTrajectoryPoint( *rebuild.store,
-                                                                                                             *rebuild.record,
-                                                                                                             frameIndex,
-                                                                                                             position );
+                                                                      rebuildOk = AppendReplayTrajectoryPoint( m_state.trajectoryStore, *record, frameIndex, position );
 
-                                                                   if ( rebuild.ok )
-                                                                   {
+                                                                      if ( rebuildOk )
+                                                                      {
 
-                                                                       if ( !rebuild.hasSample )
-                                                                       {
-                                                                           rebuild.firstFrame = frameIndex;
-                                                                           rebuild.hasSample = true;
-                                                                       }
+                                                                      if ( !hasSample )
+                                                                      {
+                                                                      firstFrame = frameIndex;
+                                                                      hasSample = true;
+                                                                      }
 
-                                                                       rebuild.targetModelRow = modelRow;
-                                                                   }
-                                                               } );
+                                                                      targetModelRow = modelRow;
+                                                                      }
+                                                                      } );
 
-    if ( !traversalOk || !rebuild.ok || !rebuild.hasSample )
-    {
-        update.apply = true;
-        return update;
-    }
+                                                                      if ( !traversalOk || !rebuildOk || !hasSample )
+                                                                      {
+                                                                      update.apply = true;
+                                                                      return update;
+                                                                      }
 
-    record->firstFrame = rebuild.firstFrame;
-    update.targetId = path.targetId;
-    update.firstFrame = oldestFrame;
-    update.builtThroughFrame = newestFrame;
-    update.totalFramesEvicted = stats.totalFramesEvicted;
-    update.fullRebuildCount = path.fullRebuildCount + 1u;
-    update.incrementalTrimCount = path.incrementalTrimCount;
-    update.targetModelRow = rebuild.targetModelRow;
-    update.apply = true;
-    update.targetModelRowRepaired = true;
-    update.valid = true;
-    return update;
-}
+                                                                      record->firstFrame = firstFrame;
+                                                                      update.targetId = path.targetId;
+                                                                      update.firstFrame = oldestFrame;
+                                                                      update.builtThroughFrame = newestFrame;
+                                                                      update.totalFramesEvicted = stats.totalFramesEvicted;
+                                                                      update.fullRebuildCount = path.fullRebuildCount + 1u;
+                                                                      update.incrementalTrimCount = path.incrementalTrimCount;
+                                                                      update.targetModelRow = targetModelRow;
+                                                                      update.apply = true;
+                                                                      update.targetModelRowRepaired = true;
+                                                                      update.valid = true;
+                                                                      return update;
+                                                                      }
 
-void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
-                                                   const ReplayPastTrajectoryView& path,
-                                                   const ReplaySolverFrameSample& sample,
-                                                   ReplayPastTrajectoryUpdate& update )
+                                                                      void ReplayPrediction::AppendPastTrajectorySample( const ReplayRecorderStats& solverStats,
+                                                                      const ReplayPastTrajectoryView& path,
+                                                                      const ReplaySolverFrameSample& sample,
+                                                                      ReplayPastTrajectoryUpdate& update )
 {
 
     if ( !path.hasTarget || path.targetId.value == 0 || !path.valid || path.retainedTargetId.value != path.targetId.value )

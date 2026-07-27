@@ -352,17 +352,16 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
     runtimeTools.Editor().autoTerrainAlign = false;
     PhysicsEngine& physics = world.Physics();
     const int modelCountBeforePlace = world.SceneEntityCount();
-    EditorObjectPlacementContext placementContext { runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity };
-
     EditorObjectPlacementRequest placementRequest { SkullbonezCore::UI::EditorTab::OBJECT_BOX, true,
                                                     Vector3( 18.0f, 0.0f, 18.0f ) };
 
     EditorObjectPlacementResult placementResult;
 
-    if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+    if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, sceneObjectCapacity, placementRequest ) )
     {
         commands.requestInteractiveScene = true;
-        PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+        PlaceEditorObjectAtTerrainPoint( runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity, placementRequest,
+                                         placementResult );
     }
 
     if ( placementResult.placed )

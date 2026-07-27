@@ -508,33 +508,27 @@ void InputController::SetMouseLookDelta( CameraControlState& camera, long rawX, 
     camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
 }
 
-RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera,
-                                                                      const RuntimeCameraInputFrameContext& context )
+RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraControlState& camera, bool appFocused,
+                                                                      bool cameraMouseLookActive, bool mouseLookOwnsCursor,
+                                                                      bool cameraKeyboardControlsActive,
+                                                                      const DeviceInputFrame& deviceFrame )
 {
     RuntimeCameraInputFrameResult result;
-    assert( context.deviceFrame && "Camera input requires the immutable device frame" );
-
-    if ( !context.deviceFrame )
-    {
-        return result;
-    }
-
-    const DeviceInputFrame& deviceFrame = *context.deviceFrame;
-    camera.mouseLookOwnsCursor = context.mouseLookOwnsCursor;
+    camera.mouseLookOwnsCursor = mouseLookOwnsCursor;
     camera.travelSpeedMultiplier = deviceFrame.keys.IsDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
-    if ( context.cameraMouseLookActive )
+    if ( cameraMouseLookActive )
     {
 
         // Why: raw mouse input gives stable deltas during native mouse-look, and
         // client-position deltas keep remote-desktop or automation paths usable
         // when raw packets are unavailable.
 
-        if ( !context.appFocused )
+        if ( !appFocused )
         {
             ResetMouseLook( camera );
         }
-        else if ( !context.mouseLookOwnsCursor )
+        else if ( !mouseLookOwnsCursor )
         {
             result.applyCursorOwnership = true;
             ResetMouseLook( camera );
@@ -589,7 +583,7 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
         result.applyCursorOwnership = true;
     }
 
-    if ( context.cameraKeyboardControlsActive )
+    if ( cameraKeyboardControlsActive )
     {
         camera.input.Set( Hardware::InputState::Up, deviceFrame.keys.IsDown( 'W' ) );
         camera.input.Set( Hardware::InputState::Left, deviceFrame.keys.IsDown( 'A' ) );

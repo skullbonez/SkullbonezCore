@@ -477,9 +477,10 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
         // Why: the secondary surface can be visible while the legacy UI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the legacy text pass happens to run.
-        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext { sceneController.State(), sceneController.Scene(), sceneController.QueueSize(),
-                                                                                     diagnosticsRuntime.Capture(), config.runtimeRender.presentationInterpolation,
-                                                                                     facts.presentationPinned, facts.presentationAlpha } );
+        runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
+                                                           sceneController.QueueSize(), diagnosticsRuntime.Capture(),
+                                                           config.runtimeRender.presentationInterpolation,
+                                                           facts.presentationPinned, facts.presentationAlpha );
 
         renderTargetPreviews = renderer.ResourceLifecycle()
                                    .BuildRenderTargetPreviewSnapshot( sharedShadows, sharedCinematicRendering,
@@ -554,9 +555,10 @@ void Render( RuntimeFrameHostView& host, RuntimeFrameInteractionView& interactio
                                                           replayOverlay.shouldRenderScrubber,
                                                           replayPathVisualizerHasTarget ) )
     {
-        runtimeViewModel = RuntimeViewModelBuilder::Build( RuntimeViewModelContext { sceneController.State(), sceneController.Scene(), sceneController.QueueSize(),
-                                                                                     diagnosticsRuntime.Capture(), config.runtimeRender.presentationInterpolation,
-                                                                                     facts.presentationPinned, facts.presentationAlpha } );
+        runtimeViewModel = RuntimeViewModelBuilder::Build( sceneController.State(), sceneController.Scene(),
+                                                           sceneController.QueueSize(), diagnosticsRuntime.Capture(),
+                                                           config.runtimeRender.presentationInterpolation,
+                                                           facts.presentationPinned, facts.presentationAlpha );
 
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );

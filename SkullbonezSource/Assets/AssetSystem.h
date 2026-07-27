@@ -187,15 +187,6 @@ class AssetSystem
     uint32_t m_nextGeneration = 1;
 };
 
-struct AssetContext
-{
-
-    // Lifetime: callers borrow the registry for one parse, setup, or tool
-    // operation. Null keeps standalone utilities on their historical path
-    // fallback without reaching for process-global asset state.
-    const AssetSystem* assets = nullptr;
-};
-
 const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

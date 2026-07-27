@@ -71,15 +71,6 @@ enum class RuntimeCaptureAutomation
     HoldInteractive
 };
 
-struct RuntimeCaptureSceneContext
-{
-    bool isSceneMode = false;
-    bool isInteractiveRun = false;
-    int currentFrame = 0;
-    double elapsedMs = 0.0;
-    const char* currentScenePath = nullptr;
-};
-
 struct RuntimeCaptureResult
 {
     bool restartFrame = false;
@@ -92,11 +83,13 @@ class CaptureController;
 class CaptureSystem
 {
   public:
-    static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
-    static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
-                                                   const RuntimeCaptureSceneContext& context );
+    static bool IsScreenshotDue( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
+                                 double elapsedMs );
+    static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
+                                                   double elapsedMs );
     static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
-    static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context,
+    static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
+                                                 int currentFrame, double elapsedMs, const char* currentScenePath,
                                                  CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
     static RuntimeCaptureResult TickAutoCycle( bool isSceneMode, bool isInteractiveRun, int ballCount,
                                                float& autoCycleInterval, float& autoCycleAccum, int& autoCycleShotsTaken,

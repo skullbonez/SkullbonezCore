@@ -656,7 +656,7 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
 
     CancelPointerPresentation();
     runtimeTools.CancelMousePickup( *this, interaction );
-    RunInternal::ResetEditorUnfocusedInputState( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
+    RunInternal::ResetEditorUnfocusedInputState( runtimeTools.Editor(), interaction );
     InputController::ResetUnfocusedInput( camera );
     InputController::BeginFrame( runtimeInput,
                                  BuildRuntimeInputModeState( camera.mode, runtimeTools.Editor(), interaction.Gesture(),
@@ -745,13 +745,11 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
 }
 
 
-bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, const RuntimeAfterUiDismissInput& input,
-                                          DiagnosticsRuntime& diagnosticsRuntime,
+bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds,
+                                          bool legacyUiActive, DiagnosticsRuntime& diagnosticsRuntime,
                                           RuntimeFrameInteractionView& interactionOwners, SceneController& sceneController,
                                           RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )
 {
-    const bool uiUserInteracted = input.uiUserInteracted;
-    const double nowSeconds = input.nowSeconds;
     CameraControlState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
@@ -798,7 +796,7 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, const RuntimeAf
         {
             return true;
         }
-        else if ( !input.legacyUiActive )
+        else if ( !legacyUiActive )
         {
 
             // ImGui owns Escape/focus policy in this process. Remember the tap

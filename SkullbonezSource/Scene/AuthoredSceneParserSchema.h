@@ -1164,7 +1164,7 @@ class AuthoredSceneParser
     };
 
     AuthoredScene m_scene;
-    Assets::AssetContext m_assets;
+    const Assets::AssetSystem* m_assets = nullptr;
     ParserFailureState m_failure;
     std::vector<ParsedAssetDefinition> m_assetDefinitions;
     std::vector<std::string> m_sceneObjectNames;
@@ -1246,7 +1246,7 @@ class AuthoredSceneParser
     SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene );
 
   public:
-    explicit AuthoredSceneParser( Assets::AssetContext assets );
+    explicit AuthoredSceneParser( const Assets::AssetSystem* assets );
     SkullbonezCore::Core::SbResult TryLoadScene( const char* path, AuthoredScene& outScene );
     SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, AuthoredScene& outScene );
     AuthoredScene LoadScene( const char* path );

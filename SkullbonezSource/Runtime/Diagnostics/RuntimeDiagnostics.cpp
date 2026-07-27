@@ -424,8 +424,8 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 }
 
 
-void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context,
-                                      SkullbonezCore::Core::Profiler* profiler )
+void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
+                                      float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler )
 {
 
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
@@ -448,20 +448,20 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePer
 
     if ( profiler )
     {
-        profiler->WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
+        profiler->WritePerfCSVRow( perfLog.perfLogFile, pass, frame );
     }
 #else
     (void)profiler;
-    fprintf( perfLog.perfLogFile, "%d,%d,%.4f,%.4f\n", context.pass, context.frame, context.physicsTimeSeconds * 1000.0f,
-             context.renderTimeSeconds * 1000.0f );
+    fprintf( perfLog.perfLogFile, "%d,%d,%.4f,%.4f\n", pass, frame, physicsTimeSeconds * 1000.0f,
+             renderTimeSeconds * 1000.0f );
 #endif
 
     ++perfLog.perfLogWritesSinceFlush;
     FlushPerfLogIfNeeded( perfLog );
 
-    if ( context.frame % 60 == 0 )
+    if ( frame % 60 == 0 )
     {
-        LogPerfMemory( perfLog, context.pass, "periodic" );
+        LogPerfMemory( perfLog, pass, "periodic" );
     }
 }
 

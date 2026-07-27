@@ -224,7 +224,7 @@ class RuntimeRenderer
     {
         const RuntimeRenderModelFrameView& renderModels;
         RuntimeRenderFramePolicy framePolicy;
-        const RenderReplayOverlayView& replayOverlay;
+        const ReplayRenderFrameView& replayFrame;
         const RenderToolOverlayView& toolOverlay;
         const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
@@ -324,14 +324,6 @@ class RuntimeRenderer
         Rendering::Dx12FrameOwner& renderFrame;
         bool clearFrameTargets = false;
     };
-    struct ShadowGraphInputs
-    {
-        const ShadowPassInputs& pass;
-    };
-    struct ReflectionGraphInputs
-    {
-        const ReflectionPassInputs& pass;
-    };
 
     // Concept: each world-pass graph wrapper receives one named record so
     // visibility and target-selection flags cannot be swapped positionally.
@@ -385,11 +377,11 @@ class RuntimeRenderer
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     void FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
     void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
-    ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
+    ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowPassInputs& pass );
     void ExecuteSkyboxThroughRenderGraph( const RenderCameraLighting& camera, Rendering::Dx12GeometryOwner& renderGeometry,
                                           Rendering::Dx12TextureOwner& renderTextures,
                                           Rendering::Dx12GraphTransientPool& renderGraph );
-    ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
+    ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionPassInputs& pass );
     void ExecuteSceneTargetBeginThroughRenderGraph( const RenderCameraLighting& camera, const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                                     Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12TextureOwner& renderTextures,
                                                     Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,

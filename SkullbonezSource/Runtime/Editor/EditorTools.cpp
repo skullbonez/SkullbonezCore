@@ -235,33 +235,33 @@ Vector3 EditorPlacementScaleFromGesture( int objectType, const Vector3& startSca
 }
 
 
-void ResetEditorUnfocusedInputState( EditorGizmoContext context )
+void ResetEditorUnfocusedInputState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
 
     // Lifetime: Losing focus cancels gesture-owned state only. Persistent
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.
-    context.editor.viewportLookActive = false;
-    EndEditorPlacementScaleGesture( context );
-    context.editor.placementScaleWheelSteps = 0;
-    CancelEditorGizmoDragState( context );
-    context.editor.gizmoDragStartAxisT = 0.0f;
-    context.editor.gizmoDragStartRotationAngle = 0.0f;
-    context.editor.gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
-    context.editor.gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+    editor.viewportLookActive = false;
+    EndEditorPlacementScaleGesture( interaction );
+    editor.placementScaleWheelSteps = 0;
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.gizmoDragStartAxisT = 0.0f;
+    editor.gizmoDragStartRotationAngle = 0.0f;
+    editor.gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    editor.gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
 }
 
 
-void ClearEditorManipulationState( EditorGizmoContext context )
+void ClearEditorManipulationState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    context.editor.placementPreviewVisible = false;
-    EndEditorPlacementScaleGesture( context );
-    context.editor.placementScaleWheelSteps = 0;
-    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
-    context.editor.placementScaleStart = context.editor.placementScale;
-    CancelEditorGizmoDragState( context );
-    context.editor.placementAltitudeSteps = 0;
-    context.editor.placementYawRadians = 0.0f;
+    editor.placementPreviewVisible = false;
+    EndEditorPlacementScaleGesture( interaction );
+    editor.placementScaleWheelSteps = 0;
+    editor.placementScale = EditorDefaultPlacementScale( editor.objectType );
+    editor.placementScaleStart = editor.placementScale;
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.placementAltitudeSteps = 0;
+    editor.placementYawRadians = 0.0f;
 }
 
 
@@ -284,18 +284,20 @@ EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction ac
 }
 
 
-EditorPlacementModeChangeResult SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation )
+EditorPlacementModeChangeResult SetEditorPlacementMode( RunEditorPlacementState& editor,
+                                                        RuntimeInteractionController& interaction, bool enabled,
+                                                        bool clearManipulation )
 {
-    context.editor.placementModeEnabled = context.editor.editorModeEnabled && enabled;
-    context.editor.viewportLookActive = false;
+    editor.placementModeEnabled = editor.editorModeEnabled && enabled;
+    editor.viewportLookActive = false;
 
     if ( clearManipulation )
     {
-        ClearEditorManipulationState( context );
+        ClearEditorManipulationState( editor, interaction );
     }
 
     EditorPlacementModeChangeResult result;
-    result.placementModeEnabled = context.editor.placementModeEnabled;
+    result.placementModeEnabled = editor.placementModeEnabled;
     result.worldOwner = result.placementModeEnabled ? WorldInteractionOwner::EditorPlacement
                                                     : WorldInteractionOwner::EditorGizmo;
 
@@ -303,37 +305,39 @@ EditorPlacementModeChangeResult SetEditorPlacementMode( EditorGizmoContext conte
 }
 
 
-EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context )
+EditorPlacementModeChangeResult ToggleEditorPlacementMode( RunEditorPlacementState& editor,
+                                                           RuntimeInteractionController& interaction )
 {
-    return SetEditorPlacementMode( context, !context.editor.placementModeEnabled, true );
+    return SetEditorPlacementMode( editor, interaction, !editor.placementModeEnabled, true );
 }
 
 
-void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode )
+void EnterEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction,
+                           RunCameraMode restoreCameraMode )
 {
-    context.editor.editorModeEnabled = true;
-    context.editor.placementModeEnabled = true;
-    context.editor.viewportLookActive = false;
-    ClearEditorManipulationState( context );
-    context.editor.restoreCameraModeAfterEditor = restoreCameraMode;
+    editor.editorModeEnabled = true;
+    editor.placementModeEnabled = true;
+    editor.viewportLookActive = false;
+    ClearEditorManipulationState( editor, interaction );
+    editor.restoreCameraModeAfterEditor = restoreCameraMode;
 }
 
 
-void ExitEditorModeState( EditorGizmoContext context )
+void ExitEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    context.editor.history.Clear();
-    context.editor.editorModeEnabled = false;
-    context.editor.viewportLookActive = false;
-    context.editor.placementPreviewVisible = false;
-    context.editor.placementModeEnabled = false;
-    EndEditorPlacementScaleGesture( context );
-    CancelEditorGizmoDragState( context );
-    context.editor.placementScaleWheelSteps = 0;
-    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
-    context.editor.placementScaleStart = context.editor.placementScale;
-    context.editor.placementAltitudeSteps = 0;
-    context.editor.placementYawRadians = 0.0f;
-    context.editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
+    editor.history.Clear();
+    editor.editorModeEnabled = false;
+    editor.viewportLookActive = false;
+    editor.placementPreviewVisible = false;
+    editor.placementModeEnabled = false;
+    EndEditorPlacementScaleGesture( interaction );
+    CancelEditorGizmoDragState( editor, interaction );
+    editor.placementScaleWheelSteps = 0;
+    editor.placementScale = EditorDefaultPlacementScale( editor.objectType );
+    editor.placementScaleStart = editor.placementScale;
+    editor.placementAltitudeSteps = 0;
+    editor.placementYawRadians = 0.0f;
+    editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
 }
 
 
@@ -356,53 +360,54 @@ void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor )
 }
 
 
-void ToggleEditorTerrainAlign( EditorGizmoContext context )
+void ToggleEditorTerrainAlign( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-    RunEditorPlacementState& editor = context.editor;
     editor.autoTerrainAlign = !editor.autoTerrainAlign;
     editor.placementPreviewVisible = false;
-    EndEditorPlacementScaleGesture( context );
+    EndEditorPlacementScaleGesture( interaction );
     editor.placementScaleWheelSteps = 0;
 }
 
 
-EditorObjectTypeRequestResult SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType,
+EditorObjectTypeRequestResult SelectEditorObjectType( RunEditorPlacementState& editor,
+                                                      RuntimeInteractionController& interaction, int requestedObjectType,
                                                       bool enterPlacementMode )
 {
     EditorObjectTypeRequestResult result;
     const int objectType = ClampEditorObjectType( requestedObjectType );
 
-    if ( objectType != context.editor.objectType )
+    if ( objectType != editor.objectType )
     {
-        context.editor.objectType = objectType;
-        ClearEditorManipulationState( context );
+        editor.objectType = objectType;
+        ClearEditorManipulationState( editor, interaction );
         result.objectTypeChanged = true;
     }
     else if ( enterPlacementMode )
     {
-        ClearEditorManipulationState( context );
+        ClearEditorManipulationState( editor, interaction );
     }
 
-    result.enterPlacementMode = enterPlacementMode && context.editor.editorModeEnabled;
+    result.enterPlacementMode = enterPlacementMode && editor.editorModeEnabled;
     return result;
 }
 
 
-EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( RunEditorPlacementState& editor,
+                                                                             RuntimeInteractionController& interaction,
                                                                              const UI::UIEditorCommands& commands )
 {
     EditorPlacementPreModeUICommandResult result;
     result.toggleEditorMode = commands.toggleEditorMode;
     result.togglePlacementMode = commands.togglePlacementMode;
 
-    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( context.editor, commands.requestedPlaceStatic ) )
+    if ( commands.requestPlaceStatic && SetEditorPlaceStaticObject( editor, commands.requestedPlaceStatic ) )
     {
         result.setPlaceStatic = true;
     }
 
     if ( commands.requestedObjectType >= 0 )
     {
-        const EditorObjectTypeRequestResult objectTypeRequest = SelectEditorObjectType( context,
+        const EditorObjectTypeRequestResult objectTypeRequest = SelectEditorObjectType( editor, interaction,
                                                                                         commands.requestedObjectType,
                                                                                         commands.enterPlacementMode );
 
@@ -414,10 +419,10 @@ EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( Edi
 }
 
 
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               RuntimeInteractionController& interaction,
                                                                                const UI::UIEditorCommands& commands )
 {
-    RunEditorPlacementState& editor = context.editor;
     EditorPlacementPostModeUICommandResult result;
 
     if ( commands.togglePlaceStatic )
@@ -428,7 +433,7 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( E
 
     if ( commands.toggleTerrainAlign )
     {
-        ToggleEditorTerrainAlign( context );
+        ToggleEditorTerrainAlign( editor, interaction );
         result.toggledTerrainAlign = true;
     }
 

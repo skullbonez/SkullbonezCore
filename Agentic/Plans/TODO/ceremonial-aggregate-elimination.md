@@ -1,12 +1,12 @@
 # Ceremonial Aggregate Elimination
 
 Date: 2026-07-26
-Status: IN PROGRESS — CA0 through CA2 closed on 2026-07-27; the UI command
-and Scene setup/runtime context families are gone and CA3 is binding.
+Status: IN PROGRESS — CA0 through CA3 closed on 2026-07-27; all 35
+authority-free couriers are gone and CA4 is binding.
 Originally drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 4 of the Architecture Follow-Up Campaign
-Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 3/5
+Round 5. Starts after `governance-shape-to-judgment-conversion` closes. 4/5
 phases complete.
 Impact area: `Runtime/Interaction/OperatorCommandApplier.h`,
 `Runtime/Scene/SceneRuntime*.h`, `Runtime/Scene/SceneAuthoredSetup.h`,
@@ -179,7 +179,7 @@ independent meaning. Nothing exists to make a call site look tidier.
   `validate_physics.bat` passes without a baseline change. Evidence:
   `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca2-scene-contexts.md`.
 
-- [ ] **CA3 — Remove the Editor, Diagnostics, Input, Capture, Assets, Render,
+- [x] **CA3 — Remove the Editor, Diagnostics, Input, Capture, Assets, Render,
   and Replay remainder.**
   Delete every remaining CA0 `remove` row: `EditorGizmoContext`,
   `EditorPlacementPreviewContext`, `EditorObjectPlacementContext`,
@@ -194,6 +194,11 @@ independent meaning. Nothing exists to make a call site look tidier.
   CA0 `remove` set is empty at re-run; editor placement/gizmo/trace behavior,
   diagnostics hotkeys, camera input, capture, and asset resolution are unchanged;
   DX12 baselines unchanged.
+  Closed 2026-07-27. All 18 rows were deleted without replacement; the
+  inventory now reports 1,172 candidates, 84 ruled review rows, zero signalled
+  rows, and zero unruled rows. The 416-case unit suite, DX12 renderer gate, and
+  one-minute graphics stress run pass without a baseline update. Evidence:
+  `../../Reports/2026-07-27/ceremonial-aggregate-elimination-ca3-remainder.md`.
 
 - [ ] **CA4 — Reconcile, review, and hand off.**
   Re-run the CA0 census and the G2 inventory at final source. Every surviving

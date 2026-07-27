@@ -86,9 +86,9 @@ bool DiagnosticsController::PerfTestActive() const
 }
 
 
-void DiagnosticsController::TickPerfLog( const RuntimePerfTickContext& context )
+void DiagnosticsController::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
 {
-    RuntimeDiagnostics::TickPerfLog( m_perfLog, context, m_profiler );
+    RuntimeDiagnostics::TickPerfLog( m_perfLog, pass, frame, physicsTimeSeconds, renderTimeSeconds, m_profiler );
 }
 
 

@@ -1297,13 +1297,14 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
     const ReplayLauncherVisualSample& launcherVisual = m_visualPresentation.CaptureLauncherVisual( runtimeTools );
-    const ReplayTimelineCaptureResult result = m_timeline.CaptureFrame( sceneFrame, physicsDt, world, camera, launcherVisual,
-                                                                        physics, tornadoGameplay, entities, bodyStore,
-                                                                        colliderStore, m_authoring.Branch() );
+    const ReplaySolverFrameSample* solverSample = m_timeline.CaptureFrame( sceneFrame, physicsDt, world, camera,
+                                                                           launcherVisual, physics, tornadoGameplay,
+                                                                           entities, bodyStore, colliderStore,
+                                                                           m_authoring.Branch() );
 
-    if ( result.solverSample )
+    if ( solverSample )
     {
-        AppendSolverTrajectorySampleToStore( *result.solverSample );
+        AppendSolverTrajectorySampleToStore( *solverSample );
     }
 
 #if defined( TRACY_ENABLE )

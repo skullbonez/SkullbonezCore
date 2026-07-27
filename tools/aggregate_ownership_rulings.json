@@ -9,16 +9,6 @@
                  },
     "aggregates":  [
                        {
-                           "key":  "AssetContext",
-                           "site":  "SkullbonezSource/Assets/AssetSystem.h:190",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "One nullable `const AssetSystem*`. The nullable-registry fallback it documents is a parameter default, not an invariant, so the operations take the pointer directly.",
-                           "destructures_at_entry":  "no",
-                           "post_removal_signature":  "asset-loading functions take const AssetSystem* directly — at most 4 parameters"
-                       },
-                       {
                            "key":  "BackbufferAcquireGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:321",
                            "members":  3,
@@ -65,7 +55,7 @@
                        },
                        {
                            "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:368",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -82,36 +72,6 @@
                            "destructures_at_entry":  "yes"
                        },
                        {
-                           "key":  "DiagnosticsKeyboardShortcutContext",
-                           "site":  "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h:66",
-                           "members":  6,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "HandleDiagnosticsKeyboardShortcut expands six context members plus action/pressed — 8 parameters"
-                       },
-                       {
-                           "key":  "DiagnosticsUIKeyboardShortcutContext",
-                           "site":  "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h:81",
-                           "members":  5,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "HandleDiagnosticsUIKeyboardShortcut expands five context members plus action/pressed — 7 parameters"
-                       },
-                       {
-                           "key":  "EditorGizmoContext",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:140",
-                           "members":  3,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "mixed",
-                           "post_removal_signature":  "editor gizmo operations take editor, world, interaction plus operation values — at most 8 parameters"
-                       },
-                       {
                            "key":  "EditorGizmoDragPointerInput",
                            "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:280",
                            "members":  7,
@@ -121,18 +81,8 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "EditorInteractionPreviewContext",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:74",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "UpdateEditorInteractionPreview(editor, world, interaction, assets, input) — 5 parameters"
-                       },
-                       {
                            "key":  "EditorInteractionPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:82",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:72",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -140,33 +90,13 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "EditorObjectPlacementContext",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:107",
-                           "members":  5,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "placement operations take editor, world, scene, assets, activeModelCapacity plus request/output — at most 8 parameters"
-                       },
-                       {
                            "key":  "EditorObjectPlacementRequest",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:116",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:99",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
                            "reason":  "Current-tip review retains this domain request: its fields form the named EditorObjectPlacementRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "EditorPlacementPreviewContext",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:99",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "TryUpdateEditorPlacementPreview(editor, terrain, assets, scaleGestureActive, objectType, mousePlacement) — 6 parameters"
                        },
                        {
                            "key":  "EditorPointerPreviewInput",
@@ -187,18 +117,8 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "EditorToolOverlayTraceContext",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:98",
-                           "members":  6,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "BuildEditorToolOverlayTrace(editor, rayCastTest, mousePickup, world, assets, tracer, input) — 7 parameters"
-                       },
-                       {
                            "key":  "EditorToolOverlayTraceInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:108",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:88",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -288,7 +208,7 @@
                        },
                        {
                            "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:340",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:332",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -324,7 +244,7 @@
                        },
                        {
                            "key":  "PointerPresentationPolicyInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:283",
+                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:273",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -350,16 +270,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "ReflectionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:331",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "The wrapper carries only `const ReflectionPassInputs\u0026`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ExecuteReflectionThroughRenderGraph(const ReflectionPassInputs\u0026) — 1 parameter"
-                       },
-                       {
                            "key":  "ReflectionPassInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:290",
                            "members":  24,
@@ -376,16 +286,6 @@
                            "owner":  "prior owner ruling carried by CA0",
                            "reason":  "Render graph execution closure: callback ABI carries only graph/pass/debug-label state.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RenderReplayOverlayView",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h:135",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "The wrapper carries only `const ReplayRenderFrameView\u0026`; CA3 passes the replay frame view directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "FrameEntryContext stores const ReplayRenderFrameView\u0026 directly — no operation arity change"
                        },
                        {
                            "key":  "RenderResourceContext",
@@ -425,7 +325,7 @@
                        },
                        {
                            "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:365",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:357",
                            "members":  8,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -494,16 +394,6 @@
                            "owner":  "CA0 / Runtime/Replay",
                            "reason":  "Current-tip review retains this bounded input value: its fields form the named ReplayOverlayBuildInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayPastRootRebuildContext",
-                           "site":  "SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h:50",
-                           "members":  6,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 6 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "no",
-                           "post_removal_signature":  "inline store, record, targetModelRow, firstFrame, hasSample, and ok at the sole rebuild scope — no operation exceeds 12"
                        },
                        {
                            "key":  "ReplayPathChildDrawContext",
@@ -579,7 +469,7 @@
                        },
                        {
                            "key":  "ReplaySaveProbeArtifactContext",
-                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:487",
+                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:486",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -621,16 +511,6 @@
                            "owner":  "CA0 / Runtime/Replay",
                            "reason":  "Current-tip review retains this domain request: its fields form the named ReplayStartupRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ReplayTimelineCaptureResult",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayTimeline.h:195",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "The result carries only one borrowed solver sample pointer and enforces no result invariant; CA3 returns the pointer directly.",
-                           "destructures_at_entry":  "no",
-                           "post_removal_signature":  "ReplayTimeline::CaptureFrame returns const ReplaySolverFrameSample* directly — existing 11-parameter input signature unchanged"
                        },
                        {
                            "key":  "ReplayTransportHostContext",
@@ -687,28 +567,8 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "RuntimeAfterUiDismissInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:129",
-                           "members":  3,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 3 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "DispatchAfterUiDismiss expands uiUserInteracted, nowSeconds, legacyUiActive — at most 9 parameters"
-                       },
-                       {
-                           "key":  "RuntimeCameraInputFrameContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:267",
-                           "members":  5,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ApplyCameraInputFrame(camera, appFocused, cameraMouseLookActive, mouseLookOwnsCursor, cameraKeyboardControlsActive, deviceFrame) — 6 parameters"
-                       },
-                       {
                            "key":  "RuntimeCameraMovementInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:288",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:275",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -716,18 +576,8 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "RuntimeCaptureSceneContext",
-                           "site":  "SkullbonezSource/Runtime/Capture/CaptureSystem.h:74",
-                           "members":  5,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 5 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "mixed",
-                           "post_removal_signature":  "capture operations expand isSceneMode, isInteractiveRun, currentFrame, elapsedMs, currentScenePath — at most 8 parameters"
-                       },
-                       {
                            "key":  "RuntimeInputContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:310",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:297",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -751,16 +601,6 @@
                            "owner":  "CA0 / Runtime/Interaction",
                            "reason":  "Current-tip review retains this bounded input value: its fields form the named RuntimeInteractionFrameInput boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "RuntimePerfTickContext",
-                           "site":  "SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h:153",
-                           "members":  4,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 4 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "mixed",
-                           "post_removal_signature":  "perf tick operations expand pass, frame, physicsTimeSeconds, renderTimeSeconds — at most 6 parameters"
                        },
                        {
                            "key":  "RuntimePickRequest",
@@ -790,16 +630,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "RuntimeViewModelContext",
-                           "site":  "SkullbonezSource/Runtime/UI/RuntimeViewModel.h:62",
-                           "members":  7,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "CA0 confirms this behavior-free operation courier owns no invariant; its 7 fields become concrete consumer operands.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "RuntimeViewModelBuilder::Build(scene, world, sceneCount, capture, presentationInterpolation, presentationPinned, presentationAlpha) — 7 parameters"
-                       },
-                       {
                            "key":  "SceneLoadRequest",
                            "site":  "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h:50",
                            "members":  7,
@@ -825,16 +655,6 @@
                            "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
                            "reason":  "Current-tip review retains this domain request: its fields form the named SceneSaveRequest boundary and are consumed together without granting an arbitrary cross-domain mutable-owner union.",
                            "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "ShadowGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:327",
-                           "members":  1,
-                           "verdict":  "remove",
-                           "owner":  "ceremonial-aggregate-elimination CA3",
-                           "reason":  "The wrapper carries only `const ShadowPassInputs\u0026`, and its sole consumer immediately forwards `inputs.pass`; CA3 deletes it and takes the pass input directly.",
-                           "destructures_at_entry":  "yes",
-                           "post_removal_signature":  "ExecuteShadowThroughRenderGraph(const ShadowPassInputs\u0026) — 1 parameter"
                        },
                        {
                            "key":  "ShadowPassInputs",
@@ -865,7 +685,7 @@
                        },
                        {
                            "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:345",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:337",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -901,7 +721,7 @@
                        },
                        {
                            "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:350",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:342",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -937,7 +757,7 @@
                        },
                        {
                            "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:355",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:347",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",

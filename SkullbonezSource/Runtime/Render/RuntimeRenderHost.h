@@ -132,11 +132,6 @@ struct RenderWorldView
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 };
 
-struct RenderReplayOverlayView
-{
-    const ReplayRenderFrameView& replayFrame;
-};
-
 struct RenderToolOverlayView
 {
     RuntimeTools& tools;

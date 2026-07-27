@@ -459,18 +459,17 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools, SceneSessio
     runtimeTools.Editor().placementScale = placementScale;
     runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
     runtimeTools.Editor().placementYawRadians = placementYawRadians;
-    EditorObjectPlacementContext placementContext { runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity };
-
     EditorObjectPlacementRequest placementRequest { event.value0, ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                     terrainPoint };
 
     EditorObjectPlacementResult placementResult;
     bool placed = false;
 
-    if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+    if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, sceneObjectCapacity, placementRequest ) )
     {
         requestInteractiveScene = true;
-        placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+        placed = PlaceEditorObjectAtTerrainPoint( runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity,
+                                                  placementRequest, placementResult );
     }
 
     runtimeTools.Editor().placementScale = previousPlacementScale;

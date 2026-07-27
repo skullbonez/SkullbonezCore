@@ -646,7 +646,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
 
 // Lifetime: the parser only borrows the asset registry during this parse.
 // A null registry keeps standalone tools on the historical path fallback.
-AuthoredSceneParser::AuthoredSceneParser( Assets::AssetContext assets ) : m_assets( assets )
+AuthoredSceneParser::AuthoredSceneParser( const Assets::AssetSystem* assets ) : m_assets( assets )
 {
 }
 
@@ -730,23 +730,23 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
 }
 
 
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
     return AuthoredSceneParser( assets ).LoadScene( path );
 }
 
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
     return AuthoredSceneParser( assets ).LoadStyle( path );
 }
 
-SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets,
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
                                                                  AuthoredScene& outScene )
 {
     return AuthoredSceneParser( assets ).TryLoadScene( path, outScene );
 }
 
-SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets,
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
                                                               AuthoredScene& outScene )
 {
     return AuthoredSceneParser( assets ).TryLoadStyle( path, outScene );

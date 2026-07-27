@@ -21,7 +21,7 @@ Invariants:
   - Scale helpers must be deterministic and side-effect free.
   - Command helpers borrow only the concrete owners used by that operation.
   - Object-type helpers must stay aligned with the editor tab object enum.
-  - Preview, preflight, and commit contexts must borrow the same asset registry.
+  - Preview, preflight, and commit operations must borrow the same asset registry.
 
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
@@ -96,23 +96,6 @@ struct EditorTerrainPlacement
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
-struct EditorPlacementPreviewContext
-{
-    RunEditorPlacementState& editor;
-    Geometry::Terrain* terrain;
-    const Assets::AssetSystem& assets;
-    bool scaleGestureActive = false;
-};
-
-struct EditorObjectPlacementContext
-{
-    RunEditorPlacementState& editor;
-    SceneWorld& world;
-    SceneSessionState& scene;
-    const Assets::AssetSystem& assets;
-    int activeModelCapacity;
-};
-
 struct EditorObjectPlacementRequest
 {
     int objectType;
@@ -135,13 +118,6 @@ struct EditorObjectPlacementResult
     Math::Vector::Vector3 terrainPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 placementScale = Math::Vector::ZERO_VECTOR;
     float placementYawRadians = 0.0f;
-};
-
-struct EditorGizmoContext
-{
-    RunEditorPlacementState& editor;
-    SceneWorld& world;
-    RuntimeInteractionController& interaction;
 };
 
 struct EditorKeyboardShortcutResult
@@ -195,18 +171,21 @@ bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& 
                                    const Math::Vector::Vector3& placementScale,
                                    const Math::Orientation::Quaternion& orientation, const Assets::AssetSystem& assets,
                                    Math::Vector::Vector3& outCenter );
-bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context, int objectType,
+bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry::Terrain* terrain,
+                                      const Assets::AssetSystem& assets, bool scaleGestureActive, int objectType,
                                       const EditorTerrainPlacement* mousePlacement );
-bool CanPlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request );
-bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context, EditorObjectPlacementRequest request,
-                                      EditorObjectPlacementResult& outResult );
-bool BeginEditorGizmoDragGesture( EditorGizmoContext context, int modelIndex, int axis, RuntimeGizmoDragKind gizmoKind,
-                                  int clientX, int clientY );
-void EndEditorGizmoDragGesture( EditorGizmoContext context );
-void EndEditorPlacementScaleGesture( EditorGizmoContext context );
-void CancelEditorGizmoDragState( EditorGizmoContext context );
-void ResetEditorUnfocusedInputState( EditorGizmoContext context );
-void ClearEditorManipulationState( EditorGizmoContext context );
+bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity,
+                                         EditorObjectPlacementRequest request );
+bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene,
+                                      const Assets::AssetSystem& assets, int activeModelCapacity,
+                                      EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult );
+bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis,
+                                  RuntimeGizmoDragKind gizmoKind, int clientX, int clientY );
+void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction );
+void EndEditorPlacementScaleGesture( RuntimeInteractionController& interaction );
+void CancelEditorGizmoDragState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction );
+void ResetEditorUnfocusedInputState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction );
+void ClearEditorManipulationState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction );
 
 // Concept: editor selection stores stable handles plus a row hint. Resolve at
 // the tool boundary before UI-only code needs a temporary model row.
@@ -261,38 +240,50 @@ float WrapEditorAngleDelta( float delta );
 float DistanceRayToSegmentSquared( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                                    const Math::Vector::Vector3& segmentA, const Math::Vector::Vector3& segmentB );
 EditorKeyboardShortcutResult HandleEditorKeyboardShortcut( RuntimeInputAction action, bool isDown, bool wasPressed );
-EditorPlacementModeChangeResult SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation );
-EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context );
-void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode );
-void ExitEditorModeState( EditorGizmoContext context );
+EditorPlacementModeChangeResult SetEditorPlacementMode( RunEditorPlacementState& editor,
+                                                        RuntimeInteractionController& interaction, bool enabled,
+                                                        bool clearManipulation );
+EditorPlacementModeChangeResult ToggleEditorPlacementMode( RunEditorPlacementState& editor,
+                                                           RuntimeInteractionController& interaction );
+void EnterEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction,
+                           RunCameraMode restoreCameraMode );
+void ExitEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction );
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject );
 void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor );
-void ToggleEditorTerrainAlign( EditorGizmoContext context );
-EditorObjectTypeRequestResult SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType,
+void ToggleEditorTerrainAlign( RunEditorPlacementState& editor, RuntimeInteractionController& interaction );
+EditorObjectTypeRequestResult SelectEditorObjectType( RunEditorPlacementState& editor,
+                                                      RuntimeInteractionController& interaction, int requestedObjectType,
                                                       bool enterPlacementMode );
-EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( EditorGizmoContext context,
+EditorPlacementPreModeUICommandResult ApplyEditorPlacementPreModeUICommands( RunEditorPlacementState& editor,
+                                                                             RuntimeInteractionController& interaction,
                                                                              const UI::UIEditorCommands& commands );
-EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( EditorGizmoContext context,
+EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( RunEditorPlacementState& editor,
+                                                                               RuntimeInteractionController& interaction,
                                                                                const UI::UIEditorCommands& commands );
-int HitEditorGizmoAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+int HitEditorGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Math::Vector::Vector3& rayOrigin,
                         const Math::Vector::Vector3& rayDirection );
-int HitEditorRotationGizmoAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& world, const Math::Vector::Vector3& rayOrigin,
                                 const Math::Vector::Vector3& rayDirection );
-bool TryEditorAxisRayParameter( EditorGizmoContext context, int axis, const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection, float& outAxisT );
+bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& world, int axis,
+                                const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                                float& outAxisT );
 Math::Vector::Vector3 EditorAxisDragPlaneNormal( int axis, const Math::Vector::Vector3& rayDirection );
 bool TryEditorAxisPlaneRayParameter( int axis, const Math::Vector::Vector3& planeOrigin,
                                      const Math::Vector::Vector3& planeNormal, const Math::Vector::Vector3& rayOrigin,
                                      const Math::Vector::Vector3& rayDirection, float& outAxisT );
-bool TryEditorRotationRayAngle( EditorGizmoContext context, int axis, const Math::Vector::Vector3& rayOrigin,
-                                const Math::Vector::Vector3& rayDirection, float& outAngle );
-void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& world, int axis,
+                                const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
+                                float& outAngle );
+void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world,
+                                        RuntimeInteractionController& interaction, const Math::Vector::Vector3& rayOrigin,
                                         const Math::Vector::Vector3& rayDirection );
-void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, SceneWorld& world,
+                                           RuntimeInteractionController& interaction, const Math::Vector::Vector3& rayOrigin,
                                            const Math::Vector::Vector3& rayDirection );
-void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+void ScaleSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWorld& world,
+                                         RuntimeInteractionController& interaction, const Math::Vector::Vector3& rayOrigin,
                                          const Math::Vector::Vector3& rayDirection );
-void UpdateEditorGizmoHotAxes( EditorGizmoContext context, const Math::Vector::Vector3& rayOrigin,
+void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& world, const Math::Vector::Vector3& rayOrigin,
                                const Math::Vector::Vector3& rayDirection, bool scaleMode );
 
 // InputController owns keybinding data. Editor tools keep the two unrelated

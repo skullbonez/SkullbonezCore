@@ -52,7 +52,7 @@ class DiagnosticsController
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
     bool PerfTestActive() const;
-    void TickPerfLog( const RuntimePerfTickContext& context );
+    void TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds );
 
     // Samples the startup-bound profiler without reopening a process-global
     // profiler locator

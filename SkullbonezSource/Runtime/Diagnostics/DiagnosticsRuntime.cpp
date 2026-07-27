@@ -346,8 +346,9 @@ void WriteReplayTrajectoryCounters( FILE* file, const SkullbonezCore::Core::Main
 }
 } // namespace
 
-bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext context, RuntimeInputAction action,
-                                        bool wasPressed )
+bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTrackBallIndex, int sceneEntityCount,
+                                        const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
+                                        double simulationSeconds, RuntimeInputAction action, bool wasPressed )
 {
 
     if ( !wasPressed )
@@ -374,7 +375,6 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         }
     }
 
-    OverlayDebugState& debug = context.debug;
 
     switch ( action )
     {
@@ -386,7 +386,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
 
         if ( debug.isWaterFreezeDebug )
         {
-            debug.frozenWaterTime = static_cast<float>( context.simulationSeconds );
+            debug.frozenWaterTime = static_cast<float>( simulationSeconds );
         }
 
         return true;
@@ -396,8 +396,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
         // no reflection, then back to FBO. Machines without DXR skip the
         // unsupported mode instead of leaving the toggle in a dead state.
-        const bool dxrReflectionSupported = context.renderDiagnostics &&
-                                            context.renderDiagnostics->GetCapabilities().supportsDxrReflection;
+        const bool dxrReflectionSupported = renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection;
 
         if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
         {
@@ -491,12 +490,12 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // G cycles the tracked ball while the broadphase overlay is off; once
         // the overlay is active, the same key owns overlay visibility.
 
-        if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
+        if ( sceneMode && cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
 
-            if ( context.sceneEntityCount > 0 )
+            if ( sceneEntityCount > 0 )
             {
-                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % context.sceneEntityCount;
+                cameraTrackBallIndex = ( cameraTrackBallIndex + 1 ) % sceneEntityCount;
             }
         }
         else
@@ -511,7 +510,9 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
 }
 
 
-DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( DiagnosticsUIKeyboardShortcutContext context,
+DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InGameUI& ui, OverlayDebugState& debug,
+                                                                         SceneSessionState& scene,
+                                                                         CaptureController& capture, double nowSeconds,
                                                                          RuntimeInputAction action, bool wasPressed )
 {
     DiagnosticsUIKeyboardShortcutResult result;
@@ -541,20 +542,20 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( Diagnos
 
         // Concept: The tabbed diagnostics UI owns overlay text once visible, so
         // the legacy one-line overlay is cleared by the UI shortcut owner.
-        context.scene.isInteractiveRun = true;
-        context.scene.isExitOnComplete = false;
-        context.capture.Screenshot().isScreenshotAndExit = false;
-        context.ui.ToggleVisible( context.nowSeconds );
-        context.debug.overlayMode = OverlayMode::None;
+        scene.isInteractiveRun = true;
+        scene.isExitOnComplete = false;
+        capture.Screenshot().isScreenshotAndExit = false;
+        ui.ToggleVisible( nowSeconds );
+        debug.overlayMode = OverlayMode::None;
         return result;
     case RuntimeInputAction::TogglePerformanceHistogram:
 
         // F5/F6 are lightweight diagnostic overlays; they do not implicitly open
         // or close the broader diagnostics window.
-        context.ui.TogglePerformanceHistogramEnabled();
+        ui.TogglePerformanceHistogramEnabled();
         return result;
     case RuntimeInputAction::ToggleMemoryOverlay:
-        context.ui.ToggleMemoryOverlayEnabled();
+        ui.ToggleMemoryOverlayEnabled();
         return result;
     default:
         return result;
@@ -688,9 +689,9 @@ bool DiagnosticsRuntime::PerfTestActive() const
 }
 
 
-void DiagnosticsRuntime::TickPerfLog( const RuntimePerfTickContext& context )
+void DiagnosticsRuntime::TickPerfLog( int pass, int frame, float physicsTimeSeconds, float renderTimeSeconds )
 {
-    m_diagnostics.TickPerfLog( context );
+    m_diagnostics.TickPerfLog( pass, frame, physicsTimeSeconds, renderTimeSeconds );
 }
 
 
