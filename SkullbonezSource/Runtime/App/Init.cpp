@@ -48,7 +48,9 @@ Related:
 #include "../../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -129,8 +131,7 @@ void AttachParentConsole()
 // Render backend
 // ---------------------------------------------------------------------------
 
-SkullbonezCore::Core::SbResult InitRenderBackend( Window* window, RuntimeRenderBackendView& renderBackendView,
-                                                  std::unique_ptr<RenderBackendDX12>& outBackend )
+SkullbonezCore::Core::SbResult InitRenderBackend( Window* window, std::unique_ptr<RenderBackendDX12>& outBackend )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
@@ -145,8 +146,7 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window, RuntimeRenderB
 
         // Lane R: render backend startup probes the host graphics environment.
         // Failures are reported at process bootstrap before any runtime borrows
-        // are published into RuntimeRenderBackendView.
-        renderBackendView = RuntimeRenderBackendView();
+        // are published.
         return renderInitResult;
     }
 
@@ -156,34 +156,18 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window, RuntimeRenderB
 
     if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity( ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
     {
-        renderBackendView = RuntimeRenderBackendView();
         return SkullbonezCore::Core::SbResult::
             Failure( "Runtime/Prediction", "Retained geometry capacity exceeds the renderer's cold safety maximum" );
     }
 
-    // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
-    // render code keeps concrete device/frame/graph/resource owners in
-    // RuntimeRenderBackendView and must release every borrow before shutdown
-    // resets the backend.
-    renderBackendView.renderDevice = &renderBackend->RenderDevice();
-    renderBackendView.renderFrame = &renderBackend->Frame();
-    renderBackendView.renderGraph = &renderBackend->GraphTransients();
-    renderBackendView.renderResources = &renderBackend->ResourceBuilder();
-    renderBackendView.renderTextures = &renderBackend->Textures();
-    renderBackendView.renderGeometry = &renderBackend->Geometry();
-    renderBackendView.renderDiagnostics = &renderBackend->Diagnostics();
-    renderBackendView.backbufferCapture = &renderBackend->BackbufferCapture();
-    renderBackendView.raytracing = &renderBackend->Raytracing();
-    renderBackendView.shaderDevelopment = &renderBackend->ShaderDevelopment();
-#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    renderBackendView.developmentUiRenderer = &renderBackend->DevelopmentUiRenderer();
-#endif
+    // Lifetime: process bootstrap owns the concrete backend. Run binds named
+    // owners from it synchronously and releases every borrow before shutdown.
     outBackend = std::move( backend );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& cfg, WorkerPool& workerPool,
-            SkullbonezCore::Core::Profiler* profiler, RuntimeRenderBackendView renderBackendView,
+            SkullbonezCore::Core::Profiler* profiler, RenderBackendDX12& renderBackend,
             SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
 {
 
@@ -191,7 +175,7 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
     // DX12 backend and Win32 window are torn down by the process owner.
     {
         std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler,
-                                                           tracyClientOwner );
+                                                           renderBackend.BackbufferCapture(), tracyClientOwner );
 
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
@@ -234,19 +218,27 @@ int RunApp( Window* window, ParsedArgs& args, SkullbonezCore::Core::EngineConfig
             return 1;
         };
 
-        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( *renderBackendView.renderDevice,
-                                                                                   *renderBackendView.renderFrame,
-                                                                                   *renderBackendView.renderGraph,
-                                                                                   *renderBackendView.renderResources,
-                                                                                   *renderBackendView.renderTextures,
-                                                                                   *renderBackendView.renderGeometry,
-                                                                                   *renderBackendView.renderDiagnostics,
-                                                                                   *renderBackendView.backbufferCapture,
-                                                                                   renderBackendView.raytracing,
-                                                                                   renderBackendView.shaderDevelopment
+        std::optional<std::reference_wrapper<Dx12RaytracingOwner>> raytracing;
+
+        if ( renderBackend.Diagnostics().GetCapabilities().supportsDxrReflection )
+        {
+            raytracing.emplace( renderBackend.Raytracing() );
+        }
+
+        std::optional<std::reference_wrapper<Dx12ShaderDevelopment>> shaderDevelopment;
+        shaderDevelopment.emplace( renderBackend.ShaderDevelopment() );
+
+        const SkullbonezCore::Core::SbResult bindResult = cRun->BindRenderBackend( renderBackend.RenderDevice(),
+                                                                                   renderBackend.Frame(),
+                                                                                   renderBackend.GraphTransients(),
+                                                                                   renderBackend.ResourceBuilder(),
+                                                                                   renderBackend.Textures(),
+                                                                                   renderBackend.Geometry(),
+                                                                                   renderBackend.Diagnostics(), raytracing,
+                                                                                   shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                                                                                    ,
-                                                                                   renderBackendView.developmentUiRenderer
+                                                                                   renderBackend.DevelopmentUiRenderer()
 #endif
         );
 
@@ -477,9 +469,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
     window->AcquireDeviceContext();
 
-    RuntimeRenderBackendView renderBackendView;
     std::unique_ptr<RenderBackendDX12> renderBackend;
-    const SkullbonezCore::Core::SbResult renderBackendResult = InitRenderBackend( window, renderBackendView, renderBackend );
+    const SkullbonezCore::Core::SbResult renderBackendResult = InitRenderBackend( window, renderBackend );
 
     if ( !renderBackendResult.ok )
     {
@@ -493,7 +484,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
 
-    window->SetResizeRenderFrameOwner( renderBackendView.renderFrame );
+    window->SetResizeRenderFrameOwner( &renderBackend->Frame() );
     const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
 
     if ( !initialResizeResult.ok )
@@ -520,7 +511,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #endif
     workerPool.BindProfiler( profiler );
 
-    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView, tracyClient );
+    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, *renderBackend, tracyClient );
 
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );

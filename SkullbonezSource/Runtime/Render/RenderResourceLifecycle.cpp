@@ -44,7 +44,8 @@ namespace Rendering = SkullbonezCore::Rendering;
 RenderResourceLifecycle::RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                                                   Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing, const RenderWorldView& world,
+                                                  Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                  std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing, const RenderWorldView& world,
                                                   const SceneSessionState& scene )
     : m_renderDevice( renderDevice ), m_renderFrame( renderFrame ), m_renderGraph( renderGraph ),
       m_renderResources( renderResources ), m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ),
@@ -132,13 +133,13 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
 
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( int modelCapacity )
 {
-    Rendering::Dx12RaytracingOwner* rayTracing = m_raytracing;
-    const bool supported = m_renderDiagnostics.GetCapabilities().supportsDxrReflection && rayTracing;
 
-    if ( !supported )
+    if ( !m_raytracing )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+
+    Rendering::Dx12RaytracingOwner& rayTracing = m_raytracing->get();
 
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
 
@@ -161,7 +162,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     Rendering::MeshDX12* terrainMesh = m_terrain.Get()->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
-    const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
+    const uint64_t sphereVBVA = rayTracing.GetInstancedMeshStaticVBVA( sphereHandle );
 
     if ( terrainVBVA == 0 || sphereVBVA == 0 )
     {
@@ -172,11 +173,11 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracin
     // recoverable renderer result reported through the scene-load transaction.
     const Rendering::RaytracingSetupDesc setup {
         { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },
-        { sphereVBVA, sphereGeometry.vertexCount, rayTracing->GetInstancedMeshStaticStride( sphereHandle ) },
+        { sphereVBVA, sphereGeometry.vertexCount, rayTracing.GetInstancedMeshStaticStride( sphereHandle ) },
         modelCapacity,
     };
 
-    return rayTracing->InitDXR( setup );
+    return rayTracing.InitDXR( setup );
 }
 
 

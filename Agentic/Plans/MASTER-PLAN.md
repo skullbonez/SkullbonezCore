@@ -748,13 +748,13 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 2/33 (6%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/33 (9%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
 `ceremonial-aggregate-elimination` closed and left the live inventory on
 2026-07-27. Plan 5 remains blocked on plan 6. Plan 6
-`render-backend-service-bag-removal` closed RB0-RB1 on 2026-07-27; RB2 is the
+`render-backend-service-bag-removal` closed RB0-RB2 on 2026-07-27; RB3 is the
 binding next task.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
@@ -2058,7 +2058,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
 | 4 | [ceremonial-aggregate-elimination](../Reports/2026-07-27/ceremonial-aggregate-elimination-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; all 35 couriers are gone, independent no-bag review is clear, and the default full gate passes byte-exact baselines |
 | 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Not started | 0/4 | After plan 6, so FV2 need not preserve `renderBackendView`. Endpoint ratified 2026-07-27: concrete operands, no frame transaction |
-| 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | In progress | 2/4 | RB1 removed the bag from Run, frame/input/stress consumers, renderer, and lifecycle; the signature maximum is 12 and DX12 baselines are accepted. **Binding next task: RB2** |
+| 6 | [render-backend-service-bag-removal](TODO/render-backend-service-bag-removal.md) | In progress | 3/4 | RB2 deleted the backend bag and fallback capture accessor; optional capability presence is explicit and Automation/DX12 behavior is accepted. **Binding next task: RB3** |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](TODO/scene-runtime-verb-partition-consolidation.md) | Not started | 0/4 | After plan 4 deletes the three `SceneRuntime*Context` types |
 | 9 | [operator-command-invariant-ownership](TODO/operator-command-invariant-ownership.md) | Not started | 0/4 | After plan 4's CA1 hands over any operation left wide |

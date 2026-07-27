@@ -1,12 +1,12 @@
 # Render Backend Service Bag Removal
 
 Date: 2026-07-26
-Status: IN PROGRESS — RB0-RB1 closed on 2026-07-27; the backend bag is now
-startup-only and RB2 is binding. Originally drafted
+Status: IN PROGRESS — RB0-RB2 closed on 2026-07-27; the backend bag is
+deleted and RB3 reconciliation is binding. Originally drafted
 from the 2026-07-26 from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 6 of the Architecture Follow-Up Campaign
-Round 5. Sequences before `runtime-frame-view-retirement`. 2/4 phases complete.
+Round 5. Sequences before `runtime-frame-view-retirement`. 3/4 phases complete.
 Impact area: `Runtime/Render/RuntimeRenderHost.h`, `Runtime/App/Run.*`,
 `Runtime/Render/RenderResourceLifecycle.h`, `Runtime/Render/RuntimeRenderer.h`,
 `Runtime/Capture/RuntimeStressController.h`, `Runtime/RuntimeFrameViews.h`
@@ -122,7 +122,7 @@ inspected everywhere.
   baselines, and bounded graphics stress is crash-free. Evidence:
   `../../Reports/2026-07-27/render-backend-service-bag-removal-rb1-bindings.md`.
 
-- [ ] **RB2 — Make optional capability presence an explicit composition decision.**
+- [x] **RB2 — Make optional capability presence an explicit composition decision.**
   Raytracing, shader development, and the development UI renderer become an
   explicit presence decision made once where the backend is composed, not a
   nullable field. `RequireBackbufferCapture()` disappears: the capture owner is
@@ -133,6 +133,11 @@ inspected everywhere.
   rows; no Lane-F fatal remains for a capability that could have been a required
   operand; screenshot/readback, raytraced reflection, shader reload, and the
   ImGui development surface all behave identically.
+  Closed 2026-07-27. The bag and fallback capture accessor are deleted;
+  capture is required by reference, and raytracing, shader development, and
+  development UI presence are explicit composition decisions. Fast, Automation,
+  F9 shader reload, ImGui stress, and DX12 baseline validation pass. Evidence:
+  `../../Reports/2026-07-27/render-backend-service-bag-removal-rb2-capabilities.md`.
 
 - [ ] **RB3 — Reconcile, review, and hand off.**
   Complete the comment audit for every touched header, correcting the ownership

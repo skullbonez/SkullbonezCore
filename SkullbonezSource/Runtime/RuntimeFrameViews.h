@@ -18,7 +18,8 @@ Glossary:
     pass. Stable label pointers name static owner vocabulary.
 
 Invariants:
-  - Every capability member is a reference; no view owns subsystem state.
+  - Required capability members are references; explicit optionals hold only
+    reference wrappers. No view owns subsystem state.
   - Views are constructed at the Run::Execute call site and are never retained.
   - No capability slice spans the complete frame surface; helpers receive only
     the slices required for their operation.
@@ -34,6 +35,8 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <optional>
 
 namespace SkullbonezCore
 {
@@ -164,12 +167,12 @@ struct RuntimeFramePresentationView
     RenderDefaultsStore& renderDefaults;
     RuntimeValidationHarness& validationHarness;
     RuntimeRenderer& renderer;
-    Rendering::Dx12BackbufferCapture* backbufferCapture;
-    Rendering::Dx12ShaderDevelopment* shaderDevelopment;
+    Rendering::Dx12BackbufferCapture& backbufferCapture;
+    std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment;
 
     RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue, RuntimeValidationHarness& validationHarnessValue,
-                                  RuntimeRenderer& rendererValue, Rendering::Dx12BackbufferCapture* backbufferCaptureValue,
-                                  Rendering::Dx12ShaderDevelopment* shaderDevelopmentValue )
+                                  RuntimeRenderer& rendererValue, Rendering::Dx12BackbufferCapture& backbufferCaptureValue,
+                                  std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopmentValue )
         : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ), renderer( rendererValue ),
           backbufferCapture( backbufferCaptureValue ), shaderDevelopment( shaderDevelopmentValue )
     {

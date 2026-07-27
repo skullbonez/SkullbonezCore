@@ -234,7 +234,8 @@ class RuntimeRenderer
     RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                      Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                      Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                     Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                     Rendering::Dx12Diagnostics& renderDiagnostics,
+                     std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
                      const RenderWorldView& world, SceneSessionState& scene );
     ~RuntimeRenderer();
 

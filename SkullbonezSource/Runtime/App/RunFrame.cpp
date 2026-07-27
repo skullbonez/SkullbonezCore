@@ -276,7 +276,7 @@ RuntimeFrameSceneView Run::BuildFrameSceneView()
 
 RuntimeFramePresentationView Run::BuildFramePresentationView()
 {
-    return RuntimeFramePresentationView { m_renderDefaults, *m_validationHarness, Renderer(), m_backbufferCapture,
+    return RuntimeFramePresentationView { m_renderDefaults, *m_validationHarness, Renderer(), BackbufferCapture(),
                                           m_shaderDevelopment };
 }
 

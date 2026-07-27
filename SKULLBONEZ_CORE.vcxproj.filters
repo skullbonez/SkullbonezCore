@@ -543,9 +543,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp">
-      <Filter>Source Files\Runtime\Render</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\App\RunRender.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>

@@ -275,12 +275,13 @@ void RunStartupState::ApplyStartupConfig( const SkullbonezCore::Core::EngineConf
 
 Run::Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::Core::EngineConfig& config,
           Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
+          Rendering::Dx12BackbufferCapture& backbufferCapture,
           SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
       m_tracyClientOwner( tracyClientOwner ), m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
-      m_validationHarness( RuntimeValidationHarness::CreateForStartup() )
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_backbufferCapture( backbufferCapture )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
@@ -296,11 +297,12 @@ SkullbonezCore::Core::SbResult
 Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                         Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                         Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                        Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12BackbufferCapture& backbufferCapture,
-                        Rendering::Dx12RaytracingOwner* raytracing, Rendering::Dx12ShaderDevelopment* shaderDevelopment
+                        Rendering::Dx12Diagnostics& renderDiagnostics,
+                        std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
+                        std::optional<std::reference_wrapper<Rendering::Dx12ShaderDevelopment>> shaderDevelopment
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
                         ,
-                        Rendering::Dx12ImGuiRendererOwner* developmentUiRenderer
+                        Rendering::Dx12ImGuiRendererOwner& developmentUiRenderer
 #endif
 )
 {
@@ -311,13 +313,12 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
                                           m_overlayDiagnostics->RenderResources(), m_profiler },
                         m_sceneController.State() );
 
-    m_backbufferCapture = &backbufferCapture;
     m_shaderDevelopment = shaderDevelopment;
     Renderer().SetVsyncEnabled( m_config.runtimeRender.vsyncEnabled );
     Renderer().SetPipelineSyncEnabled( m_config.runtimeRender.forcePipelineSync );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const SkullbonezCore::Core::SbResult imguiStartResult = m_imguiEditor.Start( m_window.NativeWindowHandle(),
-                                                                                 developmentUiRenderer );
+                                                                                 &developmentUiRenderer );
 
     if ( !imguiStartResult.ok )
     {

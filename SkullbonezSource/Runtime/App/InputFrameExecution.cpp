@@ -186,16 +186,7 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             return false;
         }
 
-        Rendering::Dx12BackbufferCapture* backbufferCapture = presentationOwners.backbufferCapture;
-
-        if ( !backbufferCapture )
-        {
-
-            // Lane F: startup binds this owner before input can submit capture work.
-            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active DX12 capture owner" );
-        }
-
-        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *backbufferCapture );
+        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( presentationOwners.backbufferCapture );
 
         if ( !batch.status.ok )
         {
@@ -710,8 +701,8 @@ InputFrameExecutionResult SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFra
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
-            const SkullbonezCore::Core::SbResult reloadResult = presentationOwners.shaderDevelopment
-                                                                    ->ReloadShadersFromSource();
+            const SkullbonezCore::Core::SbResult reloadResult = presentationOwners.shaderDevelopment->get()
+                                                                    .ReloadShadersFromSource();
 
             if ( !reloadResult.ok )
             {

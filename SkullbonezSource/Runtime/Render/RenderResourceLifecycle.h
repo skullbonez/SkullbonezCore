@@ -33,6 +33,7 @@ Related:
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -42,6 +43,17 @@ namespace Geometry
 {
 class SkyBox;
 }
+namespace Rendering
+{
+class Dx12Diagnostics;
+class Dx12FrameOwner;
+class Dx12GeometryOwner;
+class Dx12GraphTransientPool;
+class Dx12RaytracingOwner;
+class Dx12RenderDevice;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+} // namespace Rendering
 namespace Runtime
 {
 class RenderResourceLifecycle
@@ -50,7 +62,8 @@ class RenderResourceLifecycle
     RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                              Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                             Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                             Rendering::Dx12Diagnostics& renderDiagnostics,
+                             std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
                              const RenderWorldView& world, const SceneSessionState& scene );
     ~RenderResourceLifecycle();
 
@@ -96,7 +109,7 @@ class RenderResourceLifecycle
     {
         return m_renderDiagnostics;
     }
-    Rendering::Dx12RaytracingOwner* Raytracing() const
+    const std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>>& Raytracing() const
     {
         return m_raytracing;
     }
@@ -168,7 +181,7 @@ class RenderResourceLifecycle
     Rendering::Dx12TextureOwner& m_renderTextures;
     Rendering::Dx12GeometryOwner& m_renderGeometry;
     Rendering::Dx12Diagnostics& m_renderDiagnostics;
-    Rendering::Dx12RaytracingOwner* m_raytracing;
+    std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> m_raytracing;
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;

@@ -1861,7 +1861,8 @@ RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Ren
                                   Rendering::Dx12GraphTransientPool& renderGraph,
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner* raytracing,
+                                  Rendering::Dx12Diagnostics& renderDiagnostics,
+                                  std::optional<std::reference_wrapper<Rendering::Dx12RaytracingOwner>> raytracing,
                                   const RenderWorldView& world, SceneSessionState& scene )
     : m_resources( renderDevice, renderFrame, renderGraph, renderResources, renderTextures, renderGeometry,
                    renderDiagnostics, raytracing, world, scene ),
@@ -1994,7 +1995,9 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     const RuntimeRenderFramePolicy& policy = context.framePolicy;
     const ReplayRenderFrameView& replayFrame = context.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
-    m_resources.UiText().SetRayTracingCapability( m_resources.Raytracing() );
+    const auto& raytracingCapability = m_resources.Raytracing();
+    Rendering::Dx12RaytracingOwner* raytracing = raytracingCapability ? &raytracingCapability->get() : nullptr;
+    m_resources.UiText().SetRayTracingCapability( raytracing );
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_resources.Config().ordinaryRender;
     SkullbonezCore::Core::CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
@@ -2007,7 +2010,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     Rendering::Dx12TextureOwner& renderTextures = m_resources.RenderTextures();
     Rendering::Dx12GeometryOwner& renderGeometry = m_resources.RenderGeometry();
     Rendering::Dx12Diagnostics& renderDiagnostics = m_resources.RenderDiagnostics();
-    Rendering::Dx12RaytracingOwner* raytracing = m_resources.Raytracing();
 
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && !policy.textOnly;
 
