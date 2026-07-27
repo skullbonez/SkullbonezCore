@@ -171,9 +171,6 @@
     <ClCompile Include="SkullbonezTests\TestConfig.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestCoverageFloorContracts.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -435,6 +432,9 @@
       <Filter>External</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFatalCases.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h">

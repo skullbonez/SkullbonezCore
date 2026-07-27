@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `coverage-gate-test-reorganization` CG1 is binding. |
-| Active/future progress | 2/21 (10%). Round 5 is the live queue; completed plans are excluded under rule 4. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Plan 5 is blocked at FV1; `coverage-gate-test-reorganization` CG2 is binding. |
+| Active/future progress | 3/21 (14%). Round 5 is the live queue; completed plans are excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Operator-command OC3 `validate_full.bat` passes: 418/418 doctests and every CPU/runtime lane, Automation smoke, DX12 run `20260727T043606Z` with zero InfoQueue errors and three passing baselines, and byte-exact Physics; one-minute graphics stress reached 15,007 frames and 413 scene loads cleanly. |
 | Validation for governance G0-G4 | `tools\validate_fast.bat` passes in 112.9 s: aggregate 1,205 candidates / 10 signalled / 10 ruled / 0 unruled, scars 89 / 89 / 0, zero build warnings/errors. `tools\validate_all_cpu_tests.bat` passes in 60.4 s: all six lanes, 402 doctests / 2,403,914 assertions, and every coverage floor. Independent review ended `ZERO BLOCKERS`; comment audit 29/29. |
@@ -27,7 +27,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 is live at 2/21, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 3/21, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -72,7 +72,9 @@ scars, preserved the sole WorkerPool retain, and left the live ledger under
 rule 4. SC4 converted the 24 hot contact, narrowphase, broadphase, and force rows
 and deleted contact-tick growth. Plan 10 CG0 assigned all five gate-named tests
 to existing subsystem owners, measured 231 assertions, and recorded the ten
-direct coverage baselines; CG1 is now binding. Evidence:
+direct coverage baselines. CG1 deleted the gate-named file and preserved
+418/418 cases, 2,410,159 assertions, and every exact coverage percentage; CG2
+is now binding. Evidence:
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc0-census.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc2-shape-storage.md` and
 `Agentic/Reports/2026-07-27/scene-sized-store-capacity-sc3-binding.md` and
@@ -96,6 +98,8 @@ Plan 9 closure evidence:
 `Agentic/Reports/2026-07-27/operator-command-invariant-ownership-closure.md`.
 Plan 10 CG0 evidence:
 `Agentic/Reports/2026-07-27/coverage-gate-test-reorganization-cg0-map.md`.
+Plan 10 CG1 evidence:
+`Agentic/Reports/2026-07-27/coverage-gate-test-reorganization-cg1-move.md`.
 
 SC2 removed the headline collider-row inflation: `ColliderRecord` is now 80
 bytes and borrows per-kind sphere, box, or hull backing; a zero-hull scene

@@ -18,6 +18,8 @@
 //   - LatestSample() returns the newest retained frame after wrap.
 //   - ResetTimeline() clears samples and cursors without reallocating capacity.
 //   - Configure() does not pre-reserve body payloads for every future sample.
+//   - ReplayTimeline applies one retention policy to all recorder owners and
+//     sequences events only while recording is enabled.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
@@ -31,9 +33,11 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayTimeline.h"
 #include "../SkullbonezSource/Runtime/App/ReplayReserveInventory.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h"
 
+#include <memory>
 #include <vector>
 
 using SkullbonezCore::Math::Vector::Vector3;
@@ -64,6 +68,7 @@ using SkullbonezCore::Runtime::ReplayTimelineOperations::ResolveReplayMemoryPoli
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineGeneratedConfigFlags;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineRecordsGeneratedConfig;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineResetClearsBranch;
+using namespace SkullbonezCore::Runtime;
 
 namespace
 {
@@ -376,4 +381,58 @@ TEST_CASE( "ReplayRecorder: ResetTimeline clears samples and cursors but keeps c
     CHECK( stats.latestStateHash == 0u );
     CHECK( recorder.LatestSample() == nullptr );
     CHECK( recorder.SampleAtNormalized( 0.5f ) == nullptr );
+}
+
+
+TEST_CASE( "Coverage floor contract: replay timeline applies retention and sequences owner events atomically" )
+{
+    auto timeline = std::make_unique<ReplayTimeline>();
+    CHECK_FALSE( timeline->RecordingConfigured() );
+    const ReplayRecordingConfigResult configured = timeline->ConfigureRecording( true, 12, nullptr, 2 );
+    CHECK( timeline->RecordingConfigured() );
+    CHECK( timeline->RecordingEnabled() );
+    CHECK( configured.presentationConfig.retentionSeconds == 12 );
+    CHECK( configured.solverConfig.retentionSeconds == 12 );
+    CHECK( configured.eventStats.enabled );
+
+    timeline->Reset( "coverage-timeline" );
+    ReplayEventCommand command;
+    command.kind = ReplayEventKind::OwnerAction;
+    command.useNextFrame = true;
+    command.flags = 7u;
+    command.value0 = 11;
+    ReplayBranchInfo branch;
+    branch.branchId = 3u;
+    timeline->SubmitEvent( command, branch );
+    const ReplayEventRecorderStats eventStats = timeline->Events().GetStats();
+    CHECK( eventStats.eventCount == 1u );
+    CHECK( eventStats.nextSequence == 1u );
+
+    // Record/stop is a gate over already-reserved rings. It neither clears the
+    // timeline nor lets stopped owner events advance the event cursor.
+    CHECK( timeline->SetRecordingEnabled( false ) );
+    CHECK_FALSE( timeline->RecordingEnabled() );
+    timeline->SubmitEvent( command, branch );
+    CHECK( timeline->Events().GetStats().eventCount == 1u );
+    CHECK( timeline->SetRecordingEnabled( true ) );
+    CHECK( timeline->RecordingEnabled() );
+    timeline->SubmitEvent( command, branch );
+    CHECK( timeline->Events().GetStats().eventCount == 2u );
+
+    ReplayMemoryPolicyRequest compact;
+    compact.presetIndex = static_cast<int>( ReplayMemoryPreset::Compact );
+    const ReplayMemoryPolicyApplyResult changed = timeline->ApplyMemoryPolicyRequest( compact );
+    CHECK( changed.changed );
+    CHECK( changed.recordersReset );
+    CHECK( timeline->MemoryPolicy().solverRetentionSeconds <= timeline->MemoryPolicy().presentationRetentionSeconds );
+    const ReplayMemoryPolicyApplyResult unchanged = timeline->ApplyMemoryPolicyRequest( {} );
+    CHECK_FALSE( unchanged.changed );
+    CHECK_FALSE( unchanged.recordersReset );
+
+    const ReplayTimelineMemoryStats memory = timeline->CollectMemoryStats();
+    CHECK( memory.presentationSamples == 0u );
+    CHECK( memory.solverSamples == 0u );
+    CHECK( memory.eventSamples == 0u );
+    timeline->ClearLoadedPresentation();
+    CHECK_FALSE( timeline->LoadedPresentation().enabled );
 }

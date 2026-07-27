@@ -773,7 +773,7 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 2/21 (10%).
+NOW. Architecture Follow-Up Campaign Round 5 is the live queue at 3/21 (14%).
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -792,7 +792,9 @@ the phase owner, unified the ledger, and removed all 71 `RunInternal` rows. OC3
 closed with clear independent review, a 37/37 comment audit, and all mapped
 gates; plan 9 then left the live inventory under rule 4. Plan 10 CG0 assigned
 all five gate-named tests to existing subsystem files and recorded the direct
-coverage baseline; `coverage-gate-test-reorganization` CG1 is binding.
+coverage baseline. CG1 deleted the gate-named file and preserved all 418 tests,
+2,410,159 assertions, and ten exact coverage results;
+`coverage-gate-test-reorganization` CG2 is binding.
 
 G0 recorded five rule gaps with the admitting `AGENTS.md` text for each; evidence
 is `../Reports/2026-07-26/governance-shape-to-judgment-g0-census.md`. The measured
@@ -2099,7 +2101,7 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](../Reports/2026-07-27/scene-runtime-verb-partition-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; seven verb units are gone, residual names match owners/domains, and review plus all final gates are clear |
 | 9 | [operator-command-invariant-ownership](../Reports/2026-07-27/operator-command-invariant-ownership-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; one value-only transaction owns phase order, arbitration, and the ledger, and every final gate is clear |
-| 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | In progress | 1/3 | CG0 mapped all five tests and recorded the before-coverage table; **binding next task: CG1** |
+| 10 | [coverage-gate-test-reorganization](TODO/coverage-gate-test-reorganization.md) | In progress | 2/3 | CG1 moved all tests, deleted the gate-named file, and preserved every assertion and coverage result; **binding next task: CG2** |
 | 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Not started | 0/3 | No dependency; may run at any point. AF1 ratified 2026-07-27: fatal in Debug/Profile, counted in Release |
 | 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](TODO/terrain-legacy-and-contact-seed-remediation.md) | Not started | 0/5 | Runs last. T3 ratified 2026-07-27: ratify the seed. No plan in the campaign now requests divergence authority |

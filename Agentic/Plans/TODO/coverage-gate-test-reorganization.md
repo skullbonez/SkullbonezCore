@@ -4,7 +4,7 @@ Date: 2026-07-26
 Status: IN PROGRESS — drafted from the 2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 10 of the Architecture Follow-Up Campaign
-Round 5. 1/3 phases complete; CG1 is binding.
+Round 5. 2/3 phases complete; CG2 is binding.
 Impact area: `SkullbonezTests/TestCoverageFloorContracts.cpp`,
 `tools/coverage_floors.json`, `tools/check_coverage.py`, `SKULLBONEZ_TESTS.vcxproj`
 Owner: test
@@ -85,7 +85,7 @@ around it.
   before-measurement. Acceptance: every `TEST_CASE` has one named destination; the
   before-coverage table is recorded; no test is unassigned.
 
-- [ ] **CG1 — Move the tests and delete the file.**
+- [x] **CG1 — Move the tests and delete the file.**
   Move each `TEST_CASE` and its supporting fixtures to its destination, preserving
   assertions exactly. Fixtures shared by two destinations move to the existing
   shared test support rather than being duplicated. Delete
