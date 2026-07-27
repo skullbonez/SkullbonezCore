@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-26th-JUL-26` |
 | Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5 has no executable non-blocked item. Plans 5 and 11 are marked blocked; plan 12 waits for plan 5. |
-| Active/future progress | 3/10 (30%). Completed plan 13 is excluded under rule 4; the retained ledger is two blocked plans and one dependency wait. |
+| Current objective | Architecture Follow-Up Campaign Round 5. Owner rulings unblocked plans 11 and 5; AF2 closes first, FV1 follows, and plan 12 remains sequenced after plan 5. |
+| Active/future progress | 3/10 (30%). Plans 5, 11, and 12 are the live queue; completed plans remain excluded under rule 4. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Terrain T4 `validate_full.bat` passes and re-confirms the 44,401-line byte-exact Physics oracle. Format, 421/421 tests and 2,410,268 assertions, deep Physics/SkullScope, and performance also pass; independent review ended `ZERO BLOCKERS`. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -28,8 +28,7 @@ plan inventory.
 
 ## Live Queue
 
-NOW. Architecture Follow-Up Campaign Round 5 retains 3/10 phases with no
-executable non-blocked item, registered
+NOW. Architecture Follow-Up Campaign Round 5 is live at 3/10 phases, registered
 2026-07-26 from the same-day from-source architecture review of
 `nightrunner-26th-JUL-26` at tip `35f6de4e` (review read only source and tests;
 no plans, reports, or git history). The owner added plan 14 on 2026-07-27.
@@ -89,14 +88,17 @@ without changing the zero-count UI fingerprint. Profile tests pass 418/418 and
 2,410,177 assertions; focused Release proof passes 122/122. AF2 independent
 review found two magic-only provenance bypasses; the candidate now uses a
 guarded whole-header copy and process-specific ownership cookie, and Profile
-passes 418/418 with 2,410,186 assertions. Plan 11 is blocked at 2/3 because
-genuine provenance validation adds owned-path work while AF2 literally requires
-no happy-path cost. The owner must permit measured cost or replace provenance.
+passes 418/418 with 2,410,186 assertions. Plan 11 reached 2/3 when genuine
+provenance proved incompatible with literal instruction identity. The owner
+retained the safe cookie/header snapshot and replaced that clause with a clean
+`validate_perf.bat` no-regression contract, so AF2 is now binding. The owner
+also allowed direct member reach in the `Run` phase coordinator while delegated
+operations remain concrete and at or below 12 parameters, unblocking plan 5.
 Plan 14 NA0 re-measured 1,167 discovered types and 84 bounded
 legacy-suffix/no-invariant gated rows. All 84 already carry CA0 rulings and the
 transitional verdict count is zero. Strict mode, source-drift checking, and the
-required fixtures pass. Plan 12 waits for blocked plan 5; plan 13 subsequently
-ran last and closed.
+required fixtures pass. Plan 12 remains sequenced after plan 5; plan 13
+subsequently ran last and closed.
 NA1 armed strict mode in `validate_fast`, recorded the
 permanent ownership rule and name-scope residual, and observed the gate reject a
 planted seven-member `FooFrameContext`. Final-source `validate_fast` passes;

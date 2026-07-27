@@ -1,14 +1,13 @@
 # Allocator Foreign Pointer Safety
 
 Date: 2026-07-26
-Status: BLOCKED AT AF2 — drafted from the 2026-07-26 from-source architecture
-review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
-`MASTER-PLAN.md` on 2026-07-26 as plan 11 of the Architecture Follow-Up Campaign
-Round 5. 2/3 phases complete. Independent review proved genuine provenance
-requires additional owned-path work, which conflicts with the literal
-zero-happy-path-cost acceptance. Owner ruling required: retain the safe
-pointer-bound cookie and interpret the constraint as no measurable perf
-regression, or provide a different ownership rule.
+Status: IN PROGRESS AT AF2 — owner ruling received 2026-07-27: retain the safe
+pointer-bound provenance cookie and replace the literal zero-instruction
+happy-path clause with a measured `validate_perf.bat` no-regression contract.
+Drafted from the 2026-07-26 from-source architecture review of
+`nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in `MASTER-PLAN.md` on
+2026-07-26 as plan 11 of the Architecture Follow-Up Campaign Round 5. 2/3
+phases complete.
 Impact area: `Core/Allocation/RuntimeAllocationTracker.cpp`
 Owner: core allocation
 Priority: High severity, low frequency — this is the sharpest memory-safety edge
@@ -81,9 +80,10 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
 - No change to allocation policy, the allowlist, or any gate threshold.
 - No removal of the global `operator new`/`delete` override. It is load-bearing
   for the allocation guard and for `store-capacity-memory-reporting`.
-- No performance regression on the happy path. Validation is only for pointers
-  that fail the ownership test, and the ownership test must not become more
-  expensive for owned pointers.
+- No measurable performance regression on the happy path. Genuine provenance
+  necessarily computes and verifies the pointer-bound cookie for owned
+  allocations; `validate_perf.bat`, rather than a zero-instruction claim, is the
+  binding cost contract.
 - No new heap traffic inside the hook. `RuntimeAllocationTracker.cpp:25` already
   requires the hooks not to allocate.
 
@@ -138,6 +138,11 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
   `python tools\check_allocation_policy.py --self-test` and `--repo .` pass;
   `validate_full.bat` and `run_graphics_stress.bat 1` complete with zero foreign
   frees reported.
+  **Owner ruling 2026-07-27:** retain the safe pointer-bound cookie and complete
+  candidate-header copy. "No happy-path cost added" now means no measurable
+  regression in `validate_perf.bat`; returning to magic-only ownership is
+  forbidden because it restores the two reviewed safety bypasses. No budget or
+  baseline may be relaxed to obtain the result.
 
 ## Dependencies And Decisions
 
@@ -151,6 +156,9 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
   gate and at shutdown, because a non-zero Debug count now means the gate fails and
   the cause must be found before closure — that is the point of the ruling, not an
   obstacle to it.
+- **Ratified 2026-07-27: measured provenance cost.** The pointer-bound cookie
+  and complete guarded header snapshot remain. Literal instruction identity is
+  replaced by a clean `validate_perf.bat` result.
 - The ImGui and Tracy development-tool allocation owners
   (`Core/Allocation/DevelopmentToolAllocation.h`) are the most likely real source
   of foreign frees. AF0 must confirm whether their allocations carry hook headers
@@ -166,7 +174,7 @@ the outcome is a bounded, diagnosable decision rather than undefined behavior.
   Debug/Profile occurrence is a gate failure, so "explained and accepted" is no
   longer available — a real occurrence must be fixed, or the owner must revisit
   the ruling.
-- No happy-path cost added.
+- No measurable happy-path regression in `validate_perf.bat`.
 
 ## Validation
 

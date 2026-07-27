@@ -1,7 +1,10 @@
 # SbResult Frame Path Cost
 
 Date: 2026-07-26
-Status: NOT STARTED — drafted from the 2026-07-26 from-source architecture
+Status: WAITING FOR PLAN 5 — owner accepted the recommended sequence on
+2026-07-27: finish `runtime-frame-view-retirement` first, then run SR0-SR2 so
+the same frame-phase signatures are not edited twice. Drafted from the
+2026-07-26 from-source architecture
 review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 12 of the Architecture Follow-Up Campaign
 Round 5. 0/3 phases complete.
@@ -122,6 +125,9 @@ inline diagnostic message, `[[nodiscard]]` enforcement, and zero heap ownership.
   per-frame copy is worth changing at all. SR0 produces the measurement; "no
   change, documented" is an acceptable and explicitly permitted outcome. Do not
   refactor a hot-path value type on aesthetics alone.
+- **Ratified 2026-07-27: run after plan 5.** This is a sequencing wait, not a
+  design blocker. Once the frame-view signatures settle, SR0 begins with the
+  measured census; "no change, documented" remains an acceptable outcome.
 
 ## Acceptance
 

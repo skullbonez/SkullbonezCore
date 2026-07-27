@@ -1,10 +1,11 @@
 # Runtime Frame View Retirement
 
 Date: 2026-07-26
-Status: BLOCKED — FV0 closed on 2026-07-27. FV1 proved that the concrete-only
-endpoint, 12-parameter ceiling, short `Run::Execute` schedule, and ban on every
-coordination carrier cannot all hold for the fixed-step loop. Owner direction
-is required; plan 8 proceeds meanwhile. Drafted from the 2026-07-26
+Status: IN PROGRESS — owner ruling received 2026-07-27: the `Run` phase
+coordinator may retain direct member reach while every delegated operation takes
+only concrete operands. The 12-parameter ceiling applies to delegated
+operations, not to a coordinator's internal member reach. FV0 is complete and
+FV1 is binding. Drafted from the 2026-07-26
 from-source architecture review of `nightrunner-26th-JUL-26` at tip `35f6de4e`. Registered in
 `MASTER-PLAN.md` on 2026-07-26 as plan 5 of the Architecture Follow-Up Campaign
 Round 5. 1/4 phases complete.
@@ -61,10 +62,11 @@ who owns the ordering rule.
 
 ## Goal
 
-One calling convention for the frame turn: every phase receives the concrete
-owners it uses. No partition of `Run`'s members is handed around as four structs,
-and no phase bypasses the convention. A phase's signature is the honest statement
-of what that phase can affect.
+One calling convention for delegated frame work: every delegated operation
+receives the concrete owners it uses. The `Run` phase coordinator may sequence
+its own members directly, but no partition of those members is handed around as
+reference aggregates. A delegated signature is the honest statement of what
+that operation can affect.
 
 ## Non-Goals
 
@@ -113,21 +115,25 @@ of what that phase can affect.
   `../../Reports/2026-07-27/runtime-frame-view-retirement-fv0-census.md`.
 
 - [ ] **FV1 — Make the convention uniform.**
-  Apply concrete operands to `TickPhysics`, `UpdateLogic`,
-  `AfterPhysicsStep`, `TickScreenshots`, `TickAutoCycle`, and `TickSceneAdvance`
-  first — the phases that currently bypass the views. This is deliberately the
-  first implementation step: if concrete operands cannot express the heaviest
-  phase within the ceiling, that is discovered before the other ten phases are
-  converted, and the decomposition it needs is recorded rather than worked around
-  with a new aggregate. Acceptance: no frame phase mixes view
-  access with direct member access; `Run::Execute` remains a phase schedule;
-  physics CSV byte-exact; frame order and marker boundaries unchanged.
+  Apply the coordinator exception consistently to `TickPhysics`, `UpdateLogic`,
+  `AfterPhysicsStep`, `TickScreenshots`, `TickAutoCycle`, and
+  `TickSceneAdvance`. Ordered `Run` coordinators retain direct member reach;
+  anything they delegate takes only its concrete operands and remains at or
+  below 12 parameters. Acceptance: no coordinator constructs or passes a frame
+  view, no delegated operation receives the complete frame surface,
+  `Run::Execute` remains a phase schedule, physics CSV is byte-exact, and frame
+  order and marker boundaries are unchanged.
   **BLOCKED 2026-07-27.** `TickPhysics` must retain one coordinator across the
   fixed-step loop and conditional per-tick replay/post-step hook. Its honest
   concrete signature is 18; keeping `Run` member reach, moving the loop into
   `Run::Execute`, or introducing a carrier each violates a separate binding
   constraint. No source edit was made. Evidence:
   `../../Reports/2026-07-27/runtime-frame-view-retirement-fv1-blocker.md`.
+  **Owner ruling 2026-07-27:** resolve the conflict by permitting the `Run`
+  phase coordinator to retain direct member reach. Every operation it delegates
+  still takes concrete operands and remains at or below 12 parameters. This is
+  the smallest authority/source change; it does not permit a replacement bag,
+  callback pack, `Run&` parameter, or frame transaction.
 
 - [ ] **FV2 — Convert the remaining phases and delete the views.**
   Apply concrete operands to `RunInputPhase`, `RunSimulationPhase`,
@@ -169,12 +175,16 @@ of what that phase can affect.
   remains in this plan. The frame-turn transaction alternative is rejected for the
   reason recorded in FV0 and must not be reintroduced by a reviewer or a later
   phase.
+- **Ratified 2026-07-27: coordinator exception.** `Run` may directly reach its
+  members while coordinating an ordered phase. The concrete-operand and
+  12-parameter rules bind delegated operations; they do not require converting
+  a coordinator's member reach into an 18-parameter self-call.
 
 ## Acceptance
 
-- No frame operation can reach the complete frame surface.
-- One calling convention across all twelve phases; `TickPhysics` no longer an
-  exception.
+- No delegated frame operation can reach the complete frame surface.
+- One concrete-operand convention across delegated operations; `Run` phase
+  coordinators are the only direct-member-reach exception.
 - `RuntimeFrameViews.h` contains no false invariant.
 - Zero behavior change: physics byte-exact, DX12 baselines unchanged, replay
   fidelity frame-exact.

@@ -773,9 +773,10 @@ owner code style, and the space-scene velocity-drag preview are closed, and the
 completed TODO was deleted under inventory rule 4. Permanent evidence is
 `../Reports/2026-07-26/nightrunner-26-july-closure.md`.
 
-NOW. Architecture Follow-Up Campaign Round 5 has no executable non-blocked
-item. The retained live ledger is 3/10 (30%): plan 5 is blocked at FV1, plan 11
-is blocked at AF2, and plan 12 waits for plan 5.
+NOW. Architecture Follow-Up Campaign Round 5 is live at 3/10 (30%). The owner
+accepted all three recommended rulings: plan 11 AF2 is binding with measured
+provenance cost, plan 5 FV1 may retain direct member reach in the `Run` phase
+coordinator, and plan 12 runs after plan 5.
 `governance-shape-to-judgment-conversion`, `extraction-scar-remediation`, and
 `scene-sized-store-capacity` closed on 2026-07-27 and left the live inventory
 under rule 4. Plan 3 `store-capacity-memory-reporting` and plan 4
@@ -806,10 +807,12 @@ fallback, checked allocation-size arithmetic, and joined the existing memory
 diagnostics without changing the zero-count UI fingerprint. AF2 is binding
 only after independent review found and the candidate closed two magic-only
 provenance bypasses with a guarded whole-header copy and a process-specific
-ownership cookie. Plan 11 is blocked at 2/3 because genuine provenance adds
-owned-path work while AF2 also requires literally “no happy-path cost added.”
-An owner ruling must either permit the measured provenance cost or replace the
-provenance requirement. Plan 14 NA0 then ran while plans 5 and 11 were blocked,
+ownership cookie. The owner retained that safe provenance and replaced literal
+instruction identity with a clean `validate_perf.bat` no-regression contract,
+unblocking AF2. The owner also permitted direct `Run` coordinator member reach
+while delegated operations remain concrete and at or below 12 parameters,
+unblocking plan 5. Plan 12 remains sequenced after plan 5. Plan 14 NA0 then ran
+while plans 5 and 11 were blocked,
 plan 12 waited for plan 5, and plan 13 remained last. Plan 14 NA0 re-measured 1,167
 discovered types and the bounded 84-row suffix/no-invariant gated set. All 84
 already have CA0 rulings and the transitional verdict count is zero. Explicit
@@ -2139,14 +2142,14 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 2 | [scene-sized-store-capacity](../Reports/2026-07-27/scene-sized-store-capacity-closure.md) | Complete | 8/8 | Closed 2026-07-27 and removed from the live ledger under rule 4; 98 retained rows are scene-committed and the final 200-body payload is 89.06% smaller |
 | 3 | [store-capacity-memory-reporting](../Reports/2026-07-27/store-capacity-memory-reporting-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; 95 sorted production rows expose capacity/live/session peaks, and the three-scene handoff identifies the retained contact-bound candidates |
 | 4 | [ceremonial-aggregate-elimination](../Reports/2026-07-27/ceremonial-aggregate-elimination-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; all 35 couriers are gone, independent no-bag review is clear, and the default full gate passes byte-exact baselines |
-| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | Blocked | 1/4 | [FV1 blocker](../Reports/2026-07-27/runtime-frame-view-retirement-fv1-blocker.md): the fixed-step coordinator cannot simultaneously use only concrete operands, stay at 12 parameters, keep `Run::Execute` short, and avoid every coordination carrier |
+| 5 | [runtime-frame-view-retirement](TODO/runtime-frame-view-retirement.md) | In progress | 1/4 | **Binding next after AF2:** FV1 under the owner-ruled coordinator exception; delegated operations remain concrete and at or below 12 parameters |
 | 6 | [render-backend-service-bag-removal](../Reports/2026-07-27/render-backend-service-bag-removal-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; the eleven-pointer bag is deleted, optional capability presence is explicit, and all final gates pass without baseline refresh |
 | 7 | [extraction-scar-remediation](../Reports/2026-07-27/extraction-scar-remediation-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 88 repairs removed and the sole WorkerPool retain preserved |
 | 8 | [scene-runtime-verb-partition-consolidation](../Reports/2026-07-27/scene-runtime-verb-partition-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; seven verb units are gone, residual names match owners/domains, and review plus all final gates are clear |
 | 9 | [operator-command-invariant-ownership](../Reports/2026-07-27/operator-command-invariant-ownership-closure.md) | Complete | 4/4 | Closed 2026-07-27 and removed from the live ledger under rule 4; one value-only transaction owns phase order, arbitration, and the ledger, and every final gate is clear |
 | 10 | [coverage-gate-test-reorganization](../Reports/2026-07-27/coverage-gate-test-reorganization-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; subsystem-owned tests preserve every assertion and exact coverage result |
-| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | Blocked | 2/3 | [AF2 blocker](../Reports/2026-07-27/allocator-foreign-pointer-safety-af2-blocker.md): genuine provenance validation necessarily adds owned-path work, conflicting with the literal “no happy-path cost added” requirement; owner must permit measured cost or replace provenance |
-| 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Not started | 0/3 | After plan 5 changes the frame-phase signatures. "No change, documented" is a permitted SR0 outcome |
+| 11 | [allocator-foreign-pointer-safety](TODO/allocator-foreign-pointer-safety.md) | In progress | 2/3 | **Binding next task: AF2.** Safe provenance retained; measured `validate_perf` no-regression replaces the impossible zero-instruction clause |
+| 12 | [sbresult-frame-path-cost](TODO/sbresult-frame-path-cost.md) | Waiting | 0/3 | Owner-ratified sequence after plan 5 settles the frame-phase signatures; "no change, documented" remains a permitted SR0 outcome |
 | 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
 
