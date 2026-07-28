@@ -1,7 +1,7 @@
 # Physics Body Hot Layout Evidence
 
 Date: 2026-07-28
-Status: TODO — 1/4 phases complete
+Status: TODO — 2/4 phases complete
 Impact area: Physics hot storage, cache locality, allocation policy, performance
 Owner: Physics
 Priority: High — first principal-engineer finding and the binding first plan
@@ -44,11 +44,12 @@ consumers, but it may not replace the store with AoS.
   bandwidth evidence for the agreed scene matrix. Correct the header claim if
   it is already false; do not change storage yet. Evidence:
   `Agentic/Reports/2026-07-28/physics-body-hot-layout-bl0.md`.
-- [ ] **BL1 — Rule the evidence-backed SoA work.** Record memory, allocation
+- [x] **BL1 — Rule the evidence-backed SoA work.** Record memory, allocation
   count, frame/Physics median and tail timing, and deterministic output for the
   retained layout. Select only SoA-internal work justified by BL0, such as real
   payload alignment, contiguous backing, or a measured bulk consumer. Do not
-  prototype or select AoS.
+  prototype or select AoS. Ruling:
+  `Agentic/Reports/2026-07-28/physics-body-hot-layout-bl1-ruling.md`.
 - [ ] **BL2 — Implement the selected layout.** Remove inert control-block
   alignment and warning suppression, collapse or retain allocations according
   to the decision, and make every layout claim name an actual consuming stage.
