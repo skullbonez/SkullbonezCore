@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress
 Ledger tasks: 3 (CX0-CX2)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 ## Goal
@@ -62,23 +62,43 @@ These are binding and follow directly from the Governance Review Model.
   reported separately. A 300-line flat dispatch table and a 300-line body nested
   seven deep are not the same object and must not collapse into one score.
 
-## Open Decision For The Owner
+## Ratified Owner Decision
 
-CX0 must record trigger values before CX1 implements. The proposal, from the
-measured distribution:
+CX0 recorded the trigger values before CX1 implementation. The owner ratified:
 
 - body length trigger: **400 lines**
 - nesting-depth trigger: **6**
 - either signal alone triggers review
 
-Rationale: 400 lines and depth 6 sit above every cohesive physics kernel and
-DX12 recording body in the current tree while capturing `Solve`, `ParseAction`,
-and a small number of neighbours. CX0 publishes the full measured distribution
-so the owner can move both numbers before any ruling is written.
+Rationale: 400 lines selects the 19-function body-length tail, depth 6
+independently selects 28 nesting rows, and their 40-row union is 0.64% of the
+6,285 recognized definitions. That is a bounded current-review surface while
+preserving visibility into short but deeply nested bodies.
+
+## CX0 Measurement Evidence
+
+Report: `Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md`
+
+- 6,285 tracked first-party function definitions were recognized; zero
+  recognized definitions were left unpaired.
+- The proposed 400-line signal selects 19 functions. The proposed depth-6
+  signal selects 28. Their union is 40 functions, with 7 selected by both.
+- Nearby combinations are published in the report: holding 400 lines and
+  moving depth to 7 selects 24 rows, while depth 8 selects 21. Keeping depth 6
+  preserves review visibility for the 16 additional depth-6 bodies.
+- The current largest body is `ImGuiEditorOwner::BuildEditorShell` at 2,098
+  lines and depth 8. `PhysicsContactSolverStage::Solve` is 1,721 lines, depth 7,
+  and contains 28 lexically recognized closures.
+- The earlier 19-closure observation for `Solve` is superseded by this complete
+  current-tree measurement.
+
+Owner ratification: **Ratified 2026-07-29.** The owner accepted 400 inclusive
+body lines and maximum brace depth 6, with either independent signal triggering
+qualitative review. These are review triggers, never maxima or allowances.
 
 ## Ledger
 
-- [ ] CX0 — Build `tools/inventory_function_complexity.py` in report-only mode
+- [x] CX0 — Build `tools/inventory_function_complexity.py` in report-only mode
   over `cpp_source_scan` tracked files. Emit file, function identity, start
   line, body line count, maximum brace depth, and closure count. Publish the
   complete distribution and the candidate trigger set, and record the owner's
@@ -122,5 +142,6 @@ so the owner can move both numbers before any ruling is written.
 
 ## Comment-Audit Checklist
 
-- [ ] `tools/inventory_function_complexity.py`
+- [x] `tools/inventory_function_complexity.py`
+- [x] `tools/inventory_wide_signatures.py`
 - [ ] `tools/validate_fast.bat`

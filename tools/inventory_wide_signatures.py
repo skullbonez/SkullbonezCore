@@ -94,6 +94,10 @@ class Candidate:
     parameters: tuple[str, ...]
     signature: str
     is_definition: bool
+    # Lifetime: these offsets belong to the masked text used for this scan.
+    # They support sibling read-only inventories and are not ruling identity.
+    opening_paren: int = -1
+    closing_paren: int = -1
 
 
 def tracked_source_files(repo: Path) -> list[Path]:
@@ -440,9 +444,20 @@ def parameters_look_declarative(parameters: tuple[str, ...]) -> bool:
     return expression_count != len(parameters)
 
 
-def scan_file(path: Path, repo: Path) -> tuple[list[Candidate], dict[tuple[str, int], int]]:
-    text = path.read_text(encoding="utf-8", errors="strict")
-    masked = mask_cpp(text)
+def scan_file(
+    path: Path,
+    repo: Path,
+    *,
+    text: str | None = None,
+    masked: str | None = None,
+) -> tuple[list[Candidate], dict[tuple[str, int], int]]:
+    """Scan one file, optionally reusing a caller's matching text and mask."""
+    if masked is not None and text is None:
+        raise ValueError("a supplied mask requires its source text")
+    text = text if text is not None else path.read_text(encoding="utf-8", errors="strict")
+    masked = masked if masked is not None else mask_cpp(text)
+    if len(masked) != len(text):
+        raise ValueError("masked text must preserve source offsets")
     paren_pairs = matching_pairs(masked, "(", ")")
     brace_pairs = matching_pairs(masked, "{", "}")
     classes = class_ranges(masked, brace_pairs)
@@ -473,8 +488,6 @@ def scan_file(path: Path, repo: Path) -> tuple[list[Candidate], dict[tuple[str, 
         if class_name and "::" not in qualified_name:
             qualified_name = f"{class_name}::{qualified_name}"
         declaration_opens.add(opening)
-        if arity < 1:
-            continue
         kind = "function"
         if simple_name == (class_name or "") or qualified_name.split("::")[-2:-1] == [simple_name]:
             kind = "constructor"
@@ -493,6 +506,8 @@ def scan_file(path: Path, repo: Path) -> tuple[list[Candidate], dict[tuple[str, 
                 parameters=tuple(normalize_space(parameter) for parameter in parameters),
                 signature=normalize_space(raw_signature),
                 is_definition=is_definition,
+                opening_paren=opening,
+                closing_paren=closing,
             )
         )
 
