@@ -2,7 +2,7 @@
 
 Date: 2026-07-28
 Branch: `nightrunner-28th-JUL-26`
-Plan: `Agentic/Plans/TODO/vector-dot-product-api.md`
+Plan: `Agentic/Plans/DONE/vector-dot-product-api.md`
 Required commit subject first line:
 `VECTOR-DOT-PRODUCT-API, TASK 2 / 3, 22% OVERALL COMPLETE — replace ambiguous vector multiplies with explicit Dot`
 
@@ -24,15 +24,15 @@ No macro, forwarding wrapper, alias, or compatibility overload remains.
 
 ## Exact Census Reconciliation
 
-The VD0 type-aware census remains the authoritative input:
+The VD0 Profile-preprocessed census was the implementation input:
 
 | Proof | Result |
 |---|---:|
-| Census rows | 171 |
-| Tracked files | 34 |
+| VD0 Profile census rows | 171 |
+| VD0 Profile tracked files | 34 |
 | Final exact `Dot( lhs, rhs )` rewrites | 170 |
 | Adapter overload row removed with adapter deletion | 1 |
-| Reconciled total | 171 |
+| VD1 Profile reconciliation | 171 |
 | Missing or duplicate replacement groups | 0 |
 | Token-boundary residual old expressions | 0 |
 
@@ -50,6 +50,21 @@ The complete Profile solution build succeeded with zero warnings and errors,
 and project/filter validation reconciled all 787 production project and filter
 items.
 
+### VD2 Closure Correction — 2026-07-28
+
+The Profile-only reconciliation above was materially incomplete. The VD2 Debug
+solution build exposed two additional `_DEBUG`-only vector-vector uses:
+`SkullbonezSource/Physics/Diagnostics/SkullScope.cpp:690` and
+`SkullbonezSource/Runtime/Editor/LauncherTools.cpp:149`. VD2 replaced both with
+`Dot` while preserving the complete left/right operands and their order.
+
+The configuration-complete total is **173** ambiguous uses across **36** files:
+**172** final call-site replacements plus the one deleted OrbitalMechanics
+adapter-body use. The final tracked source contains one shared definition and
+179 calls: 172 migrations, five pre-existing OrbitalMechanics named calls that
+now bind the shared owner, and two permanent VD2 arithmetic witnesses. The VD2
+closure report supersedes this checkpoint's census and validation status.
+
 ## Validation
 
 | Command / proof | Result |
@@ -62,8 +77,8 @@ items.
 | `inventory_authority_free_aggregates.py` | PASS; 85/85 gated rows ruled |
 | `inventory_extraction_scars.py` | PASS; 1/1 finding ruled |
 | `inventory_wide_signatures.py` | PASS; current qualitative ruling scan exited 0 |
-| Exact census reconciliation script | PASS; 170 exact final calls + 1 adapter-row deletion = 171 |
-| Source deletion proof | PASS; no vector-vector member or OrbitalMechanics-local adapter; exactly one shared inline definition |
+| VD1 Profile census reconciliation script | PASS at the checkpoint; 170 exact final calls + 1 adapter-row deletion = 171; superseded by the VD2 Debug correction above |
+| Source deletion proof | PASS for the Profile surface; VD2's full Debug build supplied the configuration-complete compiler proof |
 
 `tools\validate_format.bat` correctly remains red in this shared working tree
 because it reports only the protected warm files:
@@ -83,7 +98,7 @@ golden, config, schema, or performance artifact.
 
 Checklist/evidence path: this report.
 
-- Checked: 34/34 census files.
+- Checked: 34/34 VD1 Profile-census files.
 - Deferred: 0.
 - Unchecked: none.
 - Every file retains its file-specific `File`, `Purpose`, `Summary`, and
@@ -95,9 +110,10 @@ Checklist/evidence path: this report.
 - Existing nearby collision, solver, replay, editor, and test comments remain
   accurate after the spelling-only substitution.
 
-The audited inventory is the exact 34-file VD0 migration surface:
+The audited inventory is the exact 34-file VD0 Profile migration surface:
 1 Gameplay file, 5 Maths files, 15 Physics files, 10 Runtime files, and 3 test
-files.
+files. VD2 expands the final audit to 36/36 by adding `SkullScope.cpp` and
+`LauncherTools.cpp`.
 
 ## Protected Warm-Start Boundary
 

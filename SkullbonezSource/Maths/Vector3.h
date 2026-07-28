@@ -57,7 +57,7 @@ class Vector3
 {
 
   public:
-    float x, y, z;                                            // Public POD-style components; math hot paths access them directly.
+    float x, y, z;                                                  // Public POD-style components; math hot paths access them directly.
 
     Vector3()
     {
@@ -81,7 +81,7 @@ class Vector3
         x = y = z = 0.0f;
     }
 
-    void Normalise()                                          // Debug-asserts on zero; Release propagates IEEE inf/NaN.
+    void Normalise()                                                // Debug-asserts on zero; Release propagates IEEE inf/NaN.
     {
         float magSq = x * x + y * y + z * z;
 
@@ -124,20 +124,20 @@ class Vector3
         return true;
     }
 
-    void Absolute()                                           // Component-wise absolute value; mutates this vector.
+    void Absolute()                                                 // Component-wise absolute value; mutates this vector.
     {
         x = fabsf( x );
         y = fabsf( y );
         z = fabsf( z );
     }
 
-    bool IsCloseToZero() const                                // Tolerance check for float noise near zero.
+    bool IsCloseToZero() const                                      // Tolerance check for float noise near zero.
     {
         return x < TOLERANCE && x > ZERO_TAKE_TOLERANCE && y < TOLERANCE && y > ZERO_TAKE_TOLERANCE && z < TOLERANCE &&
                z > ZERO_TAKE_TOLERANCE;
     }
 
-    void Simplify()                                           // Components within the engine epsilon snap to 0.0f.
+    void Simplify()                                                 // Components within the engine epsilon snap to 0.0f.
     {
 
         if ( x < TOLERANCE && x > ZERO_TAKE_TOLERANCE )
@@ -304,7 +304,6 @@ class Vector3
     {
         return x != v.x || y != v.y || z != v.z;
     }
-
 };
 
 // Why: vector3-inline-hot-math promises memcpy-safe copies and preserves the
@@ -312,7 +311,7 @@ class Vector3
 static_assert( std::is_trivially_copyable_v<Vector3> );
 static_assert( sizeof( Vector3 ) == 12 );
 
-inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };        // Shared origin/no-motion sentinel.
+inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };              // Shared origin/no-motion sentinel.
 
 // Returns the dot product using the established x/y/z multiply-add order.
 // Invariant: Physics byte-exact validation depends on this arithmetic spelling

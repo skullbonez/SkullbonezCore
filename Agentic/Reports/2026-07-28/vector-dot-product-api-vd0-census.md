@@ -2,14 +2,14 @@
 
 Date: 2026-07-28
 Branch: `nightrunner-28th-JUL-26`
-Plan: `Agentic/Plans/TODO/vector-dot-product-api.md`
+Plan: `Agentic/Plans/DONE/vector-dot-product-api.md`
 Scope: documentation-only inventory; no repository validation required
 
 ## Result
 
 The tracked first-party tree contains one owned vector type,
 `Math::Vector::Vector3`; there is no owned `Vector2` or `Vector4` source API.
-The type-aware census found **171** calls to
+The VD0 Profile-preprocessed type-aware census found **171** calls to
 `Vector3::operator*( const Vector3& )` in **34** tracked files:
 
 | Area | Calls | Disposition |
@@ -19,7 +19,7 @@ The type-aware census found **171** calls to
 | Maths | 10 | Shared primitives and the existing file-local `Dot` adapter |
 | Gameplay | 1 | Squared-distance test |
 | Tests | 8 | Direct dot-product assertions |
-| **Total** | **171** | All are true dot products |
+| **VD0 Profile total** | **171** | All are true dot products |
 
 Of these, 163 are production calls and 8 are test calls. There is one
 vector-vector overload definition at `SkullbonezSource/Maths/Vector3.h:308-311`.
@@ -30,6 +30,26 @@ return x * v.x + y * v.y + z * v.z;
 ```
 
 VD1 must preserve that exact multiply/add association in the new named API.
+
+## VD2 Closure Correction — 2026-07-28
+
+The 171-row result above is retained as the historical VD0 Profile census, but
+it was not complete across build configurations. Deleting the overload and
+building the full Debug solution in VD2 exposed two additional `_DEBUG`-only
+uses that Profile preprocessing omitted:
+
+- `SkullbonezSource/Physics/Diagnostics/SkullScope.cpp:690` —
+  `relVel * c.normal`
+- `SkullbonezSource/Runtime/Editor/LauncherTools.cpp:149` —
+  `toModel * rayDir`
+
+Both are true dot products. VD2 migrated them without swapping operands or
+changing arithmetic association. The configuration-complete census therefore
+supersedes the historical total with **173** ambiguous uses across **36** files:
+**172** call-site replacements plus the one OrbitalMechanics adapter-body use
+removed with the adapter. The production total is **165** and the test total
+remains **8**; Physics is **97**, Runtime is **57**, Maths is **10**, Gameplay
+is **1**, and tests are **8**.
 
 ## Method And Exclusions
 
@@ -42,11 +62,13 @@ VD1 must preserve that exact multiply/add association in the new named API.
   database covered all 309 tracked first-party C++ translation units; 211
   translation units with transitive `Vector3.h` reachability were parsed.
 - The 417 raw matches include repeated inline-header instantiations. Canonical
-  tracked path plus line and column deduplication produces the 171 rows below.
+  tracked path plus line and column deduplication produces the 171
+  Profile-preprocessed rows below.
 - An independent sweep of all 309 tracked first-party translation units, with
   the Clang-only narrowing diagnostic suppressed, produced 425 raw instantiated
   hits, zero diagnostics, and the same 171 canonical calls across the same 34
-  files.
+  Profile-preprocessed files. VD2's Debug build is the authoritative proof for
+  the two conditional rows recorded in the correction above.
 - A supplementary standalone sweep of all 145 first-party headers with
   transitive `Vector3.h` reachability found 8 of the 10 canonical header rows
   and zero additional header-only calls. The two absent rows are the dependent

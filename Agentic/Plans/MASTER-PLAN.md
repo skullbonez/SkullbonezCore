@@ -253,21 +253,36 @@ completed four-task plan left the ledger under rule 4, so the remaining
 Principal Engineer Feedback Campaign is 0/9 (0%). Closure evidence is in
 `../Reports/2026-07-28/sbresult-compact-success-path-closure.md`.
 
-Vector dot-product API VD0 completed on 2026-07-28. The type-aware tracked-tree
-census found 171 true vector-vector dot calls across 34 files: 163 production
-and 8 tests, including 96 byte-exact-sensitive Physics calls. Scalar, matrix,
-quaternion, component-wise, and unrelated multiplications are excluded by
-resolved type. The live campaign is now 1/9 (11%).
+Vector dot-product API VD0 completed on 2026-07-28. Its
+Profile-preprocessed type-aware tracked-tree census found 171 true
+vector-vector dot calls across 34 files: 163 production and 8 tests, including
+96 byte-exact-sensitive Physics calls. Scalar, matrix, quaternion,
+component-wise, and unrelated multiplications are excluded by resolved type.
+VD2's configuration-complete correction below supersedes the completeness of
+that historical count. The live campaign was then 1/9 (11%).
 
 Vector dot-product API VD1 completed on 2026-07-28. One shared inline
 `Math::Vector::Dot` preserves the exact established x/y/z arithmetic spelling;
-170 call sites now name it and deletion of the OrbitalMechanics adapter accounts
-for the census's remaining overload call. The vector-vector overload and every
-compatibility spelling are gone. Profile compilation, 62 focused cases / 9,294
-assertions, project/filter metadata, dependency direction, and all three
-ownership inventories pass. The touched-source comment audit is 34/34. The
-protected warm-start working-tree hunks remain byte-identical and are excluded
-by the recorded partial-stage boundary. The live campaign is now 2/9 (22%).
+170 Profile-visible call sites now name it and deletion of the OrbitalMechanics
+adapter accounts for the census's remaining overload call. The vector-vector
+overload and every compatibility spelling are gone. Profile compilation, 62
+focused cases / 9,294 assertions, project/filter metadata, dependency
+direction, and all three ownership inventories pass. The VD1 touched-source
+comment audit is 34/34. The protected warm-start working-tree hunks remain
+byte-identical and are excluded by the recorded partial-stage boundary. The
+live campaign was then 2/9 (22%).
+
+Vector dot-product API VD2 completed on 2026-07-28. Full Debug compilation
+exposed two `_DEBUG`-only calls omitted by the VD0 Profile census, so the
+configuration-complete total is 173 uses across 36 files: 172 named call-site
+replacements plus the deleted adapter-body use. One shared definition and 179
+calls remain; permanent mixed-sign coverage pins x-then-y-then-z evaluation.
+Tests, byte-exact and deep Physics/SkullScope, performance, one-generation Replay
+visual fidelity, DX12, full validation, 36/36 comment audit, and independent
+review pass without baseline refresh. The completed three-task plan left the
+ledger under rule 4, so the remaining Principal Engineer Feedback Campaign is
+0/6 (0%). Closure evidence is in
+`../Reports/2026-07-28/vector-dot-product-api-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -2290,7 +2305,7 @@ Binding owner directions:
 | 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
-| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Active | 2/3 | VD2 add focused named-API coverage and run deletion, byte-exact Physics, performance, and broad closure proofs |
+| 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
 | 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 

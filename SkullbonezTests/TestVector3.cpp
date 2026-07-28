@@ -31,6 +31,7 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::CrossProduct;
+using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
@@ -95,6 +96,18 @@ TEST_CASE( "Vector3: dot and cross product identities hold for basis vectors" )
     CHECK( ( Dot( xAxis, xAxis ) ) == doctest::Approx( 1.0f ) );
     CheckVectorNear( CrossProduct( xAxis, yAxis ), zAxis );
     CheckVectorNear( CrossProduct( yAxis, xAxis ), Vector3( 0.0f, 0.0f, -1.0f ) );
+}
+
+
+TEST_CASE( "Vector3: Dot preserves x then y then z evaluation through mixed-sign cancellation" )
+{
+    const Vector3 lhs( 1.0e10f, 1.0e10f, 3.25f );
+    const Vector3 rhs( 1.0e10f, -1.0e10f, 1.0f );
+
+    // Invariant: the x and y products cancel before z is added. Reassociating
+    // x + ( y + z ) loses z at the magnitude of the y product and yields zero.
+    CHECK( Dot( lhs, rhs ) == 3.25f );
+    CHECK( Dot( rhs, lhs ) == 3.25f );
 }
 
 
