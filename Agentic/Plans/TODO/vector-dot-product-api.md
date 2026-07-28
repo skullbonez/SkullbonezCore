@@ -1,7 +1,7 @@
 # Vector Dot Product API
 
 Date: 2026-07-28
-Status: ACTIVE — 1/3 phases complete
+Status: ACTIVE — 2/3 phases complete
 Impact area: Maths API, Physics solver readability, deterministic expressions
 Owner: Maths + Physics
 Priority: Medium
@@ -28,7 +28,7 @@ to the explicit dot-product API. No compatibility spelling or macro remains.
 - [x] **VD0 — Inventory and classify every vector-vector multiply.** Separate
   dot products from scalar, matrix, and component operations; identify
   determinism-sensitive solver expressions and tests.
-- [ ] **VD1 — Add `Dot` and migrate without arithmetic reshaping.** Prefer a
+- [x] **VD1 — Add `Dot` and migrate without arithmetic reshaping.** Prefer a
   named free/member operation consistent with existing Maths ownership. Replace
   one expression at a time without reassociation, temporary aggregation, or
   compatibility macros; delete `operator*` if authorized.
@@ -54,6 +54,25 @@ to the explicit dot-product API. No compatibility spelling or macro remains.
   warm-start hunks; VD1 must partial-stage that file so those hunks remain
   uncommitted.
 - No owner question remains for VD1.
+
+## VD1 Evidence
+
+- Implementation report:
+  [vector-dot-product-api-vd1-implementation.md](../../Reports/2026-07-28/vector-dot-product-api-vd1-implementation.md)
+- One shared inline `Math::Vector::Dot` now owns the exact established
+  `lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z` arithmetic spelling.
+- The 171-row VD0 census reconciles exactly: 170 final call-site rewrites plus
+  deletion of the OrbitalMechanics adapter and its one overload call. Every
+  operand remains in its original left/right order and source subexpression.
+- `Vector3::operator*( const Vector3& )`, the file-local adapter, and every
+  compatibility spelling are deleted. Profile compilation, focused tests,
+  project/filter metadata, dependency direction, and all three ownership
+  inventories pass.
+- Touched-source comment audit is 34/34 with zero deferred files. The protected
+  warm-start hunk and both other warm files remain byte-identical; VD1 records
+  the exact partial-stage boundary for `PersistentContactSolver.cpp`.
+- VD2 retains the final byte-exact Physics, performance, and broad validation
+  gates. No baseline, golden, config, or schema was refreshed in VD1.
 
 ## Acceptance
 

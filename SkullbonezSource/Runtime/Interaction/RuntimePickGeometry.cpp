@@ -58,8 +58,8 @@ bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin, const Math
     }
 
     const Math::Vector::Vector3 m = rayOrigin - center;
-    const float b = m * rayDirection;
-    const float c = ( m * m ) - radius * radius;
+    const float b = Dot( m, rayDirection );
+    const float c = ( Dot( m, m ) ) - radius * radius;
 
     if ( c > 0.0f && b > 0.0f )
     {
@@ -139,8 +139,8 @@ bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin, cons
     for ( uint16_t faceIndex = 0; faceIndex < hull.GetFaceCount(); ++faceIndex )
     {
         const Math::CollisionDetection::ConvexHullFace& face = hull.GetFace( faceIndex );
-        const float numerator = face.planeOffsetLocal - ( face.normalLocal * localOrigin );
-        const float denominator = face.normalLocal * localDirection;
+        const float numerator = face.planeOffsetLocal - ( Dot( face.normalLocal, localOrigin ) );
+        const float denominator = Dot( face.normalLocal, localDirection );
 
         if ( fabsf( denominator ) <= PICK_AXIS_EPSILON )
         {

@@ -445,7 +445,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                  // terrain normal. That becomes one normal row and two tangent rows.
                                  const float radius = shapeValue.GetRadius();
                                  const Vector3 contactWorldPos = position - planeNormal * radius;
-                                 const float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
+                                 const float signedDist = ( Dot( contactWorldPos, planeNormal ) ) - colPlane.m_distance;
 
                                  TerrainContactPoint& point = out.points[0];
                                  point.point = contactWorldPos;
@@ -468,7 +468,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                  {
                                      const Vector3 local = GetBoxTerrainLocalCorner( he, v );
                                      worldVerts[v] = position + ( rotMat * local );
-                                     signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
+                                     signedDists[v] = ( Dot( worldVerts[v], planeNormal ) ) - colPlane.m_distance;
 
                                      if ( signedDists[v] < minSignedDist )
                                      {
@@ -511,7 +511,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                  for ( uint16_t v = 0; v < vertexCount; ++v )
                                  {
                                      worldVerts[v] = hullCenter + ( rotMat * shapeValue.GetVertex( v ) );
-                                     signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
+                                     signedDists[v] = ( Dot( worldVerts[v], planeNormal ) ) - colPlane.m_distance;
 
                                      if ( signedDists[v] < minSignedDist )
                                      {
@@ -551,7 +551,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
         return false;
     }
 
-    const float preVn = body.linearVelocity * planeNormal;
+    const float preVn = Dot( body.linearVelocity, planeNormal );
 
     if ( preVn < -body.restitutionThreshold && out.pointCount > 1 )
     {

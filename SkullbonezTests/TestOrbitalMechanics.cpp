@@ -154,7 +154,7 @@ TEST_CASE( "Orbital mechanics: solar launch phase predicts the first Mars interc
     // centre inside the ship-plus-Mars collision radius at that arrival.
     const Vector3 idealTransferArrival( -marsRadius, 0.0f, 0.0f );
     const Vector3 miss = marsAtArrival - idealTransferArrival;
-    CHECK( std::sqrt( miss * miss ) < 3.2f );
+    CHECK( std::sqrt( Dot( miss, miss ) ) < 3.2f );
     CHECK( HohmannDepartureDeltaV( EARTH_RADIUS, marsRadius, MU ) == doctest::Approx( 2.1989f ).epsilon( 0.001f ) );
 }
 

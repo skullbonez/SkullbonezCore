@@ -904,21 +904,21 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayD
                                    const Vector3& segmentB )
 {
     const Vector3 segment = segmentB - segmentA;
-    const float segmentLenSq = segment * segment;
+    const float segmentLenSq = Dot( segment, segment );
 
     if ( segmentLenSq <= TOLERANCE * TOLERANCE )
     {
         const Vector3 toPoint = segmentA - rayOrigin;
-        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        const float rayT = (std::max)( 0.0f, Dot( toPoint, rayDirection ) );
         return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
     }
 
     const Vector3 w0 = rayOrigin - segmentA;
-    const float a = rayDirection * rayDirection;
-    const float b = rayDirection * segment;
+    const float a = Dot( rayDirection, rayDirection );
+    const float b = Dot( rayDirection, segment );
     const float c = segmentLenSq;
-    const float d = rayDirection * w0;
-    const float e = segment * w0;
+    const float d = Dot( rayDirection, w0 );
+    const float e = Dot( segment, w0 );
     const float denom = a * c - b * b;
 
     float rayT = 0.0f;

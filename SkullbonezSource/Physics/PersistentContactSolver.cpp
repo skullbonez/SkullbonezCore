@@ -579,8 +579,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
         const float sleepLinear = stepPolicy.nonNegativeSleepLinearSpeed;
         const float sleepAngular = stepPolicy.nonNegativeSleepAngularSpeed;
-        const float speedSq = body.linearVelocity * body.linearVelocity;
-        const float omegaSq = body.angularVelocity * body.angularVelocity;
+        const float speedSq = Dot( body.linearVelocity, body.linearVelocity );
+        const float omegaSq = Dot( body.angularVelocity, body.angularVelocity );
 
         if ( speedSq > sleepLinear * sleepLinear || omegaSq > sleepAngular * sleepAngular )
         {
@@ -589,7 +589,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
         const Vector3 supportNormal = ( c.normal.y > 0.0f ) ? c.normal : -c.normal;
         const Vector3 supportArm = ( c.normal.y > 0.0f ) ? c.rB : c.rA;
-        const Vector3 lever = supportArm - supportNormal * ( supportArm * supportNormal );
+        const Vector3 lever = supportArm - supportNormal * ( Dot( supportArm, supportNormal ) );
         const float radius = conservativeContactRadius( colliderRecords[static_cast<size_t>( supportedIndex )] );
         const float leverTolerance = (std::max)( 0.001f, radius * 0.0002f );
 
@@ -624,14 +624,14 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                               ( static_cast<uint32_t>( c.bodyB + 17 ) * 0x85ebca6bu );
 
         const Vector3 axis = deterministicTangentAxis( supportNormal, seed );
-        const float axisMagSq = axis * axis;
+        const float axisMagSq = Dot( axis, axis );
 
         if ( axisMagSq <= TOLERANCE * TOLERANCE )
         {
             return;
         }
 
-        const float alongAxis = body.angularVelocity * axis;
+        const float alongAxis = Dot( body.angularVelocity, axis );
         const float target = ( alongAxis < 0.0f ) ? -nudgeSpeed : nudgeSpeed;
         body.angularVelocity += axis * ( target - alongAxis );
     };
@@ -740,7 +740,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
             const ObjectContactPoint& candidate = manifold.points[pointIndex];
             const Vector3 pointDelta = candidate.point - primaryPoint.point;
-            const float normalDistance = pointDelta * manifold.normal;
+            const float normalDistance = Dot( pointDelta, manifold.normal );
             const Vector3 tangentDelta = pointDelta - manifold.normal * normalDistance;
             const float tangentDistanceSq = Vector::VectorMagSquared( tangentDelta );
             constexpr float duplicatePointDistanceSq = 1.0e-6f;
@@ -876,9 +876,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                                   .GetOrientationMatrix();
 
                         const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
-                        const float faceDotX = fabsf( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ) * supportNormal );
-                        const float faceDotY = fabsf( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ) * supportNormal );
-                        const float faceDotZ = fabsf( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ) * supportNormal );
+                        const float faceDotX = fabsf( Dot( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ), supportNormal ) );
+                        const float faceDotY = fabsf( Dot( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ), supportNormal ) );
+                        const float faceDotZ = fabsf( Dot( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ), supportNormal ) );
                         constexpr float stableFaceDot = 0.95f; // About 18 degrees from face-flat support.
                         boxHasOnlyEdgeSupport = (std::max)( { faceDotX, faceDotY, faceDotZ } ) < stableFaceDot;
                     }
@@ -1151,7 +1151,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             Vector3 velB = c.isTerrain ? ZERO_VECTOR
                                        : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
 
-            float vn = ( velB - velA ) * c.normal;
+            float vn = Dot( ( velB - velA ), c.normal );
 
             // CATTO REF:
             //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -1300,10 +1300,10 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                                         : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
 
                 const Vector3 relVel = contactVelB - contactVelA;
-                c.preSolveNormalSpeed = relVel * c.normal;
+                c.preSolveNormalSpeed = Dot( relVel, c.normal );
                 c.preSolveClosingSpeed = (std::max)( 0.0f, -c.preSolveNormalSpeed );
-                const float slipT1 = relVel * c.tangent1;
-                const float slipT2 = relVel * c.tangent2;
+                const float slipT1 = Dot( relVel, c.tangent1 );
+                const float slipT2 = Dot( relVel, c.tangent2 );
                 c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
             }
 
@@ -1375,7 +1375,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 Vector3 velB = c.isTerrain ? ZERO_VECTOR
                                            : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
 
-                float vn = ( velB - velA ) * c.normal;
+                float vn = Dot( ( velB - velA ), c.normal );
                 float lambdaN = c.normalMass * ( c.bias - vn );
                 float oldAccN = c.accN;
 
@@ -1390,8 +1390,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
                 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
                 velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
-                float vt1 = ( velB - velA ) * c.tangent1;
-                float vt2 = ( velB - velA ) * c.tangent2;
+                float vt1 = Dot( ( velB - velA ), c.tangent1 );
+                float vt2 = Dot( ( velB - velA ), c.tangent2 );
                 float lambdaT1 = c.tangentMass1 * ( -vt1 );
                 float lambdaT2 = c.tangentMass2 * ( -vt2 );
                 float oldAccT1 = c.accT1;
@@ -1487,7 +1487,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( bodyIndex )];
             SolverBodyState& body = m_solverBodies[bodyIndex];
             float normalForce = record.mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y );
-            float omegaMagSq = body.angularVelocity * body.angularVelocity;
+            float omegaMagSq = Dot( body.angularVelocity, body.angularVelocity );
 
             if ( omegaMagSq > TOLERANCE * TOLERANCE )
             {
@@ -1542,8 +1542,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             constexpr float sleepLinear = 0.05f;
             constexpr float sleepAngular = 0.02f;
 
-            if ( ( body.linearVelocity * body.linearVelocity ) < sleepLinear * sleepLinear &&
-                 ( body.angularVelocity * body.angularVelocity ) < sleepAngular * sleepAngular )
+            if ( ( Dot( body.linearVelocity, body.linearVelocity ) ) < sleepLinear * sleepLinear &&
+                 ( Dot( body.angularVelocity, body.angularVelocity ) ) < sleepAngular * sleepAngular )
             {
 
                 // Snap only near-zero supported motion. This avoids tiny solver
@@ -1798,10 +1798,10 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             const float mass = (std::max)( 0.001f, fixedRecord.mass );
             const float impulseSpeed = c.accN / mass;
             const Vector3 otherVelocity = PhysicsBodyLinearVelocity( hotRead, static_cast<size_t>( otherIndex ) );
-            const float carriedSpeed = (std::max)( 0.0f, otherVelocity * releaseDir );
+            const float carriedSpeed = (std::max)( 0.0f, Dot( otherVelocity, releaseDir ) );
             const float releaseSpeed = std::clamp( (std::max)( impulseSpeed, carriedSpeed * 0.35f ), 1.5f, 36.0f );
 
-            Vector3 tangentVelocity = otherVelocity - releaseDir * ( otherVelocity * releaseDir );
+            Vector3 tangentVelocity = otherVelocity - releaseDir * ( Dot( otherVelocity, releaseDir ) );
             const float tangentSpeed = Vector::VectorMag( tangentVelocity );
 
             if ( tangentSpeed > releaseSpeed * 0.55f && tangentSpeed > TOLERANCE )

@@ -84,7 +84,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
     // Relative motion this frame (focus in target space).
     Vector3 relativeMovement = focusRay.vector3 - targetRay.vector3;
-    float relativeMovementSq = relativeMovement * relativeMovement;
+    float relativeMovementSq = Dot( relativeMovement, relativeMovement );
 
     if ( relativeMovementSq <= TOLERANCE * TOLERANCE )
     {
@@ -93,7 +93,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
 
     // Relative center vector from target to focus at frame start.
     Vector3 difference = focusRay.origin - targetRay.origin;
-    float centerDistanceSq = difference * difference;
+    float centerDistanceSq = Dot( difference, difference );
     float radiusSum = target.m_radius + m_radius;
     float radiusSumSq = radiusSum * radiusSum;
 
@@ -105,7 +105,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
     }
 
     // If relative motion is separating, no swept impact can occur this frame.
-    float closingDot = difference * relativeMovement;
+    float closingDot = Dot( difference, relativeMovement );
 
     if ( closingDot >= 0.0f )
     {
@@ -315,7 +315,7 @@ float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targe
     float totalMovementMag = sqrtf( totalMovementSq );
     Vector3 moveDir = totalMovement / totalMovementMag;
 
-    float dDotMoveDir = d * moveDir;
+    float dDotMoveDir = Dot( d, moveDir );
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )
@@ -355,7 +355,7 @@ float BoundingSphere::TestCollision( const ConvexHullShape& target, const Ray& t
     float totalMovementMag = sqrtf( totalMovementSq );
     Vector3 moveDir = totalMovement / totalMovementMag;
 
-    float dDotMoveDir = d * moveDir;
+    float dDotMoveDir = Dot( d, moveDir );
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )

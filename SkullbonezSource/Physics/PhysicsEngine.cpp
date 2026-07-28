@@ -225,8 +225,8 @@ bool IntersectRaySphere( const Vector3& rayOrigin, const Vector3& rayDirection, 
                          float& outDistance )
 {
     const Vector3 originToCenter = rayOrigin - center;
-    const float directionProjection = originToCenter * rayDirection;
-    const float distanceTerm = ( originToCenter * originToCenter ) - radius * radius;
+    const float directionProjection = Dot( originToCenter, rayDirection );
+    const float distanceTerm = ( Dot( originToCenter, originToCenter ) ) - radius * radius;
 
     if ( distanceTerm > 0.0f && directionProjection > 0.0f )
     {

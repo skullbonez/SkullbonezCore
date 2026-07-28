@@ -50,12 +50,8 @@ constexpr int KEPLER_ITERATION_CAP = 16;
 constexpr int LAMBERT_ITERATION_CAP = 48;
 
 using Vector::CrossProduct;
+using Vector::Dot;
 using Vector::Vector3;
-
-float Dot( const Vector3& a, const Vector3& b )
-{
-    return a * b;
-}
 
 float MagnitudeSquared( const Vector3& value )
 {

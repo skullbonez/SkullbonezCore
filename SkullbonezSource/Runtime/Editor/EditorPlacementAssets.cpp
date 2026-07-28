@@ -1745,7 +1745,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
     terrainNormal /= normalMag;
 
     const Vector3 up( 0.0f, 1.0f, 0.0f );
-    const float dot = std::clamp( up * terrainNormal, -1.0f, 1.0f );
+    const float dot = std::clamp( Dot( up, terrainNormal ), -1.0f, 1.0f );
     Quaternion orientation = IDENTITY_QUATERNION;
 
     if ( dot > 0.9995f )

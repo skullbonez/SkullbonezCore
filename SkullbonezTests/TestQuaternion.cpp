@@ -194,9 +194,9 @@ TEST_CASE( "Property invariant: quaternion normalization and matrix orthonormali
         CHECK( SkullbonezCore::Math::Vector::VectorMag( x ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
         CHECK( SkullbonezCore::Math::Vector::VectorMag( y ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
         CHECK( SkullbonezCore::Math::Vector::VectorMag( z ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
-        CHECK( fabsf( x * y ) <= 0.00002f );
-        CHECK( fabsf( x * z ) <= 0.00002f );
-        CHECK( fabsf( y * z ) <= 0.00002f );
+        CHECK( fabsf( Dot( x, y ) ) <= 0.00002f );
+        CHECK( fabsf( Dot( x, z ) ) <= 0.00002f );
+        CHECK( fabsf( Dot( y, z ) ) <= 0.00002f );
     }
 }
 

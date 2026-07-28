@@ -290,8 +290,8 @@ bool IntersectRaySphere( const Math::Vector::Vector3& rayOrigin, const Math::Vec
                          const Math::Vector::Vector3& center, float radius, float& outT )
 {
     const Math::Vector::Vector3 m = rayOrigin - center;
-    const float b = m * rayDirection;
-    const float c = ( m * m ) - radius * radius;
+    const float b = Dot( m, rayDirection );
+    const float c = ( Dot( m, m ) ) - radius * radius;
 
     if ( c > 0.0f && b > 0.0f )
     {

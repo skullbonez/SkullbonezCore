@@ -305,10 +305,6 @@ class Vector3
         return x != v.x || y != v.y || z != v.z;
     }
 
-    float operator*( const Vector3& v ) const
-    {
-        return x * v.x + y * v.y + z * v.z;
-    }
 };
 
 // Why: vector3-inline-hot-math promises memcpy-safe copies and preserves the
@@ -318,10 +314,18 @@ static_assert( sizeof( Vector3 ) == 12 );
 
 inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };        // Shared origin/no-motion sentinel.
 
+// Returns the dot product using the established x/y/z multiply-add order.
+// Invariant: Physics byte-exact validation depends on this arithmetic spelling
+// remaining lhs.x*rhs.x + lhs.y*rhs.y + lhs.z*rhs.z without reassociation.
+inline float Dot( const Vector3& lhs, const Vector3& rhs )
+{
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
 // Reflect incident about a normalized surface normal; callers own normalization.
 inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )
 {
-    return normal * ( 2 * ( normal * incident ) ) - incident; // Pg 153, Lengyel
+    return normal * ( 2 * ( Dot( normal, incident ) ) ) - incident; // Pg 153, Lengyel
 }
 
 // Component-wise multiplication for scale vectors and basis masks.

@@ -84,14 +84,14 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
         m_mousePickup.planeNormal = cameraNormal;
         m_mousePickup.planePoint = cameraEye + cameraNormal * m_mousePickup.cameraPlaneDistance;
 
-        const float denom = clampedRayDirection * cameraNormal;
+        const float denom = Dot( clampedRayDirection, cameraNormal );
 
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT = ( ( m_mousePickup.planePoint - clampedRayOrigin ) * cameraNormal ) / denom;
+        const float planeT = ( Dot( ( m_mousePickup.planePoint - clampedRayOrigin ), cameraNormal ) ) / denom;
 
         if ( planeT < 0.0f )
         {
@@ -167,7 +167,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
     const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
-    const float cameraPlaneDistance = ( grabPoint - cameraEye ) * cameraNormal;
+    const float cameraPlaneDistance = Dot( ( grabPoint - cameraEye ), cameraNormal );
 
     if ( cameraPlaneDistance <= TOLERANCE )
     {

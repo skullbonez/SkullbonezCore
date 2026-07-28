@@ -259,6 +259,16 @@ and 8 tests, including 96 byte-exact-sensitive Physics calls. Scalar, matrix,
 quaternion, component-wise, and unrelated multiplications are excluded by
 resolved type. The live campaign is now 1/9 (11%).
 
+Vector dot-product API VD1 completed on 2026-07-28. One shared inline
+`Math::Vector::Dot` preserves the exact established x/y/z arithmetic spelling;
+170 call sites now name it and deletion of the OrbitalMechanics adapter accounts
+for the census's remaining overload call. The vector-vector overload and every
+compatibility spelling are gone. Profile compilation, 62 focused cases / 9,294
+assertions, project/filter metadata, dependency direction, and all three
+ownership inventories pass. The touched-source comment audit is 34/34. The
+protected warm-start working-tree hunks remain byte-identical and are excluded
+by the recorded partial-stage boundary. The live campaign is now 2/9 (22%).
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -2280,7 +2290,7 @@ Binding owner directions:
 | 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
-| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Active | 1/3 | VD1 add shared `Dot`, migrate 171 calls without reassociation, and delete the vector-vector overload |
+| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Active | 2/3 | VD2 add focused named-API coverage and run deletion, byte-exact Physics, performance, and broad closure proofs |
 | 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 

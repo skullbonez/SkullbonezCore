@@ -138,7 +138,7 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
     }
 
     const float limitSq = limit * limit;
-    const float magSq = value * value;
+    const float magSq = Dot( value, value );
 
     if ( magSq <= limitSq || magSq <= TOLERANCE )
     {
@@ -228,7 +228,7 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJoi
         torsoUp.Normalise();
         headUp.Normalise();
 
-        const float dot = std::clamp( headUp * torsoUp, -1.0f, 1.0f );
+        const float dot = std::clamp( Dot( headUp, torsoUp ), -1.0f, 1.0f );
 
         if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
         {
@@ -449,7 +449,7 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const Poi
 
             const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
             const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
-            const float relVel = ( velB - velA ) * axis;
+            const float relVel = Dot( ( velB - velA ), axis );
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
             const float biasSpeed = std::clamp( distanceError * constraint.stiffness * invDt, 0.0f,
                                                 RAGDOLL_JOINT_MAX_BIAS_SPEED );

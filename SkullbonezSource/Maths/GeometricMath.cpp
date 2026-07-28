@@ -80,7 +80,7 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 
     plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
-    plane.m_distance = triangle.v1 * plane.m_normal;
+    plane.m_distance = Dot( triangle.v1, plane.m_normal );
 
     return plane;
 }
@@ -98,7 +98,7 @@ float GeometricMath::DeterminePointDistFromPlane( const Plane& plane, const Vect
 {
 
     // Signed distance: dot(n, point) - d
-    return ( plane.m_normal * point - plane.m_distance );
+    return ( Dot( plane.m_normal, point ) - plane.m_distance );
 }
 
 
@@ -214,7 +214,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& r
     }
 
     // check the m_normal and ray aren't perpendicular to each other
-    float denominator = plane.m_normal * ray.vector3;
+    float denominator = Dot( plane.m_normal, ray.vector3 );
 
     if ( !denominator )
     {
@@ -222,7 +222,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& r
     }
 
     // t = -( dot(n, origin) - d ) / dot(n, direction)
-    return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
+    return -( ( ( Dot( plane.m_normal, ray.origin ) ) - plane.m_distance ) / denominator );
 }
 
 

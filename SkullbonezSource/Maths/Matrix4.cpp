@@ -194,9 +194,9 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
     result.m[2] = -f.x;
     result.m[6] = -f.y;
     result.m[10] = -f.z;
-    result.m[12] = -( s * eye );
-    result.m[13] = -( u * eye );
-    result.m[14] = ( f * eye );
+    result.m[12] = -( Dot( s, eye ) );
+    result.m[13] = -( Dot( u, eye ) );
+    result.m[14] = ( Dot( f, eye ) );
 
     return result;
 }

@@ -371,8 +371,8 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
     {
         const Vector3 d = a - b;
 
-        const float x = d * tangent0;
-        const float y = d * tangent1;
+        const float x = Dot( d, tangent0 );
+        const float y = Dot( d, tangent1 );
         return x * x + y * y;
     };
 
@@ -573,8 +573,8 @@ float ProjectBoxRadius( const BoxWorld& box, const Vector3& axis )
     // Imagine shining a light along "axis" and measuring the box's shadow on
     // that line. The projected radius is half the length of that shadow. SAT
     // uses this to ask whether two box shadows overlap on every possible axis.
-    return box.halfExtents.x * fabsf( box.axes[0] * axis ) + box.halfExtents.y * fabsf( box.axes[1] * axis ) +
-           box.halfExtents.z * fabsf( box.axes[2] * axis );
+    return box.halfExtents.x * fabsf( Dot( box.axes[0], axis ) ) + box.halfExtents.y * fabsf( Dot( box.axes[1], axis ) ) +
+           box.halfExtents.z * fabsf( Dot( box.axes[2], axis ) );
 }
 
 // ENGINE-SPECIFIC:
@@ -594,7 +594,7 @@ bool AcceptSatAxis( const BoxWorld& a, const BoxWorld& b, const Vector3& axisRaw
     }
 
     Vector3 axis = axisRaw / sqrtf( magSq );
-    float distance = fabsf( centerDelta * axis );
+    float distance = fabsf( Dot( centerDelta, axis ) );
     float overlap = ProjectBoxRadius( a, axis ) + ProjectBoxRadius( b, axis ) - distance;
 
     if ( overlap < -contactSkin )
@@ -620,7 +620,7 @@ bool AcceptSatAxis( const BoxWorld& a, const BoxWorld& b, const Vector3& axisRaw
         best.axisType = axisType;
         best.axisA = axisA;
         best.axisB = axisB;
-        best.normal = ( centerDelta * axis < 0.0f ) ? -axis : axis;
+        best.normal = ( Dot( centerDelta, axis ) < 0.0f ) ? -axis : axis;
     }
 
     return true;
@@ -708,13 +708,13 @@ int ClipPolygonAgainstPlane( const ClipVertex* input, int inputCount, const Vect
 
     int outputCount = 0;
     ClipVertex prev = input[inputCount - 1];
-    float prevDist = ( prev.point - planePoint ) * inwardNormal;
+    float prevDist = Dot( ( prev.point - planePoint ), inwardNormal );
     bool prevInside = prevDist >= -contactSkin;
 
     for ( int i = 0; i < inputCount; ++i )
     {
         ClipVertex cur = input[i];
-        float curDist = ( cur.point - planePoint ) * inwardNormal;
+        float curDist = Dot( ( cur.point - planePoint ), inwardNormal );
         bool curInside = curDist >= -contactSkin;
 
         if ( curInside != prevInside )
@@ -810,7 +810,7 @@ int ChooseIncidentFace( const BoxWorld& incidentBox, const Vector3& refNormal, f
 
     for ( int axis = 0; axis < 3; ++axis )
     {
-        float dot = incidentBox.axes[axis] * refNormal;
+        float dot = Dot( incidentBox.axes[axis], refNormal );
         float absDot = fabsf( dot );
 
         if ( absDot < bestDot )
@@ -823,7 +823,7 @@ int ChooseIncidentFace( const BoxWorld& incidentBox, const Vector3& refNormal, f
 
     for ( int axis = 0; axis < 3; ++axis )
     {
-        float dotPositive = incidentBox.axes[axis] * refNormal;
+        float dotPositive = Dot( incidentBox.axes[axis], refNormal );
         float dotNegative = -dotPositive;
 
         if ( dotPositive < bestDot )
@@ -858,7 +858,7 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody, const ObjectContac
     const BoxWorld& refBox = referenceIsA ? boxA : boxB;
     const BoxWorld& incBox = referenceIsA ? boxB : boxA;
     Vector3 refNormal = referenceIsA ? finalNormal : -finalNormal;
-    float refSign = ( refBox.axes[referenceAxis] * refNormal >= 0.0f ) ? 1.0f : -1.0f;
+    float refSign = ( Dot( refBox.axes[referenceAxis], refNormal ) >= 0.0f ) ? 1.0f : -1.0f;
 
     float incidentSign = 1.0f;
     int incidentAxis = ChooseIncidentFace( incBox, refNormal, incidentSign );
@@ -885,7 +885,7 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody, const ObjectContac
 
     for ( int i = 0; i < clippedCount; ++i )
     {
-        float separation = ( clipped[i].point - refFaceCenter ) * refNormal;
+        float separation = Dot( ( clipped[i].point - refFaceCenter ), refNormal );
 
         if ( separation > contactSkin )
         {
@@ -929,8 +929,8 @@ void BuildEdgeSegment( const BoxWorld& box, int edgeAxis, const Vector3& towardN
     // closest-points calculation can find the single representative touch point.
     int side0 = ( edgeAxis + 1 ) % 3;
     int side1 = ( edgeAxis + 2 ) % 3;
-    int sign0 = ( box.axes[side0] * towardNormal >= 0.0f ) ? 1 : -1;
-    int sign1 = ( box.axes[side1] * towardNormal >= 0.0f ) ? 1 : -1;
+    int sign0 = ( Dot( box.axes[side0], towardNormal ) >= 0.0f ) ? 1 : -1;
+    int sign1 = ( Dot( box.axes[side1], towardNormal ) >= 0.0f ) ? 1 : -1;
 
     if ( !maximize )
     {
@@ -957,9 +957,9 @@ void ClosestPointsOnSegments( const Vector3& p1, const Vector3& q1, const Vector
     Vector3 d1 = q1 - p1;
     Vector3 d2 = q2 - p2;
     Vector3 r = p1 - p2;
-    float a = d1 * d1;
-    float e = d2 * d2;
-    float f = d2 * r;
+    float a = Dot( d1, d1 );
+    float e = Dot( d2, d2 );
+    float f = Dot( d2, r );
     float s = 0.0f;
     float t = 0.0f;
 
@@ -976,7 +976,7 @@ void ClosestPointsOnSegments( const Vector3& p1, const Vector3& q1, const Vector
     }
     else
     {
-        float c = d1 * r;
+        float c = Dot( d1, r );
 
         if ( e <= TOLERANCE )
         {
@@ -984,7 +984,7 @@ void ClosestPointsOnSegments( const Vector3& p1, const Vector3& q1, const Vector
         }
         else
         {
-            float b = d1 * d2;
+            float b = Dot( d1, d2 );
             float denom = a * e - b * b;
 
             if ( denom != 0.0f )
@@ -1111,7 +1111,7 @@ void AddPolyFace( PolytopeWorld& poly, const Vector3& normal, const uint16_t* in
     face.firstIndex = poly.faceIndexCount;
     face.indexCount = count;
     face.sourceId = sourceId;
-    face.planeOffset = normal * poly.vertices[indices[0]];
+    face.planeOffset = Dot( normal, poly.vertices[indices[0]] );
 
     for ( uint8_t i = 0; i < count; ++i )
     {
@@ -1223,7 +1223,7 @@ PolytopeWorld MakeHullPolytope( const ObjectContactBodyView& body, const ConvexH
             out.faceIndices[out.faceIndexCount++] = hull.GetFaceIndex( src.firstIndex + i );
         }
 
-        face.planeOffset = face.normal * out.vertices[out.faceIndices[face.firstIndex]];
+        face.planeOffset = Dot( face.normal, out.vertices[out.faceIndices[face.firstIndex]] );
     }
 
     for ( uint16_t e = 0; e < out.edgeCount; ++e )
@@ -1246,7 +1246,7 @@ void ProjectPolytope( const PolytopeWorld& poly, const Vector3& axis, float& out
 
     for ( uint16_t i = 0; i < poly.vertexCount; ++i )
     {
-        const float p = poly.vertices[i] * axis;
+        const float p = Dot( poly.vertices[i], axis );
         outMin = (std::min)( outMin, p );
         outMax = (std::max)( outMax, p );
     }
@@ -1261,8 +1261,8 @@ bool EdgeSupportsAxis( const PolytopeWorld& poly, const PolyEdgeWorld& edge, con
     }
 
     constexpr float normalConeSlop = 1.0e-4f;
-    return poly.faces[edge.faceA].normal * axis >= -normalConeSlop &&
-           poly.faces[edge.faceB].normal * axis >= -normalConeSlop;
+    return Dot( poly.faces[edge.faceA].normal, axis ) >= -normalConeSlop &&
+           Dot( poly.faces[edge.faceB].normal, axis ) >= -normalConeSlop;
 }
 
 bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a, const PolytopeWorld& b, const PolyEdgeWorld& edgeA,
@@ -1324,7 +1324,7 @@ bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vecto
         best.axisType = axisType;
         best.axisA = axisA;
         best.axisB = axisB;
-        best.normal = ( centerDelta * axis < 0.0f ) ? -axis : axis;
+        best.normal = ( Dot( centerDelta, axis ) < 0.0f ) ? -axis : axis;
     }
 
     return true;
@@ -1406,13 +1406,13 @@ int ClipPolyAgainstPlaneLimited( const ClipVertex* input, int inputCount, const 
 
     int outputCount = 0;
     ClipVertex prev = input[inputCount - 1];
-    float prevDist = ( prev.point - planePoint ) * inwardNormal;
+    float prevDist = Dot( ( prev.point - planePoint ), inwardNormal );
     bool prevInside = prevDist >= -contactSkin;
 
     for ( int i = 0; i < inputCount; ++i )
     {
         ClipVertex cur = input[i];
-        float curDist = ( cur.point - planePoint ) * inwardNormal;
+        float curDist = Dot( ( cur.point - planePoint ), inwardNormal );
         bool curInside = curDist >= -contactSkin;
 
         if ( curInside != prevInside )
@@ -1449,7 +1449,7 @@ int ChooseIncidentPolyFace( const PolytopeWorld& incident, const Vector3& refNor
 
     for ( uint16_t f = 0; f < incident.faceCount; ++f )
     {
-        const float dot = incident.faces[f].normal * refNormal;
+        const float dot = Dot( incident.faces[f].normal, refNormal );
 
         if ( dot < bestDot - 1.0e-5f )
         {
@@ -1468,7 +1468,7 @@ int ChooseReferencePolyFace( const PolytopeWorld& reference, const Vector3& refN
 
     for ( uint16_t f = 0; f < reference.faceCount; ++f )
     {
-        const float dot = reference.faces[f].normal * refNormal;
+        const float dot = Dot( reference.faces[f].normal, refNormal );
 
         if ( dot > bestDot + 1.0e-5f )
         {
@@ -1505,12 +1505,12 @@ bool PointInsidePolyFace( const PolytopeWorld& poly, const PolyFaceWorld& face, 
 
         inward /= sqrtf( magSq );
 
-        if ( ( faceCenter - a ) * inward < 0.0f )
+        if ( Dot( ( faceCenter - a ), inward ) < 0.0f )
         {
             inward = -inward;
         }
 
-        if ( ( point - a ) * inward < -tolerance )
+        if ( Dot( ( point - a ), inward ) < -tolerance )
         {
             return false;
         }
@@ -1530,7 +1530,7 @@ Vector3 ClosestPointOnSegment( const Vector3& a, const Vector3& b, const Vector3
         return a;
     }
 
-    tOut = ClampFloat( ( ( p - a ) * ab ) / denom, 0.0f, 1.0f );
+    tOut = ClampFloat( ( Dot( ( p - a ), ab ) ) / denom, 0.0f, 1.0f );
     return a + ab * tOut;
 }
 
@@ -1568,7 +1568,7 @@ SphereHullClosestFeature ClosestSphereHullBoundaryFeature( const PolytopeWorld& 
     for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
     {
         const PolyFaceWorld& face = hullWorld.faces[f];
-        const float signedDistance = ( face.normal * sphereCenter ) - face.planeOffset;
+        const float signedDistance = ( Dot( face.normal, sphereCenter ) ) - face.planeOffset;
         const Vector3 projected = sphereCenter - face.normal * signedDistance;
 
         if ( PointInsidePolyFace( hullWorld, face, projected, contactSkin ) )
@@ -1653,7 +1653,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody, const ObjectConta
 
         inward /= sqrtf( magSq );
 
-        if ( ( refCenter - a ) * inward < 0.0f )
+        if ( Dot( ( refCenter - a ), inward ) < 0.0f )
         {
             inward = -inward;
         }
@@ -1677,7 +1677,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody, const ObjectConta
 
     for ( int i = 0; i < count; ++i )
     {
-        const float separation = ( workA[i].point - refPlanePoint ) * refNormal;
+        const float separation = Dot( ( workA[i].point - refPlanePoint ), refNormal );
 
         if ( separation > contactSkin )
         {
@@ -1713,8 +1713,8 @@ bool BuildBestPolyFaceContact( const ObjectContactBodyView& aBody, const ObjectC
 {
     const int faceA = ChooseReferencePolyFace( polyA, finalNormal );
     const int faceB = ChooseReferencePolyFace( polyB, -finalNormal );
-    const float alignA = polyA.faces[faceA].normal * finalNormal;
-    const float alignB = polyB.faces[faceB].normal * -finalNormal;
+    const float alignA = Dot( polyA.faces[faceA].normal, finalNormal );
+    const float alignB = Dot( polyB.faces[faceB].normal, -finalNormal );
 
     constexpr float tieEpsilon = 1.0e-4f;
     const bool tryAFirst = alignA > alignB + tieEpsilon ||
@@ -1837,7 +1837,7 @@ bool BuildSphereHullOrdered( const ObjectContactBodyView& sphereBody, const Boun
 
     for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
     {
-        const float signedDistance = ( hullWorld.faces[f].normal * sphereCenter ) - hullWorld.faces[f].planeOffset;
+        const float signedDistance = ( Dot( hullWorld.faces[f].normal, sphereCenter ) ) - hullWorld.faces[f].planeOffset;
 
         if ( signedDistance > maxSignedDistance )
         {
@@ -1855,7 +1855,7 @@ bool BuildSphereHullOrdered( const ObjectContactBodyView& sphereBody, const Boun
 
     for ( uint16_t f = 0; f < hullWorld.faceCount; ++f )
     {
-        const float signedDistance = ( hullWorld.faces[f].normal * closestPoint ) - hullWorld.faces[f].planeOffset;
+        const float signedDistance = ( Dot( hullWorld.faces[f].normal, closestPoint ) ) - hullWorld.faces[f].planeOffset;
 
         if ( signedDistance > 0.0f )
         {

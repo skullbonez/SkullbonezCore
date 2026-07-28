@@ -120,15 +120,15 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
     const Vector3 axisY = orientation * Vector3( 0.0f, 1.0f, 0.0f );
     const Vector3 axisZ = orientation * Vector3( 0.0f, 0.0f, 1.0f );
 
-    float bestDot = fabsf( axisX * terrainNormal );
-    const float absDotY = fabsf( axisY * terrainNormal );
+    float bestDot = fabsf( Dot( axisX, terrainNormal ) );
+    const float absDotY = fabsf( Dot( axisY, terrainNormal ) );
 
     if ( absDotY > bestDot )
     {
         bestDot = absDotY;
     }
 
-    const float absDotZ = fabsf( axisZ * terrainNormal );
+    const float absDotZ = fabsf( Dot( axisZ, terrainNormal ) );
 
     if ( absDotZ > bestDot )
     {
@@ -239,7 +239,7 @@ inline float ComputeConvexHullTerrainBestFaceNormalDotImpl( const Math::Collisio
     {
         const Math::CollisionDetection::ConvexHullFace& face = hull.GetFace( faceIndex );
         const Math::Vector::Vector3 worldNormal = orientation * face.normalLocal;
-        const float absDot = fabsf( worldNormal * terrainNormal );
+        const float absDot = fabsf( Dot( worldNormal, terrainNormal ) );
 
         if ( absDot > bestDot )
         {

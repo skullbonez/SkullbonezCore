@@ -81,7 +81,7 @@ bool Frustum::IntersectsSphere( const Vector::Vector3& center, float radius, flo
 
     for ( const FrustumPlane& plane : m_planes )
     {
-        const float signedDistance = plane.normal * center + plane.distance;
+        const float signedDistance = Dot( plane.normal, center ) + plane.distance;
 
         if ( signedDistance < -expandedRadius )
         {

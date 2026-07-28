@@ -192,7 +192,7 @@ float SweptBoundingRadiusCollision( float focusRadius, const Vector3& focusOffse
     const Vector3 d = ( focusRay.origin + focusOffset ) - ( targetRay.origin + targetOffset );
     const float totalMovementMag = sqrtf( totalMovementSq );
     const Vector3 moveDir = totalMovement / totalMovementMag;
-    const float dDotMoveDir = d * moveDir;
+    const float dDotMoveDir = Dot( d, moveDir );
     const float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )
@@ -1038,13 +1038,13 @@ void ConvexHullShape::ScaleAxis( int axis, float factor )
 
         Vector3 normal = unnormalized / sqrtf( magnitudeSquared );
 
-        if ( ( normal * ( centroid - a ) ) > 0.0f )
+        if ( ( Dot( normal, ( centroid - a ) ) ) > 0.0f )
         {
             normal = -normal;
         }
 
         face.normalLocal = normal;
-        face.planeOffsetLocal = normal * a;
+        face.planeOffsetLocal = Dot( normal, a );
     }
 
     float projectedX = 0.0f;
