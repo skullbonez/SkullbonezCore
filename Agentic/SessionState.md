@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 3/24 (13%). Plan 1 BL2 removed inert hot-list control-block alignment with byte-exact Physics and no meaningful five-scene regression. |
+| Active/future progress | 0/20 (0%). Physics body hot-layout evidence is complete at 4/4 and has left the live ledger under rule 4. Plan 2 RG0 is next. |
+| Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
 | Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Plan 12 `tools\validate_full.bat` passes in 337 seconds: 421/421 tests and 2,410,274 assertions, CPU/coverage, DX12 renderer/runtime lanes, and byte-exact Physics. `validate_perf.bat` and independent review also pass with zero blockers. |
@@ -29,12 +30,13 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 3/24. Its seven TODO plans
-cover Physics body layout evidence, Replay restore/wide-signature governance,
-PhysicsFixedList copy semantics, compact SbResult success values, explicit
-vector dot products, isolated deterministic terrain fixtures, and generated
-dependency proofs. The bounded registration response removes the exact Replay
-pure forwarder, publishes the anti-Hamilton/transposed-matrix quaternion
+The Principal Engineer Feedback Campaign is live at 0/20. Physics body layout
+evidence is complete; its six remaining TODO plans cover Replay restore/
+wide-signature governance, PhysicsFixedList copy semantics, compact SbResult
+success values, explicit vector dot products, isolated deterministic terrain
+fixtures, and generated dependency proofs. The bounded registration response
+removes the exact Replay pure forwarder, publishes the anti-Hamilton/
+transposed-matrix quaternion
 contract in the public header, makes orientation conversion const, gives the
 identity values one inline definition, and enables first-party IDE warning
 errors. The owner selected the current SoA for this campaign and approved the
@@ -707,7 +709,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-body-hot-layout-evidence` at BL3. Run the three ownership
-inventories, final `validate_physics`, `validate_perf`, and `validate_full`, and
-an independent no-bag/hot-path review before closing the plan. Preserve the
-uncommitted warm-start review diff until the owner accepts or rejects it.
+Continue `replay-restore-wide-signature-governance` at RG0. Replace the hard
+12-parameter ceiling with the owner-approved mandatory qualitative review and
+reopen every current exact-12 operation without hiding one behind a courier,
+facade, slice, callback pack, or renamed context. Preserve the uncommitted
+warm-start review diff until the owner accepts or rejects it.

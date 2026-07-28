@@ -1,7 +1,7 @@
 # Physics Body Hot Layout Evidence
 
 Date: 2026-07-28
-Status: TODO — 3/4 phases complete
+Status: COMPLETE — 4/4 phases complete
 Impact area: Physics hot storage, cache locality, allocation policy, performance
 Owner: Physics
 Priority: High — first principal-engineer finding and the binding first plan
@@ -56,10 +56,11 @@ consumers, but it may not replace the store with AoS.
   Do not add a per-body field without the `PhysicsBodyRecord` owner ruling in
   `AGENTS.md`. Validation:
   `Agentic/Reports/2026-07-28/physics-body-hot-layout-bl2-validation.md`.
-- [ ] **BL3 — Close determinism, performance, comments, and review.** Prove
+- [x] **BL3 — Close determinism, performance, comments, and review.** Prove
   byte-exact physics, allocation-policy compliance, the agreed performance
   threshold, and touched-file comment quality. Run the three ownership
-  inventories and an independent no-bag/hot-path review.
+  inventories and an independent no-bag/hot-path review. Closure:
+  `Agentic/Reports/2026-07-28/physics-body-hot-layout-closure.md`.
 
 ## Acceptance
 

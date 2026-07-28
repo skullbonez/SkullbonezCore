@@ -21,7 +21,7 @@ evaluation. This response authorizes no baseline refresh.
 
 | Feedback | Disposition | Evidence / owner |
 |---|---|---|
-| Physics body SoA has no vectorized stage consumer, reconstructs scalar vectors, aligns control blocks, and scatters allocations | Planned | `Agentic/Plans/TODO/physics-body-hot-layout-evidence.md` |
+| Physics body SoA has no vectorized stage consumer, reconstructs scalar vectors, aligns control blocks, and scatters allocations | Completed later | `Agentic/Reports/2026-07-28/physics-body-hot-layout-closure.md` |
 | Replay restore is a 12-argument same-class pure forwarder; numeric ceiling is being Goodharted | Exact forwarder removed; deeper operation/governance planned | `Agentic/Plans/TODO/replay-restore-wide-signature-governance.md` |
 | Quaternion convention is hidden in the implementation | Fixed | Public header now states anti-Hamilton operand order, transposed Hamilton matrix convention, and axis-angle compensation |
 | Warm-start key mask is duplicated and not capacity-guarded | Final uncommitted owner-review diff | No baseline refresh |

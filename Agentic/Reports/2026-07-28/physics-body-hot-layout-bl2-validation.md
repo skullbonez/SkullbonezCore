@@ -55,10 +55,12 @@ same machine and settings.
 | 2,000 | 2.0764 ms | 2.1037 ms | +1.3% | 3.1065 ms | 3.0926 ms | -0.4% |
 | sleepy-5,000 | 1.3354 ms | 1.3681 ms | +2.4% | 26.9538 ms | 27.1327 ms | +0.7% |
 
-The small mixed-direction deltas show no meaningful or systematic performance
-degradation from removing control-block padding. The sleepy-5,000 tail remains
-an observation rather than a layout attribution. No performance baseline or
-accepted artifact was refreshed.
+The BL2 P50 deltas are all positive while P99 deltas move both directions. This
+single run is insufficient to attribute a layout regression; the same-source
+BL3 repeat and conclusion are recorded in
+`Agentic/Reports/2026-07-28/physics-body-hot-layout-closure.md`. The
+sleepy-5,000 tail remains an observation rather than a layout attribution. No
+performance baseline or accepted artifact was refreshed.
 
 ## Comment Audit
 

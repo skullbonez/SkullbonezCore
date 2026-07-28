@@ -440,60 +440,42 @@ class PhysicsBodyStore
 
     PhysicsBodyRecordList m_bodies { "PhysicsBodyStore.bodies",
                                      PhysicsCapacityReason::SceneBodies };                            // Cold records in dense scene/model order.
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionX { "PhysicsBodyStore.positionX",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionY { "PhysicsBodyStore.positionY",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionZ { "PhysicsBodyStore.positionZ",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationX { "PhysicsBodyStore.orientationX",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationY { "PhysicsBodyStore.orientationY",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationZ { "PhysicsBodyStore.orientationZ",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationW { "PhysicsBodyStore.orientationW",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX { "PhysicsBodyStore.linearVelocityX",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY { "PhysicsBodyStore.linearVelocityY",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ { "PhysicsBodyStore.linearVelocityZ",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX { "PhysicsBodyStore.angularVelocityX",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY { "PhysicsBodyStore.angularVelocityY",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ { "PhysicsBodyStore.angularVelocityZ",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseMass { "PhysicsBodyStore.inverseMass",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX { "PhysicsBodyStore.inverseInertiaX",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY { "PhysicsBodyStore.inverseInertiaY",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ { "PhysicsBodyStore.inverseInertiaZ",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_boundingRadius { "PhysicsBodyStore.boundingRadius",
-                                                                                     PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionX { "PhysicsBodyStore.positionX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionY { "PhysicsBodyStore.positionY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionZ { "PhysicsBodyStore.positionZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationX { "PhysicsBodyStore.orientationX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationY { "PhysicsBodyStore.orientationY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationZ { "PhysicsBodyStore.orientationZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationW { "PhysicsBodyStore.orientationW", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityX { "PhysicsBodyStore.linearVelocityX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityY { "PhysicsBodyStore.linearVelocityY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityZ { "PhysicsBodyStore.linearVelocityZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityX { "PhysicsBodyStore.angularVelocityX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityY { "PhysicsBodyStore.angularVelocityY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityZ { "PhysicsBodyStore.angularVelocityZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseMass { "PhysicsBodyStore.inverseMass", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaX { "PhysicsBodyStore.inverseInertiaX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaY { "PhysicsBodyStore.inverseInertiaY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaZ { "PhysicsBodyStore.inverseInertiaZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_boundingRadius { "PhysicsBodyStore.boundingRadius", PhysicsCapacityReason::SceneBodies };
     PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed", PhysicsCapacityReason::SceneBodies };
     PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyHandleList m_modelBodyHandles { "PhysicsBodyStore.modelBodyHandles",
