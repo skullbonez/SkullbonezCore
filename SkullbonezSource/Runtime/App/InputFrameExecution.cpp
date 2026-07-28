@@ -111,8 +111,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     if ( automationBeforeInput )
     {
         const SkullbonezCore::Core::SbResult submitStatus = m_interactionAutomation
-                                                                .SubmitOperatorEditorReplayCommand( m_resultDiagnostics,
-                                                                                                    *automationBeforeInput,
+                                                                .SubmitOperatorEditorReplayCommand( *automationBeforeInput,
                                                                                                     externalEditorCommands );
 
         if ( !submitStatus.Ok() )

@@ -621,6 +621,51 @@ struct Dx12RaytracingDispatchOutcome
     bool rasterStateInvalidated = false;
 };
 
+
+// Concept: optional raytracing reports one retained diagnostic for the current
+// capability/setup epoch.
+// Invariant: Reset releases only the owner's lease; a result copy already
+// returned to Runtime keeps the immutable diagnostic alive for consumption.
+class Dx12FeatureEpochResult
+{
+  public:
+    void Reset() noexcept
+    {
+        m_result = SkullbonezCore::Core::SbResult::Success();
+    }
+
+    void Publish( const SkullbonezCore::Core::SbResult& result ) noexcept
+    {
+        m_result = result;
+    }
+
+    bool Ok() const noexcept
+    {
+        return m_result.Ok();
+    }
+
+    const char* ErrorOwner() const noexcept
+    {
+        return m_result.ErrorOwner();
+    }
+
+    const char* ErrorMessage() const noexcept
+    {
+        return m_result.ErrorMessage();
+    }
+
+    // Lifetime: this is an owner-borrowed view. A caller that needs the
+    // diagnostic beyond Reset or owner destruction must copy the SbResult.
+    const SkullbonezCore::Core::SbResult& Current() const noexcept
+    {
+        return m_result;
+    }
+
+  private:
+    SkullbonezCore::Core::SbResult m_result = SkullbonezCore::Core::SbResult::Success();
+};
+
+
 // Concept: raytracing is one resource lifecycle, not backend frame state.
 //
 // This owner retains the optional Device5/command-list4 capability, reflection
@@ -677,7 +722,7 @@ class Dx12RaytracingOwner
     Dx12PipelineOwner& m_rasterPipeline;
     Dx12GeometryOwner& m_geometry;
     bool m_supported = false;
-    SkullbonezCore::Core::SbResult m_featureResult = SkullbonezCore::Core::SbResult::Success();
+    Dx12FeatureEpochResult m_featureResult;
     ID3D12Device5* m_device5 = nullptr;
     ID3D12GraphicsCommandList4* m_commandList4 = nullptr;
     ID3D12StateObject* m_pipeline = nullptr;

@@ -192,28 +192,14 @@ struct PredictionTrajectoryFingerprint
     }
 };
 
-struct InteractionAutomationReportInputs
-{
-
-    // Lifetime: the writer consumes this projection synchronously. SceneWorld,
-    // lifecycle state, and path text remain separate so report code cannot
-    // submit scene requests or recover the lifecycle controller.
-    InteractionAutomationRunStatus& status;
-    const char* scriptPath;
-    const SceneWorld& world;
-    const SceneSessionState& scene;
-    const char* scenePath;
-    const RuntimeTools& runtimeTools;
-    const ReplayAutomationView& replay;
-    const RuntimeInteractionController& interaction;
-    const CameraControlState& camera;
-    const UI::InGameUI& ui;
-    const Rendering::RenderSceneSnapshot& renderSnapshot;
-};
-
 class InteractionAutomationReportWriter
 {
   public:
+    explicit InteractionAutomationReportWriter( Core::SbDiagnosticStore& resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics ), m_replayVisualPredictionDrawList( resultDiagnostics )
+    {
+    }
+
     void Configure( const char* reportPath );
     void ReserveForActions( std::size_t actionCount );
     void AppendAction( int frame, const char* type, const char* target, const POINT* mouse, bool consumed,
@@ -239,7 +225,15 @@ class InteractionAutomationReportWriter
     void ResetEditorSelectionCaptures() noexcept;
     void CaptureEditorSelection( int slot, uint64_t fingerprint, bool valid ) noexcept;
     bool TryEditorSelectionCapture( int slot, uint64_t& outFingerprint ) const noexcept;
-    Core::SbResult Write( Core::SbDiagnosticStore& diagnostics, const InteractionAutomationReportInputs& inputs );
+
+    // Lifetime: every borrowed operand is consumed synchronously. The writer
+    // retains only its own bounded evidence and never stores scene/runtime/UI
+    // owner addresses after this call returns.
+    Core::SbResult Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world,
+                          const SceneSessionState& scene, const char* scenePath, const RuntimeTools& runtimeTools,
+                          const ReplayAutomationView& replay, const RuntimeInteractionController& interaction,
+                          const CameraControlState& camera, const UI::InGameUI& ui,
+                          const Rendering::RenderSceneSnapshot& renderSnapshot );
 
     // Report facts are centralized here so live assertions and final JSON use
     // one implementation of every validation-sensitive calculation.
@@ -276,6 +270,9 @@ class InteractionAutomationReportWriter
     bool VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status, RuntimeTools& runtimeTools,
                                               SceneWorld& world, const ReplaySolverFrameSample* latestSolverSample );
 
+    // Lifetime: the App store outlives the persistent tracer and each
+    // call-scoped offline prediction owner that publishes through this writer.
+    Core::SbDiagnosticStore& m_resultDiagnostics;
     bool m_written = false;
     char m_path[260] = {};
     std::vector<RunInteractionAutomationReportAction> m_actionReports;

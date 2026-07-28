@@ -243,6 +243,16 @@ The live ledger is therefore 3/13 (23%).
 Evidence is in
 `../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`.
 
+SbResult compact success path SR3 completed on 2026-07-28. The final source
+pins the result at 16 bytes and the 256-slot store at 159,760 bytes, preserves
+the exact 511-byte payload, and passes lease, identity, allocation, DX12 epoch,
+Automation, performance, full, comment, and independent-review proofs. The
+final tracked-source census corrects retained members to 31; 221 publication
+expressions plus 31 members conservatively bound the source at 252/256. The
+completed four-task plan left the ledger under rule 4, so the remaining
+Principal Engineer Feedback Campaign is 0/9 (0%). Closure evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -826,9 +836,9 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 3/13 (23%).
-Execute its four live plans in table order below. The owner has answered every
-campaign question: retain SoA and run the five-scene Physics witness matrix;
+The remaining Principal Engineer Feedback Campaign is binding at 0/9 (0%).
+Execute its three live plans in table order below. The owner has answered every
+active-plan question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
 exact-12 rows;
 keep explicit PhysicsFixedList cloning on concrete owners; use bounded
@@ -2243,12 +2253,16 @@ performance, and governance redesigns remain explicit plans.
 
 Binding owner directions:
 
-- Retain the Physics body SoA. Plan 1 must run the 200, 520, 1,000, 2,000, and
-  sleepy-5,000 witnesses and may implement only evidence-backed SoA-internal
-  improvements.
+- Retain the Physics body SoA for the completed campaign. A future AoS proposal
+  may proceed only if representative evidence shows no meaningful degradation
+  relative to SoA. **Owner question before such work begins:** should
+  "meaningful" mean more than 2%, more than 5%, or only a statistically
+  significant regression?
 - The warm-start key capacity guard is the final actionable local change. It is
   intentionally left uncommitted after the campaign-registration commit for
-  owner review; no baseline may be refreshed by the agent.
+  owner review; no baseline may be refreshed by the agent. **Owner question for
+  evaluation:** should acceptance be decided from Physics-frame time, solver
+  time, contact stability, or all three?
 - Plan 2 replaces the hard 12-parameter ceiling with mandatory qualitative
   ownership review and reopens every current exact-12 row. No implementation
   may hide a wide operation in a courier, forwarding facade, capability slice,
@@ -2259,7 +2273,7 @@ Binding owner directions:
 | 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
 | 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
-| 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Active | 2/4 | SR2 implement and migrate the leased compact result |
+| 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
 | 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |

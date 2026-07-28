@@ -13,8 +13,9 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 3/13 (23%). Plan 4 `sbresult-compact-success-path` is active at 3/4; SR3 size/behavior/performance proof and independent closure review are next. |
-| Validation for SbResult SR2 | MSVC x64 measures the migrated result at 16 bytes and the App-composed 256-slot store at 159,760 bytes. The explicit no-wrapper API is migrated across production and tests; the multiline-aware conservative final census is 221 producer expressions plus 29 result-member sites, 250/256, with one production store and no result container/queue or hidden store. Focused success, formatting, lifetime, generation, capacity, exact concurrent owner/message bytes, stale/cross-store copy-out, owner overflow, double release, active-lease store destruction, and application-exit lease tests pass. Every normal `WinMain` exit reports active/session-high-water/capacity after store accessors unlock and while the App store is alive; the production worker-self-test exit reports 0/0/256. Clean-worktree format, project filters, dependency graph, and `validate_fast` pass; all three ownership inventories pass; touched-source comment audit is 166/166 after the Automation-only closure. SR3 still owns performance and broad/full closure proof; no baseline was refreshed. |
+| Active/future progress | 0/9 (0%). Plan 4 `sbresult-compact-success-path` is complete at 4/4 and has left the ledger; `vector-dot-product-api` VD0 is next. |
+| Validation for SbResult closure | The result is 16 bytes and pointer-aligned; the fixed 256-slot store is 159,760 bytes. Exact 511-byte diagnostics, copy/move/identity, full-capacity, stale/foreign, cross-thread, no-allocation, high-water, lease/generation/re-entry Lane F, five DX12 epoch, and ImGui status-lifetime proofs pass. The corrected final capacity census is 221 publications plus 31 retained members, 252/256 with four slots of conservative headroom, one App store, and no multiplicative container/queue/worker path. Automation now uses one owner-held store and no report-input courier. Final-source tests pass 436/436 cases and 2,419,127 assertions; format, metadata, dependency, ownership inventories, Automation, performance, 60.576-second graphics stress, and the 355.5-second full gate pass without baseline refresh. Comment audit 18/18; independent review accepted. |
+| Validation for SbResult SR2 | At the SR2 checkpoint, MSVC x64 measured the migrated result at 16 bytes and the App-composed 256-slot store at 159,760 bytes. The explicit no-wrapper API was migrated across production and tests; SR2 reported 221 producer expressions plus 29 result-member sites, 250/256, with one production store and no result container/queue or hidden store. Focused success, formatting, lifetime, generation, capacity, exact concurrent owner/message bytes, stale/cross-store copy-out, owner overflow, double release, active-lease store destruction, and application-exit lease tests passed. Every normal `WinMain` exit reported active/session-high-water/capacity after store accessors unlocked and while the App store was alive; the production worker-self-test exit reported 0/0/256. Clean-worktree format, project filters, dependency graph, and `validate_fast` passed; all three ownership inventories passed; touched-source comment audit was 166/166 after the Automation-only closure. The closure row above supersedes SR2's capacity arithmetic and broad-proof status. |
 | Validation for SbResult SR1 | Documentation-only decision: one App-composed 256-slot (~160 KiB) immutable store, 16-byte pointer/token result, last-lease reclamation, 56-bit generation stale-handle protection, allocation-free synchronized failure publication, deterministic Lane F exhaustion/overflow, and explicit no-wrapper API migration. SR2 corrected the original spelling-sensitive 176+30 bound to 220+30, or 250/256, under verified no recursion/re-entry, worker publication, or result containers/queues; direct diagnostic pointers last only for the same live unmoved/unassigned lease and escaping use copies bounded bytes. The focused matrix includes test-only concurrent publication within capacity and a double-release Lane F child probe. No repository validation or baseline refresh required. |
 | Validation for SbResult SR0 | Current-source census: 177 returning definitions, 200 production success constructions, 220 production failures after SR2's multiline-aware correction, 30 direct stored fields, 74 direct diagnostic-consumer lines in 32 files, and zero CPU-thread/deferred-queue result handoffs. MSVC x64 measures `SbResult` at 528 bytes and preserves the exact 511-byte payload. Detached-clean-worktree `validate_perf` passes in 154 seconds without baseline refresh. |
 | Validation for Physics fixed-list closure | Compile-time owner non-transferability, production-adapter construction/seed, deep collider rebinding after source destruction, bit-exact next-step parity, and missing/wrong phase-owner fatal probes pass. Final-source `validate_tests` passes 422/422 cases and 2,410,618 assertions; allocation self-test/repository scan, `validate_physics`, strict Replay allocation, the single authoritative visual-fidelity run, `validate_perf`, and `validate_full` pass in the isolated worktree. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and all 12+ signatures ruled. Comment audit is 5/5; independent review returned zero blockers. No baseline was refreshed. |
@@ -36,10 +37,10 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 3/13. Physics body layout,
-Replay restore/wide-signature governance, and PhysicsFixedList copy semantics
-are complete; its four remaining TODO plans cover compact SbResult success
-values, explicit vector dot products, isolated deterministic terrain fixtures,
+The Principal Engineer Feedback Campaign is live at 0/9. Physics body layout,
+Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
+compact SbResult success values are complete; its three remaining TODO plans
+cover explicit vector dot products, isolated deterministic terrain fixtures,
 and generated dependency proofs. The bounded registration response
 removes the exact Replay pure forwarder, publishes the anti-Hamilton/
 transposed-matrix quaternion
@@ -720,7 +721,8 @@ are not certified. Full evidence:
 | `tools\validate_full.bat` (RG3 final source) | 408.7 s | PASS; 424 cases / 2,410,325 assertions, all CPU/runtime lanes, accepted DX12 images, byte-exact 44,401-line Physics CSV |
 | PhysicsFixedList FC0 census | documentation-only; independent review clear | One production Replay prediction `PhysicsEngine` assignment reaches 98 lists; direct list/ColliderStore transfers are test-only; no production moves, by-value paths, or value queues |
 | SbResult SR1 ownership decision | documentation-only | App-composed 256-slot immutable store, 16-byte leased result, corrected 250/256 decision-tip conservative bound, last-copy reclamation, stale-generation/cross-store detection, bounded copy-out, explicit store injection, and no compatibility wrapper |
-| SbResult SR2 implementation | focused implementation proof | 16-byte result, 159,760-byte store, 250/256 conservative final census, exact concurrent diagnostic bytes and active-lease destruction Lane F pass, every normal App exit reports active/high-water/capacity, clean-worktree `validate_fast` and all ownership inventories pass, and comment audit is 166/166 |
+| SbResult SR2 implementation | focused implementation proof | 16-byte result, 159,760-byte store, SR2-reported 250/256 census later corrected by SR3 to 252/256, exact concurrent diagnostic bytes and active-lease destruction Lane F pass, every normal App exit reports active/high-water/capacity, clean-worktree `validate_fast` and all ownership inventories pass, and comment audit is 166/166 |
+| SbResult SR3 closure | final-source broad proof | 252/256 conservative bound, exact size/payload/lease/identity tests, five DX12 epoch witnesses, Automation owner repair, 436 cases / 2,419,127 assertions, performance/full/stress gates, 18/18 comment audit, and accepted independent review |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -728,12 +730,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `sbresult-compact-success-path` at SR3. Reconfirm the pinned 16-byte
-carrier, 159,760-byte fixed store, exact owner/511-byte formatting, lease and
-stale-identity behavior, and the 250/256 conservative capacity proof on final
-source. Run the performance comparison and broad/full gates without refreshing
-any baseline, then obtain the independent ownership/comment closure review.
-Preserve the explicit no-wrapper/no-hidden-store API and the direct diagnostic
-borrow lifetime. The principal-feedback campaign is 3/13 (23%).
+Start `vector-dot-product-api` at VD0. Classify every vector-vector multiply and
+record the exact dot-product migration surface before changing the public API.
+The principal-feedback campaign is 0/9 (0%). The future AoS threshold and the
+warm-start acceptance metric remain explicit owner questions in
+`Agentic/Plans/MASTER-PLAN.md`.
 Preserve the uncommitted warm-start review diff until the owner accepts or
 rejects it.

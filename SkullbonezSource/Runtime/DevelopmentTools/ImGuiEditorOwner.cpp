@@ -1081,7 +1081,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( m_frameCommandStatus.Ok() )
         {
-            m_frameCommandStatus = UI::SubmitOperatorEditorCommand( m_resultDiagnostics, queue, command );
+            m_frameCommandStatus.Record( UI::SubmitOperatorEditorCommand( m_resultDiagnostics, queue, command ) );
         }
     };
 
@@ -3179,9 +3179,8 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
     m_frameActive = false;
     ++m_completedFrames;
     result.commands = m_frameCommands;
-    result.status = m_frameCommandStatus;
+    result.status = m_frameCommandStatus.Take();
     m_frameCommands = {};
-    m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
 
     if ( result.status.Ok() )
     {

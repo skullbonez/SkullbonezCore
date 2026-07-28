@@ -48,6 +48,8 @@ Invariants:
     borrowing source or failure buffers.
   - Transaction tests drive the production arbitration and drain gates through
     bounded friend access; they do not duplicate those decisions in test code.
+  - Taking editor frame status releases the editor-held lease while the
+    returned Runtime copy retains the exact failure bytes.
 
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
@@ -65,6 +67,7 @@ Related:
 #include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -180,6 +183,22 @@ struct SceneGeneratedControlTransactionTestAccess
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+
+TEST_CASE( "Operator editor frame status keeps its lease through owner reset" )
+{
+    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorFrameStatusLease status;
+    SkullbonezCore::Core::SbResult producer = diagnostics.Failure( "Runtime/Editor", "frame command rejected" );
+    status.Record( producer );
+    producer = SkullbonezCore::Core::SbResult::Success();
+
+    const SkullbonezCore::Core::SbResult consumed = status.Take();
+    CHECK_FALSE( consumed.Ok() );
+    CHECK( status.Ok() );
+    CHECK( std::strcmp( consumed.ErrorOwner(), "Runtime/Editor" ) == 0 );
+    CHECK( std::strcmp( consumed.ErrorMessage(), "frame command rejected" ) == 0 );
+}
+
 
 TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {

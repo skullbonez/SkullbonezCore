@@ -189,15 +189,6 @@
                            "destructures_at_entry":  "no"
                        },
                        {
-                           "key":  "InteractionAutomationReportInputs",
-                           "site":  "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h:195",
-                           "members":  11,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Automation",
-                           "reason":  "Status, script identity, scene path, owners, camera/UI state, and render snapshot are captured at one automation completion boundary so the report cannot combine evidence from different runs.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
                            "key":  "KeyboardContextFacts",
                            "site":  "SkullbonezSource/Runtime/App/InputFrame.h:147",
                            "members":  10,

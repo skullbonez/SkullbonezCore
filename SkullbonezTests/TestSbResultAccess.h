@@ -1,12 +1,12 @@
 /*
 File: SkullbonezTests/TestSbResultAccess.h
 Purpose:
-  Exposes only the private lease release seam required by Lane F child probes.
+  Exposes only private diagnostic-store seams required by Lane F child probes.
 
 Summary:
-  Production callers cannot release a diagnostic token directly. The render-free
-  test target uses this friend to prove stale/double release terminates without
-  weakening the shipping API.
+  Production callers cannot manipulate slot counters or the store lock directly.
+  The render-free test target uses this friend only for isolated Lane F probes
+  that prove stale release, overflow, and lock re-entry terminate.
 
 Glossary:
   Fatal child: Isolated test process expected to terminate through Lane F.
@@ -31,6 +31,34 @@ class SbDiagnosticStoreTestAccess
     static void Release( SbDiagnosticStore& store, std::uint64_t token ) noexcept
     {
         store.Release( token );
+    }
+
+    static void SaturateLeaseCount( SbDiagnosticStore& store, std::uint64_t token ) noexcept
+    {
+        store.Lock();
+        std::size_t slotIndex = 0u;
+
+        if ( !store.ResolveLiveEntry( token, slotIndex ) )
+        {
+            store.Unlock();
+            return;
+        }
+
+        store.m_entries[slotIndex].leaseCount = UINT32_MAX;
+        store.Unlock();
+    }
+
+    static void ExhaustFirstGeneration( SbDiagnosticStore& store ) noexcept
+    {
+        store.Lock();
+        store.m_entries[0].generation = ( std::uint64_t { 1 } << 56u ) - 1u;
+        store.Unlock();
+    }
+
+    static void ReenterLock( SbDiagnosticStore& store ) noexcept
+    {
+        store.Lock();
+        store.Lock();
     }
 };
 } // namespace SkullbonezCore::Core

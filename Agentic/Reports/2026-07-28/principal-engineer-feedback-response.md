@@ -26,7 +26,7 @@ evaluation. This response authorizes no baseline refresh.
 | Quaternion convention is hidden in the implementation | Fixed | Public header now states anti-Hamilton operand order, transposed Hamilton matrix convention, and axis-angle compensation |
 | Warm-start key mask is duplicated and not capacity-guarded | Final uncommitted owner-review diff | No baseline refresh |
 | `PhysicsFixedList` copy can phase-fatal through `Reserve()` | Planned | `Agentic/Plans/TODO/physics-fixed-list-copy-contract.md` |
-| `SbResult` is 528 bytes on frame-reachable success paths | Planned | `Agentic/Plans/TODO/sbresult-compact-success-path.md` |
+| `SbResult` is 528 bytes on frame-reachable success paths | Complete | `Agentic/Reports/2026-07-28/sbresult-compact-success-path-closure.md` |
 | Header identity constants have per-translation-unit internal linkage | Fixed | `IDENTITY_QUATERNION` and `IDENTITY_MATRIX` are `inline const` |
 | `GetOrientationMatrix()` is non-const and forces mutable copies | Fixed | API/definition are const; cited Physics copies are removed; immutable conversion is compiled by the Quaternion test |
 | Vector-vector `operator*` hides dot products | Planned | `Agentic/Plans/TODO/vector-dot-product-api.md` |

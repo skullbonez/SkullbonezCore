@@ -19,6 +19,8 @@ Invariants:
   - An eight-bit slot and 56-bit nonzero generation form every failure token.
   - Publication, retain, release, lookup, and counters share one allocation-free
     spin lock; success paths never call the store.
+  - The lock records one fixed thread token so same-thread re-entry terminates
+    through Lane F instead of spinning indefinitely.
   - App constructs the store before result-producing owners and destroys it
     after every failed result lease; destruction with an active lease is a
     deterministic Lane F lifetime defect before the raw store can dangle.
@@ -94,6 +96,9 @@ class SbDiagnosticStore
     [[nodiscard]] bool ResolveLiveEntry( std::uint64_t token, std::size_t& slotIndex ) const noexcept;
 
     mutable std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
+
+    // Zero while unlocked; otherwise the fixed caller token.
+    mutable std::atomic<std::uint32_t> m_lockOwnerThread = 0u;
     Entry m_entries[CAPACITY] = {};
     std::uint32_t m_activeEntries = 0;
     std::uint32_t m_sessionHighWater = 0;

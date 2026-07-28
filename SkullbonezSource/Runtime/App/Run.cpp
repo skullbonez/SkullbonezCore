@@ -281,6 +281,9 @@ Run::Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& wi
       m_profiler( profiler ), m_tracyClientOwner( tracyClientOwner ),
       m_sceneController( resultDiagnostics, std::move( sceneQueue ) ), m_applicationExit( resultDiagnostics ),
       m_renderDefaults( resultDiagnostics ), m_diagnosticsRuntime( resultDiagnostics ), m_inputRouter( resultDiagnostics ),
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+      m_interactionAutomation( resultDiagnostics ),
+#endif
       m_replayRuntime( resultDiagnostics, profiler ), m_runtimeTools( resultDiagnostics ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_imguiEditor( resultDiagnostics ),
@@ -497,23 +500,20 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_resultDiagnostics,
-                                                                                  m_interactionAutomation,
+    const SkullbonezCore::Core::SbResult result = ConfigureInteractionAutomation( m_interactionAutomation,
                                                                                   overrides.interactionScriptPath,
                                                                                   overrides.interactionReportPath );
 
     if ( !result.Ok() )
     {
         const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
-        (void)m_interactionAutomation.reportWriter
-            .Write( m_resultDiagnostics,
-                    InteractionAutomationReportInputs { m_interactionAutomation.status, m_interactionAutomation.scriptPath,
-                                                        m_sceneController.Scene(), m_sceneController.State(),
-                                                        m_sceneController.CurrentPath()
-                                                            ? m_sceneController.CurrentPath()->c_str()
-                                                            : nullptr,
-                                                        m_runtimeTools, replay, m_interaction, m_camera, *m_operatorUi,
-                                                        Renderer().FrameGraphSnapshot() } );
+        (void)m_interactionAutomation.reportWriter.Write( m_interactionAutomation.status, m_interactionAutomation.scriptPath,
+                                                          m_sceneController.Scene(), m_sceneController.State(),
+                                                          m_sceneController.CurrentPath()
+                                                              ? m_sceneController.CurrentPath()->c_str()
+                                                              : nullptr,
+                                                          m_runtimeTools, replay, m_interaction, m_camera, *m_operatorUi,
+                                                          Renderer().FrameGraphSnapshot() );
     }
 
     return result;

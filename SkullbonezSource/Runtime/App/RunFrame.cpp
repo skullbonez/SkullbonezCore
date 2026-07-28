@@ -265,8 +265,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult
-        developmentUiApply = m_interactionAutomation.ApplyDevelopmentUiCommands( m_resultDiagnostics, result, m_window,
-                                                                                 m_imguiEditor );
+        developmentUiApply = m_interactionAutomation.ApplyDevelopmentUiCommands( result, m_window, m_imguiEditor );
 
     if ( developmentUiApply.selectSurface )
     {

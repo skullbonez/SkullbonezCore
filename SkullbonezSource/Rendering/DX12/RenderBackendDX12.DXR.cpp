@@ -86,7 +86,7 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
 {
     Shutdown();
     m_supported = false;
-    m_featureResult = SkullbonezCore::Core::SbResult::Success();
+    m_featureResult.Reset();
     m_device5 = nullptr;
     m_commandList4 = nullptr;
 
@@ -98,10 +98,9 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
 
     if ( FAILED( featureResult ) )
     {
-        m_featureResult = m_resultDiagnostics
-                              .Failure( "Rendering/DX12Optional",
-                                        "DXR capability query failed (HRESULT 0x%08X); raster fallback active",
-                                        static_cast<unsigned int>( featureResult ) );
+        m_featureResult.Publish( m_resultDiagnostics.Failure( "Rendering/DX12Optional",
+                                                              "DXR capability query failed (HRESULT 0x%08X); raster fallback active",
+                                                              static_cast<unsigned int>( featureResult ) ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
                                                  m_featureResult.ErrorOwner(), m_featureResult.ErrorMessage() );
@@ -111,8 +110,7 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
 
     if ( opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
     {
-        m_featureResult = m_resultDiagnostics.Failure( "Rendering/DX12Optional",
-                                                       "DXR tier 1.0 is unavailable; raster fallback active" );
+        m_featureResult.Publish( m_resultDiagnostics.Failure( "Rendering/DX12Optional", "DXR tier 1.0 is unavailable; raster fallback active" ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
                                                  m_featureResult.ErrorOwner(), m_featureResult.ErrorMessage() );
@@ -126,10 +124,9 @@ void Dx12RaytracingOwner::ProbeCapability( ID3D12Device* device )
 
     if ( FAILED( deviceInterfaceResult ) )
     {
-        m_featureResult = m_resultDiagnostics
-                              .Failure( "Rendering/DX12Optional",
-                                        "DXR device interface query failed (HRESULT 0x%08X); raster fallback active",
-                                        static_cast<unsigned int>( deviceInterfaceResult ) );
+        m_featureResult.Publish( m_resultDiagnostics.Failure( "Rendering/DX12Optional",
+                                                              "DXR device interface query failed (HRESULT 0x%08X); raster fallback active",
+                                                              static_cast<unsigned int>( deviceInterfaceResult ) ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
                                                  m_featureResult.ErrorOwner(), m_featureResult.ErrorMessage() );
@@ -157,7 +154,7 @@ bool Dx12RaytracingOwner::Initialized() const
 
 const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
 {
-    return m_featureResult;
+    return m_featureResult.Current();
 }
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
@@ -467,10 +464,9 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
 
     if ( FAILED( commandInterfaceResult ) )
     {
-        m_featureResult = m_resultDiagnostics
-                              .Failure( "Rendering/DX12Optional",
-                                        "DXR command-list interface query failed (HRESULT 0x%08X); raster fallback active",
-                                        static_cast<unsigned int>( commandInterfaceResult ) );
+        m_featureResult.Publish( m_resultDiagnostics.Failure( "Rendering/DX12Optional",
+                                                              "DXR command-list interface query failed (HRESULT 0x%08X); raster fallback active",
+                                                              static_cast<unsigned int>( commandInterfaceResult ) ) );
 
         SkullbonezCore::Core::Log().WriteEventf( "dx12_optional_fallback owner=%s message=\"%s\"",
                                                  m_featureResult.ErrorOwner(), m_featureResult.ErrorMessage() );
@@ -614,7 +610,7 @@ void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& fail
     // Lane R: optional raytracing setup may fail while raster rendering stays
     // available. Retain one bounded reason after releasing safely drained DXR
     // resources so diagnostics can explain the fallback.
-    m_featureResult = failure;
+    m_featureResult.Publish( failure );
     Shutdown();
 }
 

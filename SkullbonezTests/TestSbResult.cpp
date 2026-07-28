@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Focused tests exercise the zero success sentinel, bounded immutable failure
-  publication, copy/move ownership, generation reuse, fixed capacity, and
-  concurrent publication without relying on Runtime owners.
+  publication, copy/move ownership, generation reuse, fixed capacity, allocation
+  behavior, cross-thread copying, and concurrent publication without relying on
+  Runtime owners.
 
 Glossary:
   Exact identity: The store pointer and packed slot/generation token together.
@@ -18,6 +19,8 @@ Invariants:
   - CopyDiagnostic accepts only a live identity from the exact store.
   - Concurrent publication preserves each thread/result owner-message pair
     byte-exact while every lease remains retained.
+  - The exact Win64 size/alignment/nothrow contract and 511-byte payload are
+    compile-time or byte-exact regression signals.
 
 Related:
   - SkullbonezSource/Core/SbResult.h
@@ -25,6 +28,7 @@ Related:
   - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md
 */
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "doctest/doctest.h"
 
@@ -40,9 +44,21 @@ using SkullbonezCore::Core::SbDiagnosticCopyStatus;
 using SkullbonezCore::Core::SbDiagnosticIdentity;
 using SkullbonezCore::Core::SbDiagnosticStore;
 using SkullbonezCore::Core::SbResult;
+using SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
 
 static_assert( std::is_nothrow_destructible_v<SbDiagnosticStore>,
                "SbDiagnosticStore lifetime failures must terminate without destructor unwinding" );
+static_assert( sizeof( SbResult ) == 16u, "SbResult must remain a two-word success carrier" );
+static_assert( alignof( SbResult ) == alignof( void* ), "SbResult must retain natural pointer alignment" );
+static_assert( sizeof( SbDiagnosticStore ) == 159760u, "The fixed diagnostic store footprint is a reviewed App cost" );
+static_assert( std::is_nothrow_copy_constructible_v<SbResult> && std::is_nothrow_copy_assignable_v<SbResult> );
+static_assert( std::is_nothrow_move_constructible_v<SbResult> && std::is_nothrow_move_assignable_v<SbResult> );
+static_assert( std::is_nothrow_destructible_v<SbResult> );
 
 
 TEST_CASE( "SbResult success is a compact store-free sentinel" )
@@ -89,6 +105,21 @@ TEST_CASE( "SbDiagnosticStore formats immutable bounded diagnostics" )
 }
 
 
+TEST_CASE( "SbDiagnosticStore preserves the exact 511-byte failure payload" )
+{
+    SbDiagnosticStore store;
+    std::array<char, SbDiagnosticStore::MESSAGE_CAPACITY> payload = {};
+    payload.fill( 'x' );
+    payload.back() = '\0';
+
+    const SbResult failure = store.Failure( "MaximumPayload", "%s", payload.data() );
+    CHECK( std::strcmp( failure.ErrorOwner(), "MaximumPayload" ) == 0 );
+    CHECK( std::memcmp( failure.ErrorMessage(), payload.data(), payload.size() ) == 0 );
+    CHECK( failure.ErrorMessage()[SbDiagnosticStore::MESSAGE_CAPACITY - 2u] == 'x' );
+    CHECK( failure.ErrorMessage()[SbDiagnosticStore::MESSAGE_CAPACITY - 1u] == '\0' );
+}
+
+
 TEST_CASE( "SbResult copy and move operations retain or transfer exactly one lease" )
 {
     SbDiagnosticStore store;
@@ -124,6 +155,18 @@ TEST_CASE( "SbResult copy and move operations retain or transfer exactly one lea
     CHECK( store.ActiveEntryCount() == 1u );
     first = SbResult::Success();
     CHECK( store.ActiveEntryCount() == 0u );
+
+    SbResult aliasLeft = store.Failure( "Lease", "same-entry aliases" );
+    SbResult aliasRight = aliasLeft;
+    const SbDiagnosticIdentity aliasIdentity = aliasLeft.DiagnosticIdentity();
+    aliasLeft = aliasRight;
+    CHECK( aliasLeft.DiagnosticIdentity().token == aliasIdentity.token );
+    CHECK( aliasRight.DiagnosticIdentity().token == aliasIdentity.token );
+    CHECK( store.ActiveEntryCount() == 1u );
+    aliasRight = SbResult::Success();
+    CHECK( store.ActiveEntryCount() == 1u );
+    aliasLeft = SbResult::Success();
+    CHECK( store.ActiveEntryCount() == 0u );
 }
 
 
@@ -149,11 +192,39 @@ TEST_CASE( "SbDiagnosticStore copy-out validates success foreign and stale ident
         CHECK( foreignStore.CopyDiagnostic( stale, owner, message ) == SbDiagnosticCopyStatus::ForeignStore );
         CHECK( owner[0] == '\0' );
         CHECK( message[0] == '\0' );
+
+        const SbDiagnosticIdentity missingStore { nullptr, stale.token };
+        CHECK( store.CopyDiagnostic( missingStore, owner, message ) == SbDiagnosticCopyStatus::ForeignStore );
+        CHECK( owner[0] == '\0' );
+        CHECK( message[0] == '\0' );
+
+        const SbDiagnosticIdentity missingToken { &store, 0u };
+        CHECK( store.CopyDiagnostic( missingToken, owner, message ) == SbDiagnosticCopyStatus::Stale );
+        CHECK( owner[0] == '\0' );
+        CHECK( message[0] == '\0' );
     }
 
     CHECK( store.CopyDiagnostic( stale, owner, message ) == SbDiagnosticCopyStatus::Stale );
     CHECK( owner[0] == '\0' );
     CHECK( message[0] == '\0' );
+}
+
+
+TEST_CASE( "SbDiagnosticStore identity includes its store when packed tokens are equal" )
+{
+    SbDiagnosticStore firstStore;
+    SbDiagnosticStore secondStore;
+    const SbResult first = firstStore.Failure( "FirstStore", "first" );
+    const SbResult second = secondStore.Failure( "SecondStore", "second" );
+    const SbDiagnosticIdentity firstIdentity = first.DiagnosticIdentity();
+    const SbDiagnosticIdentity secondIdentity = second.DiagnosticIdentity();
+    char owner[SbDiagnosticStore::OWNER_CAPACITY] = {};
+    char message[SbDiagnosticStore::MESSAGE_CAPACITY] = {};
+
+    REQUIRE( firstIdentity.token == secondIdentity.token );
+    CHECK( firstIdentity.store != secondIdentity.store );
+    CHECK( firstStore.CopyDiagnostic( secondIdentity, owner, message ) == SbDiagnosticCopyStatus::ForeignStore );
+    CHECK( secondStore.CopyDiagnostic( firstIdentity, owner, message ) == SbDiagnosticCopyStatus::ForeignStore );
 }
 
 
@@ -188,15 +259,102 @@ TEST_CASE( "SbDiagnosticStore supports all fixed slots and reuses them after fin
     CHECK( store.ActiveEntryCount() == SbDiagnosticStore::CAPACITY );
     CHECK( store.SessionHighWater() == SbDiagnosticStore::CAPACITY );
 
-    for ( SbResult& lease : leases )
-    {
-        lease = SbResult::Success();
-    }
-
-    CHECK( store.ActiveEntryCount() == 0u );
+    const SbDiagnosticIdentity releasedIdentity = leases[0].DiagnosticIdentity();
+    leases[0] = SbResult::Success();
+    CHECK( store.ActiveEntryCount() == SbDiagnosticStore::CAPACITY - 1u );
     const SbResult reused = store.Failure( "Capacity", "reused" );
     CHECK_FALSE( reused.Ok() );
+    CHECK( store.ActiveEntryCount() == SbDiagnosticStore::CAPACITY );
+    CHECK( store.SessionHighWater() == SbDiagnosticStore::CAPACITY );
+    CHECK( reused.DiagnosticIdentity().token != releasedIdentity.token );
+
+    char owner[SbDiagnosticStore::OWNER_CAPACITY] = {};
+    char message[SbDiagnosticStore::MESSAGE_CAPACITY] = {};
+    CHECK( store.CopyDiagnostic( releasedIdentity, owner, message ) == SbDiagnosticCopyStatus::Stale );
+}
+
+
+TEST_CASE( "SbResult copied across a thread boundary preserves exact immutable bytes" )
+{
+    SbDiagnosticStore store;
+    const SbResult source = store.Failure( "CrossThread", "copied bytes remain immutable" );
+    std::array<char, SbDiagnosticStore::OWNER_CAPACITY> copiedOwner = {};
+    std::array<char, SbDiagnosticStore::MESSAGE_CAPACITY> copiedMessage = {};
+    bool copiedFailure = false;
+
+    std::thread worker( [copy = source, &copiedOwner, &copiedMessage, &copiedFailure]()
+                        {
+                            copiedFailure = !copy.Ok();
+                            std::memcpy( copiedOwner.data(), copy.ErrorOwner(), copiedOwner.size() );
+                            std::memcpy( copiedMessage.data(), copy.ErrorMessage(), copiedMessage.size() );
+                        } );
+    worker.join();
+
+    CHECK( copiedFailure );
+    CHECK( std::strcmp( copiedOwner.data(), "CrossThread" ) == 0 );
+    CHECK( std::strcmp( copiedMessage.data(), "copied bytes remain immutable" ) == 0 );
     CHECK( store.ActiveEntryCount() == 1u );
+}
+
+
+TEST_CASE( "SbDiagnosticStore construction and lease traffic allocate no guarded heap memory" )
+{
+    std::atomic<bool> workerReady = false;
+    std::atomic<bool> beginGuardedWork = false;
+    std::thread worker( [&workerReady, &beginGuardedWork]()
+                        {
+                            workerReady.store( true, std::memory_order_release );
+
+                            while ( !beginGuardedWork.load( std::memory_order_acquire ) )
+                            {
+                                std::this_thread::yield();
+                            }
+
+                            RuntimeAllocationScope guarded( RuntimeAllocationPhase::SteadyGameplay );
+                            SbDiagnosticStore store;
+                            SbResult failure = store.Failure( "AllocationProof", "fixed bytes" );
+                            SbResult copy = failure;
+                            char owner[SbDiagnosticStore::OWNER_CAPACITY] = {};
+                            char message[SbDiagnosticStore::MESSAGE_CAPACITY] = {};
+                            (void)store.CopyDiagnostic( copy.DiagnosticIdentity(), owner, message );
+                            failure = SbResult::Success();
+                            copy = SbResult::Success();
+                        } );
+
+    while ( !workerReady.load( std::memory_order_acquire ) )
+    {
+        std::this_thread::yield();
+    }
+
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    ResetRuntimeAllocationCounters();
+    beginGuardedWork.store( true, std::memory_order_release );
+    worker.join();
+
+    const std::uint64_t violations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    ResetRuntimeAllocationCounters();
+    CHECK( violations == 0u );
+}
+
+
+TEST_CASE( "SbDiagnosticStore high-water survives reclamation and clean destruction" )
+{
+    bool destroyedCleanly = false;
+    {
+        SbDiagnosticStore store;
+        SbResult first = store.Failure( "HighWater", "first" );
+        SbResult second = store.Failure( "HighWater", "second" );
+        CHECK( store.ActiveEntryCount() == 2u );
+        CHECK( store.SessionHighWater() == 2u );
+        first = SbResult::Success();
+        second = SbResult::Success();
+        CHECK( store.ActiveEntryCount() == 0u );
+        CHECK( store.SessionHighWater() == 2u );
+    }
+
+    destroyedCleanly = true;
+    CHECK( destroyedCleanly );
 }
 
 

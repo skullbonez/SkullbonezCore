@@ -34,8 +34,10 @@ Invariants:
   Descriptor, render-graph, and barrier expectations protect ownership and
   synchronization contracts.
   Command-state tests use HRESULT values and fake pointers only; they never
-    create or submit GPU work.
+  create or submit GPU work.
   Submission-state tests model Signal/Wait results without a DX12 queue.
+  Command, device, recreation, fault, and optional-feature epoch resets release
+  only owner-held diagnostic leases; already-returned copies remain valid.
 
 Related:
   - AGENTS.md
@@ -470,6 +472,105 @@ void TestDeviceHealthResetAllowsNewDeviceWork()
     EXPECT_TRUE( health.CanIssueDeviceWork() );
     EXPECT_TRUE( !health.IsLost() );
     EXPECT_TRUE( health.CurrentResult().Ok() );
+}
+
+void TestCommandEpochResetPreservesReturnedDiagnosticLease()
+{
+    SkullbonezCore::Core::SbDiagnosticStore store;
+    SkullbonezCore::Core::SbResult returned;
+    {
+        Dx12CommandRecordingState state( store );
+        state.ResetForDevice();
+        returned = state.CommitClose( E_FAIL, "lease test Close" );
+        state.ResetForDevice();
+        EXPECT_TRUE( state.CurrentResult().Ok() );
+    }
+
+    EXPECT_TRUE( !returned.Ok() );
+    EXPECT_EQ( std::string( returned.ErrorOwner() ), std::string( "Rendering/DX12" ) );
+    EXPECT_TRUE( std::strstr( returned.ErrorMessage(), "lease test Close" ) != nullptr );
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 1u ) );
+    returned = SkullbonezCore::Core::SbResult::Success();
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 0u ) );
+    EXPECT_EQ( store.SessionHighWater(), static_cast<std::uint32_t>( 1u ) );
+}
+
+void TestDeviceEpochResetPreservesReturnedDiagnosticLease()
+{
+    SkullbonezCore::Core::SbDiagnosticStore store;
+    SkullbonezCore::Core::SbResult returned;
+    {
+        Dx12DeviceHealthState health( store );
+        health.ResetForDevice();
+        returned = health.RetainDeviceLoss( "Present lease test", E_FAIL );
+        health.ResetForDevice();
+        EXPECT_TRUE( health.CurrentResult().Ok() );
+    }
+
+    EXPECT_TRUE( !returned.Ok() );
+    EXPECT_TRUE( std::strstr( returned.ErrorMessage(), "Present lease test" ) != nullptr );
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 1u ) );
+    returned = SkullbonezCore::Core::SbResult::Success();
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 0u ) );
+}
+
+void TestRecreationEpochResetPreservesReturnedDiagnosticLease()
+{
+    SkullbonezCore::Core::SbDiagnosticStore store;
+    SkullbonezCore::Core::SbResult returned;
+    {
+        Dx12RecreationTransaction transaction( store );
+        transaction.Begin( 7u );
+        SkullbonezCore::Core::SbResult producer = store.Failure( "DX12/RecreationLease", "resize epoch failed" );
+        returned = transaction.Fail( producer );
+        producer = SkullbonezCore::Core::SbResult::Success();
+        transaction.Begin( 8u );
+        EXPECT_TRUE( !transaction.HasFailed() );
+    }
+
+    EXPECT_TRUE( !returned.Ok() );
+    EXPECT_EQ( std::string( returned.ErrorOwner() ), std::string( "DX12/RecreationLease" ) );
+    EXPECT_EQ( std::string( returned.ErrorMessage() ), std::string( "resize epoch failed" ) );
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 1u ) );
+    returned = SkullbonezCore::Core::SbResult::Success();
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 0u ) );
+}
+
+void TestFaultEpochResetPreservesReturnedDiagnosticLease()
+{
+    SkullbonezCore::Core::SbDiagnosticStore store;
+    SkullbonezCore::Core::SbResult returned;
+    {
+        Dx12FaultInjectionState fault( store );
+        fault.Configure( "before-first-submit" );
+        returned = fault.BeforeSubmission();
+        fault.Configure( nullptr );
+        EXPECT_TRUE( !fault.IsArmed() );
+    }
+
+    EXPECT_TRUE( !returned.Ok() );
+    EXPECT_EQ( std::string( returned.ErrorOwner() ), std::string( "Rendering/DX12FaultInjection" ) );
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 1u ) );
+    returned = SkullbonezCore::Core::SbResult::Success();
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 0u ) );
+}
+
+void TestOptionalFeatureEpochResetPreservesReturnedDiagnosticLease()
+{
+    SkullbonezCore::Core::SbDiagnosticStore store;
+    Dx12FeatureEpochResult feature;
+    SkullbonezCore::Core::SbResult producer = store.Failure( "Rendering/DX12Optional", "feature epoch unavailable" );
+    feature.Publish( producer );
+    SkullbonezCore::Core::SbResult returned = feature.Current();
+    producer = SkullbonezCore::Core::SbResult::Success();
+    feature.Reset();
+
+    EXPECT_TRUE( feature.Ok() );
+    EXPECT_TRUE( !returned.Ok() );
+    EXPECT_EQ( std::string( returned.ErrorMessage() ), std::string( "feature epoch unavailable" ) );
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 1u ) );
+    returned = SkullbonezCore::Core::SbResult::Success();
+    EXPECT_EQ( store.ActiveEntryCount(), static_cast<std::uint32_t>( 0u ) );
 }
 
 void TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon()
@@ -1452,6 +1553,13 @@ const TestCase kTests[] = {
     { "Submitted work successful signal and wait allows reuse", TestSubmittedWorkSuccessfulSignalAndWaitAllowsReuse },
     { "Device loss blocks work and retains first failure", TestDeviceLossBlocksWorkAndRetainsFirstFailure },
     { "Device health reset allows new device work", TestDeviceHealthResetAllowsNewDeviceWork },
+    { "Command epoch reset preserves returned diagnostic lease", TestCommandEpochResetPreservesReturnedDiagnosticLease },
+    { "Device epoch reset preserves returned diagnostic lease", TestDeviceEpochResetPreservesReturnedDiagnosticLease },
+    { "Recreation epoch reset preserves returned diagnostic lease",
+      TestRecreationEpochResetPreservesReturnedDiagnosticLease },
+    { "Fault epoch reset preserves returned diagnostic lease", TestFaultEpochResetPreservesReturnedDiagnosticLease },
+    { "Optional feature epoch reset preserves returned diagnostic lease",
+      TestOptionalFeatureEpochResetPreservesReturnedDiagnosticLease },
     { "Removed device allows terminal submitted-work abandon", TestRemovedDeviceAllowsTerminalSubmittedWorkAbandon },
     { "Recreation failure preserves published generation", TestRecreationFailurePreservesPublishedGeneration },
     { "Recreation publishes only after every candidate is ready", TestRecreationPublishesOnlyAfterEveryCandidateIsReady },

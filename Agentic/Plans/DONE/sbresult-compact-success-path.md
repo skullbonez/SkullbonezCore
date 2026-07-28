@@ -1,7 +1,7 @@
 # SbResult Compact Success Path
 
 Date: 2026-07-28
-Status: ACTIVE — 3/4 phases complete
+Status: COMPLETE — 4/4 phases complete
 Impact area: Core error handling, per-frame Runtime phases, diagnostics lifetime
 Owner: Core + App composition
 Priority: Medium-high
@@ -51,7 +51,9 @@ diagnostic lifetime.
   spelling-sensitive SR0 census: the decision-tip bound is 220 factory
   expressions plus 30 retained/aggregate sites, or 250/256, under the verified
   no-recursion/re-entry, no worker publication, and no result-container/queue
-  assumptions; SR2/SR3 must rerun that census.
+  assumptions. SR3's final tracked-source census corrects the retained-member
+  classification to 31; 221 publication expressions plus 31 retained members
+  conservatively bound the final source at 252/256.
   Direct diagnostic pointers last only for the same unmoved, unassigned live
   result lease; escaping consumers use bounded status-returning copy-out.
   The focused matrix includes test-only concurrent failure publication within
@@ -65,13 +67,20 @@ diagnostic lifetime.
   single 159,760-byte App-composed store owns synchronized immutable entries;
   every producer/consumer uses the explicit API; `ApplicationExitState`
   retains the compact lease; focused lifetime, bound, concurrency, copy-out,
-  and Lane F probes pass. The final multiline-aware census is 221 producer
-  expressions plus 29 result-member sites, conservatively 250/256 live entries
-  with no result containers/queues or hidden store. Evidence:
+  and Lane F probes pass. SR2 reported 29 result-member sites; SR3's final
+  declaration review corrects that arithmetic to 31, for a conservative
+  252/256 live-entry bound with no result containers/queues or hidden store.
+  Evidence:
   [`../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md).
-- [ ] **SR3 — Prove size, behavior, and cost.** Pin `sizeof`, success/failure
+- [x] **SR3 — Prove size, behavior, and cost.** Pin `sizeof`, success/failure
   lifetime, maximum payload, stale-handle behavior, and frame-path performance;
   complete ownership review, comment audit, performance and broad gates.
+  **Closed:** the carrier is 16 bytes and pointer-aligned, the 256-slot store is
+  159,760 bytes, exact 511-byte diagnostics and every lease/identity boundary
+  pass focused tests, the final capacity bound is 252/256, performance/full
+  gates pass without refresh, the comment audit is 18/18, and independent
+  review is accepted. Evidence:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-closure.md`](../../Reports/2026-07-28/sbresult-compact-success-path-closure.md).
 
 ## Acceptance
 
@@ -85,6 +94,10 @@ exception, stale-reference, or diagnostic truncation regression is introduced.
   [`../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md)
 - SR1 ownership decision:
   [`../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md)
+- SR2 implementation:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md)
+- SR3 closure:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-closure.md`](../../Reports/2026-07-28/sbresult-compact-success-path-closure.md)
 
 ## Validation
 

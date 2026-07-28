@@ -12,6 +12,8 @@ Glossary:
   Live entry: Slot whose lease count is nonzero and whose generation matches.
   Stale identity: Previously valid token whose slot is free or has been reused.
   Lease churn: Retain/release work; moves deliberately avoid it.
+  Thread token: Allocation-free process-local identity used only to detect lock
+    re-entry by the thread that already owns this store.
 
 Invariants:
   - No heap allocation, logging, callback, or result-producing operation occurs
@@ -44,6 +46,23 @@ namespace
 {
 constexpr std::uint64_t SLOT_MASK = 0xffu;
 constexpr std::uint64_t MAX_GENERATION = ( std::uint64_t { 1 } << 56u ) - 1u;
+std::atomic<std::uint32_t> g_nextDiagnosticThreadToken = 1u;
+
+
+std::uint32_t CurrentDiagnosticThreadToken() noexcept
+{
+
+    // Lifetime: assigning a token once per thread avoids OS or heap-backed
+    // identity lookup on every diagnostic lease operation.
+    thread_local const std::uint32_t token = g_nextDiagnosticThreadToken.fetch_add( 1u, std::memory_order_relaxed );
+
+    if ( token == 0u )
+    {
+        SB_FATAL( "Core/SbDiagnosticStore", "diagnostic lock thread-token space exhausted" );
+    }
+
+    return token;
+}
 
 
 std::size_t BoundedLength( const char* text, std::size_t capacity ) noexcept
@@ -397,15 +416,39 @@ const char* SbDiagnosticStore::BorrowMessage( std::uint64_t token ) const noexce
 
 void SbDiagnosticStore::Lock() const noexcept
 {
+    const std::uint32_t currentThread = CurrentDiagnosticThreadToken();
+
+    if ( m_lockOwnerThread.load( std::memory_order_relaxed ) == currentThread )
+    {
+
+        // Hazard: a diagnostic callback that republishes while this store is
+        // locked would otherwise spin forever. Clear the outer ownership only
+        // because Lane F terminates immediately after this point.
+        m_lockOwnerThread.store( 0u, std::memory_order_relaxed );
+        m_lock.clear( std::memory_order_release );
+        SB_FATAL( "Core/SbDiagnosticStore", "diagnostic store lock re-entered by its owning thread" );
+    }
 
     while ( m_lock.test_and_set( std::memory_order_acquire ) )
     {
     }
+
+    m_lockOwnerThread.store( currentThread, std::memory_order_relaxed );
 }
 
 
 void SbDiagnosticStore::Unlock() const noexcept
 {
+    const std::uint32_t currentThread = CurrentDiagnosticThreadToken();
+
+    if ( m_lockOwnerThread.load( std::memory_order_relaxed ) != currentThread )
+    {
+        m_lockOwnerThread.store( 0u, std::memory_order_relaxed );
+        m_lock.clear( std::memory_order_release );
+        SB_FATAL( "Core/SbDiagnosticStore", "diagnostic store lock released by a non-owning thread" );
+    }
+
+    m_lockOwnerThread.store( 0u, std::memory_order_relaxed );
     m_lock.clear( std::memory_order_release );
 }
 

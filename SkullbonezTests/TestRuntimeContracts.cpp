@@ -21,6 +21,8 @@
 //   - Fatal child cases return normally only when the case name is unknown.
 //   - A diagnostic store may not finish destruction while a failed result lease
 //     still names it.
+//   - Diagnostic counter overflow and same-thread lock re-entry terminate in
+//     isolated children instead of wrapping, aliasing, or spinning.
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
 //   - Disabled development-profiler macros never evaluate caller expressions.
@@ -845,6 +847,30 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "sb-diagnostic-lease-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalLeaseOverflow", "saturate lease count" );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::SaturateLeaseCount( store, lease.DiagnosticIdentity().token );
+        const SkullbonezCore::Core::SbResult copy = lease;
+        return copy.Ok();
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-generation-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ExhaustFirstGeneration( store );
+        (void)store.Failure( "FatalGenerationOverflow", "generation must not wrap" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-lock-reentry" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ReenterLock( store );
+        return true;
+    }
+
     return false;
 }
 
@@ -1035,6 +1061,15 @@ TEST_CASE( "SbDiagnosticStore bound capacity and lease misuse terminate in child
 
     ExpectFatalCase( "sb-diagnostic-store-destroyed-with-active-lease",
                      { "FATAL[Core/SbDiagnosticStore]", "diagnostic store destroyed with 1 active entries" } );
+
+    ExpectFatalCase( "sb-diagnostic-lease-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic lease count overflowed" } );
+
+    ExpectFatalCase( "sb-diagnostic-generation-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic generation exhausted for slot 0" } );
+
+    ExpectFatalCase( "sb-diagnostic-lock-reentry",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store lock re-entered by its owning thread" } );
 }
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
