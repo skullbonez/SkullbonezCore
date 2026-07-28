@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress
 Ledger tasks: 5 (CS0-CS4)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 ## Goal
@@ -76,7 +76,7 @@ Secondary target, same defect class, far lower stakes:
 
 ## Ledger
 
-- [ ] CS0 — Census. Record every closure in `Solve` with its captures, every
+- [x] CS0 — Census. Record every closure in `Solve` with its captures, every
   piece of state that crosses a pass boundary, and the exact read/write set per
   pass. Classify each closure as pass-local, shared-arithmetic (`applyImpulse`,
   `applyInvInertia`, `makeKey`, `hasCachedImpulse`, `conservativeContactRadius`),
@@ -145,3 +145,19 @@ Secondary target, same defect class, far lower stakes:
 - [ ] `SkullbonezTests/TestPersistentContactSolver.cpp`
 
 Reconcile against `git diff --name-only` at CS4 and add any newly touched file.
+
+## CS0 Evidence
+
+Permanent census and byte-exact oracle manifest:
+`Agentic/Reports/2026-07-29/contact-solve-cs0-census.md`.
+
+- 28/28 closures record effective captures, classification, and owning phase.
+- Every cross-phase state value and all thirteen exact phase read/write sets are
+  recorded.
+- `tools\validate_physics.bat` passed in 24.4 seconds from the final Debug
+  executable; both generated 44,401-row runs matched the committed baseline.
+- The ignored two-run CS0 artifact is preserved at
+  `TestOutput/validation/contact_solve_cs0/physics_regression_varied.csv` with
+  SHA-256
+  `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
+- No source, baseline, golden, or committed runtime artifact changed.

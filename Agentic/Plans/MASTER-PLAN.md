@@ -983,11 +983,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/30
-(0%). Plans 1-2 are complete and excluded under rule 4; execute plans 3→8 in
-the listed order. Plan 3 `contact-solve-phase-ownership` is next, beginning
-with CS0's byte-exact baseline and pass/authority map. Its Plan 2 CX1 dependency
-is satisfied.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/30
+(3%). Plans 1-2 are complete and excluded under rule 4; execute plans 3→8 in
+the listed order. Plan 3 CS0 records all 28 closures, thirteen exact phase
+read/write sets, transaction authority, and a two-run byte-exact Debug oracle.
+CS1 installs the non-copyable phase owner next.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2481,7 +2481,7 @@ Dependency barriers:
 |---:|---|---|---:|---|
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
 | 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
-| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | Ready now; CX1 dependency is satisfied and CS0 records the byte-exact baseline and phase/authority map |
+| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | In progress | 1/5 | CS0 complete: 28-closure census, phase/authority map, and byte-exact Debug oracle recorded. CS1 installs the phase owner |
 | 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
