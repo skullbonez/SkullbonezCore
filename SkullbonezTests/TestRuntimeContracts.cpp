@@ -33,6 +33,7 @@
 //   - SkullbonezSource/Core/AmortizedTask.h
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
+//   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -54,6 +55,7 @@
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestFatalCases.h"
 
@@ -341,6 +343,33 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
 
         OperatorCommandTransactionTestAccess::Advance( transaction, phases[operatorPhaseTo] );
+        return true;
+    }
+
+    const bool pendingReplayTimeline = std::strcmp( caseName, "replay-restore-pending-timeline-complete" ) == 0;
+    const bool unprovedReplayRollback = std::strcmp( caseName, "replay-restore-unproved-rollback" ) == 0;
+
+    if ( pendingReplayTimeline || unprovedReplayRollback )
+    {
+        using SkullbonezCore::Runtime::ReplayRestoreTransaction;
+        using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+
+        ReplayRestoreTransaction transaction;
+        transaction.SelectArtifact( 1u, 2u );
+        transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
+        transaction.MarkTopologyPrepared( unprovedReplayRollback, unprovedReplayRollback );
+
+        if ( unprovedReplayRollback )
+        {
+            transaction.MarkRolledBack( "unproved rollback" );
+            return true;
+        }
+
+        transaction.MarkCheckpointApplied();
+        transaction.MarkTargetStepped( 3u, 0u, 0u );
+        transaction.MarkTargetVerified();
+        transaction.PrepareTimelineReset( 4u, 5, 0xA5u );
+        transaction.Complete();
         return true;
     }
 
@@ -936,6 +965,12 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
 
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
+    ExpectFatalCase( "replay-restore-pending-timeline-complete",
+                     { "FATAL[Runtime/ReplayRestoreTransaction]",
+                       "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
+    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]",
+                                                           "Rollback completed without verified live-backup application",
+                                                           "mutated=1", "backup=1", "applied=0" } );
     ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine",
                                                       "requested_bodies=9000", "ceiling=8192" } );
 

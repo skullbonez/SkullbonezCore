@@ -737,12 +737,12 @@ ReplayLiveRestoreOutcome ReplayLiveRestoreOperations::BuildOutcome( const Replay
 }
 
 void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& transaction,
-                                                 const ReplayLiveRestoreOutcome& outcome,
-                                                 SceneController& sceneController, InputRouter& inputRouter,
-                                                 RuntimeInteractionController& interaction, CameraControlState& camera,
-                                                 RunCameraMode normalizedRestoreMode, bool attachedFollow,
-                                                 bool directorGrabbed )
+                                                 const ReplayLiveRestoreOutcome& outcome, SceneController& sceneController,
+                                                 InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                                 CameraControlState& camera, RunCameraMode normalizedRestoreMode,
+                                                 bool attachedFollow, bool directorGrabbed )
 {
+
     if ( outcome.restored && transaction.TimelineResetRequired() )
     {
         ReplaySceneTimelineResetInput reset = transaction.TimelineReset();
@@ -757,14 +757,15 @@ void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& trans
                                                                  transaction.BranchSolverHash(),
                                                                  "hash-verified replay restore" ) );
 
+        transaction.MarkTimelineResetApplied();
         transaction.Complete();
     }
 }
 
 void ReplayRuntime::CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction,
-                                                 const ReplayLiveRestoreRequest& request,
-                                                 ReplayLiveRestoreOutcome& outcome )
+                                                 const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome )
 {
+
     // Invariant: scrubber publication is the last restore phase. A caller
     // cannot publish success before branch provenance is committed, or publish
     // failure before rollback reaches a terminal cursor.

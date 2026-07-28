@@ -13,8 +13,9 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 3/20 (15%). Plan 2 RG2 decomposed all five Replay restore/topology repairs; 28 current trigger signatures remain, all with current retain-owner rulings. |
+| Active/future progress | 0/16 (0%). Replay restore/wide-signature governance closed at 4/4 and left the live ledger under rule 4; next is Plan 3 FC0. |
 | Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
+| Validation for Replay restore closure | Independent review found one terminal-state false pass; transaction-owned branch/rollback proof and child fatal probes corrected it, and repeat review found zero blockers. Final-source `validate_fast` (211.8 s), `validate_tests` (35.6 s; 424/424 cases and 2,410,325 assertions), Replay visual fidelity (439.8 s), and `validate_full` (408.7 s) pass. All inventories pass; comment audit is 9/9. No baseline was refreshed. |
 | Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
 | Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
@@ -31,11 +32,11 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 3/20. Physics body layout
-evidence is complete; its six remaining TODO plans cover Replay restore/
-wide-signature governance, PhysicsFixedList copy semantics, compact SbResult
-success values, explicit vector dot products, isolated deterministic terrain
-fixtures, and generated dependency proofs. The bounded registration response
+The Principal Engineer Feedback Campaign is live at 0/16. Physics body layout
+and Replay restore/wide-signature governance are complete; its five remaining
+TODO plans cover PhysicsFixedList copy semantics, compact SbResult success
+values, explicit vector dot products, isolated deterministic terrain fixtures,
+and generated dependency proofs. The bounded registration response
 removes the exact Replay pure forwarder, publishes the anti-Hamilton/
 transposed-matrix quaternion
 contract in the public header, makes orientation conversion const, gives the
@@ -708,6 +709,11 @@ are not certified. Full evidence:
 | wide-signature RG2 self-tests + strict scans | 28.2 s max | PASS; 28/28 current trigger rows ruled, 86/86 aggregate rows ruled, 1/1 extraction scar ruled |
 | clean-worktree Profile build (RG2) | 45.9 s | PASS; zero warnings/errors |
 | `tools\validate_tests.bat` (RG2 clean snapshot) | 14.8 s | PASS; 423/423 cases and 2,410,303 assertions |
+| independent rubber-duck ownership review (RG3) | PASS after remediation | Initial review found pending branch completion and unproved rollback could false-pass; transaction-owned proof states and two fatal probes closed both, and repeat review found zero blockers |
+| `tools\validate_tests.bat` (RG3 remediation) | 35.6 s | PASS; 424/424 cases and 2,410,325 assertions |
+| `tools\validate_fast.bat` (RG3 final source) | 211.8 s | PASS; formatting, metadata, dependencies, all three ownership inventories, Profile/Debug builds, and tests |
+| Replay visual fidelity (RG3 final source) | 439.8 s | PASS; one engine process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| `tools\validate_full.bat` (RG3 final source) | 408.7 s | PASS; 424 cases / 2,410,325 assertions, all CPU/runtime lanes, accepted DX12 images, byte-exact 44,401-line Physics CSV |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -715,8 +721,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-restore-wide-signature-governance` at RG3. Run the mandatory
-independent ownership review, all three inventories, touched-file comment
-audit, one-invocation Replay visual-fidelity gate, and broad validation without
-refresh. The principal-feedback campaign is 3/20 (15%). Preserve the
-uncommitted warm-start review diff until the owner accepts or rejects it.
+Continue `physics-fixed-list-copy-contract` at FC0. Census every copy/move,
+return-by-value, queued, and phase-sensitive use before choosing explicit clone
+points; the owner allows cloning only at concrete aggregate owners. The
+principal-feedback campaign is 0/16 (0%). Preserve the uncommitted warm-start
+review diff until the owner accepts or rejects it.

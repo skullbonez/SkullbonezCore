@@ -150,11 +150,12 @@ class SceneController;
 
 namespace ReplayLiveRestoreOperations
 {
+
 // Builds the detached result published after one restore transaction reaches a
 // success or recoverable-failure terminal phase.
 ReplayLiveRestoreOutcome BuildOutcome( const ReplayRestoreTransaction& transaction, ReplayLiveRestoreKind kind,
                                        bool restored );
-}
+} // namespace ReplayLiveRestoreOperations
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
@@ -353,8 +354,8 @@ class ReplayRuntime
     // invariant. SceneController is borrowed as the concrete scene/session
     // owner; the focused restore phases retain no participant pointer.
     bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                       SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
-                                       SimulationSystem& simulation,
+                                       SceneController& sceneController, OverlayDebugState& debug,
+                                       RuntimeTools& runtimeTools, SimulationSystem& simulation,
                                        const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                                        Threading::WorkerPool& workerPool,
                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
@@ -370,8 +371,8 @@ class ReplayRuntime
     // Publishes the terminal result to the scrubber. The implementation fails
     // fatally if success has not reached Complete or failure has not reached
     // Failed/RolledBack.
-    void CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction,
-                                      const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome );
+    void CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
+                                      ReplayLiveRestoreOutcome& outcome );
 #ifdef _DEBUG
 
     // Debug probes use the production phase transaction and receive concrete

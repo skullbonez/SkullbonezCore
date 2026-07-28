@@ -1030,22 +1030,23 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         else if ( restoreRequest.kind == ReplayLiveRestoreKind::SolverSample && restoreRequest.solverSample )
         {
             restored = replayRuntime.RestoreSolverSampleAsLive( transaction, sceneController.Scene(), SceneState(), debug,
-                                                                 runtimeTools, *restoreRequest.solverSample );
+                                                                runtimeTools, *restoreRequest.solverSample );
         }
         else
         {
             transaction.FailBeforeMutation( "live solver restore request has no selected sample" );
         }
 
-        ReplayLiveRestoreOutcome restoreOutcome =
-            ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind, restored );
+        ReplayLiveRestoreOutcome restoreOutcome = ReplayLiveRestoreOperations::BuildOutcome( transaction,
+                                                                                             restoreRequest.kind, restored );
+
 #ifdef _DEBUG
         replayRuntime.PublishRestoreDiagnostic( transaction, diagnosticsRuntime, SceneState() );
 #endif
-        replayRuntime.ApplyRestoredBranchTimeline(
-            transaction, restoreOutcome, sceneController, inputRouter, interaction, camera,
-            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
-            attachedCamera.State().activeFollow, camera.director.grabbed );
+        replayRuntime.ApplyRestoredBranchTimeline( transaction, restoreOutcome, sceneController, inputRouter, interaction,
+                                                   camera,
+                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                   attachedCamera.State().activeFollow, camera.director.grabbed );
 
         replayRuntime.CompleteLiveRestoreScrubber( transaction, restoreRequest, restoreOutcome );
 

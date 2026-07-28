@@ -202,6 +202,11 @@ ledger under rule 4. The remaining Principal Engineer Feedback Campaign is
 therefore 0/20. Closure evidence is in
 `../Reports/2026-07-28/physics-body-hot-layout-closure.md`.
 
+Replay restore and wide-signature governance closed at 4/4 on 2026-07-28 and
+left the live ledger under rule 4. The remaining Principal Engineer Feedback
+Campaign is therefore 0/16. Closure evidence is in
+`../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -785,8 +790,8 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 3/20 (15%).
-Execute its six live plans in table order below. The owner has answered every
+The remaining Principal Engineer Feedback Campaign is binding at 0/16 (0%).
+Execute its five live plans in table order below. The owner has answered every
 campaign question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
 exact-12 rows;
@@ -2216,7 +2221,7 @@ Binding owner directions:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
-| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Active | 3/4 | RG3 run independent ownership review, all three inventories, touched-file comment audit, one-invocation Replay visual fidelity, and broad validation without refresh |
+| 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
 | 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |
 | 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |

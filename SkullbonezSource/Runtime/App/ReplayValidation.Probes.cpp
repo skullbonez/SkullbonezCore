@@ -724,6 +724,7 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
             PublishRestoreDiagnostic( restoreTransaction, diagnosticsRuntime, scene );
             ApplyRestoredBranchTimeline( restoreTransaction, outcome, sceneController, inputRouter, interaction, camera,
                                          restoreMode, attachedFollow, camera.director.grabbed );
+
             CompleteLiveRestoreScrubber( restoreTransaction, liveRequest, outcome );
 
             result.status = m_probeRunner.CompleteRestoreProbe( restoreRequest, outcome.restored, outcome.reason );
@@ -1851,9 +1852,10 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
             outcome.restored = restored;
             strncpy_s( outcome.reason, transaction.FailureReason(), _TRUNCATE );
             PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
-            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter,
-                                         loadInput.interaction, loadInput.camera, loadInput.normalizedRestoreMode,
-                                         loadInput.attachedFollow, loadInput.directorGrabbed );
+            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter, loadInput.interaction,
+                                         loadInput.camera, loadInput.normalizedRestoreMode, loadInput.attachedFollow,
+                                         loadInput.directorGrabbed );
+
             CompleteLiveRestoreScrubber( transaction, liveRequest, outcome );
 
             probeResult = m_probeRunner.CompleteCheckpointFileProbe( startup.checkpointProbePath, checkpoint, loadResult,
@@ -1874,8 +1876,8 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         restoreRequest.requestedFrame = ( std::numeric_limits<ReplayFrameIndex>::max )();
         ReplayRestoreTransaction transaction { timelineReset };
         const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
-                                                            runtimeTools, simulation, config, assets, workerPool, uiOverrides,
-                                                            generatedObjectTypeOverride );
+                                                            runtimeTools, simulation, config, assets, workerPool,
+                                                            uiOverrides, generatedObjectTypeOverride );
 
         PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
 
@@ -1902,12 +1904,14 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                                                                 runtimeTools, simulation, config, assets, workerPool,
                                                                 uiOverrides, generatedObjectTypeOverride );
 
-            ReplayLiveRestoreOutcome outcome =
-                ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind, restored );
+            ReplayLiveRestoreOutcome outcome = ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind,
+                                                                                          restored );
+
             PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
-            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter,
-                                         loadInput.interaction, loadInput.camera, loadInput.normalizedRestoreMode,
-                                         loadInput.attachedFollow, loadInput.directorGrabbed );
+            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter, loadInput.interaction,
+                                         loadInput.camera, loadInput.normalizedRestoreMode, loadInput.attachedFollow,
+                                         loadInput.directorGrabbed );
+
             CompleteLiveRestoreScrubber( transaction, restoreRequest, outcome );
 
             probeResult = m_probeRunner.CompleteBranchFileProbe( startup.branchProbePath, outcome );

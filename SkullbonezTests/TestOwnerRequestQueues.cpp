@@ -553,6 +553,7 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
         Phase::CheckpointApplied,
         Phase::TargetStepped,
         Phase::TargetVerified,
+        Phase::TimelineResetApplied,
         Phase::Complete,
         Phase::Failed,
         Phase::RolledBack,
@@ -563,19 +564,18 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
     {
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
-            const bool adjacentSuccess = fromIndex < 7u && toIndex == fromIndex + 1u;
+            const bool adjacentSuccess = fromIndex < 6u && toIndex == fromIndex + 1u;
+            const bool completion =
+                ( phases[fromIndex] == Phase::TargetVerified || phases[fromIndex] == Phase::TimelineResetApplied ) &&
+                phases[toIndex] == Phase::Complete;
+            const bool timelineReset =
+                phases[fromIndex] == Phase::TargetVerified && phases[toIndex] == Phase::TimelineResetApplied;
             const bool preMutationFailure = fromIndex <= 3u && phases[toIndex] == Phase::Failed;
             const bool rollback =
                 fromIndex >= 2u && fromIndex <= 6u && phases[toIndex] == Phase::RolledBack;
-            const bool expected = adjacentSuccess || preMutationFailure || rollback;
+            const bool expected = adjacentSuccess || completion || timelineReset || preMutationFailure || rollback;
             CHECK( ReplayRestorePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
         }
-
-        const Phase phase = phases[fromIndex];
-        CHECK( ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( phase, true ) ==
-               ( phase == Phase::Complete ) );
-        CHECK( ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( phase, false ) ==
-               ( phase == Phase::Failed || phase == Phase::RolledBack ) );
     }
 
     ReplayRestorePhaseCursor cursor;
@@ -585,9 +585,48 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
     CHECK( cursor.TryAdvance( Phase::CheckpointApplied ) );
     CHECK( cursor.TryAdvance( Phase::TargetStepped ) );
     CHECK( cursor.TryAdvance( Phase::TargetVerified ) );
+    CHECK( cursor.TryAdvance( Phase::TimelineResetApplied ) );
     CHECK( cursor.TryAdvance( Phase::Complete ) );
     CHECK( cursor.Current() == Phase::Complete );
     CHECK_FALSE( cursor.TryAdvance( Phase::Failed ) );
+}
+
+TEST_CASE( "Replay restore transaction requires branch and rollback side-effect proofs before terminal publication" )
+{
+    auto advanceToVerified = []( ReplayRestoreTransaction& transaction )
+    {
+        transaction.SelectArtifact( 2u, 5u );
+        transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
+        transaction.MarkTopologyPrepared( false, false );
+        transaction.MarkCheckpointApplied();
+        transaction.MarkTargetStepped( 17u, 3u, 2u );
+        transaction.MarkTargetVerified();
+    };
+
+    ReplayRestoreTransaction nonBranch;
+    advanceToVerified( nonBranch );
+    CHECK( nonBranch.CompletionReady() );
+    nonBranch.Complete();
+    nonBranch.RequireScrubberPublicationTerminal( true );
+
+    ReplayRestoreTransaction branch;
+    advanceToVerified( branch );
+    branch.PrepareTimelineReset( 7u, 11, 0xA5u );
+    CHECK_FALSE( branch.CompletionReady() );
+    branch.MarkTimelineResetApplied();
+    CHECK( branch.CompletionReady() );
+    branch.Complete();
+    branch.RequireScrubberPublicationTerminal( true );
+
+    ReplayRestoreTransaction rollback;
+    rollback.SelectArtifact( 1u, 4u );
+    rollback.CaptureLiveBackup( ReplaySolverFrameSample {} );
+    rollback.MarkTopologyPrepared( true, true );
+    CHECK_FALSE( rollback.RollbackReady() );
+    rollback.MarkLiveBackupApplied();
+    CHECK( rollback.RollbackReady() );
+    rollback.MarkRolledBack( "expected failure" );
+    rollback.RequireScrubberPublicationTerminal( false );
 }
 
 #ifdef _DEBUG

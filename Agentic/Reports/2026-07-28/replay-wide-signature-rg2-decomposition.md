@@ -2,7 +2,7 @@
 
 Date: 2026-07-28
 Branch: `nightrunner-28th-JUL-26`
-Plan: `Agentic/Plans/TODO/replay-restore-wide-signature-governance.md`
+Plan: `Agentic/Plans/DONE/replay-restore-wide-signature-governance.md`
 Phase: RG2
 
 ## Outcome

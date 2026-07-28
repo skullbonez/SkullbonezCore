@@ -404,6 +404,11 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
         SB_FATAL( "Runtime/ReplayRestore", "Replay restore verification failed and the live backup could not be restored" );
     }
 
+    if ( !hashMatched )
+    {
+        transaction.MarkLiveBackupApplied();
+    }
+
     if ( !hashCaptured )
     {
         transaction.MarkRolledBack( "restore hash capture failed" );

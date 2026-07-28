@@ -19,7 +19,7 @@ current exact-trigger operations:
 
 - 28 `retain-owner` rulings; and
 - 5 `repair-plan` rulings owned by RG2 of
-  `Agentic/Plans/TODO/replay-restore-wide-signature-governance.md`.
+  `Agentic/Plans/DONE/replay-restore-wide-signature-governance.md`.
 
 Each entry matches both the source file and normalized signature. A changed or
 new triggered signature becomes `UNRULED`; a deleted, moved, or narrowed

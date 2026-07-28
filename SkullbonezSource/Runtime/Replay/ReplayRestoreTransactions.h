@@ -77,6 +77,7 @@ class ReplayRestorePhaseCursor
         CheckpointApplied,
         TargetStepped,
         TargetVerified,
+        TimelineResetApplied,
         Complete,
         Failed,
         RolledBack,
@@ -90,8 +91,10 @@ class ReplayRestorePhaseCursor
                               ( from == Phase::LiveBackupCaptured && to == Phase::TopologyPrepared ) ||
                               ( from == Phase::TopologyPrepared && to == Phase::CheckpointApplied ) ||
                               ( from == Phase::CheckpointApplied && to == Phase::TargetStepped ) ||
-                              ( from == Phase::TargetStepped && to == Phase::TargetVerified ) ||
-                              ( from == Phase::TargetVerified && to == Phase::Complete );
+                              ( from == Phase::TargetStepped && to == Phase::TargetVerified );
+        const bool completion = ( from == Phase::TargetVerified || from == Phase::TimelineResetApplied ) &&
+                                to == Phase::Complete;
+        const bool timelineReset = from == Phase::TargetVerified && to == Phase::TimelineResetApplied;
         const bool preMutationFailure = ( from == Phase::Idle || from == Phase::ArtifactSelected ||
                                           from == Phase::LiveBackupCaptured || from == Phase::TopologyPrepared ) &&
                                         to == Phase::Failed;
@@ -99,12 +102,7 @@ class ReplayRestorePhaseCursor
                                 from == Phase::CheckpointApplied || from == Phase::TargetStepped ||
                                 from == Phase::TargetVerified ) &&
                               to == Phase::RolledBack;
-        return adjacent || preMutationFailure || rollback;
-    }
-
-    static constexpr bool IsScrubberPublicationTerminal( Phase phase, bool restored )
-    {
-        return restored ? phase == Phase::Complete : phase == Phase::Failed || phase == Phase::RolledBack;
+        return adjacent || completion || timelineReset || preMutationFailure || rollback;
     }
 
     bool TryAdvance( Phase next )
@@ -137,6 +135,9 @@ class ReplayRestorePhaseCursor
 // - Scrubber publication accepts success only from Complete and recoverable
 //   failure only from Failed/RolledBack, so split completion calls cannot be
 //   reordered by caller convention.
+// - Branch completion records TimelineResetApplied before Complete. Rollback
+//   records a verified live-backup application before RolledBack. These proofs
+//   keep terminal publication dependent on transaction state, not caller order.
 // - The transaction owns only detached values and its phase cursor. Every
 //   runtime owner is borrowed by one ReplayRuntime phase call and expires when
 //   that call returns.
@@ -198,14 +199,52 @@ class ReplayRestoreTransaction
 
     void PrepareTimelineReset( uint32_t parentBranchId, int sceneFrame, uint64_t solverHash )
     {
+
+        if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::TargetVerified || m_timelineResetRequired )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Timeline reset prepared outside the verified target phase. phase=%u already_required=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_timelineResetRequired ? 1u : 0u );
+        }
+
         m_timelineResetRequired = true;
         m_parentBranchId = parentBranchId;
         m_branchSceneFrame = sceneFrame;
         m_branchSolverHash = solverHash;
     }
 
+    void MarkTimelineResetApplied()
+    {
+
+        if ( !m_timelineResetRequired )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Timeline reset application recorded without a prepared branch reset." );
+        }
+
+        AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::TimelineResetApplied, "MarkTimelineResetApplied" );
+        m_timelineResetApplied = true;
+    }
+
+    bool CompletionReady() const
+    {
+        const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
+        return m_timelineResetRequired
+                   ? m_timelineResetApplied && current == ReplayRestorePhaseCursor::Phase::TimelineResetApplied
+                   : !m_timelineResetApplied && current == ReplayRestorePhaseCursor::Phase::TargetVerified;
+    }
+
     void Complete()
     {
+
+        if ( !CompletionReady() )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Restore completion reached without satisfying branch timeline state. phase=%u required=%u applied=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_timelineResetRequired ? 1u : 0u,
+                      m_timelineResetApplied ? 1u : 0u );
+        }
+
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::Complete, "Complete" );
     }
 
@@ -213,12 +252,19 @@ class ReplayRestoreTransaction
     {
         const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
 
-        if ( !ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( current, restored ) )
+        const bool successTerminal = restored && current == ReplayRestorePhaseCursor::Phase::Complete &&
+                                     m_timelineResetRequired == m_timelineResetApplied;
+        const bool failureTerminal = !restored &&
+                                     ( current == ReplayRestorePhaseCursor::Phase::Failed ||
+                                       ( current == ReplayRestorePhaseCursor::Phase::RolledBack && m_liveBackupApplied ) );
+
+        if ( !( successTerminal || failureTerminal ) )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
                       "Scrubber publication reached before the restore transaction became terminal. "
-                      "restored=%u phase=%u",
-                      restored ? 1u : 0u, static_cast<unsigned int>( current ) );
+                      "restored=%u phase=%u timeline_required=%u timeline_applied=%u rollback_applied=%u",
+                      restored ? 1u : 0u, static_cast<unsigned int>( current ), m_timelineResetRequired ? 1u : 0u,
+                      m_timelineResetApplied ? 1u : 0u, m_liveBackupApplied ? 1u : 0u );
         }
     }
 
@@ -236,8 +282,39 @@ class ReplayRestoreTransaction
         CopyFailure( reason );
     }
 
+    void MarkLiveBackupApplied()
+    {
+
+        if ( !m_stateMutated || !m_hasLiveBackup || m_liveBackupApplied ||
+             !ReplayRestorePhaseCursor::IsLegalTransition( m_phase.Current(), ReplayRestorePhaseCursor::Phase::RolledBack ) )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Live-backup application recorded without mutated state, retained backup, or rollback phase. "
+                      "phase=%u mutated=%u backup=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_stateMutated ? 1u : 0u, m_hasLiveBackup ? 1u : 0u );
+        }
+
+        m_liveBackupApplied = true;
+    }
+
+    bool RollbackReady() const
+    {
+        return m_stateMutated && m_hasLiveBackup && m_liveBackupApplied &&
+               ReplayRestorePhaseCursor::IsLegalTransition( m_phase.Current(), ReplayRestorePhaseCursor::Phase::RolledBack );
+    }
+
     void MarkRolledBack( const char* reason )
     {
+
+        if ( !RollbackReady() )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Rollback completed without verified live-backup application. phase=%u mutated=%u backup=%u "
+                      "applied=%u",
+                      static_cast<unsigned int>( m_phase.Current() ), m_stateMutated ? 1u : 0u, m_hasLiveBackup ? 1u : 0u,
+                      m_liveBackupApplied ? 1u : 0u );
+        }
+
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::RolledBack, "MarkRolledBack" );
         CopyFailure( reason );
     }
@@ -419,6 +496,8 @@ class ReplayRestoreTransaction
     bool m_generatedTopologyRebuilt = false;
     bool m_enterInteractiveRequested = false;
     bool m_timelineResetRequired = false;
+    bool m_timelineResetApplied = false;
+    bool m_liveBackupApplied = false;
     uint32_t m_parentBranchId = 0;
     int m_branchSceneFrame = 0;
     uint64_t m_branchSolverHash = 0;

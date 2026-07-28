@@ -1,7 +1,7 @@
 # Replay Restore And Wide-Signature Governance
 
 Date: 2026-07-28
-Status: TODO — 3/4 phases complete
+Status: DONE — 4/4 phases complete
 Impact area: Replay restore ownership, signature governance, review tooling
 Owner: Replay + repository governance
 Priority: High
@@ -47,10 +47,11 @@ ownership review rather than treating “at the trigger” as an accepted endpoi
   concrete owners or focused operations. No courier struct, callback pack,
   reach-back pointer, or renamed `*Context`. Decomposition evidence:
   `Agentic/Reports/2026-07-28/replay-wide-signature-rg2-decomposition.md`.
-- [ ] **RG3 — Close review and Replay gates.** Re-run all three ownership
+- [x] **RG3 — Close review and Replay gates.** Re-run all three ownership
   inventories, answer the five mandatory ownership questions, complete the
   touched-file comment audit, and prove one-invocation Replay visual fidelity
-  plus broad validation without refresh.
+  plus broad validation without refresh. Closure evidence:
+  `Agentic/Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md`.
 
 ## Acceptance
 
