@@ -1,7 +1,7 @@
 # Physics Fixed List Copy Contract
 
 Date: 2026-07-28
-Status: TODO — 0/3 phases complete
+Status: ACTIVE — 1/3 phases complete
 Impact area: Physics storage lifetime, prediction cloning, allocation policy
 Owner: Physics
 Priority: High
@@ -29,9 +29,13 @@ the hidden phase contract for arbitrary callers.
 
 ## Phases
 
-- [ ] **FC0 — Census copy and move semantics.** Find every actual and potential
+- [x] **FC0 — Census copy and move semantics.** Find every actual and potential
   list/owner copy, identify its phase and allocator owner, and distinguish
-  prediction isolation from accidental compiler-generated copying.
+  prediction isolation from accidental compiler-generated copying. Evidence:
+  `Agentic/Reports/2026-07-28/physics-fixed-list-copy-contract-fc0-census.md`.
+  The only production transfer is Replay prediction's pre-reserved implicit
+  `PhysicsEngine` assignment; direct list and custom `ColliderStore` transfers
+  are test-only, and no production move/by-value/queued owner path exists.
 - [ ] **FC1 — Delete implicit copies and install explicit owner clones.** Delete
   list copy construction/assignment, keep or narrow moves based on the same
   phase audit, and add only the explicit owner operations required by FC0.

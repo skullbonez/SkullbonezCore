@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 0/16 (0%). Replay restore/wide-signature governance closed at 4/4 and left the live ledger under rule 4; next is Plan 3 FC0. |
+| Active/future progress | 1/16 (6%). Plan 3 FC0 found one production Replay prediction engine copy reaching 98 fixed lists, test-only direct list/store transfers, and no production move/by-value/queue path. |
 | Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
 | Validation for Replay restore closure | Independent review found one terminal-state false pass; transaction-owned branch/rollback proof and child fatal probes corrected it, and repeat review found zero blockers. Final-source `validate_fast` (211.8 s), `validate_tests` (35.6 s; 424/424 cases and 2,410,325 assertions), Replay visual fidelity (439.8 s), and `validate_full` (408.7 s) pass. All inventories pass; comment audit is 9/9. No baseline was refreshed. |
 | Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
@@ -32,7 +32,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 0/16. Physics body layout
+The Principal Engineer Feedback Campaign is live at 1/16. Physics body layout
 and Replay restore/wide-signature governance are complete; its five remaining
 TODO plans cover PhysicsFixedList copy semantics, compact SbResult success
 values, explicit vector dot products, isolated deterministic terrain fixtures,
@@ -714,6 +714,7 @@ are not certified. Full evidence:
 | `tools\validate_fast.bat` (RG3 final source) | 211.8 s | PASS; formatting, metadata, dependencies, all three ownership inventories, Profile/Debug builds, and tests |
 | Replay visual fidelity (RG3 final source) | 439.8 s | PASS; one engine process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
 | `tools\validate_full.bat` (RG3 final source) | 408.7 s | PASS; 424 cases / 2,410,325 assertions, all CPU/runtime lanes, accepted DX12 images, byte-exact 44,401-line Physics CSV |
+| PhysicsFixedList FC0 census | documentation-only; independent review clear | One production Replay prediction `PhysicsEngine` assignment reaches 98 lists; direct list/ColliderStore transfers are test-only; no production moves, by-value paths, or value queues |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -721,8 +722,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-fixed-list-copy-contract` at FC0. Census every copy/move,
-return-by-value, queued, and phase-sensitive use before choosing explicit clone
-points; the owner allows cloning only at concrete aggregate owners. The
-principal-feedback campaign is 0/16 (0%). Preserve the uncommitted warm-start
-review diff until the owner accepts or rejects it.
+Continue `physics-fixed-list-copy-contract` at FC1. Replace the implicit Replay
+prediction `PhysicsEngine` copy with named concrete-owner/prediction-snapshot
+clone operations, then delete generic `PhysicsFixedList` copy and move.
+Do not add a public list clone, context/service bag, or generic engine clone.
+The principal-feedback campaign is 1/16 (6%). Preserve the uncommitted
+warm-start review diff until the owner accepts or rejects it.
