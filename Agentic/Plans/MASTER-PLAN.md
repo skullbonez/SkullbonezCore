@@ -974,9 +974,11 @@ move a baseline, and both are sequenced last by owner direction: plan 7
 `quaternion-convention-normalization` gates every regeneration behind its QN4
 hands-on visual acceptance checkbox, and plan 8
 `box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
-allowance for a visible owner-reported defect. Before starting plan 1, recover
-the contact-identity regression test out of `stash@{0}` so it does not have to
-survive the whole queue in a stash.
+allowance for a visible owner-reported defect. The required pre-plan-1 recovery
+is complete: the contact-identity regression test is pushed at
+`origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`, the
+stale source/baseline hunks were not imported, and the original stash was
+dropped.
 
 The Principal Engineer Feedback Campaign and its protected final local action
 are complete. All seven plans closed and left the live inventory under rule 4;
@@ -2477,12 +2479,12 @@ and BV0 must account for both:
   Inventory Rule 7 applies twice over. BV0's T0 harness must be recorded against
   the post-plan-7 tree, not against the numbers in the plan body, and the
   feature-ID bit layout must be re-confirmed against the current key schema.
-- **`stash@{0}` must survive 34 intervening tasks.** It holds the only copy of
-  the contact-identity regression test, which fails 338 assertions without the
-  SAT fix and is the most reusable artifact of the investigation. Its baselines
-  are stale twice over and its restitution change is compiles-unverified, but
-  the test is worth preserving now rather than at BV2. Recover it to a branch
-  before plan 1 starts; the stash is then droppable.
+- **The contact-identity regression must survive 34 intervening tasks.** It
+  fails 338 assertions without the SAT fix and is the most reusable artifact of
+  the investigation. It is now preserved at
+  `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`.
+  Its stale source/baseline companions were not imported, and the original
+  stash was dropped after the preservation branch was pushed.
 
 ## Box Vibration And Warm-Start Integrity (2026-07-29)
 

@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started (investigation complete, WIP stashed)
+State: Not started (investigation complete, regression test preserved)
 Ledger tasks: 7 (BV0-BV6)
-Branch: TBD (register at start)
+Branch: nightrunner-29th-JUL-26
 PR: TBD
 
 ## Goal
@@ -227,10 +227,11 @@ Recorded so nobody spends the time again.
    pushing contacts apart, not the cause.
 3. **Solver iteration starvation.** 48 iterations made it worse, not better.
 
-## Work In Progress — Stashed
+## Recovered Investigation Artifact
 
-`stash@{0}` on `main`: *"WIP: SAT axis-type hysteresis + object-only restitution
-suppression + 3 refreshed physics baselines"*. Six files:
+The original `stash@{0}` on `main` was named *"WIP: SAT axis-type hysteresis +
+object-only restitution suppression + 3 refreshed physics baselines"*. It
+contained six files:
 
 | File | Change | State |
 |---|---|---|
@@ -241,7 +242,7 @@ suppression + 3 refreshed physics baselines"*. Six files:
 | `TestOutput/baselines/physics_known_issue_signatures.json` | Refreshed | For the SAT change **only** |
 | `TestOutput/baselines/physics_query_varied.json` | Refreshed | For the SAT change **only** |
 
-**The stash does not apply cleanly to current main.** Verified 2026-07-29:
+**The stash did not apply cleanly to current main.** Verified 2026-07-29:
 
 ```
 git stash show -p "stash@{0}" > wip.patch
@@ -249,24 +250,28 @@ git apply --check --include='SkullbonezSource/*' --include='SkullbonezTests/*' w
   -> error: patch failed: SkullbonezSource/Physics/ObjectContactManifold.cpp:580
 ```
 
-It was taken against `0768593d`; both target files have since moved. Do not
-force-merge it.
+It was taken against `0768593d`; both target files have since moved. It was not
+force-merged.
 
 **The three baselines are also stale twice over** — they were generated for the
 SAT change only (not the restitution change), from a binary at the old tip.
 
-Recommended handling:
+Completed recovery and remaining handling:
 
-1. Read the stash as a *reference implementation*, not a patch to apply:
-   `git stash show -p "stash@{0}" | less`.
+1. The reusable contact-identity regression test is preserved on
+   `origin/codex/contact-identity-regression-29th-jul-26` at commit `27906417`.
+   That branch is intentionally red until BV2 supplies the SAT identity fix; it
+   is a recovery artifact, not a merge-ready implementation.
 2. Re-derive the two source changes by hand against the current tip. Both are
    small: the SAT change is ~6 functional lines across two call sites, and the
    restitution change is one condition plus an `else` restructure.
-3. Recover the regression test from the stash — it is the most reusable piece
-   and carries the A/B evidence (fails 338 assertions without the SAT fix).
-4. Drop the stashed baselines entirely. Regenerate once, at the end, from the
+3. Cherry-pick or reapply the preserved test during BV2 after re-confirming the
+   feature-ID layout against the post-plan-7 key schema. It carries the A/B
+   evidence (fails 338 assertions without the SAT fix).
+4. The stashed baselines were dropped. Regenerate once, at the end, from the
    final Debug binary.
-5. Drop the stash only after the test is recovered.
+5. The original stash was dropped only after the preservation branch was
+   pushed.
 
 Note the restitution change in the stash is **compiles-unverified**: the last
 build attempt failed on a file lock from a background `validate_full`, and it
