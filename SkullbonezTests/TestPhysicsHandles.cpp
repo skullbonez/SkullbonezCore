@@ -34,7 +34,8 @@
 //     an upward velocity response.
 //   - The production Replay prediction reserve adapter preserves committed
 //     scene capacity, owns an independent collider graph after source
-//     destruction, and advances identical seeded state bit-for-bit.
+//     destruction, retains a per-test terrain owner through both engine
+//     lifetimes, and advances identical seeded state bit-for-bit.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -199,16 +200,6 @@ void CheckHotStateBitsEqual( const PhysicsBodyHotState& left, const PhysicsBodyH
     CHECK( FloatBitsEqual( left.boundingRadius, right.boundingRadius ) );
     CHECK( left.fixed == right.fixed );
     CHECK( left.awake == right.awake );
-}
-
-Terrain& PredictionSeedTestTerrain()
-{
-
-    // Lifetime: the cloned PhysicsWorld borrows this immutable collision view.
-    // Static backing outlives both the source and prediction engines.
-    static SkullbonezCore::Core::EngineConfig config;
-    static Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
-    return terrain;
 }
 
 ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterialName )
@@ -1075,6 +1066,10 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     config.bodySimulation.velocityLimit = 1000.0f;
     config.physicsSleep.frames = 1000000;
 
+    // Lifetime: both heap engines retain this view. Declaration order keeps
+    // prediction and source destruction ahead of terrain and its config.
+    Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
+
     PhysicsWorldForces forces;
     forces.gravity = config.worldForces.gravity;
     forces.fluidSurfaceHeight = -1000.0f;
@@ -1088,7 +1083,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
 
     auto liveEngine = std::make_unique<PhysicsEngine>();
     liveEngine->ApplyRuntimeConfig( config );
-    liveEngine->SetTerrainView( PredictionSeedTestTerrain().PhysicsView() );
+    liveEngine->SetTerrainView( terrain.PhysicsView() );
     SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registrations[bodyCount] = {};
 
     {

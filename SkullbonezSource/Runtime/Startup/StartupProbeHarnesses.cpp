@@ -154,13 +154,13 @@ PhysicsAuthoredBodyRegistration RegisterPhysicsSmokeBody( PhysicsEngine& engine,
 PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
 {
 
-    // Lifetime: PhysicsEngine owns several capacity-bounded stores. This cold
-    // validation owner stays on the heap and is destroyed before the repeat
-    // run so exact comparison never depends on shared mutable state.
-    auto engineOwner = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& engine = *engineOwner;
+    // Lifetime: PhysicsEngine retains the terrain view across Clear(). Declare
+    // config, terrain, then the cold heap engine so reverse destruction retires
+    // the borrower before both retained-view owners.
     Core::EngineConfig config;
     Geometry::Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    auto engineOwner = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& engine = *engineOwner;
     engine.ApplyRuntimeConfig( config );
     engine.Clear();
     engine.SetTerrainView( terrain.PhysicsView() );

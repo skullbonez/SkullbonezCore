@@ -18,6 +18,8 @@
 //     PhysicsEngine::RestoreReplayBodyState.
 //   Physics-only terrain: CPU-domain analytic slope used without renderer
 //     construction or a backend test double.
+//   Terrain fixture: Per-test owner that destroys its heap PhysicsEngine before
+//     the analytic terrain and config backing the engine's retained view.
 //   Property check: Tolerance-based unit assertion over a physics rule that
 //     should hold across implementation details, rather than a golden row match.
 //   Kinetic energy: Translational plus angular motion energy used here as a
@@ -41,6 +43,8 @@
 //   - Invariant checks use explicit tolerances because they assert physical
 //     policy, not serialized replay bytes.
 //   - Terrain queries are real flat-plane queries; render resources must stay unused.
+//   - Every terrain-bearing engine is owned by a per-test fixture; no borrowed
+//     terrain view survives its terrain or construction config.
 //   - Worker scheduling must not change any kinematic or sleep-state byte.
 //
 // Related:
@@ -95,6 +99,7 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsSolverSnapshot;
+using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
@@ -201,34 +206,54 @@ PhysicsWorldForces DampingForces()
     return forces;
 }
 
-Terrain& FlatTestTerrain()
+// Invariant: PhysicsEngine retains the terrain view across Clear(), so member
+// declaration order must remain config, terrain, then heap engine. Reverse
+// destruction then retires the borrower before either retained-view owner.
+// The determinism tests exercise this owner through every flat/deep engine.
+class DeterminismTerrainFixture final
 {
+  public:
+    explicit DeterminismTerrainFixture( float terrainBaseY )
+        : m_config( MakeDeterministicConfig() ), m_terrain( terrainBaseY, 0.0f, 0.0f, m_config ),
+          m_engine( std::make_unique<PhysicsEngine>() )
+    {
+        m_engine->SetTerrainView( m_terrain.PhysicsView() );
+    }
 
-    // Lifetime: Physics borrows the terrain's detached collision-cell span.
-    // Static storage keeps that backing cache and its construction config valid
-    // across repeated engine resets without process-global configuration.
-    static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    static Terrain terrain( 0.0f, 0.0f, 0.0f, config );
-    return terrain;
-}
+    DeterminismTerrainFixture( const DeterminismTerrainFixture& ) = delete;
+    DeterminismTerrainFixture& operator=( const DeterminismTerrainFixture& ) = delete;
+    DeterminismTerrainFixture( DeterminismTerrainFixture&& ) = delete;
+    DeterminismTerrainFixture& operator=( DeterminismTerrainFixture&& ) = delete;
 
-Terrain& DeepSpaceTestTerrain()
-{
-    static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    static Terrain terrain( -100000.0f, 0.0f, 0.0f, config );
-    return terrain;
-}
+    PhysicsEngine& Engine() noexcept
+    {
+        return *m_engine;
+    }
+
+    PhysicsTerrainView TerrainView() const noexcept
+    {
+        return m_terrain.PhysicsView();
+    }
+
+  private:
+    EngineConfig m_config;
+    Terrain m_terrain;
+    std::unique_ptr<PhysicsEngine> m_engine;
+};
+
+constexpr float kFlatTerrainBaseY = 0.0f;
+constexpr float kDeepSpaceTerrainBaseY = -100000.0f;
 
 CollisionShape MakeSphereShape( float radius )
 {
     return CollisionShape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
 }
 
-void AddMicroBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position,
-                   const Vector3& linearVelocity )
+void AddMicroBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t sceneObjectIdValue,
+                   const Vector3& position, const Vector3& linearVelocity )
 {
     ReserveTestPhysicsCapacity( engine, kMicroBodyCount );
-    engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
+    engine.SetTerrainView( terrainView );
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
@@ -246,10 +271,11 @@ void AddMicroBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vec
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position )
+void AddSupportedSleepBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t sceneObjectIdValue,
+                            const Vector3& position )
 {
     ReserveTestPhysicsCapacity( engine, kParallelContactBodyCount );
-    engine.SetTerrainView( FlatTestTerrain().PhysicsView() );
+    engine.SetTerrainView( terrainView );
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
@@ -267,7 +293,8 @@ void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, 
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void SeedSupportedSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
+void SeedSupportedSleepWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView,
+                              const SkullbonezCore::Core::EngineConfig& config )
 {
 
     // Why: the sleep-threshold test needs real terrain support but no inherited
@@ -276,12 +303,13 @@ void SeedSupportedSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core:
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( true );
-    AddSupportedSleepBody( engine, 401u, Vector3( 0.0f, 1.0f, 0.0f ) );
+    AddSupportedSleepBody( engine, terrainView, 401u, Vector3( 0.0f, 1.0f, 0.0f ) );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 1 );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 1 );
 }
 
-void SeedParallelContactSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
+void SeedParallelContactSleepWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView,
+                                    const SkullbonezCore::Core::EngineConfig& config )
 {
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
@@ -305,7 +333,7 @@ void SeedParallelContactSleepWorld( PhysicsEngine& engine, const SkullbonezCore:
         // settled within this bounded test window.
         const float pairHalfSeparation = pairIndex < 256 ? 0.9f : 2.5f;
         const float pairOffset = ( bodyIndex & 1 ) == 0 ? -pairHalfSeparation : pairHalfSeparation;
-        AddSupportedSleepBody( engine, static_cast<uint32_t>( 1000 + bodyIndex ),
+        AddSupportedSleepBody( engine, terrainView, static_cast<uint32_t>( 1000 + bodyIndex ),
                                Vector3( static_cast<float>( pairColumn * 8 - 76 ) + pairOffset, 1.0f,
                                         static_cast<float>( pairRow * 8 - 48 ) ) );
     }
@@ -344,14 +372,14 @@ TEST_CASE( "Tornado force witness preserves exact one-step body state" )
     // Why: the varied-scene CSV gate does not contain tornado content. This
     // focused byte witness pins the field arithmetic and its exact force-stage
     // scheduling point before gameplay ownership moves out of Physics.
-    auto engineStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& engine = *engineStorage;
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& engine = fixture.Engine();
     EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
-    AddMicroBody( engine, 901u, Vector3( 100.0f, 50.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    AddMicroBody( engine, fixture.TerrainView(), 901u, Vector3( 100.0f, 50.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
 
     SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
     SkullbonezCore::Gameplay::TornadoFieldConfig field;
@@ -478,20 +506,11 @@ TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot s
     CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
 }
 
-void AddMutualGravityBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position,
-                           const Vector3& linearVelocity, float mass, float radius,
-                           PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic,
-                           Terrain* terrain = &FlatTestTerrain() )
+void AddMutualGravityBody( PhysicsEngine& engine, PhysicsTerrainView terrainView, uint32_t sceneObjectIdValue,
+                           const Vector3& position, const Vector3& linearVelocity, float mass, float radius,
+                           PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic )
 {
-
-    if ( terrain )
-    {
-        engine.SetTerrainView( terrain->PhysicsView() );
-    }
-    else
-    {
-        engine.ClearTerrainView();
-    }
+    engine.SetTerrainView( terrainView );
 
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
@@ -507,8 +526,8 @@ void AddMutualGravityBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, c
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void SeedAuthoredSolarWorld( PhysicsEngine& engine, const SkullbonezCore::Runtime::AuthoredScene& scene,
-                             bool earthGravityEnabled )
+void SeedAuthoredSolarWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView,
+                             const SkullbonezCore::Runtime::AuthoredScene& scene, bool earthGravityEnabled )
 {
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
@@ -521,33 +540,33 @@ void SeedAuthoredSolarWorld( PhysicsEngine& engine, const SkullbonezCore::Runtim
     {
         const SkullbonezCore::Runtime::SceneBallState& body = scene.GetBallState( index );
         const bool removeEarthGravity = !earthGravityEnabled && std::strcmp( body.name, "earth" ) == 0;
-        AddMutualGravityBody( engine,
+        AddMutualGravityBody( engine, terrainView,
                               body.sceneObjectId.value != 0u ? body.sceneObjectId.value
                                                              : static_cast<uint32_t>( 1000 + index ),
                               Vector3( body.posX, body.posY, body.posZ ), Vector3( body.velX, body.velY, body.velZ ),
                               removeEarthGravity ? 0.001f : body.mass, body.radius,
-                              body.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
-                              &DeepSpaceTestTerrain() );
+                              body.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic );
     }
 
     REQUIRE( PhysicsEngine::ReadBodies( engine ).Count() == scene.GetBallStateCount() );
 }
 
-void SeedMicroWorld( PhysicsEngine& engine )
+void SeedMicroWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView )
 {
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     engine.Clear();
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
-    AddMicroBody( engine, 101u, Vector3( 100.0f, 30.0f, 100.0f ), Vector3( 1.5f, 0.0f, 0.0f ) );
-    AddMicroBody( engine, 102u, Vector3( 112.0f, 40.0f, 100.0f ), Vector3( 0.0f, 0.5f, 0.0f ) );
-    AddMicroBody( engine, 103u, Vector3( 124.0f, 50.0f, 100.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
+    AddMicroBody( engine, terrainView, 101u, Vector3( 100.0f, 30.0f, 100.0f ), Vector3( 1.5f, 0.0f, 0.0f ) );
+    AddMicroBody( engine, terrainView, 102u, Vector3( 112.0f, 40.0f, 100.0f ), Vector3( 0.0f, 0.5f, 0.0f ) );
+    AddMicroBody( engine, terrainView, 103u, Vector3( 124.0f, 50.0f, 100.0f ), Vector3( -1.0f, 0.0f, 0.0f ) );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == kMicroBodyCount );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == kMicroBodyCount );
 }
 
-void SeedTwoBodyGravityWorld( PhysicsEngine& engine, const Vector3& leftPosition, const Vector3& rightPosition,
-                              const Vector3& leftVelocity, const Vector3& rightVelocity, float mass, float radius )
+void SeedTwoBodyGravityWorld( PhysicsEngine& engine, PhysicsTerrainView terrainView, const Vector3& leftPosition,
+                              const Vector3& rightPosition, const Vector3& leftVelocity, const Vector3& rightVelocity,
+                              float mass, float radius )
 {
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
@@ -555,8 +574,8 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine, const Vector3& leftPosition
     engine.ApplyRuntimeConfig( config );
     engine.SetSleepEnabled( false );
     ReserveTestPhysicsCapacity( engine, 2 );
-    AddMutualGravityBody( engine, 201u, leftPosition, leftVelocity, mass, radius );
-    AddMutualGravityBody( engine, 202u, rightPosition, rightVelocity, mass, radius );
+    AddMutualGravityBody( engine, terrainView, 201u, leftPosition, leftVelocity, mass, radius );
+    AddMutualGravityBody( engine, terrainView, 202u, rightPosition, rightVelocity, mass, radius );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 2 );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 2 );
 }
@@ -588,19 +607,21 @@ void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& 
 void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
 {
 
-    // Lifetime: these large fixed-store engines are cold test owners. Heap
-    // ownership keeps their storage out of the executable image while all
-    // three worlds remain alive for the exact comparison below.
-    auto serial = std::make_unique<PhysicsEngine>();
-    auto oneWorker = std::make_unique<PhysicsEngine>();
-    auto fourWorkers = std::make_unique<PhysicsEngine>();
+    // Lifetime: each cold fixture owns an independent analytic terrain and
+    // heap engine. Equality cannot pass through shared mutable terrain state.
+    DeterminismTerrainFixture serialFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture oneWorkerFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture fourWorkersFixture( kFlatTerrainBaseY );
+    PhysicsEngine& serial = serialFixture.Engine();
+    PhysicsEngine& oneWorker = oneWorkerFixture.Engine();
+    PhysicsEngine& fourWorkers = fourWorkersFixture.Engine();
 
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.physicsExecution.parallel = true;
     config.physicsExecution.parallelMutualGravity = true;
     config.worldForces.gravity = 0.0f;
 
-    auto seedField = [&config, bodyCount]( PhysicsEngine& engine )
+    auto seedField = [&config, bodyCount]( PhysicsEngine& engine, PhysicsTerrainView terrainView )
     {
         engine.Clear();
 
@@ -612,7 +633,7 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
         {
             const int column = index % 8;
             const int row = index / 8;
-            AddMutualGravityBody( engine, static_cast<uint32_t>( 300u + index ),
+            AddMutualGravityBody( engine, terrainView, static_cast<uint32_t>( 300u + index ),
                                   Vector3( static_cast<float>( column * 20 - 70 ), static_cast<float>( 100 + row * 17 ),
                                            static_cast<float>( ( index * 13 ) % 29 - 14 ) ),
                                   Vector3( static_cast<float>( ( index % 5 ) - 2 ) * 0.03f,
@@ -624,17 +645,17 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == bodyCount );
     };
 
-    seedField( *serial );
-    seedField( *oneWorker );
-    seedField( *fourWorkers );
+    seedField( serial, serialFixture.TerrainView() );
+    seedField( oneWorker, oneWorkerFixture.TerrainView() );
+    seedField( fourWorkers, fourWorkersFixture.TerrainView() );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
 
-    StepMicroWorldWith( *serial, ticks, forces, 0 );
-    StepMicroWorldWith( *oneWorker, ticks, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, ticks, forces, 4 );
+    StepMicroWorldWith( serial, ticks, forces, 0 );
+    StepMicroWorldWith( oneWorker, ticks, forces, 1 );
+    StepMicroWorldWith( fourWorkers, ticks, forces, 4 );
 
-    CheckEngineKinematicsEqual( *serial, *oneWorker );
-    CheckEngineKinematicsEqual( *serial, *fourWorkers );
+    CheckEngineKinematicsEqual( serial, oneWorker );
+    CheckEngineKinematicsEqual( serial, fourWorkers );
 }
 
 const PhysicsBodyRecord& RequireBodyRecord( const PhysicsEngine& engine, int modelIndex )
@@ -1083,12 +1104,12 @@ void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const P
 
 TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick intervals" )
 {
-    auto firstStorage = std::make_unique<PhysicsEngine>();
-    auto secondStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& first = *firstStorage;
-    PhysicsEngine& second = *secondStorage;
-    SeedMicroWorld( first );
-    SeedMicroWorld( second );
+    DeterminismTerrainFixture firstFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture secondFixture( kFlatTerrainBaseY );
+    PhysicsEngine& first = firstFixture.Engine();
+    PhysicsEngine& second = secondFixture.Engine();
+    SeedMicroWorld( first, firstFixture.TerrainView() );
+    SeedMicroWorld( second, secondFixture.TerrainView() );
 
     for ( int tick = 60; tick <= kTotalDeterminismTicks; tick += 60 )
     {
@@ -1102,11 +1123,14 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
 TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline is exact across worker counts" )
 {
 
-    // Lifetime: PhysicsEngine owns large fixed-capacity stores, so these cold
-    // test fixtures live on the heap while all three worker variants coexist.
-    auto serial = std::make_unique<PhysicsEngine>();
-    auto oneWorker = std::make_unique<PhysicsEngine>();
-    auto fourWorkers = std::make_unique<PhysicsEngine>();
+    // Lifetime: each fixture keeps the heap engine before its independent
+    // terrain owner in reverse destruction order.
+    DeterminismTerrainFixture serialFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture oneWorkerFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture fourWorkersFixture( kFlatTerrainBaseY );
+    PhysicsEngine& serial = serialFixture.Engine();
+    PhysicsEngine& oneWorker = oneWorkerFixture.Engine();
+    PhysicsEngine& fourWorkers = fourWorkersFixture.Engine();
 
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.physicsExecution.parallel = true;
@@ -1119,30 +1143,30 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     config.physicsSleep.linearSpeed = 0.25f;
     config.physicsSleep.angularSpeed = 0.25f;
 
-    SeedParallelContactSleepWorld( *serial, config );
-    SeedParallelContactSleepWorld( *oneWorker, config );
-    SeedParallelContactSleepWorld( *fourWorkers, config );
+    SeedParallelContactSleepWorld( serial, serialFixture.TerrainView(), config );
+    SeedParallelContactSleepWorld( oneWorker, oneWorkerFixture.TerrainView(), config );
+    SeedParallelContactSleepWorld( fourWorkers, fourWorkersFixture.TerrainView(), config );
     const PhysicsWorldForces forces = DeterministicForces();
 
-    StepMicroWorldWith( *serial, 1, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 1, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 1, forces, 4 );
+    StepMicroWorldWith( serial, 1, forces, 0 );
+    StepMicroWorldWith( oneWorker, 1, forces, 1 );
+    StepMicroWorldWith( fourWorkers, 1, forces, 4 );
 
     // Invariant: the fixture must keep the parallel-narrowphase threshold
     // active. A geometry/filter drift to 255 pairs would otherwise let every
     // worker-count comparison pass through the serial fallback.
-    CHECK( oneWorker->GetDiagnosticsView().candidatePairs.size() == 256u );
-    CHECK( fourWorkers->GetDiagnosticsView().candidatePairs.size() == 256u );
-    CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
-    CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
+    CHECK( oneWorker.GetDiagnosticsView().candidatePairs.size() == 256u );
+    CHECK( fourWorkers.GetDiagnosticsView().candidatePairs.size() == 256u );
+    CheckEngineWorkerDeterministicStateEqual( serial, oneWorker );
+    CheckEngineWorkerDeterministicStateEqual( serial, fourWorkers );
 
-    StepMicroWorldWith( *serial, 30, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 30, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 30, forces, 4 );
-    CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
-    CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
+    StepMicroWorldWith( serial, 30, forces, 0 );
+    StepMicroWorldWith( oneWorker, 30, forces, 1 );
+    StepMicroWorldWith( fourWorkers, 30, forces, 4 );
+    CheckEngineWorkerDeterministicStateEqual( serial, oneWorker );
+    CheckEngineWorkerDeterministicStateEqual( serial, fourWorkers );
 
-    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( *serial );
+    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( serial );
     CHECK( std::any_of( sleepStates.begin(), sleepStates.end(), []( uint8_t sleeping ) { return sleeping != 0; } ) );
 }
 
@@ -1150,16 +1174,18 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
 TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel body partitions" )
 {
     constexpr int bodyCount = kParallelContactBodyCount;
-    auto serial = std::make_unique<PhysicsEngine>();
-    auto parallel = std::make_unique<PhysicsEngine>();
+    DeterminismTerrainFixture serialFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture parallelFixture( kFlatTerrainBaseY );
+    PhysicsEngine& serial = serialFixture.Engine();
+    PhysicsEngine& parallel = parallelFixture.Engine();
     EngineConfig config = MakeDeterministicConfig();
     config.physicsExecution.parallel = true;
-    serial->ApplyRuntimeConfig( config );
-    parallel->ApplyRuntimeConfig( config );
-    serial->SetSleepEnabled( false );
-    parallel->SetSleepEnabled( false );
-    ReserveTestPhysicsCapacity( *serial, bodyCount );
-    ReserveTestPhysicsCapacity( *parallel, bodyCount );
+    serial.ApplyRuntimeConfig( config );
+    parallel.ApplyRuntimeConfig( config );
+    serial.SetSleepEnabled( false );
+    parallel.SetSleepEnabled( false );
+    ReserveTestPhysicsCapacity( serial, bodyCount );
+    ReserveTestPhysicsCapacity( parallel, bodyCount );
 
     for ( int index = 0; index < bodyCount; ++index )
     {
@@ -1167,8 +1193,9 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
                                 20.0f + static_cast<float>( index / 20 ) * 5.0f,
                                 -40.0f + static_cast<float>( index % 9 ) * 10.0f );
         const Vector3 zeroVelocity( 0.0f, 0.0f, 0.0f );
-        AddMicroBody( *serial, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
-        AddMicroBody( *parallel, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+        AddMicroBody( serial, serialFixture.TerrainView(), 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+        AddMicroBody( parallel, parallelFixture.TerrainView(), 2000u + static_cast<uint32_t>( index ), position,
+                      zeroVelocity );
     }
 
     SkullbonezCore::Gameplay::TornadoFieldConfig field;
@@ -1191,13 +1218,13 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
     WorkerPool parallelWorkers( parallelLockOrder );
     serialWorkers.Initialise( 4 );
     parallelWorkers.Initialise( 4 );
-    serial->Step( PHYSICS_FIXED_DT, NoGravityForces(), serialGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
-                  serialWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    serial.Step( PHYSICS_FIXED_DT, NoGravityForces(), serialGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                 serialWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
 
-    parallel->Step( PHYSICS_FIXED_DT, NoGravityForces(), parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
-                    parallelWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
+    parallel.Step( PHYSICS_FIXED_DT, NoGravityForces(), parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                   parallelWorkers, SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter {} );
 
-    CheckEngineKinematicsEqual( *serial, *parallel );
+    CheckEngineKinematicsEqual( serial, parallel );
     CheckVectorContentsEqual( serialGameplay.CaptureSeconds(), parallelGameplay.CaptureSeconds() );
     CheckVectorContentsEqual( serialGameplay.EjectCooldownSeconds(), parallelGameplay.EjectCooldownSeconds() );
 }
@@ -1205,9 +1232,9 @@ TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel
 
 TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
 {
-    auto pairWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& pairWorld = *pairWorldStorage;
-    SeedTwoBodyGravityWorld( pairWorld, Vector3( -12.0f, 80.0f, 0.0f ), Vector3( 12.0f, 80.0f, 0.0f ),
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& pairWorld = fixture.Engine();
+    SeedTwoBodyGravityWorld( pairWorld, fixture.TerrainView(), Vector3( -12.0f, 80.0f, 0.0f ), Vector3( 12.0f, 80.0f, 0.0f ),
                              Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 5.0f, 0.5f );
 
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
@@ -1225,9 +1252,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
 
 TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
 {
-    auto closeWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& closeWorld = *closeWorldStorage;
-    SeedTwoBodyGravityWorld( closeWorld, Vector3( 0.0f, 80.0f, 0.0f ), Vector3( 0.03f, 80.0f, 0.0f ),
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& closeWorld = fixture.Engine();
+    SeedTwoBodyGravityWorld( closeWorld, fixture.TerrainView(), Vector3( 0.0f, 80.0f, 0.0f ), Vector3( 0.03f, 80.0f, 0.0f ),
                              Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 3.0f, 0.01f );
 
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
@@ -1244,8 +1271,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
 
 TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounded" )
 {
-    auto orbitWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& orbitWorld = *orbitWorldStorage;
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& orbitWorld = fixture.Engine();
     const float orbitRadius = 20.0f;
     const float separation = orbitRadius * 2.0f;
     const float mass = 20.0f;
@@ -1257,8 +1284,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
 
     const float orbitalSpeed = sqrtf( acceleration * orbitRadius );
 
-    SeedTwoBodyGravityWorld( orbitWorld, Vector3( -orbitRadius, 80.0f, 0.0f ), Vector3( orbitRadius, 80.0f, 0.0f ),
-                             Vector3( 0.0f, 0.0f, -orbitalSpeed ), Vector3( 0.0f, 0.0f, orbitalSpeed ), mass, 0.5f );
+    SeedTwoBodyGravityWorld( orbitWorld, fixture.TerrainView(), Vector3( -orbitRadius, 80.0f, 0.0f ),
+                             Vector3( orbitRadius, 80.0f, 0.0f ), Vector3( 0.0f, 0.0f, -orbitalSpeed ),
+                             Vector3( 0.0f, 0.0f, orbitalSpeed ), mass, 0.5f );
 
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
@@ -1279,15 +1307,15 @@ TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches l
     const SkullbonezCore::Runtime::AuthoredScene scene = SkullbonezCore::Runtime::AuthoredScene::
         LoadFromFile( resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json" );
 
-    auto liveStorage = std::make_unique<PhysicsEngine>();
-    auto forecastStorage = std::make_unique<PhysicsEngine>();
-    auto noEarthGravityStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& live = *liveStorage;
-    PhysicsEngine& forecast = *forecastStorage;
-    PhysicsEngine& noEarthGravity = *noEarthGravityStorage;
-    SeedAuthoredSolarWorld( live, scene, true );
-    SeedAuthoredSolarWorld( forecast, scene, true );
-    SeedAuthoredSolarWorld( noEarthGravity, scene, false );
+    DeterminismTerrainFixture liveFixture( kDeepSpaceTerrainBaseY );
+    DeterminismTerrainFixture forecastFixture( kDeepSpaceTerrainBaseY );
+    DeterminismTerrainFixture noEarthGravityFixture( kDeepSpaceTerrainBaseY );
+    PhysicsEngine& live = liveFixture.Engine();
+    PhysicsEngine& forecast = forecastFixture.Engine();
+    PhysicsEngine& noEarthGravity = noEarthGravityFixture.Engine();
+    SeedAuthoredSolarWorld( live, liveFixture.TerrainView(), scene, true );
+    SeedAuthoredSolarWorld( forecast, forecastFixture.TerrainView(), scene, true );
+    SeedAuthoredSolarWorld( noEarthGravity, noEarthGravityFixture.TerrainView(), scene, false );
 
     int earthIndex = -1;
     int marsIndex = -1;
@@ -1419,29 +1447,35 @@ TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches l
 
 TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
 {
-    auto firstStorage = std::make_unique<PhysicsEngine>();
-    auto secondStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& first = *firstStorage;
-    PhysicsEngine& second = *secondStorage;
+    DeterminismTerrainFixture firstFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture secondFixture( kFlatTerrainBaseY );
+    PhysicsEngine& first = firstFixture.Engine();
+    PhysicsEngine& second = secondFixture.Engine();
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
 
-    auto seedTriple = [&config]( PhysicsEngine& engine )
+    auto seedTriple = [&config]( PhysicsEngine& engine, PhysicsTerrainView terrainView )
     {
         engine.Clear();
 
         engine.ApplyRuntimeConfig( config );
         engine.SetSleepEnabled( false );
         ReserveTestPhysicsCapacity( engine, 3 );
-        AddMutualGravityBody( engine, 301u, Vector3( -18.0f, 90.0f, 0.0f ), Vector3( 0.8f, 0.0f, -1.0f ), 12.0f, 0.45f );
-        AddMutualGravityBody( engine, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f, 0.45f );
-        AddMutualGravityBody( engine, 303u, Vector3( 2.0f, 90.0f, 24.0f ), Vector3( -0.2f, 0.0f, -0.8f ), 10.0f, 0.45f );
+        AddMutualGravityBody( engine, terrainView, 301u, Vector3( -18.0f, 90.0f, 0.0f ), Vector3( 0.8f, 0.0f, -1.0f ), 12.0f,
+                              0.45f );
+
+        AddMutualGravityBody( engine, terrainView, 302u, Vector3( 16.0f, 90.0f, 4.0f ), Vector3( -0.4f, 0.0f, 1.1f ), 16.0f,
+                              0.45f );
+
+        AddMutualGravityBody( engine, terrainView, 303u, Vector3( 2.0f, 90.0f, 24.0f ), Vector3( -0.2f, 0.0f, -0.8f ), 10.0f,
+                              0.45f );
+
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 3 );
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 3 );
     };
 
-    seedTriple( first );
-    seedTriple( second );
+    seedTriple( first, firstFixture.TerrainView() );
+    seedTriple( second, secondFixture.TerrainView() );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
     StepMicroWorldWith( first, 240, forces );
     StepMicroWorldWith( second, 240, forces );
@@ -1463,13 +1497,14 @@ TEST_CASE( "PhysicsEngine mutual gravity: large fields use an exact serial fallb
 
 TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves closing speed" )
 {
-    auto collisionWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& collisionWorld = *collisionWorldStorage;
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& collisionWorld = fixture.Engine();
     const float mass = 2.0f;
     const float radius = 1.0f;
     const float speed = 4.0f;
-    SeedTwoBodyGravityWorld( collisionWorld, Vector3( -0.9f, 80.0f, 0.0f ), Vector3( 0.9f, 80.0f, 0.0f ),
-                             Vector3( speed, 0.0f, 0.0f ), Vector3( -speed, 0.0f, 0.0f ), mass, radius );
+    SeedTwoBodyGravityWorld( collisionWorld, fixture.TerrainView(), Vector3( -0.9f, 80.0f, 0.0f ),
+                             Vector3( 0.9f, 80.0f, 0.0f ), Vector3( speed, 0.0f, 0.0f ), Vector3( -speed, 0.0f, 0.0f ), mass,
+                             radius );
 
     PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
     REQUIRE( forces.mutualGravity.elasticCollisions );
@@ -1488,9 +1523,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
 
 TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetration tolerance" )
 {
-    auto settledStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& settled = *settledStorage;
-    SeedMicroWorld( settled );
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& settled = fixture.Engine();
+    SeedMicroWorld( settled, fixture.TerrainView() );
 
     const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
@@ -1502,9 +1537,9 @@ TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetra
 
 TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy" )
 {
-    auto dampedStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& damped = *dampedStorage;
-    SeedMicroWorld( damped );
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& damped = fixture.Engine();
+    SeedMicroWorld( damped, fixture.TerrainView() );
 
     const PhysicsWorldForces forces = DampingForces();
 
@@ -1527,9 +1562,9 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
 
 TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
 {
-    auto sleepWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& sleepWorld = *sleepWorldStorage;
-    SeedMicroWorld( sleepWorld );
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& sleepWorld = fixture.Engine();
+    SeedMicroWorld( sleepWorld, fixture.TerrainView() );
     sleepWorld.SetSleepEnabled( true );
 
     const PhysicsWorldForces forces = NoGravityForces();
@@ -1551,8 +1586,8 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
 
 TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after threshold frames" )
 {
-    auto sleepWorldStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& sleepWorld = *sleepWorldStorage;
+    DeterminismTerrainFixture fixture( kFlatTerrainBaseY );
+    PhysicsEngine& sleepWorld = fixture.Engine();
 
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.physicsSleep.frames = 3;
@@ -1560,7 +1595,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     config.physicsSleep.angularSpeed = 0.25f;
     const PhysicsWorldForces forces = DeterministicForces();
 
-    SeedSupportedSleepWorld( sleepWorld, config );
+    SeedSupportedSleepWorld( sleepWorld, fixture.TerrainView(), config );
     StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, forces );
 
     CHECK_FALSE( RequireBodyHotState( sleepWorld, 0 ).awake );
@@ -1579,12 +1614,12 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
 
 TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores losslessly" )
 {
-    auto interruptedStorage = std::make_unique<PhysicsEngine>();
-    auto restoredStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& interrupted = *interruptedStorage;
-    PhysicsEngine& restored = *restoredStorage;
-    SeedMicroWorld( interrupted );
-    SeedMicroWorld( restored );
+    DeterminismTerrainFixture interruptedFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture restoredFixture( kFlatTerrainBaseY );
+    PhysicsEngine& interrupted = interruptedFixture.Engine();
+    PhysicsEngine& restored = restoredFixture.Engine();
+    SeedMicroWorld( interrupted, interruptedFixture.TerrainView() );
+    SeedMicroWorld( restored, restoredFixture.TerrainView() );
 
     StepMicroWorld( interrupted, kSnapshotFrame );
     StepMicroWorld( restored, kSnapshotFrame );
@@ -1601,12 +1636,12 @@ TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores 
 
 TEST_CASE( "Replay solver sample restore: recorded frame reproduces future frame" )
 {
-    auto expectedStorage = std::make_unique<PhysicsEngine>();
-    auto restoredStorage = std::make_unique<PhysicsEngine>();
-    PhysicsEngine& expected = *expectedStorage;
-    PhysicsEngine& restored = *restoredStorage;
-    SeedMicroWorld( expected );
-    SeedMicroWorld( restored );
+    DeterminismTerrainFixture expectedFixture( kFlatTerrainBaseY );
+    DeterminismTerrainFixture restoredFixture( kFlatTerrainBaseY );
+    PhysicsEngine& expected = expectedFixture.Engine();
+    PhysicsEngine& restored = restoredFixture.Engine();
+    SeedMicroWorld( expected, expectedFixture.TerrainView() );
+    SeedMicroWorld( restored, restoredFixture.TerrainView() );
 
     StepMicroWorld( expected, kReplaySampleSnapshotFrame );
     StepMicroWorld( restored, kReplaySampleSnapshotFrame );

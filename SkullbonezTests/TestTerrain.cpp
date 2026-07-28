@@ -107,12 +107,6 @@ ColliderStore& TerrainColliderStore()
     return store;
 }
 
-Terrain& FlatCoverageTerrain()
-{
-    static EngineConfig config;
-    static Terrain terrain( 0.0f, 0.0f, 0.0f, config );
-    return terrain;
-}
 } // namespace
 
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
@@ -223,7 +217,8 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
 
 TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every collision shape" )
 {
-    Terrain& terrain = FlatCoverageTerrain();
+    EngineConfig config;
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     const CollisionShape shapes[] = {
         SphereShape( 1.0f ),
         BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),

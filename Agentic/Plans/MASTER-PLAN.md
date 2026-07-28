@@ -284,15 +284,18 @@ ledger under rule 4, so the remaining Principal Engineer Feedback Campaign is
 0/6 (0%). Closure evidence is in
 `../Reports/2026-07-28/vector-dot-product-api-closure.md`.
 
-Deterministic terrain fixture isolation TF0 completed on 2026-07-28. The
-tracked-test census found four shared function-local terrains, one hidden
-terrain default, 18 affected determinism cases, and two related cases outside
-`TestDeterminism.cpp`. A separate startup lifecycle probe currently destroys
-its local terrain before the engine retaining its view. TF1 fixes both surfaces
-with config, terrain, then heap-engine order; analytic test terrain construction
-adds no terrain heap/cache allocation. The live ledger is therefore 1/6 (17%).
-Evidence is in
-`../Reports/2026-07-28/determinism-terrain-fixture-isolation-tf0-census.md`.
+Deterministic terrain fixture isolation TF1 completed on 2026-07-28. All four
+shared terrain statics, the hidden terrain default, and the unused nullable
+branch are deleted. All 18 affected determinism cases now use per-test
+config/terrain/heap-engine invariant owners; comparison engines own independent
+fixtures. The two related test cases use per-case owners, and the startup
+lifecycle probe now destroys its retained-view engine before terrain/config.
+Focused tests, the 437-case suite, lifecycle smoke, dependency direction, and
+all ownership inventories pass. Exact formatting passes for the four touched
+source files; the repository gate is blocked only by the owner's separate
+warm-start files. No baseline or layout changed. The live ledger is therefore
+2/6 (33%). Evidence is in
+`../Reports/2026-07-28/determinism-terrain-fixture-isolation-tf1.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -877,7 +880,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 1/6 (17%).
+The remaining Principal Engineer Feedback Campaign is binding at 2/6 (33%).
 Execute its two live plans in table order below. The owner has answered every
 active-plan question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2316,7 +2319,7 @@ Binding owner directions:
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
-| 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Active | 1/3 | TF1 per-test invariant owner plus startup-probe lifetime order |
+| 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Active | 2/3 | TF2 repeated/randomized order proof, comment reconciliation, and broad Physics/full validation |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 
 ## Features
