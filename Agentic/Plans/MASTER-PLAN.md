@@ -973,11 +973,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/33
-(3%). Plan 1 is complete and excluded under rule 4; execute plans 2→8 in the
-listed order. Plan 2 CX0 published the current complexity distribution and the
-owner ratified 400 body lines / brace depth 6; CX1 installs current rulings and
-drift fixtures. Plan 3 later consumes the installed inventory for closure proof.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/33
+(6%). Plan 1 is complete and excluded under rule 4; execute plans 2→8 in the
+listed order. Plan 2 CX0-CX1 installed the ratified measurement and 40 current
+body rulings with four fail-closed drift fixtures; CX2 wires governance,
+validation, and independent review. Plan 3 later consumes this inventory.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2470,7 +2470,7 @@ Dependency barriers:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
-| 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | In progress | 1/3 | CX0 complete: 6,285 definitions, zero omissions, 40 trigger rows; owner ratified 400 body lines / depth 6. CX1 is next |
+| 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | In progress | 2/3 | CX0-CX1 complete: 40/40 current body rulings, two campaign repair plans, and four planted drift classes pass. CX2 governance wiring and closure is next |
 | 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | CS0-CS3 ready now; CS4 waits on plan 2 CX1 |
 | 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |

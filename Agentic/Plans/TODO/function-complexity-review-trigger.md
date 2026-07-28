@@ -96,6 +96,22 @@ Owner ratification: **Ratified 2026-07-29.** The owner accepted 400 inclusive
 body lines and maximum brace depth 6, with either independent signal triggering
 qualitative review. These are review triggers, never maxima or allowances.
 
+## CX1 Current-Ruling Evidence
+
+- `tools/function_complexity_rulings.json` contains 40 exact file, normalized
+  signature, and body-digest judgements: 38 `retain-owner` and 2 `repair-plan`.
+- `PhysicsContactSolverStage::Solve` and `ParseAction` are the two campaign
+  decomposition targets. Both route to
+  `Agentic/Plans/TODO/contact-solve-phase-ownership.md`; strict mode verifies
+  that repair plan exists.
+- Every other triggered function carries a function-specific owner and cohesion
+  reason. No row is justified by its measurement or by a generic count waiver.
+- The self-test plants a new triggered function, an edited ruled body, a
+  fabricated stale ruling, and a deleted ruled function; all four fail closed
+  through their expected diagnostic class.
+- Direct current-tree strict scan: 6,285 recognized definitions, 40 triggered,
+  40 current rulings, zero scan or currentness diagnostics.
+
 ## Ledger
 
 - [x] CX0 — Build `tools/inventory_function_complexity.py` in report-only mode
@@ -103,7 +119,7 @@ qualitative review. These are review triggers, never maxima or allowances.
   line, body line count, maximum brace depth, and closure count. Publish the
   complete distribution and the candidate trigger set, and record the owner's
   ratified trigger values. No gate wiring in this task.
-- [ ] CX1 — Add `tools/function_complexity_rulings.json` on the wide-signature
+- [x] CX1 — Add `tools/function_complexity_rulings.json` on the wide-signature
   schema, seed a ruling for every currently triggered function, and add
   `--self-test` plus `--strict` modes with planted-drift, stale-ruling,
   edited-body, and deleted-function fixtures. Every seeded row for a function
