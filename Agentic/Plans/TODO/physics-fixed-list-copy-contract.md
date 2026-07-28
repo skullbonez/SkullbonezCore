@@ -20,14 +20,12 @@ Make illegal copying unrepresentable and expose any genuinely required
 scene-load or prediction clone as an explicit owner operation with a visible
 phase precondition.
 
-## Owner Question Before FC1
+## Owner Ruling
 
-Should explicit cloning live only on the concrete aggregate owners
-(`PhysicsWorld`, `PhysicsBodyStore`, `ColliderStore`, or prediction snapshot
-owners), or should `PhysicsFixedList` expose a narrowly named
-`CloneDuringSceneLoad` primitive? Proposed default: owner-level clone methods,
-because a public list clone would let arbitrary callers recreate the hidden
-phase contract.
+Explicit cloning lives only on concrete aggregate owners (`PhysicsWorld`,
+`PhysicsBodyStore`, `ColliderStore`, or a prediction snapshot owner).
+`PhysicsFixedList` does not expose a public clone primitive that would recreate
+the hidden phase contract for arbitrary callers.
 
 ## Phases
 

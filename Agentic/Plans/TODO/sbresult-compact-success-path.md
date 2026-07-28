@@ -20,16 +20,15 @@ Make the success-path value compact while preserving every current Lane R
 owner/message byte, deterministic formatting, no exceptions, and no dangling
 diagnostic lifetime.
 
-## Owner Questions Before SR1
+## Owner Rulings
 
-1. How long must a recoverable diagnostic remain queryable: until the immediate
-   caller consumes it, until end-of-frame, until overwritten by the same owner,
-   or in a retained history?
-2. Is a process/frame-owned bounded error table acceptable, or must failures
-   remain self-contained values across thread/queue boundaries?
-3. Must existing callers keep source-compatible `.ok` / `.error`, or is a
-   deliberate one-shot API migration preferred? Proposed default: no
-   compatibility wrapper; migrate to the honest compact contract in one plan.
+1. A bounded owner-managed diagnostic store is approved; failure detail does
+   not need to remain inline in every success carrier.
+2. SR0/SR1 must select the shortest lifetime that satisfies the observed
+   consumers. Cross-thread or queued uses require an owner-held immutable entry
+   valid through consumption and stale-handle detection.
+3. Migrate callers in one deliberate API change. Do not add a source-compatible
+   forwarding wrapper around the compact result.
 
 ## Phases
 

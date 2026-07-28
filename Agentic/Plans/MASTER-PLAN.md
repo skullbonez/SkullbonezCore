@@ -781,13 +781,13 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 ## Current Execution Priority
 
 The Principal Engineer Feedback Campaign is binding at 0/24 (0%). Execute its
-seven plans in table order below. `physics-body-hot-layout-evidence` BL0 may
-measure immediately, but BL1 cannot select AoS until the owner defines
-“meaningful” performance degradation and the required witness matrix. If that
-decision is still unanswered after BL0, record the blocker and continue with
-plan 2 under the orchestrator blocker-continuation rule. No plan may refresh a
-physics, Replay, visual, or performance baseline without explicit owner
-authority.
+seven plans in table order below. The owner has answered every campaign
+question: retain SoA and run the five-scene Physics witness matrix; replace the
+hard 12-parameter ceiling with qualitative review and reopen all exact-12 rows;
+keep explicit PhysicsFixedList cloning on concrete owners; use bounded
+owner-managed SbResult diagnostics with no compatibility wrapper; and delete
+vector-vector `operator*` after migration. No plan may refresh a physics,
+Replay, visual, or performance baseline without explicit owner authority.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -1436,10 +1436,10 @@ Historical 2026-07-12 owner ruling: full-record AoS `PhysicsBodyRecord`
 reshaping and terrain warm-start/clamp heuristic replacement were deliberately
 not planned because they were working, documented, and baseline-entangled.
 The 2026-07-28 principal-feedback campaign supersedes that ruling only for the
-hot-store layout evidence question: `TODO/physics-body-hot-layout-evidence.md`
-reopens measured SoA/AoS/hybrid comparison, with AoS selectable only when it
-does not meaningfully degrade representative performance. Terrain heuristic
-replacement remains parked. Repeated glossary-header deduplication is
+hot-store evidence question: `TODO/physics-body-hot-layout-evidence.md`
+reopens measurement while retaining SoA under the owner's follow-up ruling.
+Terrain heuristic replacement remains parked. Repeated glossary-header
+deduplication is
 available as a documentation-only plan if the owner wants it (currently
 excluded by the same no-comment-changes ruling).
 
@@ -2195,19 +2195,20 @@ performance, and governance redesigns remain explicit plans.
 
 Binding owner directions:
 
-- AoS may replace the Physics body SoA only if it does not meaningfully degrade
-  representative performance; the exact threshold and witness matrix are
-  questions in plan 1.
+- Retain the Physics body SoA. Plan 1 must run the 200, 520, 1,000, 2,000, and
+  sleepy-5,000 witnesses and may implement only evidence-backed SoA-internal
+  improvements.
 - The warm-start key capacity guard is the final actionable local change. It is
   intentionally left uncommitted after the campaign-registration commit for
   owner review; no baseline may be refreshed by the agent.
-- The current 12-parameter ceiling remains binding until plan 2 records a new
-  owner ruling. No implementation may hide a wide operation in a courier,
-  forwarding facade, capability slice, callback pack, or renamed context.
+- Plan 2 replaces the hard 12-parameter ceiling with mandatory qualitative
+  ownership review and reopens every current exact-12 row. No implementation
+  may hide a wide operation in a courier, forwarding facade, capability slice,
+  callback pack, or renamed context.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [physics-body-hot-layout-evidence](TODO/physics-body-hot-layout-evidence.md) | Ready | 0/4 | BL0 current-layout census and benchmark; BL1 awaits the owner threshold/witness answers |
+| 1 | [physics-body-hot-layout-evidence](TODO/physics-body-hot-layout-evidence.md) | Ready | 0/4 | BL0 current-layout census and approved five-scene benchmark; SoA remains selected |
 | 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Ready | 0/4 | RG0 current exact-ceiling ownership census |
 | 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
 | 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |

@@ -21,16 +21,13 @@ Give Replay restore a concrete owner-shaped operation with no forwarding facade
 or authority-free argument bag, and make the inventory support qualitative
 ownership review rather than treating “at the ceiling” as an accepted endpoint.
 
-## Owner Questions Before RG1
+## Owner Rulings
 
-1. Should the hard 12-parameter ceiling remain as a fail-fast upper bound,
-   become a review trigger below/at the current value, or be replaced entirely
-   by an ownership judgement? The current `AGENTS.md` ruling remains binding
-   until the owner answers.
-2. May the campaign change only prospective governance, or must it reopen every
-   currently ruled 12-parameter row for fresh owner review? Proposed default:
-   reopen all exact-ceiling rows because that is the population implicated by
-   the principal-engineer finding.
+1. Replace the hard 12-parameter pass/fail ceiling with a mandatory qualitative
+   ownership-review trigger. Twelve remains visible inventory evidence, not an
+   accepted allowance or an automatic defect.
+2. Reopen every current exact-12 row for a fresh owner review. A prior `Keep`
+   disposition does not satisfy RG0.
 
 ## Phases
 

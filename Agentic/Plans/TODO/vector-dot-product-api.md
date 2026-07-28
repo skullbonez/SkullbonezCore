@@ -18,12 +18,10 @@ scale, matrix transform, or quaternion composition.
 Make dot products explicit at correctness-sensitive call sites without changing
 floating-point evaluation order or byte-exact physics.
 
-## Owner Question Before VD1
+## Owner Ruling
 
-Should vector-vector `operator*` be deleted in the same campaign after all
-callers migrate, or retained as a documented compatibility spelling? Proposed
-default: one-shot migration and deletion; a retained alias would preserve the
-ambiguity the plan exists to remove.
+Delete vector-vector `operator*` in the same campaign after all callers migrate
+to the explicit dot-product API. No compatibility spelling or macro remains.
 
 ## Phases
 

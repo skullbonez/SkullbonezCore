@@ -16,30 +16,25 @@ Scalar accessors reconstruct `Vector3`/`Quaternion` values by index, the member
 `alignas(32)` aligns each list control block rather than its allocated payload,
 and every list owns a separate allocation.
 
-The owner added this binding direction on 2026-07-28: returning to an array of
-structures (AoS) is allowed only if representative evidence shows that it does
-not meaningfully degrade performance relative to the current structure of
-arrays (SoA).
+The owner first allowed an array of structures (AoS) only if representative
+evidence showed no meaningful degradation relative to the current structure of
+arrays (SoA). On 2026-07-28 the owner made the narrower campaign decision below:
+leave the current SoA layout in place.
 
 ## Goal
 
-Select and implement a measured hot-body layout whose comments match its real
-consumers. Either the SoA has vectorized stage kernels that pay for its
-complexity, or an AoS/hybrid layout proves no meaningful performance loss while
-reducing allocation and scalar gather costs.
+Measure the retained hot-body SoA, make its comments match its real consumers,
+and implement only evidence-backed improvements that preserve the SoA design.
+The campaign may repair payload alignment, allocation topology, or bulk
+consumers, but it may not replace the store with AoS.
 
-## Owner Questions Before BL1
+## Owner Rulings
 
-1. What numeric threshold defines “no meaningful performance degradation” for
-   an AoS candidate (for example, no repeatable regression beyond noise, or a
-   specific median/P95 percentage)?
-2. Which scene/body-count and worker-count witnesses are release-blocking for
-   that decision? Proposed default: the existing 200, 520, 1,000, 2,000, and
-   sleepy-5,000 witnesses at the worker counts already used by Physics
-   performance validation.
-
-BL0 may run without these answers. BL1 must record the answers before choosing
-AoS.
+1. Retain the current SoA layout. This campaign has no authority to select or
+   prototype an AoS replacement, so it needs no numeric AoS regression
+   threshold.
+2. Use the existing 200, 520, 1,000, 2,000, and sleepy-5,000 witnesses at the
+   worker counts already exercised by Physics performance validation.
 
 ## Phases
 
@@ -48,11 +43,11 @@ AoS.
   consumer, and existing intrinsic. Capture final-source performance and cache/
   bandwidth evidence for the agreed scene matrix. Correct the header claim if
   it is already false; do not change storage yet.
-- [ ] **BL1 — Compare viable layouts and make the owner decision.** Implement
-  bounded experimental branches or harness variants for current SoA, a compact
-  AoS, and any justified hybrid. Record memory, allocation count, frame/Physics
-  median and tail timing, and deterministic output. AoS is selectable only
-  under the owner threshold above; otherwise select vectorized SoA/hybrid work.
+- [ ] **BL1 — Rule the evidence-backed SoA work.** Record memory, allocation
+  count, frame/Physics median and tail timing, and deterministic output for the
+  retained layout. Select only SoA-internal work justified by BL0, such as real
+  payload alignment, contiguous backing, or a measured bulk consumer. Do not
+  prototype or select AoS.
 - [ ] **BL2 — Implement the selected layout.** Remove inert control-block
   alignment and warning suppression, collapse or retain allocations according
   to the decision, and make every layout claim name an actual consuming stage.
@@ -65,10 +60,9 @@ AoS.
 
 ## Acceptance
 
-The selected layout has measured consumers, honest alignment/allocation
-comments, no inert `alignas` workaround, no unexplained performance regression,
-and byte-exact deterministic physics. No baseline is refreshed to hide layout
-divergence.
+The retained SoA has measured consumers, honest alignment/allocation comments,
+no inert `alignas` workaround, no unexplained performance regression, and
+byte-exact deterministic physics. No baseline is refreshed to hide divergence.
 
 ## Validation
 
