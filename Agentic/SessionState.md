@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-28
+Date: 2026-07-29
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,10 +10,11 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-28th-JUL-26-takeover` |
-| Current baseline | Main tip `81cc50bc`; PR #136 is merged and the takeover branch starts directly from that merge. |
-| Current objective | No remaining local campaign action. The takeover branch is ready for handoff after the accepted warm-start key-capacity guard. |
-| Active/future progress | 0/0 (0%). The Principal Engineer Feedback Campaign is complete: Plan 7 `dependency-proof-generation` closed DP2 and left the live ledger under rule 4; the protected warm-start action outside the ledger is also closed. |
+| Branch | `main` (clean). The Fresh-Read Engine Review Campaign needs a feature branch before its first implementation commit. |
+| Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign plans 1→8 in order. Plans 1 and 2 are ready now and independent. Recover the contact-identity regression test out of `stash@{0}` before plan 1 starts. |
+| Active/future progress | 0/35 (0%). The Fresh-Read Engine Review Campaign registered on 2026-07-29 from a source-and-tests-only review of tip `90e4d52f`, plus `box-vibration-and-warm-start-integrity` registered as plan 8. The Principal Engineer Feedback Campaign is complete and left the live ledger under rule 4. |
+| Campaign registration 2026-07-29 | Documentation-only: seven fresh-read plans written to `Plans/TODO/` and the owner-supplied box-vibration plan registered as plan 8; ledger denominator 0 → 28 → 35; campaign section, plan-8 ordering consequences, and execution priority added to `MASTER-PLAN.md`. No source, data, or baseline changed, so no repository validation was required. Plan 1 fixes a silent determinism hazard (broadphase radix digit widths unbound from `MAX_SCENE_OBJECTS`). Plans 7 and 8 are the only baseline-moving plans: plan 7 is owner-gated on hands-on visual acceptance, plan 8 carries a bounded-divergence allowance. |
 | Validation for warm-start key capacity | The unchanged `0x7fff` body mask is now one shared Physics key-schema value with a compile-time `MAX_SCENE_OBJECTS` guard. Final formatted source passes `validate_physics` in 112.4 seconds with standalone/runtime-handle smoke and a byte-exact 44,401-line regression. `validate_perf` passes in 90.8 seconds: DX12 Physics/solver averages are 0.2204/0.0253 ms and focused-bench averages are 0.0731/0.0271 ms; both comparisons report no regressions. Format, dependency direction, all ownership inventories, 3/3 comment audit, and independent review are clear. No baseline was refreshed. |
 | Validation for dependency proof closure | Planted rule drift invalidates the old proof; all marker failures remain fail-closed; every Runtime allow row rejects a future package; four isolated parser fixtures pin macro, continuation, quoted, angle, and local-first behavior; and exact project cases cover required-only, missing-required, required-plus-Core, required-plus-Tests, Git discovery, both MSBuild item kinds, and all four governed suffixes. Follow-up independent review is clear and the comment audit is 1/1. The 3.23-second dependency gate, 232.84-second fast gate, and 370.38-second full gate pass with 438/438 tests, 2,419,221 assertions, zero DX12 errors, accepted images, and byte-exact 44,401-line Physics. No baseline was refreshed. |
 | Validation for dependency proof DP1 | The existing dependency checker owns one deterministic marked `AGENTS.md` projection, with fail-closed marker topology, current/stale checking, byte-preserving writes, and escaped rule-controlled Markdown. Its generated tables replace the 21-row Runtime matrix and all 27 mechanical `rg` proofs while retaining one explicitly qualitative Rendering search. Six frame-view allowances are exact files; valid exact edges pass and the pseudo-descendant fixture fails. App closed-world, Camera App-prefix, UI-to-Rendering, and residual textual-parser semantics are explicit. Self-tests pass 27 include rules / 47 negative edges, two negative content fixtures, one project fixture, and the generated-proof cases; the proof check and dependency gate pass with zero repository findings. Focused Python syntax/diff-whitespace checks and all three ownership inventories pass. Touched-tool comment audit is 1/1 with zero deferred files. No baseline was refreshed. |

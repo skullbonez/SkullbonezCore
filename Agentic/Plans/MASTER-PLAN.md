@@ -359,6 +359,27 @@ Principal Engineer Feedback Campaign has no live plan and the active/future
 ledger is empty (0%). Closure evidence is in
 `../Reports/2026-07-28/dependency-proof-generation-closure.md`.
 
+The denominator grew 0 → 28 on 2026-07-29 when the owner registered the
+seven-plan Fresh-Read Engine Review Campaign from a source-only review of main
+tip `90e4d52f`: broadphase canonical-order guard (2 tasks), function complexity
+review trigger (3), contact solve phase ownership (5), collision hull shape
+instancing (4), broadphase capacity right-sizing (4), runtime include-closure
+reduction (4), and quaternion convention normalization (6). Execution order is
+1→7 as listed; the ordering rationale, dependencies, and per-plan gates live in
+the campaign section below. Two findings from the same review were dropped by
+owner decision and are not tracked: the zero-in-source-TODO debt-visibility
+question, and any repair of the documented quaternion convention short of the
+full normalization registered as plan 7.
+
+The denominator grew 28 → 35 on 2026-07-29 when the owner registered
+`box-vibration-and-warm-start-integrity` (7 tasks, BV0-BV6) from the 2026-07-27/28
+SkullScope investigation at tip `0768593d`. Its evidence is independent of the
+fresh-read review and it carries a bounded-divergence allowance that the other
+eight plans deliberately do not. The owner resolved its open sequencing question
+the same day by placing it after `quaternion-convention-normalization`, so it is
+listed as plan 8 of the Fresh-Read queue rather than as a separate campaign; its
+owner directions and superseded ruling remain in its own section below.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -941,6 +962,21 @@ caller should move, and plan 1's Capability Slice Ownership Rule landed
 layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
+
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/35
+(0%). Execute plans 1→8 in the listed order; the dependency barriers in that
+section are binding. Plans 1 and 2 are cheap and independent and should land
+first: plan 1 closes a silent determinism hazard in two tasks, and plan 2 builds
+the complexity inventory that plan 3 uses to prove its own closure.
+
+Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
+move a baseline, and both are sequenced last by owner direction: plan 7
+`quaternion-convention-normalization` gates every regeneration behind its QN4
+hands-on visual acceptance checkbox, and plan 8
+`box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
+allowance for a visible owner-reported defect. Before starting plan 1, recover
+the contact-identity regression test out of `stash@{0}` so it does not have to
+survive the whole queue in a stash.
 
 The Principal Engineer Feedback Campaign and its protected final local action
 are complete. All seven plans closed and left the live inventory under rule 4;
@@ -2383,6 +2419,111 @@ Binding owner directions:
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
 | 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
 | 7 | [dependency-proof-generation](../Reports/2026-07-28/dependency-proof-generation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; planted drift, parser limits, exact project ownership, independent review, and all mapped gates pass |
+
+## Fresh-Read Engine Review Campaign (2026-07-29)
+
+Source: source-and-tests-only engine review at main tip `90e4d52f`, deliberately
+conducted without reading `Agentic/` or commit history so the findings reflect
+what a new reader sees in the code alone. Evidence is dated 2026-07-29 and
+recorded in each plan; no historical measurement is reused.
+
+The review's positive findings are recorded here so later work does not
+regress them: the persistent contact solver's Catto citation discipline, the
+force-included FP-contraction contract, canonical broadphase pair emission,
+disjoint-set narrowphase island equivalence, and the registered-owner allocation
+policy are all load-bearing and must survive every plan in this campaign.
+
+Binding owner directions:
+
+- Plan 7 is last. It is the only campaign plan permitted to regenerate a
+  baseline, and QN4 is a hands-on owner visual acceptance gate: no baseline file
+  may change before that checkbox is recorded with its reviewed scene list.
+- Plans 1-6 are strictly byte-exact. A differing physics byte in any of them
+  means the change altered evaluation rather than expression, and the task is
+  reverted rather than baselined. None of them carries a bounded-divergence
+  allowance.
+- Plan 2 adds a fourth repeatable inventory measuring function extent. Like the
+  existing three, no threshold in it is an allowance, budget, or ratchet, and a
+  ruling records a judgement rather than managing a number.
+
+Dependency barriers:
+
+- Plan 1 before plan 5 — both edit `SpatialGrid`, and the guard is smaller.
+- Plan 2 CX1 before plan 3 CS4 — CS4 clears the `repair-plan` rulings CX1 seeds.
+  Plan 3 CS0-CS3 may run earlier.
+- Plan 5 before plan 6 — plan 6 breaks the include chain that reaches
+  `SpatialGrid.h`, which plan 5 is still reshaping.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [broadphase-canonical-order-guard](TODO/broadphase-canonical-order-guard.md) | Not started | 0/2 | Ready now; bind the radix digit widths to `MAX_SCENE_OBJECTS` so raising the ceiling fails compilation instead of silently de-canonicalizing pair order |
+| 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | Not started | 0/3 | Ready now; CX0 publishes the measured distribution and the owner ratifies the trigger values before any ruling is written |
+| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | CS0-CS3 ready now; CS4 waits on plan 2 CX1 |
+| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
+| 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
+| 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
+| 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |
+| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | Not started | 0/7 | Last, by owner direction. Investigation complete; re-record BV0's T0 harness after plan 7's baseline transition and re-resolve every source line number before acting on it |
+
+### Plan 8 Ordering Consequences
+
+Plan 8's own section below carries its owner directions, evidence, and
+superseded ruling. Two consequences follow specifically from placing it last,
+and BV0 must account for both:
+
+- **Its evidence ages by two baseline transitions.** Every measurement in plan 8
+  was taken at tip `0768593d`; the plan already warns that line numbers moved at
+  `90e4d52f`, and plan 7 will move physics baselines again before plan 8 starts.
+  Inventory Rule 7 applies twice over. BV0's T0 harness must be recorded against
+  the post-plan-7 tree, not against the numbers in the plan body, and the
+  feature-ID bit layout must be re-confirmed against the current key schema.
+- **`stash@{0}` must survive 34 intervening tasks.** It holds the only copy of
+  the contact-identity regression test, which fails 338 assertions without the
+  SAT fix and is the most reusable artifact of the investigation. Its baselines
+  are stale twice over and its restitution change is compiles-unverified, but
+  the test is worth preserving now rather than at BV2. Recover it to a branch
+  before plan 1 starts; the stash is then droppable.
+
+## Box Vibration And Warm-Start Integrity (2026-07-29)
+
+Source: owner-reported box vibration in `prediction_ragdoll_wall_200`,
+investigated 2026-07-27/28 at main tip `0768593d` with SkullScope. The owner's
+two stated goals are to stop the boxes vibrating and to make solver warm
+starting stop being a hack.
+
+The investigation is complete and the cause is measured: object/object
+restitution fires on contacts whose pre-solve closing speed is dominated by the
+rotational `omega x r` term inside a dense pile rather than by a genuine impact.
+Disabling that branch cut bounce oscillations 91%, cut the warm-start cache miss
+rate from 12.8% to 2.4%, and let the solver reach its convergence early-out for
+the first time in that scene. Three competing hypotheses were tested and
+falsified; they are recorded in the plan so they are not re-investigated.
+
+Binding owner directions:
+
+- **Terrain restitution does not change.** It is what brings rolling balls to a
+  stop. Only the object/object branch is in scope.
+- **This plan is not byte-exact and carries a bounded-divergence allowance.**
+  BV1-BV3 deliberately change contact response and will move physics baselines.
+  This is the only currently registered plan permitted to do so; the Fresh-Read
+  campaign remains strictly byte-exact.
+- **BV3 supersedes the 2026-07-27 Round 5 ruling** that rejected replacing the
+  terrain contact seed. That ruling rejected it "for no visible gameplay gain";
+  a visible gameplay motivation now exists. BV3 is droppable without affecting
+  the vibration fix.
+
+Sequencing, resolved 2026-07-29: this plan and Fresh-Read plan 3
+(`contact-solve-phase-ownership`) both edit `PersistentContactSolver.cpp`, and
+that plan is strictly byte-exact while this one is not, so **they must not run
+concurrently.** The owner placed this plan after
+`quaternion-convention-normalization`, which satisfies that requirement by
+construction: plan 3 closes long before this one starts, and BV1/BV3 then
+operate on a decomposed solver rather than inside the 1,721-line body.
+
+This plan is tracked as **plan 8 of the Fresh-Read Engine Review Campaign**
+above; it does not carry a second ledger row. Its start condition, ordering
+consequences, and the `stash@{0}` recovery note live there. The owner directions
+and superseded ruling above remain the authority for how it is executed.
 
 ## Features
 
