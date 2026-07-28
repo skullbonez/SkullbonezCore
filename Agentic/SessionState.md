@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 0/3 (0%). Plan 6 `determinism-terrain-fixture-isolation` is complete and has left the live ledger under rule 4; Plan 7 `dependency-proof-generation` starts at DP0. |
+| Active/future progress | 1/3 (33%). Plan 6 `determinism-terrain-fixture-isolation` is complete and has left the live ledger under rule 4; Plan 7 `dependency-proof-generation` completed DP0 and continues at DP1. |
+| Validation for dependency proof DP0 | Documentation-only comparison: 27 include rules, one content rule, one project rule, the 21-row Runtime table, 28 hand-written commands (27 mechanical and one qualitative), 46 negative include fixtures, two content fixtures, and one compound project fixture are reconciled row by row. The report identifies the over-broad Input proof, every Runtime regex's future-package hole, the frame-view self-include hole, UI prose/proof omission of Rendering, compound project-fixture false pass, selected-example fixture coverage, textual-include/resolver limits, path-casing behavior, prefix-to-exact migration with intentional descendant rejection, and a single-checker deterministic Markdown/freshness design. Its generated block owns the matrix and all mechanical commands; markers fail closed, writes preserve outside bytes, and escaping is deterministic. No repository validation was required. |
 | Validation for terrain fixture closure | The seven-run flat/deep reconstruction witness covers flat-to-flat, flat-to-deep, deep-to-flat, and deep-to-deep predecessors and passes 92/92 focused assertions. Randomized determinism seeds 28072026 and 731942 each pass 24/24 cases and 2,385,028 assertions. Final-source tests pass 438/438 cases and 2,419,221 assertions; format, 787/787 project/filter rows, dependency direction, all ownership inventories, byte-exact 44,401-line Physics, deep Physics, and the 284.23-second full gate pass. Comment audit is 4/4; follow-up independent review is clear. No baseline, golden, config, schema, performance artifact, layout, or SoA storage changed. |
 | Validation for terrain fixture TF1 | All four shared terrain statics, the terrain-bearing default, and nullable helper branch are deleted. All 18 terrain-bearing determinism cases use per-test config/terrain/heap-engine invariant owners; comparison engines own independent fixtures. Related prediction and terrain-coverage cases use per-case owners, and the startup lifecycle probe now has owner-safe destruction order. Profile build, focused 23-case determinism and two related cases, 437/437 tests with 2,419,129 assertions, standalone lifecycle smoke, dependency graph, and all three ownership inventories pass. Exact formatting passes for 4/4 touched source files; the global format gate is blocked only by two owner warm-start files. Comment audit is 4/4. No baseline, golden, config, schema, performance artifact, layout, or SoA storage changed. |
 | Validation for terrain fixture TF0 | Documentation-only census: 55 tracked test source/header paths contain four shared function-local terrains and one terrain-bearing default argument. `TestDeterminism.cpp` reaches 18 cases (17 flat, one deep), with one related shared case each in `TestPhysicsHandles.cpp` and `TestTerrain.cpp`. A separate non-test startup probe declares its heap engine before config/terrain and therefore destroys the retained-view owner first. `PhysicsWorld` retains the copied terrain view across `Clear`; config/terrain/heap-engine declaration order is binding for both TF1 surfaces. Analytic test terrains add no terrain heap/cache allocation. No baseline refresh or repository validation was required. |
@@ -42,11 +43,15 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 0/3. Physics body layout,
+The Principal Engineer Feedback Campaign is live at 1/3 (33%). Physics body layout,
 Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
 compact SbResult success values, explicit vector dot products, and isolated
 deterministic terrain fixtures are complete; its one remaining plan generates
-dependency proofs. The bounded registration response
+dependency proofs. DP0 reconciled the JSON, human matrix, commands, checker,
+and fixtures; DP1 generates one deterministic review proof and freshness check
+through the existing checker, replacing the mechanical Runtime matrix and all
+27 mechanical commands while keeping the sole qualitative Rendering search
+explicit and exact-file distinctions visible. The bounded registration response
 removes the exact Replay pure forwarder, publishes the anti-Hamilton/
 transposed-matrix quaternion
 contract in the public header, makes orientation conversion const, gives the
@@ -736,10 +741,16 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `dependency-proof-generation` at DP0. Compare the authoritative JSON
-rules with the human-readable dependency matrix, regex proofs, and fixture
-coverage before generating any proof surface. The principal-feedback campaign
-is 0/3 (0%). Keep the warm-start
+Continue `dependency-proof-generation` at DP1. Extend the existing checker with
+the deterministic review-friendly projection and marked-block freshness check
+selected by DP0. The generated block owns both the 21-row Runtime matrix and
+all 27 mechanical proof commands, renders prefixes separately from exact files,
+and migrates the six frame-view file exceptions while rejecting a descendant
+pseudo-path. DP1/DP2 must prove fail-closed missing/duplicate/reversed markers,
+outside-block preservation, deterministic Markdown escaping, independent
+missing/duplicate project ownership, and residual parser limits; do not add a
+second checker, package-specific branch, edge count, or budget. The
+principal-feedback campaign is 1/3 (33%). Keep the warm-start
 experiment as the final actionable item and unstaged for owner evaluation. The
 future AoS threshold and warm-start acceptance metric remain explicit owner
 questions in `Agentic/Plans/MASTER-PLAN.md`.
