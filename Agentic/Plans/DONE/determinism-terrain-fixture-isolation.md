@@ -1,7 +1,7 @@
 # Determinism Terrain Fixture Isolation
 
 Date: 2026-07-28
-Status: ACTIVE — 2/3 phases complete
+Status: COMPLETE — 3/3 phases complete
 Impact area: Physics tests, startup probe terrain lifetime, test order independence
 Owner: Tests + Physics terrain
 Priority: Medium
@@ -30,9 +30,10 @@ consume it.
   remove default arguments/function statics. Do not add a generic test context
   bag—one fixture owns the terrain-borrow invariant and states it. Evidence:
   `../../Reports/2026-07-28/determinism-terrain-fixture-isolation-tf1.md`.
-- [ ] **TF2 — Prove order independence.** Add repeated/reordered construction
+- [x] **TF2 — Prove order independence.** Add repeated/reordered construction
   coverage, run the determinism suite with randomized doctest order where
-  supported, audit comments, and complete Physics/broad validation.
+  supported, audit comments, and complete Physics/broad validation. Evidence:
+  `../../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md`.
 
 ## Acceptance
 
@@ -93,3 +94,11 @@ inventories. Exact formatting passes for all four touched source files; the
 repository-wide format gate remains blocked only by the owner's three
 uncommitted warm-start files. TF2 owns randomized/repeated order coverage,
 `tools\validate_physics.bat`, and `tools\validate_full.bat`.
+
+TF2 closes the plan with a seven-run flat/deep reconstruction witness covering
+all four predecessor transitions. Both recorded randomized determinism seeds
+pass 24/24 cases, the final unit suite passes 438/438 cases and 2,419,221
+assertions, byte-exact and deep Physics pass, and the final full gate passes.
+The plan-wide comment audit is 4/4 and the follow-up independent review returns
+zero blockers. No baseline, golden, config, schema, performance artifact,
+layout, or SoA storage changed.

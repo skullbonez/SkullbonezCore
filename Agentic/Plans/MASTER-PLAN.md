@@ -297,6 +297,16 @@ warm-start files. No baseline or layout changed. The live ledger is therefore
 2/6 (33%). Evidence is in
 `../Reports/2026-07-28/determinism-terrain-fixture-isolation-tf1.md`.
 
+Deterministic terrain fixture isolation TF2 completed on 2026-07-28. A
+seven-run flat/deep fixture reconstruction witness covers all four predecessor
+transitions and produces exact repeated hashes. Both recorded randomized
+determinism seeds pass 24/24 cases, the final suite passes 438/438 cases and
+2,419,221 assertions, byte-exact and deep Physics pass, and the final full gate
+passes after independent-review remediation. The completed three-task plan left
+the ledger under rule 4, so the remaining Principal Engineer Feedback Campaign
+is 0/3 (0%). Closure evidence is in
+`../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -880,8 +890,8 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 2/6 (33%).
-Execute its two live plans in table order below. The owner has answered every
+The remaining Principal Engineer Feedback Campaign is binding at 0/3 (0%).
+Execute its one live plan in the table below. The owner has answered every
 active-plan question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
 exact-12 rows;
@@ -2319,7 +2329,7 @@ Binding owner directions:
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
-| 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Active | 2/3 | TF2 repeated/randomized order proof, comment reconciliation, and broad Physics/full validation |
+| 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 
 ## Features

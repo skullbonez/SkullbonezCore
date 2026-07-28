@@ -1,7 +1,7 @@
 # Determinism Terrain Fixture Isolation TF0 Census
 
 Date: 2026-07-28
-Plan: `Agentic/Plans/TODO/determinism-terrain-fixture-isolation.md`
+Plan: `Agentic/Plans/DONE/determinism-terrain-fixture-isolation.md`
 Phase: TF0
 Impact area: Physics tests, startup probe terrain lifetime, test order independence
 

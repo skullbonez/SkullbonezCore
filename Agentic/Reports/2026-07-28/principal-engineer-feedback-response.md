@@ -30,7 +30,7 @@ evaluation. This response authorizes no baseline refresh.
 | Header identity constants have per-translation-unit internal linkage | Fixed | `IDENTITY_QUATERNION` and `IDENTITY_MATRIX` are `inline const` |
 | `GetOrientationMatrix()` is non-const and forces mutable copies | Fixed | API/definition are const; cited Physics copies are removed; immutable conversion is compiled by the Quaternion test |
 | Vector-vector `operator*` hides dot products | Complete | `Agentic/Reports/2026-07-28/vector-dot-product-api-closure.md` |
-| Determinism terrain helpers share mutable function-local statics | Planned | `Agentic/Plans/TODO/determinism-terrain-fixture-isolation.md` |
+| Determinism terrain helpers share mutable function-local statics | Complete | `Agentic/Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md` |
 | Runtime dependency regexes duplicate authoritative JSON | Planned | `Agentic/Plans/TODO/dependency-proof-generation.md` |
 | IDE/F5 first-party builds do not enforce warning-as-error | Fixed | Every Level4 first-party project configuration now sets `TreatWarningAsError=true`; warning-suppressed third-party item groups remain exempt |
 

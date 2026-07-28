@@ -45,6 +45,8 @@
 //   - Terrain queries are real flat-plane queries; render resources must stay unused.
 //   - Every terrain-bearing engine is owned by a per-test fixture; no borrowed
 //     terrain view survives its terrain or construction config.
+//   - Reconstructing alternating flat/deep fixtures yields the same exact hash
+//     for each terrain, independent of the fixture that ran immediately before.
 //   - Worker scheduling must not change any kinematic or sleep-state byte.
 //
 // Related:
@@ -1117,6 +1119,50 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
         StepMicroWorld( second, 60 );
         CheckEngineKinematicsEqual( first, second );
     }
+}
+
+
+TEST_CASE( "PhysicsEngine terrain fixtures reconstruct without cross-instance state" )
+{
+    const auto runColdFixture = []( float terrainBaseY )
+    {
+        DeterminismTerrainFixture fixture( terrainBaseY );
+        PhysicsEngine& engine = fixture.Engine();
+        engine.Clear();
+        engine.ApplyRuntimeConfig( MakeDeterministicConfig() );
+        engine.SetSleepEnabled( false );
+        AddMicroBody( engine, fixture.TerrainView(), 501u, Vector3( 0.0f, 2.0f, 0.0f ),
+                      Vector3( 0.0f, 0.0f, 0.0f ) );
+        AddMicroBody( engine, fixture.TerrainView(), 502u, Vector3( 4.0f, 4.0f, 0.0f ),
+                      Vector3( 0.0f, 0.0f, 0.0f ) );
+        AddMicroBody( engine, fixture.TerrainView(), 503u, Vector3( 8.0f, 6.0f, 0.0f ),
+                      Vector3( 0.0f, 0.0f, 0.0f ) );
+        StepMicroWorld( engine, kSnapshotFrame );
+        return CaptureMicroWorldReplaySample( engine, static_cast<ReplayFrameIndex>( kSnapshotFrame ) ).solverHash;
+    };
+
+    // Invariant: every lambda return destroys its engine, terrain, and config
+    // before the next terrain is constructed. The sequence exercises flat and
+    // deep after both predecessor kinds, then exact hashes prove that no prior
+    // fixture contributes retained mutable state.
+    const std::array<uint64_t, 7> reconstructionHashes = {
+        runColdFixture( kFlatTerrainBaseY ),
+        runColdFixture( kDeepSpaceTerrainBaseY ),
+        runColdFixture( kFlatTerrainBaseY ),
+        runColdFixture( kDeepSpaceTerrainBaseY ),
+        runColdFixture( kDeepSpaceTerrainBaseY ),
+        runColdFixture( kFlatTerrainBaseY ),
+        runColdFixture( kFlatTerrainBaseY ),
+    };
+
+    CHECK( reconstructionHashes[0] != 0u );
+    CHECK( reconstructionHashes[1] != 0u );
+    CHECK( reconstructionHashes[0] == reconstructionHashes[2] );
+    CHECK( reconstructionHashes[0] == reconstructionHashes[5] );
+    CHECK( reconstructionHashes[0] == reconstructionHashes[6] );
+    CHECK( reconstructionHashes[1] == reconstructionHashes[3] );
+    CHECK( reconstructionHashes[1] == reconstructionHashes[4] );
+    CHECK( reconstructionHashes[0] != reconstructionHashes[1] );
 }
 
 
