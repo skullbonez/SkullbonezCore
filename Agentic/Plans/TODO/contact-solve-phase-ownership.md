@@ -83,7 +83,7 @@ Secondary target, same defect class, far lower stakes:
   or side-effect publication. Name the phase boundaries and the authority the
   transaction must own. Produce a baseline byte-exact physics artifact from the
   final Debug executable to compare every later task against.
-- [ ] CS1 — Install the phase owner. Add the non-copyable transaction holding the
+- [x] CS1 — Install the phase owner. Add the non-copyable transaction holding the
   phase cursor, solver-body working set, and impulse application, with lane-F
   fatal on illegal transitions and its stated invariant in the header. `Solve`
   still contains the pass bodies; only the shared arithmetic and cursor move.
@@ -137,12 +137,14 @@ Secondary target, same defect class, far lower stakes:
 ## Comment-Audit Checklist
 
 - [ ] `SkullbonezSource/Physics/PersistentContactSolver.h`
-- [ ] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsFixedList.h`
 - [ ] `SkullbonezSource/Physics/ContactSolverCommon.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp`
 - [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp`
 - [ ] `SkullbonezTests/TestPersistentContactSolver.cpp`
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp`
 
 Reconcile against `git diff --name-only` at CS4 and add any newly touched file.
 
@@ -161,3 +163,35 @@ Permanent census and byte-exact oracle manifest:
   SHA-256
   `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
 - No source, baseline, golden, or committed runtime artifact changed.
+
+## CS1 Evidence
+
+- `PersistentContactSolveTransaction` is non-copyable and stage-retained so its
+  `PhysicsFixedList` preserves scene-load capacity while its cursor resets
+  between fixed-step solves. It owns the solver-body working set, inverse
+  inertia, and impulse application and retains no caller borrow.
+- The cursor encodes the complete full-work order plus only the two existing
+  no-work terminal edges. Every phase entry routes through Lane F on an illegal
+  transition. The focused runtime-contract test passes 1/1 case and 1,602/1,602
+  assertions, including the complete transition matrix and every illegal edge.
+- Shared arithmetic moved beside its Catto and engine-specific comments.
+  Twenty-two closures remain in `Solve`; phase bodies stay there for CS2/CS3.
+  Its current complexity ruling is exact at 1,630 body lines, brace depth 7,
+  22 closures, and SHA-256
+  `11d47721b968b5b4b1d9697227fe297e74573c846c3347b16e89e557fc87420d`.
+- `PhysicsFixedList::ResetDefault` is the named fixed-capacity construction
+  boundary used by the transaction. The allocation policy rejected direct
+  `.assign`, `.resize`, and `.emplace_back` spellings during iteration; no
+  allowlist exception was added.
+- `tools\validate_physics.bat` passes on final source in 28.4 seconds. Its
+  88,802-row, 12,660,434-byte output remains byte-identical to CS0 at SHA-256
+  `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
+  `tools\validate_perf.bat` passes in 157.9 seconds.
+- Format, aggregate ownership (85/85 ruled), extraction scars (1/1 ruled),
+  wide signatures at 12+ (all ruled), and function complexity (40/40 ruled)
+  pass. The five touched source-bearing files are comment-audited 5/5; four
+  later-plan files remain unchecked for their owning task.
+- A short wrapper timeout left compiler children running and caused one
+  immediate Debug retry to collide on an object file. After the owned processes
+  drained, the unchanged gate passed; this was a non-terminal infrastructure
+  event, not a source or oracle failure.

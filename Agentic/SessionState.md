@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-2 are closed. Plan 3 CS0 now owns the exact 28-closure census, thirteen-phase read/write map, transaction authority decision, and Debug byte oracle; CS1 installs the non-copyable phase owner next. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 1/30 (3%). Plan 3 CS0 is complete; plans 3 CS1-CS4 and plans 4-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-2 are closed. Plan 3 CS0 owns the exact census/oracle, and CS1 installed the non-copyable guarded transaction with exhaustive phase-edge proof while retaining pass bodies in `Solve`; CS2 moves the row-construction phases behind that owner next. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 2/30 (7%). Plan 3 CS0-CS1 are complete; plans 3 CS2-CS4 and plans 4-8 remain. |
+| Validation for contact-solve CS1 | The non-copyable stage-retained transaction owns its phase cursor, solver-body working set, inverse-inertia path, and impulse application without retaining caller borrows. The focused exhaustive matrix passes 1 case / 1,602 assertions; format and all four ownership inventories pass, including function complexity at 6,317 recognized definitions and 40/40 current rulings. Final `tools\validate_perf.bat` passes in 157.9 seconds. Final `tools\validate_physics.bat` passes in 28.4 seconds, and the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. Allocation-policy iterations replaced rejected STL-growth spellings with `PhysicsFixedList::ResetDefault`; no allowlist or baseline changed. A short wrapper timeout and one immediate compiler-file collision were non-terminal infrastructure events; the unchanged gate passed after the owned processes drained. Comment audit is 5/5 touched source-bearing files. |
 | Validation for contact-solve CS0 | `tools\validate_physics.bat` passed in 24.4 seconds from the final Debug executable with zero build warnings/errors; both generated 44,401-row runs matched the committed baseline. The preserved ignored two-run artifact has SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. Census evidence records 28/28 closures, all cross-phase state, thirteen exact phase read/write sets, and the authority CS1 must own. A five-second wrapper timeout and its brief DXC DLL lock were recorded as non-terminal infrastructure events; the unchanged gate then passed. No source, baseline, golden, or committed runtime artifact changed. |
 | Validation for function-complexity closure | The owner ratified 400 inclusive body lines and brace depth 6 as independent qualitative-review triggers. The current tree reports 6,285 recognized definitions and 40/40 exact current-body rulings: 38 retain-owner and two repair-plan rows routed to contact-solve phase ownership. Direct self-test passes in 1.0 seconds, strict scan in 27.7 seconds, and `validate_fast` in 177.3 seconds with format, metadata, dependencies, all four ownership inventories, Profile x64 build, and tests clear. Independent review ended with zero blockers after fail-closed path and CLI-mode hardening. Comment audit is 3/3 with zero deferred; no behavior, baseline, golden, or runtime artifact changed. |
 | Validation for broadphase guard closure | Both radix paths derive from `MAX_SCENE_OBJECTS`; triangular identity/reset arithmetic is wide before guarded narrowing; exact cell coordinates remain `int` and the int16 visualization projection saturates to [-32,768, 32,767]. The ceiling test exercises unfiltered and production-filtered emission through body 8,191: focused SpatialGrid passes 16/16 cases and 8,524 assertions. `validate_tests` passes in 21.8 seconds with 439/439 tests and 2,419,238 assertions; `validate_physics` passes in 59.76 seconds with all 44,401 rows byte-exact; `validate_perf` passes in 91.2 seconds with both absolute budgets and baseline comparisons clear. Format, all three ownership inventories, 3/3 comment audit, and follow-up independent review pass. No baseline was refreshed. |
@@ -50,10 +51,10 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 1/30 (3%). Plans 1-2 are
-closed and excluded under rule 4. Plan 3 CS0 is complete; CS1 is the binding
-next item and installs the non-copyable phase owner while leaving pass bodies
-in `Solve`. Plans 4-8 remain sequenced behind it, with only plans 7 and 8
+The Fresh-Read Engine Review Campaign is active at 2/30 (7%). Plans 1-2 are
+closed and excluded under rule 4. Plan 3 CS0-CS1 are complete; CS2 is the
+binding next item and moves row-construction phases behind the guarded owner.
+Plans 4-8 remain sequenced behind it, with only plans 7 and 8
 authorized to move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
@@ -759,8 +760,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 1/30 (3%) with Plan 3
-`Agentic/Plans/TODO/contact-solve-phase-ownership.md`, task CS1. CS0 census and
+Continue the Fresh-Read Engine Review Campaign at 2/30 (7%) with Plan 3
+`Agentic/Plans/TODO/contact-solve-phase-ownership.md`, task CS2. CS0 census and
 oracle evidence is in
-`Agentic/Reports/2026-07-29/contact-solve-cs0-census.md`. MASTER and
-SessionState agree on the 1/30 live ledger.
+`Agentic/Reports/2026-07-29/contact-solve-cs0-census.md`; CS1 implementation and
+gate evidence is in the plan. MASTER and SessionState agree on the 2/30 live
+ledger.

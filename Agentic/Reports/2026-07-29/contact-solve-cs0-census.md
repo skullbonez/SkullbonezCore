@@ -85,11 +85,15 @@ complexity or extraction-scar rules.
 
 ## Phase Read/Write Map
 
-The required legal order is:
+The full-work legal order is:
 
 `EntryPolicySetup -> BodySetup -> BuildManifolds -> TerrainRows -> Precompute
 -> SolveRows -> PointSupportInstability -> TerrainRestPolicy -> WriteBack
 -> DebugContacts -> PositionCorrection -> CacheStore -> FixedContactRelease`.
+
+The existing empty-input path terminates after `EntryPolicySetup`, and the
+existing empty-row path terminates after `TerrainRows`; CS1 must encode those
+two terminal edges without admitting any other phase skip.
 
 | Phase | Reads | Writes |
 |---|---|---|
@@ -116,7 +120,9 @@ their bodies and retain their exact strings.
 
 ## Transaction Authority Decision
 
-CS1 must install one non-copyable, stack-lifetime transaction with:
+CS1 must install one non-copyable, stage-retained transaction whose phase state
+is reset between fixed-step solves and whose fixed-capacity body storage
+preserves scene-load reservation across frames:
 
 - a phase cursor whose legal states are the thirteen phases above plus
   completion, with lane-F fatal on every out-of-order transition;

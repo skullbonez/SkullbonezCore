@@ -15,7 +15,7 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
-      "body_sha256": "566ccacecaaf76e00df828da38099a1633114255fcc532d5a81fdf0148f52c15",
+      "body_sha256": "11d47721b968b5b4b1d9697227fe297e74573c846c3347b16e89e557fc87420d",
       "owner": "Contact solve phase ownership campaign",
       "disposition": "repair-plan",
       "reason": "The current body spans distinct order-dependent construction, solve, publication, and cache phases; the named plan installs a phase-cursor transaction and decomposes those authorities.",

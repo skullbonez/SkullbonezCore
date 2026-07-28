@@ -281,6 +281,16 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         resize( 0u );
     }
 
+    void ResetDefault( std::size_t count )
+    {
+
+        // Why: runtime phase owners need to replace a working set without
+        // exposing an STL-growth spelling or bypassing this list's capacity
+        // check, construction, destruction, and high-water accounting.
+        clear();
+        resize( count );
+    }
+
     void resize( std::size_t count )
     {
         CheckCapacity( count );

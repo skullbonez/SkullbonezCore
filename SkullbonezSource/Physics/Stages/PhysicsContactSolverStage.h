@@ -1,7 +1,8 @@
 /*
 File: SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 Purpose:
-  Owns persistent-contact rows, cache, solver scratch, statistics, and outputs.
+  Owns persistent-contact rows, cache, the guarded solve transaction,
+  statistics, and outputs.
 
 Summary:
   PhysicsContactSolverStage owns and executes the complete persistent-row solve
@@ -15,6 +16,8 @@ Glossary:
     contact feature on the next fixed tick.
   Consequence batch: Bounded post-solve records and body indices whose foreign
     owner-side effects are committed after the hot solver pass.
+  Phase transaction: Non-copyable owner that admits solver work only through
+    the current fixed-step phase and retains the solver-body working set.
   Wake access: Narrow synchronous capability that can invalidate cache rows
     without exposing the contact-solver owner to the sleep subsystem.
   Warm start: Reuse of last tick's accumulated contact impulses.
@@ -23,6 +26,10 @@ Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
     loudly rather than grow during steady gameplay.
   - Solve prepares a fresh consequence batch before invoking the row solver.
+  - Contact phases advance in one adjacent order. The two existing no-work
+    exits may terminate only from entry/setup or terrain-row completion.
+  - The solve transaction owns solver-body scratch and impulse application; it
+    retains no borrowed store, span, stage, or world pointer.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
   - Wake propagation receives only a cache-invalidation capability, never the
     concrete contact-solver owner.
@@ -56,6 +63,7 @@ class Profiler;
 
 namespace Physics
 {
+struct PersistentContactSolveTransactionTestAccess;
 class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
@@ -126,6 +134,135 @@ using PhysicsContactBodyList = PhysicsFixedList<int, PHYSICS_MAX_CONTACT_ROWS>;
 using PhysicsReleaseWakeBodyList = PhysicsFixedList<int, PHYSICS_MAX_BODY_ROWS>;
 using PhysicsFixedTreeReleaseList = PhysicsFixedList<PhysicsFixedTreeReleaseEvent, PHYSICS_MAX_BODY_ROWS>;
 
+class PersistentContactSolvePhaseCursor
+{
+  public:
+    enum class Phase : uint8_t
+    {
+        Idle,
+        EntryPolicySetup,
+        BodySetup,
+        BuildManifolds,
+        TerrainRows,
+        Precompute,
+        SolveRows,
+        PointSupportInstability,
+        TerrainRestPolicy,
+        WriteBack,
+        DebugContacts,
+        PositionCorrection,
+        CacheStore,
+        FixedContactRelease,
+        Complete,
+        Count
+    };
+
+    static constexpr bool IsLegalTransition( Phase from, Phase to )
+    {
+        const bool adjacent = from >= Phase::Idle && from < Phase::FixedContactRelease &&
+                              to == static_cast<Phase>( static_cast<uint8_t>( from ) + 1u );
+        const bool noInput = from == Phase::EntryPolicySetup && to == Phase::Complete;
+        const bool noRows = from == Phase::TerrainRows && to == Phase::Complete;
+        const bool normalCompletion = from == Phase::FixedContactRelease && to == Phase::Complete;
+        return adjacent || noInput || noRows || normalCompletion;
+    }
+
+    bool TryAdvance( Phase next )
+    {
+
+        if ( !IsLegalTransition( m_phase, next ) )
+        {
+            return false;
+        }
+
+        m_phase = next;
+        return true;
+    }
+
+    bool ResetAfterComplete()
+    {
+
+        if ( m_phase != Phase::Complete )
+        {
+            return false;
+        }
+
+        m_phase = Phase::Idle;
+        return true;
+    }
+
+    Phase Current() const
+    {
+        return m_phase;
+    }
+
+  private:
+    Phase m_phase = Phase::Idle;
+};
+
+// Invariant:
+// - A fixed-step solve follows EntryPolicySetup -> BodySetup -> BuildManifolds
+//   -> TerrainRows -> Precompute -> SolveRows -> PointSupportInstability
+//   -> TerrainRestPolicy -> WriteBack -> DebugContacts -> PositionCorrection
+//   -> CacheStore -> FixedContactRelease -> Complete.
+// - The existing empty-input and empty-row exits may reach Complete only from
+//   EntryPolicySetup and TerrainRows respectively.
+// - Solver-body storage and impulse application have one owner. No caller
+//   borrow survives a transaction method return. TestRuntimeContracts.cpp
+//   proves the complete transition matrix, every illegal Lane F edge, and
+//   non-copyability.
+class PersistentContactSolveTransaction
+{
+  public:
+    PersistentContactSolveTransaction() = default;
+    PersistentContactSolveTransaction( const PersistentContactSolveTransaction& ) = delete;
+    PersistentContactSolveTransaction& operator=( const PersistentContactSolveTransaction& ) = delete;
+    PersistentContactSolveTransaction( PersistentContactSolveTransaction&& ) = delete;
+    PersistentContactSolveTransaction& operator=( PersistentContactSolveTransaction&& ) = delete;
+
+    void BeginEntryPolicySetup();
+    void BeginBodySetup();
+    void BeginBuildManifolds();
+    void BeginTerrainRows();
+    void BeginPrecompute();
+    void BeginSolveRows();
+    void BeginPointSupportInstability();
+    void BeginTerrainRestPolicy();
+    void BeginWriteBack();
+    void BeginDebugContacts();
+    void BeginPositionCorrection();
+    void BeginCacheStore();
+    void BeginFixedContactRelease();
+    void Complete();
+
+    PersistentContactSolvePhaseCursor::Phase Phase() const
+    {
+        return m_phase.Current();
+    }
+
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
+    void Clear();
+    uint64_t CollectDynamicMemoryBytes() const;
+    void ResetBodies( std::size_t bodyCount );
+    std::size_t BodyCount() const;
+    SolverBodyState& Body( std::size_t index );
+    const SolverBodyState& Body( std::size_t index ) const;
+
+    static int64_t MakeKey( int bodyA, int bodyB, uint32_t featureId );
+    static bool HasCachedImpulse( const PersistentContactCacheList& cache, int bodyA, int bodyB, uint32_t featureId );
+    static float ConservativeContactRadius( const ColliderRecord& collider );
+    Math::Vector::Vector3 ApplyInverseInertia( int bodyIndex, const Math::Vector::Vector3& value ) const;
+    void ApplyImpulse( const PersistentContact& contact, const Math::Vector::Vector3& impulse );
+
+  private:
+    friend struct PersistentContactSolveTransactionTestAccess;
+
+    void AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next, const char* operation );
+
+    PersistentContactSolvePhaseCursor m_phase;
+    SolverBodyStateList m_bodies { "PhysicsContactSolverStage.solverBodies", PhysicsCapacityReason::SceneBodies };
+};
+
 struct PersistentContactSolverSideEffects
 {
 
@@ -170,7 +307,7 @@ class PhysicsContactSolverStage
                                                            PhysicsCapacityReason::SceneBodies };
     PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts",
                                                                   PhysicsCapacityReason::SceneBodies };
-    SolverBodyStateList m_solverBodies { "PhysicsContactSolverStage.solverBodies", PhysicsCapacityReason::SceneBodies };
+    PersistentContactSolveTransaction m_solveTransaction;
     PersistentContactSolverSideEffects m_sideEffects;
 
     void PrepareSideEffects( int modelCount, std::size_t candidatePairCount, int pipelineRecordCapacity );

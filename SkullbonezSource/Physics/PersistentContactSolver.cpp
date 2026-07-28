@@ -7,7 +7,9 @@ Summary:
   PersistentContactSolver.cpp solves object/object and object/terrain
   persistent contact rows. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  glossary/invariants below. The guarded transaction implements phase
+  transitions and owns solver-body arithmetic while Solve still holds the
+  pass bodies during CS1.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
@@ -40,6 +42,7 @@ Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Contact setting clamps resolve once before row construction and iteration.
+  - Every solve phase crosses the transaction cursor before its pass body runs.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
@@ -56,6 +59,7 @@ Related:
 #include "Stages/PhysicsContactSolverStage.h"
 #include "Stages/PhysicsStepDiagnostics.h"
 #include "PhysicsWorldForces.h"
+#include "../Core/FatalError.h"
 #include "../Core/Profiler.h"
 
 #include <algorithm>
@@ -111,6 +115,211 @@ PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& sett
     return policy;
 }
 
+void PersistentContactSolveTransaction::AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next,
+                                                        const char* operation )
+{
+    const PersistentContactSolvePhaseCursor::Phase current = m_phase.Current();
+
+    if ( !m_phase.TryAdvance( next ) )
+    {
+
+        // Lane F: running a contact phase twice, backward, or after skipping a
+        // predecessor can publish rows, velocities, or cache state from a
+        // partially solved fixed tick.
+        SB_FATAL( "Physics/PersistentContactSolveTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
+                  operation, static_cast<unsigned int>( current ), static_cast<unsigned int>( next ) );
+    }
+}
+
+void PersistentContactSolveTransaction::BeginEntryPolicySetup()
+{
+
+    if ( m_phase.Current() == PersistentContactSolvePhaseCursor::Phase::Complete && !m_phase.ResetAfterComplete() )
+    {
+        SB_FATAL( "Physics/PersistentContactSolveTransaction", "Completed solve cursor could not reset." );
+    }
+
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::EntryPolicySetup, "BeginEntryPolicySetup" );
+}
+
+void PersistentContactSolveTransaction::BeginBodySetup()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BodySetup, "BeginBodySetup" );
+}
+
+void PersistentContactSolveTransaction::BeginBuildManifolds()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BuildManifolds, "BeginBuildManifolds" );
+}
+
+void PersistentContactSolveTransaction::BeginTerrainRows()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BeginTerrainRows" );
+}
+
+void PersistentContactSolveTransaction::BeginPrecompute()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Precompute, "BeginPrecompute" );
+}
+
+void PersistentContactSolveTransaction::BeginSolveRows()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::SolveRows, "BeginSolveRows" );
+}
+
+void PersistentContactSolveTransaction::BeginPointSupportInstability()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "BeginPointSupportInstability" );
+}
+
+void PersistentContactSolveTransaction::BeginTerrainRestPolicy()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRestPolicy, "BeginTerrainRestPolicy" );
+}
+
+void PersistentContactSolveTransaction::BeginWriteBack()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::WriteBack, "BeginWriteBack" );
+}
+
+void PersistentContactSolveTransaction::BeginDebugContacts()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::DebugContacts, "BeginDebugContacts" );
+}
+
+void PersistentContactSolveTransaction::BeginPositionCorrection()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PositionCorrection, "BeginPositionCorrection" );
+}
+
+void PersistentContactSolveTransaction::BeginCacheStore()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::CacheStore, "BeginCacheStore" );
+}
+
+void PersistentContactSolveTransaction::BeginFixedContactRelease()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::FixedContactRelease, "BeginFixedContactRelease" );
+}
+
+void PersistentContactSolveTransaction::Complete()
+{
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Complete, "Complete" );
+}
+
+// CATTO REF:
+//   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
+//   with a contact identifier and retrieve it for matching contacts next
+//   frame.
+// ENGINE-SPECIFIC:
+//   This key is a compact pair+feature id. Full 32-bit feature IDs are kept so
+//   authored hull face/edge identifiers are not truncated before warm starting.
+//   The shared 15-bit body mask leaves 32 bits for the feature and one high kind
+//   bit for terrain rows.
+int64_t PersistentContactSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
+{
+
+    if ( bodyB == TERRAIN_BODY_INDEX )
+    {
+        const uint64_t packed = ( 1ull << 62 ) |
+                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( bodyA ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 32 ) |
+                                static_cast<uint64_t>( featureId );
+
+        return static_cast<int64_t>( packed );
+    }
+
+    const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
+    const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
+    const uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                              << 47 ) |
+                            ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                              << 32 ) |
+                            static_cast<uint64_t>( featureId );
+
+    return static_cast<int64_t>( packed );
+}
+
+bool PersistentContactSolveTransaction::HasCachedImpulse( const PersistentContactCacheList& cache, int bodyA, int bodyB,
+                                                          uint32_t featureId )
+{
+    const int64_t key = MakeKey( bodyA, bodyB, featureId );
+    const auto cachedIt = std::lower_bound( cache.begin(), cache.end(), key,
+                                            []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+                                            { return entry.key < lookupKey; } );
+
+    if ( cachedIt == cache.end() || cachedIt->key != key )
+    {
+        return false;
+    }
+
+    return cachedIt->accN > 0.0f || fabsf( cachedIt->accT1 ) > TOLERANCE || fabsf( cachedIt->accT2 ) > TOLERANCE;
+}
+
+float PersistentContactSolveTransaction::ConservativeContactRadius( const ColliderRecord& collider )
+{
+
+    // Broadphase radii must include any local shape offset. If a shape is not
+    // centered on the body origin, the conservative sphere reaches the farthest
+    // shifted point.
+    const CollisionShapeReference& shape = collider.shape;
+    float radius = GetShapeBoundingRadius( shape );
+    const Vector3& offset = GetShapePosition( shape );
+    const float offsetSq = Vector::VectorMagSquared( offset );
+
+    if ( offsetSq > TOLERANCE * TOLERANCE )
+    {
+        radius += sqrtf( offsetSq );
+    }
+
+    return radius;
+}
+
+// CATTO REF:
+//   Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform before
+//   Equations 26-28: I_world^-1 = R * I_body^-1 * R^T.
+// Inertia is rotational mass. Boxes need world-space inertia because their
+// local inertia axes rotate with orientation; spheres remain isotropic.
+Vector3 PersistentContactSolveTransaction::ApplyInverseInertia( int bodyIndex, const Vector3& value ) const
+{
+
+    if ( bodyIndex == TERRAIN_BODY_INDEX )
+    {
+        return ZERO_VECTOR;
+    }
+
+    const SolverBodyState& body = Body( static_cast<std::size_t>( bodyIndex ) );
+
+    if ( !body.useWorldInertia )
+    {
+        return Vector::VectorMultiply( body.invInertia, value );
+    }
+
+    const Vector3 bodyValue = body.orientation.TransposeMultiply( value );
+    return body.orientation * Vector::VectorMultiply( body.invInertia, bodyValue );
+}
+
+// CATTO REF:
+//   Catto 2005, PDF p. 5, Section 3.3, Equation 7 says constraint forces are
+//   Fc = J^T*lambda. PDF p. 8, Algorithm 2 shows accumulating those row
+//   contributions into body force/torque blocks.
+// Why: applying one impulse changes linear velocity by invMass*impulse and
+// angular velocity by I^-1*(r cross impulse). Body A receives the equal and
+// opposite impulse from body B.
+void PersistentContactSolveTransaction::ApplyImpulse( const PersistentContact& contact, const Vector3& impulse )
+{
+    SolverBodyState& bodyA = Body( static_cast<std::size_t>( contact.bodyA ) );
+    bodyA.linearVelocity -= impulse * bodyA.invMass;
+    bodyA.angularVelocity -= ApplyInverseInertia( contact.bodyA, Vector::CrossProduct( contact.rA, impulse ) );
+
+    if ( contact.bodyB != TERRAIN_BODY_INDEX )
+    {
+        SolverBodyState& bodyB = Body( static_cast<std::size_t>( contact.bodyB ) );
+        bodyB.linearVelocity += impulse * bodyB.invMass;
+        bodyB.angularVelocity += ApplyInverseInertia( contact.bodyB, Vector::CrossProduct( contact.rB, impulse ) );
+    }
+}
+
 void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                        const PersistentContactSolverStepPolicy& stepPolicy,
                                        std::span<const std::pair<int, int>> candidatePairs,
@@ -119,6 +328,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                        std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame,
                                        PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )
 {
+    m_solveTransaction.BeginEntryPolicySetup();
 
     // Lifetime: input spans and store views are synchronous borrows for this
     // solve. Side-effect publication completes before any caller may mutate or
@@ -199,6 +409,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         m_persistentContacts.clear();
         m_persistentContactCache.clear();
         physicsDebugContacts.clear();
+        m_solveTransaction.Complete();
         return;
     }
 
@@ -247,58 +458,10 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     const float restitutionThreshold = stepPolicy.contactRestitutionThreshold;
     const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
 
-    // CATTO REF:
-    //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
-    //   with a contact identifier and retrieve it for matching contacts next
-    //   frame.
-    // ENGINE-SPECIFIC:
-    //   This key is a compact pair+feature id. Full 32-bit feature IDs are kept
-    //   so authored hull face/edge identifiers are not truncated before warm
-    //   starting. The shared 15-bit body mask leaves 32 bits for the feature and
-    //   one high kind bit for terrain rows.
-    // Catto's cache needs a stable name for "body A touching body B at this
-    // contact feature". Box and hull manifolds assign distinct feature ids per row.
-    auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
-    {
-
-        if ( b == TERRAIN_BODY_INDEX )
-        {
-            uint64_t packed = ( 1ull << 62 ) |
-                              ( ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) & PERSISTENT_CONTACT_BODY_MASK )
-                                << 32 ) |
-                              static_cast<uint64_t>( featureId );
-
-            return static_cast<int64_t>( packed );
-        }
-
-        int lo = ( a < b ) ? a : b;
-        int hi = ( a < b ) ? b : a;
-        uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 47 ) |
-                          ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 32 ) |
-                          static_cast<uint64_t>( featureId );
-
-        return static_cast<int64_t>( packed );
-    };
-
-    auto hasCachedImpulse = [&]( int bodyA, int bodyB, uint32_t featureId ) -> bool
-    {
-        const int64_t key = makeKey( bodyA, bodyB, featureId );
-
-        auto cachedIt = std::lower_bound( m_persistentContactCache.begin(), m_persistentContactCache.end(), key,
-                                          []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
-                                          { return entry.key < lookupKey; } );
-
-        if ( cachedIt == m_persistentContactCache.end() || cachedIt->key != key )
-        {
-            return false;
-        }
-
-        return cachedIt->accN > 0.0f || fabsf( cachedIt->accT1 ) > TOLERANCE || fabsf( cachedIt->accT2 ) > TOLERANCE;
-    };
-
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
-        m_solverBodies.assign( modelCount, SolverBodyState() );
+        m_solveTransaction.BeginBodySetup();
+        m_solveTransaction.ResetBodies( static_cast<std::size_t>( modelCount ) );
 
         // CATTO REF:
         //   Catto 2005, PDF p. 7, Algorithms 1-2 and PDF p. 16, Algorithm 4 work on
@@ -312,7 +475,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         for ( int i = 0; i < modelCount; ++i )
         {
             const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
-            SolverBodyState& body = m_solverBodies[i];
+            SolverBodyState& body = m_solveTransaction.Body( static_cast<std::size_t>( i ) );
 
             if ( sleepState[i] || isFixedBody( i ) )
             {
@@ -355,76 +518,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 "persistent contact cache must be sorted before lower_bound lookup" );
 #endif
     }
-
-    // CATTO REF:
-    //   Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform before
-    //   Equations 26-28: I_world^-1 = R * I_body^-1 * R^T.
-    // Inertia is rotational mass. Boxes need world-space inertia because their
-    // local inertia axes rotate with orientation; spheres remain isotropic.
-    auto applyInvInertia = [&]( int body, const Vector3& v ) -> Vector3
-    {
-
-        if ( body == TERRAIN_BODY_INDEX )
-        {
-            return ZERO_VECTOR;
-        }
-
-        const SolverBodyState& solverBody = m_solverBodies[body];
-
-        if ( !solverBody.useWorldInertia )
-        {
-            return Vector::VectorMultiply( solverBody.invInertia, v );
-        }
-
-        Vector3 bodyV = solverBody.orientation.TransposeMultiply( v );
-        return solverBody.orientation * Vector::VectorMultiply( solverBody.invInertia, bodyV );
-    };
-
-    // CATTO REF:
-    //   Catto 2005, PDF p. 5, Section 3.3, Equation 7 says constraint forces are
-    //   Fc = J^T*lambda. PDF p. 8, Algorithm 2 shows accumulating those row
-    //   contributions into body force/torque blocks.
-    // REASON:
-    //   Applying an impulse to a contact row changes linear velocity by
-    //   invMass*impulse and angular velocity by I^-1*(r cross impulse). Body A
-    //   receives the opposite impulse from body B.
-    // Apply one impulse to both bodies using Newton's third law: equal and
-    // opposite pushes. A receives -impulse, B receives +impulse. The cross
-    // products turn off-center pushes into spin changes.
-    auto applyImpulse = [&]( const PersistentContact& c, const Vector3& impulse )
-    {
-        SolverBodyState& a = m_solverBodies[c.bodyA];
-
-        a.linearVelocity -= impulse * a.invMass;
-        a.angularVelocity -= applyInvInertia( c.bodyA, Vector::CrossProduct( c.rA, impulse ) );
-
-        if ( c.bodyB != TERRAIN_BODY_INDEX )
-        {
-            SolverBodyState& b = m_solverBodies[c.bodyB];
-            b.linearVelocity += impulse * b.invMass;
-            b.angularVelocity += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
-        }
-    };
-
-    auto conservativeContactRadius = []( const ColliderRecord& collider ) -> float
-    {
-
-        // Broadphase radii must include any local shape offset. If a shape is
-        // not centered on the body origin, the "safe maybe touching" sphere has
-        // to reach from the origin all the way to the farthest shifted point.
-        const CollisionShapeReference& shape = collider.shape;
-
-        float radius = GetShapeBoundingRadius( shape );
-        const Vector3& offset = GetShapePosition( shape );
-        float offsetSq = Vector::VectorMagSquared( offset );
-
-        if ( offsetSq > TOLERANCE * TOLERANCE )
-        {
-            radius += sqrtf( offsetSq );
-        }
-
-        return radius;
-    };
 
     auto contactBodyViewForIndex = [&]( int index ) -> ObjectContactBodyView
     {
@@ -546,7 +639,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         const int supportedIndex = ( c.normal.y > 0.0f ) ? c.bodyB : c.bodyA;
 
         if ( supportedIndex < 0 || supportedIndex >= modelCount ||
-             supportedIndex >= static_cast<int>( m_solverBodies.size() ) || isFixedBody( supportedIndex ) ||
+             supportedIndex >= static_cast<int>( m_solveTransaction.BodyCount() ) || isFixedBody( supportedIndex ) ||
              sleepState[supportedIndex] )
         {
             return;
@@ -570,7 +663,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             return;
         }
 
-        SolverBodyState& body = m_solverBodies[supportedIndex];
+        SolverBodyState& body = m_solveTransaction.Body( static_cast<std::size_t>( supportedIndex ) );
 
         if ( body.invMass <= 0.0f )
         {
@@ -590,7 +683,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         const Vector3 supportNormal = ( c.normal.y > 0.0f ) ? c.normal : -c.normal;
         const Vector3 supportArm = ( c.normal.y > 0.0f ) ? c.rB : c.rA;
         const Vector3 lever = supportArm - supportNormal * ( Dot( supportArm, supportNormal ) );
-        const float radius = conservativeContactRadius( colliderRecords[static_cast<size_t>( supportedIndex )] );
+        const float radius = PersistentContactSolveTransaction::ConservativeContactRadius( colliderRecords[static_cast<size_t>( supportedIndex )] );
         const float leverTolerance = (std::max)( 0.001f, radius * 0.0002f );
 
         if ( Vector::VectorMagSquared( lever ) > leverTolerance * leverTolerance )
@@ -645,9 +738,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // validation contract for any behavior drift.
     auto objectContactRowsAreQuiet = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold ) -> bool
     {
-        const SolverBodyState& solverA = m_solverBodies[bodyA];
+        const SolverBodyState& solverA = m_solveTransaction.Body( static_cast<std::size_t>( bodyA ) );
 
-        const SolverBodyState& solverB = m_solverBodies[bodyB];
+        const SolverBodyState& solverB = m_solveTransaction.Body( static_cast<std::size_t>( bodyB ) );
         const float linearLimit = (std::max)( stepPolicy.sleepLinearSpeed * 2.0f,
                                               stepPolicy.rawContactRestitutionThreshold * 0.25f );
 
@@ -714,7 +807,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
 
-            if ( hasCachedImpulse( bodyA, bodyB, manifold.points[pointIndex].featureId ) )
+            if ( PersistentContactSolveTransaction::HasCachedImpulse( m_persistentContactCache, bodyA, bodyB,
+                                                                      manifold.points[pointIndex].featureId ) )
             {
                 ++cachedPointCount;
             }
@@ -750,7 +844,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 continue;
             }
 
-            const bool usesCache = hasCachedImpulse( bodyA, bodyB, candidate.featureId );
+            const bool usesCache = PersistentContactSolveTransaction::HasCachedImpulse( m_persistentContactCache, bodyA,
+                                                                                        bodyB, candidate.featureId );
+
             bool replace = usesCache && !secondaryUsesCache;
 
             if ( usesCache == secondaryUsesCache )
@@ -801,6 +897,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // feature IDs keep the support plane stable while cutting solver work.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
+        m_solveTransaction.BeginBuildManifolds();
 
         for ( const auto& cp : candidatePairs )
         {
@@ -826,7 +923,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             Vector3 centerDelta = PhysicsBodyPosition( hotRead, static_cast<size_t>( bIndex ) ) -
                                   PhysicsBodyPosition( hotRead, static_cast<size_t>( aIndex ) );
 
-            float contactDistance = conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) +
+            float contactDistance = PersistentContactSolveTransaction::ConservativeContactRadius( colliderA ) +
+                                    PersistentContactSolveTransaction::ConservativeContactRadius( colliderB ) +
                                     stepPolicy.contactEpsilon;
 
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
@@ -923,7 +1021,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                     c.bodyA = aIndex;
                     c.bodyB = bIndex;
                     c.featureId = point.featureId;
-                    c.key = makeKey( aIndex, bIndex, c.featureId );
+                    c.key = PersistentContactSolveTransaction::MakeKey( aIndex, bIndex, c.featureId );
                     c.normal = manifold.normal;
                     c.rA = point.rA;
                     c.rB = point.rB;
@@ -974,6 +1072,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
+        m_solveTransaction.BeginTerrainRows();
 
         // Convert terrain manifolds into the same PersistentContact rows used by
         // object/object contacts. Terrain uses TERRAIN_BODY_INDEX for body B, so
@@ -1046,7 +1145,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 c.bodyA = manifold.bodyA;
                 c.bodyB = TERRAIN_BODY_INDEX;
                 c.featureId = point.featureId;
-                c.key = makeKey( c.bodyA, c.bodyB, c.featureId );
+                c.key = PersistentContactSolveTransaction::MakeKey( c.bodyA, c.bodyB, c.featureId );
 
                 // PersistentContact normals point from body A toward body B.
                 // Terrain manifold normals point out of the terrain and into
@@ -1088,6 +1187,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
         m_persistentContactCache.clear();
         physicsDebugContacts.clear();
+        m_solveTransaction.Complete();
         return;
     }
 
@@ -1103,11 +1203,13 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // limits, and pulls the previous frame's accumulated impulses from the cache.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
+        m_solveTransaction.BeginPrecompute();
 
         for ( PersistentContact& c : m_persistentContacts )
         {
-            const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
-            const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
+            const SolverBodyState& bodyA = m_solveTransaction.Body( static_cast<std::size_t>( c.bodyA ) );
+            const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody
+                                                       : m_solveTransaction.Body( static_cast<std::size_t>( c.bodyB ) );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
@@ -1126,9 +1228,11 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             // Effective mass says how stubborn this contact is. A light body pushed
             // through its center moves easily; a heavy or off-center body resists more
             // because some of the push also has to rotate it.
-            auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return applyInvInertia( c.bodyA, v ); };
+            auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3
+            { return m_solveTransaction.ApplyInverseInertia( c.bodyA, v ); };
+
             auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
-            { return c.isTerrain ? ZERO_VECTOR : applyInvInertia( c.bodyB, v ); };
+            { return c.isTerrain ? ZERO_VECTOR : m_solveTransaction.ApplyInverseInertia( c.bodyB, v ); };
 
             c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.normal, c.rA,
                                                                                 c.rB, applyInvInertiaA, applyInvInertiaB );
@@ -1293,8 +1397,10 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 // Concept: impact presentation needs the relative motion that
                 // existed before warm-start and solver impulses push through an
                 // island. Solved impulse alone also represents support transfer.
-                const SolverBodyState& a = m_solverBodies[c.bodyA];
-                const SolverBodyState& b = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
+                const SolverBodyState& a = m_solveTransaction.Body( static_cast<std::size_t>( c.bodyA ) );
+                const SolverBodyState& b = c.isTerrain ? staticTerrainBody
+                                                       : m_solveTransaction.Body( static_cast<std::size_t>( c.bodyB ) );
+
                 const Vector3 contactVelA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
                 const Vector3 contactVelB = c.isTerrain ? ZERO_VECTOR
                                                         : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
@@ -1344,7 +1450,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 // the bodies before iteration starts, otherwise the solver would clamp
                 // against a pretend push that never actually happened.
                 Vector3 warmImpulse = c.normal * c.accN + c.tangent1 * c.accT1 + c.tangent2 * c.accT2;
-                applyImpulse( c, warmImpulse );
+                m_solveTransaction.ApplyImpulse( c, warmImpulse );
             }
         }
     }
@@ -1360,6 +1466,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // to valid bounds, then applies only the difference.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
+        m_solveTransaction.BeginSolveRows();
 
         for ( int iter = 0; iter < solverIterations; ++iter )
         {
@@ -1368,8 +1475,9 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
             for ( PersistentContact& c : m_persistentContacts )
             {
-                SolverBodyState& a = m_solverBodies[c.bodyA];
-                const SolverBodyState& b = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
+                SolverBodyState& a = m_solveTransaction.Body( static_cast<std::size_t>( c.bodyA ) );
+                const SolverBodyState& b = c.isTerrain ? staticTerrainBody
+                                                       : m_solveTransaction.Body( static_cast<std::size_t>( c.bodyB ) );
 
                 Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
                 Vector3 velB = c.isTerrain ? ZERO_VECTOR
@@ -1386,7 +1494,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 // they cannot glue bodies together, so the accumulated value is >= 0.
                 c.accN = ( oldAccN + lambdaN > 0.0f ) ? oldAccN + lambdaN : 0.0f;
                 float deltaN = c.accN - oldAccN;
-                applyImpulse( c, c.normal * deltaN );
+                m_solveTransaction.ApplyImpulse( c, c.normal * deltaN );
 
                 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
                 velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
@@ -1418,7 +1526,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
                 float deltaT1 = c.accT1 - oldAccT1;
                 float deltaT2 = c.accT2 - oldAccT2;
-                applyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
+                m_solveTransaction.ApplyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
 
                 iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
 
@@ -1454,6 +1562,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
+        m_solveTransaction.BeginPointSupportInstability();
 
         for ( const PersistentContact& c : m_persistentContacts )
         {
@@ -1464,6 +1573,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
         PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/RestPolicy" );
+        m_solveTransaction.BeginTerrainRestPolicy();
 
         // This is intentionally separate from the row solver. The rows above
         // handle physical contact response; this pass applies engine rest policy
@@ -1485,7 +1595,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
             terrainRestApplied[bodyIndex] = 1;
             const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( bodyIndex )];
-            SolverBodyState& body = m_solverBodies[bodyIndex];
+            SolverBodyState& body = m_solveTransaction.Body( static_cast<std::size_t>( bodyIndex ) );
             float normalForce = record.mass * stepPolicy.gravityMagnitude * fabsf( manifold.normal.y );
             float omegaMagSq = Dot( body.angularVelocity, body.angularVelocity );
 
@@ -1557,6 +1667,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
+        m_solveTransaction.BeginWriteBack();
 
         for ( int i = 0; i < modelCount; ++i )
         {
@@ -1572,23 +1683,25 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
                 record.bodyA = i;
                 record.point = PhysicsBodyPosition( hotRead, static_cast<size_t>( i ) );
-                record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
-                record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
+                record.scalarA = Vector::VectorMag( m_solveTransaction.Body( static_cast<std::size_t>( i ) ).linearVelocity );
+                record.scalarB = Vector::VectorMag( m_solveTransaction.Body( static_cast<std::size_t>( i ) ).angularVelocity );
                 RecordPhysicsPipelineStage( record );
             }
 
             const size_t bodyIndex = static_cast<size_t>( i );
-            hotFields.linearVelocityX[bodyIndex] = m_solverBodies[i].linearVelocity.x;
-            hotFields.linearVelocityY[bodyIndex] = m_solverBodies[i].linearVelocity.y;
-            hotFields.linearVelocityZ[bodyIndex] = m_solverBodies[i].linearVelocity.z;
-            hotFields.angularVelocityX[bodyIndex] = m_solverBodies[i].angularVelocity.x;
-            hotFields.angularVelocityY[bodyIndex] = m_solverBodies[i].angularVelocity.y;
-            hotFields.angularVelocityZ[bodyIndex] = m_solverBodies[i].angularVelocity.z;
+            const SolverBodyState& solvedBody = m_solveTransaction.Body( static_cast<std::size_t>( i ) );
+            hotFields.linearVelocityX[bodyIndex] = solvedBody.linearVelocity.x;
+            hotFields.linearVelocityY[bodyIndex] = solvedBody.linearVelocity.y;
+            hotFields.linearVelocityZ[bodyIndex] = solvedBody.linearVelocity.z;
+            hotFields.angularVelocityX[bodyIndex] = solvedBody.angularVelocity.x;
+            hotFields.angularVelocityY[bodyIndex] = solvedBody.angularVelocity.y;
+            hotFields.angularVelocityZ[bodyIndex] = solvedBody.angularVelocity.z;
         }
     }
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
+        m_solveTransaction.BeginDebugContacts();
         physicsDebugContacts.clear();
 
         for ( const PersistentContact& c : m_persistentContacts )
@@ -1634,6 +1747,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // sinking deeper into each other over many frames.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
+        m_solveTransaction.BeginPositionCorrection();
 
         for ( const PersistentContact& c : m_persistentContacts )
         {
@@ -1720,6 +1834,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // scratch how much support force each contact needs every tick.
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
+        m_solveTransaction.BeginCacheStore();
         m_persistentContactCache.clear();
 
         for ( const PersistentContact& c : m_persistentContacts )
@@ -1768,6 +1883,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
+        m_solveTransaction.BeginFixedContactRelease();
         auto releaseFixedContactBody = [&]( int fixedIndex, int otherIndex, const PersistentContact& c, bool fixedIsBodyA )
         {
 
@@ -1838,4 +1954,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
             releaseFixedContactBody( c.bodyB, c.bodyA, c, false );
         }
     }
+
+    m_solveTransaction.Complete();
 }

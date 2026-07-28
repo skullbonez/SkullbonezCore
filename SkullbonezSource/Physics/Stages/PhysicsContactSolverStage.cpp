@@ -92,6 +92,42 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
 
 PhysicsContactSolverStage::PhysicsContactSolverStage() = default;
 
+void PersistentContactSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity )
+{
+    m_bodies.Reserve( bodyCapacity );
+}
+
+void PersistentContactSolveTransaction::Clear()
+{
+    m_bodies.clear();
+    m_phase = PersistentContactSolvePhaseCursor();
+}
+
+uint64_t PersistentContactSolveTransaction::CollectDynamicMemoryBytes() const
+{
+    return ListCapacityBytes( m_bodies );
+}
+
+void PersistentContactSolveTransaction::ResetBodies( std::size_t bodyCount )
+{
+    m_bodies.ResetDefault( bodyCount );
+}
+
+std::size_t PersistentContactSolveTransaction::BodyCount() const
+{
+    return m_bodies.size();
+}
+
+SolverBodyState& PersistentContactSolveTransaction::Body( std::size_t index )
+{
+    return m_bodies[index];
+}
+
+const SolverBodyState& PersistentContactSolveTransaction::Body( std::size_t index ) const
+{
+    return m_bodies[index];
+}
+
 void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
     const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
@@ -100,7 +136,7 @@ void PhysicsContactSolverStage::ReserveSceneCapacity( std::size_t bodyCapacity )
     m_persistentContactCache.Reserve( contactCapacity );
     m_persistentContactCounts.Reserve( bodyCapacity );
     m_persistentRestingContactCounts.Reserve( bodyCapacity );
-    m_solverBodies.Reserve( bodyCapacity );
+    m_solveTransaction.ReserveSceneCapacity( bodyCapacity );
     m_sideEffects.pipelineRecords.Reserve( PHYSICS_MAX_PIPELINE_TRACE_RECORDS );
     m_sideEffects.collisionVisualBodies.Reserve( pairCapacity * 2u );
     m_sideEffects.fixedContactBodies.Reserve( contactCapacity );
@@ -115,7 +151,7 @@ void PhysicsContactSolverStage::Clear()
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactCounts.clear();
     m_persistentRestingContactCounts.clear();
-    m_solverBodies.clear();
+    m_solveTransaction.Clear();
     m_sideEffects.pipelineRecords.clear();
     m_sideEffects.collisionVisualBodies.clear();
     m_sideEffects.fixedContactBodies.clear();
@@ -266,7 +302,7 @@ void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot&
 #define RESTORE_REPLAY_SOLVER_STAT_FIELD( field ) m_persistentContactSolverStats.field = snapshot.solverStats.field;
     SB_REPLAY_SOLVER_STATS_FIELDS( RESTORE_REPLAY_SOLVER_STAT_FIELD )
 #undef RESTORE_REPLAY_SOLVER_STAT_FIELD
-    m_solverBodies.clear();
+    m_solveTransaction.Clear();
 }
 
 std::span<const PersistentContact> PhysicsContactSolverStage::GetPersistentContacts() const
@@ -305,7 +341,7 @@ uint64_t PhysicsContactSolverStage::CollectDynamicMemoryBytes() const
     bytes += ListCapacityBytes( m_persistentContactCache );
     bytes += ListCapacityBytes( m_persistentContactCounts );
     bytes += ListCapacityBytes( m_persistentRestingContactCounts );
-    bytes += ListCapacityBytes( m_solverBodies );
+    bytes += m_solveTransaction.CollectDynamicMemoryBytes();
     bytes += ListCapacityBytes( m_sideEffects.pipelineRecords );
     bytes += ListCapacityBytes( m_sideEffects.collisionVisualBodies );
     bytes += ListCapacityBytes( m_sideEffects.fixedContactBodies );
