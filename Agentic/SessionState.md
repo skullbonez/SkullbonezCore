@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 2/24 (8%). Plan 1 BL1 selected removal of inert hot-list control-block alignment only; SoA, separate payloads, and scalar consumers remain selected. |
+| Active/future progress | 3/24 (13%). Plan 1 BL2 removed inert hot-list control-block alignment with byte-exact Physics and no meaningful five-scene regression. |
 | Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Plan 12 `tools\validate_full.bat` passes in 337 seconds: 421/421 tests and 2,410,274 assertions, CPU/coverage, DX12 renderer/runtime lanes, and byte-exact Physics. `validate_perf.bat` and independent review also pass with zero blockers. |
@@ -29,7 +29,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 2/24. Its seven TODO plans
+The Principal Engineer Feedback Campaign is live at 3/24. Its seven TODO plans
 cover Physics body layout evidence, Replay restore/wide-signature governance,
 PhysicsFixedList copy semantics, compact SbResult success values, explicit
 vector dot products, isolated deterministic terrain fixtures, and generated
@@ -707,8 +707,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-body-hot-layout-evidence` at BL2. Remove only the 20 inert
-hot-list control-block `alignas(32)` annotations and the matching C4324
-suppression. Retain SoA, separate payload allocations, scalar consumers, and
-the payload alignment guarantee in `PhysicsFixedList`. Preserve the uncommitted
-warm-start review diff until the owner accepts or rejects it.
+Continue `physics-body-hot-layout-evidence` at BL3. Run the three ownership
+inventories, final `validate_physics`, `validate_perf`, and `validate_full`, and
+an independent no-bag/hot-path review before closing the plan. Preserve the
+uncommitted warm-start review diff until the owner accepts or rejects it.

@@ -780,7 +780,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Principal Engineer Feedback Campaign is binding at 2/24 (8%). Execute its
+The Principal Engineer Feedback Campaign is binding at 3/24 (13%). Execute its
 seven plans in table order below. The owner has answered every campaign
 question: retain SoA and run the five-scene Physics witness matrix; replace the
 hard 12-parameter ceiling with qualitative review and reopen all exact-12 rows;
@@ -2208,7 +2208,7 @@ Binding owner directions:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [physics-body-hot-layout-evidence](TODO/physics-body-hot-layout-evidence.md) | Active | 2/4 | BL2 remove only the inert hot-list control-block alignment and matching warning suppression |
+| 1 | [physics-body-hot-layout-evidence](TODO/physics-body-hot-layout-evidence.md) | Active | 3/4 | BL3 final ownership inventories, full validation, and independent no-bag/hot-path review |
 | 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Ready | 0/4 | RG0 current exact-ceiling ownership census |
 | 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
 | 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |

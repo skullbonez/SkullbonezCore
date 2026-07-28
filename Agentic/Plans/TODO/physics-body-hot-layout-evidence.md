@@ -1,7 +1,7 @@
 # Physics Body Hot Layout Evidence
 
 Date: 2026-07-28
-Status: TODO — 2/4 phases complete
+Status: TODO — 3/4 phases complete
 Impact area: Physics hot storage, cache locality, allocation policy, performance
 Owner: Physics
 Priority: High — first principal-engineer finding and the binding first plan
@@ -50,11 +50,12 @@ consumers, but it may not replace the store with AoS.
   payload alignment, contiguous backing, or a measured bulk consumer. Do not
   prototype or select AoS. Ruling:
   `Agentic/Reports/2026-07-28/physics-body-hot-layout-bl1-ruling.md`.
-- [ ] **BL2 — Implement the selected layout.** Remove inert control-block
+- [x] **BL2 — Implement the selected layout.** Remove inert control-block
   alignment and warning suppression, collapse or retain allocations according
   to the decision, and make every layout claim name an actual consuming stage.
   Do not add a per-body field without the `PhysicsBodyRecord` owner ruling in
-  `AGENTS.md`.
+  `AGENTS.md`. Validation:
+  `Agentic/Reports/2026-07-28/physics-body-hot-layout-bl2-validation.md`.
 - [ ] **BL3 — Close determinism, performance, comments, and review.** Prove
   byte-exact physics, allocation-policy compliance, the agreed performance
   threshold, and touched-file comment quality. Run the three ownership
