@@ -10,9 +10,9 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-28th-JUL-26` |
-| Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
-| Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
+| Branch | `nightrunner-28th-JUL-26-takeover` |
+| Current baseline | Main tip `81cc50bc`; PR #136 is merged and the takeover branch starts directly from that merge. |
+| Current objective | Close dependency-proof DP2, then evaluate the protected warm-start key-capacity working-tree experiment as the final actionable item. |
 | Active/future progress | 2/3 (67%). Plan 6 `determinism-terrain-fixture-isolation` is complete and has left the live ledger under rule 4; Plan 7 `dependency-proof-generation` completed DP1 and continues at DP2. |
 | Validation for dependency proof DP1 | The existing dependency checker owns one deterministic marked `AGENTS.md` projection, with fail-closed marker topology, current/stale checking, byte-preserving writes, and escaped rule-controlled Markdown. Its generated tables replace the 21-row Runtime matrix and all 27 mechanical `rg` proofs while retaining one explicitly qualitative Rendering search. Six frame-view allowances are exact files; valid exact edges pass and the pseudo-descendant fixture fails. App closed-world, Camera App-prefix, UI-to-Rendering, and residual textual-parser semantics are explicit. Self-tests pass 27 include rules / 47 negative edges, two negative content fixtures, one project fixture, and the generated-proof cases; the proof check and dependency gate pass with zero repository findings. Focused Python syntax/diff-whitespace checks and all three ownership inventories pass. Touched-tool comment audit is 1/1 with zero deferred files. No baseline was refreshed. |
 | Validation for dependency proof DP0 | Documentation-only comparison: 27 include rules, one content rule, one project rule, the 21-row Runtime table, 28 hand-written commands (27 mechanical and one qualitative), 46 negative include fixtures, two content fixtures, and one compound project fixture are reconciled row by row. The report identifies the over-broad Input proof, every Runtime regex's future-package hole, the frame-view self-include hole, UI prose/proof omission of Rendering, compound project-fixture false pass, selected-example fixture coverage, textual-include/resolver limits, path-casing behavior, prefix-to-exact migration with intentional descendant rejection, and a single-checker deterministic Markdown/freshness design. Its generated block owns the matrix and all mechanical commands; markers fail closed, writes preserve outside bytes, and escaping is deterministic. No repository validation was required. |
@@ -756,4 +756,6 @@ checker, package-specific branch, edge count, or budget. The
 principal-feedback campaign is 2/3 (67%). Keep the warm-start
 experiment as the final actionable item and unstaged for owner evaluation. The
 future AoS threshold and warm-start acceptance metric remain explicit owner
-questions in `Agentic/Plans/MASTER-PLAN.md`.
+questions in `Agentic/Plans/MASTER-PLAN.md`. The exact branch, dirty-file
+inventory, validation gap, execution order, and no-baseline-refresh rule are in
+`Agentic/Reports/2026-07-28/nightrunner-takeover-handoff.md`.
