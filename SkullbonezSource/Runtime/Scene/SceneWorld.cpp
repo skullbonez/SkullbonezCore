@@ -53,6 +53,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneWorld.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Config.h"
 
@@ -141,7 +142,8 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
 } // namespace
 
 
-SceneWorld::SceneWorld()
+SceneWorld::SceneWorld( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
+    : m_diagnostics( diagnostics ), m_entities( diagnostics )
 {
     ReserveForActiveSceneObjectCapacity();
 }
@@ -361,24 +363,24 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
 
     if ( bodyCount < 0 || sphereCount < 0 || boxCount < 0 || hullCount < 0 || pointJointCount < 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneWorld", "Scene physics capacity cannot be negative." );
+        return m_diagnostics.Failure( "Scene/SceneWorld", "Scene physics capacity cannot be negative." );
     }
 
     if ( bodyCount > m_activeSceneObjectCapacity )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Scene/SceneWorld",
-                     "Scene requires %d bodies but the active scene object capacity is %d; raise --model-capacity or "
-                     "game_model_capacity.",
-                     bodyCount, m_activeSceneObjectCapacity );
+        return m_diagnostics
+            .Failure( "Scene/SceneWorld",
+                      "Scene requires %d bodies but the active scene object capacity is %d; raise --model-capacity or "
+                      "game_model_capacity.",
+                      bodyCount, m_activeSceneObjectCapacity );
     }
 
     if ( sphereCount + boxCount + hullCount != bodyCount )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Scene/SceneWorld",
-                     "Shape capacity does not exactly match body topology: bodies=%d spheres=%d boxes=%d hulls=%d.",
-                     bodyCount, sphereCount, boxCount, hullCount );
+        return m_diagnostics
+            .Failure( "Scene/SceneWorld",
+                      "Shape capacity does not exactly match body topology: bodies=%d spheres=%d boxes=%d hulls=%d.",
+                      bodyCount, sphereCount, boxCount, hullCount );
     }
 
     // Lifetime: SceneWorld coordinates one ordered commit while each concrete
@@ -398,18 +400,17 @@ SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity
 
     if ( sphereCount < 0 || boxCount < 0 || hullCount < 0 || pointJointCount < 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneWorld",
-                                                        "Additional scene physics capacity cannot be negative." );
+        return m_diagnostics.Failure( "Scene/SceneWorld", "Additional scene physics capacity cannot be negative." );
     }
 
     const int additionalBodies = sphereCount + boxCount + hullCount;
 
     if ( SceneEntityCount() + additionalBodies > m_activeSceneObjectCapacity )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Scene/SceneWorld",
-                     "Additional scene physics capacity exceeds active admission: current=%d additional=%d capacity=%d.",
-                     SceneEntityCount(), additionalBodies, m_activeSceneObjectCapacity );
+        return m_diagnostics
+            .Failure( "Scene/SceneWorld",
+                      "Additional scene physics capacity exceeds active admission: current=%d additional=%d capacity=%d.",
+                      SceneEntityCount(), additionalBodies, m_activeSceneObjectCapacity );
     }
 
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
@@ -474,24 +475,23 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     if ( SceneEntityCount() >= activeCapacity )
     {
-        return { SkullbonezCore::Core::SbResult::
-                     Failure( SCENE_ENTITY_CREATION_OWNER,
-                              "Exceeded active scene object capacity; raise --model-capacity or game_model_capacity." ),
+        return { m_diagnostics
+                     .Failure( SCENE_ENTITY_CREATION_OWNER,
+                               "Exceeded active scene object capacity; raise --model-capacity or game_model_capacity." ),
                  PhysicsBodyHandle {} };
     }
 
     const SkullbonezCore::Core::SbResult entityResult = Entities().PreflightAppend( entity );
 
-    if ( !entityResult.ok )
+    if ( !entityResult.Ok() )
     {
         return { entityResult, PhysicsBodyHandle {} };
     }
 
     if ( bodyDesc.sceneObjectId.IsValid() && bodyDesc.sceneObjectId.value != entity.sceneObjectId.value )
     {
-        return { SkullbonezCore::Core::SbResult::Failure( SCENE_ENTITY_CREATION_OWNER,
-                                                          "Body scene object id %u does not match entity id %u.",
-                                                          bodyDesc.sceneObjectId.value, entity.sceneObjectId.value ),
+        return { m_diagnostics.Failure( SCENE_ENTITY_CREATION_OWNER, "Body scene object id %u does not match entity id %u.",
+                                        bodyDesc.sceneObjectId.value, entity.sceneObjectId.value ),
                  PhysicsBodyHandle {} };
     }
 

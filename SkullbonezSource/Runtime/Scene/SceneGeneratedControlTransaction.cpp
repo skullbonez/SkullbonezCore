@@ -50,11 +50,11 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
     // Why: The transaction has already cleared mutable scene/model state.
     // Report the recoverable owner and let the caller reset replay/profiler
     // state around the now-current partial topology.
-    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner
-                                                                            : "Runtime/SceneGeneratedControls";
+    const char* owner = result.ErrorOwner() && result.ErrorOwner()[0] != '\0' ? result.ErrorOwner()
+                                                                              : "Runtime/SceneGeneratedControls";
 
-    const char* message = result.error.message[0] != '\0' ? result.error.message
-                                                          : "generated-scene rebuild failed without a message";
+    const char* message = result.ErrorMessage()[0] != '\0' ? result.ErrorMessage()
+                                                           : "generated-scene rebuild failed without a message";
 
     fprintf( stderr, "[scene] generated_rebuild_failed owner=%s reason=\"%s\"\n", owner, message );
 }
@@ -155,7 +155,7 @@ void SceneGeneratedControlTransaction::Repopulate( const SkullbonezCore::Core::E
                                                                                                       m_solverBalls,
                                                                                                       m_solverBoxes );
 
-    if ( !setupResult.ok )
+    if ( !setupResult.Ok() )
     {
         LogGeneratedControlFailure( setupResult );
         scene.State().modelCount = scene.Scene().SceneEntityCount();
@@ -213,7 +213,7 @@ SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineCon
     m_rebuildActiveScene = scene.HasCurrentEntry();
     m_result.action.status = DrainAndReset( scene, simulation, tools, renderFrame );
 
-    if ( !m_result.action.status.ok )
+    if ( !m_result.action.status.Ok() )
     {
         return m_result;
     }

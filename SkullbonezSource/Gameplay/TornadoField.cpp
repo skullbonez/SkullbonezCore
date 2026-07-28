@@ -326,7 +326,7 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
 
             Vector3 delta = outVortices[b].field.center - outVortices[a].field.center;
             delta.y = 0.0f;
-            const float distanceSq = delta * delta;
+            const float distanceSq = Dot( delta, delta );
 
             if ( distanceSq >= repulsionRadius * repulsionRadius )
             {

@@ -64,6 +64,10 @@ struct Dx12DevelopmentUiDescriptorStats
 class Dx12DescriptorHeaps
 {
   public:
+    explicit Dx12DescriptorHeaps( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     static constexpr UINT MAX_RTV_DESCRIPTORS = 32;
     static constexpr UINT MAX_DSV_DESCRIPTORS = 16;
     static constexpr UINT MAX_STATIC_SRVS = 128;
@@ -115,6 +119,7 @@ class Dx12DescriptorHeaps
     }
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
     ID3D12DescriptorHeap* m_srvHeap = nullptr;

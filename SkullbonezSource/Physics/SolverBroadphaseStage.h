@@ -113,7 +113,7 @@ inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodySto
         return Math::Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
     }
 
-    float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+    float t = -( Dot( relativeStart, relativeDisplacement ) ) / relativeLengthSq;
     t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
     const Math::Vector::Vector3 closestRelative = relativeStart + relativeDisplacement * t;
     return Math::Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;

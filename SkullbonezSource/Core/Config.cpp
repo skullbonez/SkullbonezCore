@@ -32,6 +32,7 @@ Related:
 */
 #include "Common.h"
 #include "Config.h"
+#include "SbDiagnosticStore.h"
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
@@ -806,7 +807,7 @@ const ConfigSetting* FindConfigSetting( const char* name )
 
 // Invariant: version validation is a separate read pass. A future file must
 // fail before even one otherwise-valid setting mutates the destination object.
-SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
+SbResult ReadConfigFormatVersion( SbDiagnosticStore& diagnostics, const char* path, unsigned int& outVersion )
 {
     outVersion = 0;
     FILE* rawFile = nullptr;
@@ -856,8 +857,8 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
         if ( sawVersion )
         {
-            return SbResult::Failure( "Core/EngineConfig", "Duplicate engine config format_version at %s:%d.", path,
-                                      lineNumber );
+            return diagnostics.Failure( "Core/EngineConfig", "Duplicate engine config format_version at %s:%d.", path,
+                                        lineNumber );
         }
 
         char* value = TrimInPlace( eq + 1 );
@@ -875,8 +876,8 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
         if ( end == value || *TrimInPlace( end ) != '\0' || errno == ERANGE || parsed > UINT_MAX )
         {
-            return SbResult::Failure( "Core/EngineConfig", "Invalid engine config format_version at %s:%d.", path,
-                                      lineNumber );
+            return diagnostics.Failure( "Core/EngineConfig", "Invalid engine config format_version at %s:%d.", path,
+                                        lineNumber );
         }
 
         outVersion = static_cast<unsigned int>( parsed );
@@ -885,9 +886,9 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 
     if ( outVersion > ENGINE_CONFIG_FORMAT_VERSION )
     {
-        return SbResult::Failure( "Core/EngineConfig",
-                                  "Engine config format version %u is newer than current version %u: %s.", outVersion,
-                                  ENGINE_CONFIG_FORMAT_VERSION, path );
+        return diagnostics.Failure( "Core/EngineConfig",
+                                    "Engine config format version %u is newer than current version %u: %s.", outVersion,
+                                    ENGINE_CONFIG_FORMAT_VERSION, path );
     }
 
     // Versions 0-6 share the key/value grammar. Versioned execution rows are
@@ -898,16 +899,16 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
 } // anonymous namespace
 
 /* ---------------------------------------------------------------------------------*/
-SbResult EngineConfig::Load( const char* path )
+SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 {
 
     // engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
     unsigned int formatVersion = 0;
-    const SbResult versionResult = ReadConfigFormatVersion( path, formatVersion );
+    const SbResult versionResult = ReadConfigFormatVersion( diagnostics, path, formatVersion );
 
-    if ( !versionResult.ok )
+    if ( !versionResult.Ok() )
     {
         return versionResult;
     }

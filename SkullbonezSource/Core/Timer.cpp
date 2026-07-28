@@ -27,6 +27,7 @@ Related:
 #include "Timer.h"
 #include "FatalError.h"
 #include "PlatformWin32.h"
+#include "SbDiagnosticStore.h"
 
 
 using namespace SkullbonezCore::Environment;
@@ -34,22 +35,22 @@ using namespace SkullbonezCore::Environment;
 
 namespace
 {
-SkullbonezCore::Core::SbResult NoPerformanceCounterSupport( const char* failedCall )
+SkullbonezCore::Core::SbResult NoPerformanceCounterSupport( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            const char* failedCall )
 {
-    return SkullbonezCore::Core::SbResult::Failure( "Core/Timer",
-                                                    "This system does not support high resolution counters (%s failed).",
-                                                    failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
+    return diagnostics.Failure( "Core/Timer", "This system does not support high resolution counters (%s failed).",
+                                failedCall && failedCall[0] != '\0' ? failedCall : "counter query" );
 }
 } // namespace
 
 
-SkullbonezCore::Core::SbResult Timer::Initialise()
+SkullbonezCore::Core::SbResult Timer::Initialise( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
     LARGE_INTEGER tmpPerformanceFreq;
 
     if ( !QueryPerformanceFrequency( &tmpPerformanceFreq ) )
     {
-        return NoPerformanceCounterSupport( "QueryPerformanceFrequency" );
+        return NoPerformanceCounterSupport( diagnostics, "QueryPerformanceFrequency" );
     }
 
     // The platform SDK allows a successful frequency query to report zero. The
@@ -58,7 +59,7 @@ SkullbonezCore::Core::SbResult Timer::Initialise()
 
     if ( !tmpPerformanceFreq.QuadPart )
     {
-        return NoPerformanceCounterSupport( "QueryPerformanceFrequency zero frequency" );
+        return NoPerformanceCounterSupport( diagnostics, "QueryPerformanceFrequency zero frequency" );
     }
 
     m_performanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
@@ -69,7 +70,7 @@ SkullbonezCore::Core::SbResult Timer::Initialise()
 
     if ( !QueryPerformanceCounter( &currTimeTemp ) )
     {
-        return NoPerformanceCounterSupport( "QueryPerformanceCounter" );
+        return NoPerformanceCounterSupport( diagnostics, "QueryPerformanceCounter" );
     }
 
     m_initialized = true;

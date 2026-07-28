@@ -53,6 +53,12 @@ Related:
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using namespace SkullbonezCore;
 using namespace SkullbonezCore::Runtime;
@@ -129,12 +135,10 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
 }
 
 
-void CheckCompleteOwnerPublication( const char* path,
-                                    const SceneWorldSaveState& world,
-                                    const SceneSessionSaveState& session,
+void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                     const PresentationSaveState& presentation )
 {
-    const AuthoredScene saved = AuthoredScene::LoadFromFile( path );
+    const AuthoredScene saved = AuthoredScene::LoadFromFile( diagnostics, path );
     CHECK( saved.IsPhysicsEnabled() == session.physicsOn );
     CHECK( saved.IsTextEnabled() == session.textOn );
     CHECK( saved.IsEditableScene() == session.editableScene );
@@ -165,15 +169,15 @@ void CheckCompleteOwnerPublication( const char* path,
 TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 {
     TemporarySnapshotFiles cleanup;
+
     // These fixed-capacity stores are intentionally static: placing all three
     // owner arrays in one doctest frame exceeds the Windows test-thread stack.
-    static SceneEntityStore entities;
+    static SceneEntityStore entities( diagnostics );
     static PhysicsBodyStore bodies;
     static ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveShapeCapacity( 16u, 16u, 16u );
@@ -220,53 +224,43 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     SUBCASE( "editor hotkey policy selects a numbered path and writes every owner value" )
     {
         std::error_code ignored;
+
         std::filesystem::remove( kEditorSnapshotPath, ignored );
         int sequence = 9100;
         Core::SbResult saveResult = Core::SbResult::Success();
-        REQUIRE( TrySaveNextEditorSceneSnapshot( sequence, world, session, presentation, saveResult ) );
-        REQUIRE( saveResult.ok );
+        REQUIRE( TrySaveNextEditorSceneSnapshot( diagnostics, sequence, world, session, presentation, saveResult ) );
+        REQUIRE( saveResult.Ok() );
         CHECK( sequence == 9101 );
         CheckCompleteOwnerPublication( kEditorSnapshotPath, world, session, presentation );
     }
 
     SUBCASE( "scene-load-only policy writes every owner value to its explicit output" )
     {
-        REQUIRE( SaveSceneLoadOnlySnapshot( kLoadOnlySnapshotPath, world, session, presentation ).ok );
+        REQUIRE( SaveSceneLoadOnlySnapshot( diagnostics, kLoadOnlySnapshotPath, world, session, presentation ).Ok() );
+
         CheckCompleteOwnerPublication( kLoadOnlySnapshotPath, world, session, presentation );
     }
 
     SUBCASE( "editable replacement policy overwrites the active scene with every owner value" )
     {
-        REQUIRE( SaveEditableSceneBeforeReplacement( kEditableSnapshotPath, world, session, presentation ).ok );
+        REQUIRE( SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation ).Ok() );
+
         CheckCompleteOwnerPublication( kEditableSnapshotPath, world, session, presentation );
     }
 }
 
-void AppendEntity( SceneEntityStore& entities,
-                   PhysicsBodyStore& bodies,
-                   ColliderStore& colliders,
-                   uint32_t id,
-                   const char* displayName,
-                   const CollisionShape& shape,
-                   const Vector3& position,
-                   const Vector3& velocity,
-                   const Vector3& angularVelocity,
-                   const Vector3& inertia,
-                   float mass,
-                   float restitution,
-                   const char* contactMaterial,
-                   bool fixed,
-                   bool sleeping,
-                   const char* assetPart,
-                   uint32_t assetPartIndex,
+void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, ColliderStore& colliders, uint32_t id,
+                   const char* displayName, const CollisionShape& shape, const Vector3& position, const Vector3& velocity,
+                   const Vector3& angularVelocity, const Vector3& inertia, float mass, float restitution,
+                   const char* contactMaterial, bool fixed, bool sleeping, const char* assetPart, uint32_t assetPartIndex,
                    SceneBehaviorGroupKind behaviorKind = SceneBehaviorGroupKind::None,
-                   PhysicsSceneObjectId behaviorRoot = {},
-                   int behaviorPartIndex = -1 )
+                   PhysicsSceneObjectId behaviorRoot = {}, int behaviorPartIndex = -1 )
 {
+
     // Invariant: handles are assigned by the stores, while the stable scene id
     // is copied into all three owner rows before the entity becomes visible.
     PhysicsBodyCreateRecord body;
-    body.cold.sceneObjectId = PhysicsSceneObjectId{ id };
+    body.cold.sceneObjectId = PhysicsSceneObjectId { id };
     body.hot.position = position;
     body.hot.orientation = Quaternion( 0.11f, -0.22f, 0.33f, 0.91f );
     body.hot.orientation.Normalise();
@@ -306,19 +300,18 @@ void AppendEntity( SceneEntityStore& entities,
     completeMaterial.stylization = 0.45f;
     completeMaterial.flags = 10u + assetPartIndex;
     entity.SetRenderMaterial( completeMaterial );
+
     if ( assetPart )
     {
-        entity.SetAssetAffiliation( PhysicsSceneObjectId{ 300u },
-                                    kLibraryPath,
-                                    "mixed.live",
-                                    "saved_asset",
-                                    assetPart,
+        entity.SetAssetAffiliation( PhysicsSceneObjectId { 300u }, kLibraryPath, "mixed.live", "saved_asset", assetPart,
                                     assetPartIndex );
     }
+
     if ( behaviorKind != SceneBehaviorGroupKind::None )
     {
         entity.SetBehaviorGroup( behaviorKind, behaviorRoot, behaviorPartIndex );
     }
+
     entities.CommitAppend( entity, bodyHandle );
 }
 
@@ -331,18 +324,22 @@ void CheckVector( const Vector3& actual, const Vector3& expected )
 
 void CheckMaterial( const Rendering::RenderMaterial& actual, const Rendering::RenderMaterial& expected )
 {
+
     // Contact flash is frame feedback, not durable render intent. Every other
     // material field serialized by SceneSnapshotWriter is compared here.
     CHECK( std::string( actual.name ) == expected.name );
     CHECK( actual.kind == expected.kind );
+
     for ( int i = 0; i < 4; ++i )
     {
         CHECK( actual.baseColor[i] == doctest::Approx( expected.baseColor[i] ) );
     }
+
     for ( int i = 0; i < 3; ++i )
     {
         CHECK( actual.emissiveColor[i] == doctest::Approx( expected.emissiveColor[i] ) );
     }
+
     CHECK( actual.emissiveStrength == doctest::Approx( expected.emissiveStrength ) );
     CHECK( actual.roughness == doctest::Approx( expected.roughness ) );
     CHECK( actual.metallic == doctest::Approx( expected.metallic ) );
@@ -396,22 +393,21 @@ void CheckOrientation( const Quaternion& actual, const Quaternion& expected )
     float expectedX = 0.0f, expectedY = 0.0f, expectedZ = 0.0f, expectedW = 1.0f;
     actual.GetComponents( actualX, actualY, actualZ, actualW );
     expected.GetComponents( expectedX, expectedY, expectedZ, expectedW );
-    const float sign =
-        actualX * expectedX + actualY * expectedY + actualZ * expectedZ + actualW * expectedW < 0.0f ? -1.0f : 1.0f;
+    const float sign = actualX * expectedX + actualY * expectedY + actualZ * expectedZ + actualW * expectedW < 0.0f ? -1.0f
+                                                                                                                    : 1.0f;
+
     CHECK( actualX == doctest::Approx( sign * expectedX ) );
     CHECK( actualY == doctest::Approx( sign * expectedY ) );
     CHECK( actualZ == doctest::Approx( sign * expectedZ ) );
     CHECK( actualW == doctest::Approx( sign * expectedW ) );
 }
 
-void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
-                           const PhysicsBodyStore& sourceBodies,
-                           const ColliderStore& sourceColliders,
-                           const SceneEntityStore& recreatedEntities,
-                           const PhysicsBodyStore& recreatedBodies,
-                           const ColliderStore& recreatedColliders )
+void CheckRecreatedOwners( const SceneEntityStore& sourceEntities, const PhysicsBodyStore& sourceBodies,
+                           const ColliderStore& sourceColliders, const SceneEntityStore& recreatedEntities,
+                           const PhysicsBodyStore& recreatedBodies, const ColliderStore& recreatedColliders )
 {
     REQUIRE( recreatedEntities.Count() == sourceEntities.Count() );
+
     for ( int sourceIndex = 0; sourceIndex < sourceEntities.Count(); ++sourceIndex )
     {
         const SceneEntityRecord& sourceEntity = sourceEntities.At( sourceIndex );
@@ -439,10 +435,12 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
         const int recreatedBodyIndex = recreatedBodies.ModelIndexForHandle( recreatedEntity.body );
         REQUIRE( sourceBodyIndex >= 0 );
         REQUIRE( recreatedBodyIndex >= 0 );
-        const PhysicsBodyHotState sourceHot =
-            LoadPhysicsBodyHotState( sourceBodies.HotFields(), static_cast<std::size_t>( sourceBodyIndex ) );
-        const PhysicsBodyHotState recreatedHot =
-            LoadPhysicsBodyHotState( recreatedBodies.HotFields(), static_cast<std::size_t>( recreatedBodyIndex ) );
+        const PhysicsBodyHotState sourceHot = LoadPhysicsBodyHotState( sourceBodies.HotFields(),
+                                                                       static_cast<std::size_t>( sourceBodyIndex ) );
+
+        const PhysicsBodyHotState recreatedHot = LoadPhysicsBodyHotState( recreatedBodies.HotFields(),
+                                                                          static_cast<std::size_t>( recreatedBodyIndex ) );
+
         CheckVector( recreatedHot.position, sourceHot.position );
         CheckOrientation( recreatedHot.orientation, sourceHot.orientation );
         CheckVector( recreatedHot.linearVelocity, sourceHot.linearVelocity );
@@ -452,22 +450,19 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
         CHECK( recreatedHot.fixed == sourceHot.fixed );
         CHECK( recreatedHot.awake == sourceHot.awake );
         CHECK( recreatedBody->releasesFromFixedOnContact == sourceBody->releasesFromFixedOnContact );
+
         if ( sourceBody->releasesFromFixedOnContact )
         {
             CHECK( recreatedBody->contactReleaseImpulseThreshold ==
                    doctest::Approx( sourceBody->contactReleaseImpulseThreshold ) );
         }
 
-        const PhysicsColliderHandle sourceColliderHandle =
-            sourceColliders.HandleForSceneObjectId( sourceEntity.sceneObjectId );
-        const PhysicsColliderHandle recreatedColliderHandle =
-            recreatedColliders.HandleForSceneObjectId( recreatedEntity.sceneObjectId );
+        const PhysicsColliderHandle sourceColliderHandle = sourceColliders.HandleForSceneObjectId( sourceEntity.sceneObjectId );
+        const PhysicsColliderHandle recreatedColliderHandle = recreatedColliders.HandleForSceneObjectId( recreatedEntity.sceneObjectId );
         const ColliderRecord* sourceCollider = sourceColliders.RecordForHandle( sourceColliderHandle );
         const ColliderRecord* recreatedCollider = recreatedColliders.RecordForHandle( recreatedColliderHandle );
-        const ColliderAuthoringRecord* sourceColliderAuthoring =
-            sourceColliders.AuthoringRecordForHandle( sourceColliderHandle );
-        const ColliderAuthoringRecord* recreatedColliderAuthoring =
-            recreatedColliders.AuthoringRecordForHandle( recreatedColliderHandle );
+        const ColliderAuthoringRecord* sourceColliderAuthoring = sourceColliders.AuthoringRecordForHandle( sourceColliderHandle );
+        const ColliderAuthoringRecord* recreatedColliderAuthoring = recreatedColliders.AuthoringRecordForHandle( recreatedColliderHandle );
         REQUIRE( sourceCollider );
         REQUIRE( recreatedCollider );
         REQUIRE( sourceColliderAuthoring );
@@ -479,32 +474,33 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
     }
 }
 
-void ApplyParsedAffiliation( SceneEntityCreateDesc& entity,
-                             const AuthoredScene& scene,
-                             SceneAssetPartSource source,
+void ApplyParsedAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& scene, SceneAssetPartSource source,
                              uint32_t sourceIndex )
 {
+
     for ( int partIndex = 0; partIndex < scene.GetAssetPartCount(); ++partIndex )
     {
         const SceneAssetPartRef& part = scene.GetAssetPart( partIndex );
+
         if ( part.source != source || part.sourceIndex != sourceIndex )
         {
             continue;
         }
+
         for ( int instanceIndex = 0; instanceIndex < scene.GetAssetInstanceCount(); ++instanceIndex )
         {
             const SceneAssetInstanceRecord& instance = scene.GetAssetInstance( instanceIndex );
+
             if ( static_cast<uint32_t>( partIndex ) < instance.firstPart ||
                  static_cast<uint32_t>( partIndex ) >= instance.firstPart + instance.partCount )
             {
                 continue;
             }
+
             entity.SetAssetAffiliation( instance.rootSceneObjectId,
                                         scene.GetAssetLibrary( static_cast<int>( instance.libraryRefIndex ) ).token,
-                                        instance.assetName,
-                                        instance.instanceName,
-                                        part.partName,
-                                        part.partIndex );
+                                        instance.assetName, instance.instanceName, part.partName, part.partIndex );
+
             return;
         }
     }
@@ -512,9 +508,11 @@ void ApplyParsedAffiliation( SceneEntityCreateDesc& entity,
 
 void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const AuthoredScene& scene, const char* displayName )
 {
+
     for ( int index = 0; index < scene.GetObjectMaterialOverrideCount(); ++index )
     {
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( index );
+
         if ( std::strcmp( material.target, displayName ) == 0 )
         {
             entity.SetRenderMaterial( material.material );
@@ -522,28 +520,13 @@ void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const AuthoredScene& sc
     }
 }
 
-void AppendParsedEntity( SceneEntityStore& entities,
-                         PhysicsBodyStore& bodies,
-                         ColliderStore& colliders,
-                         const AuthoredScene& scene,
-                         SceneAssetPartSource source,
-                         uint32_t sourceIndex,
-                         PhysicsSceneObjectId id,
-                         const char* displayName,
-                         const CollisionShape& shape,
-                         const Vector3& position,
-                         const Quaternion& orientation,
-                         const Vector3& velocity,
-                         const Vector3& angularVelocity,
-                         const Vector3& inertia,
-                         float mass,
-                         float restitution,
-                         const char* contactMaterial,
-                         bool fixed,
-                         bool sleeping,
-                         bool releasesOnContact,
-                         float releaseThreshold,
-                         const SceneObjectGroupMetadata* group )
+void AppendParsedEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, ColliderStore& colliders,
+                         const AuthoredScene& scene, SceneAssetPartSource source, uint32_t sourceIndex,
+                         PhysicsSceneObjectId id, const char* displayName, const CollisionShape& shape,
+                         const Vector3& position, const Quaternion& orientation, const Vector3& velocity,
+                         const Vector3& angularVelocity, const Vector3& inertia, float mass, float restitution,
+                         const char* contactMaterial, bool fixed, bool sleeping, bool releasesOnContact,
+                         float releaseThreshold, const SceneObjectGroupMetadata* group )
 {
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = id;
@@ -573,105 +556,66 @@ void AppendParsedEntity( SceneEntityStore& entities,
     entity.SetName( displayName );
     ApplyParsedAffiliation( entity, scene, source, sourceIndex );
     ApplyParsedMaterial( entity, scene, displayName );
+
     if ( group && group->kind == SceneObjectGroupKind::ReleasableTree )
     {
         entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, group->rootObjectId, group->partIndex );
     }
-    REQUIRE( entities.PreflightAppend( entity ).ok );
+
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
     entities.CommitAppend( entity, bodyHandle );
 }
 
-void RecreateParsedOwners( const AuthoredScene& scene,
-                           SceneEntityStore& entities,
-                           PhysicsBodyStore& bodies,
+void RecreateParsedOwners( const AuthoredScene& scene, SceneEntityStore& entities, PhysicsBodyStore& bodies,
                            ColliderStore& colliders )
 {
     entities.Clear();
-    entities.ConfigureCapacity( scene.GetBallStateCount() + scene.GetBoxStateCount() +
-                                scene.GetConvexHullStateCount() );
+    entities.ConfigureCapacity( scene.GetBallStateCount() + scene.GetBoxStateCount() + scene.GetConvexHullStateCount() );
     bodies.Clear();
     colliders.Clear();
 
     for ( int index = 0; index < scene.GetBallStateCount(); ++index )
     {
         const SceneBallState& state = scene.GetBallState( index );
-        AppendParsedEntity( entities,
-                            bodies,
-                            colliders,
-                            scene,
-                            SceneAssetPartSource::BallState,
-                            static_cast<uint32_t>( index ),
-                            state.sceneObjectId,
-                            state.name,
-                            BoundingSphere( state.radius, ZERO_VECTOR ),
-                            Vector3( state.posX, state.posY, state.posZ ),
+        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::BallState,
+                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name,
+                            BoundingSphere( state.radius, ZERO_VECTOR ), Vector3( state.posX, state.posY, state.posZ ),
                             Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
                             Vector3( state.velX, state.velY, state.velZ ),
                             Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ),
-                            state.mass,
-                            state.restitution,
-                            state.contactMaterial,
-                            state.isFixed,
-                            state.isSleeping,
-                            false,
-                            1.0f,
-                            nullptr );
+                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
+                            state.contactMaterial, state.isFixed, state.isSleeping, false, 1.0f, nullptr );
     }
+
     for ( int index = 0; index < scene.GetBoxStateCount(); ++index )
     {
         const SceneBoxState& state = scene.GetBoxState( index );
-        AppendParsedEntity( entities,
-                            bodies,
-                            colliders,
-                            scene,
-                            SceneAssetPartSource::BoxState,
-                            static_cast<uint32_t>( index ),
-                            state.sceneObjectId,
-                            state.name,
+        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::BoxState,
+                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name,
                             BoundingBox( Vector3( state.halfX, state.halfY, state.halfZ ), ZERO_VECTOR ),
                             Vector3( state.posX, state.posY, state.posZ ),
                             Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
                             Vector3( state.velX, state.velY, state.velZ ),
                             Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ),
-                            state.mass,
-                            state.restitution,
-                            state.contactMaterial,
-                            state.isFixed,
-                            state.isSleeping,
-                            false,
-                            1.0f,
-                            nullptr );
+                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
+                            state.contactMaterial, state.isFixed, state.isSleeping, false, 1.0f, nullptr );
     }
+
     for ( int index = 0; index < scene.GetConvexHullStateCount(); ++index )
     {
         const SceneConvexHullState& state = scene.GetConvexHullState( index );
         ConvexHullShape hull;
         const std::string hullPath = std::string( "SkullbonezData/hulls/" ) + state.hullPath + ".hull";
-        REQUIRE( ConvexHullShape::TryLoadFromFile( hullPath.c_str(), hull ).ok );
-        AppendParsedEntity( entities,
-                            bodies,
-                            colliders,
-                            scene,
-                            SceneAssetPartSource::ConvexHullState,
-                            static_cast<uint32_t>( index ),
-                            state.sceneObjectId,
-                            state.name,
-                            hull,
+        REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, hullPath.c_str(), hull ).Ok() );
+        AppendParsedEntity( entities, bodies, colliders, scene, SceneAssetPartSource::ConvexHullState,
+                            static_cast<uint32_t>( index ), state.sceneObjectId, state.name, hull,
                             Vector3( state.posX, state.posY, state.posZ ),
                             Quaternion( state.orientX, state.orientY, state.orientZ, state.orientW ),
                             Vector3( state.velX, state.velY, state.velZ ),
                             Vector3( state.angVelX, state.angVelY, state.angVelZ ),
-                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ),
-                            state.mass,
-                            state.restitution,
-                            state.contactMaterial,
-                            state.isFixed,
-                            state.isSleeping,
-                            state.contactReleaseOnImpact,
-                            state.contactReleaseImpulseThreshold,
-                            &state.group );
+                            Vector3( state.inertiaX, state.inertiaY, state.inertiaZ ), state.mass, state.restitution,
+                            state.contactMaterial, state.isFixed, state.isSleeping, state.contactReleaseOnImpact,
+                            state.contactReleaseImpulseThreshold, &state.group );
     }
 }
 } // namespace
@@ -681,13 +625,12 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     const TemporarySnapshotFiles cleanup;
     WriteAssetLibrary();
 
-    static SceneEntityStore entities;
+    static SceneEntityStore entities( diagnostics );
     static PhysicsBodyStore bodies;
     static ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveShapeCapacity( 16u, 16u, 16u );
@@ -699,121 +642,34 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     colliders.Clear();
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  300u,
-                  "saved_box",
-                  BoundingBox( Vector3( 2.0f, 3.0f, 4.0f ), ZERO_VECTOR ),
-                  Vector3( 10.0f, 11.0f, 12.0f ),
-                  Vector3( 1.0f, 2.0f, 3.0f ),
-                  Vector3( 4.0f, 5.0f, 6.0f ),
-                  Vector3( 7.0f, 8.0f, 9.0f ),
-                  12.0f,
-                  0.25f,
-                  "wood",
-                  false,
-                  true,
-                  "box",
-                  0u );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  42u,
-                  "saved_sphere",
-                  BoundingSphere( 2.5f, ZERO_VECTOR ),
-                  Vector3( 20.0f, 21.0f, 22.0f ),
-                  Vector3( 2.0f, 3.0f, 4.0f ),
-                  Vector3( 5.0f, 6.0f, 7.0f ),
-                  Vector3( 8.0f, 9.0f, 10.0f ),
-                  13.0f,
-                  0.35f,
-                  "stone",
-                  true,
-                  false,
-                  "sphere",
-                  1u );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        AppendEntity( entities, bodies, colliders, 300u, "saved_box",
+                      BoundingBox( Vector3( 2.0f, 3.0f, 4.0f ), ZERO_VECTOR ), Vector3( 10.0f, 11.0f, 12.0f ),
+                      Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 7.0f, 8.0f, 9.0f ), 12.0f, 0.25f,
+                      "wood", false, true, "box", 0u );
+
+        AppendEntity( entities, bodies, colliders, 42u, "saved_sphere", BoundingSphere( 2.5f, ZERO_VECTOR ),
+                      Vector3( 20.0f, 21.0f, 22.0f ), Vector3( 2.0f, 3.0f, 4.0f ), Vector3( 5.0f, 6.0f, 7.0f ),
+                      Vector3( 8.0f, 9.0f, 10.0f ), 13.0f, 0.35f, "stone", true, false, "sphere", 1u );
+
         ConvexHullShape hull;
-        REQUIRE( ConvexHullShape::TryLoadFromFile( "SkullbonezData/hulls/pyramid.hull", hull ).ok );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  777u,
-                  "saved_hull",
-                  hull,
-                  Vector3( 30.0f, 31.0f, 32.0f ),
-                  Vector3( 3.0f, 4.0f, 5.0f ),
-                  Vector3( 6.0f, 7.0f, 8.0f ),
-                  Vector3( 9.0f, 10.0f, 11.0f ),
-                  14.0f,
-                  0.45f,
-                  "metal",
-                  true,
-                  false,
-                  "hull",
-                  2u,
-                  SceneBehaviorGroupKind::ReleasableTree,
-                  PhysicsSceneObjectId{ 777u },
-                  0 );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  99u,
-                  "direct_sphere",
-                  BoundingSphere( 0.75f, ZERO_VECTOR ),
-                  Vector3( 40.0f, 41.0f, 42.0f ),
-                  ZERO_VECTOR,
-                  ZERO_VECTOR,
-                  Vector3( 1.0f, 1.0f, 1.0f ),
-                  2.0f,
-                  0.15f,
-                  "default",
-                  false,
-                  false,
-                  nullptr,
-                  0u );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  1001u,
-                  "tree_root",
-                  hull,
-                  Vector3( 50.0f, 51.0f, 52.0f ),
-                  ZERO_VECTOR,
-                  ZERO_VECTOR,
-                  Vector3( 3.0f, 4.0f, 5.0f ),
-                  5.0f,
-                  0.2f,
-                  "wood",
-                  true,
-                  false,
-                  nullptr,
-                  0u,
-                  SceneBehaviorGroupKind::ReleasableTree,
-                  PhysicsSceneObjectId{ 1001u },
-                  0 );
-        AppendEntity( entities,
-                  bodies,
-                  colliders,
-                  555u,
-                  "tree_child",
-                  hull,
-                  Vector3( 53.0f, 54.0f, 55.0f ),
-                  ZERO_VECTOR,
-                  ZERO_VECTOR,
-                  Vector3( 4.0f, 5.0f, 6.0f ),
-                  6.0f,
-                  0.3f,
-                  "wood",
-                  true,
-                  false,
-                  nullptr,
-                  0u,
-                  SceneBehaviorGroupKind::ReleasableTree,
-                  PhysicsSceneObjectId{ 1001u },
-                  1 );
+        REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ).Ok() );
+        AppendEntity( entities, bodies, colliders, 777u, "saved_hull", hull, Vector3( 30.0f, 31.0f, 32.0f ),
+                      Vector3( 3.0f, 4.0f, 5.0f ), Vector3( 6.0f, 7.0f, 8.0f ), Vector3( 9.0f, 10.0f, 11.0f ), 14.0f, 0.45f,
+                      "metal", true, false, "hull", 2u, SceneBehaviorGroupKind::ReleasableTree,
+                      PhysicsSceneObjectId { 777u }, 0 );
+
+        AppendEntity( entities, bodies, colliders, 99u, "direct_sphere", BoundingSphere( 0.75f, ZERO_VECTOR ),
+                      Vector3( 40.0f, 41.0f, 42.0f ), ZERO_VECTOR, ZERO_VECTOR, Vector3( 1.0f, 1.0f, 1.0f ), 2.0f, 0.15f,
+                      "default", false, false, nullptr, 0u );
+
+        AppendEntity( entities, bodies, colliders, 1001u, "tree_root", hull, Vector3( 50.0f, 51.0f, 52.0f ), ZERO_VECTOR,
+                      ZERO_VECTOR, Vector3( 3.0f, 4.0f, 5.0f ), 5.0f, 0.2f, "wood", true, false, nullptr, 0u,
+                      SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 1001u }, 0 );
+
+        AppendEntity( entities, bodies, colliders, 555u, "tree_child", hull, Vector3( 53.0f, 54.0f, 55.0f ), ZERO_VECTOR,
+                      ZERO_VECTOR, Vector3( 4.0f, 5.0f, 6.0f ), 6.0f, 0.3f, "wood", true, false, nullptr, 0u,
+                      SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 1001u }, 1 );
     }
 
     MutualGravitySettings mutualGravity;
@@ -837,9 +693,9 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     const SceneSessionSaveState session { true, false, true, true, true, 7.5f, 0.25f, -0.5f };
     const PresentationSaveState presentation { true, true };
     const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
-    REQUIRE( SceneSnapshotWriter::Save( request ).ok );
+    REQUIRE( SceneSnapshotWriter::Save( diagnostics, request ).Ok() );
 
-    const AuthoredScene saved = AuthoredScene::LoadFromFile( kSnapshotPath );
+    const AuthoredScene saved = AuthoredScene::LoadFromFile( diagnostics, kSnapshotPath );
     CHECK( saved.GetSchemaVersion() == 2u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
@@ -900,13 +756,12 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
 
     // The second half rebuilds fresh production owner stores without Run.
     // Stable ids deliberately permit the parser's shape-section row reorder.
-    static SceneEntityStore recreatedEntities;
+    static SceneEntityStore recreatedEntities( diagnostics );
     static PhysicsBodyStore recreatedBodies;
     static ColliderStore recreatedColliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         recreatedBodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         recreatedColliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         recreatedColliders.ReserveShapeCapacity( 16u, 16u, 16u );

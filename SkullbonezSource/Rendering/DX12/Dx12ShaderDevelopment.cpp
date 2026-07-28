@@ -25,6 +25,7 @@ Related:
   - tools/bake_shaders.bat
 */
 #include "Dx12ShaderDevelopment.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include "RenderBackendDX12.h"
 #include "ShaderBytecodeManifest.h"
@@ -38,11 +39,12 @@ Related:
 using namespace SkullbonezCore::Rendering;
 
 
-Dx12ShaderDevelopment::Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
+Dx12ShaderDevelopment::Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                              Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
                                               Dx12GeometryOwner& geometry, Dx12RenderDevice& device, Dx12FrameOwner& frame,
                                               Dx12Diagnostics& diagnostics )
-    : m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ), m_device( device ), m_frame( frame ),
-      m_diagnostics( diagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ),
+      m_device( device ), m_frame( frame ), m_diagnostics( diagnostics )
 {
 }
 
@@ -57,7 +59,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadShadersFromSource()
 {
     const SkullbonezCore::Core::SbResult bakeResult = BakeSourceGeneration();
 
-    if ( !bakeResult.ok )
+    if ( !bakeResult.Ok() )
     {
         return bakeResult;
     }
@@ -67,7 +69,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadShadersFromSource()
     // proves those lists complete and reopens the recording epoch.
     const SkullbonezCore::Core::SbResult drainResult = m_frame.FinishAndReopen( m_diagnostics );
 
-    if ( !drainResult.ok )
+    if ( !drainResult.Ok() )
     {
         return drainResult;
     }
@@ -137,16 +139,15 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 
     if ( !Enabled() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader hot reload requires --dev-shader-hot-reload" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader hot reload requires --dev-shader-hot-reload" );
     }
 
     constexpr char BAKE_PATH[] = "tools\\bake_shaders.bat";
 
     if ( GetFileAttributesA( BAKE_PATH ) == INVALID_FILE_ATTRIBUTES )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake tool is unavailable from this working directory" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12",
+                                            "Shader bake tool is unavailable from this working directory" );
     }
 
     // Cold utility action: invoke the same pinned DXC bake used by validation.
@@ -163,8 +164,8 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
     if ( !CreateProcessA( nullptr, commandLine, nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup,
                           &process ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "Shader bake process failed to start (error=%lu)",
-                                                        GetLastError() );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake process failed to start (error=%lu)",
+                                            GetLastError() );
     }
 
     const DWORD waitResult = WaitForSingleObject( process.hProcess, INFINITE );
@@ -177,8 +178,8 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
     {
 
         // Lane R: the external bake can fail without changing the live generation.
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)",
-                                                        waitResult, exitCode );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)", waitResult,
+                                            exitCode );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -194,7 +195,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
     const SkullbonezCore::Core::SbResult computeResult = m_textures.PrepareGenerateMipsShaderReload( device,
                                                                                                      generateMipsCandidate );
 
-    if ( !computeResult.ok )
+    if ( !computeResult.Ok() )
     {
         return computeResult;
     }
@@ -211,8 +212,8 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
             // Lane R: a changed shader interface needs a rebuilt executable;
             // every live shader and PSO still names the previous generation.
-            return SkullbonezCore::Core::SbResult::
-                Failure( "Rendering/DX12", "Shader hot reload rejected changed or invalid bytecode contract" );
+            return m_resultDiagnostics.Failure( "Rendering/DX12",
+                                                "Shader hot reload rejected changed or invalid bytecode contract" );
         }
     }
 

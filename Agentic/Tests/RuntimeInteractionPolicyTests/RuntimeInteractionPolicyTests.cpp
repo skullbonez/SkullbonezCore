@@ -39,6 +39,7 @@ Related:
 #include "Runtime/Interaction/RuntimeInteractionCommands.h"
 #include "Runtime/Interaction/RuntimePickGeometry.h"
 #include "Runtime/UI/RuntimeUiSurface.h"
+#include "Core/SbDiagnosticStore.h"
 
 #include <cmath>
 #include <exception>
@@ -52,6 +53,7 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;
+using SkullbonezCore::Core::SbDiagnosticStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 
 namespace
@@ -74,6 +76,7 @@ void Fail( const char* file, int line, const std::string& message )
 
 void ExpectTrue( bool value, const char* expression, const char* file, int line )
 {
+
     if ( !value )
     {
         Fail( file, line, std::string( "expected true: " ) + expression );
@@ -81,32 +84,25 @@ void ExpectTrue( bool value, const char* expression, const char* file, int line 
 }
 
 
-void ExpectFloatNear( float actual,
-                      float expected,
-                      float tolerance,
-                      const char* actualExpression,
-                      const char* expectedExpression,
-                      const char* file,
-                      int line )
+void ExpectFloatNear( float actual, float expected, float tolerance, const char* actualExpression,
+                      const char* expectedExpression, const char* file, int line )
 {
+
     if ( fabsf( actual - expected ) > tolerance )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual
-            << ", expected " << expected << ", tolerance " << tolerance;
+        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual << ", expected "
+            << expected << ", tolerance " << tolerance;
         Fail( file, line, out.str() );
     }
 }
 
 
 template <typename T, typename U>
-void ExpectEqualImpl( const T& actual,
-                      const U& expected,
-                      const char* actualExpression,
-                      const char* expectedExpression,
-                      const char* file,
-                      int line )
+void ExpectEqualImpl( const T& actual, const U& expected, const char* actualExpression, const char* expectedExpression,
+                      const char* file, int line )
 {
+
     if ( !( actual == expected ) )
     {
         std::ostringstream out;
@@ -118,9 +114,8 @@ void ExpectEqualImpl( const T& actual,
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
 #define EXPECT_FALSE( expression ) ExpectTrue( !( expression ), "!(" #expression ")", __FILE__, __LINE__ )
-#define EXPECT_EQ( actual, expected )                                                                                  \
-    ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_NEAR( actual, expected, tolerance )                                                                     \
+#define EXPECT_EQ( actual, expected ) ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_NEAR( actual, expected, tolerance )                                                                          \
     ExpectFloatNear( ( actual ), ( expected ), ( tolerance ), #actual, #expected, __FILE__, __LINE__ )
 
 struct TestCase
@@ -147,7 +142,7 @@ RuntimeInteractionGesture MakeMousePickupGesture()
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 42;
     gesture.startY = 24;
-    gesture.body = PhysicsBodyHandle{ 7u, 3u };
+    gesture.body = PhysicsBodyHandle { 7u, 3u };
     return gesture;
 }
 
@@ -170,15 +165,17 @@ RuntimeInteractionGesture MakeReplayGesture( RuntimeInteractionGestureKind kind 
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 30;
     gesture.startY = 50;
+
     if ( kind == RuntimeInteractionGestureKind::ReplayVelocityDrag )
     {
-        gesture.body = PhysicsBodyHandle{ 9u, 4u };
+        gesture.body = PhysicsBodyHandle { 9u, 4u };
         gesture.axis = 2;
     }
     else if ( kind == RuntimeInteractionGestureKind::ReplayCauseTreeDrag )
     {
         gesture.axis = 0;
     }
+
     return gesture;
 }
 
@@ -190,7 +187,7 @@ RuntimeInteractionGesture MakeGizmoGesture( bool angular )
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = 64;
     gesture.startY = 96;
-    gesture.body = PhysicsBodyHandle{ 5u, 2u };
+    gesture.body = PhysicsBodyHandle { 5u, 2u };
     gesture.axis = 1;
     gesture.angular = angular;
     gesture.gizmoKind = angular ? RuntimeGizmoDragKind::Rotate : RuntimeGizmoDragKind::Translate;
@@ -198,8 +195,7 @@ RuntimeInteractionGesture MakeGizmoGesture( bool angular )
 }
 
 
-RuntimeGestureEvent BeginGesture( RuntimeInteractionController& controller,
-                                  const RuntimeInteractionGesture& gesture,
+RuntimeGestureEvent BeginGesture( RuntimeInteractionController& controller, const RuntimeInteractionGesture& gesture,
                                   RuntimePointerCaptureOwner captureOwner = RuntimePointerCaptureOwner::ToolGesture,
                                   InteractionExitReason reason = InteractionExitReason::BeginGesture )
 {
@@ -213,8 +209,7 @@ RuntimeGestureEvent BeginGesture( RuntimeInteractionController& controller,
 }
 
 
-RuntimeGestureEvent EndGesture( RuntimeInteractionController& controller,
-                                RuntimeInteractionGestureKind kind,
+RuntimeGestureEvent EndGesture( RuntimeInteractionController& controller, RuntimeInteractionGestureKind kind,
                                 InteractionExitReason reason = InteractionExitReason::EndGesture )
 {
     RuntimeGestureCommand command;
@@ -251,62 +246,44 @@ void TestExactBoxPickRejectsOldBoundingSphereEnvelope()
     const RuntimePickShapeTransform transform = MakePickTransform();
     float rayT = 0.0f;
 
-    EXPECT_FALSE( TryIntersectRuntimePickShape( shape,
-                                                transform,
-                                                Vector3( 4.0f, 0.0f, -20.0f ),
-                                                Vector3( 0.0f, 0.0f, 1.0f ),
-                                                rayT ) );
+    EXPECT_FALSE( TryIntersectRuntimePickShape( shape, transform, Vector3( 4.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
 
-    EXPECT_TRUE( TryIntersectRuntimePickShape( shape,
-                                               transform,
-                                               Vector3( 0.0f, 0.0f, -20.0f ),
-                                               Vector3( 0.0f, 0.0f, 1.0f ),
-                                               rayT ) );
+    EXPECT_TRUE( TryIntersectRuntimePickShape( shape, transform, Vector3( 0.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 19.0f, 0.001f );
 }
 
 
 void TestTreeTrunkHullPickUsesConvexFaces()
 {
-    const ConvexHullShape trunk = ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+    SbDiagnosticStore diagnostics;
+    const ConvexHullShape trunk = ConvexHullShape::LoadFromFile( diagnostics,
+                                                                 "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+
     const CollisionShape shape = trunk;
     const RuntimePickShapeTransform transform = MakePickTransform();
     float rayT = 0.0f;
 
-    EXPECT_TRUE( TryIntersectRuntimePickShape( shape,
-                                               transform,
-                                               Vector3( 0.0f, 0.0f, -20.0f ),
-                                               Vector3( 0.0f, 0.0f, 1.0f ),
-                                               rayT ) );
+    EXPECT_TRUE( TryIntersectRuntimePickShape( shape, transform, Vector3( 0.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 17.58f, 0.01f );
 
-    EXPECT_FALSE( TryIntersectRuntimePickShape( shape,
-                                                transform,
-                                                Vector3( 4.0f, 0.0f, -20.0f ),
-                                                Vector3( 0.0f, 0.0f, 1.0f ),
-                                                rayT ) );
+    EXPECT_FALSE( TryIntersectRuntimePickShape( shape, transform, Vector3( 4.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
 }
 
 
 void TestRotatedShapePickReturnsNearestEntry()
 {
+    SbDiagnosticStore diagnostics;
     const RuntimePickShapeTransform rotated = MakePickTransform( ZERO_VECTOR, MakeYawQuarterTurn() );
     float rayT = 0.0f;
 
     const CollisionShape box = BoundingBox( Vector3( 1.0f, 2.0f, 3.0f ), ZERO_VECTOR );
-    EXPECT_TRUE( TryIntersectRuntimePickShape( box,
-                                               rotated,
-                                               Vector3( 0.0f, 0.0f, -10.0f ),
-                                               Vector3( 0.0f, 0.0f, 1.0f ),
-                                               rayT ) );
+    EXPECT_TRUE( TryIntersectRuntimePickShape( box, rotated, Vector3( 0.0f, 0.0f, -10.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 9.0f, 0.001f );
 
-    const CollisionShape trunk = ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/tree_trunk_faceted.hull" );
-    EXPECT_TRUE( TryIntersectRuntimePickShape( trunk,
-                                               rotated,
-                                               Vector3( 0.0f, 0.0f, -20.0f ),
-                                               Vector3( 0.0f, 0.0f, 1.0f ),
-                                               rayT ) );
+    const CollisionShape trunk = ConvexHullShape::LoadFromFile( diagnostics,
+                                                                "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+
+    EXPECT_TRUE( TryIntersectRuntimePickShape( trunk, rotated, Vector3( 0.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 17.2f, 0.02f );
 }
 
@@ -320,10 +297,10 @@ void TestMousePickupDragRunsPhysicsWithoutStepHold()
     EXPECT_EQ( controller.Workspace(), RuntimeWorkspace::Live );
     EXPECT_EQ( controller.Owner(), WorldInteractionOwner::Manipulator );
 
-    const RuntimeGestureEvent beginEvent = BeginGesture( controller,
-                                                         MakeMousePickupGesture(),
+    const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeMousePickupGesture(),
                                                          RuntimePointerCaptureOwner::ToolGesture,
                                                          InteractionExitReason::EnterManipulator );
+
     EXPECT_EQ( beginEvent.type, RuntimeGestureEventType::Began );
 
     RuntimeInteractionFrameInput input = MakeDefaultFrameInput();
@@ -342,8 +319,7 @@ void TestToolGestureSuppressesCameraLook()
     RuntimeInteractionController controller;
     controller.EnterManipulator();
 
-    const RuntimeGestureEvent beginEvent = BeginGesture( controller,
-                                                         MakeMousePickupGesture(),
+    const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeMousePickupGesture(),
                                                          RuntimePointerCaptureOwner::ToolGesture,
                                                          InteractionExitReason::EnterManipulator );
 
@@ -418,8 +394,7 @@ void TestEditorPlacementScaleUsesTypedCapture()
     EXPECT_EQ( controller.Owner(), WorldInteractionOwner::EditorPlacement );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::ToolGesture );
 
-    const RuntimeGestureEvent endEvent =
-        EndGesture( controller, RuntimeInteractionGestureKind::EditorPlacementScaleDrag );
+    const RuntimeGestureEvent endEvent = EndGesture( controller, RuntimeInteractionGestureKind::EditorPlacementScaleDrag );
     EXPECT_EQ( endEvent.type, RuntimeGestureEventType::Ended );
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 }
@@ -491,8 +466,7 @@ void TestCameraLookReleaseAllowsToolGesture()
     EXPECT_EQ( controller.PointerCapture(), RuntimePointerCaptureOwner::None );
 
     controller.EnterManipulator();
-    const RuntimeGestureEvent beginToolEvent = BeginGesture( controller,
-                                                             MakeMousePickupGesture(),
+    const RuntimeGestureEvent beginToolEvent = BeginGesture( controller, MakeMousePickupGesture(),
                                                              RuntimePointerCaptureOwner::ToolGesture,
                                                              InteractionExitReason::EnterManipulator );
 
@@ -506,9 +480,7 @@ void TestEndGesturePublishesCleanupMetadata()
 {
     RuntimeInteractionController controller;
     controller.EnterManipulator();
-    BeginGesture( controller,
-                  MakeMousePickupGesture(),
-                  RuntimePointerCaptureOwner::ToolGesture,
+    BeginGesture( controller, MakeMousePickupGesture(), RuntimePointerCaptureOwner::ToolGesture,
                   InteractionExitReason::EnterManipulator );
 
     const RuntimeGestureEvent endEvent = EndGesture( controller, RuntimeInteractionGestureKind::MousePickupDrag );
@@ -527,9 +499,7 @@ void TestWorkspaceTransitionClearsCapturedGesture()
 {
     RuntimeInteractionController controller;
     controller.EnterManipulator();
-    BeginGesture( controller,
-                  MakeMousePickupGesture(),
-                  RuntimePointerCaptureOwner::ToolGesture,
+    BeginGesture( controller, MakeMousePickupGesture(), RuntimePointerCaptureOwner::ToolGesture,
                   InteractionExitReason::EnterManipulator );
 
     const RuntimeInteractionTransition transition = controller.EnterLive();
@@ -560,21 +530,13 @@ void TestCameraModeCommandsMapToInteractionOwners()
     const CameraModeCase cases[] = {
         { RunCameraMode::Demo, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
         { RunCameraMode::Scene, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
-        { RunCameraMode::Inspect,
-          RuntimeWorkspace::Inspect,
-          WorldInteractionOwner::None,
+        { RunCameraMode::Inspect, RuntimeWorkspace::Inspect, WorldInteractionOwner::None,
           InteractionExitReason::EnterInspect },
-        { RunCameraMode::Attach,
-          RuntimeWorkspace::Inspect,
-          WorldInteractionOwner::None,
+        { RunCameraMode::Attach, RuntimeWorkspace::Inspect, WorldInteractionOwner::None,
           InteractionExitReason::EnterInspect },
-        { RunCameraMode::Launcher,
-          RuntimeWorkspace::Live,
-          WorldInteractionOwner::Launcher,
+        { RunCameraMode::Launcher, RuntimeWorkspace::Live, WorldInteractionOwner::Launcher,
           InteractionExitReason::EnterLauncher },
-        { RunCameraMode::Manipulator,
-          RuntimeWorkspace::Live,
-          WorldInteractionOwner::Manipulator,
+        { RunCameraMode::Manipulator, RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator,
           InteractionExitReason::EnterManipulator },
         { RunCameraMode::Count, RuntimeWorkspace::Live, WorldInteractionOwner::None, InteractionExitReason::EnterLive },
     };
@@ -583,9 +545,7 @@ void TestCameraModeCommandsMapToInteractionOwners()
     {
         RuntimeInteractionController controller;
         controller.EnterManipulator();
-        BeginGesture( controller,
-                      MakeMousePickupGesture(),
-                      RuntimePointerCaptureOwner::ToolGesture,
+        BeginGesture( controller, MakeMousePickupGesture(), RuntimePointerCaptureOwner::ToolGesture,
                       InteractionExitReason::EnterManipulator );
 
         const RuntimeInteractionTransition transition = controller.EnterCameraMode( modeCase.mode );
@@ -608,10 +568,10 @@ void TestWorkspaceOwnerTransitionKeepsExactReplayOwner()
     RuntimeInteractionController controller;
     controller.EnterInspect();
 
-    const RuntimeInteractionTransition transition =
-        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                        WorldInteractionOwner::ReplayCauseTree,
-                                                        InteractionExitReason::EnterReplay );
+    const RuntimeInteractionTransition
+        transition = controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                                     WorldInteractionOwner::ReplayCauseTree,
+                                                                     InteractionExitReason::EnterReplay );
 
     EXPECT_TRUE( transition.workspaceChanged );
     EXPECT_TRUE( transition.ownerChanged );
@@ -642,8 +602,7 @@ void TestReplayToolGesturesCapturePointer()
     for ( const ReplayGestureCase& replayCase : cases )
     {
         RuntimeInteractionController controller;
-        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                        replayCase.owner,
+        controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, replayCase.owner,
                                                         InteractionExitReason::EnterReplay );
 
         const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeReplayGesture( replayCase.kind ) );
@@ -676,9 +635,9 @@ void TestReplayToolGesturesCapturePointer()
 void TestReplayGestureSceneResetCancelsCapture()
 {
     RuntimeInteractionController controller;
-    controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
-                                                    WorldInteractionOwner::ReplayScrub,
+    controller.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay, WorldInteractionOwner::ReplayScrub,
                                                     InteractionExitReason::EnterReplay );
+
     BeginGesture( controller, MakeReplayGesture( RuntimeInteractionGestureKind::ReplayScrubDrag ) );
 
     const RuntimeInteractionTransition transition = controller.ResetForScene( InteractionExitReason::ResetScene );
@@ -713,8 +672,7 @@ void TestGizmoDragCapturesPointerForEditorAndInspect()
     for ( const GizmoCase& gizmoCase : cases )
     {
         RuntimeInteractionController controller;
-        controller.SetWorldInteractionOwnerInWorkspace( gizmoCase.workspace,
-                                                        gizmoCase.owner,
+        controller.SetWorldInteractionOwnerInWorkspace( gizmoCase.workspace, gizmoCase.owner,
                                                         InteractionExitReason::EnterEdit );
 
         const RuntimeGestureEvent beginEvent = BeginGesture( controller, MakeGizmoGesture( gizmoCase.angular ) );
@@ -776,9 +734,9 @@ void TestInvalidToolGestureWithoutCaptureIsRejected()
 RuntimeUiControl MakeUiControl( uint32_t id, RuntimeUiControlKind kind, float x, float y, float width, float height )
 {
     RuntimeUiControl control;
-    control.id = RuntimeUiControlId{ id };
+    control.id = RuntimeUiControlId { id };
     control.kind = kind;
-    control.action = RuntimeUiActionId{ id + 100u };
+    control.action = RuntimeUiActionId { id + 100u };
     control.drawRect = { x, y, width, height };
     control.hitRect = control.drawRect;
     return control;
@@ -787,23 +745,20 @@ RuntimeUiControl MakeUiControl( uint32_t id, RuntimeUiControlKind kind, float x,
 
 void TestRuntimeUiSurfaceRepresentsEveryControlKind()
 {
-    constexpr RuntimeUiControlKind kinds[] = { RuntimeUiControlKind::Panel,
-                                               RuntimeUiControlKind::HotZone,
-                                               RuntimeUiControlKind::Button,
-                                               RuntimeUiControlKind::Toggle,
-                                               RuntimeUiControlKind::Slider,
-                                               RuntimeUiControlKind::Track,
-                                               RuntimeUiControlKind::Tab,
-                                               RuntimeUiControlKind::ToolHandle };
+    constexpr RuntimeUiControlKind kinds[] = { RuntimeUiControlKind::Panel,  RuntimeUiControlKind::HotZone,
+                                               RuntimeUiControlKind::Button, RuntimeUiControlKind::Toggle,
+                                               RuntimeUiControlKind::Slider, RuntimeUiControlKind::Track,
+                                               RuntimeUiControlKind::Tab,    RuntimeUiControlKind::ToolHandle };
+
     RuntimeUiSurface<8> surface;
 
     for ( std::size_t index = 0; index < 8; ++index )
     {
-        EXPECT_TRUE( surface.TryAdd(
-            MakeUiControl( static_cast<uint32_t>( index + 1 ), kinds[index], 0.0f, 0.0f, 10.0f, 10.0f ) ) );
+        EXPECT_TRUE( surface.TryAdd( MakeUiControl( static_cast<uint32_t>( index + 1 ), kinds[index], 0.0f, 0.0f, 10.0f, 10.0f ) ) );
     }
 
-    EXPECT_EQ( surface.controlCount, std::size_t{ 8 } );
+    EXPECT_EQ( surface.controlCount, std::size_t { 8 } );
+
     for ( std::size_t index = 0; index < surface.controlCount; ++index )
     {
         EXPECT_EQ( surface.controls[index].kind, kinds[index] );
@@ -820,7 +775,7 @@ void TestRuntimeUiSurfaceRejectsCapacityAndIdentityViolations()
     EXPECT_FALSE( surface.TryAdd( MakeUiControl( 1u, RuntimeUiControlKind::Toggle, 5.0f, 0.0f, 5.0f, 5.0f ) ) );
     EXPECT_TRUE( surface.TryAdd( MakeUiControl( 2u, RuntimeUiControlKind::Slider, 10.0f, 0.0f, 5.0f, 5.0f ) ) );
     EXPECT_FALSE( surface.TryAdd( MakeUiControl( 3u, RuntimeUiControlKind::Tab, 15.0f, 0.0f, 5.0f, 5.0f ) ) );
-    EXPECT_EQ( surface.controlCount, std::size_t{ 2 } );
+    EXPECT_EQ( surface.controlCount, std::size_t { 2 } );
 }
 
 
@@ -842,8 +797,8 @@ void TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit()
     EXPECT_TRUE( surface.hasHotControl );
     EXPECT_TRUE( surface.hasPointerControl );
     EXPECT_TRUE( surface.consumesPointer );
-    EXPECT_EQ( surface.hotControl, RuntimeUiControlId{ 3u } );
-    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId{ 3u } );
+    EXPECT_EQ( surface.hotControl, RuntimeUiControlId { 3u } );
+    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId { 3u } );
     EXPECT_FALSE( surface.controls[0].hovered );
     EXPECT_FALSE( surface.controls[1].hovered );
     EXPECT_TRUE( surface.controls[2].hovered );
@@ -868,7 +823,7 @@ void TestRuntimeUiSurfaceDisabledControlPreventsClickThrough()
     surface.ResolvePointer( 10, 10 );
 
     EXPECT_TRUE( surface.hasPointerControl );
-    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId{ 1u } );
+    EXPECT_EQ( surface.pointerControl, RuntimeUiControlId { 1u } );
     EXPECT_FALSE( surface.hasHotControl );
     EXPECT_TRUE( surface.consumesPointer );
     EXPECT_FALSE( surface.controls[0].hovered );
@@ -918,12 +873,12 @@ void TestRuntimeUiSurfaceResetClearsDisposableFrameState()
     RuntimeUiSurface<1> surface;
     EXPECT_TRUE( surface.TryAdd( MakeUiControl( 8u, RuntimeUiControlKind::HotZone, 0.0f, 0.0f, 5.0f, 5.0f ) ) );
     surface.ResolvePointer( 2, 2 );
-    surface.activeControl = RuntimeUiControlId{ 8u };
+    surface.activeControl = RuntimeUiControlId { 8u };
     surface.hasActiveControl = true;
 
     surface.Reset();
 
-    EXPECT_EQ( surface.controlCount, std::size_t{ 0 } );
+    EXPECT_EQ( surface.controlCount, std::size_t { 0 } );
     EXPECT_FALSE( surface.hasHotControl );
     EXPECT_FALSE( surface.hasPointerControl );
     EXPECT_FALSE( surface.hasActiveControl );
@@ -969,8 +924,7 @@ int main()
         { "RuntimeUiSurfaceRejectsCapacityAndIdentityViolations",
           &TestRuntimeUiSurfaceRejectsCapacityAndIdentityViolations },
         { "RuntimeUiSurfaceResolvesOneOrderedEligibleHit", &TestRuntimeUiSurfaceResolvesOneOrderedEligibleHit },
-        { "RuntimeUiSurfaceDisabledControlPreventsClickThrough",
-          &TestRuntimeUiSurfaceDisabledControlPreventsClickThrough },
+        { "RuntimeUiSurfaceDisabledControlPreventsClickThrough", &TestRuntimeUiSurfaceDisabledControlPreventsClickThrough },
         { "RuntimeUiSurfaceBlockedPointerClearsHover", &TestRuntimeUiSurfaceBlockedPointerClearsHover },
         { "RuntimeUiSurfacePublishesHitStateWithDrawGeometry", &TestRuntimeUiSurfacePublishesHitStateWithDrawGeometry },
         { "RuntimeUiSurfaceResetClearsDisposableFrameState", &TestRuntimeUiSurfaceResetClearsDisposableFrameState },
@@ -978,6 +932,7 @@ int main()
 
     try
     {
+
         for ( const TestCase& test : tests )
         {
             RunTest( test );
@@ -986,6 +941,7 @@ int main()
     catch ( const std::exception& exception )
     {
         std::cerr << exception.what() << "\n";
+
         return 1;
     }
 

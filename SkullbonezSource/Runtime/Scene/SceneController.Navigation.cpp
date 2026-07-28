@@ -106,7 +106,7 @@ SceneUICommandSubmissionResult SceneController::SubmitUIRequests( const UI::UISc
     {
         result.status = SubmitCreateScene( commands.requestedSceneName );
 
-        if ( !result.status.ok )
+        if ( !result.status.Ok() )
         {
             return result;
         }

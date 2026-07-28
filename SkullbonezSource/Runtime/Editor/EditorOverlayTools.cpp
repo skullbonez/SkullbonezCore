@@ -44,7 +44,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-EditorInteractionPreviewResult UpdateEditorInteractionPreview( RunEditorPlacementState& editor, SceneWorld& world,
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosticStore& diagnostics,
+                                                               RunEditorPlacementState& editor, SceneWorld& world,
                                                                RuntimeInteractionController& interaction,
                                                                const Assets::AssetSystem& assets,
                                                                const EditorInteractionPreviewInput& input )
@@ -85,8 +86,9 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( RunEditorPlacemen
             terrainPlacementForPreview = &terrainPlacement;
         }
 
-        editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( editor, terrain, assets, placementScaleActive,
-                                                                          editor.objectType, terrainPlacementForPreview );
+        editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( diagnostics, editor, terrain, assets,
+                                                                          placementScaleActive, editor.objectType,
+                                                                          terrainPlacementForPreview );
     }
 
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );

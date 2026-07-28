@@ -97,7 +97,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -122,7 +122,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -149,7 +149,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -175,7 +175,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -227,6 +227,7 @@
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSbResult.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
     <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
@@ -253,6 +254,7 @@
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
@@ -298,6 +300,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
@@ -315,6 +318,7 @@
     <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h" />
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
+    <ClInclude Include="SkullbonezTests\TestSbResultAccess.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>

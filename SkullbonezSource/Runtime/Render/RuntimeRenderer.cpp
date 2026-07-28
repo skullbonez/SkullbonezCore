@@ -455,10 +455,10 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 
     const SkullbonezCore::Core::SbResult textureResult = textures.SelectTexture( TEXTURE_BOUNDING_SPHERE );
 
-    if ( !textureResult.ok )
+    if ( !textureResult.Ok() )
     {
-        std::fprintf( stderr, "Frame/Render/ReplayPredictionGhosts texture failure [%s]: %s\n", textureResult.error.owner,
-                      textureResult.error.message );
+        std::fprintf( stderr, "Frame/Render/ReplayPredictionGhosts texture failure [%s]: %s\n", textureResult.ErrorOwner(),
+                      textureResult.ErrorMessage() );
 
         return;
     }
@@ -1854,14 +1854,16 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( bool cinemati
 }
 
 
-RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                  Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                                   Rendering::Dx12GraphTransientPool& renderGraph,
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                                   Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
                                   bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene )
-    : m_resources( renderDevice, renderFrame, renderGraph, renderResources, renderTextures, renderGeometry,
-                   renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
+    : m_resultDiagnostics( resultDiagnostics ),
+      m_resources( resultDiagnostics, renderDevice, renderFrame, renderGraph, renderResources, renderTextures,
+                   renderGeometry, renderDiagnostics, raytracing, raytracingAvailable, world, scene ),
       m_cameras( world.cameras ), m_window( world.window ), m_world( world.worldEnvironment ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
@@ -2431,7 +2433,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
     logLifecycleStep( "flush_before_resource_release" );
     const SkullbonezCore::Core::SbResult flushResult = m_resources.RenderFrame().DrainForResourceRelease();
 
-    if ( !flushResult.ok )
+    if ( !flushResult.Ok() )
     {
 
         // Lane R: return before the first release. The destructor caller
@@ -2522,7 +2524,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( Development
 
     if ( !m_frameGraphRenderGraph )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
+        return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
     }
 
     Rendering::RenderGraph& graph = BeginRenderPassGraph();

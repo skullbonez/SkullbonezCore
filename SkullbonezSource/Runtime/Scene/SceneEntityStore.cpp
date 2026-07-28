@@ -23,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.cpp
 */
 #include "SceneEntityStore.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include "../../Core/FatalError.h"
 
@@ -91,7 +92,7 @@ void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind, Physi
     behaviorGroup.partIndex = partIndex;
 }
 
-SceneEntityStore::SceneEntityStore()
+SceneEntityStore::SceneEntityStore( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) : m_diagnostics( diagnostics )
 {
 
     // Phase: startup preallocation. The default capacity is reserved before
@@ -130,21 +131,19 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
     if ( Count() >= m_capacity )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Scene entity capacity exhausted. count=%d capacity=%d", Count(),
-                                                        m_capacity );
+        return m_diagnostics.Failure( "Scene/SceneEntityStore", "Scene entity capacity exhausted. count=%d capacity=%d",
+                                      Count(), m_capacity );
     }
 
     if ( !entity.sceneObjectId.IsValid() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                        "Cannot append a scene entity with id 0." );
+        return m_diagnostics.Failure( "Scene/SceneEntityStore", "Cannot append a scene entity with id 0." );
     }
 
     if ( FindBySceneObjectId( entity.sceneObjectId ) >= 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore", "Duplicate scene entity id %u.",
-                                                        entity.sceneObjectId.value );
+        return m_diagnostics.Failure( "Scene/SceneEntityStore", "Duplicate scene entity id %u.",
+                                      entity.sceneObjectId.value );
     }
 
     // Invariant: stable group roots are validated before downstream physics or
@@ -157,8 +156,7 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
         if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                            "Behavior group requires a valid root id and part." );
+            return m_diagnostics.Failure( "Scene/SceneEntityStore", "Behavior group requires a valid root id and part." );
         }
 
         const int rootIndex = FindBySceneObjectId( group.rootObjectId );
@@ -168,15 +166,13 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
             if ( group.partIndex != 0 )
             {
-                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                                "Behavior group root must be part zero." );
+                return m_diagnostics.Failure( "Scene/SceneEntityStore", "Behavior group root must be part zero." );
             }
         }
         else if ( rootIndex < 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                            "Behavior group root id %u has not been created.",
-                                                            group.rootObjectId.value );
+            return m_diagnostics.Failure( "Scene/SceneEntityStore", "Behavior group root id %u has not been created.",
+                                          group.rootObjectId.value );
         }
         else
         {
@@ -185,9 +181,9 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
             if ( rootGroup.kind != group.kind || rootGroup.rootObjectId.value != group.rootObjectId.value ||
                  rootGroup.partIndex != 0 )
             {
-                return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneEntityStore",
-                                                                "Behavior group root id %u has incompatible metadata.",
-                                                                group.rootObjectId.value );
+                return m_diagnostics.Failure( "Scene/SceneEntityStore",
+                                              "Behavior group root id %u has incompatible metadata.",
+                                              group.rootObjectId.value );
             }
         }
     }
@@ -200,9 +196,9 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
     const SkullbonezCore::Core::SbResult preflight = PreflightAppend( entity );
     const bool reservationReady = m_records.size() < m_records.capacity();
 
-    if ( !preflight.ok || !body.IsValid() || !reservationReady )
+    if ( !preflight.Ok() || !body.IsValid() || !reservationReady )
     {
-        const char* reason = !preflight.ok     ? preflight.error.message
+        const char* reason = !preflight.Ok()   ? preflight.ErrorMessage()
                              : !body.IsValid() ? "invalid body"
                                                : "configured reservation exhausted";
 

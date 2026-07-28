@@ -73,7 +73,7 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
         return transaction
             .Load( sceneController, request, config, launchOptions, defaultCinematicRender, startup, assets, workerPool,
                    diagnosticsRuntime, renderFrame, renderResources, renderer )
-            .ok;
+            .Ok();
     };
 
     const SceneRequestBatch batch = sceneController.TakePendingRequests();
@@ -128,13 +128,13 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
 
             const SkullbonezCore::Core::SbResult saveResult = sceneController.SaveCurrentDefaults( SceneDefaultsSaveView { presentationState, renderer, camera, currentNavigation.overrides } );
 
-            if ( !saveResult.ok )
+            if ( !saveResult.Ok() )
             {
-                std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+                std::fprintf( stderr, "[%s] %s\n", saveResult.ErrorOwner(), saveResult.ErrorMessage() );
                 std::fflush( stderr );
             }
 
-            accepted = saveResult.ok;
+            accepted = saveResult.Ok();
             break;
         }
         }

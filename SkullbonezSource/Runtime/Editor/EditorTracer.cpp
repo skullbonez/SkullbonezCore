@@ -203,7 +203,8 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
 } // namespace
 
 
-EditorTracer::EditorTracer()
+EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics )
 {
 
     // Runtime allocation policy: overlay line storage is paid once during tool
@@ -934,7 +935,7 @@ void EditorTracer::AddPlacementGhost( int objectType, const Vector3& center, con
         for ( int partIndex = 0; partIndex < tree->partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = tree->parts[partIndex];
-            const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+            const ConvexHullShape* hull = CachedEditorHullForAsset( m_resultDiagnostics, part.hullAsset );
 
             if ( !hull )
             {
@@ -976,7 +977,8 @@ void EditorTracer::AddPlacementGhost( int objectType, const Vector3& center, con
                                            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
                                            const ConvexHullShape* hull = hullPath.empty()
                                                                              ? nullptr
-                                                                             : CachedEditorBuildingHull( hullPath );
+                                                                             : CachedEditorBuildingHull( m_resultDiagnostics,
+                                                                                                         hullPath );
 
                                            if ( !hull )
                                            {
@@ -1065,7 +1067,7 @@ void EditorTracer::AddPlacementGhost( int objectType, const Vector3& center, con
     {
         ConvexHullShape hull;
 
-        if ( !TryBuildScaledEditorHullForType( type, scale, hull ) )
+        if ( !TryBuildScaledEditorHullForType( m_resultDiagnostics, type, scale, hull ) )
         {
             return;
         }

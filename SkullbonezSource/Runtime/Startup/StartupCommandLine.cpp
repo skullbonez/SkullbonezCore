@@ -1082,7 +1082,8 @@ bool ParseAllocationGuardCommandLineToken( const char* value,
 {
     return ParseAllocationGuardModeValue( value, out );
 }
-bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core::EngineConfig& config, ParsedArgs& out )
+bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine,
+                       SkullbonezCore::Core::EngineConfig& config, ParsedArgs& out )
 {
 
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
@@ -1095,11 +1096,12 @@ bool ParseCommandLine( const CommandLineView& commandLine, SkullbonezCore::Core:
         return false;
     }
 
-    const SkullbonezCore::Core::SbResult configLoad = config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    const SkullbonezCore::Core::SbResult configLoad = config.Load( diagnostics,
+                                                                   ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
-    if ( !configLoad.ok )
+    if ( !configLoad.Ok() )
     {
-        return FailCommandLineParse( "%s: %s", configLoad.error.owner, configLoad.error.message );
+        return FailCommandLineParse( "%s: %s", configLoad.ErrorOwner(), configLoad.ErrorMessage() );
     }
 
     if ( !ApplyVsyncOverride( commandLine, config ) )

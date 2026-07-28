@@ -197,8 +197,8 @@ void LogSceneLoadFailure( const SkullbonezCore::Core::SbResult& result, const st
     // Why: scene setup is a recoverable load boundary. Logging the owner keeps
     // automation and operators on a concrete failing subsystem without treating
     // malformed scene/generated input as an engine invariant failure.
-    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Scene";
-    const char* message = result.error.message[0] != '\0' ? result.error.message : "scene setup failed without a message";
+    const char* owner = result.ErrorOwner() && result.ErrorOwner()[0] != '\0' ? result.ErrorOwner() : "Runtime/Scene";
+    const char* message = result.ErrorMessage()[0] != '\0' ? result.ErrorMessage() : "scene setup failed without a message";
 
     fprintf( stderr, "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n", owner,
              scenePath.empty() ? "<generated>" : scenePath.c_str(), message );
@@ -410,7 +410,8 @@ void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWat
     world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
-SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
+SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                  SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   const std::string& terrainRawPath,
                                                   SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
@@ -422,8 +423,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, Skullb
 
     if ( !renderResources )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RunScene",
-                                                        "Renderer resource factory unavailable for terrain load." );
+        return resultDiagnostics.Failure( "Runtime/RunScene", "Renderer resource factory unavailable for terrain load." );
     }
 
     if ( !terrainOwner.Get() || terrainOwner.IsFlatSlope() )
@@ -433,7 +433,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, Skullb
         {
             const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
 
-            if ( !flushResult.ok )
+            if ( !flushResult.Ok() )
             {
 
                 // Lane R: keep the currently owned terrain alive when its GPU
@@ -443,11 +443,12 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, Skullb
         }
 
         std::unique_ptr<Terrain> terrain;
-        const SkullbonezCore::Core::SbResult terrainResult = Terrain::TryCreateFromHeightMap( terrainRawPath.c_str(), 256, 8,
+        const SkullbonezCore::Core::SbResult terrainResult = Terrain::TryCreateFromHeightMap( resultDiagnostics,
+                                                                                              terrainRawPath.c_str(), 256, 8,
                                                                                               15, config, assets,
                                                                                               *renderResources, terrain );
 
-        if ( !terrainResult.ok )
+        if ( !terrainResult.Ok() )
         {
 
             // Why: RAW terrain is external scene/config input. Report the load
@@ -466,7 +467,8 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneWorld& sceneWorld, Skullb
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
+SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                    SceneWorld& sceneWorld, SkullbonezCore::Assets::AssetSystem& assets,
                                                     const SkullbonezCore::Core::EngineConfig& config, float baseY,
                                                     float slopeX, float slopeZ,
                                                     SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
@@ -478,15 +480,14 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneWorld& sceneWorld, Skul
 
     if ( !renderResources )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RunScene",
-                                                        "Renderer resource factory unavailable for flat terrain." );
+        return resultDiagnostics.Failure( "Runtime/RunScene", "Renderer resource factory unavailable for flat terrain." );
     }
 
     if ( renderFrame )
     {
         const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
 
-        if ( !flushResult.ok )
+        if ( !flushResult.Ok() )
         {
 
             // Lane R: assignment below destroys the old terrain. Leave it
@@ -836,8 +837,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         // Lane R: a rejected navigation value cannot identify a scene to load;
         // preserve the active scene and report the owner boundary violation.
-        return SkullbonezCore::Core::SbResult::Failure( "SceneController",
-                                                        "Rejected scene load request reached execution." );
+        return m_resultDiagnostics.Failure( "SceneController", "Rejected scene load request reached execution." );
     }
 
     if ( !request.HasLoad() )
@@ -867,7 +867,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                         launchOptions.interactiveSceneRun,
                                                                     index, suppressExitOnComplete, preserveRuntimeState );
 
-    if ( !loadBegin.status.ok )
+    if ( !loadBegin.status.Ok() )
     {
 
         // Lane R: preparation has not mutated or destroyed the old
@@ -966,13 +966,13 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         const SkullbonezCore::Core::SbResult
-            terrainResult = UseDefaultTerrain( sceneController.Scene(), assets, config,
+            terrainResult = UseDefaultTerrain( m_resultDiagnostics, sceneController.Scene(), assets, config,
                                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                                "terrain.raw",
                                                                                config.assetPaths.terrainRaw.c_str() ),
                                                renderFrame, renderResources );
 
-        if ( !terrainResult.ok )
+        if ( !terrainResult.Ok() )
         {
             lastSceneLoadResult = terrainResult;
             LogSceneLoadFailure( terrainResult, scenePath );
@@ -1018,7 +1018,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                            sceneNavigation.overrides
                                                                                .solverBoxCountOverride );
 
-        if ( !generatedSetup.status.ok )
+        if ( !generatedSetup.status.Ok() )
         {
             lastSceneLoadResult = generatedSetup.status;
             LogSceneLoadFailure( generatedSetup.status, scenePath );
@@ -1038,9 +1038,10 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     {
         SceneState().isSceneMode = true;
         AuthoredScene scene;
-        const SkullbonezCore::Core::SbResult sceneLoad = AuthoredScene::TryLoadFromFile( scenePath.c_str(), assets, scene );
+        const SkullbonezCore::Core::SbResult sceneLoad = AuthoredScene::TryLoadFromFile( m_resultDiagnostics,
+                                                                                         scenePath.c_str(), assets, scene );
 
-        if ( !sceneLoad.ok )
+        if ( !sceneLoad.Ok() )
         {
             lastSceneLoadResult = sceneLoad;
             LogSceneLoadFailure( sceneLoad, scenePath );
@@ -1154,13 +1155,14 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         if ( scene.HasFlatSlope() )
         {
-            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( sceneController.Scene(), assets,
+            const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( m_resultDiagnostics,
+                                                                                      sceneController.Scene(), assets,
                                                                                       config, scene.GetFlatBaseY(),
                                                                                       scene.GetFlatSlopeX(),
                                                                                       scene.GetFlatSlopeZ(), renderFrame,
                                                                                       renderResources );
 
-            if ( !terrainResult.ok )
+            if ( !terrainResult.Ok() )
             {
                 lastSceneLoadResult = terrainResult;
                 LogSceneLoadFailure( terrainResult, scenePath );
@@ -1175,14 +1177,14 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         else
         {
             const SkullbonezCore::Core::SbResult
-                terrainResult = UseDefaultTerrain( sceneController.Scene(), assets, config,
+                terrainResult = UseDefaultTerrain( m_resultDiagnostics, sceneController.Scene(), assets, config,
                                                    assets
                                                        .RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                                  "terrain.raw",
                                                                                  config.assetPaths.terrainRaw.c_str() ),
                                                    renderFrame, renderResources );
 
-            if ( !terrainResult.ok )
+            if ( !terrainResult.Ok() )
             {
                 lastSceneLoadResult = terrainResult;
                 LogSceneLoadFailure( terrainResult, scenePath );
@@ -1253,7 +1255,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                             sceneNavigation.overrides.modelCountOverride,
                                                                             generatedBalls, generatedBoxes );
 
-        if ( !generatedModels.status.ok )
+        if ( !generatedModels.status.Ok() )
         {
             lastSceneLoadResult = generatedModels.status;
             LogSceneLoadFailure( generatedModels.status, scenePath );
@@ -1263,10 +1265,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         if ( !generatedModels.applied )
         {
             const SkullbonezCore::Core::SbResult
-                authoredSetup = SceneAuthoredSetup::SetUpSceneEntities( SceneState(), sceneController.Scene(),
+                authoredSetup = SceneAuthoredSetup::SetUpSceneEntities( m_resultDiagnostics, SceneState(),
+                                                                        sceneController.Scene(),
                                                                         consumerOutputs.automationGates, scene );
 
-            if ( !authoredSetup.ok )
+            if ( !authoredSetup.Ok() )
             {
                 lastSceneLoadResult = authoredSetup;
                 LogSceneLoadFailure( authoredSetup, scenePath );
@@ -1490,7 +1493,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     const SkullbonezCore::Core::SbResult rayTracingResult = renderer.ResourceLifecycle().InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
 
-    if ( !rayTracingResult.ok )
+    if ( !rayTracingResult.Ok() )
     {
         lastSceneLoadResult = rayTracingResult;
         return lastSceneLoadResult;
@@ -1511,13 +1514,13 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( !State().isSceneMode || !scenePath || scenePath->empty() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "No authored scene is active for defaults save" );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "No authored scene is active for defaults save" );
     }
 
     if ( State().isEditableScene )
     {
-        const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement( scenePath->c_str(),
+        const SkullbonezCore::Core::SbResult saveResult = SaveEditableSceneBeforeReplacement( m_resultDiagnostics,
+                                                                                              scenePath->c_str(),
                                                                                               Scene().GetSaveState(),
                                                                                               State().GetSaveState(),
                                                                                               view.debug.GetSaveState() );
@@ -1529,25 +1532,22 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( !input )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Could not read active scene defaults file: %s",
-                                                        scenePath->c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Could not read active scene defaults file: %s",
+                                            scenePath->c_str() );
     }
 
     Json root = Json::parse( input, nullptr, false );
 
     if ( root.is_discarded() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Active scene defaults file is not valid JSON: %s",
-                                                        scenePath->c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Active scene defaults file is not valid JSON: %s",
+                                            scenePath->c_str() );
     }
 
     if ( !root.is_object() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Active scene defaults root is not an object: %s",
-                                                        scenePath->c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Active scene defaults root is not an object: %s",
+                                            scenePath->c_str() );
     }
 
     root["format"] = "skullbonez.scene.json";
@@ -1651,17 +1651,16 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
 
     if ( !output )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Could not open active scene defaults for write: %s",
-                                                        scenePath->c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Could not open active scene defaults for write: %s",
+                                            scenePath->c_str() );
     }
 
     output << root.dump( 2 ) << '\n';
 
     if ( !output.good() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Could not write active scene defaults: %s", scenePath->c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController", "Could not write active scene defaults: %s",
+                                            scenePath->c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

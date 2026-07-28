@@ -44,6 +44,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class SbDiagnosticStore;
+}
 namespace Assets
 {
 class AssetSystem;
@@ -146,9 +150,11 @@ Math::Orientation::Quaternion EditorBuildingPartOrientation( const Math::Orienta
 
 const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType );
 int EditorBuildingPartCount( int objectType, const Assets::AssetSystem& assets );
-const Math::CollisionDetection::ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath );
-float EditorBuildingVerticalSize( int objectType, const Assets::AssetSystem& assets );
-bool TryComputeEditorBuildingWorldBounds( int objectType, const Math::Vector::Vector3& terrainPoint,
+const Math::CollisionDetection::ConvexHullShape* CachedEditorBuildingHull( Core::SbDiagnosticStore& diagnostics,
+                                                                           const std::string& hullPath );
+float EditorBuildingVerticalSize( Core::SbDiagnosticStore& diagnostics, int objectType, const Assets::AssetSystem& assets );
+bool TryComputeEditorBuildingWorldBounds( Core::SbDiagnosticStore& diagnostics, int objectType,
+                                          const Math::Vector::Vector3& terrainPoint,
                                           const Math::Orientation::Quaternion& placementOrientation,
                                           const Assets::AssetSystem& assets, Math::Vector::Vector3& outMin,
                                           Math::Vector::Vector3& outMax );
@@ -158,14 +164,16 @@ const EditorHouseDefinition* EditorHouseDefinitionForType( int objectType );
 bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign );
 Math::Orientation::Quaternion EditorPlacementOrientation( int objectType, Math::Vector::Vector3 terrainNormal,
                                                           bool autoTerrainAlign, float yawRadians );
-const Math::CollisionDetection::ConvexHullShape* CachedEditorHullForAsset( Assets::EditorHullAsset asset );
-bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree, const Math::Vector::Vector3& terrainPoint,
+const Math::CollisionDetection::ConvexHullShape* CachedEditorHullForAsset( Core::SbDiagnosticStore& diagnostics,
+                                                                           Assets::EditorHullAsset asset );
+bool TryComputeEditorTreeWorldBounds( Core::SbDiagnosticStore& diagnostics, const EditorTreeDefinition& tree,
+                                      const Math::Vector::Vector3& terrainPoint,
                                       const Math::Transformation::RotationMatrix& orientation, Math::Vector::Vector3& outMin,
                                       Math::Vector::Vector3& outMax );
 bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Math::Vector::Vector3& terrainPoint,
                                        const Math::Transformation::RotationMatrix& orientation,
                                        Math::Vector::Vector3& outMin, Math::Vector::Vector3& outMax );
-float EditorTreeVerticalSize( int objectType );
+float EditorTreeVerticalSize( Core::SbDiagnosticStore& diagnostics, int objectType );
 float EditorHouseVerticalSize( int objectType );
 
 Rendering::RenderMaterial EditorBuildingPartMaterial( const EditorPlacementJson& part );
@@ -173,7 +181,8 @@ Rendering::RenderMaterial EditorTreePartMaterial( const EditorTreePartDefinition
 Rendering::RenderMaterial EditorHousePartMaterial( const EditorHousePartDefinition& part );
 bool TryEditorRockMaterial( Assets::EditorHullAsset asset, Rendering::RenderMaterial& outMaterial );
 bool TryEditorRootMaterial( Assets::EditorHullAsset asset, Rendering::RenderMaterial& outMaterial );
-bool TryBuildScaledEditorHullForType( int objectType, const Math::Vector::Vector3& placementScale,
+bool TryBuildScaledEditorHullForType( Core::SbDiagnosticStore& diagnostics, int objectType,
+                                      const Math::Vector::Vector3& placementScale,
                                       Math::CollisionDetection::ConvexHullShape& outHull );
 
 template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Assets::AssetSystem& assets, Fn&& fn )

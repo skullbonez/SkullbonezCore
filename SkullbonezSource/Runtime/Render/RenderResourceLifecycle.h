@@ -60,7 +60,8 @@ namespace Runtime
 class RenderResourceLifecycle
 {
   public:
-    RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
+    RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                             Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
                              Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
                              Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
                              Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
@@ -178,6 +179,7 @@ class RenderResourceLifecycle
         return m_uiTextPass;
     }
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Rendering::Dx12RenderDevice& m_renderDevice;
     Rendering::Dx12FrameOwner& m_renderFrame;
     Rendering::Dx12GraphTransientPool& m_renderGraph;

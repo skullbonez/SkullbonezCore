@@ -333,14 +333,6 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
                                  const PhysicsWorldForces& worldForces, int modelCount )
 {
     PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/SeedPrivateEngine" );
-    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const int requestedBytes = ReplayPredictionEngineReserveBytes( liveEngine );
-
-    if ( requestedBytes <= 0 )
-    {
-        return false;
-    }
-
     const int currentBytes = prediction.simulation.predictionEngineReserveBytes;
 
     if ( prediction.simulation.predictionEngine && currentBytes <= 0 )
@@ -348,44 +340,25 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
         return false;
     }
 
-    CoreAllocation::RuntimeReserveGrowthResult result = {};
-
-    if ( requestedBytes > currentBytes )
-    {
-
-        // Why: the private engine is retained across prediction rebuilds. Only
-        // real capacity increases should consume replay growth events; same-size
-        // reseeds just reuse the previous bounded reservation.
-
-        if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0, currentBytes,
-                                                    requestedBytes, 1, result ) )
-        {
-            return false;
-        }
-    }
-
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     prediction.simulation.predictionEngineReady = false;
 
-    if ( !prediction.simulation.predictionEngine )
+    // Invariant: predictionEngineReady remains false across the synchronous
+    // Physics seed and both restores below. No worker may observe or step the
+    // intentionally partial topology/store seed before body and solver state
+    // are coherent.
+    int reservedBytes = 0;
+
+    if ( !SeedReplayPredictionEngineStorage( prediction.simulation.predictionEngine, liveEngine, currentBytes,
+                                             reservedBytes ) )
     {
-        prediction.simulation.predictionEngine = std::make_unique<PhysicsEngine>();
+        return false;
     }
 
     // Invariant: seeding starts from the live facade's topology and cold policy,
     // then restores the captured prediction values into the private engine. The
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
-
-    // Invariant: prediction capacity is committed before copy assignment so a
-    // fresh private engine never asks a Physics scene-load owner to allocate
-    // during Replay. Any larger handle high-water copied below remains inside
-    // this already-approved replay byte-growth scope.
-    predictionEngine.ReserveSceneCapacityLike( liveEngine );
-    predictionEngine = liveEngine;
-    prediction.simulation.predictionEngineReserveBytes = (std::max)( currentBytes, requestedBytes );
+    prediction.simulation.predictionEngineReserveBytes = reservedBytes;
     predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;

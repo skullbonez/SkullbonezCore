@@ -221,7 +221,8 @@ void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDire
                  director.currentPhaseIndex, phase.name[0] ? phase.name : "<unnamed>" );
 }
 
-void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, RunLaunchOptions& launchOptions,
+void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                              DemoDirectorPlaybackState& director, RunLaunchOptions& launchOptions,
                               SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
                               const Assets::AssetSystem& assets,
                               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
@@ -248,10 +249,11 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, RunLaunchOpti
     }
 
     AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( phase.stylePath, assets,
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( resultDiagnostics,
+                                                                                           phase.stylePath, assets,
                                                                                            styleScene );
 
-    if ( loadResult.ok )
+    if ( loadResult.Ok() )
     {
         sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
         ++director.appliedStyleCount;
@@ -260,7 +262,7 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, RunLaunchOpti
     }
     else
     {
-        const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
+        const char* message = loadResult.ErrorMessage()[0] != '\0' ? loadResult.ErrorMessage() : "style load failed";
         std::fprintf( stderr, "[demo-director] style error for %s: %s\n", phase.stylePath, message );
     }
 }
@@ -456,10 +458,10 @@ bool SaveShotList( const CameraControlState& camera )
     return saved;
 }
 
-DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
-                             RunLaunchOptions& launchOptions, SceneController& sceneController,
-                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
-                             SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+DemoDirectorTickResult Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, CameraControlState& camera,
+                             DemoDirectorPredictionView prediction, RunLaunchOptions& launchOptions,
+                             SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt )
 {
     DemoDirectorTickResult result;
@@ -486,8 +488,8 @@ DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionV
     // Why: Style JSON is cold phase-entry authoring data. Remembering the phase
     // and path keeps it out of the per-frame camera blend unless the phase or
     // authored style path actually changes.
-    ApplyPhaseStyleIfNeeded( director, launchOptions, sceneController, sceneBrowser, assets, activeCinematic,
-                             defaultCinematic );
+    ApplyPhaseStyleIfNeeded( resultDiagnostics, director, launchOptions, sceneController, sceneBrowser, assets,
+                             activeCinematic, defaultCinematic );
 
     ApplyPhaseRevealRateIfNeeded( director, result );
 

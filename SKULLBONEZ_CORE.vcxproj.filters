@@ -777,6 +777,9 @@
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\SbResult.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -920,6 +923,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SbResult.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h">

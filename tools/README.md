@@ -29,7 +29,7 @@ validation.
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
 | `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
-| `validate_dependency_graph.bat` | Data-driven include direction, Runtime package matrix, Replay boundary, retired ownership-vocabulary deletion, and single-project ownership fixtures/scan | ~2s |
+| `validate_dependency_graph.bat` | Data-driven include direction, generated-proof freshness, Runtime package matrix, Replay boundary, retired ownership-vocabulary deletion, and single-project ownership fixtures/scan | ~2s |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Deterministic Legacy plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
 | `launch_tracy_viewer.bat [--build-only]` | Build the pinned external Tracy profiler on first use and connect it to the local engine; `--build-only` verifies without starting the GUI | first use depends |
@@ -179,7 +179,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, declared filter names, and exact transitive JSON reachability for the ratified 19 cold-boundary translation units |
-| `validate_dependency_graph.bat` | Run data-only positive/negative package and retired-vocabulary fixtures, scan tracked physical includes and bounded deleted concepts, and enforce dedicated project ownership such as `SkullbonezSource/UI` in `SKULLBONEZ_UI.vcxproj` |
+| `validate_dependency_graph.bat` | Run data-only positive/negative package, generated-proof, and retired-vocabulary fixtures; freshness-check the marked `AGENTS.md` projection; scan tracked or untracked non-ignored source includes and bounded deleted concepts; and enforce dedicated project ownership such as `SkullbonezSource/UI` in `SKULLBONEZ_UI.vcxproj` |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
 | `validate_automation.bat` | Pre-commit boundary check plus one combined replay/prediction and development-UI command smoke in the diagnostics-only Automation build |
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |

@@ -36,6 +36,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -61,10 +67,12 @@ ObjectContactBodyView MakeBody( const Vector3& position, const Vector3& rotation
 {
     ObjectContactBodyView body;
     body.position = position;
+
     if ( rotationRadians != 0.0f )
     {
         body.orientation.RotateAboutAxis( rotationAxis, rotationRadians );
     }
+
     return body;
 }
 
@@ -88,6 +96,7 @@ void CheckContactPair( const ObjectContactBodyView& a, const CollisionShape& sha
     CHECK( std::isfinite( manifold.normal.x ) );
     CHECK( std::isfinite( manifold.normal.y ) );
     CHECK( std::isfinite( manifold.normal.z ) );
+
     for ( uint8_t point = 0; point < manifold.pointCount; ++point )
     {
         CHECK( std::isfinite( manifold.points[point].penetration ) );
@@ -102,6 +111,7 @@ void CheckFiniteManifold( const ObjectContactManifold& manifold )
     CHECK( std::isfinite( manifold.normal.x ) );
     CHECK( std::isfinite( manifold.normal.y ) );
     CHECK( std::isfinite( manifold.normal.z ) );
+
     for ( uint8_t i = 0; i < manifold.pointCount; ++i )
     {
         const auto& point = manifold.points[i];
@@ -128,6 +138,7 @@ TEST_CASE( "Object contact manifold: unchanged box stack keeps four stable face 
     REQUIRE( secondStep.pointCount == firstStep.pointCount );
     CheckFiniteManifold( firstStep );
     CheckFiniteManifold( secondStep );
+
     for ( uint8_t i = 0; i < firstStep.pointCount; ++i )
     {
         CHECK( secondStep.points[i].featureId == firstStep.points[i].featureId );
@@ -135,6 +146,7 @@ TEST_CASE( "Object contact manifold: unchanged box stack keeps four stable face 
         CHECK( secondStep.points[i].point.y == doctest::Approx( firstStep.points[i].point.y ) );
         CHECK( secondStep.points[i].point.z == doctest::Approx( firstStep.points[i].point.z ) );
         CHECK( secondStep.points[i].penetration == doctest::Approx( firstStep.points[i].penetration ) );
+
         for ( uint8_t j = static_cast<uint8_t>( i + 1 ); j < firstStep.pointCount; ++j )
         {
             CHECK( firstStep.points[i].featureId != firstStep.points[j].featureId );
@@ -158,10 +170,12 @@ TEST_CASE( "Object contact manifold: reduced tilted face starts with deepest ret
     };
 
     bool observedFourPointDepthVariation = false;
+
     for ( const ObjectContactBodyView& incident : tilted )
     {
         const ObjectContactManifold manifold = BuildBoxManifold( reference, box, incident, box );
         CheckFiniteManifold( manifold );
+
         if ( manifold.pointCount != 4 )
         {
             continue;
@@ -169,17 +183,20 @@ TEST_CASE( "Object contact manifold: reduced tilted face starts with deepest ret
 
         float deepestReturned = manifold.points[0].penetration;
         float shallowestReturned = manifold.points[0].penetration;
+
         for ( uint8_t i = 1; i < manifold.pointCount; ++i )
         {
             deepestReturned = (std::max)( deepestReturned, manifold.points[i].penetration );
             shallowestReturned = (std::min)( shallowestReturned, manifold.points[i].penetration );
         }
+
         if ( deepestReturned - shallowestReturned > 1.0e-4f )
         {
             observedFourPointDepthVariation = true;
             CHECK( manifold.points[0].penetration == doctest::Approx( deepestReturned ).epsilon( 1.0e-5 ) );
         }
     }
+
     REQUIRE( observedFourPointDepthVariation );
 }
 
@@ -191,6 +208,7 @@ TEST_CASE( "Object contact manifold: coplanar face and degenerate slab stay fini
 
     const ObjectContactManifold coplanar = BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 2.0f, 0.0f ) ),
                                                              unitBox );
+
     CheckFiniteManifold( coplanar );
 
     // A zero-height slab is a useful editor/import boundary case. Narrowphase
@@ -198,6 +216,7 @@ TEST_CASE( "Object contact manifold: coplanar face and degenerate slab stay fini
     const CollisionShape slab = MakeBox( Vector3( 0.75f, 0.0f, 0.75f ) );
     const ObjectContactManifold degenerate = BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 1.0f, 0.0f ) ),
                                                                slab );
+
     CheckFiniteManifold( degenerate );
 }
 
@@ -206,6 +225,7 @@ TEST_CASE( "Object contact manifold: boundary-band feature selection is stable a
 {
     const CollisionShape box = MakeBox();
     const ObjectContactBodyView lower = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+
     // Concept: exact face contact sits on a feature-selection boundary. The
     // selected side is less important than returning the same ordered rows on
     // every evaluation, because those feature ids key the warm-start cache.
@@ -219,6 +239,7 @@ TEST_CASE( "Object contact manifold: boundary-band feature selection is stable a
         CHECK( current.normal.x == doctest::Approx( baseline.normal.x ) );
         CHECK( current.normal.y == doctest::Approx( baseline.normal.y ) );
         CHECK( current.normal.z == doctest::Approx( baseline.normal.z ) );
+
         for ( uint8_t pointIndex = 0; pointIndex < baseline.pointCount; ++pointIndex )
         {
             CHECK( current.points[pointIndex].featureId == baseline.points[pointIndex].featureId );
@@ -232,8 +253,8 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
 {
     const CollisionShape sphere = SphereShape( 2.0f );
     const CollisionShape box = BoxShape( Vector3( 2.0f, 2.0f, 2.0f ) );
-    const CollisionShape hull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile(
-        "SkullbonezData/hulls/pyramid.hull" );
+    const CollisionShape hull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::
+        LoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull" );
 
     ObjectContactBodyView a;
     a.position = Vector3( 0.0f, 0.0f, 0.0f );
@@ -261,6 +282,7 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     ObjectContactBodyView target = a;
     const auto sweep = SweepObjectContact( moving, sphere, Vector3( 10.0f, 0.0f, 0.0f ), target, sphere,
                                            Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+
     CHECK( sweep.hit );
     CHECK( sweep.collisionTime >= 0.0f );
     CHECK( sweep.collisionTime <= 1.0f );

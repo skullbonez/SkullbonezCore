@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-27
+Date: 2026-07-28
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,10 +10,26 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-26th-JUL-26` |
-| Current baseline | Nightrunner 26 July is complete at N26-1 through N26-3: replay scrub spikes removed, owner code style ratified, and selected-body velocity-drag preview published. |
-| Current objective | Architecture Follow-Up Campaign Round 5 is complete; Plan 12 closed SR0-SR2 with clear review and all mapped gates passing. |
-| Active/future progress | 7/7 (100%). No Round 5 implementation item remains live. |
+| Branch | `nightrunner-28th-JUL-26` |
+| Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
+| Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
+| Active/future progress | 2/3 (67%). Plan 6 `determinism-terrain-fixture-isolation` is complete and has left the live ledger under rule 4; Plan 7 `dependency-proof-generation` completed DP1 and continues at DP2. |
+| Validation for dependency proof DP1 | The existing dependency checker owns one deterministic marked `AGENTS.md` projection, with fail-closed marker topology, current/stale checking, byte-preserving writes, and escaped rule-controlled Markdown. Its generated tables replace the 21-row Runtime matrix and all 27 mechanical `rg` proofs while retaining one explicitly qualitative Rendering search. Six frame-view allowances are exact files; valid exact edges pass and the pseudo-descendant fixture fails. App closed-world, Camera App-prefix, UI-to-Rendering, and residual textual-parser semantics are explicit. Self-tests pass 27 include rules / 47 negative edges, two negative content fixtures, one project fixture, and the generated-proof cases; the proof check and dependency gate pass with zero repository findings. Focused Python syntax/diff-whitespace checks and all three ownership inventories pass. Touched-tool comment audit is 1/1 with zero deferred files. No baseline was refreshed. |
+| Validation for dependency proof DP0 | Documentation-only comparison: 27 include rules, one content rule, one project rule, the 21-row Runtime table, 28 hand-written commands (27 mechanical and one qualitative), 46 negative include fixtures, two content fixtures, and one compound project fixture are reconciled row by row. The report identifies the over-broad Input proof, every Runtime regex's future-package hole, the frame-view self-include hole, UI prose/proof omission of Rendering, compound project-fixture false pass, selected-example fixture coverage, textual-include/resolver limits, path-casing behavior, prefix-to-exact migration with intentional descendant rejection, and a single-checker deterministic Markdown/freshness design. Its generated block owns the matrix and all mechanical commands; markers fail closed, writes preserve outside bytes, and escaping is deterministic. No repository validation was required. |
+| Validation for terrain fixture closure | The seven-run flat/deep reconstruction witness covers flat-to-flat, flat-to-deep, deep-to-flat, and deep-to-deep predecessors and passes 92/92 focused assertions. Randomized determinism seeds 28072026 and 731942 each pass 24/24 cases and 2,385,028 assertions. Final-source tests pass 438/438 cases and 2,419,221 assertions; format, 787/787 project/filter rows, dependency direction, all ownership inventories, byte-exact 44,401-line Physics, deep Physics, and the 284.23-second full gate pass. Comment audit is 4/4; follow-up independent review is clear. No baseline, golden, config, schema, performance artifact, layout, or SoA storage changed. |
+| Validation for terrain fixture TF1 | All four shared terrain statics, the terrain-bearing default, and nullable helper branch are deleted. All 18 terrain-bearing determinism cases use per-test config/terrain/heap-engine invariant owners; comparison engines own independent fixtures. Related prediction and terrain-coverage cases use per-case owners, and the startup lifecycle probe now has owner-safe destruction order. Profile build, focused 23-case determinism and two related cases, 437/437 tests with 2,419,129 assertions, standalone lifecycle smoke, dependency graph, and all three ownership inventories pass. Exact formatting passes for 4/4 touched source files; the global format gate is blocked only by two owner warm-start files. Comment audit is 4/4. No baseline, golden, config, schema, performance artifact, layout, or SoA storage changed. |
+| Validation for terrain fixture TF0 | Documentation-only census: 55 tracked test source/header paths contain four shared function-local terrains and one terrain-bearing default argument. `TestDeterminism.cpp` reaches 18 cases (17 flat, one deep), with one related shared case each in `TestPhysicsHandles.cpp` and `TestTerrain.cpp`. A separate non-test startup probe declares its heap engine before config/terrain and therefore destroys the retained-view owner first. `PhysicsWorld` retains the copied terrain view across `Clear`; config/terrain/heap-engine declaration order is binding for both TF1 surfaces. Analytic test terrains add no terrain heap/cache allocation. No baseline refresh or repository validation was required. |
+| Validation for vector dot-product closure | The configuration-complete census is 173 ambiguous uses across 36 files: 172 exact `Dot` call-site rewrites plus deletion of the OrbitalMechanics adapter and its one overload-body use. One shared definition and 179 calls remain, reconciling as 172 migrations, five existing Orbital named calls, and two permanent cancellation witnesses. Profile/Debug compilation, 437/437 tests and 2,419,129 assertions, 787/787 project/filter rows, dependency direction, all ownership inventories, byte-exact 44,401-line Physics, deep Physics/SkullScope, performance, one-generation Replay visual fidelity, DX12, and full validation pass. Comment audit is 36/36; independent review blockers were resolved. No baseline, golden, config, schema, or performance artifact was refreshed. |
+| Vector dot-product VD0/VD1 correction | VD0's Profile-preprocessed AST census found 171 rows across 34 files and VD1 migrated its 170 call sites plus deleted the adapter-body use. VD2's full Debug build exposed two additional `_DEBUG`-only rows in `SkullScope.cpp` and `LauncherTools.cpp`; the dated corrections in both reports supersede the old completeness claim with 173 uses across 36 files. |
+| Validation for SbResult closure | The result is 16 bytes and pointer-aligned; the fixed 256-slot store is 159,760 bytes. Exact 511-byte diagnostics, copy/move/identity, full-capacity, stale/foreign, cross-thread, no-allocation, high-water, lease/generation/re-entry Lane F, five DX12 epoch, and ImGui status-lifetime proofs pass. The corrected final capacity census is 221 publications plus 31 retained members, 252/256 with four slots of conservative headroom, one App store, and no multiplicative container/queue/worker path. Automation now uses one owner-held store and no report-input courier. Final-source tests pass 436/436 cases and 2,419,127 assertions; format, metadata, dependency, ownership inventories, Automation, performance, 60.576-second graphics stress, and the 355.5-second full gate pass without baseline refresh. Comment audit 18/18; independent review accepted. |
+| Validation for SbResult SR2 | At the SR2 checkpoint, MSVC x64 measured the migrated result at 16 bytes and the App-composed 256-slot store at 159,760 bytes. The explicit no-wrapper API was migrated across production and tests; SR2 reported 221 producer expressions plus 29 result-member sites, 250/256, with one production store and no result container/queue or hidden store. Focused success, formatting, lifetime, generation, capacity, exact concurrent owner/message bytes, stale/cross-store copy-out, owner overflow, double release, active-lease store destruction, and application-exit lease tests passed. Every normal `WinMain` exit reported active/session-high-water/capacity after store accessors unlocked and while the App store was alive; the production worker-self-test exit reported 0/0/256. Clean-worktree format, project filters, dependency graph, and `validate_fast` passed; all three ownership inventories passed; touched-source comment audit was 166/166 after the Automation-only closure. The closure row above supersedes SR2's capacity arithmetic and broad-proof status. |
+| Validation for SbResult SR1 | Documentation-only decision: one App-composed 256-slot (~160 KiB) immutable store, 16-byte pointer/token result, last-lease reclamation, 56-bit generation stale-handle protection, allocation-free synchronized failure publication, deterministic Lane F exhaustion/overflow, and explicit no-wrapper API migration. SR2 corrected the original spelling-sensitive 176+30 bound to 220+30, or 250/256, under verified no recursion/re-entry, worker publication, or result containers/queues; direct diagnostic pointers last only for the same live unmoved/unassigned lease and escaping use copies bounded bytes. The focused matrix includes test-only concurrent publication within capacity and a double-release Lane F child probe. No repository validation or baseline refresh required. |
+| Validation for SbResult SR0 | Current-source census: 177 returning definitions, 200 production success constructions, 220 production failures after SR2's multiline-aware correction, 30 direct stored fields, 74 direct diagnostic-consumer lines in 32 files, and zero CPU-thread/deferred-queue result handoffs. MSVC x64 measures `SbResult` at 528 bytes and preserves the exact 511-byte payload. Detached-clean-worktree `validate_perf` passes in 154 seconds without baseline refresh. |
+| Validation for Physics fixed-list closure | Compile-time owner non-transferability, production-adapter construction/seed, deep collider rebinding after source destruction, bit-exact next-step parity, and missing/wrong phase-owner fatal probes pass. Final-source `validate_tests` passes 422/422 cases and 2,410,618 assertions; allocation self-test/repository scan, `validate_physics`, strict Replay allocation, the single authoritative visual-fidelity run, `validate_perf`, and `validate_full` pass in the isolated worktree. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and all 12+ signatures ruled. Comment audit is 5/5; independent review returned zero blockers. No baseline was refreshed. |
+| Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
+| Validation for Replay restore closure | Independent review found one terminal-state false pass; transaction-owned branch/rollback proof and child fatal probes corrected it, and repeat review found zero blockers. Final-source `validate_fast` (211.8 s), `validate_tests` (35.6 s; 424/424 cases and 2,410,325 assertions), Replay visual fidelity (439.8 s), and `validate_full` (408.7 s) pass. All inventories pass; comment audit is 9/9. No baseline was refreshed. |
+| Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
+| Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Plan 12 `tools\validate_full.bat` passes in 337 seconds: 421/421 tests and 2,410,274 assertions, CPU/coverage, DX12 renderer/runtime lanes, and byte-exact Physics. `validate_perf.bat` and independent review also pass with zero blockers. |
 | Validation for coverage reorganization | Direct coverage and all six CPU lanes pass; 418/418 doctests and 2,410,159 assertions, ten unchanged subsystem percentages, 114/114 project/filter rows, zero gate-named test files, and clear independent review. |
@@ -27,6 +43,28 @@ plan inventory.
 | Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
+
+The Principal Engineer Feedback Campaign is live at 2/3 (67%). Physics body layout,
+Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
+compact SbResult success values, explicit vector dot products, and isolated
+deterministic terrain fixtures are complete; its one remaining plan generates
+dependency proofs. DP0 reconciled the JSON, human matrix, commands, checker,
+and fixtures; DP1 generated and freshness-checks one deterministic review proof
+through the existing checker, replacing the mechanical Runtime matrix and all
+27 mechanical commands while keeping the sole qualitative Rendering search
+explicit and exact-file distinctions visible. DP2 owns planted drift, split
+project branches, end-to-end residual-parser evidence, independent review, and
+final mapped gates. The bounded registration response
+removes the exact Replay pure forwarder, publishes the anti-Hamilton/
+transposed-matrix quaternion
+contract in the public header, makes orientation conversion const, gives the
+identity values one inline definition, and enables first-party IDE warning
+errors. The owner selected the current SoA for this campaign and approved the
+200, 520, 1,000, 2,000, and sleepy-5,000 witness matrix. The owner also approved
+qualitative review of all exact-12 signatures, owner-level fixed-list clones,
+bounded owner-managed SbResult diagnostics without a compatibility wrapper, and
+one-shot deletion of vector-vector `operator*`. The warm-start key guard remains
+an uncommitted owner-review diff; do not refresh baselines.
 
 Architecture Follow-Up Campaign Round 5 is complete at 7/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
@@ -684,6 +722,21 @@ are not certified. Full evidence:
 | `tools\validate_perf.bat` (N26 final) | 58.55 s | PASS; allocation guard, structural selected-path proof, DX12 and Physics comparisons |
 | `tools\validate_full.bat` (N26 final) | PASS | 402 doctests, required runtime lanes, accepted DX12 baselines, byte-exact 44,401-line Physics regression |
 | `tools\run_graphics_stress.bat 1` (N26 final) | 60.83 s | PASS; PID 34120 bounded stop, crash-free, descriptor churn proof complete, empty stderr |
+| wide-signature RG1 self-test + strict scan | 27.6 s | PASS; 33 current trigger rows, 28 retain-owner, 5 repair-plan, zero unruled/stale |
+| `tools\validate_fast.bat` (RG1 clean snapshot) | 228 s | PASS; format/metadata/dependencies, all three ownership inventories, Profile/Debug builds, and unit tests |
+| wide-signature RG2 self-tests + strict scans | 28.2 s max | PASS; 28/28 current trigger rows ruled, 86/86 aggregate rows ruled, 1/1 extraction scar ruled |
+| clean-worktree Profile build (RG2) | 45.9 s | PASS; zero warnings/errors |
+| `tools\validate_tests.bat` (RG2 clean snapshot) | 14.8 s | PASS; 423/423 cases and 2,410,303 assertions |
+| independent rubber-duck ownership review (RG3) | PASS after remediation | Initial review found pending branch completion and unproved rollback could false-pass; transaction-owned proof states and two fatal probes closed both, and repeat review found zero blockers |
+| `tools\validate_tests.bat` (RG3 remediation) | 35.6 s | PASS; 424/424 cases and 2,410,325 assertions |
+| `tools\validate_fast.bat` (RG3 final source) | 211.8 s | PASS; formatting, metadata, dependencies, all three ownership inventories, Profile/Debug builds, and tests |
+| Replay visual fidelity (RG3 final source) | 439.8 s | PASS; one engine process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| `tools\validate_full.bat` (RG3 final source) | 408.7 s | PASS; 424 cases / 2,410,325 assertions, all CPU/runtime lanes, accepted DX12 images, byte-exact 44,401-line Physics CSV |
+| PhysicsFixedList FC0 census | documentation-only; independent review clear | One production Replay prediction `PhysicsEngine` assignment reaches 98 lists; direct list/ColliderStore transfers are test-only; no production moves, by-value paths, or value queues |
+| SbResult SR1 ownership decision | documentation-only | App-composed 256-slot immutable store, 16-byte leased result, corrected 250/256 decision-tip conservative bound, last-copy reclamation, stale-generation/cross-store detection, bounded copy-out, explicit store injection, and no compatibility wrapper |
+| SbResult SR2 implementation | focused implementation proof | 16-byte result, 159,760-byte store, SR2-reported 250/256 census later corrected by SR3 to 252/256, exact concurrent diagnostic bytes and active-lease destruction Lane F pass, every normal App exit reports active/high-water/capacity, clean-worktree `validate_fast` and all ownership inventories pass, and comment audit is 166/166 |
+| SbResult SR3 closure | final-source broad proof | 252/256 conservative bound, exact size/payload/lease/identity tests, five DX12 epoch witnesses, Automation owner repair, 436 cases / 2,419,127 assertions, performance/full/stress gates, 18/18 comment audit, and accepted independent review |
+| Vector dot-product VD2 closure | final-source broad proof | 173 configuration-complete uses across 36 files, one definition/179 calls, exact cancellation witness, 437 cases / 2,419,129 assertions, byte-exact and deep Physics, performance, Replay visual, full gates, 36/36 comment audit, and accepted independent review |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -691,6 +744,16 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `scene-sized-store-capacity` at SC5. Convert the sleep, terrain,
-diagnostics, world, and engine vectors while preserving the CCD clock and
-point-joint handle semantics.
+Continue `dependency-proof-generation` at DP2. DP1's deterministic generated
+block, marker/current/stale/write checks, exact-file migration, pseudo-path
+rejection, and focused dependency proof are complete. DP2 must plant rule drift
+and prove freshness failure; split project ownership into independent
+missing-required, required-plus-Core, required-plus-Tests, and end-to-end
+XML/path-discovery cases with exact findings; add bounded macro/continuation and
+quoted/angle residual-parser evidence; reconcile final instructions/comments;
+run independent review and every mapped fast/full gate. Do not add a second
+checker, package-specific branch, edge count, or budget. The
+principal-feedback campaign is 2/3 (67%). Keep the warm-start
+experiment as the final actionable item and unstaged for owner evaluation. The
+future AoS threshold and warm-start acceptance metric remain explicit owner
+questions in `Agentic/Plans/MASTER-PLAN.md`.

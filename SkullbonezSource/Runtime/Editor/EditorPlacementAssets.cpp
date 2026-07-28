@@ -516,7 +516,8 @@ int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::Asset
 }
 
 
-const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
+const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                 const std::string& hullPath )
 {
     static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
 
@@ -530,12 +531,13 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
     }
 
     ConvexHullShape hull;
-    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( ResolveEditorHullAssetPath( hullPath.c_str() ),
+    const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics,
+                                                                                      ResolveEditorHullAssetPath( hullPath.c_str() ),
                                                                                       hull );
 
-    if ( !hullLoad.ok )
+    if ( !hullLoad.Ok() )
     {
-        fprintf( stderr, "[editor] Cannot cache building hull %s: %s\n", hullPath.c_str(), hullLoad.error.message );
+        fprintf( stderr, "[editor] Cannot cache building hull %s: %s\n", hullPath.c_str(), hullLoad.ErrorMessage() );
         return nullptr;
     }
 
@@ -544,104 +546,106 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
 }
 
 
-float EditorBuildingVerticalSize( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
+float EditorBuildingVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                  const SkullbonezCore::Assets::AssetSystem& assets )
 {
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
-    const bool ok = ForEachEditorBuildingPart( objectType, assets,
-                                               [&]( const Json& part )
-                                               {
-                                                   const Vector3 offset = EditorJsonVec3Or( part, "offset",
-                                                                                            Vector3( 0.0f, 0.0f, 0.0f ) );
+    const bool
+        ok = ForEachEditorBuildingPart( objectType, assets,
+                                        [&]( const Json& part )
+                                        {
+                                            const Vector3 offset = EditorJsonVec3Or( part, "offset",
+                                                                                     Vector3( 0.0f, 0.0f, 0.0f ) );
 
-                                                   const Quaternion
-                                                       orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION,
-                                                                                                    part );
+                                            const Quaternion
+                                                orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
 
-                                                   Quaternion orientationCopy = orientation;
-                                                   const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
-                                                   const std::string primitiveType = EditorAssetPrimitiveType( part );
+                                            Quaternion orientationCopy = orientation;
+                                            const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
+                                            const std::string primitiveType = EditorAssetPrimitiveType( part );
 
-                                                   if ( primitiveType == "convexHull" )
-                                                   {
-                                                       const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                                       const ConvexHullShape* hull = hullPath.empty()
-                                                                                         ? nullptr
-                                                                                         : CachedEditorBuildingHull( hullPath );
+                                            if ( primitiveType == "convexHull" )
+                                            {
+                                                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                                                const ConvexHullShape* hull = hullPath.empty()
+                                                                                  ? nullptr
+                                                                                  : CachedEditorBuildingHull( diagnostics,
+                                                                                                              hullPath );
 
-                                                       if ( !hull )
-                                                       {
-                                                           return;
-                                                       }
+                                                if ( !hull )
+                                                {
+                                                    return;
+                                                }
 
-                                                       const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+                                                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
 
-                                                       for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
-                                                             ++vertexIndex )
-                                                       {
-                                                           const float y = offset.y +
-                                                                           ( rotation * ( hullLocalOffset +
-                                                                                          hull->GetVertex( vertexIndex ) ) )
-                                                                               .y;
+                                                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount();
+                                                      ++vertexIndex )
+                                                {
+                                                    const float y = offset.y +
+                                                                    ( rotation *
+                                                                      ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) )
+                                                                        .y;
 
-                                                           minY = (std::min)( minY, y );
-                                                           maxY = (std::max)( maxY, y );
-                                                       }
+                                                    minY = (std::min)( minY, y );
+                                                    maxY = (std::max)( maxY, y );
+                                                }
 
-                                                       return;
-                                                   }
+                                                return;
+                                            }
 
-                                                   if ( primitiveType == "box" )
-                                                   {
-                                                       Vector3 halfExtents;
+                                            if ( primitiveType == "box" )
+                                            {
+                                                Vector3 halfExtents;
 
-                                                       if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
-                                                       {
-                                                           return;
-                                                       }
+                                                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                                                {
+                                                    return;
+                                                }
 
-                                                       for ( int xSign = -1; xSign <= 1; xSign += 2 )
-                                                       {
+                                                for ( int xSign = -1; xSign <= 1; xSign += 2 )
+                                                {
 
-                                                           for ( int ySign = -1; ySign <= 1; ySign += 2 )
-                                                           {
+                                                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
+                                                    {
 
-                                                               for ( int zSign = -1; zSign <= 1; zSign += 2 )
-                                                               {
-                                                                   const Vector3 corner( halfExtents.x *
-                                                                                             static_cast<float>( xSign ),
-                                                                                         halfExtents.y *
-                                                                                             static_cast<float>( ySign ),
-                                                                                         halfExtents.z *
-                                                                                             static_cast<float>( zSign ) );
-                                                                   const float y = offset.y + ( rotation * corner ).y;
-                                                                   minY = (std::min)( minY, y );
-                                                                   maxY = (std::max)( maxY, y );
-                                                               }
-                                                           }
-                                                       }
+                                                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
+                                                        {
+                                                            const Vector3 corner( halfExtents.x *
+                                                                                      static_cast<float>( xSign ),
+                                                                                  halfExtents.y *
+                                                                                      static_cast<float>( ySign ),
+                                                                                  halfExtents.z *
+                                                                                      static_cast<float>( zSign ) );
+                                                            const float y = offset.y + ( rotation * corner ).y;
+                                                            minY = (std::min)( minY, y );
+                                                            maxY = (std::max)( maxY, y );
+                                                        }
+                                                    }
+                                                }
 
-                                                       return;
-                                                   }
+                                                return;
+                                            }
 
-                                                   if ( primitiveType == "sphere" )
-                                                   {
-                                                       float radius = 0.0f;
+                                            if ( primitiveType == "sphere" )
+                                            {
+                                                float radius = 0.0f;
 
-                                                       if ( TryReadEditorSphereRadius( part, radius ) )
-                                                       {
-                                                           minY = (std::min)( minY, offset.y - radius );
-                                                           maxY = (std::max)( maxY, offset.y + radius );
-                                                       }
-                                                   }
-                                               } );
+                                                if ( TryReadEditorSphereRadius( part, radius ) )
+                                                {
+                                                    minY = (std::min)( minY, offset.y - radius );
+                                                    maxY = (std::max)( maxY, offset.y + radius );
+                                                }
+                                            }
+                                        } );
 
     return ok && minY != FLT_MAX ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
 }
 
 
-bool TryComputeEditorBuildingWorldBounds( int objectType, const Vector3& terrainPoint,
-                                          const Quaternion& placementOrientation,
+bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                          const Vector3& terrainPoint, const Quaternion& placementOrientation,
                                           const SkullbonezCore::Assets::AssetSystem& assets, Vector3& outMin,
                                           Vector3& outMax )
 {
@@ -671,7 +675,8 @@ bool TryComputeEditorBuildingWorldBounds( int objectType, const Vector3& terrain
                                                 const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
                                                 const ConvexHullShape* hull = hullPath.empty()
                                                                                   ? nullptr
-                                                                                  : CachedEditorBuildingHull( hullPath );
+                                                                                  : CachedEditorBuildingHull( diagnostics,
+                                                                                                              hullPath );
 
                                                 if ( !hull )
                                                 {
@@ -1740,7 +1745,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
     terrainNormal /= normalMag;
 
     const Vector3 up( 0.0f, 1.0f, 0.0f );
-    const float dot = std::clamp( up * terrainNormal, -1.0f, 1.0f );
+    const float dot = std::clamp( Dot( up, terrainNormal ), -1.0f, 1.0f );
     Quaternion orientation = IDENTITY_QUATERNION;
 
     if ( dot > 0.9995f )
@@ -1781,7 +1786,8 @@ Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bo
 }
 
 
-const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
+const ConvexHullShape* CachedEditorHullForAsset( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                 EditorHullAsset asset )
 {
     const char* path = EditorHullAssetPath( asset );
 
@@ -1804,12 +1810,12 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
         if ( !loaded[i] )
         {
             ConvexHullShape hull;
-            const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+            const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics, path, hull );
 
-            if ( !hullLoad.ok )
+            if ( !hullLoad.Ok() )
             {
                 fprintf( stderr, "[editor] Cannot cache hull asset %s: %s\n", EditorHullAssetToken( asset ),
-                         hullLoad.error.message );
+                         hullLoad.ErrorMessage() );
 
                 return nullptr;
             }
@@ -1825,14 +1831,15 @@ const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 }
 
 
-const ConvexHullShape* CachedEditorHullForType( int objectType )
+const ConvexHullShape* CachedEditorHullForType( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    return CachedEditorHullForAsset( EditorHullAssetForType( type ) );
+    return CachedEditorHullForAsset( diagnostics, EditorHullAssetForType( type ) );
 }
 
 
-bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
+bool TryComputeEditorTreeVerticalBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                         const EditorTreeDefinition& tree, float& outMinY, float& outMaxY )
 {
     outMinY = FLT_MAX;
     outMaxY = -FLT_MAX;
@@ -1840,7 +1847,7 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
     for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
         const EditorTreePartDefinition& part = tree.parts[partIndex];
-        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        const ConvexHullShape* hull = CachedEditorHullForAsset( diagnostics, part.hullAsset );
 
         if ( !hull )
         {
@@ -1860,8 +1867,9 @@ bool TryComputeEditorTreeVerticalBounds( const EditorTreeDefinition& tree, float
 }
 
 
-bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree, const Vector3& terrainPoint,
-                                      const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
+bool TryComputeEditorTreeWorldBounds( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const EditorTreeDefinition& tree,
+                                      const Vector3& terrainPoint, const RotationMatrix& orientation, Vector3& outMin,
+                                      Vector3& outMax )
 {
     outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
     outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
@@ -1870,7 +1878,7 @@ bool TryComputeEditorTreeWorldBounds( const EditorTreeDefinition& tree, const Ve
     for ( int partIndex = 0; partIndex < tree.partCount; ++partIndex )
     {
         const EditorTreePartDefinition& part = tree.parts[partIndex];
-        const ConvexHullShape* hull = CachedEditorHullForAsset( part.hullAsset );
+        const ConvexHullShape* hull = CachedEditorHullForAsset( diagnostics, part.hullAsset );
 
         if ( !hull )
         {
@@ -1942,7 +1950,7 @@ bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const
 }
 
 
-float EditorTreeVerticalSize( int objectType )
+float EditorTreeVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType )
 {
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );
 
@@ -1953,7 +1961,7 @@ float EditorTreeVerticalSize( int objectType )
 
     float minY = 0.0f;
     float maxY = 1.0f;
-    return TryComputeEditorTreeVerticalBounds( *tree, minY, maxY ) ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
+    return TryComputeEditorTreeVerticalBounds( diagnostics, *tree, minY, maxY ) ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
 }
 
 
@@ -2092,10 +2100,11 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
     return true;
 }
 
-bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementScale, ConvexHullShape& outHull )
+bool TryBuildScaledEditorHullForType( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                      const Vector3& placementScale, ConvexHullShape& outHull )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
-    const ConvexHullShape* baseHull = CachedEditorHullForType( type );
+    const ConvexHullShape* baseHull = CachedEditorHullForType( diagnostics, type );
 
     if ( !baseHull )
     {

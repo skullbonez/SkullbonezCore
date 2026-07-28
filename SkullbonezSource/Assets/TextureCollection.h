@@ -67,6 +67,7 @@ class TextureCollection
         }
     };
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     std::array<GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT> m_textures = {};
     Assets::AssetSystem* m_assets = nullptr;
     Rendering::Dx12TextureOwner* m_renderResources = nullptr;
@@ -90,7 +91,7 @@ class TextureCollection
     SkullbonezCore::Core::SbResult CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
-    TextureCollection() = default;
+    explicit TextureCollection( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept;
     ~TextureCollection() = default;
     TextureCollection( const TextureCollection& ) = delete;
     TextureCollection& operator=( const TextureCollection& ) = delete;

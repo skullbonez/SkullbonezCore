@@ -67,7 +67,7 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vec
         tangent1 = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
     }
 
-    tangent1 -= normal * ( tangent1 * normal );
+    tangent1 -= normal * ( Dot( tangent1, normal ) );
     float tangentMag = Math::Vector::VectorMag( tangent1 );
 
     if ( tangentMag > TOLERANCE )
@@ -114,7 +114,7 @@ inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::
     // inverse inertia appear here.
     const Math::Vector::Vector3 rCrossAxis = Math::Vector::CrossProduct( r, axis );
     const Math::Vector::Vector3 invInertiaTerm = applyInvInertia( rCrossAxis );
-    const float k = invMass + axis * Math::Vector::CrossProduct( invInertiaTerm, r );
+    const float k = invMass + Dot( axis, Math::Vector::CrossProduct( invInertiaTerm, r ) );
     return ( k > TOLERANCE ) ? ( 1.0f / k ) : 0.0f;
 }
 
@@ -131,8 +131,8 @@ inline float ComputeTwoBodyEffectiveMass( float invMassA, float invMassB, const 
     // and then be picked up by both solver families.
     const Math::Vector::Vector3 rAxAxis = Math::Vector::CrossProduct( rA, axis );
     const Math::Vector::Vector3 rBxAxis = Math::Vector::CrossProduct( rB, axis );
-    const float k = invMassA + invMassB + axis * Math::Vector::CrossProduct( applyInvInertiaA( rAxAxis ), rA ) +
-                    axis * Math::Vector::CrossProduct( applyInvInertiaB( rBxAxis ), rB );
+    const float k = invMassA + invMassB + Dot( axis, Math::Vector::CrossProduct( applyInvInertiaA( rAxAxis ), rA ) ) +
+                    Dot( axis, Math::Vector::CrossProduct( applyInvInertiaB( rBxAxis ), rB ) );
     return ( k > TOLERANCE ) ? ( 1.0f / k ) : 0.0f;
 }
 

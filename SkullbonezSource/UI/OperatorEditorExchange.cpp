@@ -29,6 +29,7 @@ Related:
 */
 #include "OperatorEditorExchange.h"
 
+#include "../Core/SbDiagnosticStore.h"
 #include "UICommands.h"
 #include "UITabEditor.h"
 
@@ -42,7 +43,8 @@ namespace
 constexpr const char* OWNER = "UI/OperatorEditorExchange";
 
 template <typename Command, uint32_t Capacity, typename SameIdentity, typename SamePayload>
-SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command, Capacity>& queue, const Command& command,
+SkullbonezCore::Core::SbResult SubmitBounded( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                              OperatorEditorCommandQueue<Command, Capacity>& queue, const Command& command,
                                               SameIdentity sameIdentity, SamePayload samePayload, bool* duplicate )
 {
 
@@ -61,8 +63,8 @@ SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command
 
         if ( !samePayload( queue.commands[index], command ) )
         {
-            return SkullbonezCore::Core::SbResult::
-                Failure( OWNER, "Conflicting payloads targeted the same operator-editor action in one frame" );
+            return diagnostics.Failure( OWNER,
+                                        "Conflicting payloads targeted the same operator-editor action in one frame" );
         }
 
         if ( duplicate )
@@ -75,8 +77,7 @@ SkullbonezCore::Core::SbResult SubmitBounded( OperatorEditorCommandQueue<Command
 
     if ( queue.count >= Capacity )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER,
-                                                        "Operator-editor command queue exhausted its fixed capacity" );
+        return diagnostics.Failure( OWNER, "Operator-editor command queue exhausted its fixed capacity" );
     }
 
     queue.commands[queue.count++] = command;
@@ -178,13 +179,13 @@ bool SameToolPayload( const OperatorEditorToolCommand& left, const OperatorEdito
 }
 
 template <typename Queue, typename Submit>
-SkullbonezCore::Core::SbResult MergeQueue( Queue& target, const Queue& source, Submit submit, uint32_t& accepted,
-                                           uint32_t& duplicates )
+SkullbonezCore::Core::SbResult MergeQueue( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Queue& target,
+                                           const Queue& source, Submit submit, uint32_t& accepted, uint32_t& duplicates )
 {
 
     if ( source.count > Queue::capacity )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Operator-editor command count exceeded queue capacity" );
+        return diagnostics.Failure( OWNER, "Operator-editor command count exceeded queue capacity" );
     }
 
     for ( uint32_t index = 0u; index < source.count; ++index )
@@ -192,7 +193,7 @@ SkullbonezCore::Core::SbResult MergeQueue( Queue& target, const Queue& source, S
         bool duplicate = false;
         const SkullbonezCore::Core::SbResult result = submit( target, source.commands[index], &duplicate );
 
-        if ( !result.ok )
+        if ( !result.Ok() )
         {
             return result;
         }
@@ -227,7 +228,8 @@ template <typename Value> void HashValue( uint64_t& hash, const Value& value ) n
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorSceneCommandQueue& queue,
                                                             const OperatorEditorSceneCommand& command, bool* duplicate )
 {
 
@@ -238,24 +240,25 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneC
          command.type != OperatorEditorSceneCommandType::SaveCurrentScene &&
          command.type != OperatorEditorSceneCommandType::CreateScene )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Scene command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Scene command has an unknown action type" );
     }
 
     if ( command.type == OperatorEditorSceneCommandType::SetCurrentSceneIndex && command.sceneIndex < 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Scene index command requires a non-negative index" );
+        return diagnostics.Failure( OWNER, "Scene index command requires a non-negative index" );
     }
 
     if ( command.type == OperatorEditorSceneCommandType::CreateScene &&
          ( command.sceneName[0] == '\0' || std::memchr( command.sceneName, '\0', sizeof( command.sceneName ) ) == nullptr ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Create-scene command requires a bounded non-empty name" );
+        return diagnostics.Failure( OWNER, "Create-scene command requires a bounded non-empty name" );
     }
 
-    return SubmitBounded( queue, command, SameSceneIdentity, SameScenePayload, duplicate );
+    return SubmitBounded( diagnostics, queue, command, SameSceneIdentity, SameScenePayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorPropertyCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorPropertyCommandQueue& queue,
                                                             const OperatorEditorPropertyCommand& command, bool* duplicate )
 {
 
@@ -282,27 +285,27 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
     case OperatorEditorPropertyCommandType::SetTornadoLift:
         break;
     default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Property command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Property command has an unknown action type" );
     }
 
     if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Property command has an unknown edit phase" );
+        return diagnostics.Failure( OWNER, "Property command has an unknown edit phase" );
     }
 
     if ( !std::isfinite( command.value ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Property command requires a finite value" );
+        return diagnostics.Failure( OWNER, "Property command requires a finite value" );
     }
 
     if ( command.type == OperatorEditorPropertyCommandType::SetTimeScale && command.value <= 0.0f )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Time-scale command requires a positive value" );
+        return diagnostics.Failure( OWNER, "Time-scale command requires a positive value" );
     }
 
     if ( command.type == OperatorEditorPropertyCommandType::SetSeed && command.integerValue <= 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Seed command requires a positive integer" );
+        return diagnostics.Failure( OWNER, "Seed command requires a positive integer" );
     }
 
     if ( ( command.type == OperatorEditorPropertyCommandType::SetModelCount ||
@@ -310,13 +313,14 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
            command.type == OperatorEditorPropertyCommandType::SetSolverBoxCount ) &&
          command.integerValue < 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Population command requires a non-negative integer" );
+        return diagnostics.Failure( OWNER, "Population command requires a non-negative integer" );
     }
 
-    return SubmitBounded( queue, command, SamePropertyIdentity, SamePropertyPayload, duplicate );
+    return SubmitBounded( diagnostics, queue, command, SamePropertyIdentity, SamePropertyPayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRenderingCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorRenderingCommandQueue& queue,
                                                             const OperatorEditorRenderingCommand& command, bool* duplicate )
 {
 
@@ -337,7 +341,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
 
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicFeature::Count ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering feature index is out of range" );
+            return diagnostics.Failure( OWNER, "Rendering feature index is out of range" );
         }
 
         break;
@@ -345,7 +349,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
 
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UIRenderParam::Count ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Ordinary render parameter is out of range" );
+            return diagnostics.Failure( OWNER, "Ordinary render parameter is out of range" );
         }
 
         break;
@@ -353,28 +357,29 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
 
         if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicParam::Count ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Cinematic render parameter is out of range" );
+            return diagnostics.Failure( OWNER, "Cinematic render parameter is out of range" );
         }
 
         break;
     default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Rendering command has an unknown action type" );
     }
 
     if ( !std::isfinite( command.value ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command requires a finite value" );
+        return diagnostics.Failure( OWNER, "Rendering command requires a finite value" );
     }
 
     if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command has an unknown edit phase" );
+        return diagnostics.Failure( OWNER, "Rendering command has an unknown edit phase" );
     }
 
-    return SubmitBounded( queue, command, SameRenderingIdentity, SameRenderingPayload, duplicate );
+    return SubmitBounded( diagnostics, queue, command, SameRenderingIdentity, SameRenderingPayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagnosticsCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorDiagnosticsCommandQueue& queue,
                                                             const OperatorEditorDiagnosticsCommand& command,
                                                             bool* duplicate )
 {
@@ -395,8 +400,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
 
         if ( !IsPhysicsDebugOverlayValue( command.flag ) )
         {
-            return SkullbonezCore::Core::SbResult::
-                Failure( OWNER, "Physics debug overlay command requires one recognized UI overlay value" );
+            return diagnostics.Failure( OWNER, "Physics debug overlay command requires one recognized UI overlay value" );
         }
 
         break;
@@ -407,7 +411,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
 
         if ( !std::isfinite( command.value ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics value must be finite" );
+            return diagnostics.Failure( OWNER, "Diagnostics value must be finite" );
         }
 
         break;
@@ -415,23 +419,24 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagno
 
         if ( command.integerValue < -1 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Worker count must be auto, disabled, or positive" );
+            return diagnostics.Failure( OWNER, "Worker count must be auto, disabled, or positive" );
         }
 
         break;
     default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Diagnostics command has an unknown action type" );
     }
 
     if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics command has an unknown edit phase" );
+        return diagnostics.Failure( OWNER, "Diagnostics command has an unknown edit phase" );
     }
 
-    return SubmitBounded( queue, command, SameDiagnosticsIdentity, SameDiagnosticsPayload, duplicate );
+    return SubmitBounded( diagnostics, queue, command, SameDiagnosticsIdentity, SameDiagnosticsPayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplayCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorReplayCommandQueue& queue,
                                                             const OperatorEditorReplayCommand& command, bool* duplicate )
 {
 
@@ -446,8 +451,8 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         if ( !presetValid || !retentionValid || !budgetValid || !requestsValue )
         {
-            return SkullbonezCore::Core::SbResult::
-                Failure( OWNER, "Replay memory command requires at least one valid preset, retention, or budget value" );
+            return diagnostics
+                .Failure( OWNER, "Replay memory command requires at least one valid preset, retention, or budget value" );
         }
 
         break;
@@ -456,7 +461,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         if ( !std::isfinite( command.value ) || command.value < 0.25f || command.value > 4.0f )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay reveal speed must be within 0.25x..4x" );
+            return diagnostics.Failure( OWNER, "Replay reveal speed must be within 0.25x..4x" );
         }
 
         break;
@@ -464,7 +469,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         if ( !std::isfinite( command.value ) || command.value < 0.0f || command.value > 1.0f )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay scrub position must be normalized" );
+            return diagnostics.Failure( OWNER, "Replay scrub position must be normalized" );
         }
 
         break;
@@ -472,7 +477,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         if ( !std::isfinite( command.value ) || command.value < 1.0f || command.value > 20.0f )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay prediction horizon must be 1..20 seconds" );
+            return diagnostics.Failure( OWNER, "Replay prediction horizon must be 1..20 seconds" );
         }
 
         break;
@@ -480,7 +485,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
 
         if ( command.rowIndex < 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay cause row must be non-negative" );
+            return diagnostics.Failure( OWNER, "Replay cause row must be non-negative" );
         }
 
         break;
@@ -497,13 +502,14 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
     case OperatorEditorReplayCommandType::ReturnToLive:
         break;
     default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Replay command has an unknown action type" );
     }
 
-    return SubmitBounded( queue, command, SameReplayIdentity, SameReplayPayload, duplicate );
+    return SubmitBounded( diagnostics, queue, command, SameReplayIdentity, SameReplayPayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCommandQueue& queue,
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            OperatorEditorToolCommandQueue& queue,
                                                             const OperatorEditorToolCommand& command, bool* duplicate )
 {
 
@@ -517,34 +523,35 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCo
     case OperatorEditorToolCommandType::StepPausedScene:
     case OperatorEditorToolCommandType::DeleteSelection:
     case OperatorEditorToolCommandType::DuplicateSelection:
-        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+        return SubmitBounded( diagnostics, queue, command, SameToolIdentity, SameToolPayload, duplicate );
     case OperatorEditorToolCommandType::SelectSceneObject:
     case OperatorEditorToolCommandType::SetEntityVisible:
     case OperatorEditorToolCommandType::SetEntityLocked:
 
         if ( command.sceneObjectId == 0u )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Hierarchy command requires a stable scene object id" );
+            return diagnostics.Failure( OWNER, "Hierarchy command requires a stable scene object id" );
         }
 
-        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+        return SubmitBounded( diagnostics, queue, command, SameToolIdentity, SameToolPayload, duplicate );
     case OperatorEditorToolCommandType::SetPlacementObjectType:
 
         if ( command.value < 0 || command.value >= EditorTab::OBJECT_TYPE_COUNT )
         {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Placement command has an invalid object type" );
+            return diagnostics.Failure( OWNER, "Placement command has an invalid object type" );
         }
 
-        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+        return SubmitBounded( diagnostics, queue, command, SameToolIdentity, SameToolPayload, duplicate );
     case OperatorEditorToolCommandType::SetPlaceStatic:
     case OperatorEditorToolCommandType::ToggleTerrainAlign:
-        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+        return SubmitBounded( diagnostics, queue, command, SameToolIdentity, SameToolPayload, duplicate );
     default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Tool command has an unknown action type" );
+        return diagnostics.Failure( OWNER, "Tool command has an unknown action type" );
     }
 }
 
-SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICommands& commands )
+SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                      InGameUICommands& commands )
 {
 
     // Invariant: normalization drains legacy one-frame fields exactly once.
@@ -554,43 +561,44 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
 
     if ( commands.scene.resetScene )
     {
-        result = SubmitOperatorEditorCommand( normalized.scene,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene,
                                               OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetCurrentScene,
                                                                            -1 } );
     }
 
-    if ( result.ok && commands.scene.resetSceneDefaults )
+    if ( result.Ok() && commands.scene.resetSceneDefaults )
     {
-        result = SubmitOperatorEditorCommand( normalized.scene, OperatorEditorSceneCommand { OperatorEditorSceneCommandType::
-                                                                                                 ResetSceneDefaults,
-                                                                                             -1 } );
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene,
+                                              OperatorEditorSceneCommand { OperatorEditorSceneCommandType::
+                                                                               ResetSceneDefaults,
+                                                                           -1 } );
     }
 
-    if ( result.ok && commands.scene.requestDemoScene )
+    if ( result.Ok() && commands.scene.requestDemoScene )
     {
-        result = SubmitOperatorEditorCommand( normalized.scene,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene,
                                               OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene,
                                                                            -1 } );
     }
 
-    if ( result.ok && commands.scene.saveSceneDefaults )
+    if ( result.Ok() && commands.scene.saveSceneDefaults )
     {
-        result = SubmitOperatorEditorCommand( normalized.scene,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene,
                                               OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene,
                                                                            -1 } );
     }
 
-    if ( result.ok && commands.scene.createScene )
+    if ( result.Ok() && commands.scene.createScene )
     {
         OperatorEditorSceneCommand create;
         create.type = OperatorEditorSceneCommandType::CreateScene;
         strncpy_s( create.sceneName, commands.scene.requestedSceneName, _TRUNCATE );
-        result = SubmitOperatorEditorCommand( normalized.scene, create );
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene, create );
     }
 
-    if ( result.ok && commands.scene.requestedSceneIndex >= 0 )
+    if ( result.Ok() && commands.scene.requestedSceneIndex >= 0 )
     {
-        result = SubmitOperatorEditorCommand( normalized.scene,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.scene,
                                               OperatorEditorSceneCommand { OperatorEditorSceneCommandType::
                                                                                SetCurrentSceneIndex,
                                                                            commands.scene.requestedSceneIndex } );
@@ -600,9 +608,9 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                                        OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0 )
     {
 
-        if ( result.ok && requested )
+        if ( result.Ok() && requested )
         {
-            result = SubmitOperatorEditorCommand( normalized.property,
+            result = SubmitOperatorEditorCommand( diagnostics, normalized.property,
                                                   OperatorEditorPropertyCommand { type, value, integerValue,
                                                                                   OperatorEditorEditPhase::Commit } );
         }
@@ -661,19 +669,20 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     normalizeProperty( commands.physics.requestTornadoLift, OperatorEditorPropertyCommandType::SetTornadoLift,
                        commands.physics.requestedTornadoLift );
 
-    if ( result.ok && commands.renderer.toggleVsync )
+    if ( result.Ok() && commands.renderer.toggleVsync )
     {
-        result = SubmitOperatorEditorCommand( normalized.rendering, OperatorEditorRenderingCommand {
-                                                                        OperatorEditorRenderingCommandType::ToggleVsync } );
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.rendering,
+                                              OperatorEditorRenderingCommand {
+                                                  OperatorEditorRenderingCommandType::ToggleVsync } );
     }
 
     const auto normalizeRendering = [&]( bool requested,
                                         OperatorEditorRenderingCommandType type, int parameter = -1, float value = 0.0f )
     {
 
-        if ( result.ok && requested )
+        if ( result.Ok() && requested )
         {
-            result = SubmitOperatorEditorCommand( normalized.rendering,
+            result = SubmitOperatorEditorCommand( diagnostics, normalized.rendering,
                                                   OperatorEditorRenderingCommand { type, parameter, value,
                                                                                    OperatorEditorEditPhase::Commit } );
         }
@@ -710,9 +719,9 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                                            int integerValue = 0, float value = 0.0f )
     {
 
-        if ( result.ok && requested )
+        if ( result.Ok() && requested )
         {
-            result = SubmitOperatorEditorCommand( normalized.diagnostics,
+            result = SubmitOperatorEditorCommand( diagnostics, normalized.diagnostics,
                                                   OperatorEditorDiagnosticsCommand { type, flag, integerValue, value,
                                                                                      OperatorEditorEditPhase::Commit } );
         }
@@ -769,9 +778,9 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                           OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u,
                           commands.profiler.requestedWorkerThreads );
 
-    if ( result.ok && commands.replayMemory.requestPolicy )
+    if ( result.Ok() && commands.replayMemory.requestPolicy )
     {
-        result = SubmitOperatorEditorCommand( normalized.replay,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.replay,
                                               OperatorEditorReplayCommand { OperatorEditorReplayCommandType::SetMemoryPolicy,
                                                                             commands.replayMemory.requestedPresetIndex,
                                                                             commands.replayMemory.requestedRetentionSeconds,
@@ -781,9 +790,9 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     const auto normalizeTool = [&]( bool requested, OperatorEditorToolCommandType type )
     {
 
-        if ( result.ok && requested )
+        if ( result.Ok() && requested )
         {
-            result = SubmitOperatorEditorCommand( normalized.tools, OperatorEditorToolCommand { type } );
+            result = SubmitOperatorEditorCommand( diagnostics, normalized.tools, OperatorEditorToolCommand { type } );
         }
     };
 
@@ -794,22 +803,22 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     normalizeTool( commands.scene.toggleCrossScenePause, OperatorEditorToolCommandType::ToggleCrossScenePause );
     normalizeTool( commands.scene.requestSingleStep, OperatorEditorToolCommandType::StepPausedScene );
 
-    if ( result.ok && commands.editor.requestedObjectType >= 0 )
+    if ( result.Ok() && commands.editor.requestedObjectType >= 0 )
     {
-        result = SubmitOperatorEditorCommand( normalized.tools,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.tools,
                                               OperatorEditorToolCommand { OperatorEditorToolCommandType::
                                                                               SetPlacementObjectType,
                                                                           0u, commands.editor.requestedObjectType } );
     }
 
-    if ( result.ok && commands.editor.requestPlaceStatic )
+    if ( result.Ok() && commands.editor.requestPlaceStatic )
     {
-        result = SubmitOperatorEditorCommand( normalized.tools,
+        result = SubmitOperatorEditorCommand( diagnostics, normalized.tools,
                                               OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlaceStatic, 0u,
                                                                           0, commands.editor.requestedPlaceStatic } );
     }
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         return result;
     }
@@ -882,55 +891,62 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorEditorCommandQueues& legacy,
+OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                 const OperatorEditorCommandQueues& legacy,
                                                                  const OperatorEditorCommandQueues& secondary )
 {
     OperatorEditorArbitrationResult result;
     auto mergeAll = [&]( const OperatorEditorCommandQueues& source, uint32_t& accepted )
     {
-        SkullbonezCore::Core::SbResult status = MergeQueue( result.commands.scene, source.scene,
-                                                            []( OperatorEditorSceneCommandQueue& queue, const OperatorEditorSceneCommand& command, bool* duplicate )
-                                                            { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
-                                                            result.coalescedDuplicateCommands );
+        SkullbonezCore::Core::SbResult status = MergeQueue( diagnostics, result.commands.scene, source.scene,
+                                                            [&diagnostics]( OperatorEditorSceneCommandQueue& queue, const OperatorEditorSceneCommand& command,
+                                                                            bool* duplicate )
+                                                            { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
+                                                            accepted, result.coalescedDuplicateCommands );
 
-        if ( status.ok )
+        if ( status.Ok() )
         {
-            status = MergeQueue( result.commands.property, source.property,
-                                 []( OperatorEditorPropertyCommandQueue& queue, const OperatorEditorPropertyCommand& command,
-                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+            status = MergeQueue( diagnostics, result.commands.property, source.property,
+                                 [&diagnostics]( OperatorEditorPropertyCommandQueue& queue, const OperatorEditorPropertyCommand& command,
+                                                 bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
                                  accepted, result.coalescedDuplicateCommands );
         }
 
-        if ( status.ok )
+        if ( status.Ok() )
         {
-            status = MergeQueue( result.commands.rendering, source.rendering,
-                                 []( OperatorEditorRenderingCommandQueue& queue, const OperatorEditorRenderingCommand& command,
-                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+            status = MergeQueue( diagnostics, result.commands.rendering, source.rendering,
+                                 [&diagnostics]( OperatorEditorRenderingCommandQueue& queue, const OperatorEditorRenderingCommand& command,
+                                                 bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
                                  accepted, result.coalescedDuplicateCommands );
         }
 
-        if ( status.ok )
+        if ( status.Ok() )
         {
-            status = MergeQueue( result.commands.diagnostics, source.diagnostics,
-                                 []( OperatorEditorDiagnosticsCommandQueue& queue, const OperatorEditorDiagnosticsCommand& command,
-                                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+            status = MergeQueue( diagnostics, result.commands.diagnostics, source.diagnostics,
+                                 [&diagnostics]( OperatorEditorDiagnosticsCommandQueue& queue,
+                                                 const OperatorEditorDiagnosticsCommand& command, bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
                                  accepted, result.coalescedDuplicateCommands );
         }
 
-        if ( status.ok )
+        if ( status.Ok() )
         {
-            status = MergeQueue( result.commands.replay, source.replay,
-                                 []( OperatorEditorReplayCommandQueue& queue, const OperatorEditorReplayCommand& command, bool* duplicate )
-                                 { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
-                                 result.coalescedDuplicateCommands );
+            status = MergeQueue( diagnostics, result.commands.replay, source.replay,
+                                 [&diagnostics]( OperatorEditorReplayCommandQueue& queue, const OperatorEditorReplayCommand& command,
+                                                 bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
         }
 
-        if ( status.ok )
+        if ( status.Ok() )
         {
-            status = MergeQueue( result.commands.tools, source.tools,
-                                 []( OperatorEditorToolCommandQueue& queue, const OperatorEditorToolCommand& command, bool* duplicate )
-                                 { return SubmitOperatorEditorCommand( queue, command, duplicate ); }, accepted,
-                                 result.coalescedDuplicateCommands );
+            status = MergeQueue( diagnostics, result.commands.tools, source.tools,
+                                 [&diagnostics]( OperatorEditorToolCommandQueue& queue, const OperatorEditorToolCommand& command,
+                                                 bool* duplicate )
+                                 { return SubmitOperatorEditorCommand( diagnostics, queue, command, duplicate ); },
+                                 accepted, result.coalescedDuplicateCommands );
         }
 
         return status;
@@ -938,7 +954,7 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
 
     result.status = mergeAll( legacy, result.acceptedLegacyCommands );
 
-    if ( result.status.ok )
+    if ( result.status.Ok() )
     {
         result.status = mergeAll( secondary, result.acceptedSecondaryCommands );
     }
@@ -946,7 +962,8 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
     return result;
 }
 
-SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEditorCommandQueues& exchange,
+SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                              const OperatorEditorCommandQueues& exchange,
                                                               InGameUICommands& commands )
 {
 
@@ -954,9 +971,9 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     // only committed intent into the established narrow owner packets.
     // Lane R: surfaces are untrusted presentation inputs. Re-run bounded
     // validation before modifying the established owner command packet.
-    const OperatorEditorArbitrationResult validated = ArbitrateOperatorEditorCommands( exchange, {} );
+    const OperatorEditorArbitrationResult validated = ArbitrateOperatorEditorCommands( diagnostics, exchange, {} );
 
-    if ( !validated.status.ok )
+    if ( !validated.status.Ok() )
     {
         return validated.status;
     }

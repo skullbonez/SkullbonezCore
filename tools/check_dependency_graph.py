@@ -2,15 +2,15 @@
 #
 # File: tools/check_dependency_graph.py
 # Purpose:
-#   Enforce physical include direction, retired ownership vocabulary, and
-#   single-project source ownership.
+#   Enforce physical include direction, retired ownership vocabulary,
+#   single-project source ownership, and the generated human proof's freshness.
 #
 # Summary:
 #   Loads data-only package and content rules, resolves live repository include
 #   edges, scans bounded source scopes for explicitly retired concept names,
-#   and checks Visual Studio project membership. The same evaluators run
-#   embedded positive/negative fixtures so new ownership rules require data,
-#   not checker branches.
+#   checks Visual Studio project membership, and renders the same rules into a
+#   marked AGENTS.md block. The same evaluators run embedded positive/negative
+#   fixtures so new ownership rules require data, not checker branches.
 #
 # Glossary:
 #   Physical edge: Resolved quoted or angle-bracket include from one tracked or
@@ -20,6 +20,8 @@
 #   Deny rule: Source/target prefix pair that must never form an include edge.
 #   Content rule: Bounded deletion check for named retired vocabulary. It is
 #     not a general word census or frozen occurrence budget.
+#   Generated proof: Deterministic Markdown projection whose prefix and exact
+#     file columns preserve the checker's path-matching semantics.
 #   Fixture matrix: Synthetic source/target edges proving every governed
 #     package accepts one allowed edge and rejects every named forbidden edge,
 #     plus source snippets proving every retired literal is detected.
@@ -32,6 +34,8 @@
 #     edges and declared project items are authoritative.
 #   - Every restrictive rule has both a passing and failing fixture.
 #   - Adding package rows or fixtures requires no Python change.
+#   - Generated-proof writes replace one ordered marker pair and preserve every
+#     byte outside it; malformed marker topology fails closed.
 #
 # Related:
 #   - tools/dependency_graph_rules.json
@@ -55,6 +59,8 @@ from pathlib import Path
 INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*[<"]([^">]+)[">]', re.MULTILINE)
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl", ".hlsl"}
 MSBUILD_NAMESPACE = {"m": "http://schemas.microsoft.com/developer/msbuild/2003"}
+PROOF_START_MARKER = "<!-- DEPENDENCY_PROOF_START -->"
+PROOF_END_MARKER = "<!-- DEPENDENCY_PROOF_END -->"
 
 
 @dataclass(frozen=True)
@@ -63,6 +69,271 @@ class Finding:
     source: str
     target: str
     detail: str
+
+
+class ProofBlockError(ValueError):
+    pass
+
+
+def markdown_cell(value: str) -> str:
+    """Escape rule-controlled text for one deterministic Markdown table cell."""
+    text = str(value).replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("&", "&amp;")
+    text = text.replace("|", "&#124;")
+    text = text.replace("`", "&#96;")
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    return text.replace("\n", "&#10;")
+
+
+def markdown_values(values: list[str], *, normalize_paths: bool = True) -> str:
+    canonical = [normalize(value) if normalize_paths else str(value) for value in values]
+    if not canonical:
+        return "(none)"
+    return markdown_cell(", ".join(sorted(canonical)))
+
+
+def source_projection(rule: dict) -> tuple[str, str]:
+    prefixes = rule.get("source_prefixes", [])
+    files = rule.get("source_files", [])
+    parts: list[str] = []
+    kinds: list[str] = []
+    if prefixes:
+        parts.append(markdown_values(prefixes))
+        kinds.append("prefix")
+    if files:
+        parts.append(markdown_values(files))
+        kinds.append("exact file")
+    return "; ".join(parts) or "(none)", " + ".join(kinds) or "(none)"
+
+
+def markdown_table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join("---" for _ in headers) + "|",
+    ]
+    lines.extend("| " + " | ".join(row) + " |" for row in rows)
+    return lines
+
+
+def render_dependency_proof(config: dict) -> str:
+    """Project rule data to the only mechanically maintained AGENTS.md block."""
+    include_rules = sorted(config["include_rules"], key=lambda rule: str(rule["id"]))
+    runtime_rules = [
+        rule
+        for rule in include_rules
+        if any(matches_prefix(prefix, "Runtime") for prefix in rule.get("source_prefixes", []))
+        or any(matches_prefix(path, "Runtime") for path in rule.get("source_files", []))
+    ]
+    broad_rules = [rule for rule in include_rules if rule not in runtime_rules]
+
+    broad_rows: list[list[str]] = []
+    for rule in broad_rules:
+        sources, source_kind = source_projection(rule)
+        broad_rows.append(
+            [
+                markdown_cell(rule["id"]),
+                sources,
+                source_kind,
+                markdown_cell(rule["mode"]),
+                markdown_values([rule["target_scope"]] if rule.get("target_scope") else []),
+                markdown_values(rule.get("target_prefixes", [])),
+                markdown_values(rule.get("allowed_target_prefixes", [])),
+                markdown_values(rule.get("allowed_target_files", [])),
+            ]
+        )
+
+    runtime_rows: list[list[str]] = []
+    for rule in runtime_rules:
+        sources, source_kind = source_projection(rule)
+        policy = (
+            f"closed allow inside {markdown_cell(rule['target_scope'])}"
+            if rule["mode"] == "allow"
+            else "deny matching target prefixes"
+        )
+        runtime_rows.append(
+            [
+                sources,
+                source_kind,
+                policy,
+                markdown_values(rule.get("allowed_target_prefixes", [])),
+                markdown_values(rule.get("allowed_target_files", [])),
+                markdown_values(rule.get("target_prefixes", [])),
+            ]
+        )
+
+    content_rows: list[list[str]] = []
+    for rule in sorted(config.get("content_rules", []), key=lambda item: str(item["id"])):
+        sources, source_kind = source_projection(rule)
+        content_rows.append(
+            [
+                markdown_cell(rule["id"]),
+                sources,
+                source_kind,
+                markdown_values(rule.get("forbidden_literals", []), normalize_paths=False),
+            ]
+        )
+
+    project_rows: list[list[str]] = []
+    for rule in sorted(config.get("project_rules", []), key=lambda item: str(item["id"])):
+        project_rows.append(
+            [
+                markdown_cell(rule["id"]),
+                markdown_cell(normalize(rule["path_prefix"])),
+                markdown_values(rule.get("suffixes", []), normalize_paths=False),
+                markdown_cell(rule["required_project"]),
+                markdown_values(rule.get("forbidden_projects", []), normalize_paths=False),
+            ]
+        )
+
+    lines = [
+        PROOF_START_MARKER,
+        "<!-- Generated by tools/check_dependency_graph.py --write-proof AGENTS.md. Do not edit this block. -->",
+        "",
+        "### Generated Dependency Proof",
+        "",
+        "This is a deterministic projection of `tools/dependency_graph_rules.json`.",
+        "A prefix matches the named normalized path and every descendant; an exact",
+        "file matches only that normalized file. An allow row is closed-world only",
+        "inside its target scope. Applicable broad deny rows still govern other",
+        "engine-layer targets.",
+        "",
+        "#### Broad And Boundary Include Rules",
+        "",
+        *markdown_table(
+            [
+                "Rule",
+                "Source",
+                "Source kind",
+                "Mode",
+                "Target scope",
+                "Denied prefixes",
+                "Allowed prefixes",
+                "Allowed exact files",
+            ],
+            broad_rows,
+        ),
+        "",
+        "#### Runtime Package Rules",
+        "",
+        *markdown_table(
+            [
+                "Source",
+                "Source kind",
+                "Policy",
+                "Allowed target prefixes",
+                "Allowed exact target files",
+                "Denied target prefixes",
+            ],
+            runtime_rows,
+        ),
+        "",
+        "#### Content Rules",
+        "",
+        *markdown_table(
+            ["Rule", "Source", "Source kind", "Forbidden exact literals"],
+            content_rows,
+        ),
+        "",
+        "#### Project Ownership Rules",
+        "",
+        *markdown_table(
+            ["Rule", "Path prefix", "Suffixes", "Required project", "Forbidden projects"],
+            project_rows,
+        ),
+        "",
+        "#### Executable Proof",
+        "",
+        "The checker, not a second regular-expression parser, evaluates resolved",
+        "repository edges and verifies this block before repository validation:",
+        "",
+        "```powershell",
+        "python tools/check_dependency_graph.py --check-proof AGENTS.md",
+        "python tools/check_dependency_graph.py --repo .",
+        "```",
+        "",
+        "Residual scanner limits: macro-expanded include operands and",
+        "backslash-continued include directives are not parsed. Quoted and",
+        "angle-bracket operands are both recognized, but the textual resolver uses",
+        "one local-first search order rather than reproducing the compiler's",
+        "different quoted-versus-angle search semantics.",
+        PROOF_END_MARKER,
+    ]
+    return "\n".join(lines)
+
+
+def proof_block_bounds(document: bytes) -> tuple[int, int]:
+    start_marker = PROOF_START_MARKER.encode("ascii")
+    end_marker = PROOF_END_MARKER.encode("ascii")
+    start_count = document.count(start_marker)
+    end_count = document.count(end_marker)
+    if start_count != 1 or end_count != 1:
+        raise ProofBlockError(
+            f"expected exactly one proof marker pair; starts={start_count} ends={end_count}"
+        )
+    start = document.find(start_marker)
+    end = document.find(end_marker)
+    if end < start:
+        raise ProofBlockError("proof markers are reversed")
+    return start, end + len(end_marker)
+
+
+def replace_proof_block(document: bytes, rendered: str) -> bytes:
+    start, end = proof_block_bounds(document)
+    return document[:start] + rendered.encode("utf-8") + document[end:]
+
+
+def proof_is_current(document: bytes, rendered: str) -> bool:
+    start, end = proof_block_bounds(document)
+    return document[start:end] == rendered.encode("utf-8")
+
+
+def proof_self_test(config: dict) -> list[str]:
+    errors: list[str] = []
+    rendered = render_dependency_proof(config)
+    if rendered != render_dependency_proof(config):
+        errors.append("generated proof changed across two unchanged renders")
+    if rendered.count(PROOF_START_MARKER) != 1 or rendered.count(PROOF_END_MARKER) != 1:
+        errors.append("generated proof does not contain exactly one ordered marker pair")
+
+    escaped = markdown_cell("pipe|tick`angle<value>&line\r\nbreak")
+    if escaped != "pipe&#124;tick&#96;angle&lt;value&gt;&amp;line&#10;break":
+        errors.append("Markdown escaping did not canonicalize rule-controlled text")
+
+    malformed_documents = {
+        "missing": b"no generated proof",
+        "duplicate start": (
+            PROOF_START_MARKER + PROOF_START_MARKER + PROOF_END_MARKER
+        ).encode("ascii"),
+        "duplicate end": (
+            PROOF_START_MARKER + PROOF_END_MARKER + PROOF_END_MARKER
+        ).encode("ascii"),
+        "reversed": (PROOF_END_MARKER + PROOF_START_MARKER).encode("ascii"),
+    }
+    for name, document in malformed_documents.items():
+        try:
+            proof_block_bounds(document)
+        except ProofBlockError:
+            pass
+        else:
+            errors.append(f"generated proof accepted {name} markers")
+
+    prefix = b"\x00outside-before\r\n"
+    suffix = b"\r\noutside-after\xff"
+    stale = (
+        prefix
+        + PROOF_START_MARKER.encode("ascii")
+        + b"\nstale\n"
+        + PROOF_END_MARKER.encode("ascii")
+        + suffix
+    )
+    rewritten = replace_proof_block(stale, rendered)
+    if not rewritten.startswith(prefix) or not rewritten.endswith(suffix):
+        errors.append("generated proof write changed bytes outside the marker pair")
+    elif not proof_is_current(rewritten, rendered):
+        errors.append("generated proof write did not produce a current block")
+    if proof_is_current(stale, rendered):
+        errors.append("generated proof freshness check accepted stale content")
+    return errors
 
 
 def normalize(value: str) -> str:
@@ -296,15 +567,22 @@ def scan_content(repo: Path, source_root: str, rules: list[dict]) -> list[Findin
 
 
 def self_test(config: dict) -> list[str]:
-    errors: list[str] = []
+    errors = proof_self_test(config)
     for rule in config["include_rules"]:
         sources = include_fixture_sources(rule)
-        positive = normalize(rule["positive_target"])
+        positive_targets = [normalize(rule["positive_target"])]
+        positive_targets.extend(
+            normalize(target) for target in rule.get("allowed_target_files", [])
+        )
+        positive_targets = list(dict.fromkeys(positive_targets))
         negative_entries = include_fixture_negative_entries(rule)
         negatives = [target for target, _, _ in negative_entries]
         for source in sources:
-            if edge_violates(rule, source, positive):
-                errors.append(f"{rule['id']}: positive fixture was rejected for {source}")
+            for positive in positive_targets:
+                if edge_violates(rule, source, positive):
+                    errors.append(
+                        f"{rule['id']}: positive fixture was rejected for {source} -> {positive}"
+                    )
             for negative in negatives:
                 if not edge_violates(rule, source, negative):
                     errors.append(f"{rule['id']}: negative fixture was accepted for {source} -> {negative}")
@@ -318,11 +596,18 @@ def self_test(config: dict) -> list[str]:
         with tempfile.TemporaryDirectory(prefix="skore_dependency_fixture_") as fixture_dir:
             repo = Path(fixture_dir)
             source_root = normalize(config["source_root"])
-            positive_path = repo / source_root / positive
-            positive_path.parent.mkdir(parents=True, exist_ok=True)
-            positive_path.touch()
-            for negative in negatives:
-                negative_path = repo / source_root / negative
+            for positive in positive_targets:
+                positive_path = repo / source_root / positive
+                positive_path.parent.mkdir(parents=True, exist_ok=True)
+                positive_path.touch()
+            for target, include, _ in negative_entries:
+                # Relative-include fixtures need a physical local candidate.
+                # Rooted spellings intentionally exercise the resolver's
+                # non-existent source-root fallback, including the file-shaped
+                # RuntimeFrameViews.h/Child.h pseudo-descendant.
+                if not include.startswith("."):
+                    continue
+                negative_path = repo / source_root / target
                 negative_path.parent.mkdir(parents=True, exist_ok=True)
                 negative_path.touch()
 
@@ -332,7 +617,10 @@ def self_test(config: dict) -> list[str]:
                 tracked_sources.append(tracked_source)
                 source_path = repo / tracked_source
                 source_path.parent.mkdir(parents=True, exist_ok=True)
-                include_lines = [f'#include "{positive}"']
+                include_lines = [
+                    f'#include "{positive}"'
+                    for positive in positive_targets
+                ]
                 for _, include, use_angles in negative_entries:
                     include_lines.append(f"#include <{include}>" if use_angles else f'#include "{include}"')
                 source_path.write_text("\n".join(include_lines) + "\n", encoding="utf-8")
@@ -418,7 +706,11 @@ def main() -> int:
         type=Path,
         default=Path(__file__).with_name("dependency_graph_rules.json"),
     )
-    parser.add_argument("--self-test", action="store_true")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--self-test", action="store_true")
+    action.add_argument("--render-proof", action="store_true")
+    action.add_argument("--check-proof", type=Path, metavar="MARKDOWN")
+    action.add_argument("--write-proof", type=Path, metavar="MARKDOWN")
     args = parser.parse_args()
 
     repo = args.repo.resolve()
@@ -432,6 +724,7 @@ def main() -> int:
         for error in fixture_errors:
             print(f"SELF_TEST_FAIL: {error}", file=sys.stderr)
         return 1
+    rendered_proof = render_dependency_proof(config)
     if args.self_test:
         negative_fixture_count = sum(
             len(include_fixture_sources(rule)) * len(include_fixture_negative_targets(rule))
@@ -446,9 +739,47 @@ def main() -> int:
             f"{negative_fixture_count} negative edge fixtures and "
             f"{len(config.get('content_rules', []))} content rules with "
             f"{content_fixture_count} negative content fixtures and "
-            f"{len(config['project_rules'])} project-rule fixtures passed"
+            f"{len(config['project_rules'])} project-rule fixtures plus "
+            "generated-proof fixtures passed"
         )
         return 0
+    if args.render_proof:
+        print(rendered_proof)
+        return 0
+
+    proof_path = args.check_proof or args.write_proof
+    if proof_path is not None:
+        proof_path = proof_path if proof_path.is_absolute() else repo / proof_path
+    elif not args.self_test:
+        proof_path = repo / "AGENTS.md"
+
+    if proof_path is not None:
+        try:
+            proof_document = proof_path.read_bytes()
+            current = proof_is_current(proof_document, rendered_proof)
+        except (OSError, ProofBlockError) as error:
+            print(f"PROOF_CHECK_FAIL: {proof_path}: {error}", file=sys.stderr)
+            return 1
+
+        if args.write_proof:
+            rewritten = replace_proof_block(proof_document, rendered_proof)
+            if rewritten != proof_document:
+                proof_path.write_bytes(rewritten)
+                print(f"PROOF_WRITE_PASS: updated {proof_path}")
+            else:
+                print(f"PROOF_WRITE_PASS: already current {proof_path}")
+            return 0
+
+        if not current:
+            print(
+                f"PROOF_CHECK_FAIL: {proof_path}: generated dependency proof is stale; "
+                f"run --write-proof {proof_path}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"PROOF_CHECK_PASS: generated dependency proof is current in {proof_path}")
+        if args.check_proof:
+            return 0
 
     findings = scan_includes(repo, config["source_root"], config["include_rules"])
     findings.extend(scan_content(repo, config["source_root"], config.get("content_rules", [])))

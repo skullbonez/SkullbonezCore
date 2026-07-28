@@ -87,7 +87,8 @@ class CaptureSystem
                                  double elapsedMs );
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
                                                    double elapsedMs );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             Rendering::Dx12BackbufferCapture& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
                                                  int currentFrame, double elapsedMs, const char* currentScenePath,
                                                  CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );

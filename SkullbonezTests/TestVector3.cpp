@@ -31,6 +31,7 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::CrossProduct;
+using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
@@ -91,10 +92,22 @@ TEST_CASE( "Vector3: dot and cross product identities hold for basis vectors" )
     const Vector3 yAxis( 0.0f, 1.0f, 0.0f );
     const Vector3 zAxis( 0.0f, 0.0f, 1.0f );
 
-    CHECK( ( xAxis * yAxis ) == doctest::Approx( 0.0f ) );
-    CHECK( ( xAxis * xAxis ) == doctest::Approx( 1.0f ) );
+    CHECK( ( Dot( xAxis, yAxis ) ) == doctest::Approx( 0.0f ) );
+    CHECK( ( Dot( xAxis, xAxis ) ) == doctest::Approx( 1.0f ) );
     CheckVectorNear( CrossProduct( xAxis, yAxis ), zAxis );
     CheckVectorNear( CrossProduct( yAxis, xAxis ), Vector3( 0.0f, 0.0f, -1.0f ) );
+}
+
+
+TEST_CASE( "Vector3: Dot preserves x then y then z evaluation through mixed-sign cancellation" )
+{
+    const Vector3 lhs( 1.0e10f, 1.0e10f, 3.25f );
+    const Vector3 rhs( 1.0e10f, -1.0e10f, 1.0f );
+
+    // Invariant: the x and y products cancel before z is added. Reassociating
+    // x + ( y + z ) loses z at the magnitude of the y product and yields zero.
+    CHECK( Dot( lhs, rhs ) == 3.25f );
+    CHECK( Dot( rhs, lhs ) == 3.25f );
 }
 
 
@@ -187,6 +200,6 @@ TEST_CASE( "Vector3: reflection preserves the normal component and reverses the 
     const Vector3 incident( 3.0f, -4.0f, 5.0f );
 
     const Vector3 reflected = VectorReflect( incident, normal );
-    CHECK( reflected * normal == doctest::Approx( incident * normal ) );
+    CHECK( Dot( reflected, normal ) == doctest::Approx( Dot( incident, normal ) ) );
     CheckVectorNear( reflected, Vector3( -3.0f, -4.0f, -5.0f ) );
 }

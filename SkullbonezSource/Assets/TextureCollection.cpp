@@ -38,6 +38,7 @@ Related:
 */
 #include "TextureCollection.h"
 #include "../Core/FatalError.h"
+#include "../Core/SbDiagnosticStore.h"
 #include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "stb_image.h"
@@ -48,6 +49,12 @@ Related:
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
 namespace Runtime = SkullbonezCore::Runtime;
+
+
+TextureCollection::TextureCollection( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+    : m_resultDiagnostics( resultDiagnostics )
+{
+}
 
 
 int TextureCollection::FindIndex( uint32_t hash ) const
@@ -177,7 +184,7 @@ SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
 {
     const SkullbonezCore::Core::SbResult ensureResult = EnsureTexture( hash );
 
-    if ( !ensureResult.ok )
+    if ( !ensureResult.Ok() )
     {
         return ensureResult;
     }
@@ -200,7 +207,7 @@ TextureCollection::TextureHandleResult TextureCollection::GetTextureHandle( uint
     TextureHandleResult result;
     result.result = EnsureTexture( hash );
 
-    if ( !result.result.ok )
+    if ( !result.result.Ok() )
     {
         return result;
     }
@@ -251,9 +258,8 @@ SkullbonezCore::Core::SbResult TextureCollection::EnsureTexture( uint32_t hash )
         }
     }
 
-    return SkullbonezCore::Core::SbResult::Failure( "TextureCollection",
-                                                    "Texture 0x%08X is not resident and has no registered source asset.",
-                                                    hash );
+    return m_resultDiagnostics.Failure( "TextureCollection",
+                                        "Texture 0x%08X is not resident and has no registered source asset.", hash );
 }
 
 
@@ -274,8 +280,7 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 
     if ( !fileName || fileName[0] == '\0' )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection", "Texture file path is empty. hash=0x%08X",
-                                                        hash );
+        return m_resultDiagnostics.Failure( "TextureCollection", "Texture file path is empty. hash=0x%08X", hash );
     }
 
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
@@ -299,8 +304,8 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 
     if ( !data )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "TextureCollection", "Image load failed. path=\"%s\" hash=0x%08X",
-                                                        fileName, hash );
+        return m_resultDiagnostics.Failure( "TextureCollection", "Image load failed. path=\"%s\" hash=0x%08X", fileName,
+                                            hash );
     }
 
     const uint32_t backendHandle = m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels,
@@ -313,9 +318,9 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 
     if ( backendHandle == 0 )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "TextureCollection", "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X", fileName,
-                     hash );
+        return m_resultDiagnostics.Failure( "TextureCollection",
+                                            "Backend returned an invalid texture handle. path=\"%s\" hash=0x%08X", fileName,
+                                            hash );
     }
 
     GpuTextureRecord& texture = m_textures[slot];
@@ -334,9 +339,9 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateTextureFromSourceAsset( 
 
     if ( source.legacyHash == 0 )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "TextureCollection", "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
-                     source.id, source.logicalName.c_str() );
+        return m_resultDiagnostics.Failure( "TextureCollection",
+                                            "Texture source asset is missing a legacy hash. source_id=%u logical=\"%s\"",
+                                            source.id, source.logicalName.c_str() );
     }
 
     const int existingIndex = FindIndexNoThrow( source.legacyHash );
@@ -409,7 +414,7 @@ SkullbonezCore::Core::SbResult TextureCollection::RebuildTexturesFromSourceAsset
         {
             const SkullbonezCore::Core::SbResult result = CreateTextureFromSourceAsset( source );
 
-            if ( !result.ok )
+            if ( !result.Ok() )
             {
                 return result;
             }

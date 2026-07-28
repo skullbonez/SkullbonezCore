@@ -115,9 +115,9 @@ bool IsCineScenePath( const std::string& path )
 
 void LogStyleSceneLoadFailure( const SkullbonezCore::Core::SbResult& result, const char* path )
 {
-    const char* owner = result.error.owner && result.error.owner[0] != '\0' ? result.error.owner : "Runtime/SceneStyle";
-    const char* message = result.error.message[0] != '\0' ? result.error.message
-                                                          : "style scene load failed without a message";
+    const char* owner = result.ErrorOwner() && result.ErrorOwner()[0] != '\0' ? result.ErrorOwner() : "Runtime/SceneStyle";
+    const char* message = result.ErrorMessage()[0] != '\0' ? result.ErrorMessage()
+                                                           : "style scene load failed without a message";
 
     std::fprintf( stderr, "[scene] scene_load_failed owner=%s path=\"%s\" reason=\"%s\"\n", owner, path, message );
 }
@@ -347,10 +347,11 @@ bool SceneController::ApplyCinematicBrowserStyle( RunLaunchOptions& launchOption
     }
 
     AuthoredScene lookScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadFromFile( sceneBrowser.paths[index].c_str(),
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadFromFile( m_resultDiagnostics,
+                                                                                      sceneBrowser.paths[index].c_str(),
                                                                                       assets, lookScene );
 
-    if ( !loadResult.ok )
+    if ( !loadResult.Ok() )
     {
         LogStyleSceneLoadFailure( loadResult, sceneBrowser.paths[index].c_str() );
         return false;
@@ -424,10 +425,11 @@ bool SceneController::ApplyDemoHeroStyle( RunLaunchOptions& launchOptions,
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
     AuthoredScene styleScene;
-    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), assets,
+    const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_resultDiagnostics,
+                                                                                           stylePath.c_str(), assets,
                                                                                            styleScene );
 
-    if ( !loadResult.ok )
+    if ( !loadResult.Ok() )
     {
         LogStyleSceneLoadFailure( loadResult, stylePath.c_str() );
         return false;

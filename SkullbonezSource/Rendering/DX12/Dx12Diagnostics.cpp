@@ -26,6 +26,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Dx12Diagnostics.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include "Dx12DescriptorHeaps.h"
 #include "Dx12FrameOwner.h"
@@ -252,7 +253,7 @@ void Dx12Diagnostics::PlatformProfilerGpuMarker( const char* name, uint32_t hash
 
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
 
-    if ( !m_device->CommandList() || !m_frame->EnsureOpen().ok )
+    if ( !m_device->CommandList() || !m_frame->EnsureOpen().Ok() )
     {
         return;
     }
@@ -279,8 +280,8 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
     if ( !device || !queue )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12Diagnostics",
-                                                        "GPU timer initialization requires a device and graphics queue." );
+        return m_resultDiagnostics.Failure( "Dx12Diagnostics",
+                                            "GPU timer initialization requires a device and graphics queue." );
     }
 
     D3D12_QUERY_HEAP_DESC heapDesc = {};
@@ -313,8 +314,8 @@ SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Devic
 
         // Lane R: frequency is driver/device capability discovered at startup.
         ShutdownGpuTimers();
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12Diagnostics", "GetTimestampFrequency failed (HRESULT 0x%08X)",
-                                                        static_cast<unsigned int>( frequencyResult ) );
+        return m_resultDiagnostics.Failure( "Dx12Diagnostics", "GetTimestampFrequency failed (HRESULT 0x%08X)",
+                                            static_cast<unsigned int>( frequencyResult ) );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -350,10 +351,10 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
     {
         const SkullbonezCore::Core::SbResult waitResult = frame.WaitForFenceValue( m_gpuTimers.readFenceValue );
 
-        if ( !waitResult.ok )
+        if ( !waitResult.Ok() )
         {
             SkullbonezCore::Core::Log().WriteEventf( "dx12_gpu_timer_wait_failed owner=%s message=%s",
-                                                     waitResult.error.owner, waitResult.error.message );
+                                                     waitResult.ErrorOwner(), waitResult.ErrorMessage() );
 
             m_gpuTimers.readPending = false;
             return;
@@ -416,7 +417,7 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
 void Dx12Diagnostics::GpuTimerBegin( Dx12DiagnosticsFrame& frame, int markerIndex )
 {
 
-    if ( !m_gpuTimers.queryHeap || markerIndex < 0 || markerIndex >= TIMER_HEAP_MARKERS || !frame.EnsureOpen().ok )
+    if ( !m_gpuTimers.queryHeap || markerIndex < 0 || markerIndex >= TIMER_HEAP_MARKERS || !frame.EnsureOpen().Ok() )
     {
         return;
     }

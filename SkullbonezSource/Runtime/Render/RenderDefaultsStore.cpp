@@ -28,6 +28,12 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+RenderDefaultsStore::RenderDefaultsStore( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+    : m_resultDiagnostics( resultDiagnostics )
+{
+}
+
+
 void RenderDefaultsStore::CaptureStartupCinematicBaseline( const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
     m_cinematicBaseline = cinematic;
@@ -87,14 +93,14 @@ RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::Ordinar
                                                               ? PersistOrdinary( ordinary )
                                                               : PersistCinematic( cinematic );
 
-        if ( saveResult.ok )
+        if ( saveResult.Ok() )
         {
             result.saved[result.savedCount++] = request;
         }
         else
         {
 
-            if ( result.status.ok )
+            if ( result.status.Ok() )
             {
                 result.status = saveResult;
             }

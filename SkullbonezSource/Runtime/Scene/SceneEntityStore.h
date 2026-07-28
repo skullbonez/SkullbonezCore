@@ -107,7 +107,7 @@ struct SceneEntityRecord
 class SceneEntityStore
 {
   public:
-    SceneEntityStore();
+    explicit SceneEntityStore( SkullbonezCore::Core::SbDiagnosticStore& diagnostics );
     void ConfigureCapacity( int capacity );
     void Clear();
     SkullbonezCore::Core::SbResult PreflightAppend( const SceneEntityCreateDesc& entity ) const;
@@ -147,6 +147,7 @@ class SceneEntityStore
     int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;
 
     // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS worth
     // of provenance pages in ordinary scenes while retaining a strict logical

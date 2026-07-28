@@ -833,8 +833,9 @@ class TonemapPass
 class UiTextPass
 {
   public:
-    UiTextPass( SkullbonezCore::Core::Profiler* profiler, Rendering::RenderGpuTimingOwner& gpuTiming )
-        : m_profiler( profiler ), m_gpuTiming( &gpuTiming )
+    UiTextPass( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SkullbonezCore::Core::Profiler* profiler,
+                Rendering::RenderGpuTimingOwner& gpuTiming )
+        : m_resultDiagnostics( resultDiagnostics ), m_profiler( profiler ), m_gpuTiming( &gpuTiming )
     {
     }
 
@@ -898,6 +899,7 @@ class UiTextPass
 
     // Lifetime: font vertices/projection and optional render capabilities share
     // this pass's process lifetime and are cleared before backend teardown.
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Text::TextBatch m_textBatch;
 
     // Owns draw replay and the preview-only GPU objects. UI provides values and

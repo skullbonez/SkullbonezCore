@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneSnapshotWriter.h"
+#include "../Core/SbDiagnosticStore.h"
 #include "../Runtime/Scene/SceneEntityStore.h"
 
 #include "../Core/FatalError.h"
@@ -306,7 +307,8 @@ bool SameAssetInstance( const SceneAssetAffiliation& a, const SceneAssetAffiliat
 } // namespace
 
 
-SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest& request )
+SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                          const SceneSaveRequest& request )
 {
     const SceneWorldSaveState& sceneView = request.world;
     const SceneSessionSaveState& session = request.session;
@@ -574,17 +576,15 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveRequest
 
     if ( !request.path || request.path[0] == '\0' || !RuntimeFileWriter::OpenTextFile( request.path, output ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                                        "Failed to open scene snapshot path '%s' for writing.",
-                                                        request.path ? request.path : "" );
+        return diagnostics.Failure( "Scene/SceneSnapshotWriter", "Failed to open scene snapshot path '%s' for writing.",
+                                    request.path ? request.path : "" );
     }
 
     output << serializedScene << '\n';
 
     if ( !output.good() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Scene/SceneSnapshotWriter",
-                                                        "Failed while writing scene snapshot '%s'.", request.path );
+        return diagnostics.Failure( "Scene/SceneSnapshotWriter", "Failed while writing scene snapshot '%s'.", request.path );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

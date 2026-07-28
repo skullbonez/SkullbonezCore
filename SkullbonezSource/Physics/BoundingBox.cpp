@@ -215,7 +215,7 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
     float totalMovementMag = sqrtf( totalMovementSq );
     Vector3 moveDir = totalMovement / totalMovementMag;
 
-    float dDotMoveDir = d * moveDir;
+    float dDotMoveDir = Dot( d, moveDir );
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )
@@ -263,7 +263,7 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
     float totalMovementMag = sqrtf( totalMovementSq );
     Vector3 moveDir = totalMovement / totalMovementMag;
 
-    float dDotMoveDir = d * moveDir;
+    float dDotMoveDir = Dot( d, moveDir );
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )
@@ -303,7 +303,7 @@ float BoundingBox::TestCollision( const ConvexHullShape& target, const Ray& targ
     float totalMovementMag = sqrtf( totalMovementSq );
     Vector3 moveDir = totalMovement / totalMovementMag;
 
-    float dDotMoveDir = d * moveDir;
+    float dDotMoveDir = Dot( d, moveDir );
     float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
 
     if ( discriminant < 0.0f )

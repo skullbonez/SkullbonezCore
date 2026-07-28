@@ -1329,7 +1329,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 {
     assert( m_resourceDevice && m_resourceFrame );
 
-    if ( !m_resourceFrame->EnsureOpen().ok )
+    if ( !m_resourceFrame->EnsureOpen().Ok() )
     {
         return 0;
     }

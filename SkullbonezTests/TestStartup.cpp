@@ -22,12 +22,13 @@
 // Related:
 //   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
 //   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
-//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//   - Agentic/Reports/2026-07-17/unit-test-coverage-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Runtime/App/RunLaunchOptions.h"
 #include "../SkullbonezSource/Runtime/Startup/StartupCommandLine.h"
@@ -50,6 +51,8 @@ using namespace SkullbonezCore::Runtime::Startup;
 
 namespace
 {
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+
 CommandLineView View( const char* text )
 {
     return TokenizeCommandLine( text );
@@ -83,7 +86,7 @@ void CheckFullParseFailure( const char* text, const char* expected )
 {
     EngineConfig config;
     ParsedArgs args;
-    CHECK_FALSE( ParseCommandLine( View( text ), config, args ) );
+    CHECK_FALSE( ParseCommandLine( diagnostics, View( text ), config, args ) );
     CHECK( std::strcmp( GetCommandLineError(), expected ) == 0 );
 }
 
@@ -112,8 +115,7 @@ TEST_CASE( "Startup command line: tokenizer and option lookup preserve compatibi
     CHECK( TokenizeCommandLine( nullptr ).tokens.empty() );
     CHECK( View( " \t " ).tokens.empty() );
 
-    const CommandLineView commandLine =
-        View( "\t--scene \"path with spaces.scene.json\" --frames=12 loose \"unterminated tail" );
+    const CommandLineView commandLine = View( "\t--scene \"path with spaces.scene.json\" --frames=12 loose \"unterminated tail" );
     REQUIRE( commandLine.tokens.size() == 5u );
     CHECK( commandLine.tokens[0] == "--scene" );
     CHECK( commandLine.tokens[1] == "path with spaces.scene.json" );
@@ -153,6 +155,7 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
     CHECK( ParseUnsignedCommandLineToken( "4294967295", unsignedValue ) );
     CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
     CHECK_FALSE( ParseUnsignedCommandLineToken( "4294967296", unsignedValue ) );
+
     // Hazard: MSVC strtoul accepts a leading minus and wraps -1 to UINT_MAX.
     // Startup compatibility currently exposes that value; changing the parser
     // is product behavior and belongs to a separately ruled seam task.
@@ -190,20 +193,20 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
 
 TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
 {
-    const CommandLineView commandLine =
-        View( "--seed 17 --frames=9 --allocation_guard gameplay "
-              "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
-              "--memory_dump TestOutput/memory.json --interaction_script script.json "
-              "--interaction_report report.json --replay off --replay_seconds 12 "
-              "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
-              "--replay_save_probe save.skreplay --replay_load load.skreplay "
-              "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
-              "--replay_restore_target_file_probe target.skreplay "
-              "--replay_restore_branch_file_probe branch.skreplay "
-              "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
-              "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
-              "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
-              "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
+    const CommandLineView commandLine = View( "--seed 17 --frames=9 --allocation_guard gameplay "
+                                              "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
+                                              "--memory_dump TestOutput/memory.json --interaction_script script.json "
+                                              "--interaction_report report.json --replay off --replay_seconds 12 "
+                                              "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
+                                              "--replay_save_probe save.skreplay --replay_load load.skreplay "
+                                              "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
+                                              "--replay_restore_target_file_probe target.skreplay "
+                                              "--replay_restore_branch_file_probe branch.skreplay "
+                                              "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
+                                              "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
+                                              "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
+                                              "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
+
     ParsedArgs args;
     REQUIRE( ApplyRunCliValueDirectives( commandLine, args ) );
 
@@ -263,8 +266,7 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         { "--replay maybe", "--replay expects optional on|off." },
         { "--replay-seconds 0", "--replay-seconds expects 1..600." },
         { "--replay-scrub-probe 0.995", "--replay-scrub-probe expects a normalized position in the range 0..0.995." },
-        { "--replay-restore-probe -0.1",
-          "--replay-restore-probe expects a normalized position in the range 0..0.995." },
+        { "--replay-restore-probe -0.1", "--replay-restore-probe expects a normalized position in the range 0..0.995." },
         { "--replay-save-probe", "--replay-save-probe expects a file path." },
         { "--replay-load", "--replay-load expects a file path." },
         { "--replay-load-probe", "--replay-load expects a file path." },
@@ -282,6 +284,7 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         { "--graphics-stress-scene-interval 601", "--graphics-stress-scene-interval expects 1..600 frames." },
         { "--graphics-stress-memory-interval -1", "--graphics-stress-memory-interval expects 0..36000 frames." },
     };
+
     for ( const FailureCase& failure : cases )
     {
         CAPTURE( failure.commandLine );
@@ -292,11 +295,13 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
 TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )
 {
     ParsedArgs args;
-    REQUIRE( ParsePhysicsDebugOverrides(
-        View( "--physics_debug all --physics-debug-axes off --physics_debug_contacts on "
-              "--physics-debug-sleep=off --physics-debug-pipeline --physics-debug-terrain-contact=0 "
-              "--physics-debug-transparent --physics-debug-alpha 0.5 --physics_debug_contact_linger 1.25" ),
-        args ) );
+    REQUIRE( ParsePhysicsDebugOverrides( View( "--physics_debug all --physics-debug-axes off --physics_debug_contacts on "
+                                               "--physics-debug-sleep=off --physics-debug-pipeline "
+                                               "--physics-debug-terrain-contact=0 "
+                                               "--physics-debug-transparent --physics-debug-alpha 0.5 "
+                                               "--physics_debug_contact_linger 1.25" ),
+                                         args ) );
+
     CHECK( args.hasPhysicsDebugFlagsOverride );
     CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_AXES ) == 0u );
     CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) != 0u );
@@ -312,9 +317,9 @@ TEST_CASE( "Startup physics debug: component, float, and optional switches compo
 
     CheckPhysicsDebugFailure( "--physics-debug unknown",
                               "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
+
     CheckPhysicsDebugFailure( "--physics-debug-axes maybe", "--physics-debug-axes expects optional on|off." );
-    CheckPhysicsDebugFailure( "--physics-debug-transparent maybe",
-                              "--physics-debug-transparent expects optional on|off." );
+    CheckPhysicsDebugFailure( "--physics-debug-transparent maybe", "--physics-debug-transparent expects optional on|off." );
     CheckPhysicsDebugFailure( "--physics-debug-alpha 0.01", "--physics-debug-alpha expects 0.05..1.0." );
     CheckPhysicsDebugFailure( "--physics-debug-contact-linger 5.1",
                               "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
@@ -352,9 +357,9 @@ TEST_CASE( "Startup launch resolution: generated, hero, named, and explicit scen
 
 TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failures are frozen" )
 {
-    const std::string valid =
-        WriteSuite( "valid.suite.json",
-                    R"({"format":"skullbonez.suite.json","scenes":["hero","missing.scene.json"]})" );
+    const std::string valid = WriteSuite( "valid.suite.json",
+                                          R"({"format":"skullbonez.suite.json","scenes":["hero","missing.scene.json"]})" );
+
     std::vector<std::string> scenes;
     bool suiteOrScene = false;
     REQUIRE( ParseSceneArgs( View( ( "--suite " + valid ).c_str() ), scenes, suiteOrScene ) );
@@ -374,10 +379,9 @@ TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failure
         { "array-root.suite.json", "[]", "root must be an object." },
         { "missing-format.suite.json", R"({"scenes":[]})", "must declare format skullbonez.suite.json." },
         { "missing-scenes.suite.json", R"({"format":"skullbonez.suite.json"})", "must contain a scenes array." },
-        { "bad-entry.suite.json",
-          R"({"format":"skullbonez.suite.json","scenes":[1]})",
-          "scenes entries must be strings." },
+        { "bad-entry.suite.json", R"({"format":"skullbonez.suite.json","scenes":[1]})", "scenes entries must be strings." },
     };
+
     for ( const SuiteFailure& failure : failures )
     {
         const std::string path = WriteSuite( failure.leaf, failure.json );
@@ -394,12 +398,10 @@ TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failure
     CHECK( std::strcmp( GetCommandLineError(), "--suite could not open 'does-not-exist'." ) == 0 );
     scenes.clear();
     CHECK_FALSE( ParseSceneArgs( View( "--hero --scene hero" ), scenes, suiteOrScene ) );
-    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) ==
-           0 );
+    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
     scenes.clear();
     CHECK_FALSE( ParseSceneArgs( View( "--demo-hero --hero" ), scenes, suiteOrScene ) );
-    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) ==
-           0 );
+    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
 }
 
 TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow parsed ownership" )
@@ -546,12 +548,13 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
                        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
                        "--guide-arcs "
                        "--dump-config --dump-assets --workers-self-test";
+
 #ifdef _DEBUG
     text += " --physics-diag TestOutput/startup_unit/physics.ndjson --replay-scrub-test --replay-restore-test";
 #endif
     EngineConfig config;
     ParsedArgs args;
-    REQUIRE( ParseCommandLine( View( text.c_str() ), config, args ) );
+    REQUIRE( ParseCommandLine( diagnostics, View( text.c_str() ), config, args ) );
     REQUIRE( args.sceneList.size() == 1u );
     CHECK( args.sceneList[0].empty() );
     CHECK( args.timeScaleOverride == doctest::Approx( 2.0f ) );
@@ -590,6 +593,7 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     CheckFullParseFailure( "--vsync maybe", "--vsync expects on|off." );
     CheckFullParseFailure( "--switch-interval 1",
                            "--switch-interval is retired because DX12 is the only runtime renderer." );
+
     CheckFullParseFailure( "--time-scale 0", "--time-scale expects a positive float." );
     CheckFullParseFailure( "--model-capacity 0", "--model-capacity expects 1..8192." );
     CheckFullParseFailure( "--physics-parallel maybe", "--physics-parallel expects optional on|off." );
@@ -605,7 +609,7 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     CheckFullParseFailure( "--physics-diag trace.ndjson",
                            "--physics-diag is only supported in Debug builds. Recompile with the Debug configuration "
                            "to use queryable physics diagnostics." );
-    CheckFullParseFailure( "--replay-save-probe save.skreplay",
-                           "--replay-save-probe is only supported in Debug builds." );
+
+    CheckFullParseFailure( "--replay-save-probe save.skreplay", "--replay-save-probe is only supported in Debug builds." );
 #endif
 }

@@ -54,11 +54,12 @@ namespace
 }
 
 
-SkullbonezCore::Core::SbResult TryLoadSceneFile( const char* path, const SkullbonezCore::Assets::AssetSystem* assets,
-                                                 bool styleOnly, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult TryLoadSceneFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                                 const SkullbonezCore::Assets::AssetSystem* assets, bool styleOnly,
+                                                 AuthoredScene& outScene )
 {
-    return styleOnly ? TryLoadStyleSceneFromFileImpl( path, assets, outScene )
-                     : TryLoadAuthoredSceneFromFileImpl( path, assets, outScene );
+    return styleOnly ? TryLoadStyleSceneFromFileImpl( diagnostics, path, assets, outScene )
+                     : TryLoadAuthoredSceneFromFileImpl( diagnostics, path, assets, outScene );
 }
 } // namespace
 
@@ -68,53 +69,59 @@ AuthoredScene::AuthoredScene()
 }
 
 
-AuthoredScene AuthoredScene::LoadFromFile( const char* path )
+AuthoredScene AuthoredScene::LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path )
 {
-    return LoadAuthoredSceneFromFileImpl( path, nullptr );
+    return LoadAuthoredSceneFromFileImpl( diagnostics, path, nullptr );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( const char* path, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                               const char* path, AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, nullptr, false, outScene );
+    return TryLoadSceneFile( diagnostics, path, nullptr, false, outScene );
 }
 
 
-AuthoredScene AuthoredScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
+AuthoredScene AuthoredScene::LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                           const Assets::AssetSystem& assets )
 {
-    return LoadAuthoredSceneFromFileImpl( path, &assets );
+    return LoadAuthoredSceneFromFileImpl( diagnostics, path, &assets );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets,
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                               const char* path, const Assets::AssetSystem& assets,
                                                                AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, &assets, false, outScene );
+    return TryLoadSceneFile( diagnostics, path, &assets, false, outScene );
 }
 
 
-AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path )
+AuthoredScene AuthoredScene::LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path )
 {
-    return LoadStyleSceneFromFileImpl( path, nullptr );
+    return LoadStyleSceneFromFileImpl( diagnostics, path, nullptr );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( const char* path, AuthoredScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                    const char* path, AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, nullptr, true, outScene );
+    return TryLoadSceneFile( diagnostics, path, nullptr, true, outScene );
 }
 
 
-AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
+AuthoredScene AuthoredScene::LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                                const Assets::AssetSystem& assets )
 {
-    return LoadStyleSceneFromFileImpl( path, &assets );
+    return LoadStyleSceneFromFileImpl( diagnostics, path, &assets );
 }
 
 
-SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets,
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                    const char* path, const Assets::AssetSystem& assets,
                                                                     AuthoredScene& outScene )
 {
-    return TryLoadSceneFile( path, &assets, true, outScene );
+    return TryLoadSceneFile( diagnostics, path, &assets, true, outScene );
 }
 
 

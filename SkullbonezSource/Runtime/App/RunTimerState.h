@@ -77,37 +77,37 @@ class RunTimerSceneLifecyclePolicy
 
 struct RunTimerState
 {
-    SkullbonezCore::Core::SbResult Initialise()
+    SkullbonezCore::Core::SbResult Initialise( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
     {
-        const SkullbonezCore::Core::SbResult frameTimerResult = frameTimer.Initialise();
+        const SkullbonezCore::Core::SbResult frameTimerResult = frameTimer.Initialise( diagnostics );
 
-        if ( !frameTimerResult.ok )
+        if ( !frameTimerResult.Ok() )
         {
             return frameTimerResult;
         }
 
-        const SkullbonezCore::Core::SbResult workTimerResult = workTimer.Initialise();
+        const SkullbonezCore::Core::SbResult workTimerResult = workTimer.Initialise( diagnostics );
 
-        if ( !workTimerResult.ok )
+        if ( !workTimerResult.Ok() )
         {
             return workTimerResult;
         }
 
-        const SkullbonezCore::Core::SbResult updateTimerResult = updateTimer.Initialise();
+        const SkullbonezCore::Core::SbResult updateTimerResult = updateTimer.Initialise( diagnostics );
 
-        if ( !updateTimerResult.ok )
+        if ( !updateTimerResult.Ok() )
         {
             return updateTimerResult;
         }
 
-        const SkullbonezCore::Core::SbResult cameraTimerResult = cameraTimer.Initialise();
+        const SkullbonezCore::Core::SbResult cameraTimerResult = cameraTimer.Initialise( diagnostics );
 
-        if ( !cameraTimerResult.ok )
+        if ( !cameraTimerResult.Ok() )
         {
             return cameraTimerResult;
         }
 
-        return simulationTimer.Initialise();
+        return simulationTimer.Initialise( diagnostics );
     }
 
     void ResetSceneMeasurements()

@@ -40,6 +40,7 @@ Related:
 #include "ColliderStore.h"
 
 #include "PhysicsBodyStore.h"
+#include "PhysicsEngine.ReplayPredictionCloneScope.h"
 #include "PhysicsObjectPolicy.h"
 
 #include <algorithm>
@@ -70,6 +71,17 @@ using SkullbonezCore::Physics::PhysicsMaterial;
 
 namespace
 {
+template <typename List> void CloneFixedListForReplayPrediction( List& destination, const List& source )
+{
+    destination.Reserve( source.size() );
+    destination.clear();
+
+    for ( const auto& value : source )
+    {
+        destination.push_back( value );
+    }
+}
+
 uint32_t NextHandleGeneration( uint32_t generation )
 {
     ++generation;
@@ -111,65 +123,27 @@ ColliderShapeKind ShapeKindForShape( const CollisionShape& shape )
 
 ColliderStore::ColliderStore() = default;
 
-ColliderStore::ColliderStore( const ColliderStore& other )
+void ColliderStore::CloneReplayPredictionStorageFrom( const ColliderStore& source )
 {
-    *this = other;
-}
+    Detail::RequireReplayPredictionCloneScope( "ColliderStore clone" );
 
-
-ColliderStore& ColliderStore::operator=( const ColliderStore& other )
-{
-
-    if ( this == &other )
-    {
-        return *this;
-    }
-
-    m_colliders = other.m_colliders;
-    m_authoringRecords = other.m_authoringRecords;
-    m_modelColliderHandles = other.m_modelColliderHandles;
-    m_handleGenerations = other.m_handleGenerations;
-    m_handleAlive = other.m_handleAlive;
-    m_handleModelIndices = other.m_handleModelIndices;
-    m_handleSceneObjectIds = other.m_handleSceneObjectIds;
-    m_freeHandleSlots = other.m_freeHandleSlots;
-    m_assignedHandleScratch = other.m_assignedHandleScratch;
-    m_sphereShapes = other.m_sphereShapes;
-    m_boxShapes = other.m_boxShapes;
-    m_hullShapes = other.m_hullShapes;
+    // Invariant: copy per-kind shape storage before rebinding the hot rows. A
+    // copied ColliderRecord must never retain a reference into the live engine.
+#define CLONE_REPLAY_PREDICTION_COLLIDER_LIST( field ) CloneFixedListForReplayPrediction( field, source.field )
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_colliders );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_authoringRecords );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_modelColliderHandles );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_handleGenerations );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_handleAlive );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_handleModelIndices );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_handleSceneObjectIds );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_freeHandleSlots );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_assignedHandleScratch );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_sphereShapes );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_boxShapes );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_hullShapes );
+#undef CLONE_REPLAY_PREDICTION_COLLIDER_LIST
     RebindShapeReferences();
-    return *this;
-}
-
-
-ColliderStore::ColliderStore( ColliderStore&& other )
-{
-    *this = std::move( other );
-}
-
-
-ColliderStore& ColliderStore::operator=( ColliderStore&& other )
-{
-
-    if ( this == &other )
-    {
-        return *this;
-    }
-
-    m_colliders = std::move( other.m_colliders );
-    m_authoringRecords = std::move( other.m_authoringRecords );
-    m_modelColliderHandles = std::move( other.m_modelColliderHandles );
-    m_handleGenerations = std::move( other.m_handleGenerations );
-    m_handleAlive = std::move( other.m_handleAlive );
-    m_handleModelIndices = std::move( other.m_handleModelIndices );
-    m_handleSceneObjectIds = std::move( other.m_handleSceneObjectIds );
-    m_freeHandleSlots = std::move( other.m_freeHandleSlots );
-    m_assignedHandleScratch = std::move( other.m_assignedHandleScratch );
-    m_sphereShapes = std::move( other.m_sphereShapes );
-    m_boxShapes = std::move( other.m_boxShapes );
-    m_hullShapes = std::move( other.m_hullShapes );
-    RebindShapeReferences();
-    return *this;
 }
 
 

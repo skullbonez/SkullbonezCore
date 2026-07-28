@@ -52,11 +52,12 @@ class BLAS
 {
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12Resource* m_scratch;
     ID3D12Resource* m_result;
 
   public:
-    BLAS();
+    explicit BLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
     ~BLAS();
 
     SkullbonezCore::Core::SbResult Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList,

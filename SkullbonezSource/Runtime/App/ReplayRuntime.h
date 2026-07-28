@@ -111,6 +111,7 @@ namespace Core
 {
 class EngineConfig;
 class Profiler;
+class SbDiagnosticStore;
 struct ReplayTrajectoryAppearanceConfig;
 } // namespace Core
 namespace Runtime
@@ -147,6 +148,15 @@ class ReplayRuntime;
 class InputRouter;
 class RuntimeTools;
 class SceneController;
+
+namespace ReplayLiveRestoreOperations
+{
+
+// Builds the detached result published after one restore transaction reaches a
+// success or recoverable-failure terminal phase.
+ReplayLiveRestoreOutcome BuildOutcome( const ReplayRestoreTransaction& transaction, ReplayLiveRestoreKind kind,
+                                       bool restored );
+} // namespace ReplayLiveRestoreOperations
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
@@ -176,6 +186,9 @@ void ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubb
 class ReplayProbeRunner
 {
   public:
+    explicit ReplayProbeRunner( Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
 
     // Returns whether live prediction generation remains permitted after the
     // startup capability request is installed.
@@ -226,6 +239,8 @@ class ReplayProbeRunner
 #endif
 
   private:
+    SkullbonezCore::Core::SbResult ReplayProbeFailure( const char* message ) const;
+    Core::SbDiagnosticStore& m_resultDiagnostics;
     ReplayStartupWorkflowState m_startup;
 #ifdef _DEBUG
     ReplayProbeState m_probes;
@@ -236,7 +251,7 @@ class ReplayProbeRunner
 class ReplayRuntime
 {
   public:
-    explicit ReplayRuntime( Core::Profiler* profiler );
+    ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler );
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
@@ -340,22 +355,30 @@ class ReplayRuntime
     bool RestoreSolverSampleAsLive( ReplayRestoreTransaction& transaction, SceneWorld& world, SceneSessionState& scene,
                                     OverlayDebugState& debug, RuntimeTools& runtimeTools,
                                     const ReplaySolverFrameSample& sample );
+
+    // Restores one selected artifact target through the transaction's phase
+    // invariant. SceneController is borrowed as the concrete scene/session
+    // owner; the focused restore phases retain no participant pointer.
     bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                       SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
+                                       SceneController& sceneController, OverlayDebugState& debug,
                                        RuntimeTools& runtimeTools, SimulationSystem& simulation,
                                        const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                                        Threading::WorkerPool& workerPool,
                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                        GeneratedObjectTypeOverride& generatedObjectTypeOverride );
-    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world,
-                                                      SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                      const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                                                      SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
-    void CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                     ReplayLiveRestoreOutcome& outcome, SceneWorld& world, SceneSessionState& scene,
-                                     DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter,
-                                     RuntimeInteractionController& interaction, CameraControlState& camera,
-                                     RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed );
+
+    // Applies branch provenance and advances a verified restore to Complete.
+    // This phase must run before CompleteLiveRestoreScrubber.
+    void ApplyRestoredBranchTimeline( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreOutcome& outcome,
+                                      SceneController& sceneController, InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction, CameraControlState& camera,
+                                      RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed );
+
+    // Publishes the terminal result to the scrubber. The implementation fails
+    // fatally if success has not reached Complete or failure has not reached
+    // Failed/RolledBack.
+    void CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
+                                      ReplayLiveRestoreOutcome& outcome );
 #ifdef _DEBUG
 
     // Debug probes use the production phase transaction and receive concrete
@@ -527,15 +550,9 @@ class ReplayRuntime
                                                   SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                                   GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 #endif
-    bool RestoreV2ArtifactTargetStateImpl( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                           SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
-                                           RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                           const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                                           Threading::WorkerPool& workerPool,
-                                           SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                           GeneratedObjectTypeOverride& generatedObjectTypeOverride );
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
+    Core::SbDiagnosticStore& m_resultDiagnostics;
     Core::Profiler* m_profiler;
     ReplayTimeline m_timeline;
     ReplayProbeRunner m_probeRunner;

@@ -48,7 +48,7 @@ const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredicti
 
 float MagnitudeSquared( const Math::Vector::Vector3& value ) noexcept
 {
-    return value * value;
+    return Dot( value, value );
 }
 } // namespace
 

@@ -460,9 +460,9 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraM
     Vector3 vNegatedView = -GetViewVectorNormalised();
 
     // Compare against both poles so pitch caps cannot flip through the up axis.
-    float currentUpAngle = acosf( vNegatedView * m_upVector );
+    float currentUpAngle = acosf( Dot( vNegatedView, m_upVector ) );
 
-    float currentDownAngle = acosf( vNegatedView * -m_upVector );
+    float currentDownAngle = acosf( Dot( vNegatedView, -m_upVector ) );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
 

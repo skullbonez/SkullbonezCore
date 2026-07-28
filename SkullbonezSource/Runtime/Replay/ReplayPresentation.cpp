@@ -140,8 +140,8 @@ bool ReplayQueryIntersectRaySphere( const Math::Vector::Vector3& rayOrigin, cons
                                     const Math::Vector::Vector3& center, float radius, float& outT )
 {
     const Math::Vector::Vector3 offset = rayOrigin - center;
-    const float rayProjection = offset * rayDirection;
-    const float radialDistance = ( offset * offset ) - radius * radius;
+    const float rayProjection = Dot( offset, rayDirection );
+    const float radialDistance = ( Dot( offset, offset ) ) - radius * radius;
 
     if ( radialDistance > 0.0f && rayProjection > 0.0f )
     {

@@ -200,12 +200,48 @@ struct ImGuiEditorParameterizedEditState
     bool active = false;
 };
 
+
+// Concept: one editor frame retains only its first command-submission failure.
+// Invariant: Take releases the owner-held lease while the returned copy remains
+// valid for Runtime consumption after the frame owner resets.
+class ImGuiEditorFrameStatusLease
+{
+  public:
+    bool Ok() const noexcept
+    {
+        return m_status.Ok();
+    }
+
+    void Record( const SkullbonezCore::Core::SbResult& status ) noexcept
+    {
+
+        if ( m_status.Ok() && !status.Ok() )
+        {
+            m_status = status;
+        }
+    }
+
+    SkullbonezCore::Core::SbResult Take() noexcept
+    {
+        SkullbonezCore::Core::SbResult result = m_status;
+        m_status = SkullbonezCore::Core::SbResult::Success();
+        return result;
+    }
+
+  private:
+    SkullbonezCore::Core::SbResult m_status = SkullbonezCore::Core::SbResult::Success();
+};
+
+
 class ImGuiEditorOwner
 {
   public:
     static constexpr int LAYOUT_VERSION = IMGUI_EDITOR_LAYOUT_VERSION;
 
-    ImGuiEditorOwner() noexcept = default;
+    explicit ImGuiEditorOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     ~ImGuiEditorOwner();
 
     ImGuiEditorOwner( const ImGuiEditorOwner& ) = delete;
@@ -258,6 +294,7 @@ class ImGuiEditorOwner
     void LoadPreferences() noexcept;
     void SavePreferences() noexcept;
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ImGuiContext* m_context = nullptr;
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
     HWND m_window = nullptr;
@@ -318,7 +355,7 @@ class ImGuiEditorOwner
     bool m_focusSceneFilter = false;
     ImGuiEditorCommands m_frameCommands;
     UI::OperatorEditorCommandQueues m_pendingOperatorEditorCommands;
-    SkullbonezCore::Core::SbResult m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
+    ImGuiEditorFrameStatusLease m_frameCommandStatus;
     uint64_t m_platformMessages = 0u;
     uint64_t m_suppressedMouseMessages = 0u;
     uint64_t m_suppressedKeyboardMessages = 0u;

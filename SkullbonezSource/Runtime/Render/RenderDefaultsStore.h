@@ -54,6 +54,7 @@ struct RenderDefaultsSaveBatchResult
 class RenderDefaultsStore
 {
   public:
+    explicit RenderDefaultsStore( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept;
     void CaptureStartupCinematicBaseline( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
     const SkullbonezCore::Core::CinematicRenderConfig& CinematicBaseline() const;
     void SubmitOrdinarySave();
@@ -65,9 +66,10 @@ class RenderDefaultsStore
 
   private:
     void Submit( RenderDefaultsRequestType type );
-    static SkullbonezCore::Core::SbResult PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary );
-    static SkullbonezCore::Core::SbResult PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
+    SkullbonezCore::Core::SbResult PersistOrdinary( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary );
+    SkullbonezCore::Core::SbResult PersistCinematic( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RenderDefaultsRequestType m_requests[RENDER_DEFAULTS_REQUEST_CAPACITY]; // Fixed persistence-intent ring.
     int m_head = 0;                                                         // Oldest save request.
     int m_count = 0;                                                        // Occupied request slots.

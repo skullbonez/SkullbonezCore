@@ -123,7 +123,7 @@ std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, in
         floatsPerVert = 3;
     }
 
-    if ( !m_frame.EnsureOpen().ok )
+    if ( !m_frame.EnsureOpen().Ok() )
     {
         return nullptr;
     }

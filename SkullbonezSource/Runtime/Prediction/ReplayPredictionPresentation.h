@@ -42,6 +42,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class SbDiagnosticStore;
+}
 namespace Physics
 {
 class ColliderStore;
@@ -96,7 +100,7 @@ struct ReplayPredictionPresentationMemoryStats
 class ReplayPredictionPresentation
 {
   public:
-    explicit ReplayPredictionPresentation( Core::Profiler* profiler = nullptr );
+    ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler = nullptr );
 
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats TrajectoryVisualStatsSnapshot() const noexcept;
     ReplayTrajectorySubmissionProbeStats TrajectorySubmissionProbeSnapshot() const noexcept;

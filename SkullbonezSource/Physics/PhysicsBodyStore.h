@@ -20,8 +20,9 @@ Glossary:
     invalidate it while resolving stable identity.
   Fixed-tree release: Authored structure rule where one released fixed prop can
     release higher parts in the same tree group.
-  Hot SoA fields: Parallel component arrays used by per-body stage kernels so
-    eight adjacent bodies can be loaded without gathering from records.
+  Hot SoA (Structure of Arrays) fields: Parallel component arrays with
+    independently allocated, 32-byte-aligned backing. Production stages
+    currently index these streams scalarly through explicit views.
 
 Invariants:
   - Runtime cold records and hot arrays stay in scene/model slot order.
@@ -31,8 +32,8 @@ Invariants:
     explicit maps instead of encoding model index inside the handle.
   - Store refreshes load descriptor rows into physics-owned cold records and
     hot arrays before a step or explicit editor/replay commit.
-  - Every hot component array starts on a 32-byte boundary and has exactly the
-    same live dense prefix as the cold metadata rows.
+  - Every hot component backing allocation starts on a 32-byte boundary and
+    has exactly the same live dense prefix as the cold metadata rows.
   - Steady-frame pose, velocity, and sleep state do not copy back to authoring data;
     readers must use the body, collider, render, or diagnostics stores.
 
@@ -65,6 +66,7 @@ class Profiler;
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 struct BuoyancyBodyFacts;
 struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
@@ -318,14 +320,6 @@ inline void StorePhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields, st
     fields.awake[index] = state.awake ? 1u : 0u;
 }
 
-#ifdef _MSC_VER
-
-// Why: the deliberate 32-byte array starts add harmless intra-object padding.
-// MSVC's C4324 is promoted by the repository warning policy even though this
-// layout is the alignment contract being tested, so suppress only this class.
-#pragma warning( push )
-#pragma warning( disable : 4324 )
-#endif
 class PhysicsBodyStore
 {
   public:
@@ -437,6 +431,13 @@ class PhysicsBodyStore
                       float deltaSeconds, const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
+    friend class PhysicsEngine;
+
+    // Replay prediction seeds a private engine under the registered Replay
+    // owner. Keeping this clone private prevents ordinary store copies from
+    // hiding the phase-gated fixed-list backing contract.
+    void CloneReplayPredictionStorageFrom( const PhysicsBodyStore& source );
+
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                   PhysicsHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
@@ -447,62 +448,44 @@ class PhysicsBodyStore
 
     PhysicsBodyRecordList m_bodies { "PhysicsBodyStore.bodies",
                                      PhysicsCapacityReason::SceneBodies };                            // Cold records in dense scene/model order.
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionX { "PhysicsBodyStore.positionX",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionY { "PhysicsBodyStore.positionY",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_positionZ { "PhysicsBodyStore.positionZ",
-                                                                                 PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationX { "PhysicsBodyStore.orientationX",
-                                                                                    PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationY { "PhysicsBodyStore.orientationY",
-                                                                                    PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationZ { "PhysicsBodyStore.orientationZ",
-                                                                                    PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_orientationW { "PhysicsBodyStore.orientationW",
-                                                                                    PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityX { "PhysicsBodyStore.linearVelocityX",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityY { "PhysicsBodyStore.linearVelocityY",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_linearVelocityZ { "PhysicsBodyStore.linearVelocityZ",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityX { "PhysicsBodyStore.angularVelocityX",
-                                                                                        PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityY { "PhysicsBodyStore.angularVelocityY",
-                                                                                        PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_angularVelocityZ { "PhysicsBodyStore.angularVelocityZ",
-                                                                                        PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseMass { "PhysicsBodyStore.inverseMass",
-                                                                                   PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaX { "PhysicsBodyStore.inverseInertiaX",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaY { "PhysicsBodyStore.inverseInertiaY",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_inverseInertiaZ { "PhysicsBodyStore.inverseInertiaZ",
-                                                                                       PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsFixedList<
-        float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_boundingRadius { "PhysicsBodyStore.boundingRadius",
-                                                                                      PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed", PhysicsCapacityReason::SceneBodies };
-    alignas( 32 ) PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionX { "PhysicsBodyStore.positionX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionY { "PhysicsBodyStore.positionY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_positionZ { "PhysicsBodyStore.positionZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationX { "PhysicsBodyStore.orientationX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationY { "PhysicsBodyStore.orientationY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationZ { "PhysicsBodyStore.orientationZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_orientationW { "PhysicsBodyStore.orientationW", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityX { "PhysicsBodyStore.linearVelocityX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityY { "PhysicsBodyStore.linearVelocityY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_linearVelocityZ { "PhysicsBodyStore.linearVelocityZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityX { "PhysicsBodyStore.angularVelocityX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityY { "PhysicsBodyStore.angularVelocityY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_angularVelocityZ { "PhysicsBodyStore.angularVelocityZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseMass { "PhysicsBodyStore.inverseMass", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaX { "PhysicsBodyStore.inverseInertiaX", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaY { "PhysicsBodyStore.inverseInertiaY", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_inverseInertiaZ { "PhysicsBodyStore.inverseInertiaZ", PhysicsCapacityReason::SceneBodies };
+    PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_boundingRadius { "PhysicsBodyStore.boundingRadius", PhysicsCapacityReason::SceneBodies };
+    PhysicsHandleFlagList m_fixed { "PhysicsBodyStore.fixed", PhysicsCapacityReason::SceneBodies };
+    PhysicsHandleFlagList m_awake { "PhysicsBodyStore.awake", PhysicsCapacityReason::SceneBodies };
     PhysicsBodyHandleList m_modelBodyHandles { "PhysicsBodyStore.modelBodyHandles",
                                                PhysicsCapacityReason::SceneBodies };                  // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations { "PhysicsBodyStore.handleGenerations",
@@ -523,8 +506,5 @@ class PhysicsBodyStore
     PhysicsBodyPreservedRefreshStateList m_preservedRefreshStateByHandle { "PhysicsBodyStore.preservedRefreshStateByHandle",
                                                                            PhysicsCapacityReason::BodyHandleSlots };
 };
-#ifdef _MSC_VER
-#pragma warning( pop )
-#endif
 } // namespace Physics
 } // namespace SkullbonezCore

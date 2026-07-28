@@ -63,18 +63,22 @@ echo [3/8] Checking dependency graph...
 call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
-echo [4/8] Checking aggregate ownership rulings...
-REM Why: the two shape inventories report current structure and fail only on an
-REM UNRULED row, so an owner judgement can never be skipped silently. Neither
-REM freezes a count. Self-tests run first so a scanner regression is
-REM distinguishable from a real source finding.
+echo [4/8] Checking ownership rulings...
+REM Why: the shape and wide-signature inventories report current structure and
+REM fail on missing/stale owner judgements. The wide-signature trigger starts
+REM qualitative review; it is not an arity ceiling or count budget. Self-tests
+REM run first so a scanner regression is distinguishable from a source finding.
 python "%~dp0inventory_authority_free_aggregates.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --self-test
 if errorlevel 1 exit /b 8
+python "%~dp0inventory_wide_signatures.py" --self-test
+if errorlevel 1 exit /b 8
 python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_wide_signatures.py" --repo "%~dp0.." --threshold 12 --format json --strict >nul
 if errorlevel 1 exit /b 8
 
 echo [5/8] Checking staged file sizes...

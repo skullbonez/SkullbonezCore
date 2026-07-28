@@ -236,7 +236,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
     const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( count, sphereCapacity,
                                                                                                  boxCapacity, 0, 0 );
 
-    if ( !capacityCommit.ok )
+    if ( !capacityCommit.Ok() )
     {
         return capacityCommit;
     }
@@ -268,7 +268,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
                                                                        MakeGeneratedColliderDesc( shape,
                                                                                                   sample.restitution ) );
 
-            if ( !appendResult.status.ok )
+            if ( !appendResult.status.Ok() )
             {
                 return appendResult.status;
             }
@@ -292,7 +292,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
                                                                        MakeGeneratedColliderDesc( shape,
                                                                                                   sample.restitution ) );
 
-            if ( !appendResult.status.ok )
+            if ( !appendResult.status.Ok() )
             {
                 return appendResult.status;
             }
@@ -330,7 +330,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
     const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( balls + boxes, balls, boxes,
                                                                                                  0, 0 );
 
-    if ( !capacityCommit.ok )
+    if ( !capacityCommit.Ok() )
     {
         return capacityCommit;
     }
@@ -386,7 +386,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
                                                                                           mass, restitution ),
                                                                    MakeGeneratedColliderDesc( shape, restitution ) );
 
-        if ( !appendResult.status.ok )
+        if ( !appendResult.status.Ok() )
         {
             return appendResult.status;
         }
@@ -437,7 +437,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
                                                                                           inertia, mass, restitution ),
                                                                    MakeGeneratedColliderDesc( shape, restitution ) );
 
-        if ( !appendResult.status.ok )
+        if ( !appendResult.status.Ok() )
         {
             return appendResult.status;
         }

@@ -27,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
 */
 #include "SceneController.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Automation/RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
@@ -45,7 +46,8 @@ namespace
 constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
 } // namespace
 
-SceneController::SceneController()
+SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_world( resultDiagnostics )
 {
 }
 
@@ -91,7 +93,9 @@ SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepReque
 }
 
 
-SceneController::SceneController( std::vector<std::string> queue ) : SceneSession( std::move( queue ) )
+SceneController::SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                  std::vector<std::string> queue )
+    : SceneSession( std::move( queue ) ), m_resultDiagnostics( resultDiagnostics ), m_world( resultDiagnostics )
 {
 }
 
@@ -138,11 +142,11 @@ void SceneController::SubmitLoadBrowserIndex( int index )
     SceneRequest request;
     request.type = SceneRequestType::LoadBrowserIndex;
     request.index = index;
-    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( m_resultDiagnostics, request );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( result.error.owner, "%s", result.error.message );
+        SB_FATAL( result.ErrorOwner(), "%s", result.ErrorMessage() );
     }
 }
 
@@ -151,11 +155,11 @@ void SceneController::SubmitLoadDemoScene()
 {
     SceneRequest request;
     request.type = SceneRequestType::LoadDemoScene;
-    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( m_resultDiagnostics, request );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( result.error.owner, "%s", result.error.message );
+        SB_FATAL( result.ErrorOwner(), "%s", result.ErrorMessage() );
     }
 }
 
@@ -167,11 +171,11 @@ void SceneController::SubmitResetCurrentScene( bool preserveUIState, bool suppre
     request.preserveUIState = preserveUIState;
     request.suppressExitOnComplete = suppressExitOnComplete;
     request.preserveRuntimeState = preserveRuntimeState;
-    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( m_resultDiagnostics, request );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( result.error.owner, "%s", result.error.message );
+        SB_FATAL( result.ErrorOwner(), "%s", result.ErrorMessage() );
     }
 }
 
@@ -182,9 +186,9 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
 
     if ( requestedName && nameLength >= SCENE_REQUEST_TEXT_CAPACITY )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneController",
-                                                        "Scene name exceeds the fixed %d-byte request payload",
-                                                        SCENE_REQUEST_TEXT_CAPACITY - 1 );
+        return m_resultDiagnostics.Failure( "Runtime/SceneController",
+                                            "Scene name exceeds the fixed %d-byte request payload",
+                                            SCENE_REQUEST_TEXT_CAPACITY - 1 );
     }
 
     SceneRequest request;
@@ -195,7 +199,7 @@ SkullbonezCore::Core::SbResult SceneController::SubmitCreateScene( const char* r
         strcpy_s( request.text, requestedName );
     }
 
-    return m_requests.Submit( request );
+    return m_requests.Submit( m_resultDiagnostics, request );
 }
 
 
@@ -203,11 +207,11 @@ void SceneController::SubmitSaveCurrentDefaults()
 {
     SceneRequest request;
     request.type = SceneRequestType::SaveCurrentDefaults;
-    const SkullbonezCore::Core::SbResult result = m_requests.Submit( request );
+    const SkullbonezCore::Core::SbResult result = m_requests.Submit( m_resultDiagnostics, request );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( result.error.owner, "%s", result.error.message );
+        SB_FATAL( result.ErrorOwner(), "%s", result.ErrorMessage() );
     }
 }
 

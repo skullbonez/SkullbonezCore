@@ -51,6 +51,7 @@ Related:
 #include "../Input/InputController.h"
 #include "../Replay/ReplayOverlayLayout.h"
 #include "../Replay/ReplayRestoreTransactions.h"
+#include "../Scene/SceneController.h"
 #include "../Scene/SceneWorld.h"
 #include "../../World/Terrain.h"
 
@@ -723,66 +724,30 @@ void ReplayRuntime::ResetSceneTimeline( const ReplaySceneTimelineResetInput& inp
 }
 
 
-ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world,
-                                                                 SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                                 const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets,
-                                                                 SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
-                                                                 GeneratedObjectTypeOverride& generatedObjectTypeOverride )
+ReplayLiveRestoreOutcome ReplayLiveRestoreOperations::BuildOutcome( const ReplayRestoreTransaction& transaction,
+                                                                    ReplayLiveRestoreKind kind, bool restored )
 {
     ReplayLiveRestoreOutcome outcome;
-    outcome.requested = request.kind != ReplayLiveRestoreKind::None;
-
-    if ( !outcome.requested )
-    {
-        return outcome;
-    }
-
-    // Invariant: restore is an owner-to-owner transaction. Prediction must be
-    // idle before either restore path mutates live physics authority, even when
-    // a caller constructs the request without using the scrubber request builder.
-    m_predictionOwner.CancelJob( false );
-
-    if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
-    {
-        outcome.restored = RestoreV2ArtifactTargetState( transaction, request, world, scene, debug, runtimeTools, simulation,
-                                                         config, assets, workerPool, uiOverrides,
-                                                         generatedObjectTypeOverride );
-    }
-    else if ( request.kind == ReplayLiveRestoreKind::SolverSample && request.solverSample )
-    {
-        outcome.restored = RestoreSolverSampleAsLive( transaction, world, scene, debug, runtimeTools,
-                                                      *request.solverSample );
-    }
-
+    outcome.requested = kind != ReplayLiveRestoreKind::None;
+    outcome.restored = restored;
     outcome.v2Result = transaction.Result();
     strncpy_s( outcome.reason, sizeof( outcome.reason ), transaction.FailureReason(), _TRUNCATE );
     outcome.enterInteractive = transaction.EnterInteractiveRequested();
     return outcome;
 }
 
-void ReplayRuntime::CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction,
-                                                const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome,
-                                                SceneWorld& world, SceneSessionState& scene,
-                                                DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter,
-                                                RuntimeInteractionController& interaction, CameraControlState& camera,
-                                                RunCameraMode normalizedRestoreMode, bool attachedFollow,
-                                                bool directorGrabbed )
+void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& transaction,
+                                                 const ReplayLiveRestoreOutcome& outcome, SceneController& sceneController,
+                                                 InputRouter& inputRouter, RuntimeInteractionController& interaction,
+                                                 CameraControlState& camera, RunCameraMode normalizedRestoreMode,
+                                                 bool attachedFollow, bool directorGrabbed )
 {
-
-    // Invariant: a verified live restore does not reach Complete until the
-    // branch-preserving timeline reset and provenance event are both applied.
-    // Owners remain direct synchronous borrows for this completion phase.
-#ifdef _DEBUG
-    PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
-#else
-    (void)scene;
-    (void)diagnosticsRuntime;
-#endif
 
     if ( outcome.restored && transaction.TimelineResetRequired() )
     {
         ReplaySceneTimelineResetInput reset = transaction.TimelineReset();
         reset.preserveBranchMetadata = true;
+        SceneWorld& world = sceneController.Scene();
         ResetSceneTimeline( reset, inputRouter, interaction, &world.Cameras(), world.Terrain().Get(), camera,
                             normalizedRestoreMode, attachedFollow, directorGrabbed );
 
@@ -792,8 +757,19 @@ void ReplayRuntime::CompleteLiveRestoreRequest( ReplayRestoreTransaction& transa
                                                                  transaction.BranchSolverHash(),
                                                                  "hash-verified replay restore" ) );
 
+        transaction.MarkTimelineResetApplied();
         transaction.Complete();
     }
+}
+
+void ReplayRuntime::CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction,
+                                                 const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome )
+{
+
+    // Invariant: scrubber publication is the last restore phase. A caller
+    // cannot publish success before branch provenance is committed, or publish
+    // failure before rollback reaches a terminal cursor.
+    transaction.RequireScrubberPublicationTerminal( outcome.restored );
 
     const char* reason = outcome.restored ? "restored hash match" : transaction.FailureReason();
     strncpy_s( outcome.reason, sizeof( outcome.reason ), reason, _TRUNCATE );

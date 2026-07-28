@@ -235,11 +235,11 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Re
                                                                Rendering::Dx12GeometryOwner& renderGeometry,
                                                                const Assets::AssetSystem& assets, int screenW, int screenH )
 {
-    const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_textBatch, renderResources, renderTextures,
-                                                                         renderGeometry, assets, screenW, screenH,
-                                                                         "Verdana" );
+    const SkullbonezCore::Core::SbResult fontResult = Text2d::BuildFont( m_resultDiagnostics, m_textBatch, renderResources,
+                                                                         renderTextures, renderGeometry, assets, screenW,
+                                                                         screenH, "Verdana" );
 
-    if ( !fontResult.ok )
+    if ( !fontResult.Ok() )
     {
         return fontResult;
     }
@@ -250,8 +250,8 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Re
 
     if ( !SkullbonezCore::UI::UIFontMetrics::Install( Text2d::charAdvance, 96 ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Render/UiTextPass",
-                                                        "Baked font metrics changed after UI layout publication." );
+        return m_resultDiagnostics.Failure( "Runtime/Render/UiTextPass",
+                                            "Baked font metrics changed after UI layout publication." );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

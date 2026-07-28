@@ -92,7 +92,7 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
         return ZERO_VECTOR;
     }
 
-    const float magnitudeSq = value * value;
+    const float magnitudeSq = Dot( value, value );
     const float maxSq = maxMagnitude * maxMagnitude;
 
     if ( magnitudeSq <= maxSq || magnitudeSq <= TOLERANCE * TOLERANCE )
@@ -257,7 +257,7 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input, 
         }
 
         const Vector3 tangent( -outward.z, 0.0f, outward.x );
-        const float tangentialSpeed = fabsf( velocity * tangent );
+        const float tangentialSpeed = fabsf( Dot( velocity, tangent ) );
         const int exposureBucket = static_cast<int>( input.exposureSeconds[row] * EJECTION_PHASE_HZ );
         const bool deterministicSlot = ( ( index + exposureBucket ) % 3 ) == 0;
 
@@ -310,7 +310,7 @@ Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& i
     for ( const ExternalCylindricalForceField& field : input.fields )
     {
         const Vector3 sample = SampleFieldAcceleration( field, position );
-        const float sampleSq = sample * sample;
+        const float sampleSq = Dot( sample, sample );
         acceleration += sample;
 
         if ( sampleSq > outBestAccelerationSq )

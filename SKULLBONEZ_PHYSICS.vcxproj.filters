@@ -203,6 +203,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h">
       <Filter>Header Files\Support</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.ReplayPredictionCloneScope.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsStageCapacity.h">
       <Filter>Header Files\Support</Filter>
     </ClInclude>

@@ -687,7 +687,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                                                                      c.rB );
 
         const Vector3 relVel = velB - velA;
-        const float normalSpeed = relVel * c.normal;
+        const float normalSpeed = Dot( relVel, c.normal );
         const Vector3 tangentVel = relVel - c.normal * normalSpeed;
         const float slipSpeed = Vector::VectorMag( tangentVel );
         const double tangentImpulse = sqrt( static_cast<double>( c.accT1 ) * c.accT1 +

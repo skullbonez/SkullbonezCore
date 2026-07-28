@@ -114,7 +114,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                                 .SubmitOperatorEditorReplayCommand( *automationBeforeInput,
                                                                                                     externalEditorCommands );
 
-        if ( !submitStatus.ok )
+        if ( !submitStatus.Ok() )
         {
             m_applicationExit.RequestOwnedFailure( submitStatus );
         }
@@ -236,9 +236,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( BackbufferCapture() );
 
-        if ( !batch.status.ok )
+        if ( !batch.status.Ok() )
         {
-            std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
+            std::fprintf( stderr, "%s: %s\n", batch.status.ErrorOwner(), batch.status.ErrorMessage() );
             std::fflush( stderr );
         }
 
@@ -264,9 +264,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             batch = renderDefaults.DrainAtFrameCheckpoint( config.ordinaryRender,
                                                            ActiveSceneCinematicConfig( SceneState(), config ) );
 
-        if ( !batch.status.ok )
+        if ( !batch.status.Ok() )
         {
-            std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
+            std::fprintf( stderr, "%s: %s\n", batch.status.ErrorOwner(), batch.status.ErrorMessage() );
             std::fflush( stderr );
         }
 
@@ -285,9 +285,10 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     };
 
     DeviceInputFrame deviceFrame;
-    const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( deviceFrame );
+    const SkullbonezCore::Core::SbResult deviceCaptureResult = Input::CaptureDeviceInputFrame( m_resultDiagnostics,
+                                                                                               deviceFrame );
 
-    if ( !deviceCaptureResult.ok )
+    if ( !deviceCaptureResult.Ok() )
     {
         ReportRuntimeInputFailure( deviceCaptureResult );
         std::fflush( stderr );
@@ -357,14 +358,15 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             return;
         }
 
-        SkullbonezCore::Core::SbResult pointerResult = Input::SetNativeMouseCapture( presentation.nativeCapture );
+        SkullbonezCore::Core::SbResult pointerResult = Input::SetNativeMouseCapture( m_resultDiagnostics,
+                                                                                     presentation.nativeCapture );
 
-        if ( pointerResult.ok )
+        if ( pointerResult.Ok() )
         {
             Input::SetSystemCursorVisible( presentation.cursorVisible );
         }
 
-        if ( !pointerResult.ok )
+        if ( !pointerResult.Ok() )
         {
             ReportRuntimeInputFailure( pointerResult );
             applicationExit.RequestOwnedFailure( pointerResult );
@@ -393,7 +395,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         const SkullbonezCore::Core::SbResult stressResult = runUIStressBatch();
 
-        if ( !stressResult.ok )
+        if ( !stressResult.Ok() )
         {
 
             // Lane R: focus loss still routes stress churn through the same guarded
@@ -486,7 +488,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                 .Load( sceneController, request, config, launchOptions, renderDefaults.CinematicBaseline(),
                                        startup, assets, workerPool, diagnosticsRuntime, &renderer.RenderFrame(),
                                        &renderer.RenderResources(), renderer )
-                                .ok;
+                                .Ok();
 
         sceneLoad.ApplyRuntimeReactions( launchOptions, timers, *m_overlayDiagnostics, sceneController, inputRouter,
                                          interaction, camera, attachedCamera, runtimeTools, replayRuntime );
@@ -760,13 +762,13 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
             const SkullbonezCore::Core::SbResult reloadResult = m_shaderDevelopment->get().ReloadShadersFromSource();
 
-            if ( !reloadResult.ok )
+            if ( !reloadResult.Ok() )
             {
-                fprintf( stderr, "Shader hot reload failed: owner=%s reason=%s\n", reloadResult.error.owner,
-                         reloadResult.error.message );
+                fprintf( stderr, "Shader hot reload failed: owner=%s reason=%s\n", reloadResult.ErrorOwner(),
+                         reloadResult.ErrorMessage() );
 
                 SkullbonezCore::Core::Log().WriteEventf( "shader_hot_reload_failed owner=%s reason=%s",
-                                                         reloadResult.error.owner, reloadResult.error.message );
+                                                         reloadResult.ErrorOwner(), reloadResult.ErrorMessage() );
             }
 
             break;
@@ -950,9 +952,9 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                    externalEditorCommands,
                                                    legacyDevelopmentUiActive };
 
-    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( window, inputRouter, camera, runtimeTools, attachedCamera,
-                                                              interaction, ui, timers, sceneController, replayRuntime,
-                                                              replayPointerRay, uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_resultDiagnostics, window, inputRouter, camera, runtimeTools,
+                                                              attachedCamera, interaction, ui, timers, sceneController,
+                                                              replayRuntime, replayPointerRay, uiSamplingFacts );
 
     if ( uiFrameResult.frameActive )
     {
@@ -994,7 +996,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     presentationEdit.Refresh();
 
-    if ( uiFrameResult.status.ok && uiFrameResult.frameActive )
+    if ( uiFrameResult.status.Ok() && uiFrameResult.frameActive )
     {
         uiFrameResult.status = runUIStressBatch();
     }
@@ -1018,17 +1020,37 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                          static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
         ReplayRestoreTransaction transaction { timelineReset };
-        ReplayLiveRestoreOutcome restoreOutcome = replayRuntime
-                                                      .ApplyLiveRestoreRequest( transaction, restoreRequest,
-                                                                                sceneController.Scene(), SceneState(), debug,
-                                                                                runtimeTools, simulation, config, assets,
-                                                                                workerPool, ui.SceneNavigation().overrides,
-                                                                                launchOptions.generatedObjectTypeOverride );
+        bool restored = false;
 
-        replayRuntime.CompleteLiveRestoreRequest( transaction, restoreRequest, restoreOutcome, sceneController.Scene(),
-                                                  SceneState(), diagnosticsRuntime, inputRouter, interaction, camera,
-                                                  NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
-                                                  attachedCamera.State().activeFollow, camera.director.grabbed );
+        if ( restoreRequest.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
+        {
+            restored = replayRuntime.RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
+                                                                   runtimeTools, simulation, config, assets, workerPool,
+                                                                   ui.SceneNavigation().overrides,
+                                                                   launchOptions.generatedObjectTypeOverride );
+        }
+        else if ( restoreRequest.kind == ReplayLiveRestoreKind::SolverSample && restoreRequest.solverSample )
+        {
+            restored = replayRuntime.RestoreSolverSampleAsLive( transaction, sceneController.Scene(), SceneState(), debug,
+                                                                runtimeTools, *restoreRequest.solverSample );
+        }
+        else
+        {
+            transaction.FailBeforeMutation( "live solver restore request has no selected sample" );
+        }
+
+        ReplayLiveRestoreOutcome restoreOutcome = ReplayLiveRestoreOperations::BuildOutcome( transaction,
+                                                                                             restoreRequest.kind, restored );
+
+#ifdef _DEBUG
+        replayRuntime.PublishRestoreDiagnostic( transaction, diagnosticsRuntime, SceneState() );
+#endif
+        replayRuntime.ApplyRestoredBranchTimeline( transaction, restoreOutcome, sceneController, inputRouter, interaction,
+                                                   camera,
+                                                   NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+                                                   attachedCamera.State().activeFollow, camera.director.grabbed );
+
+        replayRuntime.CompleteLiveRestoreScrubber( transaction, restoreRequest, restoreOutcome );
 
         if ( restoreOutcome.enterInteractive )
         {
@@ -1036,7 +1058,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         }
     }
 
-    if ( !uiFrameResult.status.ok )
+    if ( !uiFrameResult.status.Ok() )
     {
 
         // Lane R: a generated-resource rebuild could not prove its GPU drain.

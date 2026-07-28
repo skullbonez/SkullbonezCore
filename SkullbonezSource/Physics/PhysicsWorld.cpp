@@ -59,6 +59,7 @@ Related:
 #include "DisjointSet.h"
 #include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsEngine.ReplayPredictionCloneScope.h"
 #include "SolverBroadphaseStage.h"
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
@@ -338,6 +339,38 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 
 
 PhysicsWorld::PhysicsWorld() = default;
+
+
+void PhysicsWorld::CloneReplayPredictionTopologyFrom( const PhysicsWorld& source )
+{
+    Detail::RequireReplayPredictionCloneScope( "PhysicsWorld topology clone" );
+
+    // PhysicsSolverSnapshot restores time, broadphase, sleep, diagnostics, and
+    // persistent-contact rows after this operation. Copy only state outside
+    // that contract so transient stage scratch cannot become clone authority.
+    m_terrainView = source.m_terrainView;
+    m_lastTimeRemainingStep = source.m_lastTimeRemainingStep;
+    m_lastTimeRemainingStepValid = source.m_lastTimeRemainingStepValid;
+    m_underwaterSleepProbeNeeded = source.m_underwaterSleepProbeNeeded;
+    m_lastUnderwaterProbeFluidSurfaceHeight = source.m_lastUnderwaterProbeFluidSurfaceHeight;
+    m_lastUnderwaterProbeFluidSurfaceHeightValid = source.m_lastUnderwaterProbeFluidSurfaceHeightValid;
+
+    m_pointJointConstraints.Reserve( source.m_pointJointConstraints.size() );
+    m_pointJointConstraints.clear();
+
+    for ( const PointJointConstraint& constraint : source.m_pointJointConstraints )
+    {
+        m_pointJointConstraints.push_back( constraint );
+    }
+
+    m_pointJointCapacity = source.m_pointJointCapacity;
+    m_nextPointJointHandleIndex = source.m_nextPointJointHandleIndex;
+    m_pointJointHandleGeneration = source.m_pointJointHandleGeneration;
+#ifdef _DEBUG
+    m_diagnosticsSuppressed = source.m_diagnosticsSuppressed;
+#endif
+}
+
 
 void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
 {

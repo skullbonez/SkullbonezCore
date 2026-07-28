@@ -216,8 +216,8 @@ float HullVerticalSize( const ConvexHullShape& hull )
 }
 
 
-float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementScale,
-                                       const SkullbonezCore::Assets::AssetSystem& assets )
+float EditorPlacementAltitudeStepSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                       const Vector3& placementScale, const SkullbonezCore::Assets::AssetSystem& assets )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
@@ -237,12 +237,12 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
 
         if ( EditorTreeDefinitionForType( type ) )
         {
-            return EditorTreeVerticalSize( type );
+            return EditorTreeVerticalSize( diagnostics, type );
         }
 
         if ( EditorBuildingDefinitionForType( type ) )
         {
-            return EditorBuildingVerticalSize( type, assets );
+            return EditorBuildingVerticalSize( diagnostics, type, assets );
         }
 
         if ( EditorHouseDefinitionForType( type ) )
@@ -251,7 +251,7 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         }
 
         ConvexHullShape hull;
-        return TryBuildScaledEditorHullForType( type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
+        return TryBuildScaledEditorHullForType( diagnostics, type, scale, hull ) ? HullVerticalSize( hull ) : 1.0f;
     }
     }
 }
@@ -904,21 +904,21 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayD
                                    const Vector3& segmentB )
 {
     const Vector3 segment = segmentB - segmentA;
-    const float segmentLenSq = segment * segment;
+    const float segmentLenSq = Dot( segment, segment );
 
     if ( segmentLenSq <= TOLERANCE * TOLERANCE )
     {
         const Vector3 toPoint = segmentA - rayOrigin;
-        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        const float rayT = (std::max)( 0.0f, Dot( toPoint, rayDirection ) );
         return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
     }
 
     const Vector3 w0 = rayOrigin - segmentA;
-    const float a = rayDirection * rayDirection;
-    const float b = rayDirection * segment;
+    const float a = Dot( rayDirection, rayDirection );
+    const float b = Dot( rayDirection, segment );
     const float c = segmentLenSq;
-    const float d = rayDirection * w0;
-    const float e = segment * w0;
+    const float d = Dot( rayDirection, w0 );
+    const float e = Dot( segment, w0 );
     const float denom = a * c - b * b;
 
     float rayT = 0.0f;
@@ -1126,8 +1126,8 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
 {
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
-    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview( m_editor, world, interaction,
-                                                                                         assets,
+    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview( m_resultDiagnostics, m_editor,
+                                                                                         world, interaction, assets,
                                                                                          { input.blocksCameraMouse,
                                                                                            input.inspectGizmoActive,
                                                                                            input.hasWorldRay,
@@ -1218,8 +1218,8 @@ RuntimeTools::RouteEditorPlacementScalePointer( bool leftReleased, bool suppress
         if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, activeModelCapacity, placementRequest ) )
         {
             result.enteredInteractiveScene = true;
-            PlaceEditorObjectAtTerrainPoint( m_editor, world, scene, assets, activeModelCapacity, placementRequest,
-                                             placementResult );
+            PlaceEditorObjectAtTerrainPoint( m_resultDiagnostics, m_editor, world, scene, assets, activeModelCapacity,
+                                             placementRequest, placementResult );
 
             if ( placementResult.placed )
             {
@@ -1969,8 +1969,9 @@ bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Vector3& ra
 }
 
 
-bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, const Vector3& placementScale,
-                                   const Quaternion& orientation, const Assets::AssetSystem& assets, Vector3& outCenter )
+bool TryComputeEditorObjectCenter( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                   const Vector3& terrainPoint, const Vector3& placementScale, const Quaternion& orientation,
+                                   const Assets::AssetSystem& assets, Vector3& outCenter )
 {
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
@@ -2009,7 +2010,7 @@ bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, 
         Vector3 minV;
         Vector3 maxV;
 
-        if ( !tree || !TryComputeEditorTreeWorldBounds( *tree, terrainPoint, rotation, minV, maxV ) )
+        if ( !tree || !TryComputeEditorTreeWorldBounds( diagnostics, *tree, terrainPoint, rotation, minV, maxV ) )
         {
             return false;
         }
@@ -2028,7 +2029,7 @@ bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, 
         Vector3 minV;
         Vector3 maxV;
 
-        if ( !TryComputeEditorBuildingWorldBounds( type, terrainPoint, orientation, assets, minV, maxV ) )
+        if ( !TryComputeEditorBuildingWorldBounds( diagnostics, type, terrainPoint, orientation, assets, minV, maxV ) )
         {
             return false;
         }
@@ -2040,7 +2041,7 @@ bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, 
     {
         ConvexHullShape hull;
 
-        if ( !TryBuildScaledEditorHullForType( type, scale, hull ) )
+        if ( !TryBuildScaledEditorHullForType( diagnostics, type, scale, hull ) )
         {
             return false;
         }
@@ -2057,9 +2058,9 @@ bool TryComputeEditorObjectCenter( int objectType, const Vector3& terrainPoint, 
 }
 
 
-bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry::Terrain* terrain,
-                                      const Assets::AssetSystem& assets, bool scaleGestureActive, int objectType,
-                                      const EditorTerrainPlacement* mousePlacement )
+bool TryUpdateEditorPlacementPreview( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor,
+                                      Geometry::Terrain* terrain, const Assets::AssetSystem& assets, bool scaleGestureActive,
+                                      int objectType, const EditorTerrainPlacement* mousePlacement )
 {
     Vector3 terrainPoint;
     Vector3 rayOrigin;
@@ -2102,7 +2103,7 @@ bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry:
         // Invariant: Placement altitude is applied before normal/orientation
         // lookup so preview and commit agree about the authored terrain point.
         terrainPoint.y += static_cast<float>( editor.placementAltitudeSteps ) *
-                          EditorPlacementAltitudeStepSize( objectType, editor.placementScale, assets );
+                          EditorPlacementAltitudeStepSize( diagnostics, objectType, editor.placementScale, assets );
     }
 
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
@@ -2118,8 +2119,8 @@ bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry:
 
     Vector3 center;
 
-    if ( !TryComputeEditorObjectCenter( objectType, terrainPoint, editor.placementScale, placementOrientation, assets,
-                                        center ) )
+    if ( !TryComputeEditorObjectCenter( diagnostics, objectType, terrainPoint, editor.placementScale, placementOrientation,
+                                        assets, center ) )
     {
         return false;
     }

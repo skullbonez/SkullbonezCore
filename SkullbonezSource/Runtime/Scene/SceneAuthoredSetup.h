@@ -67,13 +67,15 @@ class SceneAuthoredSetup
 
     // Returns a recoverable result because scene data and editor placement can
     // fail capacity or identity constraints before the runtime loop owns them.
-    static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneWorld& sceneWorld,
+    static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                               SceneWorld& sceneWorld,
                                                                const Physics::RagdollBuildOptions& options );
     static void SetUpCameras( SceneWorld& sceneWorld, const AuthoredScene& scene );
 
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
-    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneSessionState& sceneState, SceneWorld& sceneWorld,
+    static SkullbonezCore::Core::SbResult SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                              SceneSessionState& sceneState, SceneWorld& sceneWorld,
                                                               SceneAutomationGateConfiguration& automationGates,
                                                               const AuthoredScene& scene );
     static void SetUpRequiredContacts( SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates,

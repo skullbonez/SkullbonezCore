@@ -24,6 +24,7 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "RenderDefaultsStore.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 
@@ -342,9 +343,9 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
     // serialization. Unknown keys and comments must survive the round trip.
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
     SkullbonezCore::Core::EngineConfig versionProbe;
-    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 
-    if ( !versionResult.ok )
+    if ( !versionResult.Ok() )
     {
 
         // Hazard: writers must never turn a future document into an older
@@ -358,8 +359,8 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
     {
 
         // Lane R: the user-facing config may be missing, locked, or unreadable.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not read render defaults file: %s", configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read render defaults file: %s",
+                                            configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -448,8 +449,8 @@ RenderDefaultsStore::PersistOrdinary( const SkullbonezCore::Core::OrdinaryRender
 
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not write render defaults file: %s", configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write render defaults file: %s",
+                                            configPath.c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -460,9 +461,9 @@ RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRend
 {
     const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
     SkullbonezCore::Core::EngineConfig versionProbe;
-    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( configPath.c_str() );
+    const SkullbonezCore::Core::SbResult versionResult = versionProbe.Load( m_resultDiagnostics, configPath.c_str() );
 
-    if ( !versionResult.ok )
+    if ( !versionResult.Ok() )
     {
         return versionResult;
     }
@@ -471,8 +472,8 @@ RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRend
 
     if ( !LoadConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not read cinematic defaults file: %s", configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not read cinematic defaults file: %s",
+                                            configPath.c_str() );
     }
 
     std::vector<std::string> missing;
@@ -550,8 +551,8 @@ RenderDefaultsStore::PersistCinematic( const SkullbonezCore::Core::CinematicRend
 
     if ( !WriteConfigLines( configPath, lines ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/RenderDefaultsStore",
-                                                        "Could not write cinematic defaults file: %s", configPath.c_str() );
+        return m_resultDiagnostics.Failure( "Runtime/RenderDefaultsStore", "Could not write cinematic defaults file: %s",
+                                            configPath.c_str() );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

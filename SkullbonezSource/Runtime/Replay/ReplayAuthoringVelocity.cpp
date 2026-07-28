@@ -208,21 +208,21 @@ float DistanceRayToSegmentSquared( const Vector3& rayOrigin, const Vector3& rayD
                                    const Vector3& segmentB )
 {
     const Vector3 segment = segmentB - segmentA;
-    const float segmentLenSq = segment * segment;
+    const float segmentLenSq = Dot( segment, segment );
 
     if ( segmentLenSq <= TOLERANCE * TOLERANCE )
     {
         const Vector3 toPoint = segmentA - rayOrigin;
-        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        const float rayT = (std::max)( 0.0f, Dot( toPoint, rayDirection ) );
         return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
     }
 
     const Vector3 w0 = rayOrigin - segmentA;
-    const float a = rayDirection * rayDirection;
-    const float b = rayDirection * segment;
+    const float a = Dot( rayDirection, rayDirection );
+    const float b = Dot( rayDirection, segment );
     const float c = segmentLenSq;
-    const float d = rayDirection * w0;
-    const float e = segment * w0;
+    const float d = Dot( rayDirection, w0 );
+    const float e = Dot( segment, w0 );
     const float denom = a * c - b * b;
 
     float rayT = 0.0f;
@@ -366,14 +366,14 @@ int HitReplayVelocityAngularAxis( const ReplayVelocityBodyView& body, const Vect
     for ( int axis = 0; axis < 3; ++axis )
     {
         const Vector3 normal = EditorAxisVector( axis );
-        const float denom = normal * rayDirection;
+        const float denom = Dot( normal, rayDirection );
 
         if ( fabsf( denom ) <= 1e-4f )
         {
             continue;
         }
 
-        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
 
         if ( rayT < 0.0f )
         {
@@ -387,7 +387,7 @@ int HitReplayVelocityAngularAxis( const ReplayVelocityBodyView& body, const Vect
         const float threshold = (std::max)( 1.10f, ringRadius * 0.08f );
         const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
         const Vector3 radial = hitPoint - origin;
-        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float radialDistance = VectorMag( radial - normal * ( Dot( radial, normal ) ) );
         const float diff = fabsf( radialDistance - ringRadius );
 
         if ( diff <= threshold && diff < bestDiff )
@@ -413,9 +413,9 @@ bool TryReplayVelocityAxisRayParameter( const ReplayVelocityBodyView& body, int 
     const Vector3 axisOrigin = body.position;
     const Vector3 axisVector = EditorAxisVector( axis );
     const Vector3 w = axisOrigin - rayOrigin;
-    const float b = axisVector * rayDirection;
-    const float d = axisVector * w;
-    const float e = rayDirection * w;
+    const float b = Dot( axisVector, rayDirection );
+    const float d = Dot( axisVector, w );
+    const float e = Dot( rayDirection, w );
     const float denom = 1.0f - b * b;
 
     if ( fabsf( denom ) <= 1e-5f )
@@ -439,14 +439,14 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body, int a
 
     const Vector3 origin = body.position;
     const Vector3 normal = EditorAxisVector( axis );
-    const float denom = normal * rayDirection;
+    const float denom = Dot( normal, rayDirection );
 
     if ( fabsf( denom ) <= 1e-4f )
     {
         return false;
     }
 
-    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
 
     if ( rayT < 0.0f )
     {
@@ -454,8 +454,8 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body, int a
     }
 
     Vector3 radial = rayOrigin + rayDirection * rayT - origin;
-    radial -= normal * ( radial * normal );
-    const float radialLenSq = radial * radial;
+    radial -= normal * ( Dot( radial, normal ) );
+    const float radialLenSq = Dot( radial, radial );
 
     if ( radialLenSq <= TOLERANCE * TOLERANCE )
     {
@@ -466,7 +466,7 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body, int a
 
     const Vector3 basisA = EditorRotationRingBasisA( axis );
     const Vector3 basisB = EditorRotationRingBasisB( axis );
-    outAngle = atan2f( radial * basisB, radial * basisA );
+    outAngle = atan2f( Dot( radial, basisB ), Dot( radial, basisA ) );
     return true;
 }
 } // namespace

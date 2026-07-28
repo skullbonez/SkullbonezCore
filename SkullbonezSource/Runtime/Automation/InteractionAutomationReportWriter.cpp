@@ -8,7 +8,7 @@ Summary:
   validation-sensitive calculations have one implementation.
 
 Mental model:
-  Runtime owners are borrowed synchronously through one report input. The
+  Runtime owners are borrowed synchronously through one report call. The
   writer computes report facts, verifies any durable replay artifact, writes
   JSON, then releases every borrow before returning.
 
@@ -33,6 +33,7 @@ Related:
 #include "InteractionAutomationController.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
@@ -194,7 +195,8 @@ void SkullbonezCore::Runtime::InteractionAutomationRunStatus::Fail( const char* 
     }
 }
 
-SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result() const
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnosticStore& diagnostics ) const
 {
 
     if ( !failed )
@@ -202,12 +204,43 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRun
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation",
-                                                    failure[0] != '\0' ? failure : "interaction automation failed" );
+    return diagnostics.Failure( "InteractionAutomation", failure[0] != '\0' ? failure : "interaction automation failed" );
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath )
 {
+
+    // Reconfiguration is a cold Automation operation. Clear the complete
+    // previous report epoch while retaining the fixed store-bound tracer owner.
+    m_written = false;
+    m_actionReports.clear();
+    m_assertionReports.clear();
+    m_screenshots.clear();
+    m_replayVisualFidelityTicks.clear();
+    m_replayCausalProofTicks.clear();
+    m_replayCausalTopology.clear();
+    m_replayVisualTrajectoryDigests.clear();
+    m_replayVisualPredictionArchive.clear();
+    m_replayVisualPredictionDrawList.Clear();
+    m_replayVisualPredictionDrawListState = {};
+    m_replayVisualPredictionDrawPacket = {};
+    m_replayVisualPredictionDrawCameraEye = Math::Vector::ZERO_VECTOR;
+    m_replayVisualPredictionDrawCameraUp = Math::Vector::ZERO_VECTOR;
+    m_replayVisualPredictionDrawStreamId = 1;
+    m_replayVisualPredictionDrawRevision = 0;
+    m_replayVisualPredictionDrawCameraValid = false;
+    m_replayVisualFidelityStartFrame = -1;
+    m_replayVisualFidelityCaptureEnabled = false;
+    m_replayVisualFidelityTrajectoryHash = 0;
+    m_replayVisualFidelityTrajectoryRecordCount = 0;
+    m_replayVisualFidelityTrajectoryPointCount = 0;
+    m_replayVisualFidelityTrajectoryCaptured = false;
+    m_replayVisualOfflineProjectionComplete = false;
+    m_editorSelectionCaptureFingerprints[0] = 0;
+    m_editorSelectionCaptureFingerprints[1] = 0;
+    m_editorSelectionCaptureValid[0] = false;
+    m_editorSelectionCaptureValid[1] = false;
+
     strcpy_s( m_path, sizeof( m_path ),
               reportPath && reportPath[0] != '\0' ? reportPath : "TestOutput\\interaction\\interaction_report.json" );
 }
@@ -539,7 +572,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
     // Automation diagnostics scope keeps their one cold instance off the
     // render thread's fixed stack while the retained-list builder is nested.
     std::deque<ReplayPrediction> offlinePredictions;
-    offlinePredictions.emplace_back();
+    offlinePredictions.emplace_back( m_resultDiagnostics );
     ReplayPrediction& offlinePrediction = offlinePredictions.front();
     std::deque<ReplayPresentation> offlinePresentations;
     offlinePresentations.emplace_back();
@@ -1082,26 +1115,16 @@ ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWr
 }
 
 
-SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const InteractionAutomationReportInputs& inputs )
+SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( InteractionAutomationRunStatus& status, const char* scriptPath, const SceneWorld& world, const SceneSessionState& scene,
+                                                                                                  const char* scenePath, const RuntimeTools& runtimeTools, const ReplayAutomationView& replay,
+                                                                                                  const RuntimeInteractionController& interaction, const CameraControlState& camera, const UI::InGameUI& ui,
+                                                                                                  const Rendering::RenderSceneSnapshot& renderSnapshot )
 {
-    InteractionAutomationRunStatus& status = inputs.status;
-    const char* scriptPath = inputs.scriptPath;
-    const SceneWorld& world = inputs.world;
-    const SceneSessionState& scene = inputs.scene;
-    const char* scenePath = inputs.scenePath;
-    const RuntimeTools& runtimeTools = inputs.runtimeTools;
-    const ReplayAutomationView& replay = inputs.replay;
-    const RuntimeInteractionController& interaction = inputs.interaction;
-    const CameraControlState& camera = inputs.camera;
-    const UI::InGameUI& ui = inputs.ui;
-    const Rendering::RenderSceneSnapshot& renderSnapshot = inputs.renderSnapshot;
-
     CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
 
     if ( m_written )
     {
-        return status.Result();
+        return status.Result( m_resultDiagnostics );
     }
 
     std::string replayArtifactPath;
@@ -1767,12 +1790,12 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         m_written = true;
         status.failed = true;
         strcpy_s( status.failure, sizeof( status.failure ), "failed to open interaction report path" );
-        return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation", status.failure );
+        return m_resultDiagnostics.Failure( "InteractionAutomation", status.failure );
     }
 
     output << report.dump( 2 ) << "\n";
     output.close();
     m_written = true;
     printf( "[interaction] Report written: %s ok=%d\n", m_path, status.failed ? 0 : 1 );
-    return status.Result();
+    return status.Result( m_resultDiagnostics );
 }

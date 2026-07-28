@@ -31,13 +31,15 @@ Related:
 #include "Dx12FrameOwner.h"
 #include "RenderDeviceDX12.h"
 #include "../../Core/FatalError.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include <utility>
 
 using namespace SkullbonezCore::Rendering;
 
-Dx12BackbufferCapture::Dx12BackbufferCapture( Dx12CaptureFrame& frame, const Dx12RenderDevice& device )
-    : m_frame( frame ), m_device( device )
+Dx12BackbufferCapture::Dx12BackbufferCapture( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                              Dx12CaptureFrame& frame, const Dx12RenderDevice& device )
+    : m_resultDiagnostics( resultDiagnostics ), m_frame( frame ), m_device( device )
 {
 }
 
@@ -51,7 +53,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
     outPixels.clear();
     const SkullbonezCore::Core::SbResult openResult = frame.EnsureOpen();
 
-    if ( !openResult.ok )
+    if ( !openResult.Ok() )
     {
         return openResult;
     }
@@ -70,10 +72,10 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
         // readiness, so report the unavailable operation to automation.
         outWidth = 0;
         outHeight = 0;
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture",
-                                                        "Backbuffer capture is unavailable. device=%p list=%p "
-                                                        "backbuffer=%p extent=%dx%d",
-                                                        device, commandList, backbuffer, width, height );
+        return m_resultDiagnostics.Failure( "Dx12BackbufferCapture",
+                                            "Backbuffer capture is unavailable. device=%p list=%p "
+                                            "backbuffer=%p extent=%dx%d",
+                                            device, commandList, backbuffer, width, height );
     }
 
     // F3 captures normally begin in Present, while scene-suite captures may
@@ -104,8 +106,8 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
         frame.TransitionBackbuffer( "BackbufferReadbackRestoreAfterFailure", accessBeforeCopy );
         outWidth = 0;
         outHeight = 0;
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture",
-                                                        "CreateCommittedResource (screenshot readback) failed" );
+        return m_resultDiagnostics.Failure( "Dx12BackbufferCapture",
+                                            "CreateCommittedResource (screenshot readback) failed" );
     }
 
     D3D12_TEXTURE_COPY_LOCATION destination = {};
@@ -127,7 +129,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     const Dx12CaptureSubmitOutcome submit = frame.SubmitAndWait();
 
-    if ( !submit.result.ok )
+    if ( !submit.result.Ok() )
     {
 
         if ( submit.readbackUseUncertain )
@@ -142,7 +144,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     if ( !mappedData )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture", "Map readback buffer failed" );
+        return m_resultDiagnostics.Failure( "Dx12BackbufferCapture", "Map readback buffer failed" );
     }
 
     // Cold utility allocation: screenshot bytes leave the renderer through the

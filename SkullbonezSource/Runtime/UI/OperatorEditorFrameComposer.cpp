@@ -228,7 +228,7 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
     {
         const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
 
-        if ( !viewportCapture.ok )
+        if ( !viewportCapture.Ok() )
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
@@ -710,12 +710,12 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
         DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
 
-        if ( imguiResult.status.ok )
+        if ( imguiResult.status.Ok() )
         {
             imguiResult.status = Renderer().RenderDevelopmentUi( m_imguiEditor );
         }
 
-        if ( !imguiResult.status.ok )
+        if ( !imguiResult.status.Ok() )
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );

@@ -30,6 +30,7 @@ Related:
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsEngine.ReplayPredictionCloneScope.h"
 #include "PhysicsWorldForces.h"
 #include "../Maths/MathsCommon.h"
 
@@ -56,6 +57,19 @@ void ApplyDescriptorFacts( const PhysicsBodyCreateDesc& desc, BuoyancyBodyFacts&
     facts.contactEpsilon = desc.contactEpsilon;
 }
 } // namespace
+
+
+void BuoyancySystem::CloneReplayPredictionStorageFrom( const BuoyancySystem& source )
+{
+    Detail::RequireReplayPredictionCloneScope( "BuoyancySystem clone" );
+    m_bodyFacts.Reserve( source.m_bodyFacts.size() );
+    m_bodyFacts.clear();
+
+    for ( const BuoyancyBodyFacts& facts : source.m_bodyFacts )
+    {
+        m_bodyFacts.push_back( facts );
+    }
+}
 
 
 void BuoyancySystem::ReserveCapacity( std::size_t capacity )

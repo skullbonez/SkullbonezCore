@@ -117,7 +117,13 @@ class SceneAutomationGateTracker
 class RuntimeValidationHarness
 {
   public:
-    static std::unique_ptr<RuntimeValidationHarness> CreateForStartup();
+    explicit RuntimeValidationHarness( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
+
+    static std::unique_ptr<RuntimeValidationHarness>
+    CreateForStartup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
     bool ConfigureStartup( const RunStartupOverrides& overrides, RunLaunchOptions& launchOptions );
     void MarkLiveStyleReady();
@@ -143,6 +149,7 @@ class RuntimeValidationHarness
 
   private:
     void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     LiveStyleController m_liveStyle;
     GraphicsStressController m_graphicsStress;
     SceneAutomationGateTracker m_sceneGates;

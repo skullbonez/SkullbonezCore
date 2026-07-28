@@ -166,7 +166,7 @@ bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstVi
         return false;
     }
 
-    float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+    float t = -( Dot( relativeStart, relativeDisplacement ) ) / relativeLengthSq;
     t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
     const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
     const float expandedRadius = SolverBodyRadius( colliderRecords, movingIndex ) +

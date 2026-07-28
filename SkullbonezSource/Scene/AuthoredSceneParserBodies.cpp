@@ -173,7 +173,7 @@ void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string
     }
     else
     {
-        hull.mass = LoadConvexHullDefaultMass( hull.hullPath );
+        hull.mass = LoadConvexHullDefaultMass( m_resultDiagnostics, hull.hullPath );
     }
 
     hull.restitution = ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path,

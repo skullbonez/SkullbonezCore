@@ -67,6 +67,7 @@ Related:
 #include "../Scene/SceneSessionState.h"
 #include "../App/InputFrame.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayOverlaySurface.h"
 #include "../Direction/DemoDirectorPlayback.h"
@@ -3283,9 +3284,9 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
 
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::
-                    Failure( "DevelopmentTools/ImGuiAutomation", "Interaction script names an unknown ImGui panel: %s",
-                             command.target );
+                commandStatus = resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                                                           "Interaction script names an unknown ImGui panel: %s",
+                                                           command.target );
 
                 break;
             }
@@ -3332,16 +3333,16 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
                  !SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::
-                    Failure( "DevelopmentTools/ImGuiAutomation", "Failed to resize the automation client area to %dx%d",
-                             command.width, command.height );
+                commandStatus = resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                                                           "Failed to resize the automation client area to %dx%d",
+                                                           command.width, command.height );
             }
 
             break;
         }
         }
 
-        if ( !commandStatus.ok )
+        if ( !commandStatus.Ok() )
         {
             result.status = commandStatus;
             break;
@@ -3361,7 +3362,7 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return UI::SubmitOperatorEditorCommand( commands.replay, frame.operatorEditorReplayCommand );
+    return UI::SubmitOperatorEditorCommand( resultDiagnostics, commands.replay, frame.operatorEditorReplayCommand );
 }
 
 InteractionAutomationDevelopmentUiView
@@ -3460,14 +3461,24 @@ SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
                                                          const char* reportPath )
 {
-    state = InteractionAutomationController {};
+
+    // Configure can be called again while applying startup options. Reset the
+    // sequencer in place because its report writer owns store-bound tracer
+    // storage and is intentionally not assignable.
+    state.enabled = false;
+    state.scriptLoaded = false;
+    state.finished = false;
+    state.scriptPath[0] = '\0';
+    state.actions.clear();
+    state.status = {};
+    state.inputDriver.Reset();
     state.reportWriter.Configure( reportPath );
 
     if ( !scriptPath || scriptPath[0] == '\0' )
     {
         state.finished = true;
         state.status.Fail( "interaction automation requires a script path" );
-        return state.status.Result();
+        return state.status.Result( state.resultDiagnostics );
     }
 
     strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
@@ -3481,7 +3492,7 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
 SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomationController& state )
 {
-    return state.status.Result();
+    return state.status.Result( state.resultDiagnostics );
 }
 
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,
@@ -3508,11 +3519,15 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         // report writer is another Lane R boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( InteractionAutomationReportInputs { state.status, state.scriptPath, scene.Scene(), scene.State(),
-                                                                                                                          scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr, runtimeTools,
-                                                                                                                          replayView, interaction, camera, ui, renderSnapshot } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
+                                                                                      scene.Scene(), scene.State(),
+                                                                                      scene.CurrentPath()
+                                                                                          ? scene.CurrentPath()->c_str()
+                                                                                          : nullptr,
+                                                                                      runtimeTools, replayView, interaction,
+                                                                                      camera, ui, renderSnapshot );
 
-        if ( result.status.ok )
+        if ( result.status.Ok() )
         {
             result.status = reportResult;
         }
@@ -3929,15 +3944,15 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
                 const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backbufferCapture,
                                                                                              action.path );
 
-                if ( captureResult.ok )
+                if ( captureResult.Ok() )
                 {
                     state.reportWriter.AddScreenshot( action.path );
                     AppendReportAction( state, frame, action.type, action.path, nullptr, true, "screenshot saved" );
                 }
                 else
                 {
-                    const char* message = captureResult.error.message[0] != '\0' ? captureResult.error.message
-                                                                                 : "screenshot capture failed";
+                    const char* message = captureResult.ErrorMessage()[0] != '\0' ? captureResult.ErrorMessage()
+                                                                                  : "screenshot capture failed";
 
                     FailAutomation( state, message );
                     AppendReportAction( state, frame, action.type, action.path, nullptr, false, message );
@@ -4027,11 +4042,15 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( InteractionAutomationReportInputs { state.status, state.scriptPath, scene.Scene(), scene.State(),
-                                                                                                                          scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr, runtimeTools,
-                                                                                                                          replayView, interaction, camera, ui, renderSnapshot } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write( state.status, state.scriptPath,
+                                                                                      scene.Scene(), scene.State(),
+                                                                                      scene.CurrentPath()
+                                                                                          ? scene.CurrentPath()->c_str()
+                                                                                          : nullptr,
+                                                                                      runtimeTools, replayView, interaction,
+                                                                                      camera, ui, renderSnapshot );
 
-        if ( result.status.ok )
+        if ( result.status.Ok() )
         {
             result.status = reportResult;
         }

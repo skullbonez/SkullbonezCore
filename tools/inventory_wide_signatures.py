@@ -8,12 +8,18 @@ Purpose:
 Summary:
   A comment/literal-masked balanced-token pass finds declaration-shaped
   parentheses, counts top-level parameters, groups matching declarations and
-  definitions, and reports matching-arity lexical call sites. The inventory
-  also carries forward named dispositions from the 2026-07-15 Markdown report.
+  definitions, and reports matching-arity lexical call sites. Operations at or
+  above the configured review trigger must match a current owner ruling by file
+  and normalized signature; prior report dispositions remain historical context
+  only and never satisfy the gate.
 
 Glossary:
   Declaration-shaped: A parenthesized form whose prefix and suffix look like a
     C++ declaration or definition rather than a call expression.
+  Owner ruling: Current, reviewable judgement that either names the cohesive
+    operation owner or routes the signature to an active repair plan.
+  Review trigger: Arity at which a current qualitative ruling becomes mandatory;
+    it is not an accepted maximum or an automatic defect.
   Owner borrow: Reference or pointer parameter whose type name denotes a live
     engine owner such as an Engine, Store, Controller, World, or Renderer.
   Matching-arity call: A lexical call-shaped occurrence with the same final
@@ -23,11 +29,16 @@ Glossary:
 Invariants:
   - Comments, literals, raw strings, and preprocessor directives cannot create
     inventory rows or commas.
+  - A changed, added, or removed review-trigger signature invalidates the ruling
+    set instead of inheriting a same-name historical disposition.
+  - The review trigger starts qualitative owner review; it is not a maximum
+    arity, count allowance, or automatic defect.
   - The script is read-only unless an explicit --output path is supplied.
   - Results name lexical uncertainty instead of claiming semantic resolution.
 
 Related:
-  - Agentic/Plans/TODO/wide-signature-reduction.md
+  - AGENTS.md
+  - Agentic/Reports/2026-07-28/replay-wide-signature-rg1-governance.md
   - Agentic/Reports/2026-07-15-runtime-wide-invocation-inventory.md
 """
 
@@ -47,6 +58,8 @@ from typing import Iterable
 
 
 SOURCE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl"}
+DEFAULT_RULINGS_PATH = Path("tools/wide_signature_ownership_rulings.json")
+RULING_DISPOSITIONS = {"retain-owner", "repair-plan"}
 CONTROL_NAMES = {
     "alignas",
     "catch",
@@ -541,6 +554,93 @@ def prior_disposition_for(candidate: Candidate, prior: dict[str, str], allow_sim
     return "none"
 
 
+def load_owner_rulings(path: Path) -> tuple[int, dict[tuple[str, str], dict[str, str]]]:
+    """Load exact current-signature rulings and reject ambiguous policy data."""
+    payload = json.loads(path.read_text(encoding="utf-8", errors="strict"))
+    trigger = payload.get("review_trigger_arity")
+    if not isinstance(trigger, int) or isinstance(trigger, bool) or trigger < 1:
+        raise ValueError("review_trigger_arity must be a positive integer")
+    raw_rulings = payload.get("rulings")
+    if not isinstance(raw_rulings, list):
+        raise ValueError("rulings must be an array")
+
+    rulings: dict[tuple[str, str], dict[str, str]] = {}
+    required_fields = ("file", "signature", "owner", "disposition", "reason", "evidence")
+    for index, raw in enumerate(raw_rulings):
+        if not isinstance(raw, dict):
+            raise ValueError(f"rulings[{index}] must be an object")
+        values: dict[str, str] = {}
+        for field in required_fields:
+            value = raw.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"rulings[{index}].{field} must be a non-empty string")
+            values[field] = value.strip()
+        disposition = values["disposition"]
+        if disposition not in RULING_DISPOSITIONS:
+            allowed = ", ".join(sorted(RULING_DISPOSITIONS))
+            raise ValueError(f"rulings[{index}].disposition must be one of: {allowed}")
+        plan = raw.get("plan", "")
+        if not isinstance(plan, str):
+            raise ValueError(f"rulings[{index}].plan must be a string when present")
+        values["plan"] = plan.strip()
+        if disposition == "repair-plan" and not values["plan"]:
+            raise ValueError(f"rulings[{index}] repair-plan disposition requires plan")
+        # Invariant: file plus normalized signature is the ruling identity.
+        # A rename, move, or parameter change therefore cannot inherit approval.
+        key = (values["file"], values["signature"])
+        if key in rulings:
+            raise ValueError(f"duplicate ruling for {values['file']}: {values['signature']}")
+        rulings[key] = values
+    return trigger, rulings
+
+
+def apply_owner_rulings(
+    rows: list[dict[str, object]],
+    review_trigger: int,
+    rulings: dict[tuple[str, str], dict[str, str]],
+) -> list[str]:
+    """Annotate inventory rows and return blocking currentness diagnostics."""
+    current_keys: set[tuple[str, str]] = set()
+    diagnostics: list[str] = []
+    for row in rows:
+        triggered = int(row["arity"]) >= review_trigger
+        row["review_triggered"] = triggered
+        if not triggered:
+            row["ruling_status"] = "NOT-TRIGGERED"
+            row["ruling_disposition"] = ""
+            row["ruling_owner"] = ""
+            row["ruling_reason"] = ""
+            row["ruling_evidence"] = ""
+            row["ruling_plan"] = ""
+            continue
+
+        key = (str(row["file"]), str(row["signature"]))
+        current_keys.add(key)
+        ruling = rulings.get(key)
+        if ruling is None:
+            row["ruling_status"] = "UNRULED"
+            row["ruling_disposition"] = ""
+            row["ruling_owner"] = ""
+            row["ruling_reason"] = ""
+            row["ruling_evidence"] = ""
+            row["ruling_plan"] = ""
+            diagnostics.append(f"UNRULED {key[0]}: {key[1]}")
+            continue
+
+        row["ruling_status"] = "RULED"
+        row["ruling_disposition"] = ruling["disposition"]
+        row["ruling_owner"] = ruling["owner"]
+        row["ruling_reason"] = ruling["reason"]
+        row["ruling_evidence"] = ruling["evidence"]
+        row["ruling_plan"] = ruling["plan"]
+
+    # Why: stale entries would otherwise make the file look complete while a
+    # repair silently narrowed, moved, or deleted the operation it judged.
+    for file_name, signature in sorted(set(rulings) - current_keys):
+        diagnostics.append(f"STALE-RULING {file_name}: {signature}")
+    return diagnostics
+
+
 def group_candidates(candidates: Iterable[Candidate]) -> list[tuple[Candidate, tuple[Candidate, ...]]]:
     groups: dict[tuple[str, str, int, tuple[str, ...]], list[Candidate]] = {}
     for candidate in candidates:
@@ -606,16 +706,23 @@ def inventory(repo: Path, threshold: int, prior_report: Path) -> list[dict[str, 
 
 def markdown(rows: list[dict[str, object]]) -> str:
     output = [
-        "| Signature | Definition/declaration | Arity | Parameter kinds | Matching-arity calls | Prior disposition |",
-        "|---|---|---:|---|---:|---|",
+        "| Signature | Definition/declaration | Arity | Parameter kinds | Matching-arity calls | Current ruling | Owner reason |",
+        "|---|---|---:|---|---:|---|---|",
     ]
     for row in rows:
         signature = str(row["signature"]).replace("|", "\\|")
-        disposition = str(row["prior_disposition"]).replace("|", "\\|")
+        status = str(row["ruling_status"])
+        disposition = str(row["ruling_disposition"])
+        owner = str(row["ruling_owner"])
+        if status == "RULED":
+            ruling = f"`{disposition}` — {owner}"
+        else:
+            ruling = f"`{status}`"
+        reason = str(row["ruling_reason"]).replace("|", "\\|")
         sites = "<br>".join(f"`{site}`" for site in row["sites"])
         output.append(
             f"| `{signature}` | {sites} ({row['kind']}) | {row['arity']} | "
-            f"{row['parameter_kinds']} | {row['lexical_matching_arity_calls']} | {disposition} |"
+            f"{row['parameter_kinds']} | {row['lexical_matching_arity_calls']} | {ruling} | {reason} |"
         )
     return "\n".join(output) + "\n"
 
@@ -832,6 +939,36 @@ const char* literal = "Fake(1,2,3,4,5,6,7)";
     prior = {"Step": "unrelated simple-name ruling", "Tick": "unique carried ruling"}
     assert prior_disposition_for(scoped, prior, allow_simple_name=False) == "none"
     assert prior_disposition_for(unique, prior, allow_simple_name=True) == "unique carried ruling"
+
+    exact_signature = "void Exact(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, int k, int l)"
+    over_signature = exact_signature.replace("Exact", "Over").replace(")", ", int m)")
+    sample_rows: list[dict[str, object]] = [
+        {"file": "sample.cpp", "signature": exact_signature, "arity": 12},
+        {"file": "sample.cpp", "signature": over_signature, "arity": 13},
+        {"file": "sample.cpp", "signature": "void Narrow(int a)", "arity": 1},
+    ]
+    sample_ruling = {
+        "owner": "SampleOwner",
+        "disposition": "retain-owner",
+        "reason": "One synchronous sample operation.",
+        "evidence": "sample evidence",
+        "plan": "",
+    }
+    complete_rulings = {
+        ("sample.cpp", exact_signature): sample_ruling,
+        ("sample.cpp", over_signature): sample_ruling,
+    }
+    assert not apply_owner_rulings(sample_rows, 12, complete_rulings)
+    assert sample_rows[0]["ruling_status"] == "RULED"
+    assert sample_rows[1]["ruling_status"] == "RULED"
+    assert sample_rows[2]["ruling_status"] == "NOT-TRIGGERED"
+
+    unruled_rows = [{"file": "sample.cpp", "signature": exact_signature, "arity": 12}]
+    assert apply_owner_rulings(unruled_rows, 12, {})
+    changed_rows = [{"file": "sample.cpp", "signature": exact_signature + " const", "arity": 12}]
+    changed_diagnostics = apply_owner_rulings(changed_rows, 12, complete_rulings)
+    assert any(item.startswith("UNRULED") for item in changed_diagnostics)
+    assert any(item.startswith("STALE-RULING") for item in changed_diagnostics)
     print("PASS: wide-signature inventory self-test")
 
 
@@ -847,6 +984,17 @@ def parse_args() -> argparse.Namespace:
         default=Path("Agentic/Reports/2026-07-15-runtime-wide-invocation-inventory.md"),
         help="Prior Markdown inventory used to carry forward dispositions",
     )
+    parser.add_argument(
+        "--rulings",
+        type=Path,
+        default=DEFAULT_RULINGS_PATH,
+        help="Current qualitative owner rulings (default: tools/wide_signature_ownership_rulings.json)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail when a review-trigger signature is unruled or a ruling is stale",
+    )
     parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
 
@@ -858,22 +1006,42 @@ def main() -> int:
         return 0
     repo = args.repo.resolve()
     prior_report = args.prior_report if args.prior_report.is_absolute() else repo / args.prior_report
-    rows = inventory(repo, args.threshold, prior_report)
+    rulings_path = args.rulings if args.rulings.is_absolute() else repo / args.rulings
+    try:
+        review_trigger, rulings = load_owner_rulings(rulings_path)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        print(f"ERROR: invalid wide-signature rulings: {error}", file=sys.stderr)
+        return 2
+    rows = inventory(repo, min(args.threshold, review_trigger), prior_report)
+    diagnostics = apply_owner_rulings(rows, review_trigger, rulings)
+    rendered_rows = [row for row in rows if int(row["arity"]) >= args.threshold]
     if args.format == "json":
-        rendered = json.dumps(rows, indent=2) + "\n"
+        rendered = json.dumps(rendered_rows, indent=2) + "\n"
     elif args.format == "csv":
-        rendered = csv_text(rows)
+        rendered = csv_text(rendered_rows)
     elif args.format == "w1-markdown":
-        rendered = w1_markdown(rows)
+        rendered = w1_markdown(rendered_rows)
     else:
-        rendered = markdown(rows)
+        rendered = markdown(rendered_rows)
     if args.output:
         output = args.output if args.output.is_absolute() else repo / args.output
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(rendered, encoding="utf-8", newline="\n")
-        print(f"PASS: wide-signature rows={len(rows)} threshold={args.threshold}")
+        print(
+            f"PASS: wide-signature rows={len(rendered_rows)} threshold={args.threshold} "
+            f"review-trigger={review_trigger}"
+        )
     else:
         sys.stdout.write(rendered)
+    if args.strict and diagnostics:
+        for diagnostic in diagnostics:
+            print(f"ERROR: {diagnostic}", file=sys.stderr)
+        return 1
+    if args.strict:
+        print(
+            f"PASS: all signatures at or above review trigger {review_trigger} have current owner rulings",
+            file=sys.stderr,
+        )
     return 0
 
 

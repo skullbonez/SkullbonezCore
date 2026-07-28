@@ -427,7 +427,7 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
                       ToString( transition.before ) );
         }
 
-        if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
+        if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().Ok() )
         {
             SB_FATAL( "Dx12GraphTransientPool",
                       "Compiled transient transition could not open command recording. pass=%s resource=%s",

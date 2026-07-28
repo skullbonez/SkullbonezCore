@@ -63,11 +63,15 @@ namespace Runtime
 {
 class AuthoredScene;
 class AuthoredSceneParser;
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
-SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+AuthoredScene LoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                             const Assets::AssetSystem* assets );
+AuthoredScene LoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                          const Assets::AssetSystem* assets );
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                 const char* path, const Assets::AssetSystem* assets,
                                                                  AuthoredScene& outScene );
-SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                              const char* path, const Assets::AssetSystem* assets,
                                                               AuthoredScene& outScene );
 
 struct SceneCamera
@@ -554,24 +558,30 @@ class AuthoredScene
 
   public:
     AuthoredScene();
-    static AuthoredScene LoadFromFile( const char* path );
+    static AuthoredScene LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
 
     // Lane R: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, AuthoredScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                           const char* path, AuthoredScene& outScene );
 
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
-    static AuthoredScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, const Assets::AssetSystem& assets,
+    static AuthoredScene LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                       const Assets::AssetSystem& assets );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                           const char* path, const Assets::AssetSystem& assets,
                                                            AuthoredScene& outScene );
-    static AuthoredScene LoadStyleFromFile( const char* path );
-    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, AuthoredScene& outScene );
+    static AuthoredScene LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                const char* path, AuthoredScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
-    static AuthoredScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
-    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets,
+    static AuthoredScene LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
+                                            const Assets::AssetSystem& assets );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                const char* path, const Assets::AssetSystem& assets,
                                                                 AuthoredScene& outScene );
 
     bool IsPhysicsEnabled() const;

@@ -81,6 +81,8 @@ DiagnosticsUIKeyboardShortcutResult HandleDiagnosticsUIKeyboardShortcut( UI::InG
 class DiagnosticsRuntime
 {
   public:
+    explicit DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
+
     CaptureController& Capture();
     const CaptureController& Capture() const;
 

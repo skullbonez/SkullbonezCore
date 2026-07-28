@@ -48,6 +48,8 @@ Invariants:
     borrowing source or failure buffers.
   - Transaction tests drive the production arbitration and drain gates through
     bounded friend access; they do not duplicate those decisions in test code.
+  - Taking editor frame status releases the editor-held lease while the
+    returned Runtime copy retains the exact failure bytes.
 
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
@@ -65,6 +67,7 @@ Related:
 #include "../SkullbonezSource/Runtime/App/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayAuthoring.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -89,6 +92,12 @@ Related:
 #include <limits>
 #include <string>
 #include <type_traits>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using namespace SkullbonezCore::Runtime;
 
@@ -96,14 +105,13 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+
 // Test access seeds transaction-private values and invokes the exact production
 // kernels. It stores no owner and introduces no parallel arbitration rule.
 struct SceneLoadTransactionTestAccess
 {
-    static void SetLoadedValues( SceneLoadTransaction& transaction,
-                                 const SceneLoadRequest& request,
-                                 const SceneLoadNavigationState& navigation,
-                                 const OverlayDebugState& presentation,
+    static void SetLoadedValues( SceneLoadTransaction& transaction, const SceneLoadRequest& request,
+                                 const SceneLoadNavigationState& navigation, const OverlayDebugState& presentation,
                                  bool applyNavigation )
     {
         transaction.m_request = request;
@@ -127,11 +135,11 @@ struct SceneGeneratedControlTransactionTestAccess
         return transaction.ResolveRequest( uiOverrides, sceneState );
     }
 
-    static bool RecordDrain( SceneGeneratedControlTransaction& transaction,
-                             bool rebuildActiveScene,
+    static bool RecordDrain( SceneGeneratedControlTransaction& transaction, bool rebuildActiveScene,
                              const SkullbonezCore::Core::SbResult& result )
     {
         transaction.m_rebuildActiveScene = rebuildActiveScene;
+
         if ( !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::DrainAndReset ) )
         {
             return false;
@@ -147,6 +155,7 @@ struct SceneGeneratedControlTransactionTestAccess
 
     static bool PublishAfterRepopulation( SceneGeneratedControlTransaction& transaction )
     {
+
         if ( !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::Repopulate ) ||
              !transaction.m_phase.TryAdvance( SceneGeneratedControlPhaseCursor::Phase::PublishFollowUps ) )
         {
@@ -174,6 +183,22 @@ struct SceneGeneratedControlTransactionTestAccess
 };
 } // namespace Runtime
 } // namespace SkullbonezCore
+
+
+TEST_CASE( "Operator editor frame status keeps its lease through owner reset" )
+{
+    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorFrameStatusLease status;
+    SkullbonezCore::Core::SbResult producer = diagnostics.Failure( "Runtime/Editor", "frame command rejected" );
+    status.Record( producer );
+    producer = SkullbonezCore::Core::SbResult::Success();
+
+    const SkullbonezCore::Core::SbResult consumed = status.Take();
+    CHECK_FALSE( consumed.Ok() );
+    CHECK( status.Ok() );
+    CHECK( std::strcmp( consumed.ErrorOwner(), "Runtime/Editor" ) == 0 );
+    CHECK( std::strcmp( consumed.ErrorMessage(), "frame command rejected" ) == 0 );
+}
+
 
 TEST_CASE( "Replay velocity drag coalesces preview samples and refreshes only on release" )
 {
@@ -229,6 +254,7 @@ TEST_CASE( "Physics tab emits one typed request for every toggle row" )
     const auto emitToggle = []( int toggleIndex )
     {
         UIPhysicsCommands commands;
+
         CHECK( PhysicsTab::EmitPhysicsToggleCommand( toggleIndex, commands ) );
         return commands;
     };
@@ -285,6 +311,7 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     commands.toggleBroadphaseOverlay = true;
     const DiagnosticsPhysicsOverlayUICommandResult overlayResult = ApplyDiagnosticsPhysicsOverlayUICommands( debug,
                                                                                                              commands );
+
     CHECK( overlayResult.toggledCollisionVisualizer );
     CHECK( overlayResult.toggledPhysicsDebugTransparent );
     CHECK( overlayResult.toggledBroadphaseOverlay );
@@ -311,9 +338,9 @@ TEST_CASE( "Runtime applies Physics-tab diagnostics and publishes matching detac
     commands = {};
     commands.requestedPhysicsDebugAlpha = 2.0f;
     commands.requestedPhysicsDebugContactLinger = 8.0f;
-    const DiagnosticsPhysicsDebugValueUICommandResult valueResult = ApplyDiagnosticsPhysicsDebugValueUICommands(
-        debug,
-        commands );
+    const DiagnosticsPhysicsDebugValueUICommandResult valueResult = ApplyDiagnosticsPhysicsDebugValueUICommands( debug,
+                                                                                                                 commands );
+
     CHECK( valueResult.setAlpha );
     CHECK( valueResult.setContactLinger );
     status = BuildDiagnosticsPhysicsUIStatus( debug );
@@ -332,12 +359,16 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 {
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::None,
                                                  SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
                                                  SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneCleared,
                                                  SceneRuntimeLifecycleEvent::BeforeScenePopulate ) );
+
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
                                                  SceneRuntimeLifecycleEvent::AfterScenePopulate ) );
+
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterScenePopulate,
                                                  SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
@@ -345,15 +376,19 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
     // it cannot restart or skip inside an existing generation.
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
                                                        SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
                                                        SceneRuntimeLifecycleEvent::BeforeScenePopulate ) );
+
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneCleared,
                                                        SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneActivated,
                                                        SceneRuntimeLifecycleEvent::None ) );
 
     const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                                                     SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
+
     const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
@@ -386,21 +421,21 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
 
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared,
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     // Same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
@@ -408,11 +443,12 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     CHECK( scene.LifecyclePacket().generation == 2 );
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared,
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
-    CHECK_FALSE(
-        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 
@@ -459,12 +495,8 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
     loaded.physicsDebugAlpha = 0.75f;
     SceneLoadNavigationState navigation;
     SceneLoadTransaction transaction;
-    SceneLoadTransactionTestAccess::SetLoadedValues(
-        transaction,
-        SceneLoadRequest::Load( 0, false, false, false ),
-        navigation,
-        loaded,
-        false );
+    SceneLoadTransactionTestAccess::SetLoadedValues( transaction, SceneLoadRequest::Load( 0, false, false, false ),
+                                                     navigation, loaded, false );
 
     SceneLifecyclePacket lifecycle;
     CHECK( &transaction.PresentationForFollowingRequest( submitted, lifecycle ) == &submitted );
@@ -480,15 +512,12 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
 TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
 {
     using Phase = SceneLoadPhaseCursor::Phase;
-    constexpr std::array phases { Phase::Idle,
-                                  Phase::Load,
-                                  Phase::RuntimeReactions,
-                                  Phase::Presentation,
-                                  Phase::Complete,
-                                  Phase::Count };
+    constexpr std::array phases { Phase::Idle,         Phase::Load,     Phase::RuntimeReactions,
+                                  Phase::Presentation, Phase::Complete, Phase::Count };
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
+
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
@@ -512,20 +541,16 @@ TEST_CASE( "Scene load phase cursor accepts only the complete adjacent walk" )
 TEST_CASE( "Generated-scene control phase cursor accepts only the complete adjacent walk" )
 {
     using Phase = SceneGeneratedControlPhaseCursor::Phase;
-    constexpr std::array phases { Phase::Idle,
-                                  Phase::DrainAndReset,
-                                  Phase::Repopulate,
-                                  Phase::PublishFollowUps,
-                                  Phase::Complete,
-                                  Phase::Count };
+    constexpr std::array phases { Phase::Idle,     Phase::DrainAndReset, Phase::Repopulate, Phase::PublishFollowUps,
+                                  Phase::Complete, Phase::Count };
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
+
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
             const bool expected = fromIndex < 4 && toIndex == fromIndex + 1;
-            CHECK( SceneGeneratedControlPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) ==
-                   expected );
+            CHECK( SceneGeneratedControlPhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
         }
     }
 
@@ -553,6 +578,7 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
         Phase::CheckpointApplied,
         Phase::TargetStepped,
         Phase::TargetVerified,
+        Phase::TimelineResetApplied,
         Phase::Complete,
         Phase::Failed,
         Phase::RolledBack,
@@ -561,13 +587,20 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
 
     for ( std::size_t fromIndex = 0; fromIndex < phases.size(); ++fromIndex )
     {
+
         for ( std::size_t toIndex = 0; toIndex < phases.size(); ++toIndex )
         {
-            const bool adjacentSuccess = fromIndex < 7u && toIndex == fromIndex + 1u;
+            const bool adjacentSuccess = fromIndex < 6u && toIndex == fromIndex + 1u;
+            const bool completion = ( phases[fromIndex] == Phase::TargetVerified ||
+                                      phases[fromIndex] == Phase::TimelineResetApplied ) &&
+                                    phases[toIndex] == Phase::Complete;
+
+            const bool timelineReset = phases[fromIndex] == Phase::TargetVerified &&
+                                       phases[toIndex] == Phase::TimelineResetApplied;
+
             const bool preMutationFailure = fromIndex <= 3u && phases[toIndex] == Phase::Failed;
-            const bool rollback =
-                fromIndex >= 2u && fromIndex <= 6u && phases[toIndex] == Phase::RolledBack;
-            const bool expected = adjacentSuccess || preMutationFailure || rollback;
+            const bool rollback = fromIndex >= 2u && fromIndex <= 6u && phases[toIndex] == Phase::RolledBack;
+            const bool expected = adjacentSuccess || completion || timelineReset || preMutationFailure || rollback;
             CHECK( ReplayRestorePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
         }
     }
@@ -579,9 +612,49 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
     CHECK( cursor.TryAdvance( Phase::CheckpointApplied ) );
     CHECK( cursor.TryAdvance( Phase::TargetStepped ) );
     CHECK( cursor.TryAdvance( Phase::TargetVerified ) );
+    CHECK( cursor.TryAdvance( Phase::TimelineResetApplied ) );
     CHECK( cursor.TryAdvance( Phase::Complete ) );
     CHECK( cursor.Current() == Phase::Complete );
     CHECK_FALSE( cursor.TryAdvance( Phase::Failed ) );
+}
+
+TEST_CASE( "Replay restore transaction requires branch and rollback side-effect proofs before terminal publication" )
+{
+    auto advanceToVerified = []( ReplayRestoreTransaction& transaction )
+    {
+        transaction.SelectArtifact( 2u, 5u );
+
+        transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
+        transaction.MarkTopologyPrepared( false, false );
+        transaction.MarkCheckpointApplied();
+        transaction.MarkTargetStepped( 17u, 3u, 2u );
+        transaction.MarkTargetVerified();
+    };
+
+    ReplayRestoreTransaction nonBranch;
+    advanceToVerified( nonBranch );
+    CHECK( nonBranch.CompletionReady() );
+    nonBranch.Complete();
+    nonBranch.RequireScrubberPublicationTerminal( true );
+
+    ReplayRestoreTransaction branch;
+    advanceToVerified( branch );
+    branch.PrepareTimelineReset( 7u, 11, 0xA5u );
+    CHECK_FALSE( branch.CompletionReady() );
+    branch.MarkTimelineResetApplied();
+    CHECK( branch.CompletionReady() );
+    branch.Complete();
+    branch.RequireScrubberPublicationTerminal( true );
+
+    ReplayRestoreTransaction rollback;
+    rollback.SelectArtifact( 1u, 4u );
+    rollback.CaptureLiveBackup( ReplaySolverFrameSample {} );
+    rollback.MarkTopologyPrepared( true, true );
+    CHECK_FALSE( rollback.RollbackReady() );
+    rollback.MarkLiveBackupApplied();
+    CHECK( rollback.RollbackReady() );
+    rollback.MarkRolledBack( "expected failure" );
+    rollback.RequireScrubberPublicationTerminal( false );
 }
 
 #ifdef _DEBUG
@@ -681,21 +754,19 @@ TEST_CASE( "Generated-scene control transaction blocks mutation after a failed d
     sceneState.solverBallCount = 10;
     sceneState.solverBoxCount = 30;
 
-    SceneGeneratedControlTransaction transaction =
-        SceneGeneratedControlTransaction::SolverBallCount( 80, GeneratedObjectTypeOverride::Mixed, 100 );
+    SceneGeneratedControlTransaction
+        transaction = SceneGeneratedControlTransaction::SolverBallCount( 80, GeneratedObjectTypeOverride::Mixed, 100 );
 
     REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( transaction, uiOverrides, sceneState ) );
     CHECK( SceneGeneratedControlTransactionTestAccess::SolverBalls( transaction ) == 60 );
     CHECK( SceneGeneratedControlTransactionTestAccess::SolverBoxes( transaction ) == 40 );
 
-    const auto drainFailure =
-        SkullbonezCore::Core::SbResult::Failure( "Test/SceneGeneratedControlTransaction", "Injected drain failure." );
+    const auto drainFailure = diagnostics.Failure( "Test/SceneGeneratedControlTransaction", "Injected drain failure." );
 
-    CHECK_FALSE(
-        SceneGeneratedControlTransactionTestAccess::RecordDrain( transaction, true, drainFailure ) );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::RecordDrain( transaction, true, drainFailure ) );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     CHECK( transaction.Phase() == SceneGeneratedControlPhaseCursor::Phase::DrainAndReset );
-    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.status.ok );
+    CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.status.Ok() );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.resetReplayTimeline );
     CHECK_FALSE( SceneGeneratedControlTransactionTestAccess::Result( transaction ).action.scheduleProfileReset );
     CHECK( uiOverrides.solverBoxCountOverride == 40 );
@@ -707,16 +778,14 @@ TEST_CASE( "Generated-scene control transaction publishes follow-ups only for an
 {
     SkullbonezCore::UI::RunSceneUIOverrideState uiOverrides;
     SceneSessionState sceneState;
-    SceneGeneratedControlTransaction transaction =
-        SceneGeneratedControlTransaction::SolverCounts( 70, 50, GeneratedObjectTypeOverride::Mixed, 100 );
+    SceneGeneratedControlTransaction
+        transaction = SceneGeneratedControlTransaction::SolverCounts( 70, 50, GeneratedObjectTypeOverride::Mixed, 100 );
 
     REQUIRE( SceneGeneratedControlTransactionTestAccess::Resolve( transaction, uiOverrides, sceneState ) );
     CHECK( SceneGeneratedControlTransactionTestAccess::SolverBalls( transaction ) == 70 );
     CHECK( SceneGeneratedControlTransactionTestAccess::SolverBoxes( transaction ) == 30 );
-    REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain(
-        transaction,
-        true,
-        SkullbonezCore::Core::SbResult::Success() ) );
+    REQUIRE( SceneGeneratedControlTransactionTestAccess::RecordDrain( transaction, true,
+                                                                      SkullbonezCore::Core::SbResult::Success() ) );
 
     CHECK( SceneGeneratedControlTransactionTestAccess::MutationAllowedAfterDrain( transaction ) );
     REQUIRE( SceneGeneratedControlTransactionTestAccess::PublishAfterRepopulation( transaction ) );
@@ -808,10 +877,9 @@ TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
 TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
 {
     SkullbonezCore::UI::SceneNavigationModel navigation;
-    navigation.browser.paths = { "ordinary.scene.json",
-                                 "concept_one.scene.json",
-                                 "ordinary_two.scene.json",
+    navigation.browser.paths = { "ordinary.scene.json", "concept_one.scene.json", "ordinary_two.scene.json",
                                  "cinematic_two.scene.json" };
+
     navigation.browser.selectedCineModeSceneIndex = 1;
     SceneSession scene( std::vector<std::string> { "ordinary.scene.json" } );
     scene.BeginLoad( 0 );
@@ -827,26 +895,26 @@ TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
 
 TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
 {
-    CaptureController capture;
+    CaptureController capture( diagnostics );
 
-    CHECK( capture.QueueScreenshot( "Screenshots\\owner_request.bmp" ).ok );
+    CHECK( capture.QueueScreenshot( "Screenshots\\owner_request.bmp" ).Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
 
     const SkullbonezCore::Core::SbResult empty = capture.QueueScreenshot( "" );
-    CHECK_FALSE( empty.ok );
+    CHECK_FALSE( empty.Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
 
     char oversized[CAPTURE_REQUEST_PATH_CAPACITY + 1] = {};
     std::memset( oversized, 'a', sizeof( oversized ) - 1 );
     oversized[sizeof( oversized ) - 1] = '\0';
     const SkullbonezCore::Core::SbResult tooLong = capture.QueueScreenshot( oversized );
-    CHECK_FALSE( tooLong.ok );
+    CHECK_FALSE( tooLong.Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
 }
 
 TEST_CASE( "CaptureController predicts scene captures before rendering" )
 {
-    CaptureController capture;
+    CaptureController capture( diagnostics );
     RunScreenshotState& screenshot = capture.Screenshot();
     strcpy_s( screenshot.screenshotPath, "Profile/capture_pin.bmp" );
     screenshot.screenshotFrame = 10;
@@ -879,11 +947,13 @@ TEST_CASE( "CaptureController predicts scene captures before rendering" )
 
 TEST_CASE( "CaptureController owns a fixed request budget" )
 {
-    CaptureController capture;
+    CaptureController capture( diagnostics );
+
     for ( int index = 0; index < CAPTURE_REQUEST_QUEUE_CAPACITY; ++index )
     {
-        REQUIRE( capture.QueueScreenshot( "Screenshots\\fixed_budget.bmp" ).ok );
+        REQUIRE( capture.QueueScreenshot( "Screenshots\\fixed_budget.bmp" ).Ok() );
     }
+
     CHECK( capture.PendingScreenshotCount() == CAPTURE_REQUEST_QUEUE_CAPACITY );
 }
 
@@ -892,11 +962,8 @@ TEST_CASE( "Capture request batches return only successful requests as accepted 
     CaptureRequest request;
     strcpy_s( request.path, "Screenshots\\unsupported.bmp" );
     CaptureRequestBatchResult result;
-    AccumulateCaptureRequestResult(
-        result,
-        request,
-        SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureSystem", "capture unsupported" ) );
-    CHECK_FALSE( result.status.ok );
+    AccumulateCaptureRequestResult( result, request, diagnostics.Failure( "Runtime/CaptureSystem", "capture unsupported" ) );
+    CHECK_FALSE( result.status.Ok() );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
 }
@@ -906,12 +973,10 @@ TEST_CASE( "Capture request batches preserve concrete readback failure ownership
     CaptureRequest request;
     strcpy_s( request.path, "Screenshots\\readback_failure.bmp" );
     CaptureRequestBatchResult result;
-    AccumulateCaptureRequestResult( result,
-                                    request,
-                                    SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" ) );
-    CHECK_FALSE( result.status.ok );
-    CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
-    CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );
+    AccumulateCaptureRequestResult( result, request, diagnostics.Failure( "Test/Readback", "fence wait failed" ) );
+    CHECK_FALSE( result.status.Ok() );
+    CHECK_EQ( std::strcmp( result.status.ErrorOwner(), "Test/Readback" ), 0 );
+    CHECK_EQ( std::strcmp( result.status.ErrorMessage(), "fence wait failed" ), 0 );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
 }
@@ -923,16 +988,16 @@ TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded creat
     reset.type = SceneRequestType::ResetCurrentScene;
     reset.preserveUIState = false;
     reset.preserveRuntimeState = false;
-    REQUIRE( queue.Submit( reset ).ok );
+    REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
 
     SceneRequest save;
     save.type = SceneRequestType::SaveCurrentDefaults;
-    REQUIRE( queue.Submit( save ).ok );
+    REQUIRE( queue.Submit( diagnostics, save ).Ok() );
 
     SceneRequest invalidCreate;
     invalidCreate.type = SceneRequestType::CreateScene;
     std::memset( invalidCreate.text, 'x', sizeof( invalidCreate.text ) );
-    CHECK_FALSE( queue.Submit( invalidCreate ).ok );
+    CHECK_FALSE( queue.Submit( diagnostics, invalidCreate ).Ok() );
     CHECK( queue.Size() == 2 );
 
     const SceneRequestBatch batch = queue.TakePending();
@@ -950,15 +1015,15 @@ TEST_CASE( "SceneRequestQueue accepts at most one transition per checkpoint" )
     SceneRequest load;
     load.type = SceneRequestType::LoadBrowserIndex;
     load.index = 3;
-    REQUIRE( queue.Submit( load ).ok );
+    REQUIRE( queue.Submit( diagnostics, load ).Ok() );
 
     SceneRequest save;
     save.type = SceneRequestType::SaveCurrentDefaults;
-    REQUIRE( queue.Submit( save ).ok );
+    REQUIRE( queue.Submit( diagnostics, save ).Ok() );
 
     SceneRequest reset;
     reset.type = SceneRequestType::ResetCurrentScene;
-    REQUIRE( queue.Submit( reset ).ok );
+    REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
 
     const SceneRequestBatch batch = queue.TakePending();
     REQUIRE( batch.count == 2 );
@@ -986,21 +1051,15 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
     loaded.overrides.modelCountOverride = 24;
     OverlayDebugState presentation;
     SceneLoadTransaction transaction;
-    SceneLoadTransactionTestAccess::SetLoadedValues(
-        transaction,
-        SceneLoadRequest::Load( 0, false, false, false ),
-        loaded,
-        presentation,
-        false );
+    SceneLoadTransactionTestAccess::SetLoadedValues( transaction, SceneLoadRequest::Load( 0, false, false, false ), loaded,
+                                                     presentation, false );
+
     REQUIRE( SceneLoadTransactionTestAccess::EnterLoadPhase( transaction ) );
     CHECK( &transaction.NavigationForFollowingRequest( submitted ) == &submitted );
 
-    SceneLoadTransactionTestAccess::SetLoadedValues(
-        transaction,
-        SceneLoadRequest::Load( 0, false, false, false ),
-        loaded,
-        presentation,
-        true );
+    SceneLoadTransactionTestAccess::SetLoadedValues( transaction, SceneLoadRequest::Load( 0, false, false, false ), loaded,
+                                                     presentation, true );
+
     const SceneLoadNavigationState& committed = transaction.NavigationForFollowingRequest( submitted );
     CHECK( &committed != &submitted );
     CHECK( committed.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
@@ -1009,7 +1068,7 @@ TEST_CASE( "Scene request execution saves navigation committed by an earlier loa
 
 TEST_CASE( "RenderDefaultsStore preserves interleaved save intent without value snapshots" )
 {
-    RenderDefaultsStore store;
+    RenderDefaultsStore store( diagnostics );
     store.SubmitCinematicSave();
     store.SubmitOrdinarySave();
     store.SubmitCinematicSave();
@@ -1032,17 +1091,17 @@ TEST_CASE( "RenderDefaultsStore excludes failed writes from accepted events" )
     fs::current_path( emptyRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
 
-    RenderDefaultsStore store;
+    RenderDefaultsStore store( diagnostics );
     store.SubmitOrdinarySave();
-    const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
-        SkullbonezCore::Core::OrdinaryRenderConfig {},
-        SkullbonezCore::Core::CinematicRenderConfig {} );
+    const RenderDefaultsSaveBatchResult
+        result = store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig {},
+                                               SkullbonezCore::Core::CinematicRenderConfig {} );
 
     fs::current_path( originalPath, filesystemError );
     CHECK_FALSE( filesystemError );
     fs::remove_all( emptyRoot, filesystemError );
     CHECK_FALSE( filesystemError );
-    CHECK_FALSE( result.status.ok );
+    CHECK_FALSE( result.status.Ok() );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
 }
@@ -1064,12 +1123,13 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
         REQUIRE( configFile.good() );
     }
 
-    RenderDefaultsStore store;
+    RenderDefaultsStore store( diagnostics );
     SkullbonezCore::Core::OrdinaryRenderConfig ordinary;
     SkullbonezCore::Core::CinematicRenderConfig cinematic;
     store.SubmitOrdinarySave();
     ordinary.sunIntensity = 9.25f; // Final UI mutation after submission, before checkpoint.
     ordinary.replayTrajectory.futureWidth = 1.75f;
+
     ordinary.replayTrajectory.selectedEmphasis = 0.30f;
 
     fs::current_path( testRoot, filesystemError );
@@ -1083,7 +1143,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
         std::ifstream configFile( dataRoot / "engine.cfg" );
         configText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
     }
-    CHECK( result.status.ok );
+    CHECK( result.status.Ok() );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
     CHECK( configText.find( "replay_trajectory_future_width = 1.75" ) != std::string::npos );
@@ -1101,7 +1161,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
         std::ifstream repeatedFile( dataRoot / "engine.cfg" );
         repeatedText.assign( std::istreambuf_iterator<char>( repeatedFile ), std::istreambuf_iterator<char>() );
     }
-    CHECK( repeated.status.ok );
+    CHECK( repeated.status.Ok() );
     CHECK( repeatedText == configText );
 
     fs::remove_all( testRoot, filesystemError );
@@ -1118,6 +1178,7 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
     const auto verifyWriter = [&]( bool cinematicSave, const char* fixtureName )
     {
         const fs::path testRoot = originalPath / "TestOutput" / fixtureName;
+
         const fs::path dataRoot = testRoot / "SkullbonezData";
         fs::create_directories( dataRoot, filesystemError );
         REQUIRE_FALSE( filesystemError );
@@ -1132,7 +1193,8 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
             REQUIRE( configFile.good() );
         }
 
-        RenderDefaultsStore store;
+        RenderDefaultsStore store( diagnostics );
+
         if ( cinematicSave )
         {
             store.SubmitCinematicSave();
@@ -1144,9 +1206,10 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
 
         fs::current_path( testRoot, filesystemError );
         REQUIRE_FALSE( filesystemError );
-        const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
-            SkullbonezCore::Core::OrdinaryRenderConfig {},
-            SkullbonezCore::Core::CinematicRenderConfig {} );
+        const RenderDefaultsSaveBatchResult
+            result = store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig {},
+                                                   SkullbonezCore::Core::CinematicRenderConfig {} );
+
         fs::current_path( originalPath, filesystemError );
         REQUIRE_FALSE( filesystemError );
 
@@ -1156,7 +1219,7 @@ TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
             REQUIRE( configFile.is_open() );
             configText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
         }
-        CHECK( result.status.ok );
+        CHECK( result.status.Ok() );
         CHECK( result.savedCount == 1 );
         CHECK( configText.find( "format_version = 6" ) != std::string::npos );
         CHECK( configText.find( "physics_simd_kernels" ) == std::string::npos );
@@ -1190,13 +1253,14 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
         REQUIRE( configFile.good() );
     }
 
-    RenderDefaultsStore store;
+    RenderDefaultsStore store( diagnostics );
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const RenderDefaultsSaveBatchResult result = store.DrainAtFrameCheckpoint(
-        SkullbonezCore::Core::OrdinaryRenderConfig {},
-        SkullbonezCore::Core::CinematicRenderConfig {} );
+    const RenderDefaultsSaveBatchResult
+        result = store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig {},
+                                               SkullbonezCore::Core::CinematicRenderConfig {} );
+
     fs::current_path( originalPath, filesystemError );
     REQUIRE_FALSE( filesystemError );
 
@@ -1205,7 +1269,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
         std::ifstream configFile( dataRoot / "engine.cfg" );
         finalText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
     }
-    CHECK_FALSE( result.status.ok );
+    CHECK_FALSE( result.status.Ok() );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
     CHECK( finalText == originalText );
@@ -1243,31 +1307,37 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     legacy.replayMemory.requestedPresetIndex = 2;
     legacy.replayMemory.requestedRetentionSeconds = 45;
     legacy.replayMemory.requestedBudgetMiB = 96;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
     CHECK_FALSE( legacy.scene.resetScene );
     CHECK( legacy.sceneOptions.requestedTimeScale < 0.0f );
     CHECK_FALSE( legacy.renderer.toggleVsync );
     CHECK_FALSE( legacy.replayMemory.requestPolicy );
 
     OperatorEditorCommandQueues secondary;
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.scene, { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } ).ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
-            .ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } ).ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.replay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
-            .ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                          { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } )
+                 .Ok() );
 
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
-    REQUIRE( merged.status.ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.property,
+                                          { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
+                                          { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
+                 .Ok() );
+
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+                                                                                    secondary );
+
+    REQUIRE( merged.status.Ok() );
     CHECK( merged.acceptedLegacyCommands == 4u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
     CHECK( merged.coalescedDuplicateCommands == 4u );
 
-    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, legacy ).Ok() );
     CHECK( legacy.scene.resetScene );
     CHECK( legacy.sceneOptions.requestedTimeScale == doctest::Approx( 0.5f ) );
     CHECK( legacy.renderer.toggleVsync );
@@ -1282,40 +1352,46 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
     using namespace SkullbonezCore::UI;
     OperatorEditorCommandQueues legacy;
     OperatorEditorCommandQueues secondary;
-    REQUIRE(
-        SubmitOperatorEditorCommand( legacy.property, { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } ).ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
-            .ok );
-    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, legacy.property,
+                                          { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.property,
+                                          { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+                 .Ok() );
+
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary ).status.Ok() );
 
     OperatorEditorPropertyCommandQueue invalidProperty;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     invalidProperty,
-                     { OperatorEditorPropertyCommandType::SetTimeScale, std::numeric_limits<float>::quiet_NaN() } )
-                     .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalidProperty,
+                                              { OperatorEditorPropertyCommandType::SetTimeScale,
+                                                std::numeric_limits<float>::quiet_NaN() } )
+                     .Ok() );
+
     CHECK( invalidProperty.count == 0u );
 
     OperatorEditorReplayCommandQueue invalidReplay;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( invalidReplay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
-            .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalidReplay,
+                                              { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
+                     .Ok() );
+
     CHECK( invalidReplay.count == 0u );
 
     OperatorEditorCommandQueues corruptCount;
     corruptCount.scene.count = OperatorEditorSceneCommandQueue::capacity + 1u;
     InGameUICommands projected;
-    CHECK_FALSE( ProjectOperatorEditorCommands( corruptCount, projected ).ok );
+    CHECK_FALSE( ProjectOperatorEditorCommands( diagnostics, corruptCount, projected ).Ok() );
     CHECK_FALSE( projected.scene.resetScene );
 }
 
 TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
 {
     using namespace SkullbonezCore::UI;
-    const auto replayCommand =
-        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    const auto replayCommand = []( OperatorEditorReplayCommandType type,
+                                  float value = 0.0f, int rowIndex = -1, bool enabled = false )
     {
         OperatorEditorReplayCommand command;
+
         command.type = type;
         command.value = value;
         command.rowIndex = rowIndex;
@@ -1324,71 +1400,84 @@ TEST_CASE( "Operator editor replay transport validates values and arbitrates one
     };
 
     OperatorEditorReplayCommandQueue valid;
-    CHECK( SubmitOperatorEditorCommand(
-               valid,
-               replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
-               .ok );
-    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) ).ok );
-    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
-               .ok );
-    CHECK( SubmitOperatorEditorCommand( valid,
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) )
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
                                         replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 3.0f ) )
-               .ok );
-    CHECK(
-        SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, 4 ) )
-            .ok );
+               .Ok() );
+
+    CHECK( SubmitOperatorEditorCommand( diagnostics, valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, 4 ) )
+               .Ok() );
+
     CHECK( valid.count == 5u );
 
     OperatorEditorReplayCommandQueue invalid;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     invalid,
-                     replayCommand( OperatorEditorReplayCommandType::Scrub, std::numeric_limits<float>::quiet_NaN() ) )
-                     .ok );
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( invalid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
-            .ok );
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( invalid,
-                                     replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
-            .ok );
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( invalid,
-                                     replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, -1 ) )
-            .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              replayCommand( OperatorEditorReplayCommandType::Scrub,
+                                                             std::numeric_limits<float>::quiet_NaN() ) )
+                     .Ok() );
+
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
+                     .Ok() );
+
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
+                     .Ok() );
+
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, -1 ) )
+                     .Ok() );
+
     CHECK( invalid.count == 0u );
 
     OperatorEditorCommandQueues legacy;
     OperatorEditorCommandQueues secondary;
-    REQUIRE(
-        SubmitOperatorEditorCommand( legacy.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
-            .ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
-            .ok );
-    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( legacy, secondary );
-    REQUIRE( duplicate.status.ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, legacy.replay,
+                                          replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
+                                          replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+                 .Ok() );
+
+    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary );
+    REQUIRE( duplicate.status.Ok() );
     CHECK( duplicate.coalescedDuplicateCommands == 1u );
 
     secondary = {};
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.75f ) )
-            .ok );
-    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.replay,
+                                          replayCommand( OperatorEditorReplayCommandType::Scrub, 0.75f ) )
+                 .Ok() );
+
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( diagnostics, legacy, secondary ).status.Ok() );
 }
 
 TEST_CASE( "Operator editor world previews stay local and commits project to established owners" )
 {
     using namespace SkullbonezCore::UI;
     OperatorEditorCommandQueues preview;
-    REQUIRE( SubmitOperatorEditorCommand(
-                 preview.property,
-                 { OperatorEditorPropertyCommandType::SetWorldGravity, -4.5f, 0, OperatorEditorEditPhase::Preview } )
-                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, preview.property,
+                                          { OperatorEditorPropertyCommandType::SetWorldGravity, -4.5f, 0,
+                                            OperatorEditorEditPhase::Preview } )
+                 .Ok() );
+
     InGameUICommands projectedPreview;
-    REQUIRE( ProjectOperatorEditorCommands( preview, projectedPreview ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, preview, projectedPreview ).Ok() );
     CHECK_FALSE( projectedPreview.water.requestWorldGravity );
 
     OperatorEditorCommandQueues commits;
+
     for ( const OperatorEditorPropertyCommand& command :
           { OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTimeScale, 0.75f },
             OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::ToggleFixedStep },
@@ -1410,16 +1499,16 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
             OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoSwirl, 130.0f },
             OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetTornadoLift, 65.0f } } )
     {
-        REQUIRE( SubmitOperatorEditorCommand( commits.property, command ).ok );
+        REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.property, command ).Ok() );
     }
+
     REQUIRE( commits.property.count == 19u );
-    REQUIRE(
-        SubmitOperatorEditorCommand( commits.scene,
-                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene } )
-            .ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.scene,
+                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::RequestDemoScene } )
+                 .Ok() );
 
     InGameUICommands projected;
-    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, commits, projected ).Ok() );
     CHECK( projected.scene.requestDemoScene );
     CHECK( projected.sceneOptions.requestedTimeScale == doctest::Approx( 0.75f ) );
     CHECK( projected.sceneOptions.toggleFixedStep );
@@ -1479,7 +1568,7 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     legacy.physics.requestedTornadoSwirl = 130.0f;
     legacy.physics.requestTornadoLift = true;
     legacy.physics.requestedTornadoLift = 65.0f;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
     CHECK_FALSE( legacy.scene.requestDemoScene );
     CHECK_FALSE( legacy.sceneOptions.toggleFixedStep );
     CHECK( legacy.sceneOptions.requestedModelCount == -1 );
@@ -1487,18 +1576,18 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK_FALSE( legacy.water.requestWorldFluidHeight );
     CHECK_FALSE( legacy.physics.toggleTornado );
     CHECK( legacy.operatorEditor.property.count == 19u );
-    const OperatorEditorArbitrationResult arbitration = ArbitrateOperatorEditorCommands( legacy.operatorEditor,
+    const OperatorEditorArbitrationResult arbitration = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
                                                                                          commits );
-    REQUIRE( arbitration.status.ok );
+
+    REQUIRE( arbitration.status.Ok() );
     CHECK( arbitration.acceptedLegacyCommands == 20u );
     CHECK( arbitration.acceptedSecondaryCommands == 0u );
     CHECK( arbitration.coalescedDuplicateCommands == 20u );
 
     OperatorEditorPropertyCommandQueue invalid;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     invalid,
-                     OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
-                     .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, invalid,
+                                              OperatorEditorPropertyCommand { OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+                     .Ok() );
 }
 
 TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
@@ -1562,55 +1651,57 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
 {
     using namespace SkullbonezCore::UI;
     OperatorEditorCommandQueues preview;
-    REQUIRE( SubmitOperatorEditorCommand( preview.rendering,
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, preview.rendering,
                                           { OperatorEditorRenderingCommandType::SetCinematicParameter,
-                                            static_cast<int>( UICinematicParam::Exposure ),
-                                            1.4f,
+                                            static_cast<int>( UICinematicParam::Exposure ), 1.4f,
                                             OperatorEditorEditPhase::Preview } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( preview.diagnostics,
-                                          { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
-                                            0u,
-                                            0,
-                                            0.5f,
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, preview.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha, 0u, 0, 0.5f,
                                             OperatorEditorEditPhase::Preview } )
-                 .ok );
+                 .Ok() );
+
     InGameUICommands previewPacket;
-    REQUIRE( ProjectOperatorEditorCommands( preview, previewPacket ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, preview, previewPacket ).Ok() );
     CHECK( previewPacket.cinematic.requestedParam == UICinematicParam::None );
     CHECK( previewPacket.physics.requestedPhysicsDebugAlpha < 0.0f );
 
     OperatorEditorCommandQueues commits;
-    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.rendering,
                                           { OperatorEditorRenderingCommandType::SetOrdinaryParameter,
-                                            static_cast<int>( UIRenderParam::WaterFresnel ),
-                                            0.04f } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                            static_cast<int>( UIRenderParam::WaterFresnel ), 0.04f } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.rendering,
                                           { OperatorEditorRenderingCommandType::SetCinematicParameter,
-                                            static_cast<int>( UICinematicParam::BloomStrength ),
-                                            0.6f } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                            static_cast<int>( UICinematicParam::BloomStrength ), 0.6f } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.rendering,
                                           { OperatorEditorRenderingCommandType::ToggleCinematicFeature,
                                             static_cast<int>( UICinematicFeature::Bloom ) } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.rendering, { OperatorEditorRenderingCommandType::ToggleWaterFreeze } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.rendering,
+                                          { OperatorEditorRenderingCommandType::ToggleWaterFreeze } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
                                           { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
                                             static_cast<uint32_t>( UIPhysicsDebugOverlay::Contacts ) } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
                                           { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 commits.diagnostics,
-                 { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
-                 .ok );
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+                 .Ok() );
 
     InGameUICommands projected;
-    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, commits, projected ).Ok() );
     CHECK( projected.renderTuning.requestedParam == UIRenderParam::WaterFresnel );
     CHECK( projected.renderTuning.requestedValue == doctest::Approx( 0.04f ) );
     CHECK( projected.cinematic.requestedParam == UICinematicParam::BloomStrength );
@@ -1633,23 +1724,25 @@ TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner pro
     legacy.profiler.requestedWorkerThreads = 4;
     legacy.physics.requestRayCastImpulseStrength = true;
     legacy.physics.requestedRayCastImpulseStrength = 125.0f;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
     CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
     CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
     CHECK( legacy.physics.physicsDebugOverlayToToggle == UIPhysicsDebugOverlay::None );
     CHECK( legacy.profiler.requestedWorkerThreads == -2 );
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
-    REQUIRE( merged.status.ok );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+                                                                                    commits );
+
+    REQUIRE( merged.status.Ok() );
     CHECK( merged.acceptedSecondaryCommands == 0u );
     CHECK( merged.coalescedDuplicateCommands == 7u );
     OperatorEditorDiagnosticsCommandQueue malformedDiagnostics;
-    CHECK_FALSE( SubmitOperatorEditorCommand( malformedDiagnostics,
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformedDiagnostics,
                                               { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 0u } )
-                     .ok );
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( malformedDiagnostics,
-                                     { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 1u << 7 } )
-            .ok );
+                     .Ok() );
+
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformedDiagnostics,
+                                              { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 1u << 7 } )
+                     .Ok() );
 }
 
 TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )
@@ -1660,19 +1753,18 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     OperatorEditorSceneCommand create;
     create.type = OperatorEditorSceneCommandType::CreateScene;
     strcpy_s( create.sceneName, "typed-editor-scene" );
-    REQUIRE( SubmitOperatorEditorCommand( secondary.scene, create ).ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.scene,
-                 OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
-                 .ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.scene,
-                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
-            .ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( secondary.scene,
-                                     OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetSceneDefaults } )
-            .ok );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene, create ).Ok() );
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::SaveCurrentScene } )
+                 .Ok() );
+
+    REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.scene,
+                                          OperatorEditorSceneCommand { OperatorEditorSceneCommandType::ResetSceneDefaults } )
+                 .Ok() );
 
     for ( const OperatorEditorToolCommand& command :
           { OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 91u },
@@ -1684,11 +1776,11 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
             OperatorEditorToolCommand { OperatorEditorToolCommandType::DuplicateSelection },
             OperatorEditorToolCommand { OperatorEditorToolCommandType::DeleteSelection } } )
     {
-        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, command ).ok );
+        REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.tools, command ).Ok() );
     }
 
     InGameUICommands projected;
-    REQUIRE( ProjectOperatorEditorCommands( secondary, projected ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, secondary, projected ).Ok() );
     CHECK( projected.scene.createScene );
     CHECK( std::strcmp( projected.scene.requestedSceneName, "typed-editor-scene" ) == 0 );
     CHECK( projected.scene.requestedSceneIndex == 4 );
@@ -1711,14 +1803,14 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     malformed,
-                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-                     .ok );
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     malformed,
-                     OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
-                     .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+                     .Ok() );
+
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
+                                                                          37 } )
+                     .Ok() );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
@@ -1731,26 +1823,27 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     legacy.editor.requestRedo = true;
     legacy.scene.toggleCrossScenePause = true;
     legacy.scene.requestSingleStep = true;
-    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( diagnostics, legacy ).Ok() );
     CHECK( legacy.operatorEditor.tools.count == 6u );
 
     OperatorEditorCommandQueues secondary;
-    for ( const OperatorEditorToolCommandType type : { OperatorEditorToolCommandType::ToggleEditorMode,
-                                                       OperatorEditorToolCommandType::TogglePlacementMode,
-                                                       OperatorEditorToolCommandType::Undo,
-                                                       OperatorEditorToolCommandType::Redo,
-                                                       OperatorEditorToolCommandType::ToggleCrossScenePause,
-                                                       OperatorEditorToolCommandType::StepPausedScene } )
+
+    for ( const OperatorEditorToolCommandType type :
+          { OperatorEditorToolCommandType::ToggleEditorMode, OperatorEditorToolCommandType::TogglePlacementMode,
+            OperatorEditorToolCommandType::Undo, OperatorEditorToolCommandType::Redo,
+            OperatorEditorToolCommandType::ToggleCrossScenePause, OperatorEditorToolCommandType::StepPausedScene } )
     {
-        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, OperatorEditorToolCommand { type } ).ok );
+        REQUIRE( SubmitOperatorEditorCommand( diagnostics, secondary.tools, OperatorEditorToolCommand { type } ).Ok() );
     }
 
-    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
-    REQUIRE( merged.status.ok );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( diagnostics, legacy.operatorEditor,
+                                                                                    secondary );
+
+    REQUIRE( merged.status.Ok() );
     CHECK( merged.acceptedLegacyCommands == 6u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
     CHECK( merged.coalescedDuplicateCommands == 6u );
-    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    REQUIRE( ProjectOperatorEditorCommands( diagnostics, merged.commands, legacy ).Ok() );
     CHECK( legacy.editor.toggleEditorMode );
     CHECK( legacy.editor.togglePlacementMode );
     CHECK( legacy.editor.requestUndo );
@@ -1759,10 +1852,10 @@ TEST_CASE( "Operator editor tool commands coalesce and project into established 
     CHECK( legacy.scene.requestSingleStep );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( malformed,
-                                     OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
-            .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand( diagnostics, malformed,
+                                              OperatorEditorToolCommand { static_cast<OperatorEditorToolCommandType>( 255 ) } )
+                     .Ok() );
+
     CHECK( malformed.count == 0u );
 }
 
@@ -1775,13 +1868,13 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
 
     for ( const ImGuiEditorLayoutEnvelope& envelope : { minimum, widescreen, ultrawide } )
     {
-        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth ==
-               envelope.contentWidth );
+        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth == envelope.contentWidth );
         CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
         CHECK( envelope.preservesCentralViewport );
         CHECK( envelope.statusHeight >= 48 );
         CHECK( envelope.replayHeight >= 112 );
     }
+
     CHECK( minimum.compactToolbarLabels );
     CHECK_FALSE( widescreen.compactToolbarLabels );
     CHECK( ultrawide.viewportWidth > widescreen.viewportWidth );
@@ -1801,6 +1894,7 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
     preferences.panelVisibilityMask = IMGUI_EDITOR_DEFAULT_PANEL_MASK &
                                       ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+
     strcpy_s( preferences.sceneFilter, "stack" );
     strcpy_s( preferences.hierarchyFilter, "crate" );
     strcpy_s( preferences.assetFilter, "terrain" );
@@ -1819,6 +1913,7 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
 
     constexpr const char* stale = "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter="
                                   "bounded\nasset_filter=text\n";
+
     const ImGuiEditorPreferenceParseResult migrated = ParseImGuiEditorPreferences( stale, std::strlen( stale ) );
     REQUIRE( migrated.valid );
     CHECK( migrated.layoutResetRequired );
@@ -1829,8 +1924,7 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( std::strcmp( migrated.preferences.sceneFilter, "keep" ) == 0 );
 
     constexpr const char* malformed = "schema=1\nlayout=2\ntopology=not-a-number\npanels=4294967295\n";
-    const ImGuiEditorPreferenceParseResult recovered = ParseImGuiEditorPreferences( malformed,
-                                                                                    std::strlen( malformed ) );
+    const ImGuiEditorPreferenceParseResult recovered = ParseImGuiEditorPreferences( malformed, std::strlen( malformed ) );
     CHECK_FALSE( recovered.valid );
     CHECK( recovered.layoutResetRequired );
     CHECK( recovered.recoveredDefaults );
@@ -1858,8 +1952,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
     RunReplayVelocityEditState velocity;
     RunReplayCauseTreeState tree;
     ReplayRecorderStats solverStats;
-    ReplayOverlayStateView
-        replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, solverStats };
+    ReplayOverlayStateView replay { scrubber, prediction, intercept, porkchop, planner, path, velocity, tree, solverStats };
 
     ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Empty );
@@ -1918,6 +2011,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
         sprintf_s( detail.name, "Solver row %d", index );
         tree.rows.push_back( detail );
     }
+
     context = BuildImGuiEditorCausalityContext( replay );
     CHECK( context.state == ImGuiEditorCausalityState::Truncated );
     CHECK( context.relevantLinkCount == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
@@ -1928,8 +2022,7 @@ TEST_CASE( "Compact causality projection is bounded and exposes explicit edge st
 TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
 {
     using namespace SkullbonezCore::Runtime::DevelopmentTools;
-    const ImGuiGameViewportRect
-        widePane = ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
+    const ImGuiGameViewportRect widePane = ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
     REQUIRE( widePane.valid );
     CHECK( widePane.letterboxed );
     CHECK( widePane.imageMinX == doctest::Approx( 266.6667f ) );
@@ -1947,8 +2040,7 @@ TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
     CHECK( sourceX == 0 );
     CHECK( sourceY == 0 );
 
-    const ImGuiGameViewportRect
-        tallPane = ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
+    const ImGuiGameViewportRect tallPane = ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
     REQUIRE( tallPane.valid );
     CHECK( tallPane.letterboxed );
     CHECK( tallPane.imageMinX == doctest::Approx( 10.0f ) );

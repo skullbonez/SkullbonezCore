@@ -43,9 +43,11 @@ Related:
 
 using namespace SkullbonezCore::Rendering;
 
-Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
-                                Dx12DescriptorHeaps& descriptors )
-    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ), m_drawGate( *this ),
+Dx12FrameOwner::Dx12FrameOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device,
+                                Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12DescriptorHeaps& descriptors )
+    : m_resultDiagnostics( resultDiagnostics ), m_device( device ), m_pipeline( pipeline ), m_textures( textures ),
+      m_descriptors( descriptors ), m_recording( resultDiagnostics ), m_deviceHealth( resultDiagnostics ),
+      m_faultInjection( resultDiagnostics ), m_uploads( resultDiagnostics ), m_drawGate( *this ),
       m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this ), m_diagnosticsFrame( *this )
 {
 }
@@ -64,7 +66,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
     {
         const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
 
-        if ( !waitResult.ok )
+        if ( !waitResult.Ok() )
         {
             return waitResult;
         }
@@ -79,14 +81,14 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
         const SkullbonezCore::Core::SbResult closeResult = CommitClose( m_device.CommandList()->Close(),
                                                                         "Finish command list Close" );
 
-        if ( !closeResult.ok )
+        if ( !closeResult.Ok() )
         {
             return closeResult;
         }
 
         const SkullbonezCore::Core::SbResult submitResult = SubmitClosed();
 
-        if ( !submitResult.ok )
+        if ( !submitResult.Ok() )
         {
             return submitResult;
         }
@@ -94,7 +96,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics&
 
     const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
 
-    if ( !waitResult.ok )
+    if ( !waitResult.Ok() )
     {
         return waitResult;
     }
@@ -163,7 +165,7 @@ bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphReso
         return false;
     }
 
-    if ( !CanRecord() && !EnsureOpen().ok )
+    if ( !CanRecord() && !EnsureOpen().Ok() )
     {
         return false;
     }
@@ -221,9 +223,9 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 
     if ( m_submittedWork.HasUnfencedOrUncertainWork() )
     {
-        return m_recording.RetainFailure( SkullbonezCore::Core::SbResult::
-                                              Failure( "Rendering/DX12",
-                                                       "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
+        return m_recording.RetainFailure( m_resultDiagnostics
+                                              .Failure( "Rendering/DX12",
+                                                        "Draw epoch blocked because submitted work lacks a trustworthy completion fence." ) );
     }
 
     const UINT64 allocatorFence = m_frameFenceValues[m_allocatorIndex];
@@ -233,7 +235,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
         const SkullbonezCore::Core::SbResult wait = m_device.FrameFence().WaitForValue( allocatorFence );
         m_submittedWork.CommitWait( wait, allocatorFence );
 
-        if ( !wait.ok )
+        if ( !wait.Ok() )
         {
             return m_recording.CommitWait( wait );
         }
@@ -243,7 +245,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
     SkullbonezCore::Core::SbResult result = m_recording.CommitAllocatorReset( allocator->Reset(),
                                                                               "Dx12FrameOwner allocator Reset" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         return result;
     }
@@ -251,7 +253,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
     result = m_recording.CommitListReset( m_device.CommandList()->Reset( allocator, nullptr ),
                                           "Dx12FrameOwner command-list Reset" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         return result;
     }
@@ -269,7 +271,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 bool Dx12FrameOwner::PrepareDraw()
 {
 
-    if ( !EnsureOpen().ok )
+    if ( !EnsureOpen().Ok() )
     {
         return false;
     }
@@ -290,7 +292,7 @@ bool Dx12FrameOwner::PrepareDraw()
 
 bool Dx12FrameOwner::PrepareFramebufferBind()
 {
-    return EnsureOpen().ok;
+    return EnsureOpen().Ok();
 }
 
 
@@ -391,7 +393,7 @@ void Dx12FrameOwner::BeginProfilerEvent( const char* name, uint32_t hash )
 {
 #if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
 
-    if ( !CommandList() || !EnsureOpen().ok )
+    if ( !CommandList() || !EnsureOpen().Ok() )
     {
         return;
     }
@@ -489,14 +491,14 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 
     const SkullbonezCore::Core::SbResult injected = m_faultInjection.BeforeSubmission();
 
-    if ( !injected.ok )
+    if ( !injected.Ok() )
     {
         const SkullbonezCore::Core::SbResult retained = m_recording.RetainFailure( injected );
         SkullbonezCore::Core::Log().WriteEventf( "dx12_fault_injected point=before-first-submit submissions=%u",
                                                  m_faultInjection.SubmissionCount() );
 
-        fprintf( stderr, "[dx12-fault] owner=%s reason=\"%s\" submissions=%u\n", retained.error.owner,
-                 retained.error.message, m_faultInjection.SubmissionCount() );
+        fprintf( stderr, "[dx12-fault] owner=%s reason=\"%s\" submissions=%u\n", retained.ErrorOwner(),
+                 retained.ErrorMessage(), m_faultInjection.SubmissionCount() );
 
         fflush( stderr );
         SkullbonezCore::Core::Log().FlushAll();
@@ -521,8 +523,10 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
 
         if ( m_submittedWork.HasSubmittedWork() )
         {
-            const SkullbonezCore::Core::SbResult unavailable = SkullbonezCore::Core::SbResult::
-                Failure( "Rendering/DX12", "DX12 fence timeline unavailable while submitted GPU work remains unproven." );
+            const SkullbonezCore::Core::SbResult
+                unavailable = m_resultDiagnostics
+                                  .Failure( "Rendering/DX12",
+                                            "DX12 fence timeline unavailable while submitted GPU work remains unproven." );
 
             m_submittedWork.CommitWait( unavailable, 0 );
             return unavailable;
@@ -536,7 +540,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
     const SkullbonezCore::Core::SbResult signal = m_device.FrameFence().Signal( fence );
     m_submittedWork.CommitSignal( signal, fence );
 
-    if ( !signal.ok )
+    if ( !signal.Ok() )
     {
         return signal;
     }
@@ -544,7 +548,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
     const SkullbonezCore::Core::SbResult wait = m_device.FrameFence().WaitForValue( fence );
     m_submittedWork.CommitWait( wait, fence );
 
-    if ( !wait.ok )
+    if ( !wait.Ok() )
     {
         return wait;
     }
@@ -572,17 +576,17 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
     SkullbonezCore::Core::SbResult result = m_recording.CommitClose( m_device.CommandList()->Close(),
                                                                      "Dx12FrameOwner upload flush Close" );
 
-    if ( result.ok )
+    if ( result.Ok() )
     {
         result = SubmitClosed();
     }
 
-    if ( result.ok )
+    if ( result.Ok() )
     {
         result = m_recording.CommitWait( WaitForGpu() );
     }
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         RestoreProfilerAfterSubmit( profilerDepth );
         return result;
@@ -591,13 +595,13 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
     ID3D12CommandAllocator* allocator = m_device.CommandAllocator( m_allocatorIndex );
     result = m_recording.CommitAllocatorReset( allocator->Reset(), "Dx12FrameOwner upload flush allocator Reset" );
 
-    if ( result.ok )
+    if ( result.Ok() )
     {
         result = m_recording.CommitListReset( m_device.CommandList()->Reset( allocator, nullptr ),
                                               "Dx12FrameOwner upload flush list Reset" );
     }
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         RestoreProfilerAfterSubmit( profilerDepth );
         return result;
@@ -661,7 +665,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                                                                          static_cast<unsigned long long>( stats.capacityBytes ),
                                                                          static_cast<unsigned long long>( m_uploadFlushCount ) );
 
-                                                       return FlushUploadBuffer().ok &&
+                                                       return FlushUploadBuffer().Ok() &&
                                                               m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
                                                    } );
 
@@ -701,7 +705,7 @@ D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
 
-    if ( !EnsureOpen().ok || !PrepareUploadReservation( size, alignment, category ) )
+    if ( !EnsureOpen().Ok() || !PrepareUploadReservation( size, alignment, category ) )
     {
         return 0;
     }
@@ -714,7 +718,7 @@ D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory )
 {
 
-    if ( !EnsureOpen().ok || vertexBytes == 0 )
+    if ( !EnsureOpen().Ok() || vertexBytes == 0 )
     {
         return 0;
     }
@@ -846,7 +850,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SignalFrame( UINT64& outFenceValu
 {
     const SkullbonezCore::Core::SbResult result = m_device.FrameFence().Signal( outFenceValue );
     m_submittedWork.CommitSignal( result, outFenceValue );
-    return result.ok ? result : m_recording.RetainFailure( result );
+    return result.Ok() ? result : m_recording.RetainFailure( result );
 }
 
 
@@ -854,7 +858,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForFrameFence( UINT64 fenceVa
 {
     const SkullbonezCore::Core::SbResult result = m_device.FrameFence().WaitForValue( fenceValue );
     m_submittedWork.CommitWait( result, fenceValue );
-    return result.ok ? result : m_recording.CommitWait( result );
+    return result.Ok() ? result : m_recording.CommitWait( result );
 }
 
 
@@ -1216,7 +1220,7 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
     m_owner.AssertProfilerClosed( "CaptureBackbuffer" );
     outcome.result = m_owner.CommitClose( m_owner.CommandList()->Close(), "CaptureBackbuffer command list Close" );
 
-    if ( !outcome.result.ok )
+    if ( !outcome.result.Ok() )
     {
         outcome.readbackUseUncertain = true;
         outcome.failedOperation = "Close";
@@ -1225,7 +1229,7 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
 
     outcome.result = m_owner.SubmitClosed();
 
-    if ( !outcome.result.ok )
+    if ( !outcome.result.Ok() )
     {
 
         // Invariant: SubmitClosed reports failure only before ExecuteCommandLists;
@@ -1236,7 +1240,7 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
 
     outcome.result = m_owner.CommitWait( m_owner.WaitForGpu() );
 
-    if ( !outcome.result.ok )
+    if ( !outcome.result.Ok() )
     {
         outcome.readbackUseUncertain = true;
         outcome.failedOperation = "Wait";

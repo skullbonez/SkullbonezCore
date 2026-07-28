@@ -646,7 +646,9 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
 
 // Lifetime: the parser only borrows the asset registry during this parse.
 // A null registry keeps standalone tools on the historical path fallback.
-AuthoredSceneParser::AuthoredSceneParser( const Assets::AssetSystem* assets ) : m_assets( assets )
+AuthoredSceneParser::AuthoredSceneParser( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                          const Assets::AssetSystem* assets )
+    : m_resultDiagnostics( resultDiagnostics ), m_assets( assets )
 {
 }
 
@@ -665,9 +667,9 @@ AuthoredScene AuthoredSceneParser::LoadScene( const char* path )
     AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
+        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
     }
 
     return scene;
@@ -678,9 +680,9 @@ AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
     AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
+        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
     }
 
     return scene;
@@ -722,7 +724,7 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
 
     if ( m_failure.failed )
     {
-        return ParserFailureResult( m_failure );
+        return ParserFailureResult( m_resultDiagnostics, m_failure );
     }
 
     outScene = m_scene;
@@ -730,26 +732,30 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
 }
 
 
-AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
+AuthoredScene LoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
+                                             const Assets::AssetSystem* assets )
 {
-    return AuthoredSceneParser( assets ).LoadScene( path );
+    return AuthoredSceneParser( resultDiagnostics, assets ).LoadScene( path );
 }
 
-AuthoredScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
+AuthoredScene LoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
+                                          const Assets::AssetSystem* assets )
 {
-    return AuthoredSceneParser( assets ).LoadStyle( path );
+    return AuthoredSceneParser( resultDiagnostics, assets ).LoadStyle( path );
 }
 
-SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                                 const char* path, const Assets::AssetSystem* assets,
                                                                  AuthoredScene& outScene )
 {
-    return AuthoredSceneParser( assets ).TryLoadScene( path, outScene );
+    return AuthoredSceneParser( resultDiagnostics, assets ).TryLoadScene( path, outScene );
 }
 
-SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets,
+SkullbonezCore::Core::SbResult TryLoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                              const char* path, const Assets::AssetSystem* assets,
                                                               AuthoredScene& outScene )
 {
-    return AuthoredSceneParser( assets ).TryLoadStyle( path, outScene );
+    return AuthoredSceneParser( resultDiagnostics, assets ).TryLoadStyle( path, outScene );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

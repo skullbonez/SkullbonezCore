@@ -914,7 +914,7 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
         return;
     }
 
-    const float distanceSq = displacement * displacement;
+    const float distanceSq = Dot( displacement, displacement );
 
     if ( distanceSq <= TOLERANCE )
     {

@@ -36,6 +36,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Input.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "InputRouter.h"
 #include "../App/Window.h"
 
@@ -167,7 +168,8 @@ bool Input::IsAppFocused()
 }
 
 
-SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame& frame )
+SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                               DeviceInputFrame& frame )
 {
     frame = {};
     frame.appFocused = s_automationState.enabled && s_automationState.overrideAppFocused ? s_automationState.appFocused
@@ -187,9 +189,8 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
 
         // Lane R: desktop/session state can make Win32 keyboard capture fail.
         // The frame owner must stop rather than route a fabricated all-up frame.
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
-                     static_cast<unsigned long>( GetLastError() ) );
+        return diagnostics.Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
+                                    static_cast<unsigned long>( GetLastError() ) );
     }
 
     std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
@@ -227,9 +228,9 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
     }
 
     frame.keys = InputKeySnapshot::FromWords( words );
-    const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates();
+    const MouseCoordinatesResult clientPosition = GetClientMouseCoordinates( diagnostics );
 
-    if ( !clientPosition.result.ok )
+    if ( !clientPosition.result.Ok() )
     {
         return clientPosition.result;
     }
@@ -250,7 +251,8 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( DeviceInputFrame&
 }
 
 
-SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
+SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             bool captured )
 {
 
     // Lane R: InputRouter owns the decision, while this narrow hardware seam
@@ -260,8 +262,7 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 
     if ( !windowHandle )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
-                                                        "Native mouse capture requires the bound runtime window" );
+        return diagnostics.Failure( "Runtime/Input", "Native mouse capture requires the bound runtime window" );
     }
 
     if ( captured )
@@ -270,9 +271,8 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 
         if ( GetCapture() != windowHandle )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input",
-                                                            "SetCapture did not assign the runtime window (win32=%lu)",
-                                                            static_cast<unsigned long>( GetLastError() ) );
+            return diagnostics.Failure( "Runtime/Input", "SetCapture did not assign the runtime window (win32=%lu)",
+                                        static_cast<unsigned long>( GetLastError() ) );
         }
 
         return SkullbonezCore::Core::SbResult::Success();
@@ -288,8 +288,8 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( bool captured )
 
     if ( !ReleaseCapture() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Input", "ReleaseCapture failed (win32=%lu)",
-                                                        static_cast<unsigned long>( GetLastError() ) );
+        return diagnostics.Failure( "Runtime/Input", "ReleaseCapture failed (win32=%lu)",
+                                    static_cast<unsigned long>( GetLastError() ) );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -496,16 +496,16 @@ void Input::ResetMouseLookDeltas()
 // Why: Win32 cursor queries can fail for environment reasons outside engine
 // ownership. Return a Lane R result so frame/UI owners can skip pointer input
 // without unwinding through WndProc or the run loop.
-Input::MouseCoordinatesResult Input::GetMouseCoordinates()
+Input::MouseCoordinatesResult Input::GetMouseCoordinates( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
     MouseCoordinatesResult result;
     POINT mousePos = {};
 
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
-        result.result = SkullbonezCore::Core::SbResult::
-            Failure( "Runtime/Input", "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
-                     static_cast<unsigned long>( GetLastError() ) );
+        result.result = diagnostics.Failure( "Runtime/Input",
+                                             "GetCursorPos failed in Input::GetMouseCoordinates lastError=%lu",
+                                             static_cast<unsigned long>( GetLastError() ) );
 
         return result;
     }
@@ -515,7 +515,7 @@ Input::MouseCoordinatesResult Input::GetMouseCoordinates()
 }
 
 
-Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
+Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
     MouseCoordinatesResult result;
 
@@ -525,9 +525,9 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
         return result;
     }
 
-    MouseCoordinatesResult mousePos = GetMouseCoordinates();
+    MouseCoordinatesResult mousePos = GetMouseCoordinates( diagnostics );
 
-    if ( !mousePos.result.ok )
+    if ( !mousePos.result.Ok() )
     {
         return mousePos;
     }
@@ -544,9 +544,9 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates()
 
     if ( !ScreenToClient( window->NativeWindowHandle(), &clientCoordinates ) )
     {
-        result.result = SkullbonezCore::Core::SbResult::
-            Failure( "Runtime/Input", "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
-                     static_cast<unsigned long>( GetLastError() ) );
+        result.result = diagnostics.Failure( "Runtime/Input",
+                                             "ScreenToClient failed in Input::GetClientMouseCoordinates lastError=%lu",
+                                             static_cast<unsigned long>( GetLastError() ) );
 
         return result;
     }

@@ -928,7 +928,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
     const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
 
-        if ( !action.status.ok )
+        if ( !action.status.Ok() )
         {
 
             // Lane R: resources remain intact; return before later stress churn
@@ -973,7 +973,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
                                                                                                                   &renderer.RenderFrame() )
                                                                                                         .action );
 
-            if ( !actionResult.ok )
+            if ( !actionResult.Ok() )
             {
                 return actionResult;
             }
@@ -997,7 +997,7 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
                                                                                                                   &renderer.RenderFrame() )
                                                                                                         .action );
 
-            if ( !actionResult.ok )
+            if ( !actionResult.Ok() )
             {
                 return actionResult;
             }

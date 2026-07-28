@@ -51,6 +51,7 @@ Related:
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #include "../../UI/UITabEditor.h"
 #include "../../UI/UILayout.h"
@@ -319,14 +320,13 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !window )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Win32 ImGui startup requires the runtime HWND" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Win32 ImGui startup requires the runtime HWND" );
     }
 
     if ( !renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "No DX12 ImGui renderer capability was published at startup" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui",
+                                            "No DX12 ImGui renderer capability was published at startup" );
     }
 
     // Lifetime: allocator callbacks are process-global ImGui configuration.
@@ -384,8 +384,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
     if ( !ImGui_ImplWin32_Init( window ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Pinned Win32 backend initialization failed" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Pinned Win32 backend initialization failed" );
     }
 
     m_platformBackendInitialized = true;
@@ -396,7 +395,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
     ApplyDpiStyle( 1.0f );
     const SkullbonezCore::Core::SbResult rendererResult = renderer->BindContext( *m_context );
 
-    if ( !rendererResult.ok )
+    if ( !rendererResult.Ok() )
     {
         return rendererResult;
     }
@@ -585,7 +584,7 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
 
         if ( !SetPanelVisibility( command.panel, command.visible ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation", "Unknown panel identity" );
+            return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation", "Unknown panel identity" );
         }
 
         return SkullbonezCore::Core::SbResult::Success();
@@ -596,8 +595,7 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
 
         if ( command.panel == ImGuiEditorPanelId::Count || !SetPanelVisibility( command.panel, true ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                            "Cannot focus an unknown panel" );
+            return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation", "Cannot focus an unknown panel" );
         }
 
         m_pendingFocusPanel = command.panel;
@@ -606,15 +604,15 @@ ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& co
 
         if ( !std::isfinite( command.dpiScale ) || command.dpiScale < MIN_DPI_SCALE || command.dpiScale > MAX_DPI_SCALE )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
-                                                            "DPI scale must be finite and within 0.75..4.0" );
+            return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                                                "DPI scale must be finite and within 0.75..4.0" );
         }
 
         m_automationDpiScale = command.dpiScale;
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation", "Unknown automation command" );
+    return m_resultDiagnostics.Failure( "DevelopmentTools/ImGuiAutomation", "Unknown automation command" );
 }
 
 UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands() noexcept
@@ -642,8 +640,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
 
     if ( !m_renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Visible game viewport has no DX12 renderer owner" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Visible game viewport has no DX12 renderer owner" );
     }
 
     return m_renderer->CaptureGameViewport();
@@ -1082,9 +1079,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     const auto submit = [&]( auto& queue, const auto& command )
     {
 
-        if ( m_frameCommandStatus.ok )
+        if ( m_frameCommandStatus.Ok() )
         {
-            m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
+            m_frameCommandStatus.Record( UI::SubmitOperatorEditorCommand( m_resultDiagnostics, queue, command ) );
         }
     };
 
@@ -3182,18 +3179,18 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
     m_frameActive = false;
     ++m_completedFrames;
     result.commands = m_frameCommands;
-    result.status = m_frameCommandStatus;
+    result.status = m_frameCommandStatus.Take();
     m_frameCommands = {};
-    m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
 
-    if ( result.status.ok )
+    if ( result.status.Ok() )
     {
         const UI::OperatorEditorArbitrationResult
-            queued = UI::ArbitrateOperatorEditorCommands( m_pendingOperatorEditorCommands, result.commands.operatorEditor );
+            queued = UI::ArbitrateOperatorEditorCommands( m_resultDiagnostics, m_pendingOperatorEditorCommands,
+                                                          result.commands.operatorEditor );
 
         result.status = queued.status;
 
-        if ( result.status.ok )
+        if ( result.status.Ok() )
         {
             m_pendingOperatorEditorCommands = queued.commands;
         }
@@ -3211,15 +3208,14 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
 
     if ( !m_context || !m_renderer )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "Completed frame has no DX12 draw-data target" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw-data target" );
     }
 
     ImGui::SetCurrentContext( m_context );
 
     if ( !ImGui::GetDrawData() )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw data" );
+        return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw data" );
     }
 
     return m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );

@@ -20,11 +20,16 @@ Glossary:
     lifetime remains tied to PhysicsEngine.
   Descriptor refresh: Cold authoring edge that replaces body rows from explicit
     values supplied by the model collection owner.
+  Replay prediction seed: Phase-checked clone of authored topology and concrete
+    store state into Prediction's isolated engine before snapshot restore.
 
 Invariants:
   - Solver, store-refresh, replay, and diagnostics call order remains deterministic.
   - PhysicsWorld is the cohesive solver implementation owned by PhysicsEngine;
     callers receive no mutable-store or solver authority.
+  - Replay prediction seeding requires a registered Replay growth owner and
+    delegates clone authority to concrete stores; ordinary value transfer stays
+    deleted.
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.cpp
@@ -80,6 +85,10 @@ class PhysicsEngine
 {
   public:
     PhysicsEngine();
+    PhysicsEngine( const PhysicsEngine& ) = delete;
+    PhysicsEngine& operator=( const PhysicsEngine& ) = delete;
+    PhysicsEngine( PhysicsEngine&& ) = delete;
+    PhysicsEngine& operator=( PhysicsEngine&& ) = delete;
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
@@ -100,10 +109,11 @@ class PhysicsEngine
                                       std::size_t boxCapacity = 0u, std::size_t hullCapacity = 0u,
                                       std::size_t pointJointCapacity = 0u );
 
-    // Commits the same scene-sized backing as another engine before a cold
-    // clone/copy. The source remains the sole capacity authority; prediction
-    // uses this under its already-approved Replay reserve owner.
-    void ReserveSceneCapacityLike( const PhysicsEngine& source );
+    // Synchronously seeds private replay-prediction storage through explicit
+    // concrete store/topology clones. The destination remains unpublished and
+    // unstepped until its caller restores body values and PhysicsSolverSnapshot;
+    // the exact canonical prediction owner scope must already be active.
+    void SeedReplayPredictionStorageFrom( const PhysicsEngine& source );
 
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.

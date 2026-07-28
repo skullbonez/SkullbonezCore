@@ -41,17 +41,19 @@ using namespace SkullbonezCore::Runtime;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace Rendering = SkullbonezCore::Rendering;
 
-RenderResourceLifecycle::RenderResourceLifecycle( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                                                  Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
-                                                  Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                                                  Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable,
-                                                  const RenderWorldView& world, const SceneSessionState& scene )
-    : m_renderDevice( renderDevice ), m_renderFrame( renderFrame ), m_renderGraph( renderGraph ),
-      m_renderResources( renderResources ), m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ),
-      m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ), m_raytracingAvailable( raytracingAvailable ),
-      m_lifecycleLog( &renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ), m_config( world.config ),
+RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
+                                                  Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+                                                  Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
+                                                  Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+                                                  Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
+                                                  const SceneSessionState& scene )
+    : m_resultDiagnostics( resultDiagnostics ), m_renderDevice( renderDevice ), m_renderFrame( renderFrame ),
+      m_renderGraph( renderGraph ), m_renderResources( renderResources ), m_renderTextures( renderTextures ),
+      m_renderGeometry( renderGeometry ), m_renderDiagnostics( renderDiagnostics ), m_raytracing( raytracing ),
+      m_raytracingAvailable( raytracingAvailable ), m_lifecycleLog( &renderDevice, scene ), m_assets( world.assets ),
+      m_textures( resultDiagnostics ), m_terrain( world.terrain ), m_config( world.config ),
       m_primitiveBatches( std::in_place, &renderResources, &renderTextures, &renderGeometry ),
-      m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( world.profiler, m_gpuTiming )
+      m_gpuTiming( world.profiler, &renderDiagnostics ), m_uiTextPass( resultDiagnostics, world.profiler, m_gpuTiming )
 {
 }
 
@@ -100,7 +102,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
         {
             const SkullbonezCore::Core::SbResult textureResult = m_textures.RebuildTexturesFromSourceAssets();
 
-            if ( !textureResult.ok )
+            if ( !textureResult.Ok() )
             {
                 return textureResult;
             }
@@ -115,7 +117,7 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseProcessResourc
         m_textures.DumpTextureAssets( stdout );
     }
 
-    m_skyBox = std::make_unique<Geometry::SkyBox>( -250, 300, -300, 300, -250, 300 );
+    m_skyBox = std::make_unique<Geometry::SkyBox>( m_resultDiagnostics, -250, 300, -300, 300, -250, 300 );
     m_skyBox->BindTextures( m_textures );
     m_skyBox->BindRenderContexts( m_config, m_assets, renderResources );
     return m_skyBox->ResetRenderResources();

@@ -231,11 +231,12 @@ class RuntimeRenderer
         bool cinematicRequested = false;
     };
 
-    RuntimeRenderer( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,
-                     Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources,
-                     Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-                     Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing,
-                     bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene );
+    RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice,
+                     Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph,
+                     Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
+                     Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics,
+                     Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world,
+                     SceneSessionState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -433,6 +434,7 @@ class RuntimeRenderer
 
     // Owner: backend-epoch state and cold setup live behind one resource seam;
     // frame graph and pass scheduling below retain no duplicate backend borrows.
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RenderResourceLifecycle m_resources;
     Environment::CameraCollection& m_cameras;                                                                                     // Active render-camera owner.
     Window& m_window;                                                                                                             // Client dimensions sampled for render targets.

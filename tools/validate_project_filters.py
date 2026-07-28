@@ -539,6 +539,7 @@ CORE_PREFIXES = (
     "PlatformProfiler",
     "PlatformWin32",
     "Profiler",
+    "SbDiagnosticStore",
     "SbResult",
     "SceneCapacity",
     "StringHash",

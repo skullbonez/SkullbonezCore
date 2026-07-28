@@ -439,8 +439,9 @@ EditorPlacementPostModeUICommandResult ApplyEditorPlacementPostModeUICommands( R
 }
 
 
-void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
-                                  const GameObjects::PresentationSaveState& presentation, bool wasPressed )
+void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, SceneWorld& world,
+                                  const SceneSessionState& scene, const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed )
 {
 
     if ( !wasPressed )
@@ -451,11 +452,11 @@ void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& sc
     static int sSnapshotSeq = 0;
     SkullbonezCore::Core::SbResult saveResult = SkullbonezCore::Core::SbResult::Success();
 
-    if ( TrySaveNextEditorSceneSnapshot( sSnapshotSeq, world.GetSaveState(), scene.GetSaveState(), presentation,
+    if ( TrySaveNextEditorSceneSnapshot( diagnostics, sSnapshotSeq, world.GetSaveState(), scene.GetSaveState(), presentation,
                                          saveResult ) &&
-         !saveResult.ok )
+         !saveResult.Ok() )
     {
-        fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+        fprintf( stderr, "[%s] %s\n", saveResult.ErrorOwner(), saveResult.ErrorMessage() );
     }
 }
 
@@ -476,9 +477,9 @@ void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
     {
         const SkullbonezCore::Core::SbResult queueResult = capture.QueueScreenshot( path );
 
-        if ( !queueResult.ok )
+        if ( !queueResult.Ok() )
         {
-            std::fprintf( stderr, "%s: %s\n", queueResult.error.owner, queueResult.error.message );
+            std::fprintf( stderr, "%s: %s\n", queueResult.ErrorOwner(), queueResult.ErrorMessage() );
             std::fflush( stderr );
         }
     }

@@ -10,7 +10,7 @@
     "aggregates":  [
                        {
                            "key":  "BackbufferAcquireGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:354",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:355",
                            "members":  3,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -28,7 +28,7 @@
                        },
                        {
                            "key":  "BuoyancyBodyFacts",
-                           "site":  "SkullbonezSource/Physics/BuoyancySystem.h:47",
+                           "site":  "SkullbonezSource/Physics/BuoyancySystem.h:48",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/BuoyancySystem.h",
@@ -46,7 +46,7 @@
                        },
                        {
                            "key":  "CinematicPostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:341",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:342",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -55,7 +55,7 @@
                        },
                        {
                            "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:401",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:402",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -73,7 +73,7 @@
                        },
                        {
                            "key":  "EditorGizmoDragPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:280",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:281",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -82,7 +82,7 @@
                        },
                        {
                            "key":  "EditorInteractionPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:70",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:74",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -91,7 +91,7 @@
                        },
                        {
                            "key":  "EditorObjectPlacementRequest",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:97",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorTools.h:101",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -100,7 +100,7 @@
                        },
                        {
                            "key":  "EditorPointerPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:244",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:245",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -109,7 +109,7 @@
                        },
                        {
                            "key":  "EditorPointerSelectionInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:257",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:258",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -118,7 +118,7 @@
                        },
                        {
                            "key":  "EditorToolOverlayTraceInput",
-                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:86",
+                           "site":  "SkullbonezSource/Runtime/Editor/EditorOverlayTools.h:90",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Editor",
@@ -127,7 +127,7 @@
                        },
                        {
                            "key":  "EditorViewportPlacementInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:345",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:346",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -145,7 +145,7 @@
                        },
                        {
                            "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:208",
+                           "site":  "SkullbonezSource/Runtime/App/Run.h:209",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/App",
@@ -181,20 +181,11 @@
                        },
                        {
                            "key":  "Input",
-                           "site":  "SkullbonezSource/Runtime/Input/Input.h:128",
+                           "site":  "SkullbonezSource/Runtime/Input/Input.h:132",
                            "members":  0,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/Input",
                            "reason":  "Static operations normalize Win32 device sampling and deterministic automation overrides behind one platform boundary; callers cannot mutate the nested injection buffers or bypass the sampling policy.",
-                           "destructures_at_entry":  "no"
-                       },
-                       {
-                           "key":  "InteractionAutomationReportInputs",
-                           "site":  "SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h:195",
-                           "members":  11,
-                           "verdict":  "retain",
-                           "owner":  "CA0 / Runtime/Automation",
-                           "reason":  "Status, script identity, scene path, owners, camera/UI state, and render snapshot are captured at one automation completion boundary so the report cannot combine evidence from different runs.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -208,7 +199,7 @@
                        },
                        {
                            "key":  "LauncherPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:384",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:385",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -217,7 +208,7 @@
                        },
                        {
                            "key":  "LauncherReproSnapshotContext",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:208",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:209",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -226,7 +217,7 @@
                        },
                        {
                            "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:365",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:366",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -262,7 +253,7 @@
                        },
                        {
                            "key":  "PointerPresentationPolicyInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:272",
+                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:276",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -334,7 +325,7 @@
                        },
                        {
                            "key":  "ReplayFailureProbeRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:179",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:180",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -343,7 +334,7 @@
                        },
                        {
                            "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:390",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:391",
                            "members":  8,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -469,7 +460,7 @@
                        },
                        {
                            "key":  "ReplayProbeRestoreRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:144",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:145",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -478,7 +469,7 @@
                        },
                        {
                            "key":  "ReplayProbeSaveRequest",
-                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:161",
+                           "site":  "SkullbonezSource/Runtime/Replay/ReplayProbeState.h:162",
                            "members":  2,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Replay",
@@ -703,7 +694,7 @@
                        },
                        {
                            "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:370",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:371",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -721,7 +712,7 @@
                        },
                        {
                            "key":  "ToolOverlayBuildInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:193",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:194",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -739,7 +730,7 @@
                        },
                        {
                            "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:375",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:376",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -775,7 +766,7 @@
                        },
                        {
                            "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:380",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:381",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",

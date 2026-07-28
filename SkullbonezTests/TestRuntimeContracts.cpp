@@ -19,6 +19,10 @@
 //
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
+//   - A diagnostic store may not finish destruction while a failed result lease
+//     still names it.
+//   - Diagnostic counter overflow and same-thread lock re-entry terminate in
+//     isolated children instead of wrapping, aliasing, or spinning.
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
 //   - Disabled development-profiler macros never evaluate caller expressions.
@@ -27,18 +31,23 @@
 //   - Release foreign frees are proved in a child so their process-lifetime
 //     counter cannot contaminate later parent-process diagnostics.
 //   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
+//   - Physics storage seeding rejects missing allocation/owner scopes,
+//     SceneLoad phase, missing Replay owner, and any Replay owner other than
+//     the canonical prediction working set.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
 //   - SkullbonezSource/Core/AmortizedTask.h
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
+//   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/AmortizedTask.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
@@ -54,8 +63,10 @@
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestFatalCases.h"
+#include "TestSbResultAccess.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -72,6 +83,12 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Core::EngineLog;
 using SkullbonezCore::Core::SbResult;
@@ -344,6 +361,33 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    const bool pendingReplayTimeline = std::strcmp( caseName, "replay-restore-pending-timeline-complete" ) == 0;
+    const bool unprovedReplayRollback = std::strcmp( caseName, "replay-restore-unproved-rollback" ) == 0;
+
+    if ( pendingReplayTimeline || unprovedReplayRollback )
+    {
+        using SkullbonezCore::Runtime::ReplayRestoreTransaction;
+        using SkullbonezCore::Runtime::ReplaySolverFrameSample;
+
+        ReplayRestoreTransaction transaction;
+        transaction.SelectArtifact( 1u, 2u );
+        transaction.CaptureLiveBackup( ReplaySolverFrameSample {} );
+        transaction.MarkTopologyPrepared( unprovedReplayRollback, unprovedReplayRollback );
+
+        if ( unprovedReplayRollback )
+        {
+            transaction.MarkRolledBack( "unproved rollback" );
+            return true;
+        }
+
+        transaction.MarkCheckpointApplied();
+        transaction.MarkTargetStepped( 3u, 0u, 0u );
+        transaction.MarkTargetVerified();
+        transaction.PrepareTimelineReset( 4u, 5, 0xA5u );
+        transaction.Complete();
+        return true;
+    }
+
     if ( std::strcmp( caseName, "physics-fixed-list-runtime-capacity" ) == 0 )
     {
         SkullbonezCore::Physics::PhysicsFixedList<int, 4>
@@ -356,6 +400,59 @@ bool RunRuntimeFatalCase( const char* caseName )
         }
         values.push_back( 1 );
         values.push_back( 2 );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "physics-prediction-seed-wrong-replay-owner" ) == 0 )
+    {
+        using namespace SkullbonezCore::Core::Allocation;
+        constexpr int wrongOwnerHardCapacity = 1024;
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+                                                                                          "Fatal probe for unrelated Replay growth authority" } );
+
+        const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
+            RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
+                                    RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
+
+        if ( !growth.granted )
+        {
+            return false;
+        }
+
+        auto source = std::make_unique<PhysicsEngine>();
+        auto destination = std::make_unique<PhysicsEngine>();
+        RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        destination->SeedReplayPredictionStorageFrom( *source );
+        return true;
+    }
+
+    const bool predictionSeedMissingScope = std::strcmp( caseName, "physics-prediction-seed-missing-scope" ) == 0;
+    const bool predictionSeedSceneLoad = std::strcmp( caseName, "physics-prediction-seed-scene-load" ) == 0;
+    const bool predictionSeedMissingOwner = std::strcmp( caseName, "physics-prediction-seed-missing-owner" ) == 0;
+
+    if ( predictionSeedMissingScope || predictionSeedSceneLoad || predictionSeedMissingOwner )
+    {
+        auto source = std::make_unique<PhysicsEngine>();
+        auto destination = std::make_unique<PhysicsEngine>();
+
+        if ( predictionSeedSceneLoad )
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            destination->SeedReplayPredictionStorageFrom( *source );
+            return true;
+        }
+
+        if ( predictionSeedMissingOwner )
+        {
+            RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
+            destination->SeedReplayPredictionStorageFrom( *source );
+            return true;
+        }
+
+        destination->SeedReplayPredictionStorageFrom( *source );
         return true;
     }
 
@@ -396,13 +493,14 @@ bool RunRuntimeFatalCase( const char* caseName )
         config.terrainGeometry.scale = 1.0f;
         std::unique_ptr<SkullbonezCore::Geometry::Terrain> terrain;
         const SbResult created = wroteHeightMap
-                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( heightMapPath, 4, 1,
+                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( diagnostics,
+                                                                                                         heightMapPath, 4, 1,
                                                                                                          1, config, terrain )
-                                     : SbResult::Failure( "Tests/Terrain", "height-map write failed" );
+                                     : diagnostics.Failure( "Tests/Terrain", "height-map write failed" );
 
         DeleteFileA( heightMapPath );
 
-        if ( !created.ok || !terrain )
+        if ( !created.Ok() || !terrain )
         {
             return false;
         }
@@ -419,6 +517,7 @@ bool RunRuntimeFatalCase( const char* caseName )
         const float xPosition = terrainLocateNonFinite
                                     ? ( std::numeric_limits<float>::quiet_NaN )()
                                     : ( terrainLocateUnrepresentable ? ( std::numeric_limits<float>::max )() : 3.0f );
+
         (void)terrain->LocatePolygon( xPosition, 0.0f );
         return true;
     }
@@ -459,8 +558,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
-            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -494,8 +592,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -594,8 +691,7 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -707,6 +803,74 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "sb-diagnostic-capacity" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        std::array<SkullbonezCore::Core::SbResult, SkullbonezCore::Core::SbDiagnosticStore::CAPACITY + 1u> leases;
+
+        for ( std::size_t index = 0; index < leases.size(); ++index )
+        {
+            leases[index] = store.Failure( "FatalCapacity", "slot=%zu", index );
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-double-release" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalRelease", "double release" );
+        const SkullbonezCore::Core::SbDiagnosticIdentity identity = lease.DiagnosticIdentity();
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-owner-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        std::array<char, SkullbonezCore::Core::SbDiagnosticStore::OWNER_CAPACITY + 1u> owner = {};
+        owner.fill( 'o' );
+        owner.back() = '\0';
+        (void)store.Failure( owner.data(), "owner overflow" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-store-destroyed-with-active-lease" ) == 0 )
+    {
+        SkullbonezCore::Core::SbResult escapedLease;
+        {
+            SkullbonezCore::Core::SbDiagnosticStore store;
+            escapedLease = store.Failure( "FatalLifetime", "lease escapes store scope" );
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-lease-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalLeaseOverflow", "saturate lease count" );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::SaturateLeaseCount( store, lease.DiagnosticIdentity().token );
+        const SkullbonezCore::Core::SbResult copy = lease;
+        return copy.Ok();
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-generation-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ExhaustFirstGeneration( store );
+        (void)store.Failure( "FatalGenerationOverflow", "generation must not wrap" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-lock-reentry" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ReenterLock( store );
+        return true;
+    }
+
     return false;
 }
 
@@ -723,20 +887,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back(
-            [threadIndex, path, writesPerThread]()
-            {
-                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                {
-                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+        threads.emplace_back( [threadIndex, path, writesPerThread]()
+                              {
 
-                    if ( writeIndex % 16 == 0 )
-                    {
-                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                            threadIndex, writeIndex );
-                    }
-                }
-            } );
+                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                                  {
+                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+
+                                      if ( writeIndex % 16 == 0 )
+                                      {
+                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                                              threadIndex, writeIndex );
+                                      }
+                                  }
+                              } );
     }
 
     for ( std::thread& thread : threads )
@@ -854,36 +1018,58 @@ TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in orde
 
 TEST_CASE( "SbResult: success and formatted failure values propagate owner and message" )
 {
-    static_assert( sizeof( SkullbonezCore::Core::SbError::message ) == 512 );
 #if defined( _WIN64 )
-    static_assert( sizeof( SbResult ) == 528 );
+    static_assert( sizeof( SbResult ) == 16 );
 #endif
 
     const SbResult success = SbResult::Success();
-    CHECK( success.ok );
-    CHECK( std::strcmp( success.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( success.error.message, "" ) == 0 );
+    CHECK( success.Ok() );
+    CHECK( std::strcmp( success.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( success.ErrorMessage(), "" ) == 0 );
 
-    SbResult reassignedSuccess = SbResult::Failure( "Discarded", "discarded failure" );
+    SbResult reassignedSuccess = diagnostics.Failure( "Discarded", "discarded failure" );
     reassignedSuccess = success;
-    CHECK( reassignedSuccess.ok );
-    CHECK( std::strcmp( reassignedSuccess.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( reassignedSuccess.error.message, "" ) == 0 );
+    CHECK( reassignedSuccess.Ok() );
+    CHECK( std::strcmp( reassignedSuccess.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( reassignedSuccess.ErrorMessage(), "" ) == 0 );
 
-    const SbResult failure = SbResult::Failure( "SceneParser", "invalid body %d", 17 );
-    CHECK_FALSE( failure.ok );
-    CHECK( std::strcmp( failure.error.owner, "SceneParser" ) == 0 );
-    CHECK( std::strcmp( failure.error.message, "invalid body 17" ) == 0 );
+    const SbResult failure = diagnostics.Failure( "SceneParser", "invalid body %d", 17 );
+    CHECK_FALSE( failure.Ok() );
+    CHECK( std::strcmp( failure.ErrorOwner(), "SceneParser" ) == 0 );
+    CHECK( std::strcmp( failure.ErrorMessage(), "invalid body 17" ) == 0 );
 
     const SbResult copiedFailure = failure;
-    CHECK_FALSE( copiedFailure.ok );
-    CHECK( std::strcmp( copiedFailure.error.owner, "SceneParser" ) == 0 );
-    CHECK( std::strcmp( copiedFailure.error.message, "invalid body 17" ) == 0 );
+    CHECK_FALSE( copiedFailure.Ok() );
+    CHECK( std::strcmp( copiedFailure.ErrorOwner(), "SceneParser" ) == 0 );
+    CHECK( std::strcmp( copiedFailure.ErrorMessage(), "invalid body 17" ) == 0 );
 
-    const SbResult defaultFailure = SbResult::Failure( nullptr, nullptr );
-    CHECK_FALSE( defaultFailure.ok );
-    CHECK( std::strcmp( defaultFailure.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( defaultFailure.error.message, "recoverable operation failed" ) == 0 );
+    const SbResult defaultFailure = diagnostics.Failure( nullptr, nullptr );
+    CHECK_FALSE( defaultFailure.Ok() );
+    CHECK( std::strcmp( defaultFailure.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( defaultFailure.ErrorMessage(), "recoverable operation failed" ) == 0 );
+}
+
+
+TEST_CASE( "SbDiagnosticStore bound capacity and lease misuse terminate in child probes" )
+{
+    ExpectFatalCase( "sb-diagnostic-capacity", { "FATAL[Core/SbDiagnosticStore]", "all 256 diagnostic slots are leased" } );
+    ExpectFatalCase( "sb-diagnostic-double-release",
+                     { "FATAL[Core/SbDiagnosticStore]", "release used a stale or already released diagnostic token" } );
+
+    ExpectFatalCase( "sb-diagnostic-owner-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic owner exceeds 95-byte bound" } );
+
+    ExpectFatalCase( "sb-diagnostic-store-destroyed-with-active-lease",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store destroyed with 1 active entries" } );
+
+    ExpectFatalCase( "sb-diagnostic-lease-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic lease count overflowed" } );
+
+    ExpectFatalCase( "sb-diagnostic-generation-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic generation exhausted for slot 0" } );
+
+    ExpectFatalCase( "sb-diagnostic-lock-reentry",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store lock re-entered by its owning thread" } );
 }
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
@@ -899,6 +1085,26 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "physics-fixed-list-phase",
                      { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
                        "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
+
+    ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                       "owner_name=replay_solver_snapshot", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-missing-scope",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=startup", "owner=0",
+                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-scene-load",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=scene_load",
+                       "owner=0", "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-missing-owner",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=replay", "owner=0",
+                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "terrain-locate-cell-range",
                      { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
@@ -936,6 +1142,14 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
 
     ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
+    ExpectFatalCase( "replay-restore-pending-timeline-complete",
+                     { "FATAL[Runtime/ReplayRestoreTransaction]",
+                       "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
+
+    ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]",
+                                                           "Rollback completed without verified live-backup application",
+                                                           "mutated=1", "backup=1", "applied=0" } );
+
     ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine",
                                                       "requested_bodies=9000", "ceiling=8192" } );
 

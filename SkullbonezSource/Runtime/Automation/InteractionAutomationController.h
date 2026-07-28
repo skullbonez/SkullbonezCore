@@ -74,6 +74,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class SbDiagnosticStore;
 } // namespace Core
 namespace Rendering
 {
@@ -302,6 +303,15 @@ struct InteractionAutomationFrameResult;
 
 struct InteractionAutomationController
 {
+    explicit InteractionAutomationController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+        : resultDiagnostics( resultDiagnostics ), reportWriter( resultDiagnostics )
+    {
+    }
+
+    // Lifetime: Run owns this store for the controller's complete process
+    // lifetime. Automation uses it only for Lane R publication and child-owner
+    // construction; it never replaces the App-owned diagnostic authority.
+    SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics;
     bool enabled = false;
     bool scriptLoaded = false;
     bool finished = false;

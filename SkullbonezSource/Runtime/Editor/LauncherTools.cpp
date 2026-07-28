@@ -51,6 +51,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Environment::CameraCollection;
+using SkullbonezCore::Math::Vector::Dot;
 using SkullbonezCore::Math::Vector::Vector3;
 
 #ifdef _DEBUG
@@ -146,7 +147,7 @@ bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world, int& outInd
         }
 
         Vector3 toModel = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) ) - camPos;
-        float rayT = toModel * rayDir;
+        float rayT = Dot( toModel, rayDir );
 
         if ( rayT <= 0.0f )
         {

@@ -74,6 +74,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class SbDiagnosticStore;
+}
 namespace Environment
 {
 class CameraCollection;
@@ -346,7 +350,7 @@ class InputActions
 class InputRouter
 {
   public:
-    InputRouter();
+    explicit InputRouter( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
     RuntimeInputContext& RuntimeContext();
     const RuntimeInputContext& RuntimeContext() const;
@@ -487,6 +491,7 @@ class InputRouter
     void SynchronizeFocusedInputs( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings );
     void SampleKeyboard( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     std::array<bool, ACTION_COUNT> m_actionDown = {};
     std::array<bool, ACTION_COUNT> m_actionDelivered = {};
     std::array<bool, ACTION_COUNT> m_actionSampledThisFrame = {};

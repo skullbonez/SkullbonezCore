@@ -13,8 +13,10 @@ Glossary:
   during incremental orientation updates.
   Identity quaternion: No-rotation value (0,0,0,1); multiplying by it leaves an
   orientation unchanged.
-  Engine quaternion order: This operator convention composes rotations in the
-  order expected by Quaternion.cpp and the engine orientation matrix path.
+  Anti-Hamilton composition: For code operands lhs * rhs, the implementation
+  returns the textbook Hamilton product rhs * lhs.
+  Orientation matrix: The transpose of the textbook Hamilton active-rotation
+  matrix; engine transform and collision callers depend on this exact basis.
   Euler decomposition: Splitting rotation into ordered X/Y/Z angles; this file
   avoids depending on that order for incremental angular displacement.
   Shortest nlerp: Normalized linear interpolation that first chooses the
@@ -22,8 +24,12 @@ Glossary:
 
 Invariants:
   - IDENTITY_QUATERNION is the no-rotation sentinel and must stay (0,0,0,1).
-  - Operator multiplication follows the engine convention documented in
-    Quaternion.cpp; do not silently swap it to library/Hamilton order.
+  - lhs * rhs computes Hamilton(rhs * lhs), not Hamilton(lhs * rhs).
+  - GetOrientationMatrix returns the transpose of the Hamilton active-rotation
+    matrix. RotateAboutAxis negates the delta sine term so an active positive
+    world-axis rotation remains positive under both engine conventions.
+  - These conventions are byte-exact physics and rendering contracts; do not
+    import a textbook formula or normalize either convention independently.
   - Orientation interpolation normalizes its result and clamps alpha to [0,1].
 
 Related:
@@ -55,34 +61,38 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                               // Initializes to identity orientation.
-    Quaternion( float fX, float fY, float fZ, float fW );       // Explicit component construction for deserialization/math helpers.
+    Quaternion();                                           // Initializes to identity orientation.
+    Quaternion( float fX, float fY, float fZ, float fW );   // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
-    void Identity();                                            // Resets orientation to the no-rotation value.
-    void Normalise();                                           // Removes floating-point drift before conversion to matrices or solver rows.
-    void RotateAboutXYZ( const Vector::Vector3& vRadians );     // Treats xyz radians as one angular-displacement vector.
+    void Identity();                                        // Resets orientation to the no-rotation value.
+    void Normalise();                                       // Removes floating-point drift before conversion to matrices or solver rows.
+    void RotateAboutXYZ( const Vector::Vector3& vRadians ); // Treats xyz radians as one angular-displacement vector.
     void
     RotateAboutAxis( const Vector::Vector3& axis,
-                     float angle );                             // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
-    Transformation::RotationMatrix GetOrientationMatrix();      // Converts orientation to the matrix form expected by
+                     float angle );                         // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
 
-    // transforms/collision.
+    // Returns the transpose of the textbook Hamilton active-rotation matrix.
+    // This is the immutable engine basis consumed by transforms and collision.
+    Transformation::RotationMatrix GetOrientationMatrix() const;
     void RotateAboutXYZ( float xRadians, float yRadians,
-                         float zRadians );                      // Rotate by angular-displacement components without Euler decomposition
-    Quaternion operator*( const Quaternion& q ) const;          // Combines this rotation with q in engine multiplication order.
-    Quaternion& operator*=( const Quaternion& q );              // In-place rotation composition; caller normalizes if drift matters.
+                         float zRadians );                  // Rotate by angular-displacement components without Euler decomposition
+
+    // Anti-Hamilton order: lhs * rhs computes Hamilton(rhs * lhs).
+    Quaternion operator*( const Quaternion& q ) const;
+    Quaternion& operator*=( const Quaternion& q );          // In-place rotation composition; caller normalizes if drift matters.
     void GetComponents( float& x, float& y, float& z,
-                        float& w ) const;                       // Exposes raw components for deterministic serialization.
+                        float& w ) const;                   // Exposes raw components for deterministic serialization.
 
   private:
-    float m_x, m_y, m_z, m_w;                                   // Stored as vector part xyz plus scalar w.
+    float m_x, m_y, m_z, m_w;                               // Stored as vector part xyz plus scalar w.
 
-    Quaternion GetQtnRotatedAboutX( float fRadians );           // Builds an X-axis delta rotation in radians.
-    Quaternion GetQtnRotatedAboutY( float fRadians );           // Builds a Y-axis delta rotation in radians.
-    Quaternion GetQtnRotatedAboutZ( float fRadians );           // Builds a Z-axis delta rotation in radians.
+    Quaternion GetQtnRotatedAboutX( float fRadians );       // Builds an X-axis delta rotation in radians.
+    Quaternion GetQtnRotatedAboutY( float fRadians );       // Builds a Y-axis delta rotation in radians.
+    Quaternion GetQtnRotatedAboutZ( float fRadians );       // Builds a Z-axis delta rotation in radians.
 };
 
-const Quaternion IDENTITY_QUATERNION( 0.0f, 0.0f, 0.0f, 1.0f ); // Shared no-rotation value.
+// One program-wide no-rotation value shared by every including translation unit.
+inline const Quaternion IDENTITY_QUATERNION( 0.0f, 0.0f, 0.0f, 1.0f );
 
 inline Quaternion NlerpShortest( const Quaternion& previous, const Quaternion& current, float alpha )
 {

@@ -151,8 +151,9 @@ class PhysicsSleepController
                                                    PhysicsCapacityReason::SceneBodies };
     int m_pendingAwakeIndices[Scene::Capacity::MAX_SCENE_OBJECTS] = {};
 
-    // Parallel producers access this aligned scalar only through atomic_ref;
-    // plain storage preserves PhysicsWorld's cold prediction-copy semantics.
+    // Parallel producers access this aligned scalar only through atomic_ref.
+    // Restore resets the pending count before rebuilding the authoritative
+    // awake rows, so no producer-owned wake request crosses a restore boundary.
     int m_pendingAwakeCount = 0;
     bool m_awakeListNeedsRebuild = true;
     bool m_sleepEnabled = true;

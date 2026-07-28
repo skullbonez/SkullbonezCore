@@ -55,6 +55,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 class PhysicsBodyStore;
+class PhysicsEngine;
 struct PhysicsBodyRecord;
 struct PhysicsMaterial;
 
@@ -109,10 +110,10 @@ class ColliderStore
 {
   public:
     ColliderStore();
-    ColliderStore( const ColliderStore& other );
-    ColliderStore& operator=( const ColliderStore& other );
-    ColliderStore( ColliderStore&& other );
-    ColliderStore& operator=( ColliderStore&& other );
+    ColliderStore( const ColliderStore& ) = delete;
+    ColliderStore& operator=( const ColliderStore& ) = delete;
+    ColliderStore( ColliderStore&& ) = delete;
+    ColliderStore& operator=( ColliderStore&& ) = delete;
     void ReserveCapacity( std::size_t capacity );
     void ReserveShapeCapacity( std::size_t sphereCapacity, std::size_t boxCapacity, std::size_t hullCapacity );
 
@@ -185,6 +186,13 @@ class ColliderStore
     const ColliderAuthoringRecord* AuthoringRecordForModelIndex( int modelIndex ) const;
 
   private:
+    friend class PhysicsEngine;
+
+    // Invariant: replay prediction storage cloning remains a private
+    // PhysicsEngine-coordinated operation and always rebinds copied shape
+    // references into this destination's per-kind stores.
+    void CloneReplayPredictionStorageFrom( const ColliderStore& source );
+
     PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                       ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );

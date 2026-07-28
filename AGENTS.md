@@ -97,30 +97,23 @@ Authoritative dependency enforcement lives in
 `tools/dependency_graph_rules.json`. `tools/validate_dependency_graph.bat`
 runs its positive/negative fixtures and repository scan through the mandatory
 fast, CPU, full, and hosted gates. Add or change a direction only by updating
-rule data, fixtures, and this ownership table in the same change; do not
-hardcode a new checker branch or count budget.
-
-The exact review proofs below remain human-readable mirrors of the validator;
-all commands must return no rows:
-
-```powershell
-rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
-rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Scene|World|Runtime|UI)/' SkullbonezSource/Physics
-rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Rendering
-rg -n '^#include[[:space:]]+.*(Assets|Scene|World|Runtime|UI)/' SkullbonezSource/Gameplay
-```
+rule data, fixtures, and the generated proof block below in the same change; do
+not hardcode a new checker branch or count budget. Regenerate the block with
+the checker's write mode after an owner-approved rule-data edit.
 
 Rendering contracts must remain feature-neutral. No type, constant, or function
 under `SkullbonezSource/Rendering` may name Runtime feature domains such as
 trajectory, replay, prediction, planning, cause trees, porkchops, or operator
 panels. Feature owners supply layouts, capacities, and presentation data through
 generic Rendering value contracts. The validator mechanically rejects the
-retired `RetainedTrajectory` and `RETAINED_TRAJECTORY` names; the broader review
-proof below prevents a renamed feature-specific replacement:
+retired `RetainedTrajectory` and `RETAINED_TRAJECTORY` names through the
+generated content-rule projection below.
+
+The following search is an explicitly qualitative Rendering vocabulary review
+aid. It is not a mechanical policy mirror or a closure result by itself:
 
 ```powershell
 rg -n --ignore-case 'trajectory|porkchop|replay|prediction' SkullbonezSource/Rendering
-rg -n 'RetainedTrajectory|RETAINED_TRAJECTORY' SkullbonezSource/Rendering
 ```
 
 `PhysicsBodyRecord` and hot physics store arrays gain a per-body field only
@@ -133,52 +126,98 @@ If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded
 edge or a compatibility spelling that hides it is a closure failure.
 
-UI is a presentation library below Runtime. Runtime may include UI to compose,
-route, and draw the operator surface; UI must not include Runtime. UI consumes
-detached value snapshots and emits typed command values that Runtime owners
-apply. Move misplaced values into UI or build them at the Runtime call site
-instead of hiding an upward edge behind a forwarding header, alias, callback
-pack, service bag, or broad context object.
-
-Before closing a UI/Runtime dependency change, run this exact review proof; it
-must return no rows:
-
-```powershell
-rg -n '^#include[[:space:]]+.*Runtime/' SkullbonezSource/UI
-```
+UI is a presentation library below Runtime and separate from Rendering. Runtime
+may include UI to compose, route, and draw the operator surface; UI must include
+neither Runtime nor Rendering. UI consumes detached value snapshots and emits
+typed command values that Runtime owners apply. Move misplaced values into UI
+or build them at the Runtime call site instead of hiding an upward edge behind
+a forwarding header, alias, callback pack, service bag, or broad context object.
 
 ## Runtime Package Direction Rule
 
 Physical sub-packages inside `SkullbonezSource/Runtime/` expose ownership and
 must not collapse back into a flat Runtime god package. `App` is the composition
 root; `RuntimeFrameViews.h` is the only allowed top-level source-bearing file
-and contains values/forward declarations only. A package may include itself,
-lower engine layers allowed by the standing dependency rules, and only these
-Runtime targets:
+and contains values/forward declarations only. Runtime allow rows are
+closed-world over the current rule data; a future package is rejected until an
+owner-approved rule edit explicitly admits it.
 
-| Source package | Allowed Runtime package targets |
-|---|---|
-| `App` | Every Runtime package |
-| `Automation` | `App`, `Camera`, `Capture`, `DevelopmentTools`, `Diagnostics`, `Direction`, `Editor`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools` |
-| `Camera` | `App` process values, `Direction`, `Input`, `Interaction`, `Scene`; never `Render` |
-| `Capture` | `App`, `Automation`, `Camera`, `Diagnostics`, `Input`, `Interaction`, `Render`, `Replay`, top-level frame views, `Scene`, `Simulation`, `Tools` |
-| `DevelopmentTools` | `App`, `Input`, `Planning`, `Replay` |
-| `Diagnostics` | `App`, `Automation`, `Capture`, `Debug`, `Input`, `Render`, `Replay`, `Scene` |
-| `Direction` | `Camera`, `Capture`, `Scene`, `Tools` |
-| `Editor` | `App`, `Camera`, `Capture`, `Diagnostics`, `Input`, `Interaction`, `Replay`, top-level frame views, `Scene`, `Tools` |
-| `Input` | `App/Window` platform capability, `Camera`, `Interaction`, `ReplayEventCommand`, `SceneLifecycle`; never `Render`, `UI`, or `DevelopmentTools` |
-| `Interaction` | `Camera`, `Diagnostics`, `Render`, `Scene`, `Simulation` |
-| `Render` | `App`, `Camera`, `Debug`, `DevelopmentTools`, `Diagnostics`, `Input`, `Interaction`, `Planning`, `Prediction`, `Replay`, top-level frame views, `Scene`, `Tools`, `UI` |
-| `Replay` | `Camera`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Render`, `Scene`, `Simulation`, `Tools`, `UI`; never `Prediction` or `Planning` |
-| `Prediction` | `Camera`, `Editor`, `Input`, `Replay`, `Scene`, `Tools`; never `Planning` |
-| `Planning` | `Input`, `Interaction`, `Prediction`, `Render`, `Replay`, `Scene`, `UI` |
-| `Scene` | `App`, `Automation`, `Camera`, `Debug`, `Diagnostics`, `Editor`, `Input`, `Interaction`, `Planning`, `Render`, `Replay`, `Simulation`, `Tools` |
-| `Simulation` | `Interaction`, `Scene` |
-| `Startup` | `App`, `Replay`, `Scene` |
-| `Tools` | `Camera`, `Editor`, `Input`, `Interaction`, `Replay`, `Scene` |
-| `UI` | `App`, `Automation`, `Capture`, `Diagnostics`, `Editor`, `Planning`, `Replay`, top-level frame views, `Scene` |
-| `Debug` | No other Runtime package |
-| top-level frame views | No Runtime package |
+<!-- DEPENDENCY_PROOF_START -->
+<!-- Generated by tools/check_dependency_graph.py --write-proof AGENTS.md. Do not edit this block. -->
+
+### Generated Dependency Proof
+
+This is a deterministic projection of `tools/dependency_graph_rules.json`.
+A prefix matches the named normalized path and every descendant; an exact
+file matches only that normalized file. An allow row is closed-world only
+inside its target scope. Applicable broad deny rows still govern other
+engine-layer targets.
+
+#### Broad And Boundary Include Rules
+
+| Rule | Source | Source kind | Mode | Target scope | Denied prefixes | Allowed prefixes | Allowed exact files |
+|---|---|---|---|---|---|---|---|
+| core_floor | Core | prefix | deny | (none) | Assets, Gameplay, Physics, Rendering, Runtime, Scene, UI, World | (none) | (none) |
+| gameplay_direction | Gameplay | prefix | deny | (none) | Assets, Runtime, Scene, UI, World | (none) | (none) |
+| physics_direction | Physics | prefix | deny | (none) | Assets, Gameplay, Runtime, Scene, UI, World | (none) | (none) |
+| rendering_direction | Rendering | prefix | deny | (none) | Gameplay, Runtime, UI | (none) | (none) |
+| replay_downward_boundary | Core, Physics, Rendering, Scene, World | prefix | deny | (none) | Runtime/Planning, Runtime/Prediction, Runtime/Replay | (none) | (none) |
+| ui_direction | UI | prefix | deny | (none) | Rendering, Runtime | (none) | (none) |
+
+#### Runtime Package Rules
+
+| Source | Source kind | Policy | Allowed target prefixes | Allowed exact target files | Denied target prefixes |
+|---|---|---|---|---|---|
+| Runtime/App | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Startup, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
+| Runtime/Automation | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Direction, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
+| Runtime/Camera | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Direction, Runtime/Input, Runtime/Interaction, Runtime/Scene | (none) | (none) |
+| Runtime/Capture | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
+| Runtime/Debug | prefix | closed allow inside Runtime | Runtime/Debug | (none) | (none) |
+| Runtime/DevelopmentTools | prefix | closed allow inside Runtime | Runtime/App, Runtime/DevelopmentTools, Runtime/Input, Runtime/Planning, Runtime/Replay | (none) | (none) |
+| Runtime/Diagnostics | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Debug, Runtime/Diagnostics, Runtime/Input, Runtime/Render, Runtime/Replay, Runtime/Scene | (none) | (none) |
+| Runtime/Direction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Capture, Runtime/Direction, Runtime/Scene, Runtime/Tools | (none) | (none) |
+| Runtime/Editor | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | Runtime/RuntimeFrameViews.h | (none) |
+| Runtime/RuntimeFrameViews.h | exact file | deny matching target prefixes | (none) | (none) | Runtime |
+| Runtime/Input | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Input, Runtime/Interaction | Runtime/App/Window.h, Runtime/Replay/ReplayEventCommand.h, Runtime/Scene/SceneLifecycle.h | (none) |
+| Runtime/Interaction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Interaction, Runtime/Render, Runtime/Scene, Runtime/Simulation | (none) | (none) |
+| Runtime/Planning | prefix | closed allow inside Runtime | Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/UI | (none) | (none) |
+| Runtime/Prediction | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Prediction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
+| Runtime/Render | prefix | closed allow inside Runtime | Runtime/App, Runtime/Camera, Runtime/Debug, Runtime/DevelopmentTools, Runtime/Diagnostics, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Prediction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Tools, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
+| Runtime/Replay | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools, Runtime/UI | (none) | (none) |
+| Runtime/Scene | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Camera, Runtime/Debug, Runtime/Diagnostics, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Planning, Runtime/Render, Runtime/Replay, Runtime/Scene, Runtime/Simulation, Runtime/Tools | (none) | (none) |
+| Runtime/Simulation | prefix | closed allow inside Runtime | Runtime/Interaction, Runtime/Scene, Runtime/Simulation | (none) | (none) |
+| Runtime/Startup | prefix | closed allow inside Runtime | Runtime/App, Runtime/Replay, Runtime/Scene, Runtime/Startup | (none) | (none) |
+| Runtime/Tools | prefix | closed allow inside Runtime | Runtime/Camera, Runtime/Editor, Runtime/Input, Runtime/Interaction, Runtime/Replay, Runtime/Scene, Runtime/Tools | (none) | (none) |
+| Runtime/UI | prefix | closed allow inside Runtime | Runtime/App, Runtime/Automation, Runtime/Capture, Runtime/Diagnostics, Runtime/Editor, Runtime/Planning, Runtime/Replay, Runtime/Scene, Runtime/UI | Runtime/RuntimeFrameViews.h | (none) |
+
+#### Content Rules
+
+| Rule | Source | Source kind | Forbidden exact literals |
+|---|---|---|---|
+| rendering_retired_trajectory_vocabulary | Rendering | prefix | RETAINED_TRAJECTORY, RetainedTrajectory |
+
+#### Project Ownership Rules
+
+| Rule | Path prefix | Suffixes | Required project | Forbidden projects |
+|---|---|---|---|---|
+| ui_single_project_ownership | SkullbonezSource/UI | .cpp, .h, .hpp, .inl | SKULLBONEZ_UI.vcxproj | SKULLBONEZ_CORE.vcxproj, SKULLBONEZ_TESTS.vcxproj |
+
+#### Executable Proof
+
+The checker, not a second regular-expression parser, evaluates resolved
+repository edges and verifies this block before repository validation:
+
+```powershell
+python tools/check_dependency_graph.py --check-proof AGENTS.md
+python tools/check_dependency_graph.py --repo .
+```
+
+Residual scanner limits: macro-expanded include operands and
+backslash-continued include directives are not parsed. Quoted and
+angle-bracket operands are both recognized, but the textual resolver uses
+one local-first search order rather than reproducing the compiler's
+different quoted-versus-angle search semantics.
+<!-- DEPENDENCY_PROOF_END -->
 
 `InputRouter` is the only retained input routing/context/pointer owner.
 `Input` samples devices, `InputController.Bindings` owns the immutable binding
@@ -186,36 +225,6 @@ table, `InputFrame` assembles frame-local values, `InputFrameExecution`
 sequences the turn, `InputRouter.Interactions` remains part of the same router
 owner, and stateless `InputController` applies mode/camera policy. Do not add a
 second retained input state owner or move frame orchestration down into Input.
-
-The dependency-graph validator is authoritative for this Runtime matrix and
-must pass before closing a Runtime package change. The mirror commands below
-must also return no rows. Each pattern is the complement of the source
-package's allowed Runtime targets, so a new edge requires an owner-approved
-table, rule-data/fixture, and proof update rather than a forwarding header,
-callback facade, or context bag:
-
-```powershell
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Automation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Editor|Planning|Prediction|Render|Replay|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Camera
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Debug|DevelopmentTools|Direction|Editor|Planning|Prediction|Startup|UI)/' SkullbonezSource/Runtime/Capture
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|Diagnostics|Direction|Editor|Interaction|Prediction|Render|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/DevelopmentTools
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Camera|DevelopmentTools|Direction|Editor|Interaction|Planning|Prediction|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Diagnostics
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Debug|DevelopmentTools|Diagnostics|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Direction
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Debug|DevelopmentTools|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/' SkullbonezSource/Runtime/Editor
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Planning|Prediction|Render|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Input
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Editor|Input|Planning|Prediction|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Interaction
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Automation|Capture|Direction|Editor|Simulation|Startup)/' SkullbonezSource/Runtime/Render
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Direction|Planning|Prediction|Startup)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Replay
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Interaction|Planning|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Prediction
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Simulation|Startup|Tools)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Planning
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Capture|DevelopmentTools|Direction|Prediction|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Scene
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Planning|Prediction|Render|Replay|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Simulation
-rg -n '^#include[[:space:]]+\x22((\.\./)?(Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Simulation|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Startup
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Planning|Prediction|Render|Simulation|Startup|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Tools
-rg -n '^#include[[:space:]]+\x22(\.\./)?(Camera|Debug|DevelopmentTools|Direction|Input|Interaction|Prediction|Render|Simulation|Startup|Tools)/' SkullbonezSource/Runtime/UI
-rg -n '^#include[[:space:]]+\x22((\.\./)?(App|Automation|Camera|Capture|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/|\.\./RuntimeFrameViews\.h)' SkullbonezSource/Runtime/Debug
-rg -n '^#include[[:space:]]+\x22(\.\./)?(App|Automation|Camera|Capture|Debug|DevelopmentTools|Diagnostics|Direction|Editor|Input|Interaction|Planning|Prediction|Render|Replay|Scene|Simulation|Startup|Tools|UI)/' SkullbonezSource/Runtime/RuntimeFrameViews.h
-```
 
 ## Replay Boundary Rule
 
@@ -228,12 +237,8 @@ as value packets or bounded queues. Do not move one of their types downward or
 hide an upward edge behind a forwarding header, alias, callback pack, or broad
 context object.
 
-The dependency-graph validator is authoritative for this Replay edge. Before
-closing replay-facing work, the mirror proof must also return no rows:
-
-```powershell
-rg -n '^#include[[:space:]]+.*Runtime/(Replay|Prediction|Planning)/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
-```
+The generated mechanical proof above owns this Replay edge. Before closing
+replay-facing work, run the dependency gate and review its resolved findings.
 
 ### Replay-Family Placement Rule
 
@@ -325,25 +330,54 @@ structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
 |---|---|---|
-| `tools/inventory_wide_signatures.py` | parameter counts per operation | 12-parameter ceiling |
+| `tools/inventory_wide_signatures.py` | parameter counts plus current owner rulings per operation | 12-or-more qualitative owner-review trigger |
 | `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 
 All three outputs are **current measurements requiring review**, never
-allowances. The aggregate and extraction-scar inventories additionally use the
-shared unruled-fails/ruled-passes gate backed by
-`tools/aggregate_ownership_rulings.json`; the wide-signature inventory reports
-its prior dispositions for review and the 12-parameter ceiling remains the
-binding decision rule. Never convert any inventory into a count threshold,
-ratio, or "no more than N" budget, and never add a ruling merely to make a
-number look better — a row records a judgement and names the plan that owns
-the repair.
+allowances. The aggregate and extraction-scar inventories use the shared
+unruled-fails/ruled-passes gate backed by
+`tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
+`tools/wide_signature_ownership_rulings.json`; a signature at or above the
+review trigger must match a current ruling by file and normalized signature.
+Historical dispositions never satisfy that gate. Never convert any inventory
+into a count threshold, ratio, or "no more than N" budget, and never add a
+ruling merely to make a number look better — a row records a judgement and
+names the plan that owns the repair.
 
 Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
 file the reviewer actually reads. A rule that exists only here, while
 `Agentic/Skills/rubber-duck/SKILL.md` and
 `Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
 practice.
+
+## Wide Signature Ownership Review Rule
+
+An operation with 12 or more parameters triggers mandatory qualitative owner
+review. Twelve is the point at which review becomes compulsory; it is not a
+maximum, a safe allowance, or an automatic defect. A signature above the
+trigger may pass when the ruling proves one cohesive operation, while an
+exact-12 signature remains a blocking design defect when its responsibilities
+or authority are unowned.
+
+For every triggered signature, the reviewer must answer:
+
+1. Which concrete owner or invariant-owning phase owns the operation?
+2. Do all participant borrows and outputs have one synchronous lifetime, or
+   does the operation span unrelated responsibilities?
+3. Would shortening the signature introduce a courier, capability-slice set,
+   callback pack, service/context bag, pure forwarder, or owner reach-back?
+4. Does the callee immediately destructure an aggregate or preserve an
+   extraction scar instead of moving design?
+5. Is the current ruling `retain-owner`, or does `repair-plan` name the active
+   plan that owns deletion/decomposition?
+
+`tools/wide_signature_ownership_rulings.json` is exact current-source evidence.
+Changing a file/signature pair invalidates its ruling; deleting or narrowing a
+signature makes its old ruling stale. An unruled trigger row, a stale ruling,
+or a repair ruling without an owning plan fails `validate_fast`. Passing the
+mechanical gate only proves that somebody made a current, reviewable judgement;
+an independent reviewer may disagree with the reason and reopen the work.
 
 ## God-Object Closure Rule
 
@@ -509,10 +543,10 @@ helpers. Its header must name the exact phase-order and arbitration invariant
 it enforces.
 
 This rule does not relax the context-bag, callback-pack, owner reach-back, or
-forwarding bans and does not change the 12-parameter ceiling. Passing a
-legitimate invariant owner as one parameter is not ceiling evasion because
-the header invariant and focused test independently establish why the type
-exists.
+forwarding bans and does not bypass the wide-signature qualitative review
+trigger. Passing a legitimate invariant owner as one parameter is not review
+evasion because the header invariant and focused test independently establish
+why the type exists.
 
 ## Migration Cleanup Review Rule
 

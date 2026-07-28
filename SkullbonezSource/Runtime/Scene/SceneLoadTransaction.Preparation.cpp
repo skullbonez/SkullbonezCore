@@ -151,7 +151,7 @@ SceneLoadBeginResult SceneLoadTransaction::PrepareLoad( const SceneController& c
         // work. A failed drain must leave every scene/controller owner intact.
         result.status = renderFrame->FlushGPU();
 
-        if ( !result.status.ok )
+        if ( !result.status.Ok() )
         {
             return result;
         }

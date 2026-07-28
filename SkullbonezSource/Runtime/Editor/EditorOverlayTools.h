@@ -39,6 +39,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class SbDiagnosticStore;
+}
 namespace Assets
 {
 class AssetSystem;
@@ -93,7 +97,8 @@ struct EditorToolOverlayTraceInput
     bool attachedCameraActiveFollow = false;
 };
 
-EditorInteractionPreviewResult UpdateEditorInteractionPreview( RunEditorPlacementState& editor, SceneWorld& world,
+EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosticStore& diagnostics,
+                                                               RunEditorPlacementState& editor, SceneWorld& world,
                                                                RuntimeInteractionController& interaction,
                                                                const Assets::AssetSystem& assets,
                                                                const EditorInteractionPreviewInput& input );

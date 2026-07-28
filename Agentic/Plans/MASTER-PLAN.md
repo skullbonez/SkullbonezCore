@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-26
+Date: 2026-07-28
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -184,6 +184,166 @@ Rules:
    discoverable here.
 
 ### Portfolio Progress Ledger
+
+The denominator grew 0 → 24 on 2026-07-28 when the owner registered the
+seven-plan Principal Engineer Feedback Campaign from the current-tree review at
+main tip `0768593d`: physics body hot-layout evidence (4 tasks), Replay restore
+and wide-signature governance (4), PhysicsFixedList copy contract (3), compact
+SbResult success path (4), explicit vector dot-product API (3), deterministic
+terrain fixture isolation (3), and generated dependency proofs (3). The
+bounded one-task response that registered the campaign also removes the exact
+Replay pure forwarder, publishes the quaternion convention in its public
+header, makes orientation conversion const, gives identity constants one inline
+definition, and enables `/WX` for first-party IDE builds; completed immediate
+work does not inflate the live denominator.
+
+Physics body hot-layout evidence closed at 4/4 on 2026-07-28 and left the live
+ledger under rule 4. The remaining Principal Engineer Feedback Campaign is
+therefore 0/20. Closure evidence is in
+`../Reports/2026-07-28/physics-body-hot-layout-closure.md`.
+
+Replay restore and wide-signature governance closed at 4/4 on 2026-07-28 and
+left the live ledger under rule 4. The remaining Principal Engineer Feedback
+Campaign is therefore 0/16. Closure evidence is in
+`../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md`.
+
+Physics fixed-list copy contract closed at 3/3 on 2026-07-28 and left the live
+ledger under rule 4. The remaining Principal Engineer Feedback Campaign is
+therefore 0/13. Closure evidence is in
+`../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md`.
+
+SbResult compact success path SR0 completed on 2026-07-28. The current type is
+528 bytes, its protected 511-byte failure payload remains intact, the complete
+177-definition value-flow/lifetime census found no queue or CPU-thread handoff,
+and the unrefreshed performance gate passed. The live ledger is therefore
+1/13 (8%). Evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md`.
+
+SbResult compact success path SR1 completed on 2026-07-28. One App-composed
+256-slot immutable diagnostic store is selected; a failed 16-byte result leases
+a packed slot/generation token until its last copy releases, while success
+touches no store. Explicit store injection replaces the old producer/public
+field API without a wrapper. The original decision recorded a 176-producer plus
+30 retained/aggregate-site bound under verified no-recursion/re-entry, no
+worker publication, and no result-container/queue assumptions; SR2's
+multiline-aware correction below supersedes that count. Escaping diagnostics
+use bounded copy-out rather than borrowed pointers. The live ledger is
+therefore 2/13 (15%). Evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`.
+
+SbResult compact success path SR2 completed on 2026-07-28. The 16-byte leased
+carrier, 159,760-byte fixed App store, exact bounded diagnostics, stale identity
+checks, last-lease reclamation, explicit producer migration, and compact
+`ApplicationExitState` retention now compile and pass focused tests. SR2's
+multiline-aware correction changes the SR1 decision-tip census from the
+reported 176+30 to 220+30. The final capacity census is 221 producer
+expressions plus 29 result-member sites, conservatively 250/256 live entries
+without a hidden store, result container, deferred queue, or worker handoff.
+The live ledger is therefore 3/13 (23%).
+Evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`.
+
+SbResult compact success path SR3 completed on 2026-07-28. The final source
+pins the result at 16 bytes and the 256-slot store at 159,760 bytes, preserves
+the exact 511-byte payload, and passes lease, identity, allocation, DX12 epoch,
+Automation, performance, full, comment, and independent-review proofs. The
+final tracked-source census corrects retained members to 31; 221 publication
+expressions plus 31 members conservatively bound the source at 252/256. The
+completed four-task plan left the ledger under rule 4, so the remaining
+Principal Engineer Feedback Campaign is 0/9 (0%). Closure evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-closure.md`.
+
+Vector dot-product API VD0 completed on 2026-07-28. Its
+Profile-preprocessed type-aware tracked-tree census found 171 true
+vector-vector dot calls across 34 files: 163 production and 8 tests, including
+96 byte-exact-sensitive Physics calls. Scalar, matrix, quaternion,
+component-wise, and unrelated multiplications are excluded by resolved type.
+VD2's configuration-complete correction below supersedes the completeness of
+that historical count. The live campaign was then 1/9 (11%).
+
+Vector dot-product API VD1 completed on 2026-07-28. One shared inline
+`Math::Vector::Dot` preserves the exact established x/y/z arithmetic spelling;
+170 Profile-visible call sites now name it and deletion of the OrbitalMechanics
+adapter accounts for the census's remaining overload call. The vector-vector
+overload and every compatibility spelling are gone. Profile compilation, 62
+focused cases / 9,294 assertions, project/filter metadata, dependency
+direction, and all three ownership inventories pass. The VD1 touched-source
+comment audit is 34/34. The protected warm-start working-tree hunks remain
+byte-identical and are excluded by the recorded partial-stage boundary. The
+live campaign was then 2/9 (22%).
+
+Vector dot-product API VD2 completed on 2026-07-28. Full Debug compilation
+exposed two `_DEBUG`-only calls omitted by the VD0 Profile census, so the
+configuration-complete total is 173 uses across 36 files: 172 named call-site
+replacements plus the deleted adapter-body use. One shared definition and 179
+calls remain; permanent mixed-sign coverage pins x-then-y-then-z evaluation.
+Tests, byte-exact and deep Physics/SkullScope, performance, one-generation Replay
+visual fidelity, DX12, full validation, 36/36 comment audit, and independent
+review pass without baseline refresh. The completed three-task plan left the
+ledger under rule 4, so the remaining Principal Engineer Feedback Campaign is
+0/6 (0%). Closure evidence is in
+`../Reports/2026-07-28/vector-dot-product-api-closure.md`.
+
+Deterministic terrain fixture isolation TF1 completed on 2026-07-28. All four
+shared terrain statics, the hidden terrain default, and the unused nullable
+branch are deleted. All 18 affected determinism cases now use per-test
+config/terrain/heap-engine invariant owners; comparison engines own independent
+fixtures. The two related test cases use per-case owners, and the startup
+lifecycle probe now destroys its retained-view engine before terrain/config.
+Focused tests, the 437-case suite, lifecycle smoke, dependency direction, and
+all ownership inventories pass. Exact formatting passes for the four touched
+source files; the repository gate is blocked only by the owner's separate
+warm-start files. No baseline or layout changed. The live ledger is therefore
+2/6 (33%). Evidence is in
+`../Reports/2026-07-28/determinism-terrain-fixture-isolation-tf1.md`.
+
+Deterministic terrain fixture isolation TF2 completed on 2026-07-28. A
+seven-run flat/deep fixture reconstruction witness covers all four predecessor
+transitions and produces exact repeated hashes. Both recorded randomized
+determinism seeds pass 24/24 cases, the final suite passes 438/438 cases and
+2,419,221 assertions, byte-exact and deep Physics pass, and the final full gate
+passes after independent-review remediation. The completed three-task plan left
+the ledger under rule 4, so the remaining Principal Engineer Feedback Campaign
+is 0/3 (0%). Closure evidence is in
+`../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md`.
+
+Dependency proof generation DP0 completed on 2026-07-28. The deterministic
+comparison reconciles 27 include rules, one content rule, one project rule, the
+21-row Runtime table, 28 hand-written commands, 46 negative include fixtures,
+two content fixtures, and one compound project fixture. It identifies the over-broad
+Input proof, every Runtime regex's future-package hole, the frame-view
+self-include hole, the UI prose/proof omission of Rendering, the compound
+project-fixture false pass, selected-example fixture coverage, textual include
+and resolver limits, path-casing platform behavior, and the closed-world App-row
+wording. DP1 will extend the existing checker with one deterministic Markdown
+projection and marked-block freshness check that owns the 21-row matrix and all
+27 mechanical commands; only one explicitly qualitative Rendering vocabulary
+search remains outside. It preserves prefix-versus-exact-file meaning, migrates
+the six frame-view file exceptions out of prefix lists, and intentionally
+rejects a pseudo-descendant path while retaining exact live edges. Marker
+handling is fail-closed, writes preserve outside-block bytes, and Markdown
+escaping is deterministic. It will not add a second checker, package branch,
+edge count, or budget. The live ledger is therefore 1/3 (33%). Evidence is in
+`../Reports/2026-07-28/dependency-proof-generation-dp0-comparison.md`.
+
+Dependency proof generation DP1 completed on 2026-07-28. The existing checker
+now renders, freshness-checks, and byte-preservingly rewrites one fail-closed
+marked `AGENTS.md` block. That projection replaces the independently maintained
+21-row Runtime table and all 27 mechanical `rg` proofs, while the sole broad
+Rendering vocabulary search remains explicitly qualitative. Prefixes and exact
+files are distinct columns; all six frame-view allowances are exact files and a
+`RuntimeFrameViews.h/Child.h` fixture is rejected. App is visibly closed-world,
+Camera's App allowance is shown at its true prefix scope, and UI prose now
+rejects both Runtime and Rendering. Determinism, Markdown escaping, missing /
+duplicate / reversed markers, stale/current blocks, and outside-byte
+preservation are covered by focused self-tests. The dependency gate reports 27
+include rules, 47 negative edge fixtures, two content fixtures, one project
+fixture, and zero repository findings. The live ledger is therefore 2/3 (67%).
+DP2 still owns planted rule drift, independent missing-required/Core/Tests
+project cases with end-to-end XML/path discovery, bounded residual-parser
+fixtures, final instructions/comment reconciliation, independent review, and
+the mapped fast/full gates. Evidence is in
+`../Reports/2026-07-28/dependency-proof-generation-dp1-checkpoint.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -767,6 +927,16 @@ caller should move, and plan 1's Capability Slice Ownership Rule landed
 layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
+
+The remaining Principal Engineer Feedback Campaign is binding at 2/3 (67%).
+Execute its one live plan in the table below. The owner has answered every
+active-plan question: retain SoA and run the five-scene Physics witness matrix;
+replace the hard 12-parameter ceiling with qualitative review and reopen all
+exact-12 rows;
+keep explicit PhysicsFixedList cloning on concrete owners; use bounded
+owner-managed SbResult diagnostics with no compatibility wrapper; and delete
+vector-vector `operator*` after migration. No plan may refresh a physics,
+Replay, visual, or performance baseline without explicit owner authority.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -1411,11 +1581,16 @@ ledger): `WNF/dx12-frame-path-comment-rot-sweep.md`. The owner ruled no
 comment changes yet; the Present GPU-timer dead-store finding it carries stays
 recorded there for when the plan is restored.
 
-Deliberately not planned (owner may revisit): AoS `PhysicsBodyRecord` layout
-reshaping and terrain warm-start/clamp heuristic replacement — both working,
-honestly documented, and baseline-entangled; undertake only with a concrete
-perf or stacking-stability motivation. Repeated glossary-header deduplication
-is available as a documentation-only plan if the owner wants it (currently
+Historical 2026-07-12 owner ruling: full-record AoS `PhysicsBodyRecord`
+reshaping and terrain warm-start/clamp heuristic replacement were deliberately
+not planned because they were working, documented, and baseline-entangled.
+The 2026-07-28 principal-feedback campaign supersedes that ruling only for the
+hot-store evidence question. The completed measurement retained SoA; closure is
+recorded in
+`../Reports/2026-07-28/physics-body-hot-layout-closure.md`.
+Terrain heuristic replacement remains parked. Repeated glossary-header
+deduplication is
+available as a documentation-only plan if the owner wants it (currently
 excluded by the same no-comment-changes ruling).
 
 ## Adversarial Review Remediation Round 3 (2026-07-13)
@@ -2051,9 +2226,9 @@ byte-exact-or-revert — the bounded-divergence allowance does not apply. For
 the fourth plan: the invariant-ownership test is the standing arbiter between
 a banned authority-free bag and a legitimate invariant owner; the amendment
 sharpens that test and repeals none of the context-bag, callback, reach-back,
-or forwarding bans; the 12-parameter ceiling remains binding; and the
-enforcement stays qualitative (review plus comment audit) with no counting or
-spelling ratchet added.
+or forwarding bans. RG1 of the 2026-07-28 principal-feedback campaign
+subsequently replaced the former 12-parameter ceiling with an exact-current
+qualitative ruling trigger; no counting or spelling ratchet was added.
 
 Standing rules binding every plan in this campaign: zero behavioral baseline,
 golden, screenshot, replay artifact, scene, config, or physics CSV refresh —
@@ -2161,6 +2336,40 @@ requires owner divergence authority and the campaign is byte-exact throughout.
 | 13 | [terrain-legacy-and-contact-seed-remediation](../Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md) | Complete | 5/5 | Closed 2026-07-27 and removed from the live ledger under rule 4; axes and bounds are explicit, the ratified seed is fully pinned, review is clear, and every final gate passes byte-exact |
 | 14 | [new-aggregate-ruling-gate](../Reports/2026-07-27/new-aggregate-ruling-gate-closure.md) | Complete | 3/3 | Closed 2026-07-27 and removed from the live ledger under rule 4; 86 bounded rows are ruled, the transition is unusable, bypass review is clear, and all CPU gates pass |
 
+## Principal Engineer Feedback Campaign (2026-07-28)
+
+Source: owner-supplied principal-engineer review verified against main tip
+`0768593d` on `nightrunner-28th-JUL-26`. The bounded immediate response fixes
+only behavior-neutral, locally provable items. Ownership, ABI, lifetime,
+performance, and governance redesigns remain explicit plans.
+
+Binding owner directions:
+
+- Retain the Physics body SoA for the completed campaign. A future AoS proposal
+  may proceed only if representative evidence shows no meaningful degradation
+  relative to SoA. **Owner question before such work begins:** should
+  "meaningful" mean more than 2%, more than 5%, or only a statistically
+  significant regression?
+- The warm-start key capacity guard is the final actionable local change. It is
+  intentionally left uncommitted after the campaign-registration commit for
+  owner review; no baseline may be refreshed by the agent. **Owner question for
+  evaluation:** should acceptance be decided from Physics-frame time, solver
+  time, contact stability, or all three?
+- Plan 2 replaces the hard 12-parameter ceiling with mandatory qualitative
+  ownership review and reopens every current exact-12 row. No implementation
+  may hide a wide operation in a courier, forwarding facade, capability slice,
+  callback pack, or renamed context.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
+| 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
+| 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
+| 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
+| 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
+| 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
+| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Active | 2/3 | DP2 prove planted drift and split project branches end to end, reconcile final instructions/comments, run independent review, and close with mapped fast/full gates |
+
 ## Features
 
 | Plan | State | Verified phase count | Start condition |
@@ -2193,9 +2402,11 @@ Binding:
   apply free functions plus ordering/arbitration comments around one
   operation, it must report "this operation needs an invariant owner" — a
   parameter reshuffle is not an accepted remediation. This test repeals no
-  existing ban and does not change the 12-parameter ceiling. GV0 installed the
-  standing rule in `AGENTS.md`, added the aggregate-invariant check to the
-  comment-audit skill, and made the extrusion signal mandatory review output.
+  existing ban. GV0 installed the standing rule in `AGENTS.md`, added the
+  aggregate-invariant check to the comment-audit skill, and made the extrusion
+  signal mandatory review output. The later 2026-07-28 RG1 governance change
+  replaced the former ceiling with the 12-or-more qualitative owner-review
+  trigger and exact current-signature rulings.
 - Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
   owner of pass scheduling and ordinary frame-resource barrier emission.
   Closure and bounded edge exceptions are recorded in

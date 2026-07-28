@@ -26,6 +26,7 @@ Related:
 */
 #include "SceneSaveOperations.h"
 
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Tools/RuntimeFileWriter.h"
 
 using SkullbonezCore::GameObjects::PresentationSaveState;
@@ -40,20 +41,22 @@ namespace Runtime
 {
 namespace
 {
-Core::SbResult SaveCompletePublication( const char* path, const SceneWorldSaveState& world,
-                                        const SceneSessionSaveState& session, const PresentationSaveState& presentation )
+Core::SbResult SaveCompletePublication( Core::SbDiagnosticStore& diagnostics, const char* path,
+                                        const SceneWorldSaveState& world, const SceneSessionSaveState& session,
+                                        const PresentationSaveState& presentation )
 {
 
     // Why: these callers are production entry policies, not test adapters.
     // Centralizing only request composition makes a partial publication
     // impossible while each public operation retains its own path policy.
-    return SceneSnapshotWriter::Save( SceneSaveRequest { path, world, session, presentation } );
+    return SceneSnapshotWriter::Save( diagnostics, SceneSaveRequest { path, world, session, presentation } );
 }
 } // namespace
 
 
-bool TrySaveNextEditorSceneSnapshot( int& sequence, const SceneWorldSaveState& world, const SceneSessionSaveState& session,
-                                     const PresentationSaveState& presentation, Core::SbResult& outSaveResult )
+bool TrySaveNextEditorSceneSnapshot( Core::SbDiagnosticStore& diagnostics, int& sequence, const SceneWorldSaveState& world,
+                                     const SceneSessionSaveState& session, const PresentationSaveState& presentation,
+                                     Core::SbResult& outSaveResult )
 {
     char path[256] = {};
 
@@ -62,35 +65,36 @@ bool TrySaveNextEditorSceneSnapshot( int& sequence, const SceneWorldSaveState& w
         return false;
     }
 
-    outSaveResult = SaveCompletePublication( path, world, session, presentation );
+    outSaveResult = SaveCompletePublication( diagnostics, path, world, session, presentation );
     return true;
 }
 
 
-Core::SbResult SaveSceneLoadOnlySnapshot( const char* path, const SceneWorldSaveState& world,
-                                          const SceneSessionSaveState& session, const PresentationSaveState& presentation )
+Core::SbResult SaveSceneLoadOnlySnapshot( Core::SbDiagnosticStore& diagnostics, const char* path,
+                                          const SceneWorldSaveState& world, const SceneSessionSaveState& session,
+                                          const PresentationSaveState& presentation )
 {
 
     if ( !path || path[0] == '\0' )
     {
-        return Core::SbResult::Failure( "Runtime/SceneLoadOnly", "Scene snapshot output path is empty." );
+        return diagnostics.Failure( "Runtime/SceneLoadOnly", "Scene snapshot output path is empty." );
     }
 
-    return SaveCompletePublication( path, world, session, presentation );
+    return SaveCompletePublication( diagnostics, path, world, session, presentation );
 }
 
 
-Core::SbResult SaveEditableSceneBeforeReplacement( const char* activeScenePath, const SceneWorldSaveState& world,
-                                                   const SceneSessionSaveState& session,
+Core::SbResult SaveEditableSceneBeforeReplacement( Core::SbDiagnosticStore& diagnostics, const char* activeScenePath,
+                                                   const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                                    const PresentationSaveState& presentation )
 {
 
     if ( !activeScenePath || activeScenePath[0] == '\0' )
     {
-        return Core::SbResult::Failure( "Runtime/SceneController", "Editable scene has no active authored path to save." );
+        return diagnostics.Failure( "Runtime/SceneController", "Editable scene has no active authored path to save." );
     }
 
-    return SaveCompletePublication( activeScenePath, world, session, presentation );
+    return SaveCompletePublication( diagnostics, activeScenePath, world, session, presentation );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -129,14 +129,14 @@ int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& wor
     for ( int axis = 0; axis < 3; ++axis )
     {
         const Vector3 normal = EditorAxisVector( axis );
-        const float denom = normal * rayDirection;
+        const float denom = Dot( normal, rayDirection );
 
         if ( fabsf( denom ) <= 1e-4f )
         {
             continue;
         }
 
-        const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+        const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
 
         if ( rayT < 0.0f )
         {
@@ -145,7 +145,7 @@ int HitEditorRotationGizmoAxis( RunEditorPlacementState& editor, SceneWorld& wor
 
         const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
         const Vector3 radial = hitPoint - origin;
-        const float radialDistance = VectorMag( radial - normal * ( radial * normal ) );
+        const float radialDistance = VectorMag( radial - normal * ( Dot( radial, normal ) ) );
         const float diff = fabsf( radialDistance - ringRadius );
 
         if ( diff <= threshold && diff < bestDiff )
@@ -181,9 +181,9 @@ bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& wor
 
     const Vector3 axisVector = EditorAxisVector( axis );
     const Vector3 w = axisOrigin - rayOrigin;
-    const float b = axisVector * rayDirection;
-    const float d = axisVector * w;
-    const float e = rayDirection * w;
+    const float b = Dot( axisVector, rayDirection );
+    const float d = Dot( axisVector, w );
+    const float e = Dot( rayDirection, w );
     const float denom = 1.0f - b * b;
 
     if ( fabsf( denom ) <= 1e-5f )
@@ -202,14 +202,14 @@ bool TryEditorAxisRayParameter( RunEditorPlacementState& editor, SceneWorld& wor
 Vector3 EditorAxisDragPlaneNormal( int axis, const Vector3& rayDirection )
 {
     const Vector3 axisVector = EditorAxisVector( axis );
-    Vector3 normal = rayDirection - axisVector * ( rayDirection * axisVector );
+    Vector3 normal = rayDirection - axisVector * ( Dot( rayDirection, axisVector ) );
     float normalLenSq = VectorMagSquared( normal );
 
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
     {
         const Vector3 fallback = fabsf( axisVector.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
 
-        normal = fallback - axisVector * ( fallback * axisVector );
+        normal = fallback - axisVector * ( Dot( fallback, axisVector ) );
         normalLenSq = VectorMagSquared( normal );
     }
 
@@ -238,14 +238,14 @@ bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const
         return false;
     }
 
-    const float denom = rayDirection * planeNormal;
+    const float denom = Dot( rayDirection, planeNormal );
 
     if ( fabsf( denom ) <= 1e-5f )
     {
         return false;
     }
 
-    const float rayT = ( ( planeOrigin - rayOrigin ) * planeNormal ) / denom;
+    const float rayT = ( Dot( ( planeOrigin - rayOrigin ), planeNormal ) ) / denom;
 
     if ( rayT < 0.0f )
     {
@@ -253,7 +253,7 @@ bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const
     }
 
     const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
-    outAxisT = ( hitPoint - planeOrigin ) * EditorAxisVector( axis );
+    outAxisT = Dot( ( hitPoint - planeOrigin ), EditorAxisVector( axis ) );
     return std::isfinite( outAxisT );
 }
 
@@ -279,14 +279,14 @@ bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& wor
     }
 
     const Vector3 normal = EditorAxisVector( axis );
-    const float denom = normal * rayDirection;
+    const float denom = Dot( normal, rayDirection );
 
     if ( fabsf( denom ) <= 1e-4f )
     {
         return false;
     }
 
-    const float rayT = ( normal * ( origin - rayOrigin ) ) / denom;
+    const float rayT = ( Dot( normal, ( origin - rayOrigin ) ) ) / denom;
 
     if ( rayT < 0.0f )
     {
@@ -294,8 +294,8 @@ bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& wor
     }
 
     Vector3 radial = rayOrigin + rayDirection * rayT - origin;
-    radial -= normal * ( radial * normal );
-    const float radialLenSq = radial * radial;
+    radial -= normal * ( Dot( radial, normal ) );
+    const float radialLenSq = Dot( radial, radial );
 
     if ( radialLenSq <= TOLERANCE * TOLERANCE )
     {
@@ -306,7 +306,7 @@ bool TryEditorRotationRayAngle( RunEditorPlacementState& editor, SceneWorld& wor
 
     const Vector3 basisA = EditorRotationRingBasisA( axis );
     const Vector3 basisB = EditorRotationRingBasisB( axis );
-    outAngle = atan2f( radial * basisB, radial * basisA );
+    outAngle = atan2f( Dot( radial, basisB ), Dot( radial, basisA ) );
     return true;
 }
 

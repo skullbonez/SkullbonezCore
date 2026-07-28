@@ -91,7 +91,7 @@ struct ScenePhysicsPostStepOutput
 class SceneWorld
 {
   public:
-    SceneWorld();
+    explicit SceneWorld( SkullbonezCore::Core::SbDiagnosticStore& diagnostics );
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
 
@@ -197,6 +197,7 @@ class SceneWorld
     std::span<const float> BuildWorldExtensionDebugLines();
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;
     void ReserveForActiveSceneObjectCapacity();
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;

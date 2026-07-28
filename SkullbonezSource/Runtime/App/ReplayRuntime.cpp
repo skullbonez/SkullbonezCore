@@ -208,8 +208,9 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 
 } // namespace
 
-ReplayRuntime::ReplayRuntime( Core::Profiler* profiler )
-    : m_profiler( profiler ), m_authoring( profiler ), m_predictionOwner( profiler ), m_visualPresentation( profiler )
+ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )
+    : m_resultDiagnostics( resultDiagnostics ), m_profiler( profiler ), m_probeRunner( resultDiagnostics ),
+      m_authoring( profiler ), m_predictionOwner( resultDiagnostics, profiler ), m_visualPresentation( profiler )
 {
 }
 
@@ -311,6 +312,10 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
                                                RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample )
 {
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/Restore", ::HashStr( "Frame/Replay/Restore" ) );
+
+    // Invariant: every product and probe entry reaches the same cancellation
+    // barrier before mutating live physics authority.
+    m_predictionOwner.CancelJob( false );
     transaction.SelectArtifact( 0, 0 );
     ReplaySolverFrameSample liveBackup;
 
@@ -398,6 +403,11 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     if ( !hashMatched && !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "Replay restore verification failed and the live backup could not be restored" );
+    }
+
+    if ( !hashMatched )
+    {
+        transaction.MarkLiveBackupApplied();
     }
 
     if ( !hashCaptured )

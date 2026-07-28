@@ -340,13 +340,14 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
 }
 
 
-std::unique_ptr<RuntimeValidationHarness> RuntimeValidationHarness::CreateForStartup()
+std::unique_ptr<RuntimeValidationHarness>
+RuntimeValidationHarness::CreateForStartup( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
     // Allocation policy: keep both cold harness implementations out of Run.h.
     // The single owner allocation is bounded to process startup.
-    return std::make_unique<RuntimeValidationHarness>();
+    return std::make_unique<RuntimeValidationHarness>( resultDiagnostics );
 }
 
 
@@ -402,7 +403,8 @@ void RuntimeValidationHarness::TickLiveStyle( RunLaunchOptions& launchOptions, S
                                               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                                               const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
-    m_liveStyle.Tick( launchOptions, sceneController, sceneBrowser, assets, activeCinematic, defaultCinematic );
+    m_liveStyle.Tick( m_resultDiagnostics, launchOptions, sceneController, sceneBrowser, assets, activeCinematic,
+                      defaultCinematic );
 }
 
 

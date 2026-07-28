@@ -117,7 +117,8 @@ Terrain::Terrain( int iMapSize, int iStepSize, int iTextureWrap, const Skullbone
 }
 
 
-SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( const char* sFileName, int iMapSize, int iStepSize,
+SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                       const char* sFileName, int iMapSize, int iStepSize,
                                                                        int iTextureWrap,
                                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                                        std::unique_ptr<Terrain>& outTerrain )
@@ -126,9 +127,9 @@ SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( const cha
     std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( PhysicsOnlyHeightMapTag {}, iMapSize, iStepSize,
                                                                   iTextureWrap, config );
 
-    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( sFileName );
+    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, sFileName );
 
-    if ( !loadResult.ok )
+    if ( !loadResult.Ok() )
     {
         return loadResult;
     }
@@ -142,8 +143,11 @@ SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( const cha
 
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
-SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
-                                                                SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources, std::unique_ptr<Terrain>& outTerrain )
+SkullbonezCore::Core::SbResult
+Terrain::TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize,
+                                 int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+                                 SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources,
+                                 std::unique_ptr<Terrain>& outTerrain )
 {
 
     // Concept: RAW terrain files are external asset input. The factory keeps
@@ -153,9 +157,9 @@ SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFil
     std::unique_ptr<Terrain> terrain = std::make_unique<Terrain>( iMapSize, iStepSize, iTextureWrap, config, assets,
                                                                   resources );
 
-    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( sFileName );
+    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( diagnostics, sFileName );
 
-    if ( !loadResult.ok )
+    if ( !loadResult.Ok() )
     {
         return loadResult;
     }
@@ -513,7 +517,8 @@ int Terrain::GetPixelHeightAt( int worldXCoordinate, int worldZCoordinate )
 }
 
 
-SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
+SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                         const char* sFileName )
 {
 
     // Lane R: height-map files are config/scene-selected assets. Missing or
@@ -521,7 +526,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
 
     if ( !sFileName || sFileName[0] == '\0' )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain", "Height map file path is empty." );
+        return diagnostics.Failure( "World/Terrain", "Height map file path is empty." );
     }
 
     FILE* rawFile = nullptr;
@@ -529,7 +534,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
 
     if ( !rawFile )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain", "Height map file not found: %s", sFileName );
+        return diagnostics.Failure( "World/Terrain", "Height map file not found: %s", sFileName );
     }
 
     FileHandle file( rawFile );
@@ -542,8 +547,8 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
     if ( bytesRead != expectedBytes || ferror( file.get() ) )
     {
         m_terrainData.clear();
-        return SkullbonezCore::Core::SbResult::Failure( "World/Terrain", "Failed to read height map '%s' (%zu/%zu bytes).",
-                                                        sFileName, bytesRead, expectedBytes );
+        return diagnostics.Failure( "World/Terrain", "Failed to read height map '%s' (%zu/%zu bytes).", sFileName, bytesRead,
+                                    expectedBytes );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

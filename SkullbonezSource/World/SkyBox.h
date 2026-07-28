@@ -66,6 +66,7 @@ class SkyBox
 {
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Box m_boundaries;                                                     // World-space cube bounds around the scene camera.
     Textures::TextureCollection* m_textures;                              // Borrowed texture registry; scene/runtime owns it.
     const SkullbonezCore::Core::EngineConfig* m_config;                   // Borrowed sky texture/scale settings from the runtime config.
@@ -80,7 +81,8 @@ class SkyBox
                       Rendering::Dx12ResourceBuilder& resources );
 
   public:
-    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
+    SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int xMin, int xMax, int yMin, int yMax, int zMin,
+            int zMax );
     ~SkyBox() = default;
     SkyBox( const SkyBox& ) = delete;
     SkyBox& operator=( const SkyBox& ) = delete;

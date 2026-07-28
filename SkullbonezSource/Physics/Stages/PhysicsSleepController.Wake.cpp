@@ -391,7 +391,7 @@ void PhysicsSleepController::WakeRestingContactIsland( PhysicsBodyStore& bodySto
 
         const float range = radiusA + radiusB + EXPLICIT_WAKE_NEIGHBOR_SLOP;
         const Vector3 delta = positionB - positionA;
-        return delta * delta <= range * range;
+        return Dot( delta, delta ) <= range * range;
     };
 
     for ( std::size_t cursor = 0; cursor < m_restingWakeQueueScratch.size(); ++cursor )

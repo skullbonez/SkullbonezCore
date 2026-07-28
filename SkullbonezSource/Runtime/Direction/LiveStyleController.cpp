@@ -265,8 +265,9 @@ void LiveStyleController::MarkReady()
 }
 
 
-void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneController& sceneController,
-                                SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
+void LiveStyleController::Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, RunLaunchOptions& launchOptions,
+                                SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                const Assets::AssetSystem& assets,
                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
@@ -282,10 +283,11 @@ void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneController
     {
         m_styleStamp = styleStamp;
         AuthoredScene styleScene;
-        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( m_stylePath, assets,
+        const SkullbonezCore::Core::SbResult loadResult = AuthoredScene::TryLoadStyleFromFile( resultDiagnostics,
+                                                                                               m_stylePath, assets,
                                                                                                styleScene );
 
-        if ( loadResult.ok )
+        if ( loadResult.Ok() )
         {
             sceneController.ApplyLiveStyle( launchOptions, sceneBrowser, activeCinematic, defaultCinematic, styleScene );
             ++m_styleApplyCount;
@@ -294,7 +296,7 @@ void LiveStyleController::Tick( RunLaunchOptions& launchOptions, SceneController
         }
         else
         {
-            const char* message = loadResult.error.message[0] != '\0' ? loadResult.error.message : "style load failed";
+            const char* message = loadResult.ErrorMessage()[0] != '\0' ? loadResult.ErrorMessage() : "style load failed";
             WriteStatus( "style_error", message );
             fprintf( stderr, "[style-harness] Style error: %s\n", message );
         }
@@ -373,9 +375,9 @@ void LiveStyleController::SavePendingCapture( CaptureController& capture, Render
 
     const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backend, PendingScreenshotPath() );
 
-    if ( !captureResult.ok )
+    if ( !captureResult.Ok() )
     {
-        MarkCaptureFailed( captureResult.error.message );
+        MarkCaptureFailed( captureResult.ErrorMessage() );
         return;
     }
 
