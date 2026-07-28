@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 0/6 (0%). Plan 5 `vector-dot-product-api` is complete and removed from the live denominator; Plan 6 `determinism-terrain-fixture-isolation` starts at TF0. |
+| Active/future progress | 1/6 (17%). Plan 6 `determinism-terrain-fixture-isolation` completed TF0; TF1 introduces the per-test terrain/engine invariant owner. |
+| Validation for terrain fixture TF0 | Documentation-only census: 55 tracked test source/header paths contain four shared function-local terrains and one terrain-bearing default argument. `TestDeterminism.cpp` reaches 18 cases (17 flat, one deep), with one related shared case each in `TestPhysicsHandles.cpp` and `TestTerrain.cpp`. A separate non-test startup probe declares its heap engine before config/terrain and therefore destroys the retained-view owner first. `PhysicsWorld` retains the copied terrain view across `Clear`; config/terrain/heap-engine declaration order is binding for both TF1 surfaces. Analytic test terrains add no terrain heap/cache allocation. No baseline refresh or repository validation was required. |
 | Validation for vector dot-product closure | The configuration-complete census is 173 ambiguous uses across 36 files: 172 exact `Dot` call-site rewrites plus deletion of the OrbitalMechanics adapter and its one overload-body use. One shared definition and 179 calls remain, reconciling as 172 migrations, five existing Orbital named calls, and two permanent cancellation witnesses. Profile/Debug compilation, 437/437 tests and 2,419,129 assertions, 787/787 project/filter rows, dependency direction, all ownership inventories, byte-exact 44,401-line Physics, deep Physics/SkullScope, performance, one-generation Replay visual fidelity, DX12, and full validation pass. Comment audit is 36/36; independent review blockers were resolved. No baseline, golden, config, schema, or performance artifact was refreshed. |
 | Vector dot-product VD0/VD1 correction | VD0's Profile-preprocessed AST census found 171 rows across 34 files and VD1 migrated its 170 call sites plus deleted the adapter-body use. VD2's full Debug build exposed two additional `_DEBUG`-only rows in `SkullScope.cpp` and `LauncherTools.cpp`; the dated corrections in both reports supersede the old completeness claim with 173 uses across 36 files. |
 | Validation for SbResult closure | The result is 16 bytes and pointer-aligned; the fixed 256-slot store is 159,760 bytes. Exact 511-byte diagnostics, copy/move/identity, full-capacity, stale/foreign, cross-thread, no-allocation, high-water, lease/generation/re-entry Lane F, five DX12 epoch, and ImGui status-lifetime proofs pass. The corrected final capacity census is 221 publications plus 31 retained members, 252/256 with four slots of conservative headroom, one App store, and no multiplicative container/queue/worker path. Automation now uses one owner-held store and no report-input courier. Final-source tests pass 436/436 cases and 2,419,127 assertions; format, metadata, dependency, ownership inventories, Automation, performance, 60.576-second graphics stress, and the 355.5-second full gate pass without baseline refresh. Comment audit 18/18; independent review accepted. |
@@ -39,7 +40,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 0/6. Physics body layout,
+The Principal Engineer Feedback Campaign is live at 1/6. Physics body layout,
 Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
 compact SbResult success values and explicit vector dot products are complete;
 its two remaining plans cover isolated deterministic terrain fixtures and
@@ -733,10 +734,12 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `determinism-terrain-fixture-isolation` at TF0. Map every fixture
-borrow and lifetime before changing ownership, then preserve deterministic
-terrain behavior without refreshing a baseline. The principal-feedback campaign
-is 0/6 (0%). Keep the warm-start experiment as the final actionable item and
+Continue `determinism-terrain-fixture-isolation` at TF1. Introduce the narrow
+per-test config/terrain/heap-engine invariant owner, pass terrain views
+explicitly through helpers, and remove all four shared terrain statics without
+refreshing a baseline. Reorder the startup lifecycle probe's existing locals to
+the same owner-safe sequence. The principal-feedback campaign is 1/6 (17%). Keep the
+warm-start experiment as the final actionable item and
 unstaged for owner evaluation. The future AoS threshold and warm-start
 acceptance metric remain explicit owner questions in
 `Agentic/Plans/MASTER-PLAN.md`.
