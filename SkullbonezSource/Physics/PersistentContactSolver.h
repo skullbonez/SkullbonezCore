@@ -22,6 +22,8 @@ Invariants:
     are the validation contract.
   - Raw runtime settings normalize once at the solve boundary; row loops must
     not independently reinterpret authored lower or upper bounds.
+  - Every valid scene body index must fit the 15-bit fields in a persistent
+    contact key.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -32,6 +34,7 @@ Related:
 
 #include <cstdint>
 
+#include "../Core/SceneCapacity.h"
 #include "../Maths/RotationMatrix.h"
 #include "../Maths/Vector3.h"
 
@@ -39,6 +42,15 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+
+// Invariant: object/object keys store two 15-bit body indices above the
+// 32-bit feature id. Widening this mask would consume bit 62, which
+// distinguishes terrain rows from object/object rows.
+inline constexpr uint64_t PERSISTENT_CONTACT_BODY_MASK = 0x7fffull;
+static_assert( static_cast<uint64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) <=
+                   PERSISTENT_CONTACT_BODY_MASK,
+               "Persistent-contact key body fields must encode every valid scene body index." );
+
 struct PersistentContactSolverStepPolicy
 {
     float objectSlop = 0.0f;

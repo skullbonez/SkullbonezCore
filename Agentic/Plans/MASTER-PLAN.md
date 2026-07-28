@@ -942,14 +942,14 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Principal Engineer Feedback Campaign is complete. All seven plans have
-closed and left the live inventory under rule 4; generated dependency proofs
-were the last 3/3 plan. The protected warm-start key-capacity experiment is the
-sole remaining local action and does not contribute to the plan ledger.
-Evaluate it without refreshing a Physics, Replay, visual, or performance
-baseline. If Physics-frame time, solver time, and contact-stability evidence
-all remain clean, its unresolved metric-selection question cannot change the
-acceptance result; otherwise return the differing evidence to the owner.
+The Principal Engineer Feedback Campaign and its protected final local action
+are complete. All seven plans closed and left the live inventory under rule 4;
+generated dependency proofs were the last 3/3 plan. The warm-start key-capacity
+guard then passed byte-exact contact stability, Physics-frame and inclusive
+solver performance gates, comment audit, and independent review without a
+baseline refresh. Permanent evidence is
+`../Reports/2026-07-28/persistent-contact-key-capacity-closure.md`. The live
+plan ledger remains empty at 0/0 and no local campaign action remains.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -2363,11 +2363,12 @@ Binding owner directions:
   relative to SoA. **Owner question before such work begins:** should
   "meaningful" mean more than 2%, more than 5%, or only a statistically
   significant regression?
-- The warm-start key capacity guard is the final actionable local change. It is
-  intentionally left uncommitted after the campaign-registration commit for
-  owner review; no baseline may be refreshed by the agent. **Owner question for
-  evaluation:** should acceptance be decided from Physics-frame time, solver
-  time, contact stability, or all three?
+- The warm-start key capacity guard was evaluated against all three proposed
+  dimensions and accepted. Physics remains byte-exact; DX12 and focused-bench
+  Physics/solver markers remain inside absolute and relative performance
+  policy; review is clear. The exact evidence is in
+  `../Reports/2026-07-28/persistent-contact-key-capacity-closure.md`, and no
+  baseline was refreshed.
 - Plan 2 replaces the hard 12-parameter ceiling with mandatory qualitative
   ownership review and reopens every current exact-12 row. No implementation
   may hide a wide operation in a courier, forwarding facade, capability slice,

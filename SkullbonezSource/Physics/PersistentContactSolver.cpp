@@ -254,18 +254,18 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // ENGINE-SPECIFIC:
     //   This key is a compact pair+feature id. Full 32-bit feature IDs are kept
     //   so authored hull face/edge identifiers are not truncated before warm
-    //   starting. SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS is 8192, so 15 bits per body leaves 32 bits
-    //   for the feature and one high kind bit for terrain rows.
+    //   starting. The shared 15-bit body mask leaves 32 bits for the feature and
+    //   one high kind bit for terrain rows.
     // Catto's cache needs a stable name for "body A touching body B at this
     // contact feature". Box and hull manifolds assign distinct feature ids per row.
     auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
     {
-        constexpr uint64_t BODY_MASK = 0x7fffull;
 
         if ( b == TERRAIN_BODY_INDEX )
         {
             uint64_t packed = ( 1ull << 62 ) |
-                              ( ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) & BODY_MASK ) << 32 ) |
+                              ( ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                << 32 ) |
                               static_cast<uint64_t>( featureId );
 
             return static_cast<int64_t>( packed );
@@ -273,8 +273,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
         int lo = ( a < b ) ? a : b;
         int hi = ( a < b ) ? b : a;
-        uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
-                          ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 ) |
+        uint64_t packed = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 47 ) |
+                          ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK ) << 32 ) |
                           static_cast<uint64_t>( featureId );
 
         return static_cast<int64_t>( packed );

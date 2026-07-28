@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-28th-JUL-26-takeover` |
 | Current baseline | Main tip `81cc50bc`; PR #136 is merged and the takeover branch starts directly from that merge. |
-| Current objective | Evaluate the protected warm-start key-capacity working-tree experiment as the final actionable local item; do not refresh a baseline. |
-| Active/future progress | 0/0 (0%). The Principal Engineer Feedback Campaign is complete: Plan 7 `dependency-proof-generation` closed DP2 and left the live ledger under rule 4. The warm-start experiment is intentionally outside the plan ledger. |
+| Current objective | No remaining local campaign action. The takeover branch is ready for handoff after the accepted warm-start key-capacity guard. |
+| Active/future progress | 0/0 (0%). The Principal Engineer Feedback Campaign is complete: Plan 7 `dependency-proof-generation` closed DP2 and left the live ledger under rule 4; the protected warm-start action outside the ledger is also closed. |
+| Validation for warm-start key capacity | The unchanged `0x7fff` body mask is now one shared Physics key-schema value with a compile-time `MAX_SCENE_OBJECTS` guard. Final formatted source passes `validate_physics` in 112.4 seconds with standalone/runtime-handle smoke and a byte-exact 44,401-line regression. `validate_perf` passes in 90.8 seconds: DX12 Physics/solver averages are 0.2204/0.0253 ms and focused-bench averages are 0.0731/0.0271 ms; both comparisons report no regressions. Format, dependency direction, all ownership inventories, 3/3 comment audit, and independent review are clear. No baseline was refreshed. |
 | Validation for dependency proof closure | Planted rule drift invalidates the old proof; all marker failures remain fail-closed; every Runtime allow row rejects a future package; four isolated parser fixtures pin macro, continuation, quoted, angle, and local-first behavior; and exact project cases cover required-only, missing-required, required-plus-Core, required-plus-Tests, Git discovery, both MSBuild item kinds, and all four governed suffixes. Follow-up independent review is clear and the comment audit is 1/1. The 3.23-second dependency gate, 232.84-second fast gate, and 370.38-second full gate pass with 438/438 tests, 2,419,221 assertions, zero DX12 errors, accepted images, and byte-exact 44,401-line Physics. No baseline was refreshed. |
 | Validation for dependency proof DP1 | The existing dependency checker owns one deterministic marked `AGENTS.md` projection, with fail-closed marker topology, current/stale checking, byte-preserving writes, and escaped rule-controlled Markdown. Its generated tables replace the 21-row Runtime matrix and all 27 mechanical `rg` proofs while retaining one explicitly qualitative Rendering search. Six frame-view allowances are exact files; valid exact edges pass and the pseudo-descendant fixture fails. App closed-world, Camera App-prefix, UI-to-Rendering, and residual textual-parser semantics are explicit. Self-tests pass 27 include rules / 47 negative edges, two negative content fixtures, one project fixture, and the generated-proof cases; the proof check and dependency gate pass with zero repository findings. Focused Python syntax/diff-whitespace checks and all three ownership inventories pass. Touched-tool comment audit is 1/1 with zero deferred files. No baseline was refreshed. |
 | Validation for dependency proof DP0 | Documentation-only comparison: 27 include rules, one content rule, one project rule, the 21-row Runtime table, 28 hand-written commands (27 mechanical and one qualitative), 46 negative include fixtures, two content fixtures, and one compound project fixture are reconciled row by row. The report identifies the over-broad Input proof, every Runtime regex's future-package hole, the frame-view self-include hole, UI prose/proof omission of Rendering, compound project-fixture false pass, selected-example fixture coverage, textual-include/resolver limits, path-casing behavior, prefix-to-exact migration with intentional descendant rejection, and a single-checker deterministic Markdown/freshness design. Its generated block owns the matrix and all mechanical commands; markers fail closed, writes preserve outside bytes, and escaping is deterministic. No repository validation was required. |
@@ -64,9 +65,11 @@ errors. The owner selected the current SoA for this campaign and approved the
 200, 520, 1,000, 2,000, and sleepy-5,000 witness matrix. The owner also approved
 qualitative review of all exact-12 signatures, owner-level fixed-list clones,
 bounded owner-managed SbResult diagnostics without a compatibility wrapper, and
-one-shot deletion of vector-vector `operator*`. The warm-start key guard is the
-sole remaining local action. It remains an uncommitted owner-review diff; do
-not refresh baselines.
+one-shot deletion of vector-vector `operator*`. The warm-start key guard is
+accepted and closed with byte-exact Physics, passing Physics/solver performance,
+and clear review. Permanent evidence is
+`Agentic/Reports/2026-07-28/persistent-contact-key-capacity-closure.md`; no
+baseline was refreshed.
 
 Architecture Follow-Up Campaign Round 5 is complete at 7/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
@@ -750,16 +753,8 @@ The Principal Engineer Feedback Campaign is complete and the plan ledger is
 empty at 0/0 (0%). Dependency-proof closure evidence is in
 `Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md`.
 
-Evaluate the protected warm-start key-capacity experiment as the final local
-action. The exact dirty files remain:
-
-- `SkullbonezSource/Physics/PersistentContactSolver.h`
-- `SkullbonezSource/Physics/PersistentContactSolver.cpp`
-- `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
-
-Inspect all three with the touched-file comment audit. Measure Physics-frame
-time, solver time, and contact stability without refreshing a Physics,
-performance, Replay, DX12, golden, or other baseline. If all three remain
-clean, the owner's metric-selection question cannot change the result; if any
-differ, return the exact evidence for owner selection. The future AoS threshold
-remains a separate owner question in `Agentic/Plans/MASTER-PLAN.md`.
+The protected warm-start key-capacity action is also complete. Its exact
+Physics-frame, solver, contact-stability, review, and comment-audit evidence is
+in `Agentic/Reports/2026-07-28/persistent-contact-key-capacity-closure.md`.
+No local campaign action remains. The future AoS threshold remains a separate
+owner question in `Agentic/Plans/MASTER-PLAN.md`.
