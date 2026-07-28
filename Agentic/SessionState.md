@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 0/20 (0%). Physics body hot-layout evidence is complete at 4/4 and has left the live ledger under rule 4. Plan 2 RG0 is next. |
+| Active/future progress | 1/20 (5%). Plan 2 RG0 freshly reviewed all 33 exact-12 operations: 28 retain-owner, five Replay restore/topology repairs owned by RG2, zero unreviewed. |
 | Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
 | Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
@@ -30,7 +30,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 0/20. Physics body layout
+The Principal Engineer Feedback Campaign is live at 1/20. Physics body layout
 evidence is complete; its six remaining TODO plans cover Replay restore/
 wide-signature governance, PhysicsFixedList copy semantics, compact SbResult
 success values, explicit vector dot products, isolated deterministic terrain
@@ -709,8 +709,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-restore-wide-signature-governance` at RG0. Replace the hard
-12-parameter ceiling with the owner-approved mandatory qualitative review and
-reopen every current exact-12 operation without hiding one behind a courier,
-facade, slice, callback pack, or renamed context. Preserve the uncommitted
-warm-start review diff until the owner accepts or rejects it.
+Continue `replay-restore-wide-signature-governance` at RG1. Implement the
+qualitative-ruling gate consistently in `AGENTS.md`, both independent-review
+skills, the wide-signature inventory/output, fixtures, and validation. Counts
+remain measurements, not allowances. Preserve the uncommitted warm-start review
+diff until the owner accepts or rejects it.

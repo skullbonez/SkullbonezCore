@@ -1,7 +1,7 @@
 # Replay Restore And Wide-Signature Governance
 
 Date: 2026-07-28
-Status: TODO — 0/4 phases complete
+Status: TODO — 1/4 phases complete
 Impact area: Replay restore ownership, signature governance, review tooling
 Owner: Replay + repository governance
 Priority: High
@@ -31,10 +31,11 @@ ownership review rather than treating “at the ceiling” as an accepted endpoi
 
 ## Phases
 
-- [ ] **RG0 — Reproduce the current inventory and classify exact-ceiling
+- [x] **RG0 — Reproduce the current inventory and classify exact-ceiling
   rows.** Record real parameter ownership, forwarders, capability slices,
   immediate destructuring, and operations whose ordering belongs in an
-  invariant owner. Do not add a lower count budget.
+  invariant owner. Do not add a lower count budget. Census:
+  `Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md`.
 - [ ] **RG1 — Decide and document the governance instrument.** Apply the owner
   answers above consistently in `AGENTS.md`, both independent-review skills,
   inventory output, fixtures, and validation. Counts remain measurements, not

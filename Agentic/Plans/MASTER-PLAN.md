@@ -785,7 +785,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 0/20 (0%).
+The remaining Principal Engineer Feedback Campaign is binding at 1/20 (5%).
 Execute its six live plans in table order below. The owner has answered every
 campaign question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2216,7 +2216,7 @@ Binding owner directions:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
-| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Ready | 0/4 | RG0 current exact-ceiling ownership census |
+| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Active | 1/4 | RG1 implement the qualitative ruling instrument consistently across governance, review skills, inventory output, fixtures, and validation |
 | 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
 | 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |
 | 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
