@@ -325,25 +325,54 @@ structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
 |---|---|---|
-| `tools/inventory_wide_signatures.py` | parameter counts per operation | 12-parameter ceiling |
+| `tools/inventory_wide_signatures.py` | parameter counts plus current owner rulings per operation | 12-or-more qualitative owner-review trigger |
 | `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 
 All three outputs are **current measurements requiring review**, never
-allowances. The aggregate and extraction-scar inventories additionally use the
-shared unruled-fails/ruled-passes gate backed by
-`tools/aggregate_ownership_rulings.json`; the wide-signature inventory reports
-its prior dispositions for review and the 12-parameter ceiling remains the
-binding decision rule. Never convert any inventory into a count threshold,
-ratio, or "no more than N" budget, and never add a ruling merely to make a
-number look better — a row records a judgement and names the plan that owns
-the repair.
+allowances. The aggregate and extraction-scar inventories use the shared
+unruled-fails/ruled-passes gate backed by
+`tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
+`tools/wide_signature_ownership_rulings.json`; a signature at or above the
+review trigger must match a current ruling by file and normalized signature.
+Historical dispositions never satisfy that gate. Never convert any inventory
+into a count threshold, ratio, or "no more than N" budget, and never add a
+ruling merely to make a number look better — a row records a judgement and
+names the plan that owns the repair.
 
 Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
 file the reviewer actually reads. A rule that exists only here, while
 `Agentic/Skills/rubber-duck/SKILL.md` and
 `Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
 practice.
+
+## Wide Signature Ownership Review Rule
+
+An operation with 12 or more parameters triggers mandatory qualitative owner
+review. Twelve is the point at which review becomes compulsory; it is not a
+maximum, a safe allowance, or an automatic defect. A signature above the
+trigger may pass when the ruling proves one cohesive operation, while an
+exact-12 signature remains a blocking design defect when its responsibilities
+or authority are unowned.
+
+For every triggered signature, the reviewer must answer:
+
+1. Which concrete owner or invariant-owning phase owns the operation?
+2. Do all participant borrows and outputs have one synchronous lifetime, or
+   does the operation span unrelated responsibilities?
+3. Would shortening the signature introduce a courier, capability-slice set,
+   callback pack, service/context bag, pure forwarder, or owner reach-back?
+4. Does the callee immediately destructure an aggregate or preserve an
+   extraction scar instead of moving design?
+5. Is the current ruling `retain-owner`, or does `repair-plan` name the active
+   plan that owns deletion/decomposition?
+
+`tools/wide_signature_ownership_rulings.json` is exact current-source evidence.
+Changing a file/signature pair invalidates its ruling; deleting or narrowing a
+signature makes its old ruling stale. An unruled trigger row, a stale ruling,
+or a repair ruling without an owning plan fails `validate_fast`. Passing the
+mechanical gate only proves that somebody made a current, reviewable judgement;
+an independent reviewer may disagree with the reason and reopen the work.
 
 ## God-Object Closure Rule
 
@@ -509,10 +538,10 @@ helpers. Its header must name the exact phase-order and arbitration invariant
 it enforces.
 
 This rule does not relax the context-bag, callback-pack, owner reach-back, or
-forwarding bans and does not change the 12-parameter ceiling. Passing a
-legitimate invariant owner as one parameter is not ceiling evasion because
-the header invariant and focused test independently establish why the type
-exists.
+forwarding bans and does not bypass the wide-signature qualitative review
+trigger. Passing a legitimate invariant owner as one parameter is not review
+evasion because the header invariant and focused test independently establish
+why the type exists.
 
 ## Migration Cleanup Review Rule
 

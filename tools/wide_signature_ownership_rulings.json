@@ -1,0 +1,274 @@
+{
+  "review_trigger_arity": 12,
+  "rulings": [
+    {
+      "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
+      "signature": "RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui, RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts )",
+      "owner": "Runtime/App composition root",
+      "disposition": "retain-owner",
+      "reason": "This operation establishes one post-UI frame order before keyboard commands; every participant borrow expires when the returned frame result closes the call.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
+      "signature": "uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, int staticVertexCount, int staticFloatsPerVertex, int instanceFloats, int instanceStartAttribute, std::span<const int> instanceAttributeSizes, std::span<const int> staticAttributeSizes, ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource, D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer )",
+      "owner": "Dx12GeometryOwner",
+      "disposition": "retain-owner",
+      "reason": "The low-level overload performs one mesh upload from explicit layout and transient DX12 upload capabilities derived synchronously by its public overload.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
+      "signature": "void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatCount, const Math::Transformation::Matrix4& viewProjection, TransientTriangleStyle style, int viewportWidth, int viewportHeight, bool compactRibbonInstances, UINT startInstance, D3D12_GPU_VIRTUAL_ADDRESS vbAddress, ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )",
+      "owner": "Dx12GeometryOwner",
+      "disposition": "retain-owner",
+      "reason": "One geometry owner records one transient draw from explicit buffer, viewport, raster, draw-gate, and diagnostic facts.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "signature": "template <typename InspectGizmoInteractionActive> InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools, const InteractionAutomationController& automation, const ReplayAutomationView& replay, RuntimeInteractionController& interaction, const InputRouter& inputRouter, CameraControlState& camera, const SceneWorld& world, SkullbonezCore::UI::InGameUI& ui, const InteractionAutomationDevelopmentUiView& developmentUi, const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action, InspectGizmoInteractionActive inspectGizmoInteractionActive )",
+      "owner": "Interaction automation assertion phase",
+      "disposition": "retain-owner",
+      "reason": "The action and detached views identify one assertion while live owners are inspected or applied synchronously and are not retained.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/UI/UI.cpp",
+      "signature": "InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptions, int selectedSceneOption )",
+      "owner": "InGameUI",
+      "disposition": "retain-owner",
+      "reason": "This stable UI entry seam receives the detached input, viewport, editor, camera, and scene-option facts for one UI turn.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
+      "signature": "bool InputRouter::DispatchAfterUiDismiss( InputActions& actions, bool uiUserInteracted, double nowSeconds, bool legacyUiActive, DiagnosticsRuntime& diagnosticsRuntime, CameraControlState& camera, AttachedCameraController& attachedCamera, RuntimeTools& runtimeTools, UI::InGameUI& ui, SceneController& sceneController, RuntimeOverlayDiagnostics& overlays, const ReplayInputView& replayInput )",
+      "owner": "InputRouter",
+      "disposition": "retain-owner",
+      "reason": "The sole retained input-routing owner controls after-UI command order and quick-exit arbitration using synchronous participant borrows.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
+      "signature": "RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool replayInspectionActive, int activeModelCapacity, const Window& window, Assets::AssetSystem& assets, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, CameraControlState& camera, SceneController& models, ReplayRuntime& replayRuntime, RunCameraMode replayRestoreCameraMode )",
+      "owner": "InputRouter",
+      "disposition": "retain-owner",
+      "reason": "The sole retained input-routing owner consumes pointer facts and borrows participating owners for one route decision without retaining them.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
+      "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
+      "owner": "PhysicsContactSolverStage",
+      "disposition": "retain-owner",
+      "reason": "Contact state, pair/contact scratch, sleep outputs, diagnostics, timestep, and profiler are one stage turn and expire with the call.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
+      "signature": "void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, const PhysicsWorldForces& worldForces, std::span<const BuoyancyBodyFacts> buoyancyFacts, std::span<const uint8_t> sleepState, std::span<float> timeRemaining, const Vector3* mutualGravityForces, float dt, std::span<const int> awakeBodyIndices, Threading::WorkerPool& workerPool, const PhysicsExecutionSettings& execution )",
+      "owner": "PhysicsForceStage",
+      "disposition": "retain-owner",
+      "reason": "The force stage owns force application and parallel arbitration over the explicit force facts, stores, awake rows, and execution policy for one turn.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
+      "signature": "void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
+      "owner": "PhysicsNarrowphaseStage",
+      "disposition": "retain-owner",
+      "reason": "One pair-scoped operation owns contact and wake-event production from explicit stores, policy, scratch, pair index, and output.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
+      "signature": "bool RebuildReplayGeneratedSceneTopology( RuntimeTools& runtimeTools, SimulationSystem& simulation, SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config, SceneWorld& world, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride, int sceneObjectCapacity, const ReplayEventSample& event, const ReplaySolverFrameSample& checkpoint, char* rebuildReason, std::size_t rebuildReasonSize )",
+      "owner": "Replay generated-topology restore path",
+      "disposition": "repair-plan",
+      "reason": "Generated topology rebuild, simulation/configuration, scene/UI/type overrides, event/checkpoint inputs, and diagnostic-buffer ownership are fused and require focused operations.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
+      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
+      "signature": "void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes, const Matrix4& view, const Matrix4& projection, const float ( &lightPosition )[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )",
+      "owner": "RenderInstanceRenderer",
+      "disposition": "retain-owner",
+      "reason": "This stable main-view entry seam delegates one render submission to a compile-time visibility implementation without collecting or retaining authority.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
+      "signature": "template <RenderVisibilityView visibilityView> void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes, const Matrix4& view, const Matrix4& proj, const float lightPos[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )",
+      "owner": "RenderModelsForView visibility specialization",
+      "disposition": "retain-owner",
+      "reason": "The compile-time visibility policy and explicit render values drive one model submission pass; the helper does not unpack a courier.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
+      "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
+      "owner": "Planning replay-overlay presentation",
+      "disposition": "retain-owner",
+      "reason": "One detached Replay view and synchronous render/UI owners produce one overlay submission without mutating Replay state or retaining owners.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp",
+      "signature": "bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, InputRouter& inputRouter, RuntimeInteractionController& interaction, bool rowsReady, bool uiBlocksMouse, int wheelDelta, bool editorModeEnabled, int screenWidth, int screenHeight, int& outFocusRow, bool& outExitInspectionCamera )",
+      "owner": "ReplayAuthoring cause-tree input",
+      "disposition": "retain-owner",
+      "reason": "The authoring owner arbitrates one cause-tree input turn; mutable participants and explicit outputs are not retained beyond the call.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp",
+      "signature": "bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now, InputRouter& inputRouter, RuntimeInteractionController& interaction, PhysicsEngine& velocityPhysics, std::size_t entityCount, bool& outEnterInteractive, bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction )",
+      "owner": "ReplayAuthoring velocity-edit input",
+      "disposition": "retain-owner",
+      "reason": "The authoring owner controls one velocity-edit input turn and its physics/interaction arbitration; outputs are decisions for that same turn.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
+      "signature": "ReplayPredictionSourcePreparation ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const SkullbonezCore::Core::EngineConfig& config, bool scenePhysics, double fallbackSourceSimulationSeconds, double simulationTotalSeconds, const ReplaySolverFrameSample* latestSolverSample, Physics::PhysicsSceneObjectId requestedTargetId, ModelRowHint requestedTargetModelRow, bool targetAvailable, const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds, ReplayPredictionUpdateResult& result )",
+      "owner": "ReplayPrediction source-selection phase",
+      "disposition": "retain-owner",
+      "reason": "Prediction owns source selection and calibration for one build frame; source facts and result output belong to that phase.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
+      "signature": "ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
+      "owner": "Replay live-restore apply path",
+      "disposition": "repair-plan",
+      "reason": "Scene mutation, artifact selection, simulation/configuration/assets, UI overrides, generated-type policy, and transaction authority cross concrete restore responsibilities.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
+      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
+      "signature": "void ReplayRuntime::CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome, SceneWorld& world, SceneSessionState& scene, DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed )",
+      "owner": "Replay live-restore completion path",
+      "disposition": "repair-plan",
+      "reason": "Completion combines transaction advance, scene and diagnostics publication, input/interaction cleanup, and camera policy that require focused operations.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
+      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
+      "signature": "bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
+      "owner": "Replay V2 artifact restore path",
+      "disposition": "repair-plan",
+      "reason": "The surviving operation still receives the full multi-owner restore surface even though the same-class pure forwarding facade is gone.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
+      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
+      "signature": "ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup, const ReplayStartupLoadInput& loadInput, SceneController& sceneController, DiagnosticsRuntime& diagnosticsRuntime, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
+      "owner": "Replay startup-probe phase",
+      "disposition": "retain-owner",
+      "reason": "Startup probe execution is one Replay phase; startup/load values and concrete composition owners are used synchronously and not repackaged.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
+      "signature": "ReplayProbeTickResult ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, const ReplaySceneTimelineResetInput& timelineReset, DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, RunCameraMode restoreMode, bool attachedFollow )",
+      "owner": "Replay probe-orchestration phase",
+      "disposition": "retain-owner",
+      "reason": "Replay probe orchestration is one diagnostic phase at the App composition level; concrete owner borrows expire synchronously.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
+      "signature": "ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMouse, bool editorModeEnabled, bool scenePhysicsEnabled, bool uiVisible, bool uiMinimized, int screenWidth, int screenHeight, double now, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, ReplayWorkspaceOutput& output )",
+      "owner": "ReplayRuntime scrubber-input phase",
+      "disposition": "retain-owner",
+      "reason": "Replay owns scrubber input arbitration; scalar UI/frame facts and router, interaction, camera, and output borrows expire at return.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t eventCursor, int sceneFrame, float physicsDt, const ReplayWorldPresentationSample& world, const ReplayCameraSample& camera, const ReplayLauncherVisualSample& launcherVisual, Physics::PhysicsEngine& physics, const Gameplay::TornadoGameplay& tornadoGameplay, const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore )",
+      "owner": "ReplaySolverRecorder",
+      "disposition": "retain-owner",
+      "reason": "The recorder owns one frame capture; event/time samples and source stores form one immutable capture snapshot consumed before return.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Editor/MousePickupTools.cpp",
+      "signature": "MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePointerEvent& pointer, bool hasWorldRay, const Vector3& rayOrigin, const Vector3& rayDirection, bool hasClampedWorldRay, const Vector3& clampedRayOrigin, const Vector3& clampedRayDirection, const Vector3& cameraEye, const Vector3& cameraView, const SceneWorld& world, InputRouter& inputRouter, RuntimeInteractionController& interaction )",
+      "owner": "RuntimeTools mouse-pick gesture",
+      "disposition": "retain-owner",
+      "reason": "RuntimeTools owns the mouse-pick gesture and drag plane; ray/camera facts and world/router/interaction borrows are frame-local.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
+      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
+      "owner": "SceneController",
+      "disposition": "retain-owner",
+      "reason": "The public controller seam enters the invariant-owning scene-load transaction using explicit load participants and no replacement bag.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
+      "signature": "SkullbonezCore::Core::SbResult SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer )",
+      "owner": "SceneLoadTransaction",
+      "disposition": "retain-owner",
+      "reason": "The transaction enforces scene-load phase order while request/startup/config values and concrete load owners participate in that tested invariant.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
+      "signature": "void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const PrimitiveRenderContext& primitiveContext, const Rendering::ShadowFrameData& shadowFrame, const SkullbonezCore::Core::CinematicRenderConfig& cinematic, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12TextureOwner& renderTextures, const Rendering::RenderInstanceStore& renderInstances, const Physics::ColliderStore& colliders, SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool renderTerrain, bool shadowParallelPrep, const Rendering::ShadowCasterBatches* objectCasters )",
+      "owner": "ShadowPass",
+      "disposition": "retain-owner",
+      "reason": "One shadow-pass owner consumes synchronous render resources, stores, optional worker policy, and caster batches for one map submission.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state, RuntimeTools& runtimeTools, RuntimeInteractionController& interaction, InputRouter& inputRouter, CameraControlState& camera, SkullbonezCore::UI::InGameUI& ui, SceneController& scene, const ReplayAutomationView& replayView, const InteractionAutomationDevelopmentUiView& developmentUiView, const Rendering::RenderSceneSnapshot& renderSnapshot, CaptureController& capture, Rendering::Dx12BackbufferCapture& backbufferCapture )",
+      "owner": "Interaction automation after-render phase",
+      "disposition": "retain-owner",
+      "reason": "Automation owns this ordered after-render phase, including capture evidence; no cross-phase owner pointer or services aggregate is retained.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
+      "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
+      "owner": "Interaction automation before-input phase",
+      "disposition": "retain-owner",
+      "reason": "Automation owns this named phase and its ordering relative to input; concrete composition participants are borrowed only for the phase call.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
+      "signature": "bool StepReplayRestoreTarget( ReplayRestoreTransaction& transaction, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target, SkullbonezCore::Core::Profiler* profiler )",
+      "owner": "Replay restore-target step",
+      "disposition": "repair-plan",
+      "reason": "The helper fuses transaction phase, scene/world mutation, artifact/checkpoint/target selection, tools/assets/workers, capacity, and diagnostics.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
+      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
+    },
+    {
+      "file": "SkullbonezSource/Rendering/Text.cpp",
+      "signature": "void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a )",
+      "owner": "Text2d batching",
+      "disposition": "retain-owner",
+      "reason": "One text batch appends one coloured triangle; ordered coordinates and colour channels are primitive vertex values rather than unrelated authority.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    },
+    {
+      "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
+      "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptionView, int selectedSceneOption )",
+      "owner": "UIWindowInteractionOwner",
+      "disposition": "retain-owner",
+      "reason": "The interaction owner applies one UI input turn from presentation facts and a detached scene-option view.",
+      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+    }
+  ]
+}

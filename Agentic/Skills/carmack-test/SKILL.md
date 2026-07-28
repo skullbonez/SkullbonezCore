@@ -140,6 +140,10 @@ contained:
   parameter. This is how a function body lifted out of a god class avoids being
   rewritten for its new owner, and it lies about lifetime: `m_x` reads as owner
   state when it is a borrow that expires at the next `return`.
+- An operation with 12 or more parameters lacks a current qualitative ruling
+  that names its concrete owner or active repair plan. Twelve starts mandatory
+  review; it is not a maximum, an allowance, or an automatic defect. A current
+  ruling is evidence to challenge against the source, not immunity.
 - A deleted banned shape reappeared under a different suffix, or a header states
   an invariant, ownership, or sequencing fact the current source does not hold.
 - A test file is named for a coverage gate, a metric, or a plan rather than the
@@ -147,17 +151,21 @@ contained:
 - Plans are ticked without matching source changes, validation evidence, and
   independent review.
 
-Evidence for the aggregate and local findings above comes from read-only
-inventories rather than impression:
+Evidence for the aggregate, local, and wide-operation findings above comes from
+read-only inventories rather than impression:
 
 ```bash
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
+python tools/inventory_wide_signatures.py --repo . --strict
 ```
 
-Verdicts live in `tools/aggregate_ownership_rulings.json`. `UNRULED` means nobody
-has judged the row yet. None of these is a count budget: report the unowned
-invariant, never the number.
+Aggregate and extraction-scar verdicts live in
+`tools/aggregate_ownership_rulings.json`; wide-signature verdicts live in
+`tools/wide_signature_ownership_rulings.json` and match an exact current file
+plus normalized signature. `UNRULED` means nobody has judged the row yet, and
+`STALE-RULING` means the source changed or disappeared. None of these is a count
+budget: report the unowned operation or invariant, never the number.
 
 Verdict caps:
 
@@ -171,8 +179,9 @@ Verdict caps:
 - A serious ownership leak from physics/render into runtime policy caps
   encapsulation at `2 / 5`.
 - An unruled authority-free aggregate, nominal capability slice, or extraction
-  scar caps encapsulation at `3 / 5`. A rename or a parameter reshuffle does not
-  lift the cap; only an owned invariant or a deletion does.
+  scar, or an unruled/stale wide-signature review, caps encapsulation at `3 / 5`.
+  A rename or a parameter reshuffle does not lift the cap; only an owned
+  invariant/current operation ruling or a deletion does.
 
 ## Positive Evidence
 

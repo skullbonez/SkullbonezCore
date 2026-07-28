@@ -702,6 +702,8 @@ are not certified. Full evidence:
 | `tools\validate_perf.bat` (N26 final) | 58.55 s | PASS; allocation guard, structural selected-path proof, DX12 and Physics comparisons |
 | `tools\validate_full.bat` (N26 final) | PASS | 402 doctests, required runtime lanes, accepted DX12 baselines, byte-exact 44,401-line Physics regression |
 | `tools\run_graphics_stress.bat 1` (N26 final) | 60.83 s | PASS; PID 34120 bounded stop, crash-free, descriptor churn proof complete, empty stderr |
+| wide-signature RG1 self-test + strict scan | 27.6 s | PASS; 33 current trigger rows, 28 retain-owner, 5 repair-plan, zero unruled/stale |
+| `tools\validate_fast.bat` (RG1 clean snapshot) | 228 s | PASS; format/metadata/dependencies, all three ownership inventories, Profile/Debug builds, and unit tests |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -709,8 +711,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-restore-wide-signature-governance` at RG1. Implement the
-qualitative-ruling gate consistently in `AGENTS.md`, both independent-review
-skills, the wide-signature inventory/output, fixtures, and validation. Counts
-remain measurements, not allowances. Preserve the uncommitted warm-start review
-diff until the owner accepts or rejects it.
+Continue `replay-restore-wide-signature-governance` at RG2. Decompose the five
+`repair-plan` Replay restore/topology operations into focused concrete-owner
+operations while retaining `ReplayRestoreTransaction` only for its tested phase
+and arbitration invariant. Do not introduce a courier, context/service bag,
+capability-slice set, callback pack, pure forwarder, or owner reach-back. The
+principal-feedback campaign is 2/20 (10%). Preserve the uncommitted warm-start
+review diff until the owner accepts or rejects it.

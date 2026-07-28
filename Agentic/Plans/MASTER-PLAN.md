@@ -785,7 +785,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 1/20 (5%).
+The remaining Principal Engineer Feedback Campaign is binding at 2/20 (10%).
 Execute its six live plans in table order below. The owner has answered every
 campaign question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2083,9 +2083,9 @@ byte-exact-or-revert — the bounded-divergence allowance does not apply. For
 the fourth plan: the invariant-ownership test is the standing arbiter between
 a banned authority-free bag and a legitimate invariant owner; the amendment
 sharpens that test and repeals none of the context-bag, callback, reach-back,
-or forwarding bans; the 12-parameter ceiling remains binding; and the
-enforcement stays qualitative (review plus comment audit) with no counting or
-spelling ratchet added.
+or forwarding bans. RG1 of the 2026-07-28 principal-feedback campaign
+subsequently replaced the former 12-parameter ceiling with an exact-current
+qualitative ruling trigger; no counting or spelling ratchet was added.
 
 Standing rules binding every plan in this campaign: zero behavioral baseline,
 golden, screenshot, replay artifact, scene, config, or physics CSV refresh —
@@ -2216,7 +2216,7 @@ Binding owner directions:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
-| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Active | 1/4 | RG1 implement the qualitative ruling instrument consistently across governance, review skills, inventory output, fixtures, and validation |
+| 2 | [replay-restore-wide-signature-governance](TODO/replay-restore-wide-signature-governance.md) | Active | 2/4 | RG2 decompose the five ruled Replay restore/topology operations without a courier, context bag, capability slice set, forwarder, or reach-back |
 | 3 | [physics-fixed-list-copy-contract](TODO/physics-fixed-list-copy-contract.md) | Ready | 0/3 | FC0 copy/move and phase census |
 | 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |
 | 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
@@ -2255,9 +2255,11 @@ Binding:
   apply free functions plus ordering/arbitration comments around one
   operation, it must report "this operation needs an invariant owner" — a
   parameter reshuffle is not an accepted remediation. This test repeals no
-  existing ban and does not change the 12-parameter ceiling. GV0 installed the
-  standing rule in `AGENTS.md`, added the aggregate-invariant check to the
-  comment-audit skill, and made the extrusion signal mandatory review output.
+  existing ban. GV0 installed the standing rule in `AGENTS.md`, added the
+  aggregate-invariant check to the comment-audit skill, and made the extrusion
+  signal mandatory review output. The later 2026-07-28 RG1 governance change
+  replaced the former ceiling with the 12-or-more qualitative owner-review
+  trigger and exact current-signature rulings.
 - Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
   owner of pass scheduling and ordinary frame-resource barrier emission.
   Closure and bounded edge exceptions are recorded in

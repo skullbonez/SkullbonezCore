@@ -29,9 +29,12 @@ Do not claim to be a separate model or independent process unless you actually i
    - For debugging: inspect the observed symptom, current hypothesis, evidence, and latest failure output.
 3. Compare expected outcome against actual work and evidence.
 4. For any change that adds, moves, or deletes C++ types or functions, answer the
-   five ownership questions below. These are not style comments — `AGENTS.md`
-   delegates enforcement of its aggregate, slice, and extraction rules to this
-   review, so a critique that skips them leaves those rules unenforced.
+   five ownership questions below. For every operation with 12 or more
+   parameters, also verify its exact current wide-signature ruling and name the
+   concrete owner or repair plan. These are not style comments — `AGENTS.md`
+   delegates enforcement of its aggregate, slice, extraction, and wide-signature
+   rules to this review, so a critique that skips them leaves those rules
+   unenforced.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -66,21 +69,32 @@ waived as follow-up debt, closed by a rename, or closed by a parameter reshuffle
    fact the post-change source does not hold? Moved responsibilities must be
    corrected in the same commit under the Comment Quality Gate.
 
+For each operation at or above the 12-parameter review trigger, state whether
+one concrete owner owns one synchronous operation, whether participant lifetimes
+close at return, and whether shortening it would introduce a courier, nominal
+slice set, callback/context bag, pure forwarder, or reach-back. Then compare the
+answer with `tools/wide_signature_ownership_rulings.json`. `UNRULED`,
+`STALE-RULING`, or an unowned `repair-plan` is `[Blocking]`. A current ruling is
+reviewable evidence, not immunity: disagree with it when source responsibility
+does not support its reason.
+
 Cite evidence rather than asserting a conclusion. Three repeatable inventories
 produce it, and all three are read-only:
 
 ```bash
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
-python tools/inventory_wide_signatures.py --repo .
+python tools/inventory_wide_signatures.py --repo . --strict
 ```
 
 Verdicts for the aggregate and extraction-scar inventories live in
 `tools/aggregate_ownership_rulings.json`. An `UNRULED` row means nobody has
 judged it yet; a ruled row means an owner has, and the reason field says why.
-The wide-signature inventory reports prior dispositions inline for review. None
-of these tools is a count budget — do not report a number as a finding, report
-the unowned invariant.
+Wide-signature rulings live in
+`tools/wide_signature_ownership_rulings.json` and match the current file plus
+normalized signature; prior dispositions do not satisfy the gate. None of these
+tools is a count budget — do not report a number as a finding, report the
+unowned operation or invariant.
 
 ## Output Shape
 

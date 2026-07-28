@@ -1,7 +1,7 @@
 # Replay Restore And Wide-Signature Governance
 
 Date: 2026-07-28
-Status: TODO — 1/4 phases complete
+Status: TODO — 2/4 phases complete
 Impact area: Replay restore ownership, signature governance, review tooling
 Owner: Replay + repository governance
 Priority: High
@@ -11,15 +11,15 @@ Priority: High
 The bounded 2026-07-28 response deletes the same-class
 `RestoreV2ArtifactTargetState` → `RestoreV2ArtifactTargetStateImpl` pure
 forwarder. The surviving restore operation still has 12 parameters, and the
-wide-signature inventory contains a visible cluster at the current ceiling.
-The existing numeric rule can therefore become a target: signatures are managed
+wide-signature inventory contains a visible cluster at the mandatory review
+trigger. A numeric ceiling could become a target: signatures could be managed
 to 12 even when the operation still needs ownership decomposition.
 
 ## Goal
 
 Give Replay restore a concrete owner-shaped operation with no forwarding facade
 or authority-free argument bag, and make the inventory support qualitative
-ownership review rather than treating “at the ceiling” as an accepted endpoint.
+ownership review rather than treating “at the trigger” as an accepted endpoint.
 
 ## Owner Rulings
 
@@ -31,15 +31,16 @@ ownership review rather than treating “at the ceiling” as an accepted endpoi
 
 ## Phases
 
-- [x] **RG0 — Reproduce the current inventory and classify exact-ceiling
+- [x] **RG0 — Reproduce the current inventory and classify exact-trigger
   rows.** Record real parameter ownership, forwarders, capability slices,
   immediate destructuring, and operations whose ordering belongs in an
   invariant owner. Do not add a lower count budget. Census:
   `Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md`.
-- [ ] **RG1 — Decide and document the governance instrument.** Apply the owner
+- [x] **RG1 — Decide and document the governance instrument.** Apply the owner
   answers above consistently in `AGENTS.md`, both independent-review skills,
   inventory output, fixtures, and validation. Counts remain measurements, not
-  allowances.
+  allowances. Governance evidence:
+  `Agentic/Reports/2026-07-28/replay-wide-signature-rg1-governance.md`.
 - [ ] **RG2 — Decompose Replay restore by responsibility.** Keep
   `ReplayRestoreTransaction` only for the phase/arbitration rule it actually
   enforces; move topology rebuild, artifact selection, and diagnostics to their
@@ -53,7 +54,7 @@ ownership review rather than treating “at the ceiling” as an accepted endpoi
 ## Acceptance
 
 Replay restore has no pure forwarder and no same-authority wrapper. Every
-surviving exact-ceiling signature has a current qualitative owner ruling under
+surviving exact-trigger signature has a current qualitative owner ruling under
 the chosen policy, and the tooling cannot report “Keep” merely because the
 number is within a limit.
 

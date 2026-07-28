@@ -48,8 +48,9 @@ cases are settled and need no debate:
   one-field behavior owner or tested strong scalar type is a different shape.
 - **If the callee destructures it immediately, it is a courier.** When the first
   lines of the body copy members into locals, the type carried nothing. Widen the
-  signature instead, and if that breaches the 12-parameter ceiling, that is the
-  signal the *operation* needs decomposing — not that it needs a bag.
+  signature instead. Reaching the 12-parameter qualitative review trigger means
+  the *operation* needs an explicit owner ruling or decomposition — never a bag
+  created to hide the number.
 
 Introduce an aggregate when it owns a rule its absence would let a caller break:
 a phase order, a lifetime, an arbitration policy. Say which in an `Invariant:`
