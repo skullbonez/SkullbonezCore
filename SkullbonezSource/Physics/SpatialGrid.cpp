@@ -41,6 +41,7 @@ Related:
   - SkullbonezSource/Physics/SpatialGrid.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-bg0.md
 */
 
 // Concept: the grid is a cheap maybe-colliding filter, not a collision solver.
@@ -64,6 +65,39 @@ using namespace SkullbonezCore::Math::Vector;
 
 namespace
 {
+constexpr int RequiredBitCount( uint32_t value )
+{
+    int bitCount = 0;
+
+    while ( value != 0u )
+    {
+        ++bitCount;
+        value >>= 1u;
+    }
+
+    return bitCount;
+}
+
+// Invariant: canonical pair emission sorts every valid body index with one
+// stable low-digit pass followed by one stable high-digit pass. These values
+// derive from the scene ceiling, while the layout assertion deliberately
+// requires a source review if that ceiling changes.
+constexpr int kCandidatePairSortBitCount = RequiredBitCount(
+    static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) );
+constexpr int kCandidatePairSortLowBitCount = ( kCandidatePairSortBitCount + 1 ) / 2;
+constexpr int kCandidatePairSortHighBitCount = kCandidatePairSortBitCount - kCandidatePairSortLowBitCount;
+constexpr int kCandidatePairSortLowBucketCount = 1 << kCandidatePairSortLowBitCount;
+constexpr int kCandidatePairSortHighBucketCount = 1 << kCandidatePairSortHighBitCount;
+constexpr int kCandidatePairSortLowMask = kCandidatePairSortLowBucketCount - 1;
+constexpr int kCandidatePairSortHighMask = kCandidatePairSortHighBucketCount - 1;
+constexpr int kCandidatePairSortMaximumIndex = ( kCandidatePairSortHighMask << kCandidatePairSortLowBitCount ) |
+                                               kCandidatePairSortLowMask;
+
+static_assert( kCandidatePairSortLowBitCount == 7 && kCandidatePairSortHighBitCount == 6,
+               "MAX_SCENE_OBJECTS changed: review the canonical pair radix layout and instruction footprint." );
+static_assert( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 <= kCandidatePairSortMaximumIndex,
+               "Canonical pair radix digits must address every valid scene body index." );
+
 void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, float inverseCellSize )
 {
     const bool finite = std::isfinite( minBounds.x ) && std::isfinite( minBounds.y ) && std::isfinite( minBounds.z ) &&
@@ -1232,15 +1266,15 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
             continue;
         }
 
-        int lowCounts[128] = {};
-        int lowOffsets[128] = {};
+        int lowCounts[kCandidatePairSortLowBucketCount] = {};
+        int lowOffsets[kCandidatePairSortLowBucketCount] = {};
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
-            ++lowCounts[candidatePairSortKeys[pairIndex] & 0x7f];
+            ++lowCounts[candidatePairSortKeys[pairIndex] & kCandidatePairSortLowMask];
         }
 
-        for ( int digit = 1; digit < 128; ++digit )
+        for ( int digit = 1; digit < kCandidatePairSortLowBucketCount; ++digit )
         {
             lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
         }
@@ -1248,18 +1282,19 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
             const int value = candidatePairSortKeys[pairIndex];
-            candidatePairSortScratch[lowOffsets[value & 0x7f]++] = value;
+            candidatePairSortScratch[lowOffsets[value & kCandidatePairSortLowMask]++] = value;
         }
 
-        int highCounts[64] = {};
-        int highOffsets[64] = {};
+        int highCounts[kCandidatePairSortHighBucketCount] = {};
+        int highOffsets[kCandidatePairSortHighBucketCount] = {};
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
-            ++highCounts[( candidatePairSortScratch[pairIndex] >> 7 ) & 0x3f];
+            ++highCounts[( candidatePairSortScratch[pairIndex] >> kCandidatePairSortLowBitCount ) &
+                         kCandidatePairSortHighMask];
         }
 
-        for ( int digit = 1; digit < 64; ++digit )
+        for ( int digit = 1; digit < kCandidatePairSortHighBucketCount; ++digit )
         {
             highOffsets[digit] = highOffsets[digit - 1] + highCounts[digit - 1];
         }
@@ -1267,7 +1302,8 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
             const int value = candidatePairSortScratch[pairIndex];
-            candidatePairSortKeys[highOffsets[( value >> 7 ) & 0x3f]++] = value;
+            candidatePairSortKeys[highOffsets[( value >> kCandidatePairSortLowBitCount ) &
+                                              kCandidatePairSortHighMask]++] = value;
         }
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
@@ -1390,9 +1426,9 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
         }
     }
 
-    // Two stable radix passes sort each per-minimum list across the 13 bits of
-    // the supported 8,192-body index. Total work is proportional to bodies plus
-    // accepted pairs and uses only the grid's fixed staging arrays.
+    // Two stable radix passes cover the complete derived body-index width.
+    // Total work is proportional to bodies plus accepted pairs and uses only
+    // the grid's fixed staging arrays.
 
     for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
     {
@@ -1408,15 +1444,15 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
             continue;
         }
 
-        int lowCounts[128] = {};
-        int lowOffsets[128] = {};
+        int lowCounts[kCandidatePairSortLowBucketCount] = {};
+        int lowOffsets[kCandidatePairSortLowBucketCount] = {};
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
-            ++lowCounts[candidatePairSortKeys[pairIndex] & 0x7f];
+            ++lowCounts[candidatePairSortKeys[pairIndex] & kCandidatePairSortLowMask];
         }
 
-        for ( int digit = 1; digit < 128; ++digit )
+        for ( int digit = 1; digit < kCandidatePairSortLowBucketCount; ++digit )
         {
             lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
         }
@@ -1424,18 +1460,19 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
             const int value = candidatePairSortKeys[pairIndex];
-            candidatePairSortScratch[lowOffsets[value & 0x7f]++] = value;
+            candidatePairSortScratch[lowOffsets[value & kCandidatePairSortLowMask]++] = value;
         }
 
-        int highCounts[64] = {};
-        int highOffsets[64] = {};
+        int highCounts[kCandidatePairSortHighBucketCount] = {};
+        int highOffsets[kCandidatePairSortHighBucketCount] = {};
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
-            ++highCounts[( candidatePairSortScratch[pairIndex] >> 7 ) & 0x3f];
+            ++highCounts[( candidatePairSortScratch[pairIndex] >> kCandidatePairSortLowBitCount ) &
+                         kCandidatePairSortHighMask];
         }
 
-        for ( int digit = 1; digit < 64; ++digit )
+        for ( int digit = 1; digit < kCandidatePairSortHighBucketCount; ++digit )
         {
             highOffsets[digit] = highOffsets[digit - 1] + highCounts[digit - 1];
         }
@@ -1443,7 +1480,8 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
             const int value = candidatePairSortScratch[pairIndex];
-            candidatePairSortKeys[highOffsets[( value >> 7 ) & 0x3f]++] = value;
+            candidatePairSortKeys[highOffsets[( value >> kCandidatePairSortLowBitCount ) &
+                                              kCandidatePairSortHighMask]++] = value;
         }
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )

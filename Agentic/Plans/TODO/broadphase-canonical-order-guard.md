@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress (BG0 complete)
 Ledger tasks: 2 (BG0-BG1)
-Branch: TBD (register at start)
+Branch: nightrunner-29th-JUL-26
 PR: TBD
 
 ## Goal
@@ -60,11 +60,12 @@ Related unguarded couplings to confirm or guard in the same pass:
 
 ## Ledger
 
-- [ ] BG0 — Derive the radix digit widths from `Scene::Capacity::MAX_SCENE_OBJECTS`
+- [x] BG0 — Derive the radix digit widths from `Scene::Capacity::MAX_SCENE_OBJECTS`
   as named `constexpr` values, replace the four `0x7f`/`0x3f`/`>> 7` literals
   and the `128`/`64` bucket-array extents with those values, and add the
   `static_assert` that the two digits jointly address every valid body index.
   Confirm the emitted instruction sequence and pair output are unchanged.
+  Evidence: `../../Reports/2026-07-29/broadphase-canonical-order-guard-bg0.md`.
 - [ ] BG1 — Add the triangular-index and cell-coordinate range guards, extend
   `TestSpatialGrid.cpp` with a case that pins ascending canonical emission at
   the current ceiling, and record the `int16_t` cell-coordinate bound as a
