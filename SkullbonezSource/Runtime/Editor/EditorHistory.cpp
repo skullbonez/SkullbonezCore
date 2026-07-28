@@ -203,7 +203,7 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
     const SceneEntityCreateResult result = world.TryCreateSceneEntity( recipe.entity, std::move( bodyDesc ),
                                                                        std::move( colliderDesc ) );
 
-    if ( !result.status.ok )
+    if ( !result.status.Ok() )
     {
         return false;
     }

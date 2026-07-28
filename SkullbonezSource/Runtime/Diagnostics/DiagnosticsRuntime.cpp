@@ -58,6 +58,11 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+DiagnosticsRuntime::DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept
+    : m_capture( diagnostics )
+{
+}
+
 namespace
 {
 constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;

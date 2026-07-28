@@ -23,12 +23,13 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//   - Agentic/Reports/2026-07-17/unit-test-coverage-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h"
@@ -53,6 +54,11 @@ using SkullbonezCore::Runtime::ReplayRecorderConfig;
 using SkullbonezCore::Runtime::ReplayV2SolverHashSample;
 using SkullbonezCore::Runtime::ReplayVisualArchiveSample;
 namespace ReplayRecorderOperations = SkullbonezCore::Runtime::ReplayRecorderOperations;
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -78,6 +84,7 @@ constexpr std::size_t kChunkRecordCountOffset = 20u;
 
 std::string ArtifactPath( const char* leaf )
 {
+
     // RuntimeFileWriter intentionally creates one parent directory rather than
     // recursively interpreting an arbitrary path, so the fixture uses one
     // owned directory directly beneath the existing TestOutput root.
@@ -188,15 +195,18 @@ std::size_t FindChunkEntry( const std::vector<uint8_t>& bytes, const char id[4] 
 {
     const uint32_t count = ReadValue<uint32_t>( bytes, kChunkCountOffset );
     const uint64_t tableOffset = ReadValue<uint64_t>( bytes, kChunkTableOffsetOffset );
+
     for ( uint32_t chunkIndex = 0; chunkIndex < count; ++chunkIndex )
     {
         const std::size_t entry = static_cast<std::size_t>( tableOffset ) + chunkIndex * kChunkEntryBytes;
         REQUIRE( entry + kChunkEntryBytes <= bytes.size() );
+
         if ( std::memcmp( bytes.data() + entry, id, 4u ) == 0 )
         {
             return entry;
         }
     }
+
     FAIL( "required chunk entry was not found" );
     return 0u;
 }
@@ -277,18 +287,21 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     SUBCASE( "truncated payload" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         bytes.pop_back();
         CheckRejected( ArtifactPath( "truncated.skreplay" ), bytes );
     }
     SUBCASE( "future version" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         WriteValue<uint32_t>( bytes, kVersionOffset, 5u );
         CheckRejected( ArtifactPath( "future.skreplay" ), bytes );
     }
     SUBCASE( "chunk length past EOF" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         const std::size_t bodyEntry = FindChunkEntry( bytes, "BODY" );
         WriteValue<uint64_t>( bytes, bodyEntry + kChunkSizeOffset, ( std::numeric_limits<uint64_t>::max )() );
         CheckRejected( ArtifactPath( "past_eof.skreplay" ), bytes );
@@ -296,6 +309,7 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     SUBCASE( "duplicate BODY tag" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         const std::size_t manifestEntry = FindChunkEntry( bytes, "MANI" );
         std::memcpy( bytes.data() + manifestEntry, "BODY", 4u );
         CheckRejected( ArtifactPath( "duplicate_tag.skreplay" ), bytes );
@@ -303,6 +317,7 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     SUBCASE( "zero count disagrees with payload" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         const std::size_t bodyEntry = FindChunkEntry( bytes, "BODY" );
         WriteValue<uint32_t>( bytes, bodyEntry + kChunkRecordCountOffset, 0u );
         CheckRejected( ArtifactPath( "zero_count.skreplay" ), bytes );
@@ -310,6 +325,7 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     SUBCASE( "header file size disagrees" )
     {
         std::vector<uint8_t> bytes = canonical;
+
         WriteValue<uint64_t>( bytes, kFileSizeOffset, static_cast<uint64_t>( bytes.size() + 1u ) );
         CheckRejected( ArtifactPath( "wrong_file_size.skreplay" ), bytes );
     }
@@ -331,8 +347,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     PhysicsEngine& engine = *engineStorage;
     engine.Clear();
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         engine.ReserveAuthoredBodyCapacity( 1 );
     }
 
@@ -342,22 +357,22 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
                                                Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.25f, 0.0f ),
                                                Vector3( 0.8f, 0.8f, 0.8f ), 2.0f, 0.25f, PhysicsBodyMotionKind::Dynamic,
                                                "coverage-artifact-body" );
+
     auto colliderDesc = MakeColliderCreateDesc( shape, 0.25f, 4u, "coverage-artifact" );
     colliderDesc.sceneObjectId = bodyDesc.sceneObjectId;
     SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registration;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         registration = engine.RegisterAuthoredBody( bodyDesc, colliderDesc );
     }
     REQUIRE( registration.IsValid() );
 
-    SceneEntityStore entities;
+    SceneEntityStore entities( diagnostics );
     entities.ConfigureCapacity( 1 );
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = bodyDesc.sceneObjectId;
     entity.SetName( "coverage_artifact_body" );
-    REQUIRE( entities.PreflightAppend( entity ).ok );
+    REQUIRE( entities.PreflightAppend( entity ).Ok() );
     entities.CommitAppend( entity, registration.body );
 
     ReplayRecorderConfig config;
@@ -408,6 +423,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     solver.CaptureFrame( captureBranch, 3u, 20, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
                          tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
                          PhysicsEngine::ReadColliders( engine ) );
+
     const ReplaySolverFrameSample* sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );
@@ -423,6 +439,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     solver.CaptureFrame( captureBranch, 4u, 21, 1.0f / 120.0f, captureWorld, captureCamera, launcher, engine,
                          tornadoGameplay, entities, PhysicsEngine::ReadBodies( engine ),
                          PhysicsEngine::ReadColliders( engine ) );
+
     sample = solver.LatestSample();
     REQUIRE( sample != nullptr );
     presentation.CaptureFrameFromSolverSample( *sample );

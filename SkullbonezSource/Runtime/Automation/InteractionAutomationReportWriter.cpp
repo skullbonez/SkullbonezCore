@@ -33,6 +33,7 @@ Related:
 #include "InteractionAutomationController.h"
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Prediction/ReplayPrediction.h"
 #include "../Prediction/ReplayPredictionArchive.h"
@@ -194,7 +195,8 @@ void SkullbonezCore::Runtime::InteractionAutomationRunStatus::Fail( const char* 
     }
 }
 
-SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result() const
+SkullbonezCore::Core::SbResult
+SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnosticStore& diagnostics ) const
 {
 
     if ( !failed )
@@ -202,8 +204,7 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRun
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation",
-                                                    failure[0] != '\0' ? failure : "interaction automation failed" );
+    return diagnostics.Failure( "InteractionAutomation", failure[0] != '\0' ? failure : "interaction automation failed" );
 }
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath )
@@ -1083,7 +1084,8 @@ ReplayVisualArchiveSample SkullbonezCore::Runtime::InteractionAutomationReportWr
 
 
 SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const InteractionAutomationReportInputs& inputs )
+SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( Core::SbDiagnosticStore& diagnostics,
+                                                                   const InteractionAutomationReportInputs& inputs )
 {
     InteractionAutomationRunStatus& status = inputs.status;
     const char* scriptPath = inputs.scriptPath;
@@ -1101,7 +1103,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
 
     if ( m_written )
     {
-        return status.Result();
+        return status.Result( diagnostics );
     }
 
     std::string replayArtifactPath;
@@ -1767,12 +1769,12 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         m_written = true;
         status.failed = true;
         strcpy_s( status.failure, sizeof( status.failure ), "failed to open interaction report path" );
-        return SkullbonezCore::Core::SbResult::Failure( "InteractionAutomation", status.failure );
+        return diagnostics.Failure( "InteractionAutomation", status.failure );
     }
 
     output << report.dump( 2 ) << "\n";
     output.close();
     m_written = true;
     printf( "[interaction] Report written: %s ok=%d\n", m_path, status.failed ? 0 : 1 );
-    return status.Result();
+    return status.Result( diagnostics );
 }

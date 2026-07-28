@@ -232,8 +232,8 @@ class Dx12FrameOwner
     static constexpr UINT64 UPLOAD_BUFFER_SIZE = 32ull * 1024ull * 1024ull;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
-    Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures,
-                    Dx12DescriptorHeaps& descriptors );
+    Dx12FrameOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device,
+                    Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12DescriptorHeaps& descriptors );
 
     Dx12DrawGate& DrawGate()
     {
@@ -447,6 +447,7 @@ class Dx12FrameOwner
     void WriteFaultProbe() const;
     bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;

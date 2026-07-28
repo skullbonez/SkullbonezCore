@@ -462,26 +462,28 @@ struct PhysicsRuntimeHandleSmokeResult
     std::string errorMessage;
 };
 
-bool RunRagdollCapacityPreflightSmoke()
+bool RunRagdollCapacityPreflightSmoke( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
-    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>( diagnostics );
     int jointCount = 0;
     (void)Ragdoll::SimpleJoints( jointCount );
     RagdollBuildOptions options;
     options.namePrefix = "capacity_smoke";
     options.firstSceneObjectId = collection->State().AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-    const SkullbonezCore::Core::SbResult result = SceneAuthoredSetup::AppendSimpleRagdoll( collection->Scene(), options );
+    const SkullbonezCore::Core::SbResult result = SceneAuthoredSetup::AppendSimpleRagdoll( diagnostics, collection->Scene(),
+                                                                                           options );
+
     const PhysicsEngine& physics = collection->Scene().Physics();
-    return result.ok && collection->Scene().SceneEntityCount() == Ragdoll::SIMPLE_PART_COUNT &&
+    return result.Ok() && collection->Scene().SceneEntityCount() == Ragdoll::SIMPLE_PART_COUNT &&
            collection->Scene().BodyStore().Count() == Ragdoll::SIMPLE_PART_COUNT &&
            collection->Scene().Colliders().BoxShapeCount() == static_cast<std::size_t>( Ragdoll::SIMPLE_PART_COUNT ) &&
            PhysicsEngine::ReadPointJointConstraints( physics ).size() == static_cast<std::size_t>( jointCount ) &&
            PhysicsEngine::ReadPointJointCapacity( physics ) == static_cast<std::size_t>( jointCount );
 }
 
-bool RunGeneratedCapacityPreflightSmoke()
+bool RunGeneratedCapacityPreflightSmoke( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
-    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>( diagnostics );
     Core::EngineConfig config;
     SceneSessionState& state = collection->State();
     state.rngState = 1u;
@@ -490,13 +492,13 @@ bool RunGeneratedCapacityPreflightSmoke()
                                                           GeneratedObjectTypeOverride::Mixed, 32 );
 
     const ColliderStore& colliders = collection->Scene().Colliders();
-    return result.ok && state.rngState == 0x72A6EE09u && collection->Scene().SceneEntityCount() == 32 &&
+    return result.Ok() && state.rngState == 0x72A6EE09u && collection->Scene().SceneEntityCount() == 32 &&
            colliders.SphereShapeCount() == 24u && colliders.BoxShapeCount() == 8u &&
            colliders.SphereShapeCapacity() == 24u && colliders.BoxShapeCapacity() == 8u &&
            colliders.HullShapeCapacity() == 0u;
 }
 
-PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
+PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCore::Core::SbDiagnosticStore& diagnostics )
 {
 
     // Why: this smoke proves runtime-created bodies keep their returned physics
@@ -507,16 +509,16 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // Lifetime: SceneController owns the validation-only physics and entity
     // stores exactly as it does during a normal scene. The cold smoke keeps the
     // owner off the launcher stack and executes once before steady gameplay.
-    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
+    auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>( diagnostics );
     SkullbonezCore::Physics::PhysicsEngine& physics = collection->Scene().Physics();
     SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Scene().Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
     const SkullbonezCore::Core::SbResult capacityCommit = collection->Scene().CommitPhysicsSceneCapacity( 2, 2, 0, 0, 1 );
 
-    if ( !capacityCommit.ok )
+    if ( !capacityCommit.Ok() )
     {
-        result.errorMessage = capacityCommit.error.message;
+        result.errorMessage = capacityCommit.ErrorMessage();
         return result;
     }
 
@@ -552,9 +554,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                                                                  PhysicsBodyMotionKind::Dynamic, name ),
                                                       MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ) );
 
-        if ( !appendResult.status.ok )
+        if ( !appendResult.status.Ok() )
         {
-            result.errorMessage = appendResult.status.error.message;
+            result.errorMessage = appendResult.status.ErrorMessage();
             return result;
         }
 
@@ -593,7 +595,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                                             MakeColliderCreateDesc( duplicateShape, 0.0f,
                                                                                     HashStr( "default" ) ) );
 
-    const bool failedCreationIsAtomic = !duplicateResult.status.ok && sceneEntities.Count() == entityCountBeforeFailure &&
+    const bool failedCreationIsAtomic = !duplicateResult.status.Ok() && sceneEntities.Count() == entityCountBeforeFailure &&
                                         collection->Scene().BodyStore().Count() == bodyCountBeforeFailure &&
                                         collection->Scene().Colliders().Count() == colliderCountBeforeFailure &&
                                         collection->Scene().GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
@@ -817,8 +819,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     result.failedCreationIsAtomic = failedCreationIsAtomic;
     result.deletionIsAtomic = deletionIsAtomic;
     result.mutationUsesStableHandle = mutationUsesStableHandle;
-    result.ragdollCapacityPreflight = RunRagdollCapacityPreflightSmoke();
-    result.generatedCapacityPreflight = RunGeneratedCapacityPreflightSmoke();
+    result.ragdollCapacityPreflight = RunRagdollCapacityPreflightSmoke( diagnostics );
+    result.generatedCapacityPreflight = RunGeneratedCapacityPreflightSmoke( diagnostics );
     result.bodyCount = bodyCountBeforeFailure;
     result.colliderCount = colliderCountBeforeFailure;
     result.renderInstanceCount = renderCountBeforeFailure;
@@ -874,7 +876,8 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 
     return true;
 }
-bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode )
+bool HandlePhysicsStandaloneSmoke( Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine,
+                                   int& outExitCode )
 {
 
     if ( !HasOption( commandLine, "--physics-standalone-smoke" ) && !HasOption( commandLine, "--physics_standalone_smoke" ) )
@@ -886,7 +889,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     // or Run owners. Its local inline worker proves the shipping PhysicsEngine
     // path can step and query without renderer/window services.
     const PhysicsEngineLifecycleSmokeResult engineLifecycle = RunPhysicsEngineLifecycleSmokeSample();
-    PhysicsRuntimeHandleSmokeResult runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
+    PhysicsRuntimeHandleSmokeResult runtimeMirror = RunPhysicsRuntimeHandleSmokeSample( diagnostics );
     auto writeReport = [&]( FILE* stream )
     {
 

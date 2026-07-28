@@ -36,6 +36,12 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Math::CollisionDetection::ConvexHullEdge;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullFace;
@@ -63,18 +69,22 @@ void CheckVectorNear( const Vector3& actual, const Vector3& expected, float epsi
 
 bool FaceContainsVertex( const ConvexHullShape& hull, const ConvexHullFace& face, uint16_t vertex )
 {
+
     for ( uint8_t i = 0; i < face.indexCount; ++i )
     {
+
         if ( hull.GetFaceIndex( face.firstIndex + i ) == vertex )
         {
             return true;
         }
     }
+
     return false;
 }
 
 void CheckEdgeEndpointBelongsToFace( const ConvexHullShape& hull, const ConvexHullEdge& edge, uint16_t faceIndex )
 {
+
     // Invariant: an edge's adjacent face must contain both endpoint vertices or
     // narrowphase feature ids cannot map contacts back to stable hull topology.
     const ConvexHullFace& face = hull.GetFace( faceIndex );
@@ -98,10 +108,12 @@ bool WriteHullVersionFixture( unsigned int version )
     std::string text = contents.str();
     const std::string current = "hull_version 2";
     const size_t offset = text.find( current );
+
     if ( !input || offset == std::string::npos )
     {
         return false;
     }
+
     text.replace( offset, current.size(), "hull_version " + std::to_string( version ) );
     std::ofstream output( kVersionFixturePath, std::ios::binary );
     output << text;
@@ -112,7 +124,7 @@ bool WriteHullVersionFixture( unsigned int version )
 
 TEST_CASE( "ConvexHull: pyramid fixture loads baked identity and mass properties" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( kPyramidHullPath );
+    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
 
     CHECK( std::string( hull.GetName() ) == "pyramid" );
     CHECK( hull.GetVertexCount() == 5 );
@@ -133,7 +145,7 @@ TEST_CASE( "ConvexHull: pyramid fixture loads baked identity and mass properties
 
 TEST_CASE( "ConvexHull: pyramid fixture exposes baked vertices and face spans" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( kPyramidHullPath );
+    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
 
     CheckVectorNear( hull.GetVertex( 0 ), Vector3( -5.0f, -2.5f, -5.0f ) );
     CheckVectorNear( hull.GetVertex( 4 ), Vector3( 0.0f, 7.5f, 0.0f ) );
@@ -152,7 +164,7 @@ TEST_CASE( "ConvexHull: pyramid fixture exposes baked vertices and face spans" )
 
 TEST_CASE( "ConvexHull: pyramid fixture topology references live vertices and adjacent faces" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( kPyramidHullPath );
+    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
 
     for ( uint16_t faceIndex = 0; faceIndex < hull.GetFaceCount(); ++faceIndex )
     {
@@ -160,6 +172,7 @@ TEST_CASE( "ConvexHull: pyramid fixture topology references live vertices and ad
         CHECK( face.indexCount >= 3 );
         CHECK( face.firstIndex + face.indexCount <= ConvexHullShape::MAX_FACE_INDICES );
         CheckNear( VectorMagSquared( face.normalLocal ), 1.0f, 0.00001f );
+
         for ( uint8_t i = 0; i < face.indexCount; ++i )
         {
             CHECK( hull.GetFaceIndex( face.firstIndex + i ) < hull.GetVertexCount() );
@@ -184,15 +197,15 @@ TEST_CASE( "ConvexHull: previous version upgrades and future version fails recov
     TemporaryHullFixture fixture;
     REQUIRE( WriteHullVersionFixture( 1 ) );
     ConvexHullShape previous;
-    REQUIRE( ConvexHullShape::TryLoadFromFile( kVersionFixturePath, previous ).ok );
+    REQUIRE( ConvexHullShape::TryLoadFromFile( diagnostics, kVersionFixturePath, previous ).Ok() );
     CHECK( previous.GetVertexCount() == 5 );
     CHECK( previous.GetDefaultMass() == doctest::Approx( 300.0f ) );
 
     REQUIRE( WriteHullVersionFixture( 3 ) );
     ConvexHullShape future;
-    const auto result = ConvexHullShape::TryLoadFromFile( kVersionFixturePath, future );
-    CHECK_FALSE( result.ok );
-    CHECK( std::string( result.error.owner ) == "Physics/ConvexHullShape" );
-    CHECK( std::string( result.error.message ).find( "version 3" ) != std::string::npos );
-    CHECK( std::string( result.error.message ).find( "current version 2" ) != std::string::npos );
+    const auto result = ConvexHullShape::TryLoadFromFile( diagnostics, kVersionFixturePath, future );
+    CHECK_FALSE( result.Ok() );
+    CHECK( std::string( result.ErrorOwner() ) == "Physics/ConvexHullShape" );
+    CHECK( std::string( result.ErrorMessage() ).find( "version 3" ) != std::string::npos );
+    CHECK( std::string( result.ErrorMessage() ).find( "current version 2" ) != std::string::npos );
 }

@@ -227,6 +227,7 @@
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSbResult.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
     <ClCompile Include="SkullbonezTests\TestOperatorCommandTransaction.cpp" />
     <ClCompile Include="SkullbonezTests\TestUIDrawValues.cpp" />
@@ -253,6 +254,7 @@
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
@@ -316,6 +318,7 @@
     <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h" />
     <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
+    <ClInclude Include="SkullbonezTests\TestSbResultAccess.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>
   <ItemGroup>

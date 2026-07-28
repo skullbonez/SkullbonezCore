@@ -862,9 +862,9 @@ bool RuntimeTools::FireLauncherProjectile( SceneWorld& world, SceneSessionState&
                                                                                     LAUNCHER_PROJECTILE_RESTITUTION,
                                                                                     HashStr( "default" ) ) );
 
-    if ( !appendResult.status.ok )
+    if ( !appendResult.status.Ok() )
     {
-        fprintf( stderr, "[runtime-tools] launcher projectile creation failed: %s\n", appendResult.status.error.message );
+        fprintf( stderr, "[runtime-tools] launcher projectile creation failed: %s\n", appendResult.status.ErrorMessage() );
 
         return false;
     }

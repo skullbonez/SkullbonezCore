@@ -33,6 +33,7 @@ Related:
 #include "AuthoredScene.h"
 #include "../Assets/AssetSystem.h"
 #include "../Core/FatalError.h"
+#include "../Core/SbDiagnosticStore.h"
 #include "../Maths/Quaternion.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsMass.h"
@@ -103,7 +104,8 @@ inline bool ParserFailed() noexcept
     return s_activeParserFailure && s_activeParserFailure->failed;
 }
 
-inline SkullbonezCore::Core::SbResult ParserFailureResult( const ParserFailureState& state )
+inline SkullbonezCore::Core::SbResult ParserFailureResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                           const ParserFailureState& state )
 {
 
     if ( !state.failed )
@@ -111,7 +113,7 @@ inline SkullbonezCore::Core::SbResult ParserFailureResult( const ParserFailureSt
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return SkullbonezCore::Core::SbResult::Failure( "Scene/AuthoredSceneParser", "%s", state.message.c_str() );
+    return diagnostics.Failure( "Scene/AuthoredSceneParser", "%s", state.message.c_str() );
 }
 
 inline Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
@@ -147,16 +149,16 @@ inline Json Vector3ToJson( const Math::Vector::Vector3& value )
 
 inline void Fail( const std::string& path, const std::string& detail );
 
-inline float LoadConvexHullDefaultMass( const char* hullPath )
+inline float LoadConvexHullDefaultMass( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* hullPath )
 {
     const char* resolvedPath = Assets::ResolveEditorHullAssetPath( hullPath );
     Math::CollisionDetection::ConvexHullShape hull;
     const SkullbonezCore::Core::SbResult
-        loadResult = Math::CollisionDetection::ConvexHullShape::TryLoadFromFile( resolvedPath, hull );
+        loadResult = Math::CollisionDetection::ConvexHullShape::TryLoadFromFile( diagnostics, resolvedPath, hull );
 
-    if ( !loadResult.ok )
+    if ( !loadResult.Ok() )
     {
-        Fail( resolvedPath ? resolvedPath : "", loadResult.error.message );
+        Fail( resolvedPath ? resolvedPath : "", loadResult.ErrorMessage() );
     }
 
     return hull.GetDefaultMass();
@@ -1163,6 +1165,7 @@ class AuthoredSceneParser
         }
     };
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     AuthoredScene m_scene;
     const Assets::AssetSystem* m_assets = nullptr;
     ParserFailureState m_failure;
@@ -1246,7 +1249,7 @@ class AuthoredSceneParser
     SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene );
 
   public:
-    explicit AuthoredSceneParser( const Assets::AssetSystem* assets );
+    AuthoredSceneParser( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const Assets::AssetSystem* assets );
     SkullbonezCore::Core::SbResult TryLoadScene( const char* path, AuthoredScene& outScene );
     SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, AuthoredScene& outScene );
     AuthoredScene LoadScene( const char* path );

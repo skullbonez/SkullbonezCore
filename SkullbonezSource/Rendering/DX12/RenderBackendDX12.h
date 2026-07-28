@@ -329,6 +329,11 @@ class Dx12TextureCommands
 class Dx12TextureOwner
 {
   public:
+    explicit Dx12TextureOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
+
     void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline );
     SkullbonezCore::Core::SbResult Initialize( Dx12TextureCommands& commands );
     SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( ID3D12Device* device, ID3D12PipelineState*& candidate );
@@ -366,6 +371,7 @@ class Dx12TextureOwner
     bool GenerateMips( Dx12TextureCommands& commands, ID3D12Resource* texture, DXGI_FORMAT format, UINT width, UINT height,
                        UINT mipCount, bool& graphicsStateInvalidated );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12TextureRegistry m_registry;
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;
@@ -385,6 +391,11 @@ class Dx12TextureOwner
 class Dx12PipelineOwner
 {
   public:
+    explicit Dx12PipelineOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
+
     SkullbonezCore::Core::SbResult Initialize( ID3D12Device* device );
     void Shutdown();
     bool PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Dx12CommandRecordingState& recording,
@@ -418,6 +429,7 @@ class Dx12PipelineOwner
     uint64_t PrecompiledPsoCount() const;
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     static size_t HashPSOKey( const PSOKey12& key );
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& mesh, D3D12_INPUT_ELEMENT_DESC* output, UINT& count );
@@ -619,8 +631,9 @@ struct Dx12RaytracingDispatchOutcome
 class Dx12RaytracingOwner
 {
   public:
-    Dx12RaytracingOwner( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame,
-                         Dx12TextureOwner& textures, Dx12PipelineOwner& pipeline, Dx12GeometryOwner& geometry );
+    Dx12RaytracingOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12RenderDevice& device,
+                         Dx12DescriptorHeaps& descriptors, Dx12FrameOwner& frame, Dx12TextureOwner& textures,
+                         Dx12PipelineOwner& pipeline, Dx12GeometryOwner& geometry );
 
     SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup );
     void DispatchReflectionRays( const WaterReflectionRayDesc& reflection );
@@ -656,6 +669,7 @@ class Dx12RaytracingOwner
     SkullbonezCore::Core::SbResult CreatePipeline();
     SkullbonezCore::Core::SbResult CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors,
                                                             int width, int height );
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12RenderDevice& m_device;
     Dx12DescriptorHeaps& m_descriptors;
     Dx12FrameOwner& m_frame;
@@ -704,6 +718,7 @@ class RenderBackendDX12
 
     // Concept: the composition root retains concrete owners, while domain state
     // and helper operations remain inside those owners.
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12TextureOwner m_textureOwner;
     Dx12PipelineOwner m_pipelineOwner;
     Dx12GeometryOwner m_geometryOwner;
@@ -754,7 +769,7 @@ class RenderBackendDX12
     }
 
   public:
-    RenderBackendDX12();
+    explicit RenderBackendDX12( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
     ~RenderBackendDX12()
     {
         Shutdown();

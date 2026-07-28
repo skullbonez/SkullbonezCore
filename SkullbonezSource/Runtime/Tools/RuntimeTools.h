@@ -88,6 +88,7 @@ Related:
 
 namespace SkullbonezCore::Core
 {
+class SbDiagnosticStore;
 struct CinematicRenderConfig;
 struct ReplayTrajectoryAppearanceConfig;
 } // namespace SkullbonezCore::Core
@@ -473,6 +474,7 @@ class EditorTracer
     // path as later live UI edits, even when its values match fallback defaults.
     bool m_replayTrajectoryAppearanceInitialized = false;
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     std::vector<float> m_lineData;
     std::vector<float> m_priorityLineData;
     std::vector<float> m_renderLineData;
@@ -522,7 +524,7 @@ class EditorTracer
         m_replayTrajectoryStats;                                            // Frame-local replay ribbon counters sampled by replay composition.
 
   public:
-    EditorTracer();
+    explicit EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
     // Returns true when retained trajectory records must be rebuilt because
     // their packed presentation values no longer match the active defaults.
@@ -636,6 +638,11 @@ class EditorTracer
 class RuntimeTools
 {
   public:
+    explicit RuntimeTools( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+        : m_resultDiagnostics( resultDiagnostics ), m_editorTracer( resultDiagnostics )
+    {
+    }
+
     RunRayCastTestState& RayCastTest();
     const RunRayCastTestState& RayCastTest() const;
     bool ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands );
@@ -750,6 +757,7 @@ class RuntimeTools
     void PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets, const ToolOverlayBuildInput& input );
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     RunRayCastTestState m_rayCastTest;
     LauncherLaser m_laser;
     RunMousePickupState m_mousePickup;

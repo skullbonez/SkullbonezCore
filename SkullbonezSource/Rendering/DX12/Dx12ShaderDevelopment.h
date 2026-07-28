@@ -52,8 +52,9 @@ class ShaderDX12;
 class Dx12ShaderDevelopment
 {
   public:
-    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12GeometryOwner& geometry,
-                           Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12Diagnostics& diagnostics );
+    Dx12ShaderDevelopment( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12PipelineOwner& pipeline,
+                           Dx12TextureOwner& textures, Dx12GeometryOwner& geometry, Dx12RenderDevice& device,
+                           Dx12FrameOwner& frame, Dx12Diagnostics& diagnostics );
 
     bool Enabled() const;
     SkullbonezCore::Core::SbResult ReloadShadersFromSource();
@@ -69,6 +70,7 @@ class Dx12ShaderDevelopment
   private:
     static constexpr size_t LIVE_SHADER_CAPACITY = 64;
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
     Dx12GeometryOwner& m_geometry;

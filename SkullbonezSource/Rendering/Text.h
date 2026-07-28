@@ -138,9 +138,9 @@ class Text2d
     FlushQuads( TextBatch& batch,
                 Rendering::Dx12GeometryOwner& renderCommands );             // Uploads queued quads/triangles once for the frame.
     static SkullbonezCore::Core::SbResult
-    BuildFont( TextBatch& batch, Rendering::Dx12ResourceBuilder& renderResources,
-               Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry,
-               const Assets::AssetSystem& assets, int screenW, int screenH,
+    BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
+               Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
+               Rendering::Dx12GeometryOwner& renderGeometry, const Assets::AssetSystem& assets, int screenW, int screenH,
                const char* cFontName );                                     // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* cFontName,
                                         const char* cOutPath );             // Offline SDF atlas writer used by --gen-atlas tooling.

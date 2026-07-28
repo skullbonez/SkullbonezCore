@@ -146,6 +146,7 @@ class Run
     // Concept: Run is the process composition root. It constructs concrete
     // subsystem owners and retains only the process borrows and launch/result
     // values needed to sequence startup, frame order, and shutdown.
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;                                // App-owned immutable diagnostic lease store.
     Window& m_window;                                                                            // Startup-owned native window borrowed for process lifetime.
     Threading::WorkerPool& m_workerPool;                                                         // Startup-owned worker service borrowed for process lifetime.
     SkullbonezCore::Core::EngineConfig& m_config;                                                // Borrowed process config loaded and CLI-patched by Runtime/App/Init.cpp.
@@ -274,9 +275,9 @@ class Run
 #endif
 
   public:
-    Run( Window& window, std::vector<std::string> sceneQueue, SkullbonezCore::Core::EngineConfig& config,
-         Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
-         Rendering::Dx12BackbufferCapture& backbufferCapture,
+    Run( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Window& window, std::vector<std::string> sceneQueue,
+         SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool,
+         SkullbonezCore::Core::Profiler* profiler, Rendering::Dx12BackbufferCapture& backbufferCapture,
          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner = nullptr ); // sceneQueue empty string selects generated demo mode.
     SkullbonezCore::Core::SbResult
     BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame,

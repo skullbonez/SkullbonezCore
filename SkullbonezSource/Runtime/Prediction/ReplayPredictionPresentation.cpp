@@ -120,7 +120,9 @@ bool HideUnmatchedBodies( Rendering::RenderInstanceStore& renderInstances, const
 }
 } // namespace
 
-ReplayPredictionPresentation::ReplayPredictionPresentation( Core::Profiler* profiler ) : m_profiler( profiler )
+ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticStore& resultDiagnostics,
+                                                            Core::Profiler* profiler )
+    : m_profiler( profiler ), m_retainedMarkerDrawList( resultDiagnostics )
 {
 
     // Runtime allocation policy: focus masks are rewritten during replay render

@@ -700,7 +700,8 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
         switch ( event.action )
         {
         case RuntimeInputAction::SaveSceneSnapshot:
-            HandleEditorSceneSaveHotkey( sceneController.Scene(), sceneController.State(), presentation, true );
+            HandleEditorSceneSaveHotkey( m_resultDiagnostics, sceneController.Scene(), sceneController.State(), presentation,
+                                         true );
 
             break;
         case RuntimeInputAction::SaveScreenshot:

@@ -208,8 +208,9 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 
 } // namespace
 
-ReplayRuntime::ReplayRuntime( Core::Profiler* profiler )
-    : m_profiler( profiler ), m_authoring( profiler ), m_predictionOwner( profiler ), m_visualPresentation( profiler )
+ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )
+    : m_resultDiagnostics( resultDiagnostics ), m_profiler( profiler ), m_probeRunner( resultDiagnostics ),
+      m_authoring( profiler ), m_predictionOwner( resultDiagnostics, profiler ), m_visualPresentation( profiler )
 {
 }
 

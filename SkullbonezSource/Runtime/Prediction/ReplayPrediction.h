@@ -55,6 +55,7 @@ namespace Core
 {
 class EngineConfig;
 class Profiler;
+class SbDiagnosticStore;
 } // namespace Core
 namespace Physics
 {
@@ -424,7 +425,8 @@ struct ReplayPredictionMemoryStats
 class ReplayPrediction
 {
   public:
-    explicit ReplayPrediction( Core::Profiler* profiler = nullptr ) : m_profiler( profiler ), m_presentation( profiler )
+    ReplayPrediction( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler = nullptr )
+        : m_profiler( profiler ), m_presentation( resultDiagnostics, profiler )
     {
     }
 

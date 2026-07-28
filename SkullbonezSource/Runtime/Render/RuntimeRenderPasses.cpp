@@ -209,15 +209,15 @@ SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderResour
 bool ReportRenderTextureResult( const char* passName, const SkullbonezCore::Core::SbResult& result )
 {
 
-    if ( result.ok )
+    if ( result.Ok() )
     {
         return true;
     }
 
     // Why: render passes are void frame steps, so recoverable texture failures
     // surface at the pass boundary and the affected draw is skipped.
-    std::fprintf( stderr, "%s texture failure [%s]: %s\n", passName ? passName : "Frame/Render", result.error.owner,
-                  result.error.message );
+    std::fprintf( stderr, "%s texture failure [%s]: %s\n", passName ? passName : "Frame/Render", result.ErrorOwner(),
+                  result.ErrorMessage() );
 
     return false;
 }

@@ -111,6 +111,7 @@ namespace Core
 {
 class EngineConfig;
 class Profiler;
+class SbDiagnosticStore;
 struct ReplayTrajectoryAppearanceConfig;
 } // namespace Core
 namespace Runtime
@@ -185,6 +186,9 @@ void ArmLoadedPresentation( float normalized, double now, ReplayScrubber& scrubb
 class ReplayProbeRunner
 {
   public:
+    explicit ReplayProbeRunner( Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
 
     // Returns whether live prediction generation remains permitted after the
     // startup capability request is installed.
@@ -235,6 +239,8 @@ class ReplayProbeRunner
 #endif
 
   private:
+    SkullbonezCore::Core::SbResult ReplayProbeFailure( const char* message ) const;
+    Core::SbDiagnosticStore& m_resultDiagnostics;
     ReplayStartupWorkflowState m_startup;
 #ifdef _DEBUG
     ReplayProbeState m_probes;
@@ -245,7 +251,7 @@ class ReplayProbeRunner
 class ReplayRuntime
 {
   public:
-    explicit ReplayRuntime( Core::Profiler* profiler );
+    ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler );
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
@@ -546,6 +552,7 @@ class ReplayRuntime
 #endif
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
+    Core::SbDiagnosticStore& m_resultDiagnostics;
     Core::Profiler* m_profiler;
     ReplayTimeline m_timeline;
     ReplayProbeRunner m_probeRunner;

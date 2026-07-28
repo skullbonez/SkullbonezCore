@@ -27,6 +27,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkyBox.h"
+#include "../Core/SbDiagnosticStore.h"
 #include "../Assets/AssetKeys.h"
 #include "../Core/Config.h"
 #include "../Core/WindowConstants.h"
@@ -56,7 +57,9 @@ constexpr PassRasterStateBucket SKYBOX_RASTER_BUCKET = { { 0 },
 } // namespace
 
 
-SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
+SkyBox::SkyBox( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, int m_xMin, int m_xMax, int yMin, int yMax,
+                int m_zMin, int m_zMax )
+    : m_resultDiagnostics( resultDiagnostics )
 {
     m_boundaries.m_xMin = m_xMin;
     m_boundaries.m_xMax = m_xMax;
@@ -78,7 +81,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         leftResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyLeft ).c_str(),
                                                     TEXTURE_SKY_LEFT );
 
-    if ( !leftResult.ok )
+    if ( !leftResult.Ok() )
     {
         return leftResult;
     }
@@ -87,7 +90,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         rightResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyRight ).c_str(),
                                                      TEXTURE_SKY_RIGHT );
 
-    if ( !rightResult.ok )
+    if ( !rightResult.Ok() )
     {
         return rightResult;
     }
@@ -96,7 +99,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         frontResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyFront ).c_str(),
                                                      TEXTURE_SKY_FRONT );
 
-    if ( !frontResult.ok )
+    if ( !frontResult.Ok() )
     {
         return frontResult;
     }
@@ -105,7 +108,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         backResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyBack ).c_str(),
                                                     TEXTURE_SKY_BACK );
 
-    if ( !backResult.ok )
+    if ( !backResult.Ok() )
     {
         return backResult;
     }
@@ -114,7 +117,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         upResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyUp ).c_str(),
                                                   TEXTURE_SKY_UP );
 
-    if ( !upResult.ok )
+    if ( !upResult.Ok() )
     {
         return upResult;
     }
@@ -123,7 +126,7 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
         downResult = m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.assetPaths.skyDown ).c_str(),
                                                     TEXTURE_SKY_DOWN );
 
-    if ( !downResult.ok )
+    if ( !downResult.Ok() )
     {
         return downResult;
     }
@@ -248,7 +251,7 @@ SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
     assert( m_resources );
     const SkullbonezCore::Core::SbResult textureResult = LoadTextures( *m_config );
 
-    if ( !textureResult.ok )
+    if ( !textureResult.Ok() )
     {
         return textureResult;
     }
@@ -279,7 +282,7 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
 
     if ( !m_shader )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
+        return m_resultDiagnostics.Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
     }
 
     m_shader->Use();
@@ -288,8 +291,8 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
 
     if ( !m_faceMeshes[0] || !m_faceMeshes[0]->PrecompileRasterState( SKYBOX_RASTER_BUCKET ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox",
-                                                        "Skybox declared raster pipeline could not be precompiled." );
+        return m_resultDiagnostics.Failure( "Rendering/SkyBox",
+                                            "Skybox declared raster pipeline could not be precompiled." );
     }
 
     for ( int i = 0; i < 6; ++i )
@@ -297,12 +300,12 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
 
         if ( !m_faceMeshes[i] )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox", "Skybox face mesh %d is unavailable.", i );
+            return m_resultDiagnostics.Failure( "Rendering/SkyBox", "Skybox face mesh %d is unavailable.", i );
         }
 
         const SkullbonezCore::Core::SbResult textureResult = m_textures->SelectTexture( m_faceTextures[i] );
 
-        if ( !textureResult.ok )
+        if ( !textureResult.Ok() )
         {
             return textureResult;
         }

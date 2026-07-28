@@ -59,6 +59,7 @@ void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const Cap
 class CaptureController
 {
   public:
+    explicit CaptureController( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
     RunScreenshotState& Screenshot();
     const RunScreenshotState& Screenshot() const;
 
@@ -79,9 +80,10 @@ class CaptureController
     std::size_t PendingScreenshotCount() const;
 
     SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::Dx12BackbufferCapture& backend, const char* path );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
+    SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;
     RunScreenshotState m_screenshot;                           // Scene and CLI screenshot trigger state
     CaptureRequest m_requests[CAPTURE_REQUEST_QUEUE_CAPACITY]; // Fixed input-triggered capture ring.
     int m_requestHead = 0;                                     // Oldest capture request.

@@ -67,6 +67,7 @@ Related:
 #include "../Scene/SceneSessionState.h"
 #include "../App/InputFrame.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Editor/EditorTools.h"
 #include "../Replay/ReplayOverlaySurface.h"
 #include "../Direction/DemoDirectorPlayback.h"
@@ -3255,7 +3256,8 @@ bool LoadScript( InteractionAutomationController& state )
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 InteractionAutomationDevelopmentUiApplyResult
-InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame, Window& window,
+InteractionAutomationController::ApplyDevelopmentUiCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             const InteractionAutomationFrameResult& frame, Window& window,
                                                              DevelopmentTools::ImGuiEditorOwner& editor ) const
 {
     InteractionAutomationDevelopmentUiApplyResult result;
@@ -3283,9 +3285,8 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
 
             if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::
-                    Failure( "DevelopmentTools/ImGuiAutomation", "Interaction script names an unknown ImGui panel: %s",
-                             command.target );
+                commandStatus = diagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                                                     "Interaction script names an unknown ImGui panel: %s", command.target );
 
                 break;
             }
@@ -3332,16 +3333,16 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
                  !SetWindowPos( nativeWindow, nullptr, 0, 0, outer.right - outer.left, outer.bottom - outer.top,
                                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
             {
-                commandStatus = SkullbonezCore::Core::SbResult::
-                    Failure( "DevelopmentTools/ImGuiAutomation", "Failed to resize the automation client area to %dx%d",
-                             command.width, command.height );
+                commandStatus = diagnostics.Failure( "DevelopmentTools/ImGuiAutomation",
+                                                     "Failed to resize the automation client area to %dx%d", command.width,
+                                                     command.height );
             }
 
             break;
         }
         }
 
-        if ( !commandStatus.ok )
+        if ( !commandStatus.Ok() )
         {
             result.status = commandStatus;
             break;
@@ -3352,7 +3353,8 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
 }
 
 SkullbonezCore::Core::SbResult
-InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+InteractionAutomationController::SubmitOperatorEditorReplayCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                    const InteractionAutomationFrameResult& frame,
                                                                     UI::OperatorEditorCommandQueues& commands ) const
 {
 
@@ -3361,7 +3363,7 @@ InteractionAutomationController::SubmitOperatorEditorReplayCommand( const Intera
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return UI::SubmitOperatorEditorCommand( commands.replay, frame.operatorEditorReplayCommand );
+    return UI::SubmitOperatorEditorCommand( diagnostics, commands.replay, frame.operatorEditorReplayCommand );
 }
 
 InteractionAutomationDevelopmentUiView
@@ -3457,7 +3459,8 @@ void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutoma
 
 
 SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
+SkullbonezCore::Runtime::ConfigureInteractionAutomation( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                         InteractionAutomationController& state, const char* scriptPath,
                                                          const char* reportPath )
 {
     state = InteractionAutomationController {};
@@ -3467,7 +3470,7 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
     {
         state.finished = true;
         state.status.Fail( "interaction automation requires a script path" );
-        return state.status.Result();
+        return state.status.Result( diagnostics );
     }
 
     strcpy_s( state.scriptPath, sizeof( state.scriptPath ), scriptPath );
@@ -3479,9 +3482,10 @@ SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationCo
 
 
 SkullbonezCore::Core::SbResult
-SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomationController& state )
+SkullbonezCore::Runtime::InteractionAutomationResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                      const InteractionAutomationController& state )
 {
-    return state.status.Result();
+    return state.status.Result( diagnostics );
 }
 
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config,

@@ -62,7 +62,8 @@ namespace SkullbonezCore
 namespace Core
 {
 class Profiler;
-}
+class SbDiagnosticStore;
+} // namespace Core
 namespace Assets
 {
 class AssetSystem;
@@ -100,13 +101,13 @@ class Terrain
     };
 
     static SkullbonezCore::Core::SbResult
-    TryCreateFromHeightMap( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap,
-                            const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
-                            Rendering::Dx12ResourceBuilder& resources,
+    TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize,
+                            int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+                            Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources,
                             std::unique_ptr<Terrain>& outTerrain );                                   // Lane R factory for external RAW height-map input.
     static SkullbonezCore::Core::SbResult
-    TryCreatePhysicsFromHeightMap( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap,
-                                   const SkullbonezCore::Core::EngineConfig& config,
+    TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize,
+                                   int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
                                    std::unique_ptr<Terrain>& outTerrain );                            // CPU-domain load path with no renderer double.
     Terrain( int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
@@ -219,7 +220,8 @@ class Terrain
              Rendering::Dx12ResourceBuilder* resources );                                             // Shared analytic-slope construction shell.
 
     SkullbonezCore::Core::SbResult
-    LoadTerrainData( const char* sFileName );                                                         // Cold RAW byte load used to construct authoritative posts.
+    LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                     const char* sFileName );                                                         // Cold RAW byte load used to construct authoritative posts.
     const SkullbonezCore::Core::EngineConfig& Config() const;                                         // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                                                   // Lit terrain shader setup for the active backend.
     void BuildTerrain();                                                                              // Physics-authoritative terrain posts are rebuilt from raw height data.

@@ -223,12 +223,25 @@ SbResult compact success path SR1 completed on 2026-07-28. One App-composed
 256-slot immutable diagnostic store is selected; a failed 16-byte result leases
 a packed slot/generation token until its last copy releases, while success
 touches no store. Explicit store injection replaces the old producer/public
-field API without a wrapper. The bound covers the current conservative 176
-producer-site plus 30 retained/aggregate-site maximum under verified
-no-recursion/re-entry, no worker publication, and no result-container/queue
-assumptions. Escaping diagnostics use bounded copy-out rather than borrowed
-pointers. The live ledger is therefore 2/13 (15%). Evidence is in
+field API without a wrapper. The original decision recorded a 176-producer plus
+30 retained/aggregate-site bound under verified no-recursion/re-entry, no
+worker publication, and no result-container/queue assumptions; SR2's
+multiline-aware correction below supersedes that count. Escaping diagnostics
+use bounded copy-out rather than borrowed pointers. The live ledger is
+therefore 2/13 (15%). Evidence is in
 `../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`.
+
+SbResult compact success path SR2 completed on 2026-07-28. The 16-byte leased
+carrier, 159,760-byte fixed App store, exact bounded diagnostics, stale identity
+checks, last-lease reclamation, explicit producer migration, and compact
+`ApplicationExitState` retention now compile and pass focused tests. SR2's
+multiline-aware correction changes the SR1 decision-tip census from the
+reported 176+30 to 220+30. The final capacity census is 221 producer
+expressions plus 29 result-member sites, conservatively 250/256 live entries
+without a hidden store, result container, deferred queue, or worker handoff.
+The live ledger is therefore 3/13 (23%).
+Evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -813,7 +826,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 2/13 (15%).
+The remaining Principal Engineer Feedback Campaign is binding at 3/13 (23%).
 Execute its four live plans in table order below. The owner has answered every
 campaign question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all

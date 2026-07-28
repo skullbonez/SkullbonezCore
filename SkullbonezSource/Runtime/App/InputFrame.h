@@ -179,8 +179,9 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera,
-                                          RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera,
+RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
+                                          InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
+                                          AttachedCameraController& attachedCamera,
                                           RuntimeInteractionController& interaction, UI::InGameUI& ui, RunTimerState& timers,
                                           SceneController& sceneController, ReplayRuntime& replayRuntime,
                                           const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts );

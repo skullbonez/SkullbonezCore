@@ -33,6 +33,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
 */
 #include "Dx12ImGuiRendererOwner.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include "Dx12DescriptorHeaps.h"
 #include "Dx12FrameOwner.h"
@@ -80,10 +81,12 @@ void FreeImGuiDescriptor( ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HA
 }
 } // namespace
 
-Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors,
+Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors,
                                                 Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline,
                                                 Dx12TextureOwner& textures ) noexcept
-    : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_pipeline( pipeline ), m_textures( textures )
+    : m_resultDiagnostics( resultDiagnostics ), m_device( device ), m_descriptors( descriptors ), m_frame( frame ),
+      m_pipeline( pipeline ), m_textures( textures )
 {
     static_assert( Dx12FrameOwner::FRAME_COUNT == 2,
                    "Dear ImGui frame resources must match the engine's two-frame reuse contract." );
@@ -101,9 +104,9 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     {
 
         // Lane R: device/heap publication depends on the host graphics environment.
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Rendering/DX12/ImGui",
-                     "Cannot bind ImGui renderer without a complete device, queue, and development descriptor heap" );
+        return m_resultDiagnostics
+            .Failure( "Rendering/DX12/ImGui",
+                      "Cannot bind ImGui renderer without a complete device, queue, and development descriptor heap" );
     }
 
     ImGui::SetCurrentContext( &context );
@@ -123,8 +126,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
 
     if ( !ImGui_ImplDX12_Init( &info ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
-                                                        "Dear ImGui DX12 backend initialization failed" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Dear ImGui DX12 backend initialization failed" );
     }
 
     m_initialized = true;
@@ -133,8 +135,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
     {
         ImGui_ImplDX12_Shutdown();
         m_initialized = false;
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
-                                                        "Dear ImGui DX12 device-object creation failed" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Dear ImGui DX12 device-object creation failed" );
     }
 
     m_gameViewportDescriptor = m_descriptors.AllocateDevelopmentUi();
@@ -192,9 +193,9 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
 
         // Lane R: the editor image is optional development presentation, but a
         // requested visible surface cannot silently display stale pixels.
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Rendering/DX12/ImGui", "CreateCommittedResource for the game viewport failed (hr=0x%08X extent=%dx%d)",
-                     static_cast<unsigned int>( createResult ), width, height );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui",
+                                            "CreateCommittedResource for the game viewport failed (hr=0x%08X extent=%dx%d)",
+                                            static_cast<unsigned int>( createResult ), width, height );
     }
 
     candidate->SetName( L"Skore ImGui Game Viewport Copy" );
@@ -227,13 +228,12 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
 
     if ( !m_initialized )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
-                                                        "Game viewport capture has no live renderer binding" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Game viewport capture has no live renderer binding" );
     }
 
     SkullbonezCore::Core::SbResult result = m_frame.EnsureOpen();
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         return result;
     }
@@ -243,15 +243,15 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
 
     if ( !backbuffer || !commandList )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
-                                                        "Game viewport capture has no active backbuffer or command list" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui",
+                                            "Game viewport capture has no active backbuffer or command list" );
     }
 
     const D3D12_RESOURCE_DESC backbufferDesc = backbuffer->GetDesc();
     result = EnsureGameViewportTexture( static_cast<int>( backbufferDesc.Width ),
                                         static_cast<int>( backbufferDesc.Height ) );
 
-    if ( !result.ok || !m_gameViewportTexture )
+    if ( !result.Ok() || !m_gameViewportTexture )
     {
         return result;
     }
@@ -307,8 +307,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 
     if ( !m_initialized )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
-                                                        "Draw submission has no live renderer binding" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Draw submission has no live renderer binding" );
     }
 
     if ( drawData.DisplaySize.x <= 0.0f || drawData.DisplaySize.y <= 0.0f )
@@ -318,7 +317,7 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 
     SkullbonezCore::Core::SbResult result = m_frame.EnsureOpen();
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         return result;
     }

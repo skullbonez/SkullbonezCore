@@ -167,9 +167,10 @@ bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetS
 }
 
 
-bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene,
-                                      const Assets::AssetSystem& assets, int activeModelCapacity,
-                                      EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult )
+bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor,
+                                      SceneWorld& world, SceneSessionState& scene, const Assets::AssetSystem& assets,
+                                      int activeModelCapacity, EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult )
 {
     int type = 0;
 
@@ -243,10 +244,10 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         const auto appendResult = world.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ),
                                                               std::move( colliderDesc ) );
 
-        if ( !appendResult.status.ok )
+        if ( !appendResult.status.Ok() )
         {
             appendFailed = true;
-            fprintf( stderr, "[editor] Cannot place object: %s\n", appendResult.status.error.message );
+            fprintf( stderr, "[editor] Cannot place object: %s\n", appendResult.status.ErrorMessage() );
             return false;
         }
 
@@ -295,7 +296,8 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
 
-        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, assets, center ) )
+        if ( !TryComputeEditorObjectCenter( diagnostics, type, terrainPoint, placementScale, placementOrientation, assets,
+                                            center ) )
         {
             return;
         }
@@ -333,11 +335,11 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         }
 
         ConvexHullShape hull;
-        const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( path, hull );
+        const SkullbonezCore::Core::SbResult hullLoad = ConvexHullShape::TryLoadFromFile( diagnostics, path, hull );
 
-        if ( !hullLoad.ok )
+        if ( !hullLoad.Ok() )
         {
-            fprintf( stderr, "[editor] Cannot place hull asset %s: %s\n", label, hullLoad.error.message );
+            fprintf( stderr, "[editor] Cannot place hull asset %s: %s\n", label, hullLoad.ErrorMessage() );
             return;
         }
 
@@ -388,7 +390,7 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
 
-            if ( !CachedEditorHullForAsset( part.hullAsset ) )
+            if ( !CachedEditorHullForAsset( diagnostics, part.hullAsset ) )
             {
                 fprintf( stderr, "[editor] Cannot place tree: missing hull asset %s.\n",
                          EditorHullAssetToken( part.hullAsset ) );
@@ -400,7 +402,7 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
-            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( part.hullAsset );
+            const ConvexHullShape* sourceHull = CachedEditorHullForAsset( diagnostics, part.hullAsset );
 
             if ( !sourceHull )
             {
@@ -550,7 +552,8 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
                                                        if ( primitiveType == "convexHull" )
                                                        {
                                                            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                                                           const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                                                           const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr
+                                                                                                                : CachedEditorBuildingHull( diagnostics, hullPath );
 
                                                            if ( !sourceHull )
                                                            {
@@ -637,12 +640,13 @@ bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorl
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
         options.firstSceneObjectId = scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
-        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( world, options );
+        const SkullbonezCore::Core::SbResult appendResult = SceneAuthoredSetup::AppendSimpleRagdoll( diagnostics, world,
+                                                                                                     options );
 
-        if ( !appendResult.ok )
+        if ( !appendResult.Ok() )
         {
             appendFailed = true;
-            fprintf( stderr, "[editor] Cannot place ragdoll: %s\n", appendResult.error.message );
+            fprintf( stderr, "[editor] Cannot place ragdoll: %s\n", appendResult.ErrorMessage() );
         }
     };
 

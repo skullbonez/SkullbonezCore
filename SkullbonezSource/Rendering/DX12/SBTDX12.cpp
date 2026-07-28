@@ -47,6 +47,7 @@ Related:
 //  InstanceContributionToHitGroupIndex set in each TLAS instance descriptor.
 //
 #include "SBTDX12.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderDeviceDX12.h"
 #include <cstring>
@@ -63,9 +64,9 @@ static inline UINT64 Align( UINT64 value, UINT64 alignment )
 }
 
 
-SBT::SBT()
-    : m_buffer( nullptr ), m_rayGenOffset( 0 ), m_rayGenSize( 0 ), m_missOffset( 0 ), m_missSize( 0 ), m_hitGroupOffset( 0 ),
-      m_hitGroupStride( 0 ), m_hitGroupSize( 0 )
+SBT::SBT( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_buffer( nullptr ), m_rayGenOffset( 0 ), m_rayGenSize( 0 ),
+      m_missOffset( 0 ), m_missSize( 0 ), m_hitGroupOffset( 0 ), m_hitGroupStride( 0 ), m_hitGroupSize( 0 )
 {
 }
 
@@ -83,8 +84,7 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
 
     if ( !props )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "SBT: missing RT pipeline shader identifier interface" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: missing RT pipeline shader identifier interface" );
     }
 
     // Shader identifier size is always 32 bytes (D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES)
@@ -117,30 +117,28 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
 
     if ( !rayGenId )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing ray-generation shader identifier" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: Missing ray-generation shader identifier" );
     }
 
     const uint8_t* missId = static_cast<const uint8_t*>( props->GetShaderIdentifier( missName ) );
 
     if ( !missId )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
     }
 
     const uint8_t* terrainHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupTerrainName ) );
 
     if ( !terrainHitId )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "SBT: Missing terrain hit-group shader identifier" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: Missing terrain hit-group shader identifier" );
     }
 
     const uint8_t* sphereHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupSphereName ) );
 
     if ( !sphereHitId )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "SBT: Missing sphere hit-group shader identifier" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: Missing sphere hit-group shader identifier" );
     }
 
     // Allocate upload heap buffer
@@ -163,7 +161,7 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
                                                   D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_buffer ) ) ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Failed to create buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: Failed to create buffer" );
     }
 
     NameDx12Object( m_buffer, L"Skullbonez DX12 Shader Binding Table" );
@@ -177,9 +175,10 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
     // immediately publishes typed SBT bytes to this cold initialization path.
     void* rawMapped = nullptr;
     const HRESULT mapResult = m_buffer->Map( 0, nullptr, &rawMapped );
-    const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( mapResult, rawMapped, "SBT buffer Map" );
+    const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( m_resultDiagnostics, mapResult, rawMapped,
+                                                                            "SBT buffer Map" );
 
-    if ( !mappedResult.result.ok )
+    if ( !mappedResult.result.Ok() )
     {
         Reset();
         return mappedResult.result;

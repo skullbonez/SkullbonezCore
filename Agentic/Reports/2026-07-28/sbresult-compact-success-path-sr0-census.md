@@ -46,14 +46,32 @@ The current production tree contains:
 | Scene-load/resource-build definitions | 51 |
 | Cold/on-demand definitions | 69 |
 | `SbResult::Success()` constructions | 200 |
-| `SbResult::Failure()` constructions | 176 |
+| `SbResult::Failure()` constructions | 220 (SR2 multiline-aware correction; originally reported as 176) |
 | Production source/header files mentioning `SbResult` | 116 |
 
 Tests add four success constructions and 17 failure constructions across five
 files. The 177-definition classification reconciles exactly: 57 + 51 + 69 =
-177. Current explicit factory counts also match the preceding frame-path
-closure census. Changes since that census only decomposed Replay validation
-without adding or removing an `SbResult` construction or returning definition.
+177. The returning-definition classification remains unchanged by the
+multiline factory-count correction below.
+
+### SR2 census correction
+
+SR2 reran the construction census with a whitespace/multiline-aware expression
+matcher before relying on the 256-slot capacity proof. The original 176 count
+was not complete. At the SR0/SR1 source tip there are 220 factory expressions:
+178 have `SbResult::Failure(` on one line, while 42 are formatted with
+`SbResult::` and `Failure(` on separate lines. The reported 176 is the
+same-line set less the two `ApplicationExitState` reconstruction factories,
+which the earlier evidence treated as storage/consumption rather than new
+producers.
+
+The corrected conservative SR1 input is therefore 220 factory expressions plus
+30 result-member/aggregate sites, or 250/256. The decision still fits, but with
+six entries of conservative headroom rather than the originally reported 50.
+SR2's final source has 221 explicit store publication expressions plus 29
+result-member sites, also 250/256. This correction changes only the capacity
+census; the returning-definition, transfer, diagnostic-consumer, and
+performance evidence above is unchanged.
 
 ## Storage, Copy, And Transfer Census
 

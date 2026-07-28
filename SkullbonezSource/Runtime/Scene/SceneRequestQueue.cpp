@@ -20,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
 */
 #include "SceneRequestQueue.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include "../../Core/FatalError.h"
 
@@ -29,7 +30,8 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& request )
+SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                          const SceneRequest& request )
 {
 
     if ( request.type == SceneRequestType::CreateScene )
@@ -38,9 +40,8 @@ SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& re
 
         if ( textLength >= SCENE_REQUEST_TEXT_CAPACITY )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Runtime/SceneRequestQueue",
-                                                            "Scene name exceeds the fixed %d-byte request payload",
-                                                            SCENE_REQUEST_TEXT_CAPACITY - 1 );
+            return diagnostics.Failure( "Runtime/SceneRequestQueue", "Scene name exceeds the fixed %d-byte request payload",
+                                        SCENE_REQUEST_TEXT_CAPACITY - 1 );
         }
     }
 

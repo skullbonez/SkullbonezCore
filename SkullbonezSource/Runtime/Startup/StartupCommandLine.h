@@ -178,7 +178,8 @@ bool ParseAllocationGuardCommandLineToken( const char* value,
 
 // Fills caller-owned config/argument state synchronously. False means WinMain
 // must report GetCommandLineError and stop before constructing runtime owners.
-bool ParseCommandLine( const CommandLineView& commandLine, Core::EngineConfig& config, ParsedArgs& out );
+bool ParseCommandLine( Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine, Core::EngineConfig& config,
+                       ParsedArgs& out );
 
 } // namespace Startup
 } // namespace Runtime

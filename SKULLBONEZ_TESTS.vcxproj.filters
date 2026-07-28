@@ -195,6 +195,9 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSbResult.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -271,6 +274,9 @@
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\SbResult.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
@@ -438,6 +444,9 @@
       <Filter>External</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFatalCases.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestSbResultAccess.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestCollisionShapeFixtures.h">

@@ -251,7 +251,7 @@ class SceneGeneratedControlTransaction
     bool RecordDrainResult( const SkullbonezCore::Core::SbResult& result )
     {
         m_result.action.status = result;
-        m_drainSucceeded = result.ok;
+        m_drainSucceeded = result.Ok();
         return m_drainSucceeded;
     }
 

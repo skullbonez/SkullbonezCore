@@ -49,7 +49,8 @@ class Dx12RenderDevice;
 class Dx12BackbufferCapture
 {
   public:
-    Dx12BackbufferCapture( Dx12CaptureFrame& frame, const Dx12RenderDevice& device );
+    Dx12BackbufferCapture( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Dx12CaptureFrame& frame,
+                           const Dx12RenderDevice& device );
     SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight );
     bool SupportsBackbufferCapture() const
     {
@@ -61,6 +62,7 @@ class Dx12BackbufferCapture
     static constexpr size_t MAX_QUARANTINED_READBACKS = 2;
     void Quarantine( ID3D12Resource* resource, const char* failedOperation );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     Dx12CaptureFrame& m_frame;
     const Dx12RenderDevice& m_device;
     std::array<ID3D12Resource*, MAX_QUARANTINED_READBACKS> m_quarantined = {};

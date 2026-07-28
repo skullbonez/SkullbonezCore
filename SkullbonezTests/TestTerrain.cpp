@@ -51,6 +51,12 @@
 #include <cstdio>
 #include <fstream>
 #include <memory>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
@@ -81,8 +87,7 @@ PhysicsBodyStore& TerrainBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     store.Clear();
@@ -94,8 +99,7 @@ ColliderStore& TerrainColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 0u, 0u );
     }
@@ -151,13 +155,16 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
     config.terrainGeometry.scale = 0.0f;
     std::unique_ptr<Terrain> terrain;
 
-    const auto result = Terrain::TryCreatePhysicsFromHeightMap( kHeightMapPath, kMapSize, 1, 1, config, terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( diagnostics, kHeightMapPath, kMapSize, 1, 1, config,
+                                                                terrain );
+
     std::remove( kHeightMapPath );
 
-    REQUIRE( result.ok );
+    REQUIRE( result.Ok() );
     REQUIRE( terrain != nullptr );
     const std::vector<float> vertices = terrain->BuildRenderVertexData();
     REQUIRE_FALSE( vertices.empty() );
+
     for ( size_t vertex = 0; vertex < vertices.size(); vertex += 8u )
     {
         CHECK( vertices[vertex + 3u] == doctest::Approx( 0.0f ) );
@@ -174,6 +181,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     PhysicsBodyStore& bodies = TerrainBodyStore();
     ColliderStore& colliders = TerrainColliderStore();
+
     for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
     {
         PhysicsBodyCreateRecord body;
@@ -186,6 +194,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         collider.boundingRadius = 1.0f;
         colliders.CreateColliderRecord( collider, shape );
     }
+
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
     const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
     const std::array<SkullbonezCore::Physics::BuoyancyBodyFacts, 3> buoyancyFacts;
@@ -195,8 +204,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         stage.ReserveSceneCapacity( 3u );
     }
     const std::array<int, 1> awakeBodyIndices = { 0 };
@@ -219,8 +227,10 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
     const CollisionShape shapes[] = {
         SphereShape( 1.0f ),
         BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),
-        SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/pyramid.hull" ),
+        SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( diagnostics,
+                                                                                 "SkullbonezData/hulls/pyramid.hull" ),
     };
+
     const float centerHeights[] = { 4.0f, 4.0f, 5.0f };
 
     for ( int index = 0; index < 3; ++index )

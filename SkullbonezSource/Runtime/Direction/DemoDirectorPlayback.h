@@ -80,10 +80,10 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const CameraControlState& camera );
-DemoDirectorTickResult Tick( CameraControlState& camera, DemoDirectorPredictionView prediction,
-                             RunLaunchOptions& launchOptions, SceneController& sceneController,
-                             SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
-                             SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+DemoDirectorTickResult Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, CameraControlState& camera,
+                             DemoDirectorPredictionView prediction, RunLaunchOptions& launchOptions,
+                             SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                             const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic, float cameraDt );
 } // namespace DemoDirectorPlayback
 } // namespace Runtime

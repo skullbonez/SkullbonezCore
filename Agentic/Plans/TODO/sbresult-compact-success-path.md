@@ -1,7 +1,7 @@
 # SbResult Compact Success Path
 
 Date: 2026-07-28
-Status: ACTIVE — 2/4 phases complete
+Status: ACTIVE — 3/4 phases complete
 Impact area: Core error handling, per-frame Runtime phases, diagnostics lifetime
 Owner: Core + App composition
 Priority: Medium-high
@@ -47,20 +47,28 @@ diagnostic lifetime.
   replace the old static failure and public inline-error API without a wrapper.
   The store copies the complete bounded owner and 511-byte message, detects
   stale generations, synchronizes publication/leases without allocation, and
-  makes capacity/lease/generation defects Lane F. The 256-slot bound covers
-  the current conservative 176 producer-site plus 30 retained/aggregate-site
-  maximum under the verified no-recursion/re-entry, no worker publication, and
-  no result-container/queue assumptions; SR2/SR3 must rerun that census.
+  makes capacity/lease/generation defects Lane F. SR2 corrected the
+  spelling-sensitive SR0 census: the decision-tip bound is 220 factory
+  expressions plus 30 retained/aggregate sites, or 250/256, under the verified
+  no-recursion/re-entry, no worker publication, and no result-container/queue
+  assumptions; SR2/SR3 must rerun that census.
   Direct diagnostic pointers last only for the same unmoved, unassigned live
   result lease; escaping consumers use bounded status-returning copy-out.
   The focused matrix includes test-only concurrent failure publication within
   the fixed capacity and an explicit double-release Lane F child probe.
   Evidence:
   [`../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md).
-- [ ] **SR2 — Implement and migrate.** Replace the 528-byte success carrier with
+- [x] **SR2 — Implement and migrate.** Replace the 528-byte success carrier with
   the selected compact value, migrate callers without a forwarding
   compatibility type, and preserve complete failure formatting and Lane R/F/P
-  separation.
+  separation. **Implemented:** `SbResult` is the 16-byte store/token lease; the
+  single 159,760-byte App-composed store owns synchronized immutable entries;
+  every producer/consumer uses the explicit API; `ApplicationExitState`
+  retains the compact lease; focused lifetime, bound, concurrency, copy-out,
+  and Lane F probes pass. The final multiline-aware census is 221 producer
+  expressions plus 29 result-member sites, conservatively 250/256 live entries
+  with no result containers/queues or hidden store. Evidence:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md).
 - [ ] **SR3 — Prove size, behavior, and cost.** Pin `sizeof`, success/failure
   lifetime, maximum payload, stale-handle behavior, and frame-path performance;
   complete ownership review, comment audit, performance and broad gates.

@@ -49,9 +49,9 @@ class LiveStyleController
   public:
     bool ConfigureDirectory( const char* path );
     void MarkReady();
-    void Tick( RunLaunchOptions& launchOptions, SceneController& sceneController,
-               SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser, const Assets::AssetSystem& assets,
-               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+    void Tick( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, RunLaunchOptions& launchOptions,
+               SceneController& sceneController, SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+               const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
     bool HasPendingCapture() const;
     void SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );

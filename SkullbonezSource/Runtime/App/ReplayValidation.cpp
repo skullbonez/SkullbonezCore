@@ -53,6 +53,7 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../Simulation/SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
@@ -425,10 +426,10 @@ bool TryApplyReplayRestoreWorldLauncherEvent( RuntimeTools& runtimeTools, SceneS
     }
 }
 
-bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools, SceneSessionState& scene,
-                                         SkullbonezCore::Assets::AssetSystem& assets, SceneWorld& world,
-                                         int sceneObjectCapacity, const ReplayEventSample& event, char* eventOutReason,
-                                         std::size_t eventReasonSize, bool& requestInteractiveScene )
+bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RuntimeTools& runtimeTools,
+                                         SceneSessionState& scene, SkullbonezCore::Assets::AssetSystem& assets,
+                                         SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
+                                         char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
 {
 
     // Lifetime: scene/editor owners are synchronous borrows for this decoded
@@ -467,8 +468,8 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools, SceneSessio
     if ( CanPlaceEditorObjectAtTerrainPoint( world, assets, sceneObjectCapacity, placementRequest ) )
     {
         requestInteractiveScene = true;
-        placed = PlaceEditorObjectAtTerrainPoint( runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity,
-                                                  placementRequest, placementResult );
+        placed = PlaceEditorObjectAtTerrainPoint( diagnostics, runtimeTools.Editor(), world, scene, assets,
+                                                  sceneObjectCapacity, placementRequest, placementResult );
     }
 
     runtimeTools.Editor().placementScale = previousPlacementScale;
@@ -634,10 +635,10 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEven
 // Concept: target restore replays only solver-relevant timeline events. Runtime
 // commands that would change scenes stay rejected here, while editor placement
 // emits an application-mode request to the owning replay transaction.
-bool ApplyReplayRestoreEventForTarget( RuntimeTools& runtimeTools, SceneSessionState& scene,
-                                       SkullbonezCore::Assets::AssetSystem& assets, SceneWorld& world,
-                                       int sceneObjectCapacity, const ReplayEventSample& event, char* eventOutReason,
-                                       std::size_t eventReasonSize, bool& requestInteractiveScene )
+bool ApplyReplayRestoreEventForTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RuntimeTools& runtimeTools,
+                                       SceneSessionState& scene, SkullbonezCore::Assets::AssetSystem& assets,
+                                       SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
+                                       char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
 {
 
     if ( event.payloadVersion != 1 )
@@ -689,8 +690,8 @@ bool ApplyReplayRestoreEventForTarget( RuntimeTools& runtimeTools, SceneSessionS
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
         return false;
     case ReplayEventKind::EditorPlace:
-        return ApplyReplayRestoreEditorPlaceEvent( runtimeTools, scene, assets, world, sceneObjectCapacity, event,
-                                                   eventOutReason, eventReasonSize, requestInteractiveScene );
+        return ApplyReplayRestoreEditorPlaceEvent( diagnostics, runtimeTools, scene, assets, world, sceneObjectCapacity,
+                                                   event, eventOutReason, eventReasonSize, requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
         return ApplyReplayRestoreEditorTransformEvent( world, event, eventOutReason, eventReasonSize );
     default:
@@ -987,7 +988,8 @@ void FormatReplayRestoreDivergenceMessage( char* message, std::size_t messageSiz
 // checkpoint and replaying only the saved branch events before each fixed
 // physics step. The invariant owner records progress and failure values while
 // every concrete runtime owner remains a synchronous phase-call borrow.
-bool ApplyReplayRestoreEventsForFrame( ReplayRestoreTransaction& transaction, SceneController& sceneController,
+bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                       ReplayRestoreTransaction& transaction, SceneController& sceneController,
                                        RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets,
                                        int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact,
                                        const ReplaySolverFrameSample& checkpoint, ReplayFrameIndex nextFrame,
@@ -1012,9 +1014,9 @@ bool ApplyReplayRestoreEventsForFrame( ReplayRestoreTransaction& transaction, Sc
 
         char eventReason[160] = {};
         bool requestInteractiveScene = false;
-        const bool eventApplied = ApplyReplayRestoreEventForTarget( runtimeTools, scene, assets, world, sceneObjectCapacity,
-                                                                    event, eventReason, sizeof( eventReason ),
-                                                                    requestInteractiveScene );
+        const bool eventApplied = ApplyReplayRestoreEventForTarget( diagnostics, runtimeTools, scene, assets, world,
+                                                                    sceneObjectCapacity, event, eventReason,
+                                                                    sizeof( eventReason ), requestInteractiveScene );
 
         if ( requestInteractiveScene )
         {
@@ -1116,8 +1118,8 @@ bool ValidateReplayRestoreSteppedFrame( ReplayRestoreTransaction& transaction, S
     return true;
 }
 
-bool StepReplayRestoreTarget( ReplayRestoreTransaction& transaction, SceneController& sceneController,
-                              OverlayDebugState& debug, RuntimeTools& runtimeTools,
+bool StepReplayRestoreTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction,
+                              SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
                               SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool,
                               int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact,
                               const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target,
@@ -1139,9 +1141,9 @@ bool StepReplayRestoreTarget( ReplayRestoreTransaction& transaction, SceneContro
     {
         const ReplayFrameIndex nextFrame = currentFrame + 1u;
 
-        if ( !ApplyReplayRestoreEventsForFrame( transaction, sceneController, runtimeTools, assets, sceneObjectCapacity,
-                                                artifact, checkpoint, nextFrame, eventCursor, eventsApplied,
-                                                unsupportedEvents ) )
+        if ( !ApplyReplayRestoreEventsForFrame( diagnostics, transaction, sceneController, runtimeTools, assets,
+                                                sceneObjectCapacity, artifact, checkpoint, nextFrame, eventCursor,
+                                                eventsApplied, unsupportedEvents ) )
         {
             return false;
         }
@@ -1319,9 +1321,9 @@ bool PopulateReplayGeneratedScene( SceneController& sceneController, const Skull
             setupResult = SceneGeneratedSetup::SetUpSolverObjects( scene, config, world, generatedObjectTypeOverride,
                                                                    event.value1, event.value2 );
 
-        if ( !setupResult.ok )
+        if ( !setupResult.Ok() )
         {
-            WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.error.message );
+            WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.ErrorMessage() );
             return false;
         }
     }
@@ -1331,9 +1333,9 @@ bool PopulateReplayGeneratedScene( SceneController& sceneController, const Skull
             setupResult = SceneGeneratedSetup::SetUpSceneEntities( scene, config, world, generatedObjectTypeOverride,
                                                                    event.value0 );
 
-        if ( !setupResult.ok )
+        if ( !setupResult.Ok() )
         {
-            WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.error.message );
+            WriteReplayProbeReason( rebuildReason, rebuildReasonSize, setupResult.ErrorMessage() );
             return false;
         }
     }
@@ -1568,7 +1570,7 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 #ifdef _DEBUG
     result.status = m_probeRunner.CurrentFailure();
 
-    if ( !result.status.ok )
+    if ( !result.status.Ok() )
     {
         return result;
     }
@@ -1576,8 +1578,8 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 
     if ( startup.loadPath[0] != '\0' && !m_timeline.LoadPresentationArtifact( startup.loadPath ) )
     {
-        result.status = SkullbonezCore::Core::SbResult::Failure( "Runtime/ReplayLoad",
-                                                                 "failed to load replay v2 presentation artifact" );
+        result.status = m_resultDiagnostics.Failure( "Runtime/ReplayLoad",
+                                                     "failed to load replay v2 presentation artifact" );
 
         return result;
     }
@@ -1605,8 +1607,7 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 
     if ( startup.loadProbe )
     {
-        result.status = SkullbonezCore::Core::SbResult::Failure( "Runtime/ReplayLoad",
-                                                                 "replay load probe requires a Debug build" );
+        result.status = m_resultDiagnostics.Failure( "Runtime/ReplayLoad", "replay load probe requires a Debug build" );
     }
 #endif
     return result;
@@ -1764,9 +1765,9 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
         return false;
     }
 
-    if ( !StepReplayRestoreTarget( transaction, sceneController, debug, runtimeTools, assets, workerPool,
-                                   SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), artifact, *checkpoint, *target,
-                                   m_profiler ) )
+    if ( !StepReplayRestoreTarget( m_resultDiagnostics, transaction, sceneController, debug, runtimeTools, assets,
+                                   workerPool, SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), artifact,
+                                   *checkpoint, *target, m_profiler ) )
     {
         return failAfterMutation( transaction.FailureReason(), target );
     }

@@ -26,6 +26,7 @@ Related:
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
@@ -38,21 +39,26 @@ using namespace SkullbonezCore::Runtime;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
+
 TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metadata" )
 {
-    static SceneEntityStore store;
+    static SceneEntityStore store( diagnostics );
     store.Clear();
     store.ConfigureCapacity( 2 );
 
     SceneEntityCreateDesc entity;
-    entity.sceneObjectId = PhysicsSceneObjectId{ 42u };
+    entity.sceneObjectId = PhysicsSceneObjectId { 42u };
     entity.SetName( "tower_part" );
     entity.SetRenderTint( 0.2f, 0.4f, 0.6f, 1.0f );
-    entity.SetAssetAffiliation( PhysicsSceneObjectId{ 900u }, "structures", "tower", "tower_a", "wall", 3u );
-    entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 42u }, 0 );
+    entity.SetAssetAffiliation( PhysicsSceneObjectId { 900u }, "structures", "tower", "tower_a", "wall", 3u );
+    entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 42u }, 0 );
     entity.editorVisible = false;
     entity.editorLocked = true;
-    REQUIRE( store.PreflightAppend( entity ).ok );
+    REQUIRE( store.PreflightAppend( entity ).Ok() );
 
     PhysicsBodyHandle body;
     body.index = 7u;
@@ -78,40 +84,40 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     CHECK_FALSE( record.editorVisible );
     CHECK( record.editorLocked );
     CHECK( store.FindByDisplayName( "tower_part" ) == 0 );
-    CHECK( store.FindBySceneObjectId( PhysicsSceneObjectId{ 42u } ) == 0 );
+    CHECK( store.FindBySceneObjectId( PhysicsSceneObjectId { 42u } ) == 0 );
 
     PhysicsBodyHandle refreshedBody;
     refreshedBody.index = 9u;
     refreshedBody.generation = 4u;
-    store.UpdateBodyHandleAt( 0, refreshedBody, PhysicsSceneObjectId{ 42u } );
+    store.UpdateBodyHandleAt( 0, refreshedBody, PhysicsSceneObjectId { 42u } );
     CHECK( store.At( 0 ).body.index == 9u );
     CHECK( store.At( 0 ).body.generation == 4u );
 
-    CHECK_FALSE( store.PreflightAppend( entity ).ok );
+    CHECK_FALSE( store.PreflightAppend( entity ).Ok() );
 
     SceneEntityCreateDesc orphan;
-    orphan.sceneObjectId = PhysicsSceneObjectId{ 44u };
-    orphan.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 999u }, 1 );
-    CHECK_FALSE( store.PreflightAppend( orphan ).ok );
+    orphan.sceneObjectId = PhysicsSceneObjectId { 44u };
+    orphan.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 999u }, 1 );
+    CHECK_FALSE( store.PreflightAppend( orphan ).Ok() );
 
     SceneEntityCreateDesc child;
-    child.sceneObjectId = PhysicsSceneObjectId{ 43u };
+    child.sceneObjectId = PhysicsSceneObjectId { 43u };
     child.SetName( "tower_child" );
-    child.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 42u }, 1 );
-    REQUIRE( store.PreflightAppend( child ).ok );
-    store.CommitAppend( child, PhysicsBodyHandle{ 10u, 1u } );
+    child.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId { 42u }, 1 );
+    REQUIRE( store.PreflightAppend( child ).Ok() );
+    store.CommitAppend( child, PhysicsBodyHandle { 10u, 1u } );
     CHECK( store.At( 1 ).behaviorGroup.rootObjectId.value == 42u );
 }
 
 TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
 {
-    static SceneEntityStore store;
+    static SceneEntityStore store( diagnostics );
     store.Clear();
     store.ConfigureCapacity( 1 );
     const uint64_t reservedBytes = store.CapacityBytes();
 
     SceneEntityCreateDesc first;
-    first.sceneObjectId = PhysicsSceneObjectId{ 1u };
+    first.sceneObjectId = PhysicsSceneObjectId { 1u };
     first.SetName( "first" );
     PhysicsBodyHandle body;
     body.index = 0u;
@@ -120,35 +126,35 @@ TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
     CHECK( store.CapacityBytes() == reservedBytes );
 
     SceneEntityCreateDesc second;
-    second.sceneObjectId = PhysicsSceneObjectId{ 2u };
-    CHECK_FALSE( store.PreflightAppend( second ).ok );
+    second.sceneObjectId = PhysicsSceneObjectId { 2u };
+    CHECK_FALSE( store.PreflightAppend( second ).Ok() );
     CHECK( store.Count() == 1 );
     CHECK( store.Capacity() == 1 );
     CHECK( store.TrimToCount( 0 ) );
     CHECK( store.Count() == 0 );
     CHECK( store.CapacityBytes() == reservedBytes );
-    CHECK( store.PreflightAppend( second ).ok );
+    CHECK( store.PreflightAppend( second ).Ok() );
 }
 
 TEST_CASE( "SceneEntityStore: behavior-group queries resolve stable ragdoll identity" )
 {
-    SceneEntityStore store;
+    SceneEntityStore store( diagnostics );
     store.ConfigureCapacity( 4 );
 
     SceneEntityCreateDesc torso;
-    torso.sceneObjectId = PhysicsSceneObjectId{ 100u };
+    torso.sceneObjectId = PhysicsSceneObjectId { 100u };
     torso.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 0 );
-    store.CommitAppend( torso, PhysicsBodyHandle{ 0u, 1u } );
+    store.CommitAppend( torso, PhysicsBodyHandle { 0u, 1u } );
 
     SceneEntityCreateDesc head;
-    head.sceneObjectId = PhysicsSceneObjectId{ 101u };
+    head.sceneObjectId = PhysicsSceneObjectId { 101u };
     head.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 1 );
-    store.CommitAppend( head, PhysicsBodyHandle{ 1u, 1u } );
+    store.CommitAppend( head, PhysicsBodyHandle { 1u, 1u } );
 
     SceneEntityCreateDesc arm;
-    arm.sceneObjectId = PhysicsSceneObjectId{ 102u };
+    arm.sceneObjectId = PhysicsSceneObjectId { 102u };
     arm.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 2 );
-    store.CommitAppend( arm, PhysicsBodyHandle{ 2u, 1u } );
+    store.CommitAppend( arm, PhysicsBodyHandle { 2u, 1u } );
 
     CHECK( store.GroupKindAt( 1 ) == SceneBehaviorGroupKind::SimpleRagdoll );
     CHECK( store.GroupRootObjectIdAt( 2 ).value == torso.sceneObjectId.value );
@@ -181,14 +187,13 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     strcpy_s( presentation.displayName, "transaction_entity" );
 
     PhysicsBodyRecord body;
-    body.handle = PhysicsBodyHandle{ 7u, 1u };
-    body.sceneObjectId = PhysicsSceneObjectId{ 77u };
+    body.handle = PhysicsBodyHandle { 7u, 1u };
+    body.sceneObjectId = PhysicsSceneObjectId { 77u };
     PhysicsBodyHotState hotState;
 
     ColliderRecord collider;
-    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
-        1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    collider.handle = PhysicsColliderHandle{ 9u, 1u };
+    const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape( 1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collider.handle = PhysicsColliderHandle { 9u, 1u };
     collider.body = body.handle;
     collider.sceneObjectId = body.sceneObjectId;
     collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
@@ -201,7 +206,7 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.PresentationCount() == 1 );
     CHECK( renderStore.Count() == 1 );
     CHECK( renderStore.HandleForModelIndex( 0 ).IsValid() );
-    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 77u } );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId { 77u } );
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
     CHECK( renderStore.Records()[0].shadowCasterStream == ShadowCasterStream::Pine );
     CHECK_FALSE( renderStore.PresentationRecords()[0].editorVisible );
@@ -223,14 +228,13 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     static PhysicsBodyStore bodyStore;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodyStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
-    createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 901u };
+    createRecord.cold.sceneObjectId = PhysicsSceneObjectId { 901u };
     createRecord.hot.position = Vector3( 0.0f, 0.0f, 0.0f );
     const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     REQUIRE( bodyHandle.IsValid() );
@@ -238,15 +242,14 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     static ColliderStore colliderStore;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliderStore.ReserveShapeCapacity( 1u, 0u, 0u );
     }
     colliderStore.Clear();
     ColliderRecord collider;
-    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
-        SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape
+        shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
     collider.shapeKind = ColliderShapeKind::Sphere;
@@ -255,11 +258,8 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
-    renderStore.CommitCreationRow( presentation,
-                                   bodyStore.Records()[0],
-                                   LoadPhysicsBodyHotState( bodyStore.HotFields(), 0u ),
-                                   colliderStore.Records()[0],
-                                   0 );
+    renderStore.CommitCreationRow( presentation, bodyStore.Records()[0],
+                                   LoadPhysicsBodyHotState( bodyStore.HotFields(), 0u ), colliderStore.Records()[0], 0 );
 
     renderStore.BeginPhysicsStepPoseCapture( bodyStore );
     auto hotFields = bodyStore.MutableHotFields();
@@ -335,14 +335,15 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     const auto commitRenderRow = [&]( int index, uint32_t sceneId )
     {
         RenderInstancePresentationRecord presentation;
+
         PhysicsBodyRecord body;
-        body.handle = PhysicsBodyHandle{ static_cast<uint32_t>( index ), 1u };
-        body.sceneObjectId = PhysicsSceneObjectId{ sceneId };
+        body.handle = PhysicsBodyHandle { static_cast<uint32_t>( index ), 1u };
+        body.sceneObjectId = PhysicsSceneObjectId { sceneId };
         PhysicsBodyHotState hotState;
         ColliderRecord collider;
-        const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
-            1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
-        collider.handle = PhysicsColliderHandle{ static_cast<uint32_t>( index ), 1u };
+        const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape( 1.0f,
+                                                                              SkullbonezCore::Math::Vector::ZERO_VECTOR );
+        collider.handle = PhysicsColliderHandle { static_cast<uint32_t>( index ), 1u };
         collider.body = body.handle;
         collider.sceneObjectId = body.sceneObjectId;
         collider.shape = SkullbonezCore::Math::CollisionDetection::CollisionShapeReference( shape, 0u );
@@ -360,34 +361,31 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     REQUIRE( renderStore.DestroyCreationRowAtSwapLast( 0 ) );
     REQUIRE( renderStore.Count() == 2 );
     REQUIRE( renderStore.PresentationCount() == 2 );
-    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 202u } );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId { 202u } );
     CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.2f ) );
 
     static PhysicsBodyStore bodyStore;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodyStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
-    createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 202u };
+    createRecord.cold.sceneObjectId = PhysicsSceneObjectId { 202u };
     const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     static ColliderStore colliderStore;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         colliderStore.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliderStore.ReserveShapeCapacity( 1u, 0u, 0u );
     }
     colliderStore.Clear();
     ColliderRecord collider;
-    const SkullbonezCore::Math::CollisionDetection::CollisionShape shape =
-        SkullbonezCore::Math::CollisionDetection::BoundingSphere(
-            1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    const SkullbonezCore::Math::CollisionDetection::CollisionShape
+        shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
     collider.shapeKind = ColliderShapeKind::Sphere;
@@ -399,6 +397,6 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     renderStore.TickContactFeedback( 1, 0.05f );
     renderStore.Refresh( bodyStore, colliderStore );
     REQUIRE( renderStore.Count() == 1 );
-    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 202u } );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId { 202u } );
     CHECK( renderStore.Records()[0].fixedContactAlpha == doctest::Approx( 0.1f ) );
 }

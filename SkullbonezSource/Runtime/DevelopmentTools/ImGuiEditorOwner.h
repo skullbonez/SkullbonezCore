@@ -205,7 +205,10 @@ class ImGuiEditorOwner
   public:
     static constexpr int LAYOUT_VERSION = IMGUI_EDITOR_LAYOUT_VERSION;
 
-    ImGuiEditorOwner() noexcept = default;
+    explicit ImGuiEditorOwner( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     ~ImGuiEditorOwner();
 
     ImGuiEditorOwner( const ImGuiEditorOwner& ) = delete;
@@ -258,6 +261,7 @@ class ImGuiEditorOwner
     void LoadPreferences() noexcept;
     void SavePreferences() noexcept;
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ImGuiContext* m_context = nullptr;
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
     HWND m_window = nullptr;

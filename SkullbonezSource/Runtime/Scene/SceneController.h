@@ -163,8 +163,8 @@ struct SceneLoadCompletedWorldChange
 class SceneController : public SceneSession
 {
   public:
-    SceneController();
-    explicit SceneController( std::vector<std::string> queue );
+    explicit SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
+    SceneController( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, std::vector<std::string> queue );
 
     // Borrow the concrete active-scene owner. SceneController deliberately has
     // no duplicate entity/physics/camera/terrain/render forwarding surface.
@@ -235,6 +235,7 @@ class SceneController : public SceneSession
           Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer,
           SceneLoadTransaction& transaction );
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
     int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.
     bool m_crossScenePauseLocked = false; // Operator scene-flow lock preserved across load transactions.

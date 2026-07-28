@@ -24,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Capture/CaptureSystem.h
 */
 #include "CaptureController.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/FatalError.h"
 
@@ -36,6 +37,11 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+CaptureController::CaptureController( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept
+    : m_diagnostics( diagnostics )
+{
+}
+
 RunScreenshotState& CaptureController::Screenshot()
 {
     return m_screenshot;
@@ -103,17 +109,16 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
         // Lane R: file paths originate at tool/input boundaries. Rejecting the
         // request before enqueue prevents the fixed record from truncating to a
         // different destination than the operator selected.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController",
-                                                        "Screenshot path must contain 1-%d bytes without truncation",
-                                                        CAPTURE_REQUEST_PATH_CAPACITY - 1 );
+        return m_diagnostics.Failure( "Runtime/CaptureController",
+                                      "Screenshot path must contain 1-%d bytes without truncation",
+                                      CAPTURE_REQUEST_PATH_CAPACITY - 1 );
     }
 
     const char* extension = strrchr( path, '.' );
 
     if ( !extension || _stricmp( extension, ".bmp" ) != 0 )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureController", "Screenshot path must end in .bmp: %s",
-                                                        path );
+        return m_diagnostics.Failure( "Runtime/CaptureController", "Screenshot path must end in .bmp: %s", path );
     }
 
     if ( m_requestCount >= CAPTURE_REQUEST_QUEUE_CAPACITY )
@@ -136,13 +141,13 @@ void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const Cap
                                      const SkullbonezCore::Core::SbResult& requestResult )
 {
 
-    if ( requestResult.ok )
+    if ( requestResult.Ok() )
     {
         batch.saved[batch.savedCount++] = request;
         return;
     }
 
-    if ( batch.status.ok )
+    if ( batch.status.Ok() )
     {
         batch.status = requestResult;
     }
@@ -185,9 +190,9 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
                                                                   const char* path )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
-    const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
+    const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
 
-    if ( !captureResult.ok )
+    if ( !captureResult.Ok() )
     {
         return captureResult;
     }
@@ -201,7 +206,7 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
 SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
                                                                      const char* path )
 {
-    return CaptureSystem::SaveBackbufferBmp( backend, path );
+    return CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
 }
 #endif
 } // namespace Runtime

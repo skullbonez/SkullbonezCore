@@ -42,17 +42,19 @@ namespace Runtime
 
 // Returns false only when the numbered editor path could not be selected. When
 // true, outSaveResult reports the synchronous serializer result.
-bool TrySaveNextEditorSceneSnapshot( int& sequence, const GameObjects::SceneWorldSaveState& world,
+bool TrySaveNextEditorSceneSnapshot( Core::SbDiagnosticStore& diagnostics, int& sequence,
+                                     const GameObjects::SceneWorldSaveState& world,
                                      const GameObjects::SceneSessionSaveState& session,
                                      const GameObjects::PresentationSaveState& presentation, Core::SbResult& outSaveResult );
 
 // Saves the scene-load-only publication to the caller's explicit CLI path.
-Core::SbResult SaveSceneLoadOnlySnapshot( const char* path, const GameObjects::SceneWorldSaveState& world,
+Core::SbResult SaveSceneLoadOnlySnapshot( Core::SbDiagnosticStore& diagnostics, const char* path,
+                                          const GameObjects::SceneWorldSaveState& world,
                                           const GameObjects::SceneSessionSaveState& session,
                                           const GameObjects::PresentationSaveState& presentation );
 
 // Saves a live editable scene to its active authored path before replacement.
-Core::SbResult SaveEditableSceneBeforeReplacement( const char* activeScenePath,
+Core::SbResult SaveEditableSceneBeforeReplacement( Core::SbDiagnosticStore& diagnostics, const char* activeScenePath,
                                                    const GameObjects::SceneWorldSaveState& world,
                                                    const GameObjects::SceneSessionSaveState& session,
                                                    const GameObjects::PresentationSaveState& presentation );

@@ -33,6 +33,7 @@ Related:
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
   - SkullbonezData/styles/material_authoring_contract.style.json
 */
+#include "Core/SbDiagnosticStore.h"
 #include "Scene/AuthoredScene.h"
 
 #include <cmath>
@@ -50,6 +51,7 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 
 struct TestFailure : public std::runtime_error
 {
@@ -67,19 +69,17 @@ void Fail( const char* file, int line, const std::string& message )
 
 void ExpectTrue( bool value, const char* expression, const char* file, int line )
 {
+
     if ( !value )
     {
         Fail( file, line, std::string( "expected true: " ) + expression );
     }
 }
 
-void ExpectIntEqual( int actual,
-                     int expected,
-                     const char* actualExpression,
-                     const char* expectedExpression,
-                     const char* file,
-                     int line )
+void ExpectIntEqual( int actual, int expected, const char* actualExpression, const char* expectedExpression,
+                     const char* file, int line )
 {
+
     if ( actual != expected )
     {
         std::ostringstream out;
@@ -89,13 +89,10 @@ void ExpectIntEqual( int actual,
     }
 }
 
-void ExpectUIntEqual( uint32_t actual,
-                      uint32_t expected,
-                      const char* actualExpression,
-                      const char* expectedExpression,
-                      const char* file,
-                      int line )
+void ExpectUIntEqual( uint32_t actual, uint32_t expected, const char* actualExpression, const char* expectedExpression,
+                      const char* file, int line )
 {
+
     if ( actual != expected )
     {
         std::ostringstream out;
@@ -105,13 +102,10 @@ void ExpectUIntEqual( uint32_t actual,
     }
 }
 
-void ExpectStringEqual( const char* actual,
-                        const char* expected,
-                        const char* actualExpression,
-                        const char* expectedExpression,
-                        const char* file,
-                        int line )
+void ExpectStringEqual( const char* actual, const char* expected, const char* actualExpression,
+                        const char* expectedExpression, const char* file, int line )
 {
+
     if ( strcmp( actual, expected ) != 0 )
     {
         std::ostringstream out;
@@ -121,30 +115,24 @@ void ExpectStringEqual( const char* actual,
     }
 }
 
-void ExpectFloatNear( float actual,
-                      float expected,
-                      const char* actualExpression,
-                      const char* expectedExpression,
-                      const char* file,
-                      int line )
+void ExpectFloatNear( float actual, float expected, const char* actualExpression, const char* expectedExpression,
+                      const char* file, int line )
 {
     constexpr float epsilon = 0.0001f;
+
     if ( !std::isfinite( actual ) || !std::isfinite( expected ) || std::fabs( actual - expected ) > epsilon )
     {
         std::ostringstream out;
-        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual
-            << ", expected " << expected;
+        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual << ", expected "
+            << expected;
         Fail( file, line, out.str() );
     }
 }
 
-void ExpectStringContains( const std::string& actual,
-                           const char* expected,
-                           const char* actualExpression,
-                           const char* expectedExpression,
-                           const char* file,
-                           int line )
+void ExpectStringContains( const std::string& actual, const char* expected, const char* actualExpression,
+                           const char* expectedExpression, const char* file, int line )
 {
+
     if ( actual.find( expected ) == std::string::npos )
     {
         std::ostringstream out;
@@ -155,20 +143,15 @@ void ExpectStringContains( const std::string& actual,
 }
 
 #define EXPECT_TRUE( expression ) ExpectTrue( !!( expression ), #expression, __FILE__, __LINE__ )
-#define EXPECT_INT_EQ( actual, expected )                                                                              \
+#define EXPECT_INT_EQ( actual, expected )                                                                                   \
     ExpectIntEqual( static_cast<int>( actual ), static_cast<int>( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_UINT_EQ( actual, expected )                                                                             \
-    ExpectUIntEqual( static_cast<uint32_t>( actual ),                                                                  \
-                     static_cast<uint32_t>( expected ),                                                                \
-                     #actual,                                                                                          \
-                     #expected,                                                                                        \
-                     __FILE__,                                                                                         \
+#define EXPECT_UINT_EQ( actual, expected )                                                                                  \
+    ExpectUIntEqual( static_cast<uint32_t>( actual ), static_cast<uint32_t>( expected ), #actual, #expected, __FILE__,      \
                      __LINE__ )
-#define EXPECT_STREQ( actual, expected )                                                                               \
+#define EXPECT_STREQ( actual, expected )                                                                                    \
     ExpectStringEqual( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_NEAR( actual, expected )                                                                                \
-    ExpectFloatNear( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
-#define EXPECT_CONTAINS( actual, expected )                                                                            \
+#define EXPECT_NEAR( actual, expected ) ExpectFloatNear( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_CONTAINS( actual, expected )                                                                                 \
     ExpectStringContains( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
 
 struct TestCase
@@ -186,10 +169,12 @@ void ExpectMaterialKind( const SceneObjectMaterialOverride& material, RenderMate
 void WriteTextFile( const char* path, const char* contents )
 {
     std::ofstream out( path, std::ios::binary );
+
     if ( !out )
     {
         Fail( __FILE__, __LINE__, std::string( "failed to create test file: " ) + path );
     }
+
     out << contents;
 }
 
@@ -197,11 +182,12 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 {
     WriteTextFile( path, contents );
     AuthoredScene scene;
-    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadStyleFromFile( path, scene );
-    if ( !result.ok )
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadStyleFromFile( diagnostics, path, scene );
+
+    if ( !result.Ok() )
     {
-        EXPECT_STREQ( result.error.owner, "Scene/AuthoredSceneParser" );
-        const std::string message = result.error.message;
+        EXPECT_STREQ( result.ErrorOwner(), "Scene/AuthoredSceneParser" );
+        const std::string message = result.ErrorMessage();
         EXPECT_CONTAINS( message, expectedMessage );
         return;
     }
@@ -211,15 +197,17 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 
 void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 {
-    AuthoredScene scene = AuthoredScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics,
+                                                       "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+
     const int originalCameraCount = scene.GetCameraCount();
     const int originalBallCount = scene.GetBallCount();
     const int originalMaterialCount = scene.GetObjectMaterialOverrideCount();
 
-    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadFromFile( path, scene );
-    EXPECT_TRUE( !result.ok );
-    EXPECT_STREQ( result.error.owner, "Scene/AuthoredSceneParser" );
-    EXPECT_CONTAINS( std::string( result.error.message ), expectedMessage );
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+    EXPECT_TRUE( !result.Ok() );
+    EXPECT_STREQ( result.ErrorOwner(), "Scene/AuthoredSceneParser" );
+    EXPECT_CONTAINS( std::string( result.ErrorMessage() ), expectedMessage );
 
     // Invariant: a failed parse never publishes its partially appended rows to
     // the caller's previously valid scene.
@@ -231,8 +219,10 @@ void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 
 void TestStyleMaterialAuthoringContract()
 {
-    const AuthoredScene scene =
-        AuthoredScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
+    const AuthoredScene
+        scene = AuthoredScene::LoadStyleFromFile( diagnostics,
+                                                  "SkullbonezData/styles/material_authoring_contract.style.json" );
+
     EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
     const SceneObjectMaterialOverride& metal = scene.GetObjectMaterialOverride( 0 );
@@ -284,7 +274,8 @@ void TestStyleMaterialAuthoringContract()
 
 void AuthoredSceneCanLoadMaterialAuthoringSample()
 {
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    const AuthoredScene
+        scene = AuthoredScene::LoadFromFile( diagnostics, "SkullbonezData/scenes/material_authoring_contract.scene.json" );
     EXPECT_INT_EQ( scene.GetCameraCount(), 1 );
     EXPECT_INT_EQ( scene.GetBallCount(), 1 );
     EXPECT_TRUE( !scene.IsPhysicsEnabled() );
@@ -304,30 +295,30 @@ void AuthoredSceneCanLoadMaterialAuthoringSample()
 
 void TestMaterialAuthoringRejectsMalformedOptions()
 {
-    ExpectStyleLoadFails(
-        "TestOutput/scene_parser_invalid_missing_mode.style.json",
-        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","tint":[0.1,0.2,0.3]}]})",
-        "objectMaterial is missing required field 'mode'" );
-    ExpectStyleLoadFails(
-        "TestOutput/scene_parser_invalid_unknown_field.style.json",
-        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3],"shininess":0.7}]})",
-        "Unknown objectMaterial field: shininess" );
-    ExpectStyleLoadFails(
-        "TestOutput/scene_parser_invalid_vec3.style.json",
-        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
-        "objectMaterial.color must contain exactly 3 numbers" );
-    ExpectStyleLoadFails(
-        "TestOutput/scene_parser_invalid_vec3_extra.style.json",
-        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
-        "objectMaterial.color must contain exactly 3 numbers" );
-    ExpectStyleLoadFails(
-        "TestOutput/scene_parser_invalid_vec3_type.style.json",
-        R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
-        "objectMaterial.color must be an array" );
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_missing_mode.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","tint":[0.1,0.2,0.3]}]})",
+                          "objectMaterial is missing required field 'mode'" );
+
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_unknown_field.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3],"shininess":0.7}]})",
+                          "Unknown objectMaterial field: shininess" );
+
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2]}]})",
+                          "objectMaterial.color must contain exactly 3 numbers" );
+
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_extra.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":[0.1,0.2,0.3,0.4]}]})",
+                          "objectMaterial.color must contain exactly 3 numbers" );
+
+    ExpectStyleLoadFails( "TestOutput/scene_parser_invalid_vec3_type.style.json",
+                          R"({"format":"skullbonez.style.json","version":1,"objectMaterials":[{"target":"bad","mode":"metal","tint":"0.1,0.2,0.3"}]})",
+                          "objectMaterial.color must be an array" );
 }
 
 void TestAssetInstanceProvenanceAndTransformComposition()
 {
+
     // Why: parent Y rotation plus child X rotation is deliberately
     // non-commuting, and the three offsets exercise all axes. Euler addition
     // or an unrotated child offset cannot satisfy the expected rows below.
@@ -385,11 +376,11 @@ void TestAssetInstanceProvenanceAndTransformComposition()
 })" );
 
     SkullbonezCore::Assets::AssetSystem assets( "" );
-    const SkullbonezCore::Assets::AssetId registeredPaddingLibraryId =
-        assets.RegisterAssetLibrarySourceAsset( "assetlib.padding", paddingLibraryPath ).id;
-    const SkullbonezCore::Assets::AssetLibrarySourceAsset& registeredLibrary =
-        assets.RegisterAssetLibrarySourceAsset( "assetlib.contract", assetLibraryPath );
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( scenePath, assets );
+    const SkullbonezCore::Assets::AssetId
+        registeredPaddingLibraryId = assets.RegisterAssetLibrarySourceAsset( "assetlib.padding", paddingLibraryPath ).id;
+    const SkullbonezCore::Assets::AssetLibrarySourceAsset&
+        registeredLibrary = assets.RegisterAssetLibrarySourceAsset( "assetlib.contract", assetLibraryPath );
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, scenePath, assets );
     EXPECT_INT_EQ( scene.GetAssetLibraryCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetInstanceCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetPartCount(), 6 );
@@ -409,9 +400,10 @@ void TestAssetInstanceProvenanceAndTransformComposition()
     EXPECT_UINT_EQ( instance.libraryRefIndex, 1u );
     EXPECT_UINT_EQ( instance.firstPart, 3u );
     EXPECT_UINT_EQ( instance.partCount, 3u );
-    EXPECT_UINT_EQ( instance.overrideMask,
-                    SCENE_ASSET_OVERRIDE_FIXED | SCENE_ASSET_OVERRIDE_SLEEPING | SCENE_ASSET_OVERRIDE_EULER |
-                        SCENE_ASSET_OVERRIDE_VELOCITY | SCENE_ASSET_OVERRIDE_ANGULAR_VELOCITY );
+    EXPECT_UINT_EQ( instance.overrideMask, SCENE_ASSET_OVERRIDE_FIXED | SCENE_ASSET_OVERRIDE_SLEEPING |
+                                               SCENE_ASSET_OVERRIDE_EULER | SCENE_ASSET_OVERRIDE_VELOCITY |
+                                               SCENE_ASSET_OVERRIDE_ANGULAR_VELOCITY );
+
     EXPECT_NEAR( instance.posX, 10.0f );
     EXPECT_NEAR( instance.posY, 20.0f );
     EXPECT_NEAR( instance.posZ, 30.0f );
@@ -578,15 +570,15 @@ void TestAssetIdentityFailuresAreRecoverable()
     {"type":"ragdoll","name":"twins","position":[2,0,0]}
   ]
     })" );
+
     ExpectSceneLoadFails( scenePath, "Duplicate scene object name: twins_torso" );
 
     const std::string longRagdollPrefix( 53, 'r' );
-    const std::string longRagdollScene =
-        std::string( R"({
+    const std::string longRagdollScene = std::string( R"({
   "format":"skullbonez.scene.json","version":1,
   "cameras":[{"name":"camera","position":[0,0,-10],"view":[0,0,0],"up":[0,1,0]}],
   "objects":[{"type":"ragdoll","name":")" ) +
-        longRagdollPrefix + R"(","position":[0,0,0]}]
+                                         longRagdollPrefix + R"(","position":[0,0,0]}]
 })";
     WriteTextFile( scenePath, longRagdollScene.c_str() );
     ExpectSceneLoadFails( scenePath, "ragdoll.name produces a part name longer than 63 characters" );
@@ -619,7 +611,7 @@ void AuthoredSceneObjectIdsAreSchemaVersionedAndStable()
   ],
   "assetInstances":[{"asset":"mixed","name":"asset","position":[4,0,0]}]
 })" );
-    const AuthoredScene upgraded = AuthoredScene::LoadFromFile( scenePath );
+    const AuthoredScene upgraded = AuthoredScene::LoadFromFile( diagnostics, scenePath );
     EXPECT_UINT_EQ( upgraded.GetSchemaVersion(), 1u );
     EXPECT_UINT_EQ( upgraded.GetBall( 0 ).sceneObjectId.value, 1u );
     EXPECT_UINT_EQ( upgraded.GetBallState( 0 ).sceneObjectId.value, 2u );
@@ -643,7 +635,7 @@ void AuthoredSceneObjectIdsAreSchemaVersionedAndStable()
     "parts":[{"name":"box_part","sceneObjectId":300},{"name":"sphere_part","sceneObjectId":42}]
   }]
 })" );
-    const AuthoredScene explicitIds = AuthoredScene::LoadFromFile( scenePath );
+    const AuthoredScene explicitIds = AuthoredScene::LoadFromFile( diagnostics, scenePath );
     EXPECT_UINT_EQ( explicitIds.GetSchemaVersion(), 2u );
     EXPECT_UINT_EQ( explicitIds.GetBox( 0 ).sceneObjectId.value, 900u );
     EXPECT_UINT_EQ( explicitIds.GetBall( 0 ).sceneObjectId.value, 7u );
@@ -725,6 +717,7 @@ int main()
         catch ( const std::exception& ex )
         {
             ++failures;
+
             std::cerr << "FAIL: " << test.name << "\n";
             std::cerr << "      " << ex.what() << "\n";
         }

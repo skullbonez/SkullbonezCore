@@ -40,8 +40,11 @@ facade.
 
 ## Why This Model Fits The Measured Lifetimes
 
-SR0 found 176 production failure-factory sites and 30 direct production result
-fields. Seven fields are retained state and 23 are synchronous
+SR2's multiline-aware audit corrected the SR0 failure-factory census from 176
+to 220 expressions at the decision tip; 42 clang-wrapped
+`SbResult::`/`Failure` expressions and two `ApplicationExitState`
+reconstruction factories were outside the earlier 176-row set. SR0 also found
+30 direct production result fields. Seven fields are retained state and 23 are synchronous
 stack/returned aggregates. Copies of one failure share one slot, so capacity
 measures distinct simultaneously live failures rather than the number of result
 objects. The current call graph has no recursive or re-entrant failure
@@ -66,19 +69,21 @@ unrelated owners. Resetting an owner releases only that owner's copy; a result
 already returned to a caller keeps the immutable entry alive through its own
 consumption.
 
-The conservative current-source simultaneous-live bound is 206 entries:
+The corrected conservative decision-tip simultaneous-live bound is 250 entries:
 
-- at most 176 active failure-factory sites when the verified call graph has no
+- at most 220 active failure-factory expressions when the verified call graph has no
   recursion, re-entry, or worker-thread publication; plus
 - at most 30 retained/aggregate storage sites, counted as if each held a
   distinct additional failure even though legal propagation copies an existing
   lease and therefore does not consume another slot.
 
-The 256-slot store covers that hard bound. The proof intentionally
-over-counts ordinary propagation rather than relying on typical fail-fast
-depth. Last-lease reclamation prevents cumulative consumption, so repeated
-recoverable failures do not exhaust the store merely because the process runs
-for a long time.
+The 256-slot store covers that hard bound with six conservatively counted
+entries of headroom. The proof intentionally over-counts ordinary propagation
+rather than relying on typical fail-fast depth. Last-lease reclamation prevents
+cumulative consumption, so repeated recoverable failures do not exhaust the
+store merely because the process runs for a long time. The corrected count was
+recorded during SR2 before closure; the earlier 206-entry statement was an
+incomplete spelling-based census, not a separate approved allowance.
 
 This capacity ruling is conditional on the measured shapes. A new recursive or
 re-entrant failure producer, worker-thread failure publication, result

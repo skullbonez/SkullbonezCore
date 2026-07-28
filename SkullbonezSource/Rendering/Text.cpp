@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Text.h"
+#include "../Core/SbDiagnosticStore.h"
 #include "../Core/PlatformWin32.h"
 #include "../Core/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
@@ -543,7 +544,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
 }
 
 
-SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch, Dx12ResourceBuilder& renderResources,
+SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                  TextBatch& batch, Dx12ResourceBuilder& renderResources,
                                                   Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry,
                                                   const SkullbonezCore::Assets::AssetSystem& assets, int screenW,
                                                   int screenH, const char* cFontName )
@@ -561,14 +563,13 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch, Dx12Resource
 
         if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/Text", "SDF atlas generation failed: %s",
-                                                            atlasPath.c_str() );
+            return resultDiagnostics.Failure( "Rendering/Text", "SDF atlas generation failed: %s", atlasPath.c_str() );
         }
 
         if ( !LoadSdfAtlasFromFile( renderTextures, atlasPath.c_str() ) )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Rendering/Text", "SDF atlas load-after-generate failed: %s",
-                                                            atlasPath.c_str() );
+            return resultDiagnostics.Failure( "Rendering/Text", "SDF atlas load-after-generate failed: %s",
+                                              atlasPath.c_str() );
         }
 
         fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
@@ -606,13 +607,15 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch, Dx12Resource
     if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB ||
          !Text2d::pTextShader || !Text2d::pSolidShader || !Text2d::pSolidBatchShader )
     {
-        const SkullbonezCore::Core::SbResult failure = SkullbonezCore::Core::SbResult::
-            Failure( "Rendering/Text",
-                     "Required UI text resources failed to initialize "
-                     "(font_texture=%u text_vb=%u quad_vb=%u quad_batch_vb=%u text_shader=%d solid_shader=%d "
-                     "solid_batch_shader=%d).",
-                     Text2d::fontTexture, Text2d::textBatchVB, Text2d::dynamicVB, Text2d::quadBatchVB,
-                     Text2d::pTextShader ? 1 : 0, Text2d::pSolidShader ? 1 : 0, Text2d::pSolidBatchShader ? 1 : 0 );
+        const SkullbonezCore::Core::SbResult
+            failure = resultDiagnostics
+                          .Failure( "Rendering/Text",
+                                    "Required UI text resources failed to initialize "
+                                    "(font_texture=%u text_vb=%u quad_vb=%u quad_batch_vb=%u text_shader=%d solid_shader=%d "
+                                    "solid_batch_shader=%d).",
+                                    Text2d::fontTexture, Text2d::textBatchVB, Text2d::dynamicVB, Text2d::quadBatchVB,
+                                    Text2d::pTextShader ? 1 : 0, Text2d::pSolidShader ? 1 : 0,
+                                    Text2d::pSolidBatchShader ? 1 : 0 );
 
         Text2d::DeleteFont( batch, &renderTextures, &renderGeometry );
         return failure;

@@ -564,7 +564,7 @@ class EngineConfig
 
     // Lane R: authored configuration is preflighted before any destination is
     // mutated, so an unsupported format cannot leave a partially loaded config.
-    SbResult Load( const char* path );
+    SbResult Load( SbDiagnosticStore& diagnostics, const char* path );
     void Dump( FILE* out ) const;
 
     // Composition invariant: parser rows retain historical order and key

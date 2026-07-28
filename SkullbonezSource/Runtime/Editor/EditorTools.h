@@ -42,6 +42,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class SbDiagnosticStore;
+}
 namespace Assets
 {
 class AssetSystem;
@@ -165,18 +169,19 @@ Math::Vector::Vector3 EditorPlacementScaleFromGesture( int objectType, const Mat
                                                        float dragPixelsX, float dragPixelsY, int wheelSteps );
 bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Math::Vector::Vector3& rayOrigin,
                                    const Math::Vector::Vector3& rayDirection, EditorTerrainPlacement& outPlacement );
-bool TryComputeEditorObjectCenter( int objectType, const Math::Vector::Vector3& terrainPoint,
-                                   const Math::Vector::Vector3& placementScale,
+bool TryComputeEditorObjectCenter( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType,
+                                   const Math::Vector::Vector3& terrainPoint, const Math::Vector::Vector3& placementScale,
                                    const Math::Orientation::Quaternion& orientation, const Assets::AssetSystem& assets,
                                    Math::Vector::Vector3& outCenter );
-bool TryUpdateEditorPlacementPreview( RunEditorPlacementState& editor, Geometry::Terrain* terrain,
-                                      const Assets::AssetSystem& assets, bool scaleGestureActive, int objectType,
-                                      const EditorTerrainPlacement* mousePlacement );
+bool TryUpdateEditorPlacementPreview( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor,
+                                      Geometry::Terrain* terrain, const Assets::AssetSystem& assets, bool scaleGestureActive,
+                                      int objectType, const EditorTerrainPlacement* mousePlacement );
 bool CanPlaceEditorObjectAtTerrainPoint( SceneWorld& world, const Assets::AssetSystem& assets, int activeModelCapacity,
                                          EditorObjectPlacementRequest request );
-bool PlaceEditorObjectAtTerrainPoint( RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene,
-                                      const Assets::AssetSystem& assets, int activeModelCapacity,
-                                      EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult );
+bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor,
+                                      SceneWorld& world, SceneSessionState& scene, const Assets::AssetSystem& assets,
+                                      int activeModelCapacity, EditorObjectPlacementRequest request,
+                                      EditorObjectPlacementResult& outResult );
 bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis,
                                   RuntimeGizmoDragKind gizmoKind, int clientX, int clientY );
 void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction );
@@ -286,8 +291,9 @@ void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& worl
 
 // InputController owns keybinding data. Editor tools keep the two unrelated
 // cold side effects separate so scene-save authority never travels with capture.
-void HandleEditorSceneSaveHotkey( SceneWorld& world, const SceneSessionState& scene,
-                                  const GameObjects::PresentationSaveState& presentation, bool wasPressed );
+void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, SceneWorld& world,
+                                  const SceneSessionState& scene, const GameObjects::PresentationSaveState& presentation,
+                                  bool wasPressed );
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed );
 } // namespace Runtime
 } // namespace SkullbonezCore

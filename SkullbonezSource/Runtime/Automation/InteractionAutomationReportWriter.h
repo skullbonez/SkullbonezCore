@@ -77,7 +77,7 @@ struct InteractionAutomationRunStatus
     char failure[512] = {};
 
     void Fail( const char* message );
-    Core::SbResult Result() const;
+    Core::SbResult Result( Core::SbDiagnosticStore& diagnostics ) const;
 };
 
 struct RunInteractionAutomationReportAction
@@ -239,7 +239,7 @@ class InteractionAutomationReportWriter
     void ResetEditorSelectionCaptures() noexcept;
     void CaptureEditorSelection( int slot, uint64_t fingerprint, bool valid ) noexcept;
     bool TryEditorSelectionCapture( int slot, uint64_t& outFingerprint ) const noexcept;
-    Core::SbResult Write( const InteractionAutomationReportInputs& inputs );
+    Core::SbResult Write( Core::SbDiagnosticStore& diagnostics, const InteractionAutomationReportInputs& inputs );
 
     // Report facts are centralized here so live assertions and final JSON use
     // one implementation of every validation-sensitive calculation.

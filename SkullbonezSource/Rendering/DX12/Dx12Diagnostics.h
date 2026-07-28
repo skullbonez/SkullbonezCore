@@ -49,6 +49,10 @@ class Dx12TextureOwner;
 class Dx12Diagnostics
 {
   public:
+    explicit Dx12Diagnostics( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     static constexpr int TIMER_HEAP_MARKERS = 128;
     static constexpr int TIMER_HEAP_SIZE = TIMER_HEAP_MARKERS * 2;
 
@@ -126,6 +130,7 @@ class Dx12Diagnostics
                                   const Dx12FrameOwner& frame ) const;
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     struct GpuTimerState
     {
         ID3D12QueryHeap* queryHeap = nullptr;

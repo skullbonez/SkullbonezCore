@@ -1,132 +1,91 @@
 /*
 File: SkullbonezSource/Core/SbResult.h
 Purpose:
-  Declares the minimal Lane R recoverable-result carrier.
+  Declares the compact Lane R recoverable-result lease.
 
 Summary:
-  Lane R covers failures caused by external input such as scene files, assets,
-  editor commands, automation scripts, or device/environment limits. The
-  operation reports an owner and bounded message; the app stays alive.
+  A successful result is a zero identity. A failed result leases immutable
+  owner/message bytes from an App-composed SbDiagnosticStore. Copies retain the
+  same lease, moves transfer it, and the last release reclaims the fixed slot.
 
 Glossary:
   Lane R: Recoverable result error handling lane for input/environment failure.
-  Result carrier: Small value that contains either success or a bounded error.
-  Success sentinel: The empty owner and leading message byte that make a
-    successful result's diagnostic strings observably empty.
+  Diagnostic token: Packed eight-bit slot and 56-bit generation identity.
+  Lease: One live SbResult reference that prevents a diagnostic slot from reuse.
 
 Invariants:
-  - Failure messages are bounded and stored inline.
-  - SbResult has no heap ownership and no exception behavior.
-  - Success initializes only the observable empty-string sentinels; it does not
-    clear the failure-only tail of the 512-byte message buffer.
-  - Copy and move operations branch on ok: success copies only the sentinels;
-    failure copies the completely initialized inline diagnostic.
-  - Callers must inspect or explicitly retain every result; silent discard is a
-    compiler diagnostic.
-  - Add an expected-like value payload only when a caller actually needs one.
-
-Representation ruling:
-  The 512-byte failure capacity is retained because current bounded-message
-  coverage requires all 511 payload bytes. Keeping the buffer inline prevents a
-  dangling diagnostic, while sentinel-only success construction avoids paying
-  to clear failure-only storage on frame-reachable success paths. On Win64 the
-  carrier remains 528 bytes; return-value elision writes the sentinels directly
-  into caller storage.
+  - On Win64 SbResult is exactly a store pointer plus a 64-bit token.
+  - Success construction, copying, moving, inspection, and destruction never
+    touch a diagnostic store.
+  - A failed copy retains before replacing any destination lease; moves transfer
+    without changing the lease count and leave the source successful.
+  - ErrorOwner and ErrorMessage return borrows valid only while that exact
+    result remains alive, failed, unmoved, and unassigned.
+  - The App-owned diagnostic store outlives every failed result lease; a failed
+    result destructor, copy, or accessor requires that store to remain alive.
+  - Callers that need diagnostic bytes beyond that borrow use the store's
+    bounded CopyDiagnostic operation.
 
 Related:
+  - SkullbonezSource/Core/SbDiagnosticStore.h
   - SkullbonezSource/Core/FatalError.h
-  - AGENTS.md (Error Handling Policy)
+  - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md
 */
 #pragma once
 
-#include <cstdarg>
-#include <cstdio>
-#include <cstring>
+#include <cstdint>
 
 
 namespace SkullbonezCore
 {
 namespace Core
 {
-struct SbError
-{
-    SbError() noexcept : owner( "" )
-    {
-        message[0] = '\0';
-    }
+class SbDiagnosticStore;
 
-    const char* owner;
-    char message[512];
+
+struct SbDiagnosticIdentity
+{
+    SbDiagnosticStore* store = nullptr;
+    std::uint64_t token = 0;
 };
 
 
-struct [[nodiscard]] SbResult
+enum class SbDiagnosticCopyStatus
 {
-    bool ok = true;
-    SbError error;
+    Copied,
+    SuccessIdentity,
+    ForeignStore,
+    Stale
+};
 
+
+class [[nodiscard]] SbResult
+{
+  public:
     SbResult() noexcept = default;
+    ~SbResult() noexcept;
 
-    SbResult( const SbResult& source ) noexcept : ok( source.ok )
-    {
-        CopyErrorFrom( source );
-    }
+    SbResult( const SbResult& source ) noexcept;
+    SbResult& operator=( const SbResult& source ) noexcept;
+    SbResult( SbResult&& source ) noexcept;
+    SbResult& operator=( SbResult&& source ) noexcept;
 
-    SbResult& operator=( const SbResult& source ) noexcept
-    {
-
-        if ( this != &source )
-        {
-            ok = source.ok;
-            CopyErrorFrom( source );
-        }
-
-        return *this;
-    }
-
-    SbResult( SbResult&& source ) noexcept : SbResult( source )
-    {
-    }
-
-    SbResult& operator=( SbResult&& source ) noexcept
-    {
-        return operator=( source );
-    }
-
-    static SbResult Success()
-    {
-        return {};
-    }
-
-    static SbResult Failure( const char* owner, const char* format, ... )
-    {
-        SbResult result;
-        result.ok = false;
-        result.error.owner = owner ? owner : "";
-        std::memset( result.error.message, 0, sizeof( result.error.message ) );
-
-        va_list args;
-        va_start( args, format );
-        std::vsnprintf( result.error.message, sizeof( result.error.message ),
-                        format ? format : "recoverable operation failed", args );
-        va_end( args );
-        return result;
-    }
+    [[nodiscard]] static SbResult Success() noexcept;
+    [[nodiscard]] bool Ok() const noexcept;
+    [[nodiscard]] const char* ErrorOwner() const noexcept;
+    [[nodiscard]] const char* ErrorMessage() const noexcept;
+    [[nodiscard]] SbDiagnosticIdentity DiagnosticIdentity() const noexcept;
 
   private:
-    void CopyErrorFrom( const SbResult& source ) noexcept
-    {
+    friend class SbDiagnosticStore;
+    SbResult( SbDiagnosticStore& store, std::uint64_t token ) noexcept;
+    void Release() noexcept;
 
-        if ( source.ok )
-        {
-            error.owner = "";
-            error.message[0] = '\0';
-            return;
-        }
-
-        error.owner = source.error.owner;
-        std::memcpy( error.message, source.error.message, sizeof( error.message ) );
-    }
+    SbDiagnosticStore* m_store = nullptr;
+    std::uint64_t m_token = 0;
 };
+
+
+static_assert( sizeof( SbResult ) == 16, "SbResult must remain the compact two-word Lane R carrier" );
 } // namespace Core
 } // namespace SkullbonezCore

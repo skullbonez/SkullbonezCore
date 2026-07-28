@@ -81,6 +81,12 @@
 #include <cmath>
 #include <memory>
 #include <type_traits>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
@@ -1077,7 +1083,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     forces.angularDragMultiplier = 0.0f;
 
     const CollisionShape shapes[bodyCount] = { MakeColliderShape( 1.25f ), BoxShape( Vector3( 1.5f, 2.0f, 2.5f ) ),
-                                               SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/pyramid.hull" ) };
+          SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( diagnostics,
+                                                                                   "SkullbonezData/hulls/pyramid.hull" ) };
 
     auto liveEngine = std::make_unique<PhysicsEngine>();
     liveEngine->ApplyRuntimeConfig( config );
@@ -1343,6 +1350,7 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
 TEST_CASE( "Coverage floor contract: box and hull buoyancy stay finite under partial submersion" )
 {
     CheckUnderwaterForcePath( BoxShape( Vector3( 2.0f, 0.5f, 1.0f ) ), 601u );
-    CheckUnderwaterForcePath( SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/pyramid.hull" ),
+    CheckUnderwaterForcePath( SkullbonezCore::Math::CollisionDetection::ConvexHullShape::
+                                  LoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull" ),
                               602u );
 }

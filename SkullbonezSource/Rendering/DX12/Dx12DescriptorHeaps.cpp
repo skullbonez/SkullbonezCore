@@ -24,6 +24,7 @@ Related:
 #include "Dx12DescriptorHeaps.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/SbDiagnosticStore.h"
 
 #include <algorithm>
 
@@ -31,15 +32,16 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
-SkullbonezCore::Core::SbResult DescriptorInitResult( HRESULT result, const char* operation )
+SkullbonezCore::Core::SbResult DescriptorInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
+                                                     HRESULT result, const char* operation )
 {
 
     if ( FAILED( result ) )
     {
 
         // Lane R: descriptor heap creation depends on device/driver capacity.
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12DescriptorHeaps", "%s (HRESULT 0x%08X)", operation,
-                                                        static_cast<unsigned int>( result ) );
+        return resultDiagnostics.Failure( "Dx12DescriptorHeaps", "%s (HRESULT 0x%08X)", operation,
+                                          static_cast<unsigned int>( result ) );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -52,9 +54,9 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
 
     if ( !device || frameCount == 0 || frameCount > MAX_FRAME_COUNT )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Dx12DescriptorHeaps",
-                                                        "Invalid descriptor initialization. device=%p frames=%u max=%u",
-                                                        device, frameCount, MAX_FRAME_COUNT );
+        return m_resultDiagnostics.Failure( "Dx12DescriptorHeaps",
+                                            "Invalid descriptor initialization. device=%p frames=%u max=%u", device,
+                                            frameCount, MAX_FRAME_COUNT );
     }
 
     m_frameCount = frameCount;
@@ -62,11 +64,12 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
     D3D12_DESCRIPTOR_HEAP_DESC desc = {};
     desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
     desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    SkullbonezCore::Core::SbResult result = DescriptorInitResult( device->CreateDescriptorHeap( &desc,
+    SkullbonezCore::Core::SbResult result = DescriptorInitResult( m_resultDiagnostics,
+                                                                  device->CreateDescriptorHeap( &desc,
                                                                                                 IID_PPV_ARGS( &m_rtvHeap ) ),
                                                                   "CreateDescriptorHeap (RTV) failed" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         Shutdown();
         return result;
@@ -79,10 +82,10 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
     desc = {};
     desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
     desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    result = DescriptorInitResult( device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
+    result = DescriptorInitResult( m_resultDiagnostics, device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
                                    "CreateDescriptorHeap (DSV) failed" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         Shutdown();
         return result;
@@ -96,10 +99,10 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
     desc.NumDescriptors = MAX_STATIC_SRVS + ( MAX_TRANSIENT_SRVS * frameCount );
     desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    result = DescriptorInitResult( device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
+    result = DescriptorInitResult( m_resultDiagnostics, device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
                                    "CreateDescriptorHeap (SRV) failed" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         Shutdown();
         return result;
@@ -110,10 +113,11 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
     desc = {};
     desc.NumDescriptors = MAX_STATIC_SRVS;
     desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    result = DescriptorInitResult( device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
+    result = DescriptorInitResult( m_resultDiagnostics,
+                                   device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
                                    "CreateDescriptorHeap (staging) failed" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         Shutdown();
         return result;
@@ -133,10 +137,11 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
     desc.NumDescriptors = MAX_DEVELOPMENT_UI_SRVS;
     desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    result = DescriptorInitResult( device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_developmentUiSrvHeap ) ),
+    result = DescriptorInitResult( m_resultDiagnostics,
+                                   device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_developmentUiSrvHeap ) ),
                                    "CreateDescriptorHeap (development UI) failed" );
 
-    if ( !result.ok )
+    if ( !result.Ok() )
     {
         Shutdown();
         return result;

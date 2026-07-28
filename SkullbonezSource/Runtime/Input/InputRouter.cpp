@@ -264,7 +264,8 @@ bool InputActions::TryAppend( const InputActionEvent& event )
 }
 
 
-InputRouter::InputRouter()
+InputRouter::InputRouter( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics )
 {
     Reset();
 }

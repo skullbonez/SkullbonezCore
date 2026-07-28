@@ -30,7 +30,8 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
-}
+class SbDiagnosticStore;
+} // namespace Core
 
 namespace Runtime
 {
@@ -44,7 +45,8 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode );
 
 // True means the isolated physics/runtime-handle smoke claimed startup and
 // ordinary owner construction must not continue.
-bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode );
+bool HandlePhysicsStandaloneSmoke( Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine,
+                                   int& outExitCode );
 
 } // namespace Startup
 } // namespace Runtime

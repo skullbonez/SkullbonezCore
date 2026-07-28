@@ -50,6 +50,7 @@ class SBT
 {
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12Resource* m_buffer;
     UINT64 m_rayGenOffset;
     UINT64 m_rayGenSize;
@@ -60,7 +61,7 @@ class SBT
     UINT64 m_hitGroupSize;
 
   public:
-    SBT();
+    explicit SBT( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
     ~SBT();
 
     SkullbonezCore::Core::SbResult Build( ID3D12Device* device, ID3D12StateObjectProperties* props,

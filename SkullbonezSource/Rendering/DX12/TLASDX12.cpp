@@ -54,6 +54,7 @@ Related:
 //  PREFER_FAST_BUILD flag is used because we rebuild every frame (speed > quality tradeoff).
 //
 #include "TLASDX12.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/FatalError.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderDeviceDX12.h"
@@ -64,7 +65,9 @@ using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
 
 
-TLAS::TLAS() : m_scratch( nullptr ), m_result( nullptr ), m_instanceDescs( nullptr ), m_maxInstances( 0 )
+TLAS::TLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr ), m_instanceDescs( nullptr ),
+      m_maxInstances( 0 )
 {
 }
 
@@ -103,7 +106,7 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
                                                   D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
                                                   IID_PPV_ARGS( &m_instanceDescs ) ) ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: Failed to create instance desc buffer" );
     }
 
     NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
@@ -128,8 +131,8 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     if ( prebuild.ScratchDataSizeInBytes == 0 || prebuild.ResultDataMaxSizeInBytes == 0 )
     {
         Reset();
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "TLAS: prebuild info returned zero scratch or result capacity" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12",
+                                            "TLAS: prebuild info returned zero scratch or result capacity" );
     }
 
     // Allocate scratch buffer
@@ -146,7 +149,7 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
                                                   nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
         Reset();
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: Failed to create scratch buffer" );
     }
 
     NameDx12Object( m_scratch, L"Skullbonez DX12 TLAS Scratch Buffer" );
@@ -162,7 +165,7 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
         Reset();
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "TLAS: Failed to create result buffer" );
     }
 
     NameDx12Object( m_result, L"Skullbonez DX12 TLAS Result Buffer" );
@@ -191,10 +194,10 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // immediately narrows the result to mapped bytes for this owner.
     void* rawMapped = nullptr;
     const HRESULT mapResult = m_instanceDescs->Map( 0, nullptr, &rawMapped );
-    const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( mapResult, rawMapped,
+    const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( m_resultDiagnostics, mapResult, rawMapped,
                                                                             "TLAS instance descriptor Map" );
 
-    if ( !mappedResult.result.ok )
+    if ( !mappedResult.result.Ok() )
     {
         return mappedResult.result;
     }

@@ -35,6 +35,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Window.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Core/WindowConstants.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 #include "../Input/Input.h"
@@ -53,7 +54,7 @@ using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 
 
-Window::Window()
+Window::Window( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m_resultDiagnostics( resultDiagnostics )
 {
     m_sWindow = 0;
     m_sDevice = 0;
@@ -196,7 +197,7 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 
     const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderFrame->Resize( w, h );
 
-    if ( !resizeResult.ok )
+    if ( !resizeResult.Ok() )
     {
         return resizeResult;
     }
@@ -297,11 +298,11 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             window->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
             const SkullbonezCore::Core::SbResult resizeResult = window->HandleScreenResize();
 
-            if ( !resizeResult.ok )
+            if ( !resizeResult.Ok() )
             {
-                const char* owner = resizeResult.error.owner[0] != '\0' ? resizeResult.error.owner : "Runtime/Window";
-                const char* message = resizeResult.error.message[0] != '\0' ? resizeResult.error.message
-                                                                            : "window resize failed";
+                const char* owner = resizeResult.ErrorOwner()[0] != '\0' ? resizeResult.ErrorOwner() : "Runtime/Window";
+                const char* message = resizeResult.ErrorMessage()[0] != '\0' ? resizeResult.ErrorMessage()
+                                                                             : "window resize failed";
 
                 SkullbonezCore::Core::Log().WriteEventf( "window_resize_failed owner=\"%s\" message=\"%s\"", owner,
                                                          message );
@@ -503,7 +504,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 
         // Lane R: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window", "Window creation failed." );
+        return m_resultDiagnostics.Failure( "Runtime/Window", "Window creation failed." );
     }
 
     m_sWindow = hWnd;
@@ -530,8 +531,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 
         if ( !GetClientRect( hWnd, &clientDimensions ) || clientDimensions.right <= 0 || clientDimensions.bottom <= 0 )
         {
-            return SkullbonezCore::Core::SbResult::Failure( "Runtime/Window",
-                                                            "Hidden automation window has no drawable client area." );
+            return m_resultDiagnostics.Failure( "Runtime/Window", "Hidden automation window has no drawable client area." );
         }
 
         // Hidden windows do not receive the normal WM_SIZE publication before

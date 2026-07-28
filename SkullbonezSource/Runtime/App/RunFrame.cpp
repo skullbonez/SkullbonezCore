@@ -265,14 +265,15 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const InteractionAutomationDevelopmentUiApplyResult
-        developmentUiApply = m_interactionAutomation.ApplyDevelopmentUiCommands( result, m_window, m_imguiEditor );
+        developmentUiApply = m_interactionAutomation.ApplyDevelopmentUiCommands( m_resultDiagnostics, result, m_window,
+                                                                                 m_imguiEditor );
 
     if ( developmentUiApply.selectSurface )
     {
         SelectDevelopmentUiSurface( developmentUiApply.surface );
     }
 
-    if ( !developmentUiApply.status.ok )
+    if ( !developmentUiApply.status.Ok() )
     {
         m_applicationExit.RequestOwnedFailure( developmentUiApply.status );
     }
@@ -301,7 +302,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
                                                 m_replayRuntime, normalizedRestoreMode );
     }
 
-    if ( !result.status.ok )
+    if ( !result.status.Ok() )
     {
         m_applicationExit.RequestOwnedFailure( result.status );
     }
@@ -386,7 +387,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
                                            m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
                                            m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
                                            Renderer() )
-                                    .ok;
+                                    .Ok();
 
             if ( !legacyDevelopmentUiActive )
             {
@@ -467,7 +468,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
         }
         PROFILE_END( m_profiler, "Frame/PipelineSync" );
 
-        if ( !finishResult.ok )
+        if ( !finishResult.Ok() )
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
@@ -527,7 +528,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
                                                                       Renderer().FrameGraphSnapshot(),
                                                                       m_diagnosticsRuntime.Capture(), BackbufferCapture() );
 
-    if ( !automationAfterRender.status.ok )
+    if ( !automationAfterRender.status.Ok() )
     {
         m_applicationExit.RequestOwnedFailure( automationAfterRender.status );
     }
@@ -566,7 +567,7 @@ SkullbonezCore::Core::SbResult Run::PresentFramePhase()
     }
     PROFILE_END( m_profiler, "Frame/VsyncWait" );
 
-    if ( !presentResult.ok )
+    if ( !presentResult.Ok() )
     {
         m_timers.frameTimer.StopTimer();
         PROFILE_FRAME_END( m_profiler );
@@ -639,7 +640,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         const auto simulation = RunSimulationPhase( secondsPerFrame, input.proceedPolicy );
         const auto render = PrepareRenderPhase( input.legacyDevelopmentUiActive, simulation );
 
-        if ( !render.status.ok )
+        if ( !render.status.Ok() )
         {
             return m_applicationExit.Resolve( 0 );
         }
@@ -651,7 +652,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         const auto operatorUiResult = RenderOperatorUiPhase( models, facts );
 
-        if ( !operatorUiResult.ok )
+        if ( !operatorUiResult.Ok() )
         {
             return m_applicationExit.Resolve( 0 );
         }
@@ -668,7 +669,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
         FinishFrameWorkPhase( input.proceedPolicy );
         const SkullbonezCore::Core::SbResult presentResult = PresentFramePhase();
 
-        if ( !presentResult.ok )
+        if ( !presentResult.Ok() )
         {
             return m_applicationExit.Resolve( 0 );
         }
@@ -800,8 +801,9 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         directorPrediction.revealAvailable = directorReplayInput.predictionRevealAvailable;
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
         const DemoDirectorTickResult
-            directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions, m_sceneController,
-                                                         m_operatorUi->SceneNavigation().browser, m_assets,
+            directorResult = DemoDirectorPlayback::Tick( m_resultDiagnostics, m_camera, directorPrediction, m_launchOptions,
+                                                         m_sceneController, m_operatorUi->SceneNavigation().browser,
+                                                         m_assets,
                                                          ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                                          m_renderDefaults.CinematicBaseline(),
                                                          static_cast<float>( secondsPerFrame ) );
@@ -863,7 +865,7 @@ void Run::AfterPhysicsStep()
                                                                               normalizedRestoreMode,
                                                                               m_attachedCamera.State().activeFollow );
 
-        if ( !probeResult.status.ok )
+        if ( !probeResult.status.Ok() )
         {
             m_applicationExit.RequestOwnedFailure( probeResult.status );
             PostQuitMessage( 0 );
@@ -915,12 +917,12 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     PROFILE_END( m_profiler, "Frame/PostDraw/Screenshots" );
 
-    if ( !result.captureResult.ok )
+    if ( !result.captureResult.Ok() )
     {
 
         // Lane R: capture readback/file IO failed after rendering, so terminate
         // automation with diagnostics instead of marking the scene complete.
-        fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
+        fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because screenshot capture failed." );
         m_applicationExit.RequestOwnedFailure( result.captureResult );
@@ -979,7 +981,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                   m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
                                   m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
                                   Renderer() )
-                           .ok;
+                           .Ok();
 
             sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController,
                                              m_inputRouter, m_interaction, m_camera, m_attachedCamera, m_runtimeTools,
@@ -1031,12 +1033,12 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
                                                             m_camera.autoCycleShotsTaken, m_camera.trackBallRow.value,
                                                             BackbufferCapture() );
 
-    if ( !result.captureResult.ok )
+    if ( !result.captureResult.Ok() )
     {
 
         // Lane R: auto-cycle captures are validation side effects; failed file
         // output exits the run rather than recording a false capture success.
-        fprintf( stderr, "%s: %s\n", result.captureResult.error.owner, result.captureResult.error.message );
+        fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because auto-cycle screenshot capture failed." );
         m_applicationExit.RequestOwnedFailure( result.captureResult );
@@ -1111,7 +1113,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                    m_renderDefaults.CinematicBaseline(), m_startup, m_assets, m_workerPool,
                                    m_diagnosticsRuntime, &Renderer().RenderFrame(), &Renderer().RenderResources(),
                                    Renderer() )
-                            .ok;
+                            .Ok();
 
         sceneLoad.ApplyRuntimeReactions( m_launchOptions, m_timers, *m_overlayDiagnostics, m_sceneController, m_inputRouter,
                                          m_interaction, m_camera, m_attachedCamera, m_runtimeTools, m_replayRuntime );
@@ -1151,8 +1153,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
     const DemoDirectorTickResult
-        directorResult = DemoDirectorPlayback::Tick( m_camera, directorPrediction, m_launchOptions, m_sceneController,
-                                                     m_operatorUi->SceneNavigation().browser, m_assets,
+        directorResult = DemoDirectorPlayback::Tick( m_resultDiagnostics, m_camera, directorPrediction, m_launchOptions,
+                                                     m_sceneController, m_operatorUi->SceneNavigation().browser, m_assets,
                                                      ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                                      m_renderDefaults.CinematicBaseline(), cameraDt );
 

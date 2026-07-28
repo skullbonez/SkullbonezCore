@@ -77,7 +77,8 @@ constexpr bool SceneRequestBatchContinuesAfter( SceneRequestType type, bool acce
 class SceneRequestQueue
 {
   public:
-    SkullbonezCore::Core::SbResult Submit( const SceneRequest& request );
+    SkullbonezCore::Core::SbResult Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                           const SceneRequest& request );
     SceneRequestBatch TakePending();
     std::size_t Size() const;
 

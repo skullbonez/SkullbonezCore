@@ -6,14 +6,15 @@ Purpose:
 
 Summary:
   Normal exit is a request to stop successfully. An owned failure is stronger:
-  it supplies the Lane R result that the process boundary must report. The
-  first owned failure remains authoritative even if normal or platform exit
-  messages arrive later.
+  it supplies the compact Lane R lease that the process boundary must report.
+  The first owned failure remains authoritative even if normal or platform
+  exit messages arrive later.
 
 Glossary:
   Lane R: Recoverable result lane for an external-input or environment failure.
   Owned failure: Lane R failure already attributed to the subsystem that
-    detected it, including its owner and diagnostic message.
+    detected it, including a lease on its immutable owner and diagnostic
+    message.
   Message exit code: Integer supplied by the platform message loop when it
     announces process exit; this owner intentionally has no Win32 dependency.
 
@@ -22,8 +23,9 @@ Invariants:
     its diagnostics.
   - A nonzero message exit code becomes a Lane R failure only when no richer
     owned failure exists.
-  - All state is inline and fixed-size; requesting or resolving exit allocates
-    no memory.
+  - All retained state is fixed-size; requesting or resolving exit allocates no
+    memory, and the App-owned diagnostic store outlives this state and its
+    returned results.
 
 Related:
   - SkullbonezSource/Core/SbResult.h defines the Lane R result carrier.
@@ -32,10 +34,7 @@ Related:
 */
 #pragma once
 
-#include "../../Core/SbResult.h"
-
-#include <array>
-#include <cstddef>
+#include "../../Core/SbDiagnosticStore.h"
 
 namespace SkullbonezCore
 {
@@ -44,8 +43,7 @@ namespace Runtime
 class ApplicationExitState
 {
   public:
-    static constexpr std::size_t FAILURE_OWNER_CAPACITY = 96;
-    static constexpr std::size_t FAILURE_MESSAGE_CAPACITY = sizeof( SkullbonezCore::Core::SbError::message );
+    explicit ApplicationExitState( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
 
     // Requests a successful process exit without changing any previously owned
     // failure.
@@ -62,13 +60,13 @@ class ApplicationExitState
     // nonzero integer becomes a generic application failure only when no owner
     // has already supplied a more useful Lane R result.
     //
-    // Lifetime: a returned owned-failure result borrows its owner string from
-    // this state. The state must outlive the caller's use of that SkullbonezCore::Core::SbResult.
+    // Lifetime: the returned copy keeps the same immutable store entry leased
+    // even if this exit state is reset or destroyed.
     [[nodiscard]] SkullbonezCore::Core::SbResult Resolve( int messageExitCode ) const noexcept;
 
   private:
-    std::array<char, FAILURE_OWNER_CAPACITY> m_failureOwner = {};
-    std::array<char, FAILURE_MESSAGE_CAPACITY> m_failureMessage = {};
+    SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;
+    SkullbonezCore::Core::SbResult m_failure = SkullbonezCore::Core::SbResult::Success();
     bool m_exitRequested = false;
     bool m_hasOwnedFailure = false;
 };

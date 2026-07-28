@@ -6,8 +6,9 @@ Purpose:
 
 Summary:
   The state is a small latch. Normal exit sets the latch, while the first Lane R
-  failure also stores bounded diagnostics. Resolution prefers those diagnostics
-  over the less informative integer delivered by a platform message loop.
+  failure retains its compact diagnostic lease. Resolution prefers that exact
+  immutable diagnostic over the less informative integer delivered by a
+  platform message loop.
 
 Glossary:
   Exit latch: Boolean state recording that the frame loop should stop.
@@ -18,8 +19,8 @@ Glossary:
 
 Invariants:
   - RequestOwnedFailure never mutates state for an SkullbonezCore::Core::SbResult success value.
-  - Once m_hasOwnedFailure is true, its owner and message never change.
-  - Bounded copies always leave their destination null-terminated.
+  - Once m_hasOwnedFailure is true, the retained lease and its immutable owner
+    and message never change.
 
 Related:
   - SkullbonezSource/Runtime/App/ApplicationExitState.h declares the caller contract.
@@ -27,21 +28,14 @@ Related:
 */
 #include "ApplicationExitState.h"
 
-#include <cstdio>
-
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace
+ApplicationExitState::ApplicationExitState( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept
+    : m_diagnostics( diagnostics )
 {
-template <std::size_t Capacity> void CopyBoundedText( std::array<char, Capacity>& destination, const char* source ) noexcept
-{
-    static_assert( Capacity > 0, "bounded text storage must include a null terminator" );
-    std::snprintf( destination.data(), destination.size(), "%s", source ? source : "" );
-    destination.back() = '\0';
 }
-} // namespace
 
 
 void ApplicationExitState::RequestNormalExit() noexcept
@@ -56,15 +50,14 @@ void ApplicationExitState::RequestNormalExit() noexcept
 void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
 {
 
-    if ( failure.ok || m_hasOwnedFailure )
+    if ( failure.Ok() || m_hasOwnedFailure )
     {
         return;
     }
 
-    // Invariant: capture both bounded strings before publishing the failure bit
-    // so every observable owned failure has complete diagnostics.
-    CopyBoundedText( m_failureOwner, failure.error.owner );
-    CopyBoundedText( m_failureMessage, failure.error.message );
+    // Invariant: the first retained lease preserves one complete immutable
+    // diagnostic without introducing a second owner/message buffer.
+    m_failure = failure;
     m_hasOwnedFailure = true;
     m_exitRequested = true;
 }
@@ -87,7 +80,7 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
     if ( m_hasOwnedFailure )
     {
-        return SkullbonezCore::Core::SbResult::Failure( m_failureOwner.data(), "%s", m_failureMessage.data() );
+        return m_failure;
     }
 
     if ( messageExitCode != 0 )
@@ -95,9 +88,8 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
         // Lane R: a platform/environment boundary asked the process to stop with
         // failure but did not provide richer owner diagnostics.
-        return SkullbonezCore::Core::SbResult::Failure( "Runtime/ApplicationExit",
-                                                        "application exit message reported nonzero code %d",
-                                                        messageExitCode );
+        return m_diagnostics.Failure( "Runtime/ApplicationExit", "application exit message reported nonzero code %d",
+                                      messageExitCode );
     }
 
     return SkullbonezCore::Core::SbResult::Success();

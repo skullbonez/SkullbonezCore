@@ -208,6 +208,10 @@ struct Dx12FenceTimelineStats
 class Dx12FenceTimeline
 {
   public:
+    explicit Dx12FenceTimeline( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     void Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HANDLE eventHandle );
     void Reset();
 
@@ -224,6 +228,7 @@ class Dx12FenceTimeline
     Dx12FenceTimelineStats GetStats() const;
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12CommandQueue* m_queue = nullptr;
     ID3D12Fence* m_fence = nullptr;
     HANDLE m_eventHandle = nullptr;
@@ -705,7 +710,10 @@ class Dx12FrameUploadSystem
   public:
     static constexpr UINT MAX_FRAME_COUNT = 4;
 
-    Dx12FrameUploadSystem() = default;
+    explicit Dx12FrameUploadSystem( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics )
+    {
+    }
     ~Dx12FrameUploadSystem();
     Dx12FrameUploadSystem( const Dx12FrameUploadSystem& ) = delete;
     Dx12FrameUploadSystem& operator=( const Dx12FrameUploadSystem& ) = delete;
@@ -731,6 +739,7 @@ class Dx12FrameUploadSystem
   private:
     void ValidateFrameIndex( UINT frameIndex ) const;
 
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12Resource* m_resources[MAX_FRAME_COUNT] = {};
     uint8_t* m_mappedPtrs[MAX_FRAME_COUNT] = {};
     Dx12UploadArena m_arenas[MAX_FRAME_COUNT];
@@ -845,7 +854,10 @@ class Dx12RenderDevice
   public:
     static constexpr UINT MAX_FRAME_COUNT = 4;
 
-    Dx12RenderDevice() = default;
+    explicit Dx12RenderDevice( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) noexcept
+        : m_resultDiagnostics( resultDiagnostics ), m_frameFence( resultDiagnostics )
+    {
+    }
     ~Dx12RenderDevice();
     Dx12RenderDevice( const Dx12RenderDevice& ) = delete;
     Dx12RenderDevice& operator=( const Dx12RenderDevice& ) = delete;
@@ -950,6 +962,7 @@ class Dx12RenderDevice
     void ReportDeviceLost( const char* context, HRESULT result ) const;
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     IDXGIFactory4* m_factory = nullptr;
     IDXGISwapChain3* m_swapChain = nullptr;
     ID3D12Device* m_device = nullptr;

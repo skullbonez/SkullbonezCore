@@ -50,6 +50,7 @@ Related:
 //  allows the same geometry (BLAS) to appear multiple times at different positions (instances).
 //
 #include "BLASDX12.h"
+#include "../../Core/SbDiagnosticStore.h"
 #include "RenderDeviceDX12.h"
 
 
@@ -57,7 +58,8 @@ using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
 
 
-BLAS::BLAS() : m_scratch( nullptr ), m_result( nullptr )
+BLAS::BLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
+    : m_resultDiagnostics( resultDiagnostics ), m_scratch( nullptr ), m_result( nullptr )
 {
 }
 
@@ -109,8 +111,8 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
 
     if ( prebuild.ResultDataMaxSizeInBytes == 0 )
     {
-        return SkullbonezCore::Core::SbResult::
-            Failure( "Rendering/DX12", "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12",
+                                            "BLAS: GetRaytracingAccelerationStructurePrebuildInfo returned zero" );
     }
 
     // Scratch and result live in the default heap because the GPU builds and
@@ -137,7 +139,7 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
                                                   nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "BLAS: Failed to create scratch buffer" );
     }
 
     NameDx12Object( m_scratch, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer"
@@ -159,7 +161,7 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
                                                   IID_PPV_ARGS( &m_result ) ) ) )
     {
         ReleaseAfterBuild();
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
+        return m_resultDiagnostics.Failure( "Rendering/DX12", "BLAS: Failed to create result buffer" );
     }
 
     NameDx12Object( m_result, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer"

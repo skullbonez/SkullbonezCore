@@ -315,12 +315,14 @@ struct InteractionAutomationController
     // Applies the bounded editor/window commands for one automation turn. Run
     // retains only the returned process-surface selection and failure boundary.
     InteractionAutomationDevelopmentUiApplyResult
-    ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame, Window& window,
+    ApplyDevelopmentUiCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                const InteractionAutomationFrameResult& frame, Window& window,
                                 DevelopmentTools::ImGuiEditorOwner& editor ) const;
 
     // Interprets the automation-owned replay command and submits it through
     // the same bounded queue used by real editor widgets.
-    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+    SkullbonezCore::Core::SbResult SubmitOperatorEditorReplayCommand( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                      const InteractionAutomationFrameResult& frame,
                                                                       UI::OperatorEditorCommandQueues& commands ) const;
 
     // Projects copied editor facts into the exact after-render assertion view;
@@ -355,9 +357,11 @@ struct InteractionAutomationFrameResult
     std::size_t developmentUiCommandCount = 0u;
 };
 
-SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
+SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                               InteractionAutomationController& state,
                                                                const char* scriptPath, const char* reportPath );
-SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
+SkullbonezCore::Core::SbResult InteractionAutomationResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                            const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,
                                                                        SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter,

@@ -88,13 +88,13 @@ namespace Runtime
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
 
-    if ( result.ok )
+    if ( result.Ok() )
     {
         return;
     }
 
-    std::fprintf( stderr, "%s: %s\n", result.error.owner[0] != '\0' ? result.error.owner : "Runtime/Input",
-                  result.error.message[0] != '\0' ? result.error.message : "recoverable input operation failed" );
+    std::fprintf( stderr, "%s: %s\n", result.ErrorOwner()[0] != '\0' ? result.ErrorOwner() : "Runtime/Input",
+                  result.ErrorMessage()[0] != '\0' ? result.ErrorMessage() : "recoverable input operation failed" );
 }
 
 RuntimeInputModeState BuildRuntimeInputModeState( RunCameraMode mode, const RunEditorPlacementState& editor,
@@ -520,8 +520,9 @@ void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, Recor
 // Concept: UI sampling and replay workspace arbitration publish the post-UI
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
-RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera,
-                                          RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera,
+RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window,
+                                          InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools,
+                                          AttachedCameraController& attachedCamera,
                                           RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui,
                                           RunTimerState& timers, SceneController& sceneController,
                                           ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay,
@@ -565,9 +566,9 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRout
 
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
-    result.status = NormalizeLegacyOperatorEditorCommands( result.commands );
+    result.status = NormalizeLegacyOperatorEditorCommands( diagnostics, result.commands );
 
-    if ( !result.status.ok )
+    if ( !result.status.Ok() )
     {
         return result;
     }
@@ -640,7 +641,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     RuntimeRenderer& renderer = Renderer();
     ReplayRuntime& replayRuntime = m_replayRuntime;
 
-    if ( !result.frameActive || !result.status.ok )
+    if ( !result.frameActive || !result.status.Ok() )
     {
         return result;
     }
@@ -650,19 +651,21 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // exclusive; arbitration still coalesces exact duplicate injected intent
     // and rejects conflicting payloads through Lane R.
     const SkullbonezCore::UI::OperatorEditorArbitrationResult
-        editorCommands = SkullbonezCore::UI::ArbitrateOperatorEditorCommands( result.commands.operatorEditor,
+        editorCommands = SkullbonezCore::UI::ArbitrateOperatorEditorCommands( m_resultDiagnostics,
+                                                                              result.commands.operatorEditor,
                                                                               facts.externalEditorCommands );
 
-    if ( !editorCommands.status.ok )
+    if ( !editorCommands.status.Ok() )
     {
         result.status = editorCommands.status;
         return result;
     }
 
     result.commands.operatorEditor = editorCommands.commands;
-    result.status = SkullbonezCore::UI::ProjectOperatorEditorCommands( editorCommands.commands, result.commands );
+    result.status = SkullbonezCore::UI::ProjectOperatorEditorCommands( m_resultDiagnostics, editorCommands.commands,
+                                                                       result.commands );
 
-    if ( !result.status.ok )
+    if ( !result.status.Ok() )
     {
         return result;
     }
@@ -1129,7 +1132,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                                                                            camera, simulation, runtimeTools,
                                                                                            &renderer.RenderFrame() );
 
-    if ( !modelCountCommand.action.status.ok )
+    if ( !modelCountCommand.action.status.Ok() )
     {
         result.status = modelCountCommand.action.status;
         return result;
@@ -1156,7 +1159,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                                                                simulation, runtimeTools,
                                                                                &renderer.RenderFrame() );
 
-    if ( !solverBallCountCommand.action.status.ok )
+    if ( !solverBallCountCommand.action.status.Ok() )
     {
         result.status = solverBallCountCommand.action.status;
         return result;
@@ -1180,7 +1183,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
                                                                               simulation, runtimeTools,
                                                                               &renderer.RenderFrame() );
 
-    if ( !solverBoxCountCommand.action.status.ok )
+    if ( !solverBoxCountCommand.action.status.Ok() )
     {
         result.status = solverBoxCountCommand.action.status;
         return result;
@@ -1231,7 +1234,7 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     operatorCommands.Complete();
     const SceneUICommandSubmissionResult sceneUICommands = sceneController.SubmitUIRequests( uiCommands.scene );
 
-    if ( !sceneUICommands.status.ok )
+    if ( !sceneUICommands.status.Ok() )
     {
         result.status = sceneUICommands.status;
         return result;
@@ -1254,7 +1257,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, I
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
 
-    if ( !result.frameActive || !result.status.ok )
+    if ( !result.frameActive || !result.status.Ok() )
     {
         return result;
     }

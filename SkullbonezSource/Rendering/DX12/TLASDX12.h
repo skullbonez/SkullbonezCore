@@ -52,13 +52,14 @@ class TLAS
 {
 
   private:
+    SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
     ID3D12Resource* m_scratch;
     ID3D12Resource* m_result;
     ID3D12Resource* m_instanceDescs; // Upload heap, rewritten each frame
     int m_maxInstances;
 
   public:
-    TLAS();
+    explicit TLAS( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
     ~TLAS();
 
     SkullbonezCore::Core::SbResult Init( ID3D12Device5* device, int maxInstances );

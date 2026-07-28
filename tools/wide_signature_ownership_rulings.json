@@ -3,11 +3,43 @@
   "rulings": [
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
-      "signature": "RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window, InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui, RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts )",
+      "signature": "RuntimeUIFrameResult BeginRuntimeUIFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window& window, InputRouter& inputRouter, CameraControlState& camera, RuntimeTools& runtimeTools, AttachedCameraController& attachedCamera, RuntimeInteractionController& interaction, SkullbonezCore::UI::InGameUI& ui, RunTimerState& timers, SceneController& sceneController, ReplayRuntime& replayRuntime, const ReplayPathPickInput& replayPointerRay, const RuntimeInputFrameFacts& facts )",
       "owner": "Runtime/App composition root",
       "disposition": "retain-owner",
-      "reason": "This operation establishes one post-UI frame order before keyboard commands; every participant borrow expires when the returned frame result closes the call.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "reason": "This operation establishes one post-UI frame order before keyboard commands; the diagnostic store and every participant borrow share that synchronous turn and expire when the returned frame result closes the call.",
+      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
+      "signature": "bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction, SceneController& sceneController, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, ReplayFrameIndex nextFrame, uint32_t& eventCursor, std::size_t& eventsApplied, std::size_t& unsupportedEvents )",
+      "owner": "Replay restore event-application phase",
+      "disposition": "retain-owner",
+      "reason": "One replay-restore phase applies the next frame's immutable event range and advances its three explicit outputs; diagnostics and concrete owners are synchronous borrows, while grouping them would create a courier rather than a new invariant owner.",
+      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
+      "signature": "bool StepReplayRestoreTarget( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, ReplayRestoreTransaction& transaction, SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target, SkullbonezCore::Core::Profiler* profiler )",
+      "owner": "Replay restore target-step phase",
+      "disposition": "retain-owner",
+      "reason": "The operation owns one restore target step from checkpoint through target validation; every owner/store borrow is used synchronously and no participant or output crosses the phase boundary.",
+      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h",
+      "signature": "RenderResourceLifecycle::RenderResourceLifecycle( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, const SceneSessionState& scene )",
+      "owner": "RenderResourceLifecycle",
+      "disposition": "retain-owner",
+      "reason": "The lifecycle owner binds the concrete DX12 resource participants and world/session value owners that share its lifetime; the diagnostic store is the same App-owned lifetime borrow and a services aggregate would only hide this authority.",
+      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h",
+      "signature": "RuntimeRenderer::RuntimeRenderer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx12FrameOwner& renderFrame, Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderGeometry, Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::Dx12RaytracingOwner& raytracing, bool raytracingAvailable, const RenderWorldView& world, SceneSessionState& scene )",
+      "owner": "RuntimeRenderer",
+      "disposition": "retain-owner",
+      "reason": "The renderer composition owner retains one lifetime-cohesive set of concrete render owners plus world/session views; the App-owned diagnostic store has the same lifetime and does not broaden renderer authority.",
+      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
     },
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",

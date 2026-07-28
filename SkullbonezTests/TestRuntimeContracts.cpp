@@ -19,6 +19,8 @@
 //
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
+//   - A diagnostic store may not finish destruction while a failed result lease
+//     still names it.
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
 //   - Disabled development-profiler macros never evaluate caller expressions.
@@ -62,6 +64,7 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestFatalCases.h"
+#include "TestSbResultAccess.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -78,6 +81,12 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace
+{
+SkullbonezCore::Core::SbDiagnosticStore diagnostics;
+}
 
 using SkullbonezCore::Core::EngineLog;
 using SkullbonezCore::Core::SbResult;
@@ -482,13 +491,14 @@ bool RunRuntimeFatalCase( const char* caseName )
         config.terrainGeometry.scale = 1.0f;
         std::unique_ptr<SkullbonezCore::Geometry::Terrain> terrain;
         const SbResult created = wroteHeightMap
-                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( heightMapPath, 4, 1,
+                                     ? SkullbonezCore::Geometry::Terrain::TryCreatePhysicsFromHeightMap( diagnostics,
+                                                                                                         heightMapPath, 4, 1,
                                                                                                          1, config, terrain )
-                                     : SbResult::Failure( "Tests/Terrain", "height-map write failed" );
+                                     : diagnostics.Failure( "Tests/Terrain", "height-map write failed" );
 
         DeleteFileA( heightMapPath );
 
-        if ( !created.ok || !terrain )
+        if ( !created.Ok() || !terrain )
         {
             return false;
         }
@@ -791,6 +801,50 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "sb-diagnostic-capacity" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        std::array<SkullbonezCore::Core::SbResult, SkullbonezCore::Core::SbDiagnosticStore::CAPACITY + 1u> leases;
+
+        for ( std::size_t index = 0; index < leases.size(); ++index )
+        {
+            leases[index] = store.Failure( "FatalCapacity", "slot=%zu", index );
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-double-release" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalRelease", "double release" );
+        const SkullbonezCore::Core::SbDiagnosticIdentity identity = lease.DiagnosticIdentity();
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-owner-overflow" ) == 0 )
+    {
+        SkullbonezCore::Core::SbDiagnosticStore store;
+        std::array<char, SkullbonezCore::Core::SbDiagnosticStore::OWNER_CAPACITY + 1u> owner = {};
+        owner.fill( 'o' );
+        owner.back() = '\0';
+        (void)store.Failure( owner.data(), "owner overflow" );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sb-diagnostic-store-destroyed-with-active-lease" ) == 0 )
+    {
+        SkullbonezCore::Core::SbResult escapedLease;
+        {
+            SkullbonezCore::Core::SbDiagnosticStore store;
+            escapedLease = store.Failure( "FatalLifetime", "lease escapes store scope" );
+        }
+
+        return true;
+    }
+
     return false;
 }
 
@@ -938,36 +992,49 @@ TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in orde
 
 TEST_CASE( "SbResult: success and formatted failure values propagate owner and message" )
 {
-    static_assert( sizeof( SkullbonezCore::Core::SbError::message ) == 512 );
 #if defined( _WIN64 )
-    static_assert( sizeof( SbResult ) == 528 );
+    static_assert( sizeof( SbResult ) == 16 );
 #endif
 
     const SbResult success = SbResult::Success();
-    CHECK( success.ok );
-    CHECK( std::strcmp( success.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( success.error.message, "" ) == 0 );
+    CHECK( success.Ok() );
+    CHECK( std::strcmp( success.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( success.ErrorMessage(), "" ) == 0 );
 
-    SbResult reassignedSuccess = SbResult::Failure( "Discarded", "discarded failure" );
+    SbResult reassignedSuccess = diagnostics.Failure( "Discarded", "discarded failure" );
     reassignedSuccess = success;
-    CHECK( reassignedSuccess.ok );
-    CHECK( std::strcmp( reassignedSuccess.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( reassignedSuccess.error.message, "" ) == 0 );
+    CHECK( reassignedSuccess.Ok() );
+    CHECK( std::strcmp( reassignedSuccess.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( reassignedSuccess.ErrorMessage(), "" ) == 0 );
 
-    const SbResult failure = SbResult::Failure( "SceneParser", "invalid body %d", 17 );
-    CHECK_FALSE( failure.ok );
-    CHECK( std::strcmp( failure.error.owner, "SceneParser" ) == 0 );
-    CHECK( std::strcmp( failure.error.message, "invalid body 17" ) == 0 );
+    const SbResult failure = diagnostics.Failure( "SceneParser", "invalid body %d", 17 );
+    CHECK_FALSE( failure.Ok() );
+    CHECK( std::strcmp( failure.ErrorOwner(), "SceneParser" ) == 0 );
+    CHECK( std::strcmp( failure.ErrorMessage(), "invalid body 17" ) == 0 );
 
     const SbResult copiedFailure = failure;
-    CHECK_FALSE( copiedFailure.ok );
-    CHECK( std::strcmp( copiedFailure.error.owner, "SceneParser" ) == 0 );
-    CHECK( std::strcmp( copiedFailure.error.message, "invalid body 17" ) == 0 );
+    CHECK_FALSE( copiedFailure.Ok() );
+    CHECK( std::strcmp( copiedFailure.ErrorOwner(), "SceneParser" ) == 0 );
+    CHECK( std::strcmp( copiedFailure.ErrorMessage(), "invalid body 17" ) == 0 );
 
-    const SbResult defaultFailure = SbResult::Failure( nullptr, nullptr );
-    CHECK_FALSE( defaultFailure.ok );
-    CHECK( std::strcmp( defaultFailure.error.owner, "" ) == 0 );
-    CHECK( std::strcmp( defaultFailure.error.message, "recoverable operation failed" ) == 0 );
+    const SbResult defaultFailure = diagnostics.Failure( nullptr, nullptr );
+    CHECK_FALSE( defaultFailure.Ok() );
+    CHECK( std::strcmp( defaultFailure.ErrorOwner(), "" ) == 0 );
+    CHECK( std::strcmp( defaultFailure.ErrorMessage(), "recoverable operation failed" ) == 0 );
+}
+
+
+TEST_CASE( "SbDiagnosticStore bound capacity and lease misuse terminate in child probes" )
+{
+    ExpectFatalCase( "sb-diagnostic-capacity", { "FATAL[Core/SbDiagnosticStore]", "all 256 diagnostic slots are leased" } );
+    ExpectFatalCase( "sb-diagnostic-double-release",
+                     { "FATAL[Core/SbDiagnosticStore]", "release used a stale or already released diagnostic token" } );
+
+    ExpectFatalCase( "sb-diagnostic-owner-overflow",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic owner exceeds 95-byte bound" } );
+
+    ExpectFatalCase( "sb-diagnostic-store-destroyed-with-active-lease",
+                     { "FATAL[Core/SbDiagnosticStore]", "diagnostic store destroyed with 1 active entries" } );
 }
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
