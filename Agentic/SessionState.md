@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plan 1 is complete. Plan 2 CX0-CX1 now measure 6,285 definitions and enforce 40/40 exact current-body rulings with four fail-closed drift classes; CX2 governance wiring, mapped validation, and independent review are next. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 2/33 (6%). Broadphase canonical-order guard closed and left the live ledger under rule 4; function-complexity CX0-CX1 are complete. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-2 are complete and removed from the live ledger under rule 4. Plan 3 `contact-solve-phase-ownership` is next; CS0 records the byte-exact baseline and pass/authority map before source movement. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 0/30 (0%). Broadphase canonical-order guard and function-complexity review trigger are closed; plans 3-8 remain. |
+| Validation for function-complexity closure | The owner ratified 400 inclusive body lines and brace depth 6 as independent qualitative-review triggers. The current tree reports 6,285 recognized definitions and 40/40 exact current-body rulings: 38 retain-owner and two repair-plan rows routed to contact-solve phase ownership. Direct self-test passes in 1.0 seconds, strict scan in 27.7 seconds, and `validate_fast` in 177.3 seconds with format, metadata, dependencies, all four ownership inventories, Profile x64 build, and tests clear. Independent review ended with zero blockers after fail-closed path and CLI-mode hardening. Comment audit is 3/3 with zero deferred; no behavior, baseline, golden, or runtime artifact changed. |
 | Validation for broadphase guard closure | Both radix paths derive from `MAX_SCENE_OBJECTS`; triangular identity/reset arithmetic is wide before guarded narrowing; exact cell coordinates remain `int` and the int16 visualization projection saturates to [-32,768, 32,767]. The ceiling test exercises unfiltered and production-filtered emission through body 8,191: focused SpatialGrid passes 16/16 cases and 8,524 assertions. `validate_tests` passes in 21.8 seconds with 439/439 tests and 2,419,238 assertions; `validate_physics` passes in 59.76 seconds with all 44,401 rows byte-exact; `validate_perf` passes in 91.2 seconds with both absolute budgets and baseline comparisons clear. Format, all three ownership inventories, 3/3 comment audit, and follow-up independent review pass. No baseline was refreshed. |
 | Campaign registration 2026-07-29 | Documentation-only: seven fresh-read plans written to `Plans/TODO/` and the owner-supplied box-vibration plan registered as plan 8; ledger denominator 0 → 28 → 35; campaign section, plan-8 ordering consequences, and execution priority added to `MASTER-PLAN.md`. No source, data, or baseline changed, so no repository validation was required. Plan 1 fixes a silent determinism hazard (broadphase radix digit widths unbound from `MAX_SCENE_OBJECTS`). Plans 7 and 8 are the only baseline-moving plans: plan 7 is owner-gated on hands-on visual acceptance, plan 8 carries a bounded-divergence allowance. |
 | Validation for warm-start key capacity | The unchanged `0x7fff` body mask is now one shared Physics key-schema value with a compile-time `MAX_SCENE_OBJECTS` guard. Final formatted source passes `validate_physics` in 112.4 seconds with standalone/runtime-handle smoke and a byte-exact 44,401-line regression. `validate_perf` passes in 90.8 seconds: DX12 Physics/solver averages are 0.2204/0.0253 ms and focused-bench averages are 0.0731/0.0271 ms; both comparisons report no regressions. Format, dependency direction, all ownership inventories, 3/3 comment audit, and independent review are clear. No baseline was refreshed. |
@@ -47,6 +48,12 @@ plan inventory.
 | Validation for prior edits | N26: Replay scrub 17/17 and 75 assertions, focused preview 2/2 and 24 assertions, format, fast, allocation, dependency, performance, full, and 60.83-second graphics stress pass; comment audit is 24/24. |
 
 ## Live Queue
+
+The Fresh-Read Engine Review Campaign is active at 0/30 (0%). Plans 1-2 are
+closed and excluded under rule 4. Plan 3 `contact-solve-phase-ownership` is the
+binding next item; CS0 records its byte-exact baseline and pass/authority map.
+Plans 4-8 remain sequenced behind it, with only plans 7 and 8 authorized to
+move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -751,12 +758,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The Principal Engineer Feedback Campaign is complete and the plan ledger is
-empty at 0/0 (0%). Dependency-proof closure evidence is in
-`Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md`.
-
-The protected warm-start key-capacity action is also complete. Its exact
-Physics-frame, solver, contact-stability, review, and comment-audit evidence is
-in `Agentic/Reports/2026-07-28/persistent-contact-key-capacity-closure.md`.
-No local campaign action remains. The future AoS threshold remains a separate
-owner question in `Agentic/Plans/MASTER-PLAN.md`.
+Continue the Fresh-Read Engine Review Campaign at 0/30 (0%) with Plan 3
+`Agentic/Plans/TODO/contact-solve-phase-ownership.md`, task CS0. Function
+complexity closure evidence is in
+`Agentic/Reports/2026-07-29/function-complexity-review-trigger-closure.md`.
+MASTER and SessionState agree on the 0/30 live ledger.

@@ -390,6 +390,16 @@ is byte-exact, performance is clear, and independent review closed both of its
 initial blockers. The active/future ledger is now 0/33 (0%). Evidence is in
 `../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md`.
 
+Function complexity review trigger closed CX0-CX2 on 2026-07-29 and left the
+live ledger under rule 4. The owner ratified 400 inclusive body lines and brace
+depth 6 as independent qualitative-review triggers. The current tree reports
+6,285 definitions and 40/40 exact current-body rulings; self-tests fail closed
+for body drift, stale/deleted rows, invalid repair-plan paths, malformed
+recognized bodies, and conflicting self-test modes. Governance, mapped fast
+validation, 3/3 comment audit, and independent review are clear. The
+active/future ledger is now 0/30 (0%). Evidence is in
+`../Reports/2026-07-29/function-complexity-review-trigger-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -973,11 +983,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/33
-(6%). Plan 1 is complete and excluded under rule 4; execute plans 2→8 in the
-listed order. Plan 2 CX0-CX1 installed the ratified measurement and 40 current
-body rulings with four fail-closed drift fixtures; CX2 wires governance,
-validation, and independent review. Plan 3 later consumes this inventory.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/30
+(0%). Plans 1-2 are complete and excluded under rule 4; execute plans 3→8 in
+the listed order. Plan 3 `contact-solve-phase-ownership` is next, beginning
+with CS0's byte-exact baseline and pass/authority map. Its Plan 2 CX1 dependency
+is satisfied.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2470,8 +2480,8 @@ Dependency barriers:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
-| 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | In progress | 2/3 | CX0-CX1 complete: 40/40 current body rulings, two campaign repair plans, and four planted drift classes pass. CX2 governance wiring and closure is next |
-| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | CS0-CS3 ready now; CS4 waits on plan 2 CX1 |
+| 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
+| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | Ready now; CX1 dependency is satisfied and CS0 records the byte-exact baseline and phase/authority map |
 | 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |

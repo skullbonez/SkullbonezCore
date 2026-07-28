@@ -14,7 +14,7 @@ engine's most determinism-sensitive operation is reviewable, and do it without
 moving a single physics bit.
 
 `Solve` is not a god object — it is one cohesive operation. The defect is that
-its thirteen ordered passes, nineteen closures, and shared mutable solver-body
+its thirteen ordered passes, twenty-eight closures, and shared mutable solver-body
 state are all expressed inside one 1,721-line lexical body, so the call order
 that correctness depends on is enforced only by the sequence of statements. That
 is precisely the case the Invariant Ownership Rule says must be enforced by a
@@ -25,7 +25,7 @@ type with a phase cursor.
 Measured on 2026-07-29 against `main` tip `90e4d52f`.
 
 - `SkullbonezSource/Physics/PersistentContactSolver.cpp:121-1841` —
-  `PhysicsContactSolverStage::Solve`, 1,721 lines, 19 closure definitions,
+  `PhysicsContactSolverStage::Solve`, 1,721 lines, 28 closure definitions,
   maximum brace depth 7.
 - The body already carries thirteen named passes delimited by profile scopes:
   `BodySetup` (300), `BuildManifolds` (803), `Terrain/Rows` (975),

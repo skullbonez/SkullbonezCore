@@ -324,7 +324,7 @@ the targeted validation gates below.
 
 **Repeatable inventories are the instrument, not budgets.** Banning frozen counts
 removed the wrong instrument but left nothing in its place, so shape rules were
-enforced only when a human happened to notice. Three tools now report current
+enforced only when a human happened to notice. Four tools now report current
 structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
@@ -332,17 +332,20 @@ structure without ratcheting anything:
 | `tools/inventory_wide_signatures.py` | parameter counts plus current owner rulings per operation | 12-or-more qualitative owner-review trigger |
 | `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
+| `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
 
-All three outputs are **current measurements requiring review**, never
+All four outputs are **current measurements requiring review**, never
 allowances. The aggregate and extraction-scar inventories use the shared
 unruled-fails/ruled-passes gate backed by
 `tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
 `tools/wide_signature_ownership_rulings.json`; a signature at or above the
 review trigger must match a current ruling by file and normalized signature.
-Historical dispositions never satisfy that gate. Never convert any inventory
-into a count threshold, ratio, or "no more than N" budget, and never add a
-ruling merely to make a number look better — a row records a judgement and
-names the plan that owns the repair.
+The function-complexity inventory uses
+`tools/function_complexity_rulings.json`; a triggered body must match by file,
+normalized signature, and full-body digest. Historical dispositions never
+satisfy either gate. Never convert any inventory into a count threshold, ratio,
+or "no more than N" budget, and never add a ruling merely to make a number look
+better — a row records a judgement and names the plan that owns the repair.
 
 Any review that `AGENTS.md` delegates a rule to must state that rule in the skill
 file the reviewer actually reads. A rule that exists only here, while
@@ -377,6 +380,42 @@ signature makes its old ruling stale. An unruled trigger row, a stale ruling,
 or a repair ruling without an owning plan fails `validate_fast`. Passing the
 mechanical gate only proves that somebody made a current, reviewable judgement;
 an independent reviewer may disagree with the reason and reopen the work.
+
+## Function Complexity Ownership Review Rule
+
+A function with 400 or more inclusive body lines, or a maximum brace depth of
+6 or more, triggers mandatory qualitative owner review. Either signal is
+sufficient. These are points where review becomes compulsory, not maxima,
+allowances, targets, or automatic defects; a shorter or flatter function may
+still be badly owned. Brace depth includes the function body's outer brace, as
+reported by `tools/inventory_function_complexity.py`.
+
+For every triggered body, the reviewer must answer:
+
+1. Which concrete owner or invariant-owning phase owns the complete body?
+2. Does the body implement one cohesive synchronous operation, or does it span
+   independently meaningful parsing, arbitration, mutation, publication, or
+   lifecycle phases?
+3. Would extraction create a real owner or independently testable algorithm,
+   or merely move lines into a helper called once immediately by the original
+   body?
+4. Do nested branches encode one state machine or algorithm, or accumulate
+   unrelated policy whose ordering is enforced only by caller discipline?
+5. Is the current ruling `retain-owner`, with a concrete cohesion reason, or
+   does `repair-plan` name the active plan that owns decomposition?
+
+`tools/function_complexity_rulings.json` is exact current-source evidence.
+Changing any body text invalidates its digest; renaming, moving, deleting, or
+shrinking a triggered function makes its old ruling stale. An unruled body, an
+edited body, a stale ruling, or a repair ruling without a canonical existing
+Markdown plan under `Agentic/Plans/TODO/` fails `validate_fast`.
+
+Passing the mechanical gate proves current judgement, not sound design.
+Splitting a function into a helper that is called once immediately, moving the
+same authority across sibling translation units, or adding a ruling merely to
+clear the trigger is a review failure. The reviewer must follow the operation
+across such helpers and reopen the ruling or owning plan when responsibility did
+not move.
 
 ## God-Object Closure Rule
 
@@ -746,6 +785,7 @@ render, or tool gate; it does not replace it.
 | `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
+| `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |

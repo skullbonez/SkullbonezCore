@@ -18,7 +18,7 @@
       "body_sha256": "566ccacecaaf76e00df828da38099a1633114255fcc532d5a81fdf0148f52c15",
       "owner": "Contact solve phase ownership campaign",
       "disposition": "repair-plan",
-      "reason": "The current body spans unrelated construction, solve, publication, and cache phases; the named plan installs a phase-cursor transaction and decomposes those authorities.",
+      "reason": "The current body spans distinct order-dependent construction, solve, publication, and cache phases; the named plan installs a phase-cursor transaction and decomposes those authorities.",
       "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
       "plan": "Agentic/Plans/TODO/contact-solve-phase-ownership.md"
     },
