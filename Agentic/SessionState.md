@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-28th-JUL-26-takeover` |
 | Current baseline | Main tip `81cc50bc`; PR #136 is merged and the takeover branch starts directly from that merge. |
-| Current objective | Close dependency-proof DP2, then evaluate the protected warm-start key-capacity working-tree experiment as the final actionable item. |
-| Active/future progress | 2/3 (67%). Plan 6 `determinism-terrain-fixture-isolation` is complete and has left the live ledger under rule 4; Plan 7 `dependency-proof-generation` completed DP1 and continues at DP2. |
+| Current objective | Evaluate the protected warm-start key-capacity working-tree experiment as the final actionable local item; do not refresh a baseline. |
+| Active/future progress | 0/0 (0%). The Principal Engineer Feedback Campaign is complete: Plan 7 `dependency-proof-generation` closed DP2 and left the live ledger under rule 4. The warm-start experiment is intentionally outside the plan ledger. |
+| Validation for dependency proof closure | Planted rule drift invalidates the old proof; all marker failures remain fail-closed; every Runtime allow row rejects a future package; four isolated parser fixtures pin macro, continuation, quoted, angle, and local-first behavior; and exact project cases cover required-only, missing-required, required-plus-Core, required-plus-Tests, Git discovery, both MSBuild item kinds, and all four governed suffixes. Follow-up independent review is clear and the comment audit is 1/1. The 3.23-second dependency gate, 232.84-second fast gate, and 370.38-second full gate pass with 438/438 tests, 2,419,221 assertions, zero DX12 errors, accepted images, and byte-exact 44,401-line Physics. No baseline was refreshed. |
 | Validation for dependency proof DP1 | The existing dependency checker owns one deterministic marked `AGENTS.md` projection, with fail-closed marker topology, current/stale checking, byte-preserving writes, and escaped rule-controlled Markdown. Its generated tables replace the 21-row Runtime matrix and all 27 mechanical `rg` proofs while retaining one explicitly qualitative Rendering search. Six frame-view allowances are exact files; valid exact edges pass and the pseudo-descendant fixture fails. App closed-world, Camera App-prefix, UI-to-Rendering, and residual textual-parser semantics are explicit. Self-tests pass 27 include rules / 47 negative edges, two negative content fixtures, one project fixture, and the generated-proof cases; the proof check and dependency gate pass with zero repository findings. Focused Python syntax/diff-whitespace checks and all three ownership inventories pass. Touched-tool comment audit is 1/1 with zero deferred files. No baseline was refreshed. |
 | Validation for dependency proof DP0 | Documentation-only comparison: 27 include rules, one content rule, one project rule, the 21-row Runtime table, 28 hand-written commands (27 mechanical and one qualitative), 46 negative include fixtures, two content fixtures, and one compound project fixture are reconciled row by row. The report identifies the over-broad Input proof, every Runtime regex's future-package hole, the frame-view self-include hole, UI prose/proof omission of Rendering, compound project-fixture false pass, selected-example fixture coverage, textual-include/resolver limits, path-casing behavior, prefix-to-exact migration with intentional descendant rejection, and a single-checker deterministic Markdown/freshness design. Its generated block owns the matrix and all mechanical commands; markers fail closed, writes preserve outside bytes, and escaping is deterministic. No repository validation was required. |
 | Validation for terrain fixture closure | The seven-run flat/deep reconstruction witness covers flat-to-flat, flat-to-deep, deep-to-flat, and deep-to-deep predecessors and passes 92/92 focused assertions. Randomized determinism seeds 28072026 and 731942 each pass 24/24 cases and 2,385,028 assertions. Final-source tests pass 438/438 cases and 2,419,221 assertions; format, 787/787 project/filter rows, dependency direction, all ownership inventories, byte-exact 44,401-line Physics, deep Physics, and the 284.23-second full gate pass. Comment audit is 4/4; follow-up independent review is clear. No baseline, golden, config, schema, performance artifact, layout, or SoA storage changed. |
@@ -44,18 +45,18 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 2/3 (67%). Physics body layout,
-Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
-compact SbResult success values, explicit vector dot products, and isolated
-deterministic terrain fixtures are complete; its one remaining plan generates
-dependency proofs. DP0 reconciled the JSON, human matrix, commands, checker,
-and fixtures; DP1 generated and freshness-checks one deterministic review proof
-through the existing checker, replacing the mechanical Runtime matrix and all
-27 mechanical commands while keeping the sole qualitative Rendering search
-explicit and exact-file distinctions visible. DP2 owns planted drift, split
-project branches, end-to-end residual-parser evidence, independent review, and
-final mapped gates. The bounded registration response
-removes the exact Replay pure forwarder, publishes the anti-Hamilton/
+The Principal Engineer Feedback Campaign is complete and has no live plan in
+the active/future ledger. Physics body layout, Replay restore/wide-signature
+governance, PhysicsFixedList copy semantics, compact SbResult success values,
+explicit vector dot products, isolated deterministic terrain fixtures, and
+generated dependency proofs all closed and left the ledger under rule 4. DP2
+now pins planted proof drift, future Runtime package rejection, isolated
+residual-parser behavior, and exact project ownership through the production
+evaluators; independent review and every mapped gate are clear. Permanent
+evidence is
+`Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md`. The
+bounded registration response removes the exact Replay pure forwarder,
+publishes the anti-Hamilton/
 transposed-matrix quaternion
 contract in the public header, makes orientation conversion const, gives the
 identity values one inline definition, and enables first-party IDE warning
@@ -63,8 +64,9 @@ errors. The owner selected the current SoA for this campaign and approved the
 200, 520, 1,000, 2,000, and sleepy-5,000 witness matrix. The owner also approved
 qualitative review of all exact-12 signatures, owner-level fixed-list clones,
 bounded owner-managed SbResult diagnostics without a compatibility wrapper, and
-one-shot deletion of vector-vector `operator*`. The warm-start key guard remains
-an uncommitted owner-review diff; do not refresh baselines.
+one-shot deletion of vector-vector `operator*`. The warm-start key guard is the
+sole remaining local action. It remains an uncommitted owner-review diff; do
+not refresh baselines.
 
 Architecture Follow-Up Campaign Round 5 is complete at 7/7 phases, registered
 2026-07-26 from the same-day from-source architecture review of
@@ -744,18 +746,20 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `dependency-proof-generation` at DP2. DP1's deterministic generated
-block, marker/current/stale/write checks, exact-file migration, pseudo-path
-rejection, and focused dependency proof are complete. DP2 must plant rule drift
-and prove freshness failure; split project ownership into independent
-missing-required, required-plus-Core, required-plus-Tests, and end-to-end
-XML/path-discovery cases with exact findings; add bounded macro/continuation and
-quoted/angle residual-parser evidence; reconcile final instructions/comments;
-run independent review and every mapped fast/full gate. Do not add a second
-checker, package-specific branch, edge count, or budget. The
-principal-feedback campaign is 2/3 (67%). Keep the warm-start
-experiment as the final actionable item and unstaged for owner evaluation. The
-future AoS threshold and warm-start acceptance metric remain explicit owner
-questions in `Agentic/Plans/MASTER-PLAN.md`. The exact branch, dirty-file
-inventory, validation gap, execution order, and no-baseline-refresh rule are in
-`Agentic/Reports/2026-07-28/nightrunner-takeover-handoff.md`.
+The Principal Engineer Feedback Campaign is complete and the plan ledger is
+empty at 0/0 (0%). Dependency-proof closure evidence is in
+`Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md`.
+
+Evaluate the protected warm-start key-capacity experiment as the final local
+action. The exact dirty files remain:
+
+- `SkullbonezSource/Physics/PersistentContactSolver.h`
+- `SkullbonezSource/Physics/PersistentContactSolver.cpp`
+- `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
+
+Inspect all three with the touched-file comment audit. Measure Physics-frame
+time, solver time, and contact stability without refreshing a Physics,
+performance, Replay, DX12, golden, or other baseline. If all three remain
+clean, the owner's metric-selection question cannot change the result; if any
+differ, return the exact evidence for owner selection. The future AoS threshold
+remains a separate owner question in `Agentic/Plans/MASTER-PLAN.md`.

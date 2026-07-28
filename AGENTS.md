@@ -212,11 +212,10 @@ python tools/check_dependency_graph.py --check-proof AGENTS.md
 python tools/check_dependency_graph.py --repo .
 ```
 
-Residual scanner limits: macro-expanded include operands and
-backslash-continued include directives are not parsed. Quoted and
-angle-bracket operands are both recognized, but the textual resolver uses
-one local-first search order rather than reproducing the compiler's
-different quoted-versus-angle search semantics.
+Bounded residual-parser fixtures prove that macro-expanded include operands
+and backslash-continued directives are not parsed. Quoted and angle-bracket
+operands are both recognized, but both use one local-first textual search
+order rather than the compiler's different quoted-versus-angle semantics.
 <!-- DEPENDENCY_PROOF_END -->
 
 `InputRouter` is the only retained input routing/context/pointer owner.

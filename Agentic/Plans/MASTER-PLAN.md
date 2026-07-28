@@ -345,6 +345,20 @@ fixtures, final instructions/comment reconciliation, independent review, and
 the mapped fast/full gates. Evidence is in
 `../Reports/2026-07-28/dependency-proof-generation-dp1-checkpoint.md`.
 
+Dependency proof generation DP2 completed on 2026-07-28. Planted rule drift
+invalidates the prior generated block; missing, duplicate, and reversed markers
+fail closed; every Runtime allow row rejects a future package; four isolated
+parser cases pin the macro, continuation, quoted, angle, and local-first limits;
+and exact project cases exercise required-only, missing-required,
+required-plus-Core, required-plus-Tests, Git path discovery, both MSBuild item
+kinds, and all four governed suffixes. Follow-up independent review is clear,
+the 1/1 touched-tool comment audit is complete, and dependency, fast, and full
+gates pass with 438/438 tests, 2,419,221 assertions, zero DX12 errors, and
+byte-exact Physics. The completed plan left the ledger under rule 4, so the
+Principal Engineer Feedback Campaign has no live plan and the active/future
+ledger is empty (0%). Closure evidence is in
+`../Reports/2026-07-28/dependency-proof-generation-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -928,15 +942,14 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 2/3 (67%).
-Execute its one live plan in the table below. The owner has answered every
-active-plan question: retain SoA and run the five-scene Physics witness matrix;
-replace the hard 12-parameter ceiling with qualitative review and reopen all
-exact-12 rows;
-keep explicit PhysicsFixedList cloning on concrete owners; use bounded
-owner-managed SbResult diagnostics with no compatibility wrapper; and delete
-vector-vector `operator*` after migration. No plan may refresh a physics,
-Replay, visual, or performance baseline without explicit owner authority.
+The Principal Engineer Feedback Campaign is complete. All seven plans have
+closed and left the live inventory under rule 4; generated dependency proofs
+were the last 3/3 plan. The protected warm-start key-capacity experiment is the
+sole remaining local action and does not contribute to the plan ledger.
+Evaluate it without refreshing a Physics, Replay, visual, or performance
+baseline. If Physics-frame time, solver time, and contact-stability evidence
+all remain clean, its unresolved metric-selection question cannot change the
+acceptance result; otherwise return the differing evidence to the owner.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -2368,7 +2381,7 @@ Binding owner directions:
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
 | 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
-| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Active | 2/3 | DP2 prove planted drift and split project branches end to end, reconcile final instructions/comments, run independent review, and close with mapped fast/full gates |
+| 7 | [dependency-proof-generation](../Reports/2026-07-28/dependency-proof-generation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; planted drift, parser limits, exact project ownership, independent review, and all mapped gates pass |
 
 ## Features
 
