@@ -1,7 +1,7 @@
 # SbResult Compact Success Path
 
 Date: 2026-07-28
-Status: ACTIVE — 1/4 phases complete
+Status: ACTIVE — 2/4 phases complete
 Impact area: Core error handling, per-frame Runtime phases, diagnostics lifetime
 Owner: Core + App composition
 Priority: Medium-high
@@ -35,10 +35,28 @@ diagnostic lifetime.
 - [x] **SR0 — Measure value flow and lifetime.** Census all construction,
   return, copy/move, queue, persistence, and UI/log consumers; benchmark the
   current frame paths and record the exact 511-byte failure witness.
-- [ ] **SR1 — Select the compact diagnostic ownership model.** Compare bounded
+- [x] **SR1 — Select the compact diagnostic ownership model.** Compare bounded
   side table/handle, owner-local diagnostic slot, and split status/detail
   designs against thread safety, allocation policy, stale-handle detection, and
   the owner answers above. Record one invariant owner and focused tests.
+  **Decision:** one App-composed `Core::SbDiagnosticStore` owns 256 fixed
+  immutable slots. A failed 16-byte `SbResult` leases one packed
+  slot/generation token; copies retain, moves transfer, and the last release
+  reclaims the slot. Success is the null lease and never touches the store.
+  Explicit `store.Failure(...)` production plus `Ok()`/diagnostic accessors
+  replace the old static failure and public inline-error API without a wrapper.
+  The store copies the complete bounded owner and 511-byte message, detects
+  stale generations, synchronizes publication/leases without allocation, and
+  makes capacity/lease/generation defects Lane F. The 256-slot bound covers
+  the current conservative 176 producer-site plus 30 retained/aggregate-site
+  maximum under the verified no-recursion/re-entry, no worker publication, and
+  no result-container/queue assumptions; SR2/SR3 must rerun that census.
+  Direct diagnostic pointers last only for the same unmoved, unassigned live
+  result lease; escaping consumers use bounded status-returning copy-out.
+  The focused matrix includes test-only concurrent failure publication within
+  the fixed capacity and an explicit double-release Lane F child probe.
+  Evidence:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md).
 - [ ] **SR2 — Implement and migrate.** Replace the 528-byte success carrier with
   the selected compact value, migrate callers without a forwarding
   compatibility type, and preserve complete failure formatting and Lane R/F/P
@@ -57,6 +75,8 @@ exception, stale-reference, or diagnostic truncation regression is introduced.
 
 - SR0 census:
   [`../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md)
+- SR1 ownership decision:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md)
 
 ## Validation
 

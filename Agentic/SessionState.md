@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 1/13 (8%). Plan 4 `sbresult-compact-success-path` is active at 1/4; SR1 compact diagnostic ownership selection is next. |
+| Active/future progress | 2/13 (15%). Plan 4 `sbresult-compact-success-path` is active at 2/4; SR2 leased compact-result implementation and migration is next. |
+| Validation for SbResult SR1 | Documentation-only decision: one App-composed 256-slot (~160 KiB) immutable store, 16-byte pointer/token result, last-lease reclamation, 56-bit generation stale-handle protection, allocation-free synchronized failure publication, deterministic Lane F exhaustion/overflow, and explicit no-wrapper API migration. The bound covers 176 producer plus 30 retained/aggregate sites under verified no recursion/re-entry, worker publication, or result containers/queues; direct diagnostic pointers last only for the same live unmoved/unassigned lease and escaping use copies bounded bytes. The focused matrix includes test-only concurrent publication within capacity and a double-release Lane F child probe. No repository validation or baseline refresh required. |
 | Validation for SbResult SR0 | Current-source census: 177 returning definitions, 200 production success constructions, 176 production failures, 30 direct stored fields, 74 direct diagnostic-consumer lines in 32 files, and zero CPU-thread/deferred-queue result handoffs. MSVC x64 measures `SbResult` at 528 bytes and preserves the exact 511-byte payload. Detached-clean-worktree `validate_perf` passes in 154 seconds without baseline refresh. |
 | Validation for Physics fixed-list closure | Compile-time owner non-transferability, production-adapter construction/seed, deep collider rebinding after source destruction, bit-exact next-step parity, and missing/wrong phase-owner fatal probes pass. Final-source `validate_tests` passes 422/422 cases and 2,410,618 assertions; allocation self-test/repository scan, `validate_physics`, strict Replay allocation, the single authoritative visual-fidelity run, `validate_perf`, and `validate_full` pass in the isolated worktree. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and all 12+ signatures ruled. Comment audit is 5/5; independent review returned zero blockers. No baseline was refreshed. |
 | Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
@@ -34,7 +35,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 1/13. Physics body layout,
+The Principal Engineer Feedback Campaign is live at 2/13. Physics body layout,
 Replay restore/wide-signature governance, and PhysicsFixedList copy semantics
 are complete; its four remaining TODO plans cover compact SbResult success
 values, explicit vector dot products, isolated deterministic terrain fixtures,
@@ -717,6 +718,7 @@ are not certified. Full evidence:
 | Replay visual fidelity (RG3 final source) | 439.8 s | PASS; one engine process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
 | `tools\validate_full.bat` (RG3 final source) | 408.7 s | PASS; 424 cases / 2,410,325 assertions, all CPU/runtime lanes, accepted DX12 images, byte-exact 44,401-line Physics CSV |
 | PhysicsFixedList FC0 census | documentation-only; independent review clear | One production Replay prediction `PhysicsEngine` assignment reaches 98 lists; direct list/ColliderStore transfers are test-only; no production moves, by-value paths, or value queues |
+| SbResult SR1 ownership decision | documentation-only | App-composed 256-slot immutable store, 16-byte leased result, current 206-site conservative bound, last-copy reclamation, stale-generation/cross-store detection, bounded copy-out, explicit store injection, and no compatibility wrapper |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -724,10 +726,14 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `sbresult-compact-success-path` at SR1 by selecting and testing the
-bounded owner-managed immutable diagnostic-store model. Preserve complete
-owner/message bytes, generation-checked stale-handle behavior, and the longest
-observed `Run`/DX12 retained lifetime; do not add a compatibility wrapper. The
-principal-feedback campaign is 1/13 (8%).
+Continue `sbresult-compact-success-path` at SR2 by implementing the selected
+App-composed 256-slot immutable diagnostic store and migrating the result API in
+one slice. Preserve exact owner/511-byte message bytes, last-lease reclamation,
+generation-checked stale-handle behavior, synchronized allocation-free
+publication, and the observed `Run`/DX12/UI retained lifetimes; do not add a
+compatibility wrapper or hidden global store. Rerun the producer/storage/thread/
+queue/re-entry census that proves the 256-slot bound, and preserve the rule that
+direct diagnostic pointers expire with the same moved/assigned/destroyed result
+lease. The principal-feedback campaign is 2/13 (15%).
 Preserve the uncommitted warm-start review diff until the owner accepts or
 rejects it.
