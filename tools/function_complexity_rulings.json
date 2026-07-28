@@ -15,12 +15,32 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
-      "body_sha256": "11d47721b968b5b4b1d9697227fe297e74573c846c3347b16e89e557fc87420d",
+      "body_sha256": "c44d3174c77be1d4406ecd487115e552cc6d68175602fe256869ba152f57791a",
       "owner": "Contact solve phase ownership campaign",
       "disposition": "repair-plan",
       "reason": "The current body spans distinct order-dependent construction, solve, publication, and cache phases; the named plan installs a phase-cursor transaction and decomposes those authorities.",
       "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
       "plan": "Agentic/Plans/TODO/contact-solve-phase-ownership.md"
+    },
+    {
+      "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
+      "signature": "void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )",
+      "body_sha256": "862a907df4b1e8c5da01baac05f8ebe206280f2aa321d8d4534b45a3af7b1ba3",
+      "owner": "Persistent contact manifold-construction phase",
+      "disposition": "retain-owner",
+      "reason": "One guarded phase converts deterministic candidate pairs into object contact rows, support edges, contact counts, and trace values; its nested rejection and row-reduction branches jointly preserve one manifold-construction invariant and all borrowed participants expire at return.",
+      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
+      "signature": "void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
+      "body_sha256": "1e5d47974799c980b0461af92e9b28e4dd12cd9dd065a33b57f67b2ccdd2e68e",
+      "owner": "Persistent contact row-precompute phase",
+      "disposition": "retain-owner",
+      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, bias, friction bounds, warm-start impulses, and trace values; the nested contact-kind policy protects that single pre-solve row invariant and no owner borrow survives return.",
+      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",

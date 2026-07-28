@@ -8,8 +8,8 @@ Summary:
   persistent contact rows. As an implementation unit, keep edits anchored on
   deterministic physics, diagnostics, or world-state flow and on the
   glossary/invariants below. The guarded transaction implements phase
-  transitions and owns solver-body arithmetic while Solve still holds the
-  pass bodies during CS1.
+  transitions, solver-body arithmetic, and the four row-construction phases;
+  Solve still sequences the later solve, publication, and cache phases.
 
 Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
@@ -140,26 +140,6 @@ void PersistentContactSolveTransaction::BeginEntryPolicySetup()
     }
 
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::EntryPolicySetup, "BeginEntryPolicySetup" );
-}
-
-void PersistentContactSolveTransaction::BeginBodySetup()
-{
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BodySetup, "BeginBodySetup" );
-}
-
-void PersistentContactSolveTransaction::BeginBuildManifolds()
-{
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BuildManifolds, "BeginBuildManifolds" );
-}
-
-void PersistentContactSolveTransaction::BeginTerrainRows()
-{
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BeginTerrainRows" );
-}
-
-void PersistentContactSolveTransaction::BeginPrecompute()
-{
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Precompute, "BeginPrecompute" );
 }
 
 void PersistentContactSolveTransaction::BeginSolveRows()
@@ -320,6 +300,895 @@ void PersistentContactSolveTransaction::ApplyImpulse( const PersistentContact& c
     }
 }
 
+void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
+                                                     int modelCount, Core::Profiler* profiler )
+{
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BodySetup, "SetupBodies" );
+    ResetBodies( static_cast<std::size_t>( modelCount ) );
+
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
+
+    // CATTO REF:
+    //   Catto 2005, PDF p. 7, Algorithms 1-2 and PDF p. 16, Algorithm 4 work on
+    //   sparse body velocity blocks. Algorithm 4 names the mutable velocity-like
+    //   work vector "a".
+    // ENGINE-SPECIFIC:
+    //   We keep compact per-body solver state here and write back once after PGS.
+    //   That preserves Catto's sparse-row shape while avoiding repeated
+    //   body-store writes inside the row loop.
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& record = bodyRecords[bodyIndex];
+        SolverBodyState& body = Body( bodyIndex );
+
+        if ( sleepState[bodyIndex] || hotRead.fixed[bodyIndex] != 0u )
+        {
+
+            // Sleeping bodies still provide persistent support to awake bodies,
+            // but they behave as static anchors until deliberately woken.
+            body.linearVelocity = ZERO_VECTOR;
+            body.angularVelocity = ZERO_VECTOR;
+            body.invMass = 0.0f;
+            body.invInertia = ZERO_VECTOR;
+            body.useWorldInertia = false;
+        }
+        else
+        {
+            body.linearVelocity = PhysicsBodyLinearVelocity( hotRead, bodyIndex );
+            body.angularVelocity = PhysicsBodyAngularVelocity( hotRead, bodyIndex );
+            body.invMass = hotRead.inverseMass[bodyIndex];
+            body.invInertia = PhysicsBodyInverseInertia( hotRead, bodyIndex );
+            body.useWorldInertia = record.usesWorldInertia;
+        }
+
+        if ( body.useWorldInertia )
+        {
+            body.orientation = PhysicsBodyOrientation( hotRead, bodyIndex ).GetOrientationMatrix();
+        }
+    }
+}
+
+void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                        const ColliderStore& colliderStore,
+                                                        const PersistentContactSolverStepPolicy& stepPolicy,
+                                                        std::span<const std::pair<int, int>> candidatePairs,
+                                                        std::span<const uint8_t> sleepState,
+                                                        PhysicsCandidatePairList& sleepSupportEdges, int modelCount,
+                                                        std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+{
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BuildManifolds, "BuildManifolds" );
+
+    const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    auto isFixedBody = [&]( int index ) -> bool { return hotRead.fixed[static_cast<std::size_t>( index )] != 0u; };
+    auto canRecordPipeline = [&]() { return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity; };
+    auto recordPipeline = [&]( const PhysicsPipelineRecord& record )
+    {
+
+        if ( stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity )
+        {
+            stage.m_sideEffects.pipelineRecords.push_back( record );
+        }
+    };
+    auto contactBodyViewForIndex = [&]( int index ) -> ObjectContactBodyView
+    {
+
+        // Why: object manifolds need only pose plus shape. Pose comes from
+        // PhysicsBodyStore, while ColliderStore owns the per-kind shape payload
+        // borrowed by its collider row; row construction never needs a mutable
+        // scene object.
+        const std::size_t bodyIndex = static_cast<std::size_t>( index );
+        ObjectContactBodyView view;
+        view.position = PhysicsBodyPosition( hotRead, bodyIndex );
+        view.orientation = PhysicsBodyOrientation( hotRead, bodyIndex );
+        return view;
+    };
+    auto appendSleepSupportEdge = [&]( int aIndex, int bIndex, const Vector3& normal, bool canSeedSupport )
+    {
+        constexpr float supportNormalY = 0.25f;
+
+        if ( !canSeedSupport )
+        {
+            return;
+        }
+
+        // This records only a possible vertical support relationship. It does
+        // not grant sleep support by itself; support must propagate later from
+        // terrain or a body that already passed the full sleep gate. That keeps
+        // mid-air object-object impacts from becoming false "grounded" evidence.
+
+        if ( normal.y > supportNormalY )
+        {
+            AppendSleepSupportEdge( sleepSupportEdges, aIndex, bIndex );
+
+            if ( canRecordPipeline() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+                record.bodyA = aIndex;
+                record.bodyB = bIndex;
+                record.normal = normal;
+                record.point = ( PhysicsBodyPosition( hotRead, static_cast<std::size_t>( aIndex ) ) +
+                                 PhysicsBodyPosition( hotRead, static_cast<std::size_t>( bIndex ) ) ) *
+                               0.5f;
+
+                record.scalarA = normal.y;
+                recordPipeline( record );
+            }
+        }
+        else if ( normal.y < -supportNormalY )
+        {
+            AppendSleepSupportEdge( sleepSupportEdges, bIndex, aIndex );
+
+            if ( canRecordPipeline() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+                record.bodyA = bIndex;
+                record.bodyB = aIndex;
+                record.normal = -normal;
+                record.point = ( PhysicsBodyPosition( hotRead, static_cast<std::size_t>( aIndex ) ) +
+                                 PhysicsBodyPosition( hotRead, static_cast<std::size_t>( bIndex ) ) ) *
+                               0.5f;
+
+                record.scalarA = -normal.y;
+                recordPipeline( record );
+            }
+        }
+    };
+
+    // Concept: contact row reduction is a resting-footprint optimization.
+    //
+    // The full manifold is still authoritative geometry. Reduction only chooses
+    // which stable points become solver rows this tick, after broadphase and
+    // exact narrowphase have agreed the pair is touching. Determinism still comes
+    // from feature IDs and fixed ordering, and the physics baselines remain the
+    // validation contract for any behavior drift.
+    auto objectContactRowsAreQuiet = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold ) -> bool
+    {
+        const SolverBodyState& solverA = Body( static_cast<std::size_t>( bodyA ) );
+
+        const SolverBodyState& solverB = Body( static_cast<std::size_t>( bodyB ) );
+        const float linearLimit = (std::max)( stepPolicy.sleepLinearSpeed * 2.0f,
+                                              stepPolicy.rawContactRestitutionThreshold * 0.25f );
+
+        const float linearLimitSq = linearLimit * linearLimit;
+
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+        {
+            const ObjectContactPoint& point = manifold.points[pointIndex];
+            const Vector3 velA = solverA.linearVelocity + Vector::CrossProduct( solverA.angularVelocity, point.rA );
+            const Vector3 velB = solverB.linearVelocity + Vector::CrossProduct( solverB.angularVelocity, point.rB );
+
+            if ( Vector::VectorMagSquared( velB - velA ) > linearLimitSq )
+            {
+                return false;
+            }
+        }
+
+        const float angularLimit = (std::max)( stepPolicy.sleepAngularSpeed * 2.0f, 0.25f );
+        const float angularLimitSq = angularLimit * angularLimit;
+        return Vector::VectorMagSquared( solverA.angularVelocity ) <= angularLimitSq &&
+               Vector::VectorMagSquared( solverB.angularVelocity ) <= angularLimitSq;
+    };
+    auto reduceObjectContactRows = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold,
+                                        uint8_t* selectedPointIndices ) -> uint8_t
+    {
+        auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
+        {
+
+            if ( rhs < 0 )
+            {
+                return true;
+            }
+
+            const ObjectContactPoint& lhsPoint = manifold.points[lhs];
+            const ObjectContactPoint& rhsPoint = manifold.points[rhs];
+
+            if ( fabsf( lhsPoint.penetration - rhsPoint.penetration ) > 1.0e-5f )
+            {
+                return lhsPoint.penetration > rhsPoint.penetration;
+            }
+
+            return lhsPoint.featureId < rhsPoint.featureId;
+        };
+
+        int deepest = -1;
+
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+        {
+
+            if ( betterPenetrationTie( pointIndex, deepest ) )
+            {
+                deepest = pointIndex;
+            }
+        }
+
+        if ( deepest < 0 )
+        {
+            return 0;
+        }
+
+        uint8_t cachedPointCount = 0;
+
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+        {
+
+            if ( HasCachedImpulse( stage.m_persistentContactCache, bodyA, bodyB, manifold.points[pointIndex].featureId ) )
+            {
+                ++cachedPointCount;
+            }
+        }
+
+        if ( cachedPointCount < 2 )
+        {
+            return manifold.pointCount;
+        }
+
+        int secondary = -1;
+        bool secondaryUsesCache = false;
+        float bestDistanceSq = -1.0f;
+        const ObjectContactPoint& primaryPoint = manifold.points[deepest];
+
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+        {
+
+            if ( pointIndex == deepest )
+            {
+                continue;
+            }
+
+            const ObjectContactPoint& candidate = manifold.points[pointIndex];
+            const Vector3 pointDelta = candidate.point - primaryPoint.point;
+            const float normalDistance = Dot( pointDelta, manifold.normal );
+            const Vector3 tangentDelta = pointDelta - manifold.normal * normalDistance;
+            const float tangentDistanceSq = Vector::VectorMagSquared( tangentDelta );
+            constexpr float duplicatePointDistanceSq = 1.0e-6f;
+
+            if ( tangentDistanceSq <= duplicatePointDistanceSq )
+            {
+                continue;
+            }
+
+            const bool usesCache = HasCachedImpulse( stage.m_persistentContactCache, bodyA, bodyB, candidate.featureId );
+            bool replace = usesCache && !secondaryUsesCache;
+
+            if ( usesCache == secondaryUsesCache )
+            {
+                replace = tangentDistanceSq > bestDistanceSq + 1.0e-5f;
+
+                if ( !replace && fabsf( tangentDistanceSq - bestDistanceSq ) <= 1.0e-5f )
+                {
+                    replace = betterPenetrationTie( pointIndex, secondary );
+                }
+            }
+
+            if ( replace )
+            {
+                secondary = pointIndex;
+                secondaryUsesCache = usesCache;
+                bestDistanceSq = tangentDistanceSq;
+            }
+        }
+
+        if ( secondary < 0 )
+        {
+            return manifold.pointCount;
+        }
+
+        selectedPointIndices[0] = static_cast<uint8_t>( deepest );
+        selectedPointIndices[1] = static_cast<uint8_t>( secondary );
+
+        if ( selectedPointIndices[1] < selectedPointIndices[0] )
+        {
+            std::swap( selectedPointIndices[0], selectedPointIndices[1] );
+        }
+
+        return 2;
+    };
+
+    // CATTO REF:
+    //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
+    //   a contact point, a normal, and separation/penetration for each row.
+    // ENGINE-SPECIFIC:
+    //   Broadphase still uses conservative bounding radii, but the authoritative
+    //   object contact geometry now comes from shape-pair manifolds: exact
+    //   sphere/sphere, closest-point sphere contacts, and SAT/clipped box or
+    //   convex-hull contacts.
+    // First pass: turn broadphase candidate pairs into Catto-style contact rows.
+    // Most manifold points become one persistent row each. Quiet multi-point
+    // object footprints can use a two-point subset because spread plus cached
+    // feature IDs keep the support plane stable while cutting solver work.
+
+    for ( const auto& cp : candidatePairs )
+    {
+        int aIndex = cp.first;
+        int bIndex = cp.second;
+
+        if ( aIndex == bIndex || aIndex < 0 || bIndex < 0 || aIndex >= modelCount || bIndex >= modelCount ||
+             ( sleepState[aIndex] && sleepState[bIndex] ) || ( isFixedBody( aIndex ) && isFixedBody( bIndex ) ) )
+        {
+            continue;
+        }
+
+        if ( bIndex < aIndex )
+        {
+            std::swap( aIndex, bIndex );
+        }
+
+        const ColliderRecord& colliderA = colliderRecords[static_cast<std::size_t>( aIndex )];
+        const ColliderRecord& colliderB = colliderRecords[static_cast<std::size_t>( bIndex )];
+        const ObjectContactBodyView bodyA = contactBodyViewForIndex( aIndex );
+        const ObjectContactBodyView bodyB = contactBodyViewForIndex( bIndex );
+        Vector3 centerDelta = PhysicsBodyPosition( hotRead, static_cast<std::size_t>( bIndex ) ) -
+                              PhysicsBodyPosition( hotRead, static_cast<std::size_t>( aIndex ) );
+
+        float contactDistance = ConservativeContactRadius( colliderA ) + ConservativeContactRadius( colliderB ) +
+                                stepPolicy.contactEpsilon;
+
+        if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
+        {
+            continue;
+        }
+
+        Vector3 contactNormal = ZERO_VECTOR;
+        bool hasContact = false;
+        bool hasRestingFootprint = true;
+        ObjectContactManifold manifold;
+        bool manifoldBuilt = false;
+        {
+            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
+            manifoldBuilt = BuildObjectContactManifold( profiler, bodyA, colliderA.shape, bodyB, colliderB.shape, aIndex,
+                                                        bIndex, stepPolicy.contactEpsilon, manifold );
+        }
+
+        if ( manifoldBuilt )
+        {
+            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
+            contactNormal = manifold.normal;
+            const CollisionShapeReference& shapeA = colliderA.shape;
+            const CollisionShapeReference& shapeB = colliderB.shape;
+            const bool shapeAIsBox = GetShapeIf<BoundingBox>( &shapeA ) != nullptr;
+            const bool shapeBIsBox = GetShapeIf<BoundingBox>( &shapeB ) != nullptr;
+            const bool shapeAIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeA ) != nullptr;
+            const bool shapeBIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeB ) != nullptr;
+            const bool hasConvexHull = shapeAIsConvexHull || shapeBIsConvexHull;
+            const bool hasSphere = GetShapeIf<BoundingSphere>( &shapeA ) || GetShapeIf<BoundingSphere>( &shapeB );
+            const bool sameShapeFaceFootprint = ( shapeAIsBox && shapeBIsBox ) ||
+                                                ( shapeAIsConvexHull && shapeBIsConvexHull );
+
+            bool boxHasOnlyEdgeSupport = false;
+
+            if ( !hasSphere && manifold.pointCount <= 2 && fabsf( manifold.normal.y ) > 0.25f )
+            {
+                const int supportedIndex = manifold.normal.y > 0.0f ? bIndex : aIndex;
+                const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
+
+                if ( supportedBodyIsBox )
+                {
+                    const auto rotation = PhysicsBodyOrientation( hotRead, static_cast<std::size_t>( supportedIndex ) )
+                                              .GetOrientationMatrix();
+
+                    const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
+                    const float faceDotX = fabsf( Dot( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ), supportNormal ) );
+                    const float faceDotY = fabsf( Dot( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ), supportNormal ) );
+                    const float faceDotZ = fabsf( Dot( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ), supportNormal ) );
+                    constexpr float stableFaceDot = 0.95f; // About 18 degrees from face-flat support.
+                    boxHasOnlyEdgeSupport = (std::max)( { faceDotX, faceDotY, faceDotZ } ) < stableFaceDot;
+                }
+            }
+
+            // Invariant: preserve the normal resting/sleep policy for every
+            // contact except a vertically supported box balanced on one edge.
+            // An edge has at most two manifold rows and no box face aligned
+            // with the support normal. Once it topples onto a face, this veto
+            // clears and the existing quiet-frame sleep gate applies again.
+            // Changing this classification affects byte-exact physics baselines.
+            hasRestingFootprint = ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) && !boxHasOnlyEdgeSupport;
+            uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
+            uint8_t selectedPointCount = manifold.pointCount;
+
+            if ( manifold.pointCount > 2 && !hasSphere && sameShapeFaceFootprint && hasRestingFootprint &&
+                 objectContactRowsAreQuiet( aIndex, bIndex, manifold ) )
+            {
+
+                // Why: same-shape box/box and hull/hull face manifolds often
+                // produce four rows for one broad contact patch. For quiet
+                // support, two well-spread cached points preserve the plane
+                // while halving warm-start, friction, and PGS row work. Mixed
+                // hull/box, fresh-impact, and sphere contacts keep full rows
+                // because their support footprint is less symmetric.
+                PROFILE_SCOPED( profiler,
+                                "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
+
+                selectedPointCount = reduceObjectContactRows( aIndex, bIndex, manifold, selectedPointIndices );
+            }
+
+            for ( uint8_t selectedIndex = 0; selectedIndex < selectedPointCount; ++selectedIndex )
+            {
+                const uint8_t pointIndex = selectedPointIndices[selectedIndex];
+                const ObjectContactPoint& point = manifold.points[pointIndex];
+
+                // CATTO REF:
+                //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
+                //   Equations 9-11 and PDF p. 9, Equations 16-18.
+                PersistentContact c;
+                c.bodyA = aIndex;
+                c.bodyB = bIndex;
+                c.featureId = point.featureId;
+                c.key = MakeKey( aIndex, bIndex, c.featureId );
+                c.normal = manifold.normal;
+                c.rA = point.rA;
+                c.rB = point.rB;
+                c.penetration = point.penetration;
+                c.supportsRestingPolicy = hasRestingFootprint;
+                c.normalCoupledFriction = !hasRestingFootprint;
+                c.manifoldPointCount = selectedPointCount;
+                stage.m_persistentContacts.push_back( c );
+                ++stage.m_persistentContactCounts[aIndex];
+                ++stage.m_persistentContactCounts[bIndex];
+
+                if ( c.supportsRestingPolicy )
+                {
+                    ++stage.m_persistentRestingContactCounts[aIndex];
+                    ++stage.m_persistentRestingContactCounts[bIndex];
+                }
+
+                if ( canRecordPipeline() )
+                {
+                    Physics::PhysicsPipelineRecord record;
+                    record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
+                    record.bodyA = aIndex;
+                    record.bodyB = bIndex;
+                    record.featureId = point.featureId;
+                    record.point = point.point;
+                    record.normal = manifold.normal;
+                    record.scalarA = point.penetration;
+                    record.scalarB = static_cast<float>( pointIndex );
+                    record.scalarC = static_cast<float>( selectedPointCount );
+                    recordPipeline( record );
+                }
+            }
+
+            hasContact = selectedPointCount > 0;
+        }
+
+        if ( !hasContact )
+        {
+            continue;
+        }
+
+        stage.m_sideEffects.collisionVisualBodies.push_back( aIndex );
+        stage.m_sideEffects.collisionVisualBodies.push_back( bIndex );
+        appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );
+    }
+}
+
+void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
+                                                          PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState, int modelCount,
+                                                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )
+{
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BuildTerrainRows" );
+
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    auto canRecordPipeline = [&]() { return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity; };
+    auto recordPipeline = [&]( const PhysicsPipelineRecord& record )
+    {
+
+        if ( stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity )
+        {
+            stage.m_sideEffects.pipelineRecords.push_back( record );
+        }
+    };
+
+    // Convert terrain manifolds into the same PersistentContact rows used by
+    // object/object contacts. Terrain uses TERRAIN_BODY_INDEX for body B, so
+    // later solver phases treat it as infinite mass, zero velocity, and no
+    // writeback. From this point on, terrain response is ordinary shared-row
+    // normal/friction solving.
+
+    for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
+    {
+
+        // Skip invalid/no-op manifolds before they affect profiler counts,
+        // pipeline records, or the warm-start cache. Sleeping bodies do not
+        // need fresh terrain rows; their accepted support state is already
+        // represented by the sleep island data.
+
+        if ( manifold.bodyA < 0 || manifold.bodyA >= modelCount || manifold.pointCount == 0 ||
+             ( manifold.bodyA < static_cast<int>( sleepState.size() ) && sleepState[manifold.bodyA] ) )
+        {
+            continue;
+        }
+
+        if ( canRecordPipeline() )
+        {
+            Physics::PhysicsPipelineRecord manifoldRecord;
+            manifoldRecord.stage = Physics::PhysicsPipelineStage::TerrainManifold;
+            manifoldRecord.bodyA = manifold.bodyA;
+            manifoldRecord.bodyB = TERRAIN_BODY_INDEX;
+            manifoldRecord.point = manifold.points[0].point;
+            manifoldRecord.normal = manifold.normal;
+            manifoldRecord.scalarA = static_cast<float>( manifold.pointCount );
+            manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+            manifoldRecord.scalarC = manifold.timeOfImpact;
+            recordPipeline( manifoldRecord );
+        }
+
+        // Why: terrain support needs two strengths of warm starting.
+        //
+        // Stable resting footprints get a full gravity-sized seed so a body
+        // already on the ground does not sink before the solver converges.
+        // Shoreline edge contacts are not stable enough for sleep or cached
+        // friction, but they still need a small one-frame support seed;
+        // otherwise a half-wet log or jetty beam falls into the slope, gets
+        // pushed out, and repeats as visible bobbing. This seed is not
+        // written to the persistent cache, so the contact remains wakeable
+        // and cannot become a hidden sleep anchor.
+        //
+        // Invariant: gravityMagnitude is the magnitude of the engine's
+        // vertical -Y gravity, the manifold normal is unit length, and
+        // fabs(normal.y) is its supported fraction. The total weight seed is
+        // projected onto that normal and divided evenly across every point
+        // in the non-empty manifold.
+        //
+        // Hazard: a future non-vertical gravity vector would make that
+        // scalar projection wrong. Directional gravity must replace both
+        // terms together rather than reusing this vertical approximation.
+        const float supportSeedScale = manifold.supportsRestingPolicy
+                                           ? TERRAIN_RESTING_SUPPORT_SEED_SCALE
+                                           : ( manifold.inhibitsSleep ? TERRAIN_SHORELINE_SUPPORT_SEED_SCALE : 0.0f );
+
+        const float warmStartTotal = bodyRecords[static_cast<size_t>( manifold.bodyA )].mass * stepPolicy.gravityMagnitude *
+                                     fabsf( manifold.normal.y ) * dt * supportSeedScale;
+
+        const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
+
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+        {
+            const Physics::TerrainContactPoint& point = manifold.points[pointIndex];
+
+            PersistentContact c;
+            c.bodyA = manifold.bodyA;
+            c.bodyB = TERRAIN_BODY_INDEX;
+            c.featureId = point.featureId;
+            c.key = MakeKey( c.bodyA, c.bodyB, c.featureId );
+
+            // PersistentContact normals point from body A toward body B.
+            // Terrain manifold normals point out of the terrain and into
+            // body A, so flip them to match the shared solver convention.
+            c.normal = -manifold.normal;
+            c.tangent1 = manifold.tangent1;
+            c.tangent2 = manifold.tangent2;
+            c.rA = point.rA;
+            c.rB = ZERO_VECTOR;
+            c.penetration = point.penetration;
+            c.isTerrain = true;
+            c.supportsRestingPolicy = manifold.supportsRestingPolicy;
+            c.allowsTangentFriction = manifold.allowsTangentFriction;
+            c.inhibitsSleep = manifold.inhibitsSleep;
+            c.manifoldPointCount = manifold.pointCount;
+            c.terrainNormal = manifold.normal;
+            c.terrainWarmStart = warmStartPerContact;
+            stage.m_persistentContacts.push_back( c );
+
+            if ( canRecordPipeline() )
+            {
+                Physics::PhysicsPipelineRecord rowRecord;
+                rowRecord.stage = Physics::PhysicsPipelineStage::TerrainRow;
+                rowRecord.bodyA = c.bodyA;
+                rowRecord.bodyB = TERRAIN_BODY_INDEX;
+                rowRecord.featureId = c.featureId;
+                rowRecord.point = point.point;
+                rowRecord.normal = manifold.normal;
+                rowRecord.scalarA = point.penetration;
+                rowRecord.scalarB = warmStartPerContact;
+                rowRecord.scalarC = static_cast<float>( pointIndex );
+                recordPipeline( rowRecord );
+            }
+        }
+    }
+}
+
+void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                        const ColliderStore& colliderStore,
+                                                        const PersistentContactSolverStepPolicy& stepPolicy,
+                                                        std::size_t pipelineRecordCapacity, float dt,
+                                                        Core::Profiler* profiler )
+{
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Precompute, "PrecomputeRows" );
+
+    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
+    const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
+    const SolverBodyState staticTerrainBody;
+    const float contactSlop = stepPolicy.objectSlop;
+
+    // CATTO REF:
+    //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
+    //   Section 4.2, Equation 20. Reason: convert penetration error into a
+    //   target separating velocity so overlap decays over several frames.
+    // Baumgarte bias is a gentle "please separate" velocity for bodies that are
+    // already interpenetrating. It removes overlap over several ticks instead of
+    // teleporting everything apart in one harsh correction.
+    const float baumgarteBeta = stepPolicy.objectBaumgarteBeta;
+    const float maxBaumgarteBias = stepPolicy.maxBaumgarteBias;
+    const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
+    const bool elasticCollisions = stepPolicy.elasticCollisions;
+    const float restitutionThreshold = stepPolicy.contactRestitutionThreshold;
+    const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
+    auto canRecordPipeline = [&]() { return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity; };
+    auto recordPipeline = [&]( const PhysicsPipelineRecord& record )
+    {
+
+        if ( stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity )
+        {
+            stage.m_sideEffects.pipelineRecords.push_back( record );
+        }
+    };
+
+    // Second pass: precompute each row. This is the "setup" part of the paper:
+    // CATTO REF:
+    //   Catto 2005, PDF p. 17, Algorithm 4 initializes d_i from Jsp*Bsp before
+    //   iteration. PDF p. 14, Equations 34-35 define B = M^-1*J^T. The code
+    //   below expands that sparse matrix math into scalar effective masses.
+    // The setup below builds friction axes, effective masses, bias, friction
+    // limits, and pulls the previous frame's accumulated impulses from the cache.
+
+    for ( PersistentContact& c : stage.m_persistentContacts )
+    {
+        const SolverBodyState& bodyA = Body( static_cast<std::size_t>( c.bodyA ) );
+        const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
+
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
+        //   tangent directions named u1/u2 perpendicular to the contact normal.
+        // ENGINE MAPPING:
+        //   Skullbonez stores Catto's u1/u2 basis as c.tangent1/c.tangent2.
+        //   The normal covers push-apart motion; the two tangent axes cover
+        //   sideways sliding in the contact plane.
+        Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
+
+        // CATTO REF:
+        //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
+        //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
+        //   familiar point-contact effective mass:
+        //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
+        // Effective mass says how stubborn this contact is. A light body pushed
+        // through its center moves easily; a heavy or off-center body resists more
+        // because some of the push also has to rotate it.
+        auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return ApplyInverseInertia( c.bodyA, v ); };
+
+        auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
+        { return c.isTerrain ? ZERO_VECTOR : ApplyInverseInertia( c.bodyB, v ); };
+
+        c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.normal, c.rA,
+                                                                            c.rB, applyInvInertiaA, applyInvInertiaB );
+
+        c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent1, c.rA,
+                                                                              c.rB, applyInvInertiaA, applyInvInertiaB );
+
+        c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent2, c.rA,
+                                                                              c.rB, applyInvInertiaA, applyInvInertiaB );
+
+        if ( !c.allowsTangentFriction )
+        {
+            c.tangentMass1 = 0.0f;
+            c.tangentMass2 = 0.0f;
+        }
+
+        Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
+        Vector3 velB = c.isTerrain ? ZERO_VECTOR
+                                   : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
+
+        float vn = Dot( ( velB - velA ), c.normal );
+
+        // CATTO REF:
+        //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
+        //   Section 4.2, Equation 20 provide the contact bias idea.
+        // ENGINE NOTE:
+        //   Object/object swept detection no longer applies a competing
+        //   immediate impulse. Dynamic bounce therefore belongs in the same
+        //   persistent Catto rows as fixed-body impact and resting support.
+        c.bias = 0.0f;
+
+        if ( c.isTerrain )
+        {
+            const float terrainSlop = stepPolicy.terrainSlop;
+
+            if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
+            {
+                c.normalMass = 0.0f;
+                c.tangentMass1 = 0.0f;
+                c.tangentMass2 = 0.0f;
+            }
+            else if ( fabsf( vn ) < restitutionThreshold )
+            {
+                float penetrationError = c.penetration - terrainSlop;
+
+                if ( penetrationError > 0.0f )
+                {
+                    c.bias = stepPolicy.terrainBaumgarteBeta * penetrationError * invDt;
+
+                    if ( c.bias > stepPolicy.maxBaumgarteBias )
+                    {
+                        c.bias = stepPolicy.maxBaumgarteBias;
+                    }
+                }
+            }
+            else if ( vn < -restitutionThreshold )
+            {
+                const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
+                const float restitution = elasticCollisions ? 1.0f
+                                                            : colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+
+                c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
+            }
+        }
+        else if ( vn < -restitutionThreshold )
+        {
+            float restitution = 1.0f;
+
+            if ( !elasticCollisions )
+            {
+                const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
+                restitution = sqrtf( restitutionA * restitutionB );
+            }
+
+            c.bias = -restitution * vn;
+        }
+        else if ( vn >= -restitutionThreshold )
+        {
+            float penetrationError = c.penetration - contactSlop;
+
+            if ( penetrationError > 0.0f )
+            {
+                c.bias = baumgarteBeta * penetrationError * invDt;
+
+                if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                {
+                    c.bias = maxBaumgarteBias;
+                }
+            }
+        }
+
+        uint16_t countA = ( stage.m_persistentContactCounts[c.bodyA] > 0 ) ? stage.m_persistentContactCounts[c.bodyA] : 1;
+        float contactMass = bodyRecords[static_cast<size_t>( c.bodyA )].mass / static_cast<float>( countA );
+
+        if ( !c.isTerrain )
+        {
+            uint16_t countB = ( stage.m_persistentContactCounts[c.bodyB] > 0 ) ? stage.m_persistentContactCounts[c.bodyB]
+                                                                               : 1;
+
+            float contactMassB = bodyRecords[static_cast<size_t>( c.bodyB )].mass / static_cast<float>( countB );
+
+            if ( contactMassB < contactMass )
+            {
+                contactMass = contactMassB;
+            }
+        }
+
+        // CATTO REF:
+        //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
+        //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
+        //   solved normal force while keeping static friction usable in games.
+        c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+                              ? 0.0f
+                              : ( c.isTerrain ? stepPolicy.terrainFrictionCoefficient * c.terrainWarmStart
+                                              : ( c.normalCoupledFriction ? 0.0f
+                                                                          : objectFrictionCoeff * contactMass *
+                                                                                stepPolicy.gravityMagnitude * dt ) );
+
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
+        //   retrieve cached lambda for matching contact identifiers and use it
+        //   as the initial lambda_0 for Algorithm 4.
+        // Warm starting: if this same pair+feature was touching last frame,
+        // start from the cached solution instead of zero.  The cache is sorted so
+        // lookup does not linearly scan every previous-frame contact.
+        // Why: warm-start cache is a stack-support tool. In elastic space it
+        // can preserve last frame's push and make grazing bodies look glued.
+        const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
+        auto cachedIt = canUseCachedWarmStart
+                            ? std::lower_bound( stage.m_persistentContactCache.begin(), stage.m_persistentContactCache.end(),
+                                                c.key, []( const PersistentContactCacheEntry& entry, int64_t key )
+                                                { return entry.key < key; } )
+                            : stage.m_persistentContactCache.end();
+
+        if ( canUseCachedWarmStart && cachedIt != stage.m_persistentContactCache.end() && cachedIt->key == c.key )
+        {
+            ++stage.m_persistentContactSolverStats.cacheHits;
+            c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
+            c.accT1 = cachedIt->accT1;
+            c.accT2 = cachedIt->accT2;
+            const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+                                                  ? 0.0f
+                                                  : ( c.isTerrain
+                                                          ? stepPolicy.terrainFrictionCoefficient *
+                                                                ( ( c.accN > c.terrainWarmStart ) ? c.accN
+                                                                                                  : c.terrainWarmStart )
+                                                          : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
+                                                                                      : c.frictionLimit ) );
+
+            Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
+            c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
+        }
+        else if ( canUseCachedWarmStart )
+        {
+            ++stage.m_persistentContactSolverStats.cacheMisses;
+        }
+
+        {
+
+            // Concept: impact presentation needs the relative motion that
+            // existed before warm-start and solver impulses push through an
+            // island. Solved impulse alone also represents support transfer.
+            const SolverBodyState& a = Body( static_cast<std::size_t>( c.bodyA ) );
+            const SolverBodyState& b = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
+
+            const Vector3 contactVelA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
+            const Vector3 contactVelB = c.isTerrain ? ZERO_VECTOR
+                                                    : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
+
+            const Vector3 relVel = contactVelB - contactVelA;
+            c.preSolveNormalSpeed = Dot( relVel, c.normal );
+            c.preSolveClosingSpeed = (std::max)( 0.0f, -c.preSolveNormalSpeed );
+            const float slipT1 = Dot( relVel, c.tangent1 );
+            const float slipT2 = Dot( relVel, c.tangent2 );
+            c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
+        }
+
+        if ( c.isTerrain && c.terrainWarmStart > c.accN )
+        {
+            c.accN = c.terrainWarmStart;
+            c.warmStarted = c.accN > 0.0f || c.warmStarted;
+        }
+
+        if ( c.warmStarted )
+        {
+            ++stage.m_persistentContactSolverStats.warmStartedRows;
+        }
+
+        if ( canRecordPipeline() )
+        {
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::WarmStart;
+            record.bodyA = c.bodyA;
+            record.bodyB = c.bodyB;
+            record.featureId = c.featureId;
+            record.point = PhysicsBodyPosition( hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
+            record.normal = c.normal;
+            record.scalarA = c.warmStarted ? 1.0f : 0.0f;
+            record.scalarB = c.accN;
+            record.scalarC = c.frictionLimit;
+            recordPipeline( record );
+        }
+
+        if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
+        {
+
+            // CATTO REF:
+            //   Catto 2005, PDF p. 17, Algorithm 4 initializes a = B*lambda.
+            //   In this implementation, "a" is represented by the mutable solver
+            //   velocities, so cached lambda must be applied before iteration.
+            // Cached impulses are not just bookkeeping: they must be applied to
+            // the bodies before iteration starts, otherwise the solver would clamp
+            // against a pretend push that never actually happened.
+            Vector3 warmImpulse = c.normal * c.accN + c.tangent1 * c.accT1 + c.tangent2 * c.accT2;
+            ApplyImpulse( c, warmImpulse );
+        }
+    }
+}
+
 void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                        const PersistentContactSolverStepPolicy& stepPolicy,
                                        std::span<const std::pair<int, int>> candidatePairs,
@@ -360,8 +1229,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
 
         pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     };
-
-    auto MarkCollisionVisualContact = [&]( int index ) { sideEffects.collisionVisualBodies.push_back( index ); };
 
     auto MarkFixedContact = [&]( int index ) { sideEffects.fixedContactBodies.push_back( index ); };
 
@@ -424,15 +1291,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // the solver chase microscopic errors and resting bodies visibly tremble.
     const float contactSlop = stepPolicy.objectSlop;
 
-    // CATTO REF:
-    //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
-    //   Section 4.2, Equation 20. Reason: convert penetration error into a
-    //   target separating velocity so overlap decays over several frames.
-    // Baumgarte bias is a gentle "please separate" velocity for bodies that are
-    // already interpenetrating. It removes overlap over several ticks instead of
-    // teleporting everything apart in one harsh correction.
-    const float baumgarteBeta = stepPolicy.objectBaumgarteBeta;
-
     // ENGINE-SPECIFIC:
     //   Catto uses the bias term for penetration correction. This partial
     //   post-solve correction is local visual cleanup for the current approximate
@@ -440,7 +1298,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     const float positionCorrectionPercent = stepPolicy.objectPositionCorrectionPercent;
-    const float maxBaumgarteBias = stepPolicy.maxBaumgarteBias;
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -450,60 +1307,13 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
     const int solverIterations = stepPolicy.iterations;
-    const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
 
     // Why: mutual-gravity space has no ambient support surface. Contacts should
     // exchange momentum instead of cooling into friction or cached resting rows.
     const bool elasticCollisions = stepPolicy.elasticCollisions;
-    const float restitutionThreshold = stepPolicy.contactRestitutionThreshold;
     const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
 
-    {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
-        m_solveTransaction.BeginBodySetup();
-        m_solveTransaction.ResetBodies( static_cast<std::size_t>( modelCount ) );
-
-        // CATTO REF:
-        //   Catto 2005, PDF p. 7, Algorithms 1-2 and PDF p. 16, Algorithm 4 work on
-        //   sparse body velocity blocks. Algorithm 4 names the mutable velocity-like
-        //   work vector "a".
-        // ENGINE-SPECIFIC:
-        //   We keep compact per-body solver state here and write back once after PGS.
-        //   That preserves Catto's sparse-row shape while avoiding repeated
-        //   body-store writes inside the row loop.
-
-        for ( int i = 0; i < modelCount; ++i )
-        {
-            const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
-            SolverBodyState& body = m_solveTransaction.Body( static_cast<std::size_t>( i ) );
-
-            if ( sleepState[i] || isFixedBody( i ) )
-            {
-
-                // Sleeping bodies still provide persistent support to awake bodies,
-                // but they behave as static anchors until deliberately woken.
-                body.linearVelocity = ZERO_VECTOR;
-                body.angularVelocity = ZERO_VECTOR;
-                body.invMass = 0.0f;
-                body.invInertia = ZERO_VECTOR;
-                body.useWorldInertia = false;
-            }
-            else
-            {
-                const size_t bodyIndex = static_cast<size_t>( i );
-                body.linearVelocity = PhysicsBodyLinearVelocity( hotRead, bodyIndex );
-                body.angularVelocity = PhysicsBodyAngularVelocity( hotRead, bodyIndex );
-                body.invMass = hotFields.inverseMass[bodyIndex];
-                body.invInertia = PhysicsBodyInverseInertia( hotRead, bodyIndex );
-                body.useWorldInertia = record.usesWorldInertia;
-            }
-
-            if ( body.useWorldInertia )
-            {
-                body.orientation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( i ) ).GetOrientationMatrix();
-            }
-        }
-    }
+    m_solveTransaction.SetupBodies( bodyStore, sleepState, modelCount, profiler );
 
     if ( m_persistentContactCache.size() > 1 )
     {
@@ -518,75 +1328,6 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                 "persistent contact cache must be sorted before lower_bound lookup" );
 #endif
     }
-
-    auto contactBodyViewForIndex = [&]( int index ) -> ObjectContactBodyView
-    {
-
-        // Why: object manifolds need only pose plus shape. Pose now comes from
-        // PhysicsBodyRecord, while ColliderStore owns the per-kind shape payload
-        // borrowed by its collider row; the solver no longer needs a mutable
-        // scene object just to build rows.
-        const size_t bodyIndex = static_cast<size_t>( index );
-
-        ObjectContactBodyView view;
-        view.position = PhysicsBodyPosition( hotRead, bodyIndex );
-        view.orientation = PhysicsBodyOrientation( hotRead, bodyIndex );
-        return view;
-    };
-
-    auto appendSleepSupportEdge = [&]( int aIndex, int bIndex, const Vector3& normal, bool canSeedSupport )
-    {
-        constexpr float supportNormalY = 0.25f;
-
-        if ( !canSeedSupport )
-        {
-            return;
-        }
-
-        // This records only a possible vertical support relationship. It does
-        // not grant sleep support by itself; support must propagate later from
-        // terrain or a body that already passed the full sleep gate. That keeps
-        // mid-air object-object impacts from becoming false "grounded" evidence.
-
-        if ( normal.y > supportNormalY )
-        {
-            AppendSleepSupportEdge( sleepSupportEdges, aIndex, bIndex );
-
-            if ( CanRecordPhysicsPipelineStage() )
-            {
-                Physics::PhysicsPipelineRecord record;
-                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
-                record.bodyA = aIndex;
-                record.bodyB = bIndex;
-                record.normal = normal;
-                record.point = ( PhysicsBodyPosition( hotRead, static_cast<size_t>( aIndex ) ) +
-                                 PhysicsBodyPosition( hotRead, static_cast<size_t>( bIndex ) ) ) *
-                               0.5f;
-
-                record.scalarA = normal.y;
-                RecordPhysicsPipelineStage( record );
-            }
-        }
-        else if ( normal.y < -supportNormalY )
-        {
-            AppendSleepSupportEdge( sleepSupportEdges, bIndex, aIndex );
-
-            if ( CanRecordPhysicsPipelineStage() )
-            {
-                Physics::PhysicsPipelineRecord record;
-                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
-                record.bodyA = bIndex;
-                record.bodyB = aIndex;
-                record.normal = -normal;
-                record.point = ( PhysicsBodyPosition( hotRead, static_cast<size_t>( aIndex ) ) +
-                                 PhysicsBodyPosition( hotRead, static_cast<size_t>( bIndex ) ) ) *
-                               0.5f;
-
-                record.scalarA = -normal.y;
-                RecordPhysicsPipelineStage( record );
-            }
-        }
-    };
 
     auto deterministicTangentAxis = []( const Vector3& supportNormal, uint32_t seed ) -> Vector3
     {
@@ -729,459 +1470,11 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
         body.angularVelocity += axis * ( target - alongAxis );
     };
 
-    // Concept: contact row reduction is a resting-footprint optimization.
-    //
-    // The full manifold is still authoritative geometry. Reduction only chooses
-    // which stable points become solver rows this tick, after broadphase and
-    // exact narrowphase have agreed the pair is touching. Determinism still comes
-    // from feature IDs and fixed ordering, and the physics baselines remain the
-    // validation contract for any behavior drift.
-    auto objectContactRowsAreQuiet = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold ) -> bool
-    {
-        const SolverBodyState& solverA = m_solveTransaction.Body( static_cast<std::size_t>( bodyA ) );
-
-        const SolverBodyState& solverB = m_solveTransaction.Body( static_cast<std::size_t>( bodyB ) );
-        const float linearLimit = (std::max)( stepPolicy.sleepLinearSpeed * 2.0f,
-                                              stepPolicy.rawContactRestitutionThreshold * 0.25f );
-
-        const float linearLimitSq = linearLimit * linearLimit;
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-            const ObjectContactPoint& point = manifold.points[pointIndex];
-            const Vector3 velA = solverA.linearVelocity + Vector::CrossProduct( solverA.angularVelocity, point.rA );
-            const Vector3 velB = solverB.linearVelocity + Vector::CrossProduct( solverB.angularVelocity, point.rB );
-
-            if ( Vector::VectorMagSquared( velB - velA ) > linearLimitSq )
-            {
-                return false;
-            }
-        }
-
-        const float angularLimit = (std::max)( stepPolicy.sleepAngularSpeed * 2.0f, 0.25f );
-        const float angularLimitSq = angularLimit * angularLimit;
-        return Vector::VectorMagSquared( solverA.angularVelocity ) <= angularLimitSq &&
-               Vector::VectorMagSquared( solverB.angularVelocity ) <= angularLimitSq;
-    };
-
-    auto reduceObjectContactRows = [&]( int bodyA, int bodyB, const ObjectContactManifold& manifold,
-                                        uint8_t* selectedPointIndices ) -> uint8_t
-    {
-        auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
-        {
-
-            if ( rhs < 0 )
-            {
-                return true;
-            }
-
-            const ObjectContactPoint& lhsPoint = manifold.points[lhs];
-            const ObjectContactPoint& rhsPoint = manifold.points[rhs];
-
-            if ( fabsf( lhsPoint.penetration - rhsPoint.penetration ) > 1.0e-5f )
-            {
-                return lhsPoint.penetration > rhsPoint.penetration;
-            }
-
-            return lhsPoint.featureId < rhsPoint.featureId;
-        };
-
-        int deepest = -1;
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-
-            if ( betterPenetrationTie( pointIndex, deepest ) )
-            {
-                deepest = pointIndex;
-            }
-        }
-
-        if ( deepest < 0 )
-        {
-            return 0;
-        }
-
-        uint8_t cachedPointCount = 0;
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-
-            if ( PersistentContactSolveTransaction::HasCachedImpulse( m_persistentContactCache, bodyA, bodyB,
-                                                                      manifold.points[pointIndex].featureId ) )
-            {
-                ++cachedPointCount;
-            }
-        }
-
-        if ( cachedPointCount < 2 )
-        {
-            return manifold.pointCount;
-        }
-
-        int secondary = -1;
-        bool secondaryUsesCache = false;
-        float bestDistanceSq = -1.0f;
-        const ObjectContactPoint& primaryPoint = manifold.points[deepest];
-
-        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-        {
-
-            if ( pointIndex == deepest )
-            {
-                continue;
-            }
-
-            const ObjectContactPoint& candidate = manifold.points[pointIndex];
-            const Vector3 pointDelta = candidate.point - primaryPoint.point;
-            const float normalDistance = Dot( pointDelta, manifold.normal );
-            const Vector3 tangentDelta = pointDelta - manifold.normal * normalDistance;
-            const float tangentDistanceSq = Vector::VectorMagSquared( tangentDelta );
-            constexpr float duplicatePointDistanceSq = 1.0e-6f;
-
-            if ( tangentDistanceSq <= duplicatePointDistanceSq )
-            {
-                continue;
-            }
-
-            const bool usesCache = PersistentContactSolveTransaction::HasCachedImpulse( m_persistentContactCache, bodyA,
-                                                                                        bodyB, candidate.featureId );
-
-            bool replace = usesCache && !secondaryUsesCache;
-
-            if ( usesCache == secondaryUsesCache )
-            {
-                replace = tangentDistanceSq > bestDistanceSq + 1.0e-5f;
-
-                if ( !replace && fabsf( tangentDistanceSq - bestDistanceSq ) <= 1.0e-5f )
-                {
-                    replace = betterPenetrationTie( pointIndex, secondary );
-                }
-            }
-
-            if ( replace )
-            {
-                secondary = pointIndex;
-                secondaryUsesCache = usesCache;
-                bestDistanceSq = tangentDistanceSq;
-            }
-        }
-
-        if ( secondary < 0 )
-        {
-            return manifold.pointCount;
-        }
-
-        selectedPointIndices[0] = static_cast<uint8_t>( deepest );
-        selectedPointIndices[1] = static_cast<uint8_t>( secondary );
-
-        if ( selectedPointIndices[1] < selectedPointIndices[0] )
-        {
-            std::swap( selectedPointIndices[0], selectedPointIndices[1] );
-        }
-
-        return 2;
-    };
-
-    // CATTO REF:
-    //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
-    //   a contact point, a normal, and separation/penetration for each row.
-    // ENGINE-SPECIFIC:
-    //   Broadphase still uses conservative bounding radii, but the authoritative
-    //   object contact geometry now comes from shape-pair manifolds: exact
-    //   sphere/sphere, closest-point sphere contacts, and SAT/clipped box or
-    //   convex-hull contacts.
-    // First pass: turn broadphase candidate pairs into Catto-style contact rows.
-    // Most manifold points become one persistent row each. Quiet multi-point
-    // object footprints can use a two-point subset because spread plus cached
-    // feature IDs keep the support plane stable while cutting solver work.
-    {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
-        m_solveTransaction.BeginBuildManifolds();
-
-        for ( const auto& cp : candidatePairs )
-        {
-            int aIndex = cp.first;
-            int bIndex = cp.second;
-
-            if ( aIndex == bIndex || aIndex < 0 || bIndex < 0 || aIndex >= modelCount || bIndex >= modelCount ||
-                 ( sleepState[aIndex] && sleepState[bIndex] ) || ( isFixedBody( aIndex ) && isFixedBody( bIndex ) ) )
-            {
-                continue;
-            }
-
-            if ( bIndex < aIndex )
-            {
-                std::swap( aIndex, bIndex );
-            }
-
-            const ColliderRecord& colliderA = colliderRecords[static_cast<size_t>( aIndex )];
-            const ColliderRecord& colliderB = colliderRecords[static_cast<size_t>( bIndex )];
-            const ObjectContactBodyView bodyA = contactBodyViewForIndex( aIndex );
-            const ObjectContactBodyView bodyB = contactBodyViewForIndex( bIndex );
-
-            Vector3 centerDelta = PhysicsBodyPosition( hotRead, static_cast<size_t>( bIndex ) ) -
-                                  PhysicsBodyPosition( hotRead, static_cast<size_t>( aIndex ) );
-
-            float contactDistance = PersistentContactSolveTransaction::ConservativeContactRadius( colliderA ) +
-                                    PersistentContactSolveTransaction::ConservativeContactRadius( colliderB ) +
-                                    stepPolicy.contactEpsilon;
-
-            if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
-            {
-                continue;
-            }
-
-            Vector3 contactNormal = ZERO_VECTOR;
-            bool hasContact = false;
-            bool hasRestingFootprint = true;
-            ObjectContactManifold manifold;
-            bool manifoldBuilt = false;
-            {
-                PROFILE_SCOPED( profiler,
-                                "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
-
-                manifoldBuilt = BuildObjectContactManifold( profiler, bodyA, colliderA.shape, bodyB, colliderB.shape, aIndex,
-                                                            bIndex, stepPolicy.contactEpsilon, manifold );
-            }
-
-            if ( manifoldBuilt )
-            {
-                PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
-
-                contactNormal = manifold.normal;
-                const CollisionShapeReference& shapeA = colliderA.shape;
-                const CollisionShapeReference& shapeB = colliderB.shape;
-                const bool shapeAIsBox = GetShapeIf<BoundingBox>( &shapeA ) != nullptr;
-                const bool shapeBIsBox = GetShapeIf<BoundingBox>( &shapeB ) != nullptr;
-                const bool shapeAIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeA ) != nullptr;
-                const bool shapeBIsConvexHull = GetShapeIf<ConvexHullShape>( &shapeB ) != nullptr;
-                const bool hasConvexHull = shapeAIsConvexHull || shapeBIsConvexHull;
-                const bool hasSphere = GetShapeIf<BoundingSphere>( &shapeA ) || GetShapeIf<BoundingSphere>( &shapeB );
-                const bool sameShapeFaceFootprint = ( shapeAIsBox && shapeBIsBox ) ||
-                                                    ( shapeAIsConvexHull && shapeBIsConvexHull );
-
-                bool boxHasOnlyEdgeSupport = false;
-
-                if ( !hasSphere && manifold.pointCount <= 2 && fabsf( manifold.normal.y ) > 0.25f )
-                {
-                    const int supportedIndex = manifold.normal.y > 0.0f ? bIndex : aIndex;
-                    const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
-
-                    if ( supportedBodyIsBox )
-                    {
-                        const auto rotation = PhysicsBodyOrientation( hotRead, static_cast<size_t>( supportedIndex ) )
-                                                  .GetOrientationMatrix();
-
-                        const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
-                        const float faceDotX = fabsf( Dot( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ), supportNormal ) );
-                        const float faceDotY = fabsf( Dot( ( rotation * Vector3( 0.0f, 1.0f, 0.0f ) ), supportNormal ) );
-                        const float faceDotZ = fabsf( Dot( ( rotation * Vector3( 0.0f, 0.0f, 1.0f ) ), supportNormal ) );
-                        constexpr float stableFaceDot = 0.95f; // About 18 degrees from face-flat support.
-                        boxHasOnlyEdgeSupport = (std::max)( { faceDotX, faceDotY, faceDotZ } ) < stableFaceDot;
-                    }
-                }
-
-                // Invariant: preserve the normal resting/sleep policy for every
-                // contact except a vertically supported box balanced on one edge.
-                // An edge has at most two manifold rows and no box face aligned
-                // with the support normal. Once it topples onto a face, this veto
-                // clears and the existing quiet-frame sleep gate applies again.
-                // Changing this classification affects byte-exact physics baselines.
-                hasRestingFootprint = ( !hasConvexHull || hasSphere || manifold.pointCount >= 2 ) && !boxHasOnlyEdgeSupport;
-
-                uint8_t selectedPointIndices[4] = { 0, 1, 2, 3 };
-                uint8_t selectedPointCount = manifold.pointCount;
-
-                if ( manifold.pointCount > 2 && !hasSphere && sameShapeFaceFootprint && hasRestingFootprint &&
-                     objectContactRowsAreQuiet( aIndex, bIndex, manifold ) )
-                {
-
-                    // Why: same-shape box/box and hull/hull face manifolds often
-                    // produce four rows for one broad contact patch. For quiet
-                    // support, two well-spread cached points preserve the plane
-                    // while halving warm-start, friction, and PGS row work. Mixed
-                    // hull/box, fresh-impact, and sphere contacts keep full rows
-                    // because their support footprint is less symmetric.
-                    PROFILE_SCOPED( profiler,
-                                    "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
-
-                    selectedPointCount = reduceObjectContactRows( aIndex, bIndex, manifold, selectedPointIndices );
-                }
-
-                for ( uint8_t selectedIndex = 0; selectedIndex < selectedPointCount; ++selectedIndex )
-                {
-                    const uint8_t pointIndex = selectedPointIndices[selectedIndex];
-                    const ObjectContactPoint& point = manifold.points[pointIndex];
-
-                    // CATTO REF:
-                    //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
-                    //   Equations 9-11 and PDF p. 9, Equations 16-18.
-                    PersistentContact c;
-                    c.bodyA = aIndex;
-                    c.bodyB = bIndex;
-                    c.featureId = point.featureId;
-                    c.key = PersistentContactSolveTransaction::MakeKey( aIndex, bIndex, c.featureId );
-                    c.normal = manifold.normal;
-                    c.rA = point.rA;
-                    c.rB = point.rB;
-                    c.penetration = point.penetration;
-                    c.supportsRestingPolicy = hasRestingFootprint;
-                    c.normalCoupledFriction = !hasRestingFootprint;
-                    c.manifoldPointCount = selectedPointCount;
-                    m_persistentContacts.push_back( c );
-                    ++m_persistentContactCounts[aIndex];
-                    ++m_persistentContactCounts[bIndex];
-
-                    if ( c.supportsRestingPolicy )
-                    {
-                        ++m_persistentRestingContactCounts[aIndex];
-                        ++m_persistentRestingContactCounts[bIndex];
-                    }
-
-                    if ( CanRecordPhysicsPipelineStage() )
-                    {
-                        Physics::PhysicsPipelineRecord record;
-                        record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
-                        record.bodyA = aIndex;
-                        record.bodyB = bIndex;
-                        record.featureId = point.featureId;
-                        record.point = point.point;
-                        record.normal = manifold.normal;
-                        record.scalarA = point.penetration;
-                        record.scalarB = static_cast<float>( pointIndex );
-                        record.scalarC = static_cast<float>( selectedPointCount );
-                        RecordPhysicsPipelineStage( record );
-                    }
-                }
-
-                hasContact = selectedPointCount > 0;
-            }
-
-            if ( !hasContact )
-            {
-                continue;
-            }
-
-            MarkCollisionVisualContact( aIndex );
-            MarkCollisionVisualContact( bIndex );
-            appendSleepSupportEdge( aIndex, bIndex, contactNormal, hasRestingFootprint );
-        }
-    }
-
-    {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
-        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
-        m_solveTransaction.BeginTerrainRows();
-
-        // Convert terrain manifolds into the same PersistentContact rows used by
-        // object/object contacts. Terrain uses TERRAIN_BODY_INDEX for body B, so
-        // later solver phases treat it as infinite mass, zero velocity, and no
-        // writeback. From this point on, terrain response is ordinary shared-row
-        // normal/friction solving.
-
-        for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
-        {
-
-            // Skip invalid/no-op manifolds before they affect profiler counts,
-            // pipeline records, or the warm-start cache. Sleeping bodies do not
-            // need fresh terrain rows; their accepted support state is already
-            // represented by the sleep island data.
-
-            if ( manifold.bodyA < 0 || manifold.bodyA >= modelCount || manifold.pointCount == 0 ||
-                 ( manifold.bodyA < static_cast<int>( sleepState.size() ) && sleepState[manifold.bodyA] ) )
-            {
-                continue;
-            }
-
-            if ( CanRecordPhysicsPipelineStage() )
-            {
-                Physics::PhysicsPipelineRecord manifoldRecord;
-                manifoldRecord.stage = Physics::PhysicsPipelineStage::TerrainManifold;
-                manifoldRecord.bodyA = manifold.bodyA;
-                manifoldRecord.bodyB = TERRAIN_BODY_INDEX;
-                manifoldRecord.point = manifold.points[0].point;
-                manifoldRecord.normal = manifold.normal;
-                manifoldRecord.scalarA = static_cast<float>( manifold.pointCount );
-                manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;
-                manifoldRecord.scalarC = manifold.timeOfImpact;
-                RecordPhysicsPipelineStage( manifoldRecord );
-            }
-
-            // Why: terrain support needs two strengths of warm starting.
-            //
-            // Stable resting footprints get a full gravity-sized seed so a body
-            // already on the ground does not sink before the solver converges.
-            // Shoreline edge contacts are not stable enough for sleep or cached
-            // friction, but they still need a small one-frame support seed;
-            // otherwise a half-wet log or jetty beam falls into the slope, gets
-            // pushed out, and repeats as visible bobbing. This seed is not
-            // written to the persistent cache, so the contact remains wakeable
-            // and cannot become a hidden sleep anchor.
-            //
-            // Invariant: gravityMagnitude is the magnitude of the engine's
-            // vertical -Y gravity, the manifold normal is unit length, and
-            // fabs(normal.y) is its supported fraction. The total weight seed is
-            // projected onto that normal and divided evenly across every point
-            // in the non-empty manifold.
-            //
-            // Hazard: a future non-vertical gravity vector would make that
-            // scalar projection wrong. Directional gravity must replace both
-            // terms together rather than reusing this vertical approximation.
-            const float supportSeedScale = manifold.supportsRestingPolicy
-                                               ? TERRAIN_RESTING_SUPPORT_SEED_SCALE
-                                               : ( manifold.inhibitsSleep ? TERRAIN_SHORELINE_SUPPORT_SEED_SCALE : 0.0f );
-
-            const float warmStartTotal = bodyRecords[static_cast<size_t>( manifold.bodyA )].mass *
-                                         stepPolicy.gravityMagnitude * fabsf( manifold.normal.y ) * dt * supportSeedScale;
-
-            const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
-
-            for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-            {
-                const Physics::TerrainContactPoint& point = manifold.points[pointIndex];
-
-                PersistentContact c;
-                c.bodyA = manifold.bodyA;
-                c.bodyB = TERRAIN_BODY_INDEX;
-                c.featureId = point.featureId;
-                c.key = PersistentContactSolveTransaction::MakeKey( c.bodyA, c.bodyB, c.featureId );
-
-                // PersistentContact normals point from body A toward body B.
-                // Terrain manifold normals point out of the terrain and into
-                // body A, so flip them to match the shared solver convention.
-                c.normal = -manifold.normal;
-                c.tangent1 = manifold.tangent1;
-                c.tangent2 = manifold.tangent2;
-                c.rA = point.rA;
-                c.rB = ZERO_VECTOR;
-                c.penetration = point.penetration;
-                c.isTerrain = true;
-                c.supportsRestingPolicy = manifold.supportsRestingPolicy;
-                c.allowsTangentFriction = manifold.allowsTangentFriction;
-                c.inhibitsSleep = manifold.inhibitsSleep;
-                c.manifoldPointCount = manifold.pointCount;
-                c.terrainNormal = manifold.normal;
-                c.terrainWarmStart = warmStartPerContact;
-                m_persistentContacts.push_back( c );
-
-                if ( CanRecordPhysicsPipelineStage() )
-                {
-                    Physics::PhysicsPipelineRecord rowRecord;
-                    rowRecord.stage = Physics::PhysicsPipelineStage::TerrainRow;
-                    rowRecord.bodyA = c.bodyA;
-                    rowRecord.bodyB = TERRAIN_BODY_INDEX;
-                    rowRecord.featureId = c.featureId;
-                    rowRecord.point = point.point;
-                    rowRecord.normal = manifold.normal;
-                    rowRecord.scalarA = point.penetration;
-                    rowRecord.scalarB = warmStartPerContact;
-                    rowRecord.scalarC = static_cast<float>( pointIndex );
-                    RecordPhysicsPipelineStage( rowRecord );
-                }
-            }
-        }
-    }
+    m_solveTransaction.BuildManifolds( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
+                                       sleepSupportEdges, modelCount, pipelineRecordCapacity, profiler );
+
+    m_solveTransaction.BuildTerrainRows( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState, modelCount,
+                                         pipelineRecordCapacity, dt, profiler );
 
     if ( m_persistentContacts.empty() )
     {
@@ -1194,266 +1487,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     m_persistentContactSolverStats.rowCount = static_cast<int>( m_persistentContacts.size() );
     const SolverBodyState staticTerrainBody;
 
-    // Second pass: precompute each row. This is the "setup" part of the paper:
-    // CATTO REF:
-    //   Catto 2005, PDF p. 17, Algorithm 4 initializes d_i from Jsp*Bsp before
-    //   iteration. PDF p. 14, Equations 34-35 define B = M^-1*J^T. The code
-    //   below expands that sparse matrix math into scalar effective masses.
-    // The setup below builds friction axes, effective masses, bias, friction
-    // limits, and pulls the previous frame's accumulated impulses from the cache.
-    {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
-        m_solveTransaction.BeginPrecompute();
-
-        for ( PersistentContact& c : m_persistentContacts )
-        {
-            const SolverBodyState& bodyA = m_solveTransaction.Body( static_cast<std::size_t>( c.bodyA ) );
-            const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody
-                                                       : m_solveTransaction.Body( static_cast<std::size_t>( c.bodyB ) );
-
-            // CATTO REF:
-            //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
-            //   tangent directions named u1/u2 perpendicular to the contact normal.
-            // ENGINE MAPPING:
-            //   Skullbonez stores Catto's u1/u2 basis as c.tangent1/c.tangent2.
-            //   The normal covers push-apart motion; the two tangent axes cover
-            //   sideways sliding in the contact plane.
-            Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
-
-            // CATTO REF:
-            //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
-            //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
-            //   familiar point-contact effective mass:
-            //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
-            // Effective mass says how stubborn this contact is. A light body pushed
-            // through its center moves easily; a heavy or off-center body resists more
-            // because some of the push also has to rotate it.
-            auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3
-            { return m_solveTransaction.ApplyInverseInertia( c.bodyA, v ); };
-
-            auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
-            { return c.isTerrain ? ZERO_VECTOR : m_solveTransaction.ApplyInverseInertia( c.bodyB, v ); };
-
-            c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.normal, c.rA,
-                                                                                c.rB, applyInvInertiaA, applyInvInertiaB );
-
-            c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent1,
-                                                                                  c.rA, c.rB, applyInvInertiaA,
-                                                                                  applyInvInertiaB );
-
-            c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass, bodyB.invMass, c.tangent2,
-                                                                                  c.rA, c.rB, applyInvInertiaA,
-                                                                                  applyInvInertiaB );
-
-            if ( !c.allowsTangentFriction )
-            {
-                c.tangentMass1 = 0.0f;
-                c.tangentMass2 = 0.0f;
-            }
-
-            Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
-            Vector3 velB = c.isTerrain ? ZERO_VECTOR
-                                       : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
-
-            float vn = Dot( ( velB - velA ), c.normal );
-
-            // CATTO REF:
-            //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
-            //   Section 4.2, Equation 20 provide the contact bias idea.
-            // ENGINE NOTE:
-            //   Object/object swept detection no longer applies a competing
-            //   immediate impulse. Dynamic bounce therefore belongs in the same
-            //   persistent Catto rows as fixed-body impact and resting support.
-            c.bias = 0.0f;
-
-            if ( c.isTerrain )
-            {
-                const float terrainSlop = stepPolicy.terrainSlop;
-
-                if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
-                {
-                    c.normalMass = 0.0f;
-                    c.tangentMass1 = 0.0f;
-                    c.tangentMass2 = 0.0f;
-                }
-                else if ( fabsf( vn ) < restitutionThreshold )
-                {
-                    float penetrationError = c.penetration - terrainSlop;
-
-                    if ( penetrationError > 0.0f )
-                    {
-                        c.bias = stepPolicy.terrainBaumgarteBeta * penetrationError * invDt;
-
-                        if ( c.bias > stepPolicy.maxBaumgarteBias )
-                        {
-                            c.bias = stepPolicy.maxBaumgarteBias;
-                        }
-                    }
-                }
-                else if ( vn < -restitutionThreshold )
-                {
-                    const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
-                    const float restitution = elasticCollisions
-                                                  ? 1.0f
-                                                  : colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-
-                    c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
-                }
-            }
-            else if ( vn < -restitutionThreshold )
-            {
-                float restitution = 1.0f;
-
-                if ( !elasticCollisions )
-                {
-                    const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-                    const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
-                    restitution = sqrtf( restitutionA * restitutionB );
-                }
-
-                c.bias = -restitution * vn;
-            }
-            else if ( vn >= -restitutionThreshold )
-            {
-                float penetrationError = c.penetration - contactSlop;
-
-                if ( penetrationError > 0.0f )
-                {
-                    c.bias = baumgarteBeta * penetrationError * invDt;
-
-                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
-                    {
-                        c.bias = maxBaumgarteBias;
-                    }
-                }
-            }
-
-            uint16_t countA = ( m_persistentContactCounts[c.bodyA] > 0 ) ? m_persistentContactCounts[c.bodyA] : 1;
-            float contactMass = bodyRecords[static_cast<size_t>( c.bodyA )].mass / static_cast<float>( countA );
-
-            if ( !c.isTerrain )
-            {
-                uint16_t countB = ( m_persistentContactCounts[c.bodyB] > 0 ) ? m_persistentContactCounts[c.bodyB] : 1;
-                float contactMassB = bodyRecords[static_cast<size_t>( c.bodyB )].mass / static_cast<float>( countB );
-
-                if ( contactMassB < contactMass )
-                {
-                    contactMass = contactMassB;
-                }
-            }
-
-            // CATTO REF:
-            //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
-            //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
-            //   solved normal force while keeping static friction usable in games.
-            c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
-                                  ? 0.0f
-                                  : ( c.isTerrain ? stepPolicy.terrainFrictionCoefficient * c.terrainWarmStart
-                                                  : ( c.normalCoupledFriction ? 0.0f
-                                                                              : objectFrictionCoeff * contactMass *
-                                                                                    stepPolicy.gravityMagnitude * dt ) );
-
-            // CATTO REF:
-            //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
-            //   retrieve cached lambda for matching contact identifiers and use it
-            //   as the initial lambda_0 for Algorithm 4.
-            // Warm starting: if this same pair+feature was touching last frame,
-            // start from the cached solution instead of zero.  The cache is sorted so
-            // lookup does not linearly scan every previous-frame contact.
-            // Why: warm-start cache is a stack-support tool. In elastic space it
-            // can preserve last frame's push and make grazing bodies look glued.
-            const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
-            auto cachedIt = canUseCachedWarmStart
-                                ? std::lower_bound( m_persistentContactCache.begin(), m_persistentContactCache.end(), c.key,
-                                                    []( const PersistentContactCacheEntry& entry, int64_t key )
-                                                    { return entry.key < key; } )
-                                : m_persistentContactCache.end();
-
-            if ( canUseCachedWarmStart && cachedIt != m_persistentContactCache.end() && cachedIt->key == c.key )
-            {
-                ++m_persistentContactSolverStats.cacheHits;
-                c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
-                c.accT1 = cachedIt->accT1;
-                c.accT2 = cachedIt->accT2;
-                const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
-                                                      ? 0.0f
-                                                      : ( c.isTerrain
-                                                              ? stepPolicy.terrainFrictionCoefficient *
-                                                                    ( ( c.accN > c.terrainWarmStart ) ? c.accN
-                                                                                                      : c.terrainWarmStart )
-                                                              : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
-                                                                                          : c.frictionLimit ) );
-
-                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
-                c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
-            }
-            else if ( canUseCachedWarmStart )
-            {
-                ++m_persistentContactSolverStats.cacheMisses;
-            }
-
-            {
-
-                // Concept: impact presentation needs the relative motion that
-                // existed before warm-start and solver impulses push through an
-                // island. Solved impulse alone also represents support transfer.
-                const SolverBodyState& a = m_solveTransaction.Body( static_cast<std::size_t>( c.bodyA ) );
-                const SolverBodyState& b = c.isTerrain ? staticTerrainBody
-                                                       : m_solveTransaction.Body( static_cast<std::size_t>( c.bodyB ) );
-
-                const Vector3 contactVelA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
-                const Vector3 contactVelB = c.isTerrain ? ZERO_VECTOR
-                                                        : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
-
-                const Vector3 relVel = contactVelB - contactVelA;
-                c.preSolveNormalSpeed = Dot( relVel, c.normal );
-                c.preSolveClosingSpeed = (std::max)( 0.0f, -c.preSolveNormalSpeed );
-                const float slipT1 = Dot( relVel, c.tangent1 );
-                const float slipT2 = Dot( relVel, c.tangent2 );
-                c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
-            }
-
-            if ( c.isTerrain && c.terrainWarmStart > c.accN )
-            {
-                c.accN = c.terrainWarmStart;
-                c.warmStarted = c.accN > 0.0f || c.warmStarted;
-            }
-
-            if ( c.warmStarted )
-            {
-                ++m_persistentContactSolverStats.warmStartedRows;
-            }
-
-            if ( CanRecordPhysicsPipelineStage() )
-            {
-                Physics::PhysicsPipelineRecord record;
-                record.stage = Physics::PhysicsPipelineStage::WarmStart;
-                record.bodyA = c.bodyA;
-                record.bodyB = c.bodyB;
-                record.featureId = c.featureId;
-                record.point = PhysicsBodyPosition( hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
-                record.normal = c.normal;
-                record.scalarA = c.warmStarted ? 1.0f : 0.0f;
-                record.scalarB = c.accN;
-                record.scalarC = c.frictionLimit;
-                RecordPhysicsPipelineStage( record );
-            }
-
-            if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
-            {
-
-                // CATTO REF:
-                //   Catto 2005, PDF p. 17, Algorithm 4 initializes a = B*lambda.
-                //   In this implementation, "a" is represented by the mutable solver
-                //   velocities, so cached lambda must be applied before iteration.
-                // Cached impulses are not just bookkeeping: they must be applied to
-                // the bodies before iteration starts, otherwise the solver would clamp
-                // against a pretend push that never actually happened.
-                Vector3 warmImpulse = c.normal * c.accN + c.tangent1 * c.accT1 + c.tangent2 * c.accT2;
-                m_solveTransaction.ApplyImpulse( c, warmImpulse );
-            }
-        }
-    }
+    m_solveTransaction.PrecomputeRows( *this, bodyStore, colliderStore, stepPolicy, pipelineRecordCapacity, dt, profiler );
 
     // Third pass: Projected Gauss-Seidel.
     // CATTO REF:

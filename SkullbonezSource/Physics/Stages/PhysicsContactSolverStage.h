@@ -207,10 +207,12 @@ class PersistentContactSolvePhaseCursor
 //   -> CacheStore -> FixedContactRelease -> Complete.
 // - The existing empty-input and empty-row exits may reach Complete only from
 //   EntryPolicySetup and TerrainRows respectively.
-// - Solver-body storage and impulse application have one owner. No caller
-//   borrow survives a transaction method return. TestRuntimeContracts.cpp
-//   proves the complete transition matrix, every illegal Lane F edge, and
-//   non-copyability.
+// - Solver-body storage, impulse application, and row-construction phase
+//   advancement have one owner. Construction methods synchronously borrow the
+//   stage only to mutate its retained rows, cache statistics, and consequence
+//   lists; no caller borrow survives a transaction method return.
+//   TestRuntimeContracts.cpp proves the complete transition matrix, every
+//   illegal Lane F edge, and non-copyability.
 class PersistentContactSolveTransaction
 {
   public:
@@ -221,10 +223,6 @@ class PersistentContactSolveTransaction
     PersistentContactSolveTransaction& operator=( PersistentContactSolveTransaction&& ) = delete;
 
     void BeginEntryPolicySetup();
-    void BeginBodySetup();
-    void BeginBuildManifolds();
-    void BeginTerrainRows();
-    void BeginPrecompute();
     void BeginSolveRows();
     void BeginPointSupportInstability();
     void BeginTerrainRestPolicy();
@@ -255,8 +253,24 @@ class PersistentContactSolveTransaction
     void ApplyImpulse( const PersistentContact& contact, const Math::Vector::Vector3& impulse );
 
   private:
+    friend class PhysicsContactSolverStage;
     friend struct PersistentContactSolveTransactionTestAccess;
 
+    void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount,
+                      Core::Profiler* profiler );
+    void BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
+                         std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState,
+                         PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity,
+                         Core::Profiler* profiler );
+    void BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                           const PersistentContactSolverStepPolicy& stepPolicy,
+                           PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, float dt,
+                           Core::Profiler* profiler );
+    void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                         const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
+                         std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
     void AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next, const char* operation );
 
     PersistentContactSolvePhaseCursor m_phase;
@@ -298,6 +312,8 @@ class PhysicsContactCacheWakeAccess
 class PhysicsContactSolverStage
 {
   private:
+    friend class PersistentContactSolveTransaction;
+
     PersistentContactList m_persistentContacts { "PhysicsContactSolverStage.persistentContacts",
                                                  PhysicsCapacityReason::PersistentContacts };
     PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache",

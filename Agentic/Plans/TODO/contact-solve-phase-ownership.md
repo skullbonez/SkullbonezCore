@@ -88,7 +88,7 @@ Secondary target, same defect class, far lower stakes:
   fatal on illegal transitions and its stated invariant in the header. `Solve`
   still contains the pass bodies; only the shared arithmetic and cursor move.
   Byte-exact required.
-- [ ] CS2 — Move the row-construction phases (`BodySetup`, `BuildManifolds`,
+- [x] CS2 — Move the row-construction phases (`BodySetup`, `BuildManifolds`,
   `Terrain/Rows`, `Precompute`) behind phase methods, carrying their Catto and
   engine-specific comments with them. Byte-exact required.
 - [ ] CS3 — Move the solve and post-solve phases (`SolveRows`,
@@ -195,3 +195,26 @@ Permanent census and byte-exact oracle manifest:
   immediate Debug retry to collide on an object file. After the owned processes
   drained, the unchanged gate passed; this was a non-terminal infrastructure
   event, not a source or oracle failure.
+
+## CS2 Evidence
+
+- `SetupBodies`, `BuildManifolds`, `BuildTerrainRows`, and `PrecomputeRows` now
+  own their cursor advancement and complete pass bodies. Each method borrows
+  stores, spans, the stage, and diagnostics only for its synchronous call; the
+  transaction retains none of them.
+- All Catto references, engine-policy comments, and all thirteen profiler scope
+  strings remain on the same arithmetic and phase boundaries. `Solve` now
+  sequences the four construction calls and retains the later phases for CS3.
+- The ratified 400-body-line / brace-depth-6 complexity gate passes 42/42.
+  `BuildManifolds` and `PrecomputeRows` carry current `retain-owner` rulings for
+  their single guarded construction/precompute invariants; `Solve` remains on
+  this plan's exact `repair-plan` ruling.
+- The focused Profile build and the `Persistent contact solver:*`,
+  `Object contact manifold:*`, and `*determinism:*` filters pass. Format,
+  aggregate ownership (85/85 ruled), extraction scars (zero findings), and
+  wide signatures at 12+ (all ruled) pass.
+- `tools\validate_physics.bat` and `tools\validate_perf.bat` pass on final
+  source. The preserved 88,802-row, 12,660,434-byte output remains byte-identical
+  to CS0 at SHA-256
+  `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
+- No baseline, golden, allowlist, or committed runtime artifact changed.
