@@ -12,6 +12,8 @@
 //   Contact candidate: A clipped point that is eligible for a solver row.
 //   Feature id: Deterministic key used to match the same contact across steps.
 //   Degenerate slab: A box shape with a zero half-extent on one axis.
+//   SAT (Separating Axis Theorem): Narrowphase test that selects the least-overlap
+//     candidate axis as the contact normal.
 //
 // Invariants:
 //   - A box manifold contains at most four finite points.
@@ -20,6 +22,9 @@
 //   - Rebuilding an unchanged contact produces identical row order and ids.
 //   - Every sphere, box, and convex-hull pairing publishes finite contacts,
 //     while a separated pair remains contact-free.
+//   - A stack rocking through the tilt crossover keeps one contact identity:
+//     neither the feature kind nor the reference-face owner may change, because
+//     either change re-keys the pair and costs the whole warm-start cache entry.
 //
 // Related:
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
@@ -102,6 +107,20 @@ void CheckContactPair( const ObjectContactBodyView& a, const CollisionShape& sha
         CHECK( std::isfinite( manifold.points[point].penetration ) );
         CHECK( manifold.points[point].penetration >= -0.02f );
     }
+}
+
+// Concept: the reference-face bit inside a box feature id.
+//
+// EncodeBoxFaceFeature packs (kind << 14) | (refCode << 10) | (incCode << 6) |
+// pointId, where a refCode with its 8 bit set means the reference face came
+// from body B rather than body A. The persistent solver keys its warm-start
+// cache on the whole feature id, so a change to this one bit re-keys every row
+// for the pair and forces the contact to rediscover its support impulse.
+constexpr uint32_t kBoxFaceFeatureKind = 2u;
+
+bool ReferenceFaceBelongsToBodyA( uint32_t featureId )
+{
+    return ( ( featureId >> 10 ) & 8u ) == 0u;
 }
 
 void CheckFiniteManifold( const ObjectContactManifold& manifold )
@@ -286,4 +305,86 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     CHECK( sweep.hit );
     CHECK( sweep.collisionTime >= 0.0f );
     CHECK( sweep.collisionTime <= 1.0f );
+}
+
+
+// Regression: a rocking stack must keep one contact identity.
+//
+// Both bricks in a settling stack tilt by tiny amounts. SAT picks the axis with
+// the least overlap, and for near-parallel faces that is whichever box is closer
+// to upright, so the winner changes the instant the two tilts cross. Every such
+// change - face of A to face of B, or face to edge - is baked into the feature
+// id, so it re-keys the whole pair and costs a total warm-start cache loss.
+// The stashed reference implementation called its proposed axis-type bias
+// SatChallengerMargin. Before that bias, 100 frames of
+// prediction_ragdoll_wall_200 carried 1,307 reference swaps and 3,531 face/edge
+// switches, left 23% of solver rows cold every frame, and produced a visible
+// bounce in slowly toppling columns.
+//
+// The sweep below walks the upper box's tilt from below the lower box's tilt to
+// above it, so the unbiased comparison would switch mid-sweep. The overlap
+// differences stay inside the bias margin, so both the feature kind and the
+// reference owner must hold for the whole sweep.
+TEST_CASE( "Object contact manifold: rocking box stack keeps one contact identity" )
+{
+
+    // This reproduces the wall column: two directly stacked boxes, both rocking,
+    // whose tilts cross part way through the sweep. At the crossover the two
+    // face axes score almost identically, so the unbiased comparison hands the
+    // reference to whichever box is fractionally closer to upright. Measured
+    // with the bias disabled, every offset below swapped the reference exactly
+    // once as the tilts crossed; with the bias none of them swap.
+    //
+    // Small lateral offsets are included because a settling column does not stay
+    // perfectly aligned, and the crossover must stay stable as it drifts.
+    const CollisionShape box = MakeBox();
+    constexpr float kEngineContactSkin = 0.05f;
+    constexpr int kOffsetSteps = 6;
+    constexpr int kSweepSteps = 60;
+
+    for ( int offsetStep = 0; offsetStep <= kOffsetSteps; ++offsetStep )
+    {
+        const float offset = 0.05f * static_cast<float>( offsetStep );
+
+        bool sampled = false;
+        uint32_t expectedKind = 0u;
+        bool expectedReferenceIsBodyA = false;
+
+        for ( int step = 0; step <= kSweepSteps; ++step )
+        {
+            const float lowerTilt = 0.012f - 0.0004f * static_cast<float>( step );
+            const float upperTilt = 0.0004f * static_cast<float>( step );
+            const ObjectContactBodyView lower =
+                MakeBody( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 1.0f ), lowerTilt );
+            const ObjectContactBodyView upper =
+                MakeBody( Vector3( offset, 1.5f, 0.0f ), Vector3( 0.0f, 0.0f, 1.0f ), upperTilt );
+
+            ObjectContactManifold manifold;
+            REQUIRE( BuildObjectContactManifold( lower, box, upper, box, 11, 29, kEngineContactSkin, manifold ) );
+            REQUIRE( manifold.pointCount > 0u );
+
+            const uint32_t featureId = manifold.points[0].featureId;
+            const uint32_t kind = featureId >> 14;
+            const bool referenceIsBodyA = ReferenceFaceBelongsToBodyA( featureId );
+
+            if ( !sampled )
+            {
+                expectedKind = kind;
+                expectedReferenceIsBodyA = referenceIsBodyA;
+                sampled = true;
+            }
+
+            // Both halves of the contact identity must hold across the crossover.
+            // Either one changing re-keys every row for the pair and costs the
+            // whole warm-start cache entry for that contact.
+            CHECK( kind == expectedKind );
+
+            if ( kind == kBoxFaceFeatureKind )
+            {
+                CHECK( referenceIsBodyA == expectedReferenceIsBodyA );
+            }
+        }
+
+        CHECK( sampled );
+    }
 }
