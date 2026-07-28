@@ -82,8 +82,7 @@ constexpr int RequiredBitCount( uint32_t value )
 // stable low-digit pass followed by one stable high-digit pass. These values
 // derive from the scene ceiling, while the layout assertion deliberately
 // requires a source review if that ceiling changes.
-constexpr int kCandidatePairSortBitCount = RequiredBitCount(
-    static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) );
+constexpr int kCandidatePairSortBitCount = RequiredBitCount( static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) );
 constexpr int kCandidatePairSortLowBitCount = ( kCandidatePairSortBitCount + 1 ) / 2;
 constexpr int kCandidatePairSortHighBitCount = kCandidatePairSortBitCount - kCandidatePairSortLowBitCount;
 constexpr int kCandidatePairSortLowBucketCount = 1 << kCandidatePairSortLowBitCount;
@@ -143,8 +142,9 @@ int16_t ClampVisualizationCell( int cell )
 {
 
     // The hash key retains the full cell coordinate. Only the debug
-    // visualization payload is narrowed, so clamp instead of wrapping it.
-    return static_cast<int16_t>( (std::max)( static_cast<int>( INT16_MIN ), (std::min)( static_cast<int>( INT16_MAX ), cell ) ) );
+    // visualization payload is narrowed, so saturate instead of wrapping it.
+    return static_cast<int16_t>( (std::max)( SpatialGrid::MIN_VISUALIZATION_CELL_COORDINATE,
+                                             (std::min)( SpatialGrid::MAX_VISUALIZATION_CELL_COORDINATE, cell ) ) );
 }
 
 int64_t SpatialCellKey( int ix, int iy, int iz )
@@ -1079,8 +1079,11 @@ void SpatialGrid::ResetCandidatePairDedup()
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object count out of bounds" );
     }
 
-    int pairBits = objectCount * ( objectCount - 1 ) / 2;
-    int wordsNeeded = ( pairBits + 63 ) / 64;
+    // Invariant: keep both the product and rounding addition wide. The
+    // class-level ceiling guard proves the final word count fits PAIR_WORDS,
+    // but a future legal ceiling can exceed signed-int intermediate range.
+    const int64_t pairBits = static_cast<int64_t>( objectCount ) * ( objectCount - 1 ) / 2;
+    int wordsNeeded = static_cast<int>( ( pairBits + 63 ) / 64 );
 
     if ( wordsNeeded > PAIR_WORDS )
     {
@@ -1102,7 +1105,11 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b )
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair identity out of bounds" );
     }
 
-    const int pairIndex = b * ( b - 1 ) / 2 + a;
+    // Invariant: the class-level ceiling guard proves this normalized
+    // triangular identity fits int; widen the multiplication itself so the
+    // intermediate cannot overflow before the division.
+    const int64_t pairIndexWide = static_cast<int64_t>( b ) * ( b - 1 ) / 2 + a;
+    const int pairIndex = static_cast<int>( pairIndexWide );
     const int word = pairIndex >> 6;
     assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
 

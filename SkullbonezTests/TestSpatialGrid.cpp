@@ -28,18 +28,28 @@
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
+//   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestFixedSeed.h"
 
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
 #include <utility>
 #include <vector>
 
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
 {
@@ -78,6 +88,39 @@ SpatialGrid& TestGrid()
     grid.Clear();
     grid.SetCellSize( 10.0f );
     return grid;
+}
+
+PhysicsBodyStore& CeilingBodyStore()
+{
+    // Why: the production-filtered ceiling proof needs dense rows through
+    // index 8,191. Static owner storage keeps that capacity off the test stack.
+    static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
+    store.Clear();
+    return store;
+}
+
+ColliderStore& CeilingColliderStore()
+{
+    // Why: filtered broadphase consumes the collider row at every candidate
+    // index, so this owner must mirror the body's complete dense prefix.
+    static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS, 0u, 0u );
+    }
+
+    store.Clear();
+    return store;
 }
 } // namespace
 
@@ -348,6 +391,75 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
     // Invariant: solver work order is a function of normalized body identity,
     // never the bucket-creation or linked-list order used to discover a pair.
     CHECK( pairs == expected );
+}
+
+
+TEST_CASE( "SpatialGrid: canonical output reaches the current scene-index ceiling" )
+{
+    SpatialGrid& grid = TestGrid();
+    constexpr int kSceneCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
+    constexpr int insertionOrder[] = { kSceneCeiling - 1, 128, 4096, 0, kSceneCeiling - 2, 127 };
+    constexpr int canonicalBodies[] = { 0, 127, 128, 4096, kSceneCeiling - 2, kSceneCeiling - 1 };
+    grid.BeginFrame( kSceneCeiling );
+
+    for ( int body : insertionOrder )
+    {
+        grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
+    }
+
+    std::vector<std::pair<int, int>> expected;
+    expected.reserve( 15u );
+
+    for ( int smaller = 0; smaller < 6; ++smaller )
+    {
+
+        for ( int larger = smaller + 1; larger < 6; ++larger )
+        {
+            expected.emplace_back( canonicalBodies[smaller], canonicalBodies[larger] );
+        }
+    }
+
+    // Hazard: this crosses both radix digits and reaches the largest valid
+    // body index. Discovery order is deliberately non-canonical.
+    const auto pairs = CandidatePairs( grid, static_cast<int>( expected.size() ) );
+    CHECK( pairs == expected );
+
+    PhysicsBodyStore& bodyStore = CeilingBodyStore();
+    ColliderStore& colliderStore = CeilingColliderStore();
+    const CollisionShape sphere( BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < kSceneCeiling; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = Vector3( 5.0f, 5.0f, 5.0f );
+        body.hot.boundingRadius = 0.1f;
+        const auto bodyHandle = bodyStore.CreateBodyRecord( body );
+
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.1f;
+        (void)colliderStore.CreateColliderRecord( collider, sphere );
+    }
+
+    std::vector<uint8_t> sleepState( static_cast<size_t>( kSceneCeiling ), 0u );
+    SkullbonezCore::Physics::PhysicsCandidatePairList filteredPairs {
+        "TestSpatialGrid.ceilingFilteredPairs",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        filteredPairs.Reserve( expected.size() );
+    }
+
+    grid.GetFilteredCandidatePairs( filteredPairs, bodyStore, colliderStore, sleepState, 0.0f, 0.0f, false );
+    REQUIRE( filteredPairs.size() == expected.size() );
+
+    for ( size_t pairIndex = 0; pairIndex < expected.size(); ++pairIndex )
+    {
+        CHECK( filteredPairs[pairIndex] == expected[pairIndex] );
+    }
 }
 
 

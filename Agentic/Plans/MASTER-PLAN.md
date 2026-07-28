@@ -380,13 +380,15 @@ the same day by placing it after `quaternion-convention-normalization`, so it is
 listed as plan 8 of the Fresh-Read queue rather than as a separate campaign; its
 owner directions and superseded ruling remain in its own section below.
 
-Broadphase canonical-order guard BG0 completed on 2026-07-29. Both candidate
-pair collectors now derive their two radix digit widths, masks, and bucket
-extents from `MAX_SCENE_OBJECTS`; a temporary 8193-body ceiling fails the named
-layout assertion, while the current 8192-body Profile instruction stream is
-unchanged. Focused SpatialGrid and determinism tests pass. The live ledger is
-therefore 1/35 (3%). Evidence is in
-`../Reports/2026-07-29/broadphase-canonical-order-guard-bg0.md`.
+Broadphase canonical-order guard closed BG0-BG1 on 2026-07-29 and left the
+live ledger under rule 4. Both pair collectors derive their radix layout from
+`MAX_SCENE_OBJECTS`; triangular identities and reset arithmetic are wide before
+their guarded signed-int narrowing; exact cell coordinates remain full-width
+while the visualization projection saturates explicitly. Unfiltered and
+production-filtered ceiling-order proofs pass through body index 8,191, Physics
+is byte-exact, performance is clear, and independent review closed both of its
+initial blockers. The active/future ledger is now 0/33 (0%). Evidence is in
+`../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -971,11 +973,10 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/35
-(3%). Execute plans 1→8 in the listed order; the dependency barriers in that
-section are binding. Plans 1 and 2 are cheap and independent and should land
-first: plan 1 closes a silent determinism hazard in two tasks, and plan 2 builds
-the complexity inventory that plan 3 uses to prove its own closure.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/33
+(0%). Plan 1 is complete and excluded under rule 4; execute plans 2→8 in the
+listed order. Plan 2 is next and builds the complexity inventory that plan 3
+uses to prove its own closure.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2458,7 +2459,8 @@ Binding owner directions:
 
 Dependency barriers:
 
-- Plan 1 before plan 5 — both edit `SpatialGrid`, and the guard is smaller.
+- Satisfied: plan 1 closed before plan 5; both edit `SpatialGrid`, and the guard
+  landed first.
 - Plan 2 CX1 before plan 3 CS4 — CS4 clears the `repair-plan` rulings CX1 seeds.
   Plan 3 CS0-CS3 may run earlier.
 - Plan 5 before plan 6 — plan 6 breaks the include chain that reaches
@@ -2466,7 +2468,7 @@ Dependency barriers:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [broadphase-canonical-order-guard](TODO/broadphase-canonical-order-guard.md) | In progress | 1/2 | BG0 complete with compile-failure, instruction-identity, focused-test, and byte-exact Physics evidence; BG1 owns triangular/cell-coordinate guards and the ceiling-order test |
+| 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
 | 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | Not started | 0/3 | Ready now; CX0 publishes the measured distribution and the owner ratifies the trigger values before any ruling is written |
 | 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | CS0-CS3 ready now; CS4 waits on plan 2 CX1 |
 | 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |

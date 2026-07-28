@@ -36,6 +36,8 @@ Invariants:
     hide a collision.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
+  - Exact cell coordinates remain `int` through hashing and membership.
+    Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
 
@@ -43,6 +45,7 @@ Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 */
 #pragma once
 
@@ -53,6 +56,7 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <limits>
 #include <span>
 #include "../Core/Common.h"
 #include "../Core/SceneCapacity.h"
@@ -124,10 +128,11 @@ class SpatialGrid
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
     static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
-                                            ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2 +
-                                        63 ) /
-                                      64;
+    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
+                                                   ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
+    static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
+                   "MAX_SCENE_OBJECTS exceeds the signed candidate-pair identity range." );
+    static constexpr int PAIR_WORDS = static_cast<int>( ( MAX_PAIR_IDENTITIES + 63 ) / 64 );
 
     struct CellRange
     {
@@ -259,6 +264,18 @@ class SpatialGrid
     // is corrupt. The generous bound also keeps ordinary cell conversion far
     // from integer limits for supported broadphase cell sizes.
     static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
+
+    // Hazard: exact coordinates can reach +/-200,000 at the minimum cell size.
+    // Bucket and ActiveCell retain only a saturated visualization projection;
+    // collision identity continues to use the full-width Entry coordinates and
+    // hash key. Widen both visualization structs before removing saturation.
+    static constexpr int MIN_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::min )();
+    static constexpr int MAX_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::max )();
+    static constexpr int MAX_ABSOLUTE_CELL_COORDINATE = static_cast<int>( MAX_WORLD_COORDINATE / MIN_CELL_SIZE );
+    static_assert( MAX_ABSOLUTE_CELL_COORDINATE == 200000,
+                   "SpatialGrid world/cell limits changed: review exact and visualization coordinate storage." );
+    static_assert( MAX_ABSOLUTE_CELL_COORDINATE <= ( std::numeric_limits<int>::max )() - 1024,
+                   "SpatialGrid exact cell coordinates exceed the guarded signed-int conversion range." );
 
     struct ActiveCell
     {

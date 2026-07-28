@@ -2,7 +2,8 @@
 
 Date: 2026-07-29
 Branch: `nightrunner-29th-JUL-26`
-Plan: `Agentic/Plans/TODO/broadphase-canonical-order-guard.md`
+Plan: closed by `broadphase-canonical-order-guard-closure.md`; the completed
+TODO was removed under inventory rule 4.
 
 ## Result
 
