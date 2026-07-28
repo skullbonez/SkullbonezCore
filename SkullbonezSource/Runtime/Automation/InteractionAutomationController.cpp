@@ -94,6 +94,7 @@ Related:
 #include <cstdint>
 #include <cstring>
 #include <sstream>
+#include <utility>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
@@ -1359,6 +1360,1416 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
     }
 }
 
+bool ParseSetCameraModeAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["setCameraMode"].is_string() )
+    {
+        outError = "setCameraMode must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetCameraMode;
+    const std::string modeName = entry["setCameraMode"].get<std::string>();
+
+    if ( !TryParseCameraMode( modeName, outAction.cameraMode ) )
+    {
+        outError = "unknown setCameraMode value: " + modeName;
+        return false;
+    }
+
+    CopyText( outAction.text, sizeof( outAction.text ), modeName );
+    return true;
+}
+
+bool ParseLoadShotListAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["loadShotList"].is_string() )
+    {
+        outError = "loadShotList must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::LoadShotList;
+    CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
+    return true;
+}
+
+bool ParseDirectorPlayAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !IsBoolValue( entry["directorPlay"] ) )
+    {
+        outError = "directorPlay must be a boolean value";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::DirectorPlay;
+    outAction.boolValue = ReadBool( entry["directorPlay"] );
+    CopyText( outAction.text, sizeof( outAction.text ), outAction.boolValue ? "Director" : "Inspect" );
+    return true;
+}
+
+bool ParseDirectorAdvanceAction( const Json&, RunInteractionAutomationAction& outAction, std::string& )
+{
+    outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
+    return true;
+}
+
+bool ParseDirectorGrabAction( const Json&, RunInteractionAutomationAction& outAction, std::string& )
+{
+    outAction.type = RunInteractionAutomationActionType::DirectorGrab;
+    return true;
+}
+
+bool ParseDirectorReleaseAction( const Json&, RunInteractionAutomationAction& outAction, std::string& )
+{
+    outAction.type = RunInteractionAutomationActionType::DirectorRelease;
+    return true;
+}
+
+bool ParseSetPhaseStyleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["setPhaseStyle"].is_string() )
+    {
+        outError = "setPhaseStyle must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetPhaseStyle;
+    CopyText( outAction.path, sizeof( outAction.path ), entry["setPhaseStyle"].get<std::string>() );
+    return true;
+}
+
+bool ParseSetCameraPoseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    outAction.type = RunInteractionAutomationActionType::SetCameraPose;
+    return ReadAutomationCameraPose( entry["setCameraPose"], outAction.cameraPose, outError );
+}
+
+bool ParseClickObjectAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["clickObject"].is_string() || ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
+         ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
+    {
+        outError = "clickObject requires a string target, optional string button, and optional integer holdFrames";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ClickObject;
+    CopyText( outAction.text, sizeof( outAction.text ), entry["clickObject"].get<std::string>() );
+
+    if ( entry.contains( "button" ) )
+    {
+        const std::string button = entry["button"].get<std::string>();
+        outAction.button = button == "right" ? RunInteractionAutomationButton::Right : RunInteractionAutomationButton::Left;
+    }
+
+    if ( entry.contains( "holdFrames" ) )
+    {
+        outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
+    }
+
+    return true;
+}
+
+bool ParseClickPointAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& point = entry["clickPoint"];
+
+    if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() ||
+         ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
+         ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
+    {
+        outError = "clickPoint must be a 2-integer array";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ClickPoint;
+    outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+
+    outAction.hasMouse = true;
+
+    if ( entry.contains( "button" ) )
+    {
+        const std::string button = entry["button"].get<std::string>();
+        outAction.button = button == "right" ? RunInteractionAutomationButton::Right : RunInteractionAutomationButton::Left;
+    }
+
+    if ( entry.contains( "holdFrames" ) )
+    {
+        outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
+    }
+
+    return true;
+}
+
+bool ParseLoseFocusAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["loseFocus"].is_number_integer() )
+    {
+        outError = "loseFocus must be an integer frame count";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::LoseFocus;
+    outAction.holdFrames = (std::max)( 1, entry["loseFocus"].get<int>() );
+    return true;
+}
+
+bool ParseMoveMouseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& point = entry["moveMouse"];
+
+    if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() )
+    {
+        outError = "moveMouse must be a 2-integer array";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::MoveMouse;
+    outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
+
+    outAction.hasMouse = true;
+    return true;
+}
+
+bool ParseClickReplayControlAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["clickReplayControl"].is_string() )
+    {
+        outError = "clickReplayControl must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ClickReplayControl;
+    CopyText( outAction.text, sizeof( outAction.text ), entry["clickReplayControl"].get<std::string>() );
+    return true;
+}
+
+bool ParseScrubReplaySolverTrackAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["scrubReplaySolverTrack"].is_number() )
+    {
+        outError = "scrubReplaySolverTrack must be a number";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ScrubReplaySolverTrack;
+    outAction.numberValue = std::clamp( entry["scrubReplaySolverTrack"].get<float>(), 0.0f, 1.0f );
+    CopyText( outAction.text, sizeof( outAction.text ), "solver" );
+    return true;
+}
+
+bool ParseScrubEditorReplayTrackAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["scrubEditorReplayTrack"].is_number() )
+    {
+        outError = "scrubEditorReplayTrack must be a normalized number";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ScrubEditorReplayTrack;
+    outAction.numberValue = std::clamp( entry["scrubEditorReplayTrack"].get<float>(), 0.0f, 1.0f );
+    return true;
+}
+
+bool ParseSetReplayPredictionEnabledAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                            std::string& outError )
+{
+
+    if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
+    {
+        outError = "setReplayPredictionEnabled must be a boolean value";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetReplayPredictionEnabled;
+    outAction.boolValue = ReadBool( entry["setReplayPredictionEnabled"] );
+    return true;
+}
+
+bool ParseSetReplayPredictionHorizonSecondsAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                                   std::string& outError )
+{
+
+    if ( !entry["setReplayPredictionHorizonSeconds"].is_number() )
+    {
+        outError = "setReplayPredictionHorizonSeconds must be a number";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
+    outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
+    return true;
+}
+
+bool ParseBeginReplayVisualFidelityCaptureAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                                  std::string& outError )
+{
+
+    if ( !IsBoolValue( entry["beginReplayVisualFidelityCapture"] ) ||
+         !ReadBool( entry["beginReplayVisualFidelityCapture"] ) )
+    {
+        outError = "beginReplayVisualFidelityCapture must be true";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture;
+    outAction.boolValue = true;
+    return true;
+}
+
+bool ParseSetReplayPathTargetAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["setReplayPathTarget"].is_string() )
+    {
+        outError = "setReplayPathTarget must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
+    CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
+    return true;
+}
+
+bool ParseSetReplayInterceptTargetAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                          std::string& outError )
+{
+
+    if ( !entry["setReplayInterceptTarget"].is_string() )
+    {
+        outError = "setReplayInterceptTarget must be a string";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetReplayInterceptTarget;
+    CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayInterceptTarget"].get<std::string>() );
+    return true;
+}
+
+bool ParseSetReplayTripPlannerCommandAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                             std::string& outError )
+{
+
+    if ( !entry["setReplayTripPlannerCommand"].is_string() )
+    {
+        outError = "setReplayTripPlannerCommand must be a string";
+        return false;
+    }
+
+    const std::string command = entry["setReplayTripPlannerCommand"].get<std::string>();
+    outAction.type = RunInteractionAutomationActionType::SetReplayTripPlannerCommand;
+    outAction.tripPlannerCommand = command == "toggle"     ? ReplayTripPlannerCommandKind::TogglePanel
+                                   : command == "decrease" ? ReplayTripPlannerCommandKind::DecreaseTimeOfFlight
+                                   : command == "increase" ? ReplayTripPlannerCommandKind::IncreaseTimeOfFlight
+                                   : command == "tof"      ? ReplayTripPlannerCommandKind::SetTimeOfFlight
+                                   : command == "plan"     ? ReplayTripPlannerCommandKind::Plan
+                                   : command == "commit"   ? ReplayTripPlannerCommandKind::Commit
+                                   : command == "cancel"   ? ReplayTripPlannerCommandKind::Cancel
+                                                           : ReplayTripPlannerCommandKind::None;
+
+    if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::None )
+    {
+        outError = "unknown setReplayTripPlannerCommand value: " + command;
+        return false;
+    }
+
+    if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::SetTimeOfFlight )
+    {
+
+        if ( !entry.contains( "timeOfFlightSeconds" ) || !entry["timeOfFlightSeconds"].is_number() )
+        {
+            outError = "trip planner tof command requires numeric timeOfFlightSeconds";
+            return false;
+        }
+
+        outAction.numberValue = entry["timeOfFlightSeconds"].get<float>();
+    }
+
+    CopyText( outAction.text, sizeof( outAction.text ), command );
+    return true;
+}
+
+bool ParseNudgeReplayPathTargetVelocityAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                               std::string& outError )
+{
+    outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
+
+    if ( !ReadAutomationVec3( entry["nudgeReplayPathTargetVelocity"], outAction.vectorValue ) )
+    {
+        outError = "nudgeReplayPathTargetVelocity must be a 3-number array";
+        return false;
+    }
+
+    CopyText( outAction.text, sizeof( outAction.text ), "path-target" );
+    return true;
+}
+
+bool ParseShowReplayScrubberAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !IsBoolValue( entry["showReplayScrubber"] ) )
+    {
+        outError = "showReplayScrubber must be a boolean value";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ShowReplayScrubber;
+    outAction.boolValue = ReadBool( entry["showReplayScrubber"] );
+    return true;
+}
+
+bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
+    {
+        outError = "pressKey requires a string key and optional boolean control";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::PressKey;
+    const std::string keyName = entry["pressKey"].get<std::string>();
+
+    if ( !TryParseVirtualKey( keyName, outAction.keyVirtualKey ) )
+    {
+        outError = "unknown pressKey value: " + keyName;
+        return false;
+    }
+
+    CopyText( outAction.text, sizeof( outAction.text ), keyName );
+    outAction.boolValue = entry.value( "control", false );
+    return true;
+}
+
+bool ParseCaptureEditorSelectionStateAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                             std::string& outError )
+{
+
+    if ( !entry["captureEditorSelectionState"].is_number_integer() )
+    {
+        outError = "captureEditorSelectionState must be an integer slot";
+        return false;
+    }
+
+    const int slot = entry["captureEditorSelectionState"].get<int>();
+
+    if ( slot < 0 || slot >= 2 )
+    {
+        outError = "captureEditorSelectionState slot must be 0 or 1";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::CaptureEditorSelectionState;
+    outAction.numberValue = static_cast<float>( slot );
+    return true;
+}
+
+bool ParseLoadSceneAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["loadScene"].is_string() )
+    {
+        outError = "loadScene must be a scene-browser path";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::LoadScene;
+    CopyText( outAction.path, sizeof( outAction.path ), entry["loadScene"].get<std::string>() );
+    return true;
+}
+
+bool ParseSetDevelopmentUiSurfaceAction( const Json& entry, RunInteractionAutomationAction& outAction,
+                                         std::string& outError )
+{
+
+    if ( !entry["setDevelopmentUiSurface"].is_string() )
+    {
+        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        return false;
+    }
+
+    const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
+
+    if ( surface != "legacy" && surface != "imgui" )
+    {
+        outError = "setDevelopmentUiSurface must be legacy or imgui";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetDevelopmentUiSurface;
+    CopyText( outAction.text, sizeof( outAction.text ), surface );
+    return true;
+}
+
+bool ParseSetImGuiPanelVisibleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& panel = entry["setImGuiPanelVisible"];
+
+    if ( !panel.is_object() || !panel.contains( "panel" ) || !panel["panel"].is_string() || !panel.contains( "visible" ) ||
+         !IsBoolValue( panel["visible"] ) )
+    {
+        outError = "setImGuiPanelVisible requires string panel and boolean visible";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetImGuiPanelVisible;
+    CopyText( outAction.text, sizeof( outAction.text ), panel["panel"].get<std::string>() );
+    outAction.boolValue = ReadBool( panel["visible"] );
+    return true;
+}
+
+bool ParseResetImGuiLayoutAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
+    {
+        outError = "resetImGuiLayout must be true";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ResetImGuiLayout;
+    return true;
+}
+
+bool ParseFocusImGuiPanelAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["focusImGuiPanel"].is_string() )
+    {
+        outError = "focusImGuiPanel must be a string panel name";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::FocusImGuiPanel;
+    CopyText( outAction.text, sizeof( outAction.text ), entry["focusImGuiPanel"].get<std::string>() );
+    return true;
+}
+
+bool ParseSetImGuiDpiScaleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["setImGuiDpiScale"].is_number() )
+    {
+        outError = "setImGuiDpiScale must be a number";
+        return false;
+    }
+
+    const float dpiScale = entry["setImGuiDpiScale"].get<float>();
+
+    if ( !std::isfinite( dpiScale ) || dpiScale < 0.75f || dpiScale > 4.0f )
+    {
+        outError = "setImGuiDpiScale must be within 0.75..4.0";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::SetImGuiDpiScale;
+    outAction.numberValue = dpiScale;
+    return true;
+}
+
+bool ParseResizeWindowAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& size = entry["resizeWindow"];
+
+    if ( !size.is_array() || size.size() != 2 || !size[0].is_number_integer() || !size[1].is_number_integer() )
+    {
+        outError = "resizeWindow must be a 2-integer client-size array";
+        return false;
+    }
+
+    const int width = size[0].get<int>();
+    const int height = size[1].get<int>();
+
+    if ( width < 1024 || width > 7680 || height < 640 || height > 4320 )
+    {
+        outError = "resizeWindow client size must be within 1024x640..7680x4320";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::ResizeWindow;
+    outAction.mouse = { width, height };
+
+    return true;
+}
+
+bool ParseScreenshotAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( !entry["screenshot"].is_string() )
+    {
+        outError = "screenshot must be a string path";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::Screenshot;
+    CopyText( outAction.path, sizeof( outAction.path ), entry["screenshot"].get<std::string>() );
+    return true;
+}
+
+enum class AssertionParseStatus
+{
+    NoMatch,
+    Success,
+    Failure,
+};
+
+AssertionParseStatus ParseBasicAssertion( const std::string& name, const Json& expected,
+                                          RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( name == "selectedObject" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::SelectedObject;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "owner" )
+    {
+        WorldInteractionOwner owner = WorldInteractionOwner::None;
+        const std::string ownerName = expected.get<std::string>();
+
+        if ( !TryParseOwner( ownerName, owner ) )
+        {
+            outError = "unknown owner assertion value: " + ownerName;
+            return AssertionParseStatus::Failure;
+        }
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::Owner;
+        CopyText( outAction.text, sizeof( outAction.text ), ownerName );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "cameraMode" )
+    {
+        RunCameraMode mode = RunCameraMode::Inspect;
+        const std::string modeName = expected.get<std::string>();
+
+        if ( !TryParseCameraMode( modeName, mode ) )
+        {
+            outError = "unknown cameraMode assertion value: " + modeName;
+            return AssertionParseStatus::Failure;
+        }
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::CameraMode;
+        outAction.cameraMode = mode;
+        CopyText( outAction.text, sizeof( outAction.text ), modeName );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "directorGrabbed" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "directorPhaseIndex" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseIndex;
+        outAction.numberValue = static_cast<float>( expected.get<int>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "directorPhaseName" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseName;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "directorPhaseStylePath" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseStylePath;
+        CopyText( outAction.path, sizeof( outAction.path ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    return AssertionParseStatus::NoMatch;
+}
+
+AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected,
+                                           RunInteractionAutomationAction& outAction, std::string& )
+{
+
+    if ( name == "replayPredictionEnabled" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPredictionEnabled;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPathTarget" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayInterceptContact" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptContact;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayInterceptMissMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptMissMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayInterceptEtaMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayInterceptEtaMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerState" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerState;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerIterationMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerMissMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerMissesImprove" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopComplete" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopComplete;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopMinimumDeltaVMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopMinimumDepartureDelayMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopMinimumTimeOfFlightMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopMinimumTimeOfFlightMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopRefreshMillisecondsMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopMaximumFrameMillisecondsMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopSweepAgeSecondsMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSweepAgeSecondsMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPorkchopSelected" )
+    {
+
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSelected;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerTimeOfFlightMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayTripPlannerTimeOfFlightMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPastTrajectoryFullRebuildCountMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPastTrajectoryIncrementalTrimCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayPastTrajectoryPublishedPointCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionPathVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionVelocityPreviewActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionVelocityPreviewAwaitingReplacement" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionVelocityPreviewDeltaMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewDeltaMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionPresentedGenerationMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionPresentedRootVelocityDeltaMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionFullHorizonComplete" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionFullHorizonComplete;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionBuildMode" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBuildMode;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionSupersededRestartCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionSupersededRestartCountMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionBaselineVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBaselineVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionDivergenceMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDivergenceMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replaySolverTrackAtPresent" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionScrubFrameActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionScrubFrameActive;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionTargetDisplacementMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionTargetLastNear" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
+        outAction.vectorValue = Vector3( expected["position"][0].get<float>(), expected["position"][1].get<float>(),
+                                         expected["position"][2].get<float>() );
+
+        outAction.numberValue = expected["tolerance"].get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "liveSolverHashStableAcrossPrediction" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionTrajectoryFingerprintReady" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "predictionAppearanceInvalidationCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    return AssertionParseStatus::NoMatch;
+}
+
+AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json& expected,
+                                            RunInteractionAutomationAction& outAction, std::string& outError )
+{
+
+    if ( name == "shadowPassExecuted" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ShadowPassExecuted;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "terrainShadowValid" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::TerrainShadowValid;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "objectShadowValid" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ObjectShadowValid;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "reflectionPassExecuted" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReflectionPassExecuted;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "gizmoVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "mousePickupActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::MousePickupActive;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "pointerCapture" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::PointerCapture;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "nativeCaptureRequested" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::NativeCaptureRequested;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "cursorVisibleRequested" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::CursorVisibleRequested;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "uiBlocksMouse" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::UiBlocksMouse;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "launcherRayActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::LauncherRayActive;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayActiveTrack" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayActiveTrack;
+        CopyText( outAction.text, sizeof( outAction.text ), expected.get<std::string>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "replayHistoricalSamplePaused" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "memoryOverlayEnabled" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::MemoryOverlayEnabled;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "editorUndoDepth" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::EditorUndoDepth;
+        outAction.numberValue = static_cast<float>( expected.get<int>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "editorRedoDepth" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::EditorRedoDepth;
+        outAction.numberValue = static_cast<float>( expected.get<int>() );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "editorSelectionExists" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionExists;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "editorSelectionHasTerrain" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionHasTerrain;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "editorSelectionMatchesCapture" )
+    {
+        const int slot = expected.get<int>();
+
+        if ( slot < 0 || slot >= 2 )
+        {
+            outError = "editorSelectionMatchesCapture slot must be 0 or 1";
+            return AssertionParseStatus::Failure;
+        }
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture;
+        outAction.numberValue = static_cast<float>( slot );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "developmentUiSurface" )
+    {
+        const std::string surface = expected.get<std::string>();
+
+        if ( surface != "legacy" && surface != "imgui" )
+        {
+            outError = "developmentUiSurface must be legacy or imgui";
+            return AssertionParseStatus::Failure;
+        }
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::DevelopmentUiSurface;
+        CopyText( outAction.text, sizeof( outAction.text ), surface );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiVisible" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiVisible;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "legacyReplayPresentationActive" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiPanelMask" )
+    {
+        const int mask = expected.get<int>();
+
+        if ( mask < 0 || mask > 4095 )
+        {
+            outError = "imguiPanelMask must be within 0..4095";
+            return AssertionParseStatus::Failure;
+        }
+
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPanelMask;
+        outAction.numberValue = static_cast<float>( mask );
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiLayoutResetCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiFocusCountMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiFocusCountMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiDpiScale" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDpiScale;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiDescriptorHighWaterMax" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiViewportRecreationsMin" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin;
+        outAction.numberValue = expected.get<float>();
+
+        return AssertionParseStatus::Success;
+    }
+
+    if ( name == "imguiPreferencesRecovered" )
+    {
+        outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered;
+        outAction.boolValue = ReadBool( expected );
+
+        return AssertionParseStatus::Success;
+    }
+
+    return AssertionParseStatus::NoMatch;
+}
+
+using AssertionParser = AssertionParseStatus ( * )( const std::string&, const Json&, RunInteractionAutomationAction&,
+                                                    std::string& );
+
+// Invariant: each assertion schema has one parser domain, and the table
+// preserves the former basic/replay/runtime matching order before rejection.
+constexpr AssertionParser ASSERTION_PARSERS[] = {
+    ParseBasicAssertion,
+    ParseReplayAssertion,
+    ParseRuntimeAssertion,
+};
+
+bool ParseAssertAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
+{
+    const Json& assertion = entry["assert"];
+
+    if ( !assertion.is_object() || assertion.empty() )
+    {
+        outError = "assert action must contain one assertion field";
+        return false;
+    }
+
+    outAction.type = RunInteractionAutomationActionType::AssertState;
+    const auto member = assertion.begin();
+    const std::string name = member.key();
+    const Json& expected = member.value();
+
+    // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
+    // abort, so the assertion vocabulary is classified before dispatch.
+    const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
+                               name == "directorPhaseName" || name == "directorPhaseStylePath" ||
+                               name == "replayPathTarget" || name == "replayTripPlannerState" ||
+                               name == "predictionBuildMode" || name == "pointerCapture" || name == "replayActiveTrack" ||
+                               name == "developmentUiSurface";
+
+    const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" || name == "editorRedoDepth" ||
+                                name == "editorSelectionMatchesCapture" || name == "imguiPanelMask";
+
+    const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
+                               name == "replayPastTrajectoryIncrementalTrimCountMin" ||
+                               name == "replayPastTrajectoryPublishedPointCountMin" ||
+                               name == "replayTripPlannerIterationMax" || name == "replayTripPlannerMissMax" ||
+                               name == "replayInterceptMissMax" || name == "replayInterceptEtaMin" ||
+                               name == "replayInterceptEtaMax" || name == "replayPorkchopMinimumDeltaVMax" ||
+                               name == "replayPorkchopMinimumDepartureDelayMax" ||
+                               name == "replayPorkchopMinimumTimeOfFlightMin" ||
+                               name == "replayPorkchopMinimumTimeOfFlightMax" ||
+                               name == "replayPorkchopRefreshMillisecondsMax" ||
+                               name == "replayTripPlannerTimeOfFlightMin" || name == "replayTripPlannerTimeOfFlightMax" ||
+                               name == "predictionSupersededRestartCountMin" ||
+                               name == "predictionSupersededRestartCountMax" ||
+                               name == "predictionVelocityPreviewDeltaMin" || name == "predictionPresentedGenerationMin" ||
+                               name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
+                               name == "predictionTargetDisplacementMin" ||
+                               name == "predictionAppearanceInvalidationCountMin" || name == "imguiLayoutResetCountMin" ||
+                               name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
+                               name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
+
+    const bool expectsBool = name == "directorGrabbed" || name == "replayPredictionEnabled" ||
+                             name == "predictionPathVisible" || name == "predictionFullHorizonComplete" ||
+                             name == "predictionVelocityPreviewActive" ||
+                             name == "predictionVelocityPreviewAwaitingReplacement" || name == "predictionBaselineVisible" ||
+                             name == "replayInterceptContact" || name == "replayTripPlannerMissesImprove" ||
+                             name == "replayPorkchopComplete" || name == "replayPorkchopSelected" ||
+                             name == "replaySolverTrackAtPresent" || name == "predictionScrubFrameActive" ||
+                             name == "liveSolverHashStableAcrossPrediction" ||
+                             name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
+                             name == "terrainShadowValid" || name == "objectShadowValid" ||
+                             name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
+                             name == "nativeCaptureRequested" || name == "cursorVisibleRequested" ||
+                             name == "uiBlocksMouse" || name == "launcherRayActive" ||
+                             name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
+                             name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
+                             name == "imguiVisible" || name == "legacyReplayPresentationActive" ||
+                             name == "imguiPreferencesRecovered";
+
+    const bool expectsPositionTolerance = name == "predictionTargetLastNear";
+    const bool positionToleranceValid = !expectsPositionTolerance ||
+                                        ( expected.is_object() && expected.contains( "position" ) &&
+                                          expected["position"].is_array() && expected["position"].size() == 3u &&
+                                          expected["position"][0].is_number() && expected["position"][1].is_number() &&
+                                          expected["position"][2].is_number() && expected.contains( "tolerance" ) &&
+                                          expected["tolerance"].is_number() && expected["tolerance"].get<float>() > 0.0f );
+
+    if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
+         ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) ||
+         !positionToleranceValid )
+    {
+        outError = "assertion field has the wrong value type: " + name;
+        return false;
+    }
+
+    for ( AssertionParser parser : ASSERTION_PARSERS )
+    {
+        const AssertionParseStatus status = parser( name, expected, outAction, outError );
+
+        if ( status != AssertionParseStatus::NoMatch )
+        {
+            return status == AssertionParseStatus::Success;
+        }
+    }
+
+    outError = "unknown assertion field: " + name;
+    return false;
+}
+
+using InteractionActionParser = bool ( * )( const Json&, RunInteractionAutomationAction&, std::string& );
+
+// Invariant: table order preserves the legacy first-key-wins contract when
+// an invalid script object contains more than one recognized action field.
+constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PARSERS[] = {
+    { "setCameraMode", ParseSetCameraModeAction },
+    { "loadShotList", ParseLoadShotListAction },
+    { "directorPlay", ParseDirectorPlayAction },
+    { "directorAdvance", ParseDirectorAdvanceAction },
+    { "directorGrab", ParseDirectorGrabAction },
+    { "directorRelease", ParseDirectorReleaseAction },
+    { "setPhaseStyle", ParseSetPhaseStyleAction },
+    { "setCameraPose", ParseSetCameraPoseAction },
+    { "clickObject", ParseClickObjectAction },
+    { "clickPoint", ParseClickPointAction },
+    { "loseFocus", ParseLoseFocusAction },
+    { "moveMouse", ParseMoveMouseAction },
+    { "clickReplayControl", ParseClickReplayControlAction },
+    { "scrubReplaySolverTrack", ParseScrubReplaySolverTrackAction },
+    { "scrubEditorReplayTrack", ParseScrubEditorReplayTrackAction },
+    { "setReplayPredictionEnabled", ParseSetReplayPredictionEnabledAction },
+    { "setReplayPredictionHorizonSeconds", ParseSetReplayPredictionHorizonSecondsAction },
+    { "beginReplayVisualFidelityCapture", ParseBeginReplayVisualFidelityCaptureAction },
+    { "setReplayPathTarget", ParseSetReplayPathTargetAction },
+    { "setReplayInterceptTarget", ParseSetReplayInterceptTargetAction },
+    { "setReplayTripPlannerCommand", ParseSetReplayTripPlannerCommandAction },
+    { "nudgeReplayPathTargetVelocity", ParseNudgeReplayPathTargetVelocityAction },
+    { "showReplayScrubber", ParseShowReplayScrubberAction },
+    { "pressKey", ParsePressKeyAction },
+    { "captureEditorSelectionState", ParseCaptureEditorSelectionStateAction },
+    { "loadScene", ParseLoadSceneAction },
+    { "setDevelopmentUiSurface", ParseSetDevelopmentUiSurfaceAction },
+    { "setImGuiPanelVisible", ParseSetImGuiPanelVisibleAction },
+    { "resetImGuiLayout", ParseResetImGuiLayoutAction },
+    { "focusImGuiPanel", ParseFocusImGuiPanelAction },
+    { "setImGuiDpiScale", ParseSetImGuiDpiScaleAction },
+    { "resizeWindow", ParseResizeWindowAction },
+    { "screenshot", ParseScreenshotAction },
+    { "assert", ParseAssertAction },
+};
+
 bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
 
@@ -1368,1088 +2779,14 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return false;
     }
 
-    if ( entry.contains( "setCameraMode" ) )
+
+    for ( const auto& [field, parser] : INTERACTION_ACTION_PARSERS )
     {
 
-        if ( !entry["setCameraMode"].is_string() )
+        if ( entry.contains( field ) )
         {
-            outError = "setCameraMode must be a string";
-            return false;
+            return parser( entry, outAction, outError );
         }
-
-        outAction.type = RunInteractionAutomationActionType::SetCameraMode;
-        const std::string modeName = entry["setCameraMode"].get<std::string>();
-
-        if ( !TryParseCameraMode( modeName, outAction.cameraMode ) )
-        {
-            outError = "unknown setCameraMode value: " + modeName;
-            return false;
-        }
-
-        CopyText( outAction.text, sizeof( outAction.text ), modeName );
-        return true;
-    }
-
-    if ( entry.contains( "loadShotList" ) )
-    {
-
-        if ( !entry["loadShotList"].is_string() )
-        {
-            outError = "loadShotList must be a string";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::LoadShotList;
-        CopyText( outAction.path, sizeof( outAction.path ), entry["loadShotList"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "directorPlay" ) )
-    {
-
-        if ( !IsBoolValue( entry["directorPlay"] ) )
-        {
-            outError = "directorPlay must be a boolean value";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::DirectorPlay;
-        outAction.boolValue = ReadBool( entry["directorPlay"] );
-        CopyText( outAction.text, sizeof( outAction.text ), outAction.boolValue ? "Director" : "Inspect" );
-        return true;
-    }
-
-    if ( entry.contains( "directorAdvance" ) )
-    {
-        outAction.type = RunInteractionAutomationActionType::DirectorAdvance;
-        return true;
-    }
-
-    if ( entry.contains( "directorGrab" ) )
-    {
-        outAction.type = RunInteractionAutomationActionType::DirectorGrab;
-        return true;
-    }
-
-    if ( entry.contains( "directorRelease" ) )
-    {
-        outAction.type = RunInteractionAutomationActionType::DirectorRelease;
-        return true;
-    }
-
-    if ( entry.contains( "setPhaseStyle" ) )
-    {
-
-        if ( !entry["setPhaseStyle"].is_string() )
-        {
-            outError = "setPhaseStyle must be a string";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetPhaseStyle;
-        CopyText( outAction.path, sizeof( outAction.path ), entry["setPhaseStyle"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "setCameraPose" ) )
-    {
-        outAction.type = RunInteractionAutomationActionType::SetCameraPose;
-        return ReadAutomationCameraPose( entry["setCameraPose"], outAction.cameraPose, outError );
-    }
-
-    if ( entry.contains( "clickObject" ) )
-    {
-
-        if ( !entry["clickObject"].is_string() || ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
-             ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
-        {
-            outError = "clickObject requires a string target, optional string button, and optional integer holdFrames";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ClickObject;
-        CopyText( outAction.text, sizeof( outAction.text ), entry["clickObject"].get<std::string>() );
-
-        if ( entry.contains( "button" ) )
-        {
-            const std::string button = entry["button"].get<std::string>();
-            outAction.button = button == "right" ? RunInteractionAutomationButton::Right
-                                                 : RunInteractionAutomationButton::Left;
-        }
-
-        if ( entry.contains( "holdFrames" ) )
-        {
-            outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
-        }
-
-        return true;
-    }
-
-    if ( entry.contains( "clickPoint" ) )
-    {
-        const Json& point = entry["clickPoint"];
-
-        if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() ||
-             ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
-             ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
-        {
-            outError = "clickPoint must be a 2-integer array";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ClickPoint;
-        outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
-        outAction.hasMouse = true;
-
-        if ( entry.contains( "button" ) )
-        {
-            const std::string button = entry["button"].get<std::string>();
-            outAction.button = button == "right" ? RunInteractionAutomationButton::Right
-                                                 : RunInteractionAutomationButton::Left;
-        }
-
-        if ( entry.contains( "holdFrames" ) )
-        {
-            outAction.holdFrames = (std::max)( 1, entry["holdFrames"].get<int>() );
-        }
-
-        return true;
-    }
-
-    if ( entry.contains( "loseFocus" ) )
-    {
-
-        if ( !entry["loseFocus"].is_number_integer() )
-        {
-            outError = "loseFocus must be an integer frame count";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::LoseFocus;
-        outAction.holdFrames = (std::max)( 1, entry["loseFocus"].get<int>() );
-        return true;
-    }
-
-    if ( entry.contains( "moveMouse" ) )
-    {
-        const Json& point = entry["moveMouse"];
-
-        if ( !point.is_array() || point.size() != 2 || !point[0].is_number_integer() || !point[1].is_number_integer() )
-        {
-            outError = "moveMouse must be a 2-integer array";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::MoveMouse;
-        outAction.mouse = { point[0].get<long>(), point[1].get<long>() };
-
-        outAction.hasMouse = true;
-        return true;
-    }
-
-    if ( entry.contains( "clickReplayControl" ) )
-    {
-
-        if ( !entry["clickReplayControl"].is_string() )
-        {
-            outError = "clickReplayControl must be a string";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ClickReplayControl;
-        CopyText( outAction.text, sizeof( outAction.text ), entry["clickReplayControl"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "scrubReplaySolverTrack" ) )
-    {
-
-        if ( !entry["scrubReplaySolverTrack"].is_number() )
-        {
-            outError = "scrubReplaySolverTrack must be a number";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ScrubReplaySolverTrack;
-        outAction.numberValue = std::clamp( entry["scrubReplaySolverTrack"].get<float>(), 0.0f, 1.0f );
-        CopyText( outAction.text, sizeof( outAction.text ), "solver" );
-        return true;
-    }
-
-    if ( entry.contains( "scrubEditorReplayTrack" ) )
-    {
-
-        if ( !entry["scrubEditorReplayTrack"].is_number() )
-        {
-            outError = "scrubEditorReplayTrack must be a normalized number";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ScrubEditorReplayTrack;
-        outAction.numberValue = std::clamp( entry["scrubEditorReplayTrack"].get<float>(), 0.0f, 1.0f );
-        return true;
-    }
-
-    if ( entry.contains( "setReplayPredictionEnabled" ) )
-    {
-
-        if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
-        {
-            outError = "setReplayPredictionEnabled must be a boolean value";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetReplayPredictionEnabled;
-        outAction.boolValue = ReadBool( entry["setReplayPredictionEnabled"] );
-        return true;
-    }
-
-    if ( entry.contains( "setReplayPredictionHorizonSeconds" ) )
-    {
-
-        if ( !entry["setReplayPredictionHorizonSeconds"].is_number() )
-        {
-            outError = "setReplayPredictionHorizonSeconds must be a number";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds;
-        outAction.numberValue = entry["setReplayPredictionHorizonSeconds"].get<float>();
-        return true;
-    }
-
-    if ( entry.contains( "beginReplayVisualFidelityCapture" ) )
-    {
-
-        if ( !IsBoolValue( entry["beginReplayVisualFidelityCapture"] ) ||
-             !ReadBool( entry["beginReplayVisualFidelityCapture"] ) )
-        {
-            outError = "beginReplayVisualFidelityCapture must be true";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::BeginReplayVisualFidelityCapture;
-        outAction.boolValue = true;
-        return true;
-    }
-
-    if ( entry.contains( "setReplayPathTarget" ) )
-    {
-
-        if ( !entry["setReplayPathTarget"].is_string() )
-        {
-            outError = "setReplayPathTarget must be a string";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetReplayPathTarget;
-        CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayPathTarget"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "setReplayInterceptTarget" ) )
-    {
-
-        if ( !entry["setReplayInterceptTarget"].is_string() )
-        {
-            outError = "setReplayInterceptTarget must be a string";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetReplayInterceptTarget;
-        CopyText( outAction.text, sizeof( outAction.text ), entry["setReplayInterceptTarget"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "setReplayTripPlannerCommand" ) )
-    {
-
-        if ( !entry["setReplayTripPlannerCommand"].is_string() )
-        {
-            outError = "setReplayTripPlannerCommand must be a string";
-            return false;
-        }
-
-        const std::string command = entry["setReplayTripPlannerCommand"].get<std::string>();
-        outAction.type = RunInteractionAutomationActionType::SetReplayTripPlannerCommand;
-        outAction.tripPlannerCommand = command == "toggle"     ? ReplayTripPlannerCommandKind::TogglePanel
-                                       : command == "decrease" ? ReplayTripPlannerCommandKind::DecreaseTimeOfFlight
-                                       : command == "increase" ? ReplayTripPlannerCommandKind::IncreaseTimeOfFlight
-                                       : command == "tof"      ? ReplayTripPlannerCommandKind::SetTimeOfFlight
-                                       : command == "plan"     ? ReplayTripPlannerCommandKind::Plan
-                                       : command == "commit"   ? ReplayTripPlannerCommandKind::Commit
-                                       : command == "cancel"   ? ReplayTripPlannerCommandKind::Cancel
-                                                               : ReplayTripPlannerCommandKind::None;
-
-        if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::None )
-        {
-            outError = "unknown setReplayTripPlannerCommand value: " + command;
-            return false;
-        }
-
-        if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::SetTimeOfFlight )
-        {
-
-            if ( !entry.contains( "timeOfFlightSeconds" ) || !entry["timeOfFlightSeconds"].is_number() )
-            {
-                outError = "trip planner tof command requires numeric timeOfFlightSeconds";
-                return false;
-            }
-
-            outAction.numberValue = entry["timeOfFlightSeconds"].get<float>();
-        }
-
-        CopyText( outAction.text, sizeof( outAction.text ), command );
-        return true;
-    }
-
-    if ( entry.contains( "nudgeReplayPathTargetVelocity" ) )
-    {
-        outAction.type = RunInteractionAutomationActionType::NudgeReplayPathTargetVelocity;
-
-        if ( !ReadAutomationVec3( entry["nudgeReplayPathTargetVelocity"], outAction.vectorValue ) )
-        {
-            outError = "nudgeReplayPathTargetVelocity must be a 3-number array";
-            return false;
-        }
-
-        CopyText( outAction.text, sizeof( outAction.text ), "path-target" );
-        return true;
-    }
-
-    if ( entry.contains( "showReplayScrubber" ) )
-    {
-
-        if ( !IsBoolValue( entry["showReplayScrubber"] ) )
-        {
-            outError = "showReplayScrubber must be a boolean value";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ShowReplayScrubber;
-        outAction.boolValue = ReadBool( entry["showReplayScrubber"] );
-        return true;
-    }
-
-    if ( entry.contains( "pressKey" ) )
-    {
-
-        if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
-        {
-            outError = "pressKey requires a string key and optional boolean control";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::PressKey;
-        const std::string keyName = entry["pressKey"].get<std::string>();
-
-        if ( !TryParseVirtualKey( keyName, outAction.keyVirtualKey ) )
-        {
-            outError = "unknown pressKey value: " + keyName;
-            return false;
-        }
-
-        CopyText( outAction.text, sizeof( outAction.text ), keyName );
-        outAction.boolValue = entry.value( "control", false );
-        return true;
-    }
-
-    if ( entry.contains( "captureEditorSelectionState" ) )
-    {
-
-        if ( !entry["captureEditorSelectionState"].is_number_integer() )
-        {
-            outError = "captureEditorSelectionState must be an integer slot";
-            return false;
-        }
-
-        const int slot = entry["captureEditorSelectionState"].get<int>();
-
-        if ( slot < 0 || slot >= 2 )
-        {
-            outError = "captureEditorSelectionState slot must be 0 or 1";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::CaptureEditorSelectionState;
-        outAction.numberValue = static_cast<float>( slot );
-        return true;
-    }
-
-    if ( entry.contains( "loadScene" ) )
-    {
-
-        if ( !entry["loadScene"].is_string() )
-        {
-            outError = "loadScene must be a scene-browser path";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::LoadScene;
-        CopyText( outAction.path, sizeof( outAction.path ), entry["loadScene"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "setDevelopmentUiSurface" ) )
-    {
-
-        if ( !entry["setDevelopmentUiSurface"].is_string() )
-        {
-            outError = "setDevelopmentUiSurface must be legacy or imgui";
-            return false;
-        }
-
-        const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
-
-        if ( surface != "legacy" && surface != "imgui" )
-        {
-            outError = "setDevelopmentUiSurface must be legacy or imgui";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetDevelopmentUiSurface;
-        CopyText( outAction.text, sizeof( outAction.text ), surface );
-        return true;
-    }
-
-    if ( entry.contains( "setImGuiPanelVisible" ) )
-    {
-        const Json& panel = entry["setImGuiPanelVisible"];
-
-        if ( !panel.is_object() || !panel.contains( "panel" ) || !panel["panel"].is_string() ||
-             !panel.contains( "visible" ) || !IsBoolValue( panel["visible"] ) )
-        {
-            outError = "setImGuiPanelVisible requires string panel and boolean visible";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetImGuiPanelVisible;
-        CopyText( outAction.text, sizeof( outAction.text ), panel["panel"].get<std::string>() );
-        outAction.boolValue = ReadBool( panel["visible"] );
-        return true;
-    }
-
-    if ( entry.contains( "resetImGuiLayout" ) )
-    {
-
-        if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
-        {
-            outError = "resetImGuiLayout must be true";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ResetImGuiLayout;
-        return true;
-    }
-
-    if ( entry.contains( "focusImGuiPanel" ) )
-    {
-
-        if ( !entry["focusImGuiPanel"].is_string() )
-        {
-            outError = "focusImGuiPanel must be a string panel name";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::FocusImGuiPanel;
-        CopyText( outAction.text, sizeof( outAction.text ), entry["focusImGuiPanel"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "setImGuiDpiScale" ) )
-    {
-
-        if ( !entry["setImGuiDpiScale"].is_number() )
-        {
-            outError = "setImGuiDpiScale must be a number";
-            return false;
-        }
-
-        const float dpiScale = entry["setImGuiDpiScale"].get<float>();
-
-        if ( !std::isfinite( dpiScale ) || dpiScale < 0.75f || dpiScale > 4.0f )
-        {
-            outError = "setImGuiDpiScale must be within 0.75..4.0";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::SetImGuiDpiScale;
-        outAction.numberValue = dpiScale;
-        return true;
-    }
-
-    if ( entry.contains( "resizeWindow" ) )
-    {
-        const Json& size = entry["resizeWindow"];
-
-        if ( !size.is_array() || size.size() != 2 || !size[0].is_number_integer() || !size[1].is_number_integer() )
-        {
-            outError = "resizeWindow must be a 2-integer client-size array";
-            return false;
-        }
-
-        const int width = size[0].get<int>();
-        const int height = size[1].get<int>();
-
-        if ( width < 1024 || width > 7680 || height < 640 || height > 4320 )
-        {
-            outError = "resizeWindow client size must be within 1024x640..7680x4320";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::ResizeWindow;
-        outAction.mouse = { width, height };
-
-        return true;
-    }
-
-    if ( entry.contains( "screenshot" ) )
-    {
-
-        if ( !entry["screenshot"].is_string() )
-        {
-            outError = "screenshot must be a string path";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::Screenshot;
-        CopyText( outAction.path, sizeof( outAction.path ), entry["screenshot"].get<std::string>() );
-        return true;
-    }
-
-    if ( entry.contains( "assert" ) )
-    {
-        const Json& assertion = entry["assert"];
-
-        if ( !assertion.is_object() || assertion.empty() )
-        {
-            outError = "assert action must contain one assertion field";
-            return false;
-        }
-
-        outAction.type = RunInteractionAutomationActionType::AssertState;
-        const auto member = assertion.begin();
-        const std::string name = member.key();
-        const Json& expected = member.value();
-
-        // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
-        // abort, so the assertion vocabulary is classified before dispatch.
-        const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
-                                   name == "directorPhaseName" || name == "directorPhaseStylePath" ||
-                                   name == "replayPathTarget" || name == "replayTripPlannerState" ||
-                                   name == "predictionBuildMode" || name == "pointerCapture" ||
-                                   name == "replayActiveTrack" || name == "developmentUiSurface";
-
-        const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" || name == "editorRedoDepth" ||
-                                    name == "editorSelectionMatchesCapture" || name == "imguiPanelMask";
-
-        const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
-                                   name == "replayPastTrajectoryIncrementalTrimCountMin" ||
-                                   name == "replayPastTrajectoryPublishedPointCountMin" ||
-                                   name == "replayTripPlannerIterationMax" || name == "replayTripPlannerMissMax" ||
-                                   name == "replayInterceptMissMax" || name == "replayInterceptEtaMin" ||
-                                   name == "replayInterceptEtaMax" || name == "replayPorkchopMinimumDeltaVMax" ||
-                                   name == "replayPorkchopMinimumDepartureDelayMax" ||
-                                   name == "replayPorkchopMinimumTimeOfFlightMin" ||
-                                   name == "replayPorkchopMinimumTimeOfFlightMax" ||
-                                   name == "replayPorkchopRefreshMillisecondsMax" ||
-                                   name == "replayTripPlannerTimeOfFlightMin" ||
-                                   name == "replayTripPlannerTimeOfFlightMax" ||
-                                   name == "predictionSupersededRestartCountMin" ||
-                                   name == "predictionSupersededRestartCountMax" ||
-                                   name == "predictionVelocityPreviewDeltaMin" ||
-                                   name == "predictionPresentedGenerationMin" ||
-                                   name == "predictionPresentedRootVelocityDeltaMin" || name == "predictionDivergenceMin" ||
-                                   name == "predictionTargetDisplacementMin" ||
-                                   name == "predictionAppearanceInvalidationCountMin" ||
-                                   name == "imguiLayoutResetCountMin" || name == "imguiFocusCountMin" ||
-                                   name == "imguiDpiScale" || name == "imguiDescriptorHighWaterMax" ||
-                                   name == "imguiViewportRecreationsMin";
-
-        const bool expectsBool = name == "directorGrabbed" || name == "replayPredictionEnabled" ||
-                                 name == "predictionPathVisible" || name == "predictionFullHorizonComplete" ||
-                                 name == "predictionVelocityPreviewActive" ||
-                                 name == "predictionVelocityPreviewAwaitingReplacement" ||
-                                 name == "predictionBaselineVisible" || name == "replayInterceptContact" ||
-                                 name == "replayTripPlannerMissesImprove" || name == "replayPorkchopComplete" ||
-                                 name == "replayPorkchopSelected" || name == "replaySolverTrackAtPresent" ||
-                                 name == "predictionScrubFrameActive" || name == "liveSolverHashStableAcrossPrediction" ||
-                                 name == "predictionTrajectoryFingerprintReady" || name == "shadowPassExecuted" ||
-                                 name == "terrainShadowValid" || name == "objectShadowValid" ||
-                                 name == "reflectionPassExecuted" || name == "gizmoVisible" || name == "mousePickupActive" ||
-                                 name == "nativeCaptureRequested" || name == "cursorVisibleRequested" ||
-                                 name == "uiBlocksMouse" || name == "launcherRayActive" ||
-                                 name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
-                                 name == "editorSelectionExists" || name == "editorSelectionHasTerrain" ||
-                                 name == "imguiVisible" || name == "legacyReplayPresentationActive" ||
-                                 name == "imguiPreferencesRecovered";
-
-        const bool expectsPositionTolerance = name == "predictionTargetLastNear";
-        const bool positionToleranceValid = !expectsPositionTolerance ||
-                                            ( expected.is_object() && expected.contains( "position" ) &&
-                                              expected["position"].is_array() && expected["position"].size() == 3u &&
-                                              expected["position"][0].is_number() && expected["position"][1].is_number() &&
-                                              expected["position"][2].is_number() && expected.contains( "tolerance" ) &&
-                                              expected["tolerance"].is_number() &&
-                                              expected["tolerance"].get<float>() > 0.0f );
-
-        if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
-             ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) ||
-             !positionToleranceValid )
-        {
-            outError = "assertion field has the wrong value type: " + name;
-            return false;
-        }
-
-        if ( name == "selectedObject" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::SelectedObject;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "owner" )
-        {
-            WorldInteractionOwner owner = WorldInteractionOwner::None;
-            const std::string ownerName = member.value().get<std::string>();
-
-            if ( !TryParseOwner( ownerName, owner ) )
-            {
-                outError = "unknown owner assertion value: " + ownerName;
-                return false;
-            }
-
-            outAction.assertKind = RunInteractionAutomationAssertKind::Owner;
-            CopyText( outAction.text, sizeof( outAction.text ), ownerName );
-        }
-        else if ( name == "cameraMode" )
-        {
-            RunCameraMode mode = RunCameraMode::Inspect;
-            const std::string modeName = member.value().get<std::string>();
-
-            if ( !TryParseCameraMode( modeName, mode ) )
-            {
-                outError = "unknown cameraMode assertion value: " + modeName;
-                return false;
-            }
-
-            outAction.assertKind = RunInteractionAutomationAssertKind::CameraMode;
-            outAction.cameraMode = mode;
-            CopyText( outAction.text, sizeof( outAction.text ), modeName );
-        }
-        else if ( name == "directorGrabbed" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorGrabbed;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "directorPhaseIndex" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseIndex;
-            outAction.numberValue = static_cast<float>( member.value().get<int>() );
-        }
-        else if ( name == "directorPhaseName" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseName;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "directorPhaseStylePath" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::DirectorPhaseStylePath;
-            CopyText( outAction.path, sizeof( outAction.path ), member.value().get<std::string>() );
-        }
-        else if ( name == "replayPredictionEnabled" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPredictionEnabled;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayPathTarget" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPathTarget;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "replayInterceptContact" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptContact;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayInterceptMissMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptMissMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayInterceptEtaMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayInterceptEtaMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayInterceptEtaMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayTripPlannerState" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerState;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "replayTripPlannerIterationMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerIterationMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayTripPlannerMissMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayTripPlannerMissesImprove" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerMissesImprove;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayPorkchopComplete" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopComplete;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayPorkchopMinimumDeltaVMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDeltaVMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopMinimumDepartureDelayMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumDepartureDelayMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopMinimumTimeOfFlightMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopMinimumTimeOfFlightMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMinimumTimeOfFlightMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopRefreshMillisecondsMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopRefreshMillisecondsMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopMaximumFrameMillisecondsMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopMaximumFrameMillisecondsMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopSweepAgeSecondsMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSweepAgeSecondsMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPorkchopSelected" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPorkchopSelected;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayTripPlannerTimeOfFlightMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayTripPlannerTimeOfFlightMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayTripPlannerTimeOfFlightMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPastTrajectoryFullRebuildCountMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryFullRebuildCountMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPastTrajectoryIncrementalTrimCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryIncrementalTrimCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replayPastTrajectoryPublishedPointCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPastTrajectoryPublishedPointCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionPathVisible" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionVelocityPreviewActive" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewActive;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionVelocityPreviewAwaitingReplacement" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewAwaitingReplacement;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionVelocityPreviewDeltaMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionVelocityPreviewDeltaMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionPresentedGenerationMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedGenerationMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionPresentedRootVelocityDeltaMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPresentedRootVelocityDeltaMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionFullHorizonComplete" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionFullHorizonComplete;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionBuildMode" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBuildMode;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "predictionSupersededRestartCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionSupersededRestartCountMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionSupersededRestartCountMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionBaselineVisible" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionBaselineVisible;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionDivergenceMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionDivergenceMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "replaySolverTrackAtPresent" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplaySolverTrackAtPresent;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionScrubFrameActive" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionScrubFrameActive;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionTargetDisplacementMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "predictionTargetLastNear" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetLastNear;
-            outAction.vectorValue = Vector3( expected["position"][0].get<float>(), expected["position"][1].get<float>(),
-                                             expected["position"][2].get<float>() );
-
-            outAction.numberValue = expected["tolerance"].get<float>();
-        }
-        else if ( name == "liveSolverHashStableAcrossPrediction" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::LiveSolverHashStableAcrossPrediction;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionTrajectoryFingerprintReady" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTrajectoryFingerprintReady;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "predictionAppearanceInvalidationCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionAppearanceInvalidationCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "shadowPassExecuted" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ShadowPassExecuted;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "terrainShadowValid" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::TerrainShadowValid;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "objectShadowValid" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ObjectShadowValid;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "reflectionPassExecuted" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReflectionPassExecuted;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "gizmoVisible" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "mousePickupActive" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::MousePickupActive;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "pointerCapture" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::PointerCapture;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "nativeCaptureRequested" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::NativeCaptureRequested;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "cursorVisibleRequested" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::CursorVisibleRequested;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "uiBlocksMouse" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::UiBlocksMouse;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "launcherRayActive" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::LauncherRayActive;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "replayActiveTrack" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayActiveTrack;
-            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
-        }
-        else if ( name == "replayHistoricalSamplePaused" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "memoryOverlayEnabled" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::MemoryOverlayEnabled;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "editorUndoDepth" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::EditorUndoDepth;
-            outAction.numberValue = static_cast<float>( member.value().get<int>() );
-        }
-        else if ( name == "editorRedoDepth" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::EditorRedoDepth;
-            outAction.numberValue = static_cast<float>( member.value().get<int>() );
-        }
-        else if ( name == "editorSelectionExists" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionExists;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "editorSelectionHasTerrain" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionHasTerrain;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "editorSelectionMatchesCapture" )
-        {
-            const int slot = member.value().get<int>();
-
-            if ( slot < 0 || slot >= 2 )
-            {
-                outError = "editorSelectionMatchesCapture slot must be 0 or 1";
-                return false;
-            }
-
-            outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture;
-            outAction.numberValue = static_cast<float>( slot );
-        }
-        else if ( name == "developmentUiSurface" )
-        {
-            const std::string surface = member.value().get<std::string>();
-
-            if ( surface != "legacy" && surface != "imgui" )
-            {
-                outError = "developmentUiSurface must be legacy or imgui";
-                return false;
-            }
-
-            outAction.assertKind = RunInteractionAutomationAssertKind::DevelopmentUiSurface;
-            CopyText( outAction.text, sizeof( outAction.text ), surface );
-        }
-        else if ( name == "imguiVisible" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiVisible;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "legacyReplayPresentationActive" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else if ( name == "imguiPanelMask" )
-        {
-            const int mask = member.value().get<int>();
-
-            if ( mask < 0 || mask > 4095 )
-            {
-                outError = "imguiPanelMask must be within 0..4095";
-                return false;
-            }
-
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPanelMask;
-            outAction.numberValue = static_cast<float>( mask );
-        }
-        else if ( name == "imguiLayoutResetCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "imguiFocusCountMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiFocusCountMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "imguiDpiScale" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDpiScale;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "imguiDescriptorHighWaterMax" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "imguiViewportRecreationsMin" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin;
-            outAction.numberValue = member.value().get<float>();
-        }
-        else if ( name == "imguiPreferencesRecovered" )
-        {
-            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered;
-            outAction.boolValue = ReadBool( member.value() );
-        }
-        else
-        {
-            outError = "unknown assertion field: " + name;
-            return false;
-        }
-
-        return true;
     }
 
     outError = "unknown action shape";

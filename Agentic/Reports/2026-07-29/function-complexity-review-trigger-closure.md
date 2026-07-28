@@ -15,7 +15,7 @@ The current tracked first-party tree contains 6,285 recognized function
 definitions. Forty trigger review: 38 carry exact `retain-owner` judgements and
 two carry `repair-plan` judgements. The repair targets are
 `PhysicsContactSolverStage::Solve` and `ParseAction`; both route to the live
-`Agentic/Plans/TODO/contact-solve-phase-ownership.md` plan.
+`Agentic/Reports/2026-07-29/contact-solve-phase-ownership-closure.md` report.
 
 ## Installed Contract
 

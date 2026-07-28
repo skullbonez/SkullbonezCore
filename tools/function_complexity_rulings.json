@@ -33,16 +33,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
-      "signature": "bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )",
-      "body_sha256": "c733ceb83e4c1eb8ce7ac82fdaf93b828cce180b6827c4ece7fd426737ae1fd0",
-      "owner": "Interaction automation action parsing campaign",
-      "disposition": "repair-plan",
-      "reason": "The current dispatch owns many independent action schemas; the named plan replaces the monolithic branch body with per-action-kind parsers and table-driven dispatch.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
-      "plan": "Agentic/Plans/TODO/contact-solve-phase-ownership.md"
-    },
-    {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
       "body_sha256": "9294e1f47989bc6e5343adda9d09c3838d54bc4a41338728a3b706c8f30a1247",

@@ -499,6 +499,6 @@ are `solver_stats` aggregates, per-pair feature-id transition counts via
 - `Agentic/Audits/physics-solver-catto-reference-audit.md` — finding #6, the
   three live friction models.
 - `Agentic/Reference/physics-query-reference.md` — SkullScope workflow.
-- `Agentic/Plans/TODO/contact-solve-phase-ownership.md` — also edits
+- `Agentic/Reports/2026-07-29/contact-solve-phase-ownership-closure.md` — also edits
   `PersistentContactSolver.cpp`; that plan is strictly byte-exact and this one is
   not, so they must not run concurrently.
