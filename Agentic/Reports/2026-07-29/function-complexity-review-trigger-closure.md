@@ -1,8 +1,8 @@
 # Function Complexity Review Trigger Closure
 
-Date: 2026-07-29  
-Branch: `nightrunner-29th-JUL-26`  
-Plan: `function-complexity-review-trigger`  
+Date: 2026-07-29
+Branch: `nightrunner-29th-JUL-26`
+Plan: `function-complexity-review-trigger`
 Final ledger: 3/3 complete; removed from the live denominator under MASTER rule 4
 
 ## Outcome
