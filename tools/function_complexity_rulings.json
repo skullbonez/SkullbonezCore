@@ -14,16 +14,6 @@
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
-      "signature": "void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<uint8_t> terrainRestApplied, std::span<uint8_t> sleepSupportedThisFrame, PhysicsStepDiagnostics& stepDiagnostics, float dt, Core::Profiler* profiler )",
-      "body_sha256": "c44d3174c77be1d4406ecd487115e552cc6d68175602fe256869ba152f57791a",
-      "owner": "Contact solve phase ownership campaign",
-      "disposition": "repair-plan",
-      "reason": "The current body spans distinct order-dependent construction, solve, publication, and cache phases; the named plan installs a phase-cursor transaction and decomposes those authorities.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
-      "plan": "Agentic/Plans/TODO/contact-solve-phase-ownership.md"
-    },
-    {
-      "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )",
       "body_sha256": "862a907df4b1e8c5da01baac05f8ebe206280f2aa321d8d4534b45a3af7b1ba3",
       "owner": "Persistent contact manifold-construction phase",

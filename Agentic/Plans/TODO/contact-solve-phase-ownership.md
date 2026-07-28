@@ -91,7 +91,7 @@ Secondary target, same defect class, far lower stakes:
 - [x] CS2 — Move the row-construction phases (`BodySetup`, `BuildManifolds`,
   `Terrain/Rows`, `Precompute`) behind phase methods, carrying their Catto and
   engine-specific comments with them. Byte-exact required.
-- [ ] CS3 — Move the solve and post-solve phases (`SolveRows`,
+- [x] CS3 — Move the solve and post-solve phases (`SolveRows`,
   `PointSupportInstability`, `Terrain/RestPolicy`, `WriteBack`,
   `PositionCorrection`, `CacheStore`, `FixedContactRelease`, `DebugContacts`)
   behind phase methods. Byte-exact required.
@@ -218,3 +218,33 @@ Permanent census and byte-exact oracle manifest:
   to CS0 at SHA-256
   `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
 - No baseline, golden, allowlist, or committed runtime artifact changed.
+
+## CS3 Evidence
+
+- `SolveRows`, `ApplyPointSupportInstability`, `ApplyTerrainRestPolicy`,
+  `WriteBack`, `PublishDebugContacts`, `CorrectPositions`, `StoreCache`, and
+  `ReleaseFixedContacts` now own their guarded phase bodies. `Solve` is a
+  108-body-line, depth-3 ordered entry/exit sequencer with two no-work exits.
+- Every moved method borrows concrete stores, spans, the stage, or diagnostics
+  only for its synchronous phase call. No context/service bag, capability-slice
+  set, callback pack, retained owner pointer, member-prefixed local, or pure
+  parameter alias was introduced.
+- All eighteen profiler strings in the implementation remain unchanged as a
+  multiset. Catto references and engine-specific policy comments moved with the
+  arithmetic they explain.
+- The ratified 400-body-line / brace-depth-6 complexity gate passes 41/41.
+  `Solve` is below both triggers, so its stale `repair-plan` ruling was removed.
+  The two cohesive CS2 phase rulings remain current; every other transaction
+  method is below both triggers.
+- Focused Profile filters pass: persistent contacts 8 cases / 108 assertions,
+  object manifolds 4 / 345, and determinism 3 / 30,897. Format, aggregate
+  ownership (85/85 ruled), extraction scars (zero findings), and wide
+  signatures at 12+ (all ruled) pass.
+- `tools\validate_physics.bat` and `tools\validate_perf.bat` pass on final
+  source. The preserved 88,802-row, 12,660,434-byte output remains byte-identical
+  to CS0 at SHA-256
+  `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`.
+- The first focused compile found one unused stage borrow on terrain-rest policy;
+  deleting that parameter repaired the local defect, and the unchanged
+  implementation then built with zero warnings. No baseline, golden, allowlist,
+  or committed runtime artifact changed.

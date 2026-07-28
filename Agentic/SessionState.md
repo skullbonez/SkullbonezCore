@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-2 are closed. Plan 3 CS0 owns the exact census/oracle, CS1 installed the guarded transaction, and CS2 moved all four row-construction phases behind it with byte-exact output; CS3 moves solve and post-solve phases next. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 3/30 (10%). Plan 3 CS0-CS2 are complete; plans 3 CS3-CS4 and plans 4-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-2 are closed. Plan 3 CS0 owns the exact census/oracle, CS1 installed the guarded transaction, and CS2-CS3 moved every construction, solve, and post-solve phase behind it with byte-exact output; CS4 closes ParseAction and runs independent ownership review next. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 4/30 (13%). Plan 3 CS0-CS3 are complete; plan 3 CS4 and plans 4-8 remain. |
+| Validation for contact-solve CS3 | The guarded transaction now owns all eight solve/post-solve phase bodies and `Solve` is a 108-body-line, depth-3 sequencer. Focused Profile filters pass 8/108 persistent-contact, 4/345 object-manifold, and 3/30,897 determinism cases/assertions. All eighteen profiler strings remain unchanged. Format and ownership inventories pass: complexity 41/41 at the ratified 400/6 triggers, aggregates 85/85, zero extraction scars, and every 12+ signature ruled. Final `tools\validate_physics.bat` and `tools\validate_perf.bat` pass; the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. The first compile exposed one unused terrain-stage borrow; removing it closed the local defect without changing behavior. |
 | Validation for contact-solve CS2 | The guarded transaction now owns `BodySetup`, `BuildManifolds`, `TerrainRows`, and `Precompute` phase advancement and bodies while retaining no store, span, stage, or diagnostics borrow. Focused Profile build and persistent-contact, object-manifold, and determinism filters pass. Format and ownership inventories pass: complexity 42/42 at the ratified 400/6 triggers, aggregates 85/85, zero extraction scars, and every 12+ signature ruled. Final `tools\validate_physics.bat` and `tools\validate_perf.bat` pass; the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. No baseline, golden, allowlist, or committed runtime artifact changed. |
 | Validation for contact-solve CS1 | The non-copyable stage-retained transaction owns its phase cursor, solver-body working set, inverse-inertia path, and impulse application without retaining caller borrows. The focused exhaustive matrix passes 1 case / 1,602 assertions; format and all four ownership inventories pass, including function complexity at 6,317 recognized definitions and 40/40 current rulings. Final `tools\validate_perf.bat` passes in 157.9 seconds. Final `tools\validate_physics.bat` passes in 28.4 seconds, and the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. Allocation-policy iterations replaced rejected STL-growth spellings with `PhysicsFixedList::ResetDefault`; no allowlist or baseline changed. A short wrapper timeout and one immediate compiler-file collision were non-terminal infrastructure events; the unchanged gate passed after the owned processes drained. Comment audit is 5/5 touched source-bearing files. |
 | Validation for contact-solve CS0 | `tools\validate_physics.bat` passed in 24.4 seconds from the final Debug executable with zero build warnings/errors; both generated 44,401-row runs matched the committed baseline. The preserved ignored two-run artifact has SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. Census evidence records 28/28 closures, all cross-phase state, thirteen exact phase read/write sets, and the authority CS1 must own. A five-second wrapper timeout and its brief DXC DLL lock were recorded as non-terminal infrastructure events; the unchanged gate then passed. No source, baseline, golden, or committed runtime artifact changed. |
@@ -52,9 +53,9 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 3/30 (10%). Plans 1-2 are
-closed and excluded under rule 4. Plan 3 CS0-CS2 are complete; CS3 is the
-binding next item and moves solve and post-solve phases behind the guarded owner.
+The Fresh-Read Engine Review Campaign is active at 4/30 (13%). Plans 1-2 are
+closed and excluded under rule 4. Plan 3 CS0-CS3 are complete; CS4 is the
+binding next item and closes ParseAction plus the independent ownership review.
 Plans 4-8 remain sequenced behind it, with only plans 7 and 8
 authorized to move baselines under their plan-specific owner conditions.
 
@@ -761,9 +762,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 3/30 (10%) with Plan 3
-`Agentic/Plans/TODO/contact-solve-phase-ownership.md`, task CS3. CS0 census and
+Continue the Fresh-Read Engine Review Campaign at 4/30 (13%) with Plan 3
+`Agentic/Plans/TODO/contact-solve-phase-ownership.md`, task CS4. CS0 census and
 oracle evidence is in
-`Agentic/Reports/2026-07-29/contact-solve-cs0-census.md`; CS1-CS2 implementation
-and gate evidence is in the plan. MASTER and SessionState agree on the 3/30
+`Agentic/Reports/2026-07-29/contact-solve-cs0-census.md`; CS1-CS3 implementation
+and gate evidence is in the plan. MASTER and SessionState agree on the 4/30
 live ledger.

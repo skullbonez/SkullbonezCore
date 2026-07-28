@@ -207,10 +207,10 @@ class PersistentContactSolvePhaseCursor
 //   -> CacheStore -> FixedContactRelease -> Complete.
 // - The existing empty-input and empty-row exits may reach Complete only from
 //   EntryPolicySetup and TerrainRows respectively.
-// - Solver-body storage, impulse application, and row-construction phase
-//   advancement have one owner. Construction methods synchronously borrow the
-//   stage only to mutate its retained rows, cache statistics, and consequence
-//   lists; no caller borrow survives a transaction method return.
+// - Solver-body storage, impulse application, and every phase advancement have
+//   one owner. Phase methods synchronously borrow the stage only to mutate its
+//   retained rows, cache statistics, and consequence lists; no caller borrow
+//   survives a transaction method return.
 //   TestRuntimeContracts.cpp proves the complete transition matrix, every
 //   illegal Lane F edge, and non-copyability.
 class PersistentContactSolveTransaction
@@ -223,14 +223,6 @@ class PersistentContactSolveTransaction
     PersistentContactSolveTransaction& operator=( PersistentContactSolveTransaction&& ) = delete;
 
     void BeginEntryPolicySetup();
-    void BeginSolveRows();
-    void BeginPointSupportInstability();
-    void BeginTerrainRestPolicy();
-    void BeginWriteBack();
-    void BeginDebugContacts();
-    void BeginPositionCorrection();
-    void BeginCacheStore();
-    void BeginFixedContactRelease();
     void Complete();
 
     PersistentContactSolvePhaseCursor::Phase Phase() const
@@ -271,6 +263,30 @@ class PersistentContactSolveTransaction
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
+    void SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                    const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity,
+                    Core::Profiler* profiler );
+    void ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore,
+                                       const PersistentContactSolverStepPolicy& stepPolicy,
+                                       std::span<const uint8_t> sleepState, std::span<const uint8_t> sleepSupportedThisFrame,
+                                       int modelCount, float dt, Core::Profiler* profiler );
+    void ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                 const PersistentContactSolverStepPolicy& stepPolicy,
+                                 PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                                 std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount,
+                                 float dt, Core::Profiler* profiler );
+    void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
+                    int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
+    void PublishDebugContacts( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                               PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* profiler );
+    void CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
+                           const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
+                           std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
+    void StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, std::size_t pipelineRecordCapacity,
+                     Core::Profiler* profiler );
+    void ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, int modelCount,
+                               Core::Profiler* profiler );
     void AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase next, const char* operation );
 
     PersistentContactSolvePhaseCursor m_phase;
