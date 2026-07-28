@@ -22,9 +22,8 @@
 #     not a general word census or frozen occurrence budget.
 #   Generated proof: Deterministic Markdown projection whose prefix and exact
 #     file columns preserve the checker's path-matching semantics.
-#   Fixture matrix: Synthetic source/target edges proving every governed
-#     package accepts one allowed edge and rejects every named forbidden edge,
-#     plus source snippets proving every retired literal is detected.
+#   Fixture matrix: Synthetic include, content, project-file, and proof-drift
+#     cases that exercise the same evaluators used by the repository scan.
 #
 # Invariants:
 #   - Rules are qualitative package relationships, never frozen hit counts.
@@ -36,11 +35,13 @@
 #   - Adding package rows or fixtures requires no Python change.
 #   - Generated-proof writes replace one ordered marker pair and preserve every
 #     byte outside it; malformed marker topology fails closed.
+#   - Include scanning is deliberately textual: bounded fixtures pin its macro,
+#     continuation, and local-first search-order limits.
 #
 # Related:
 #   - tools/dependency_graph_rules.json
 #   - AGENTS.md
-#   - Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md
+#   - Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md
 
 from __future__ import annotations
 
@@ -251,11 +252,10 @@ def render_dependency_proof(config: dict) -> str:
         "python tools/check_dependency_graph.py --repo .",
         "```",
         "",
-        "Residual scanner limits: macro-expanded include operands and",
-        "backslash-continued include directives are not parsed. Quoted and",
-        "angle-bracket operands are both recognized, but the textual resolver uses",
-        "one local-first search order rather than reproducing the compiler's",
-        "different quoted-versus-angle search semantics.",
+        "Bounded residual-parser fixtures prove that macro-expanded include operands",
+        "and backslash-continued directives are not parsed. Quoted and angle-bracket",
+        "operands are both recognized, but both use one local-first textual search",
+        "order rather than the compiler's different quoted-versus-angle semantics.",
         PROOF_END_MARKER,
     ]
     return "\n".join(lines)
@@ -333,6 +333,23 @@ def proof_self_test(config: dict) -> list[str]:
         errors.append("generated proof write did not produce a current block")
     if proof_is_current(stale, rendered):
         errors.append("generated proof freshness check accepted stale content")
+
+    current_document = prefix + rendered.encode("utf-8") + suffix
+    drifted_config = json.loads(json.dumps(config))
+    drifted_config["include_rules"][0].setdefault("target_prefixes", []).append(
+        "Runtime/PlantedProofDrift"
+    )
+    drifted_rendered = render_dependency_proof(drifted_config)
+    if drifted_rendered == rendered:
+        errors.append("planted rule-data drift did not change the generated proof")
+    elif proof_is_current(current_document, drifted_rendered):
+        errors.append("generated proof freshness accepted a block from pre-drift rule data")
+
+    escaped_config = json.loads(json.dumps(config))
+    escaped_config["include_rules"][0]["id"] = "pipe|tick`angle<value>&line\nbreak"
+    escaped_rendered = render_dependency_proof(escaped_config)
+    if "pipe&#124;tick&#96;angle&lt;value&gt;&amp;line&#10;break" not in escaped_rendered:
+        errors.append("full proof render did not escape rule-controlled Markdown")
     return errors
 
 
@@ -499,6 +516,186 @@ def scan_project_rules(repo: Path, rules: list[dict]) -> list[Finding]:
     return findings
 
 
+def include_parser_limit_self_test(config: dict) -> list[str]:
+    """Pin the documented boundary of the textual include parser and resolver."""
+    errors: list[str] = []
+    source_root = normalize(config["source_root"])
+    rule = {
+        "id": "residual_include_parser_fixture",
+        "source_prefixes": ["FixtureOwner"],
+        "mode": "deny",
+        "target_prefixes": ["FixtureOwner/Shared"],
+    }
+    fixture_cases = [
+        (
+            "Macro.cpp",
+            '#define DEPENDENCY_FIXTURE_HEADER "Shared/Macro.h"\n'
+            "#include DEPENDENCY_FIXTURE_HEADER\n",
+            "Shared/Macro.h",
+            False,
+        ),
+        (
+            "Continuation.cpp",
+            '#include \\\n    "Shared/Continuation.h"\n',
+            "Shared/Continuation.h",
+            False,
+        ),
+        ("Quoted.cpp", '#include "Shared/Quoted.h"\n', "Shared/Quoted.h", True),
+        ("Angle.cpp", "#include <Shared/Angle.h>\n", "Shared/Angle.h", True),
+    ]
+
+    with tempfile.TemporaryDirectory(prefix="skore_dependency_parser_fixture_") as fixture_dir:
+        repo = Path(fixture_dir)
+        for filename, fixture_text, include, should_parse in fixture_cases:
+            source = f"FixtureOwner/{filename}"
+            tracked_source = normalize(f"{source_root}/{source}")
+            source_path = repo / tracked_source
+            source_path.parent.mkdir(parents=True, exist_ok=True)
+            source_path.write_text(fixture_text, encoding="utf-8")
+
+            local_target = normalize(f"FixtureOwner/{include}")
+            local_path = repo / source_root / local_target
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            local_path.touch()
+            rooted_path = repo / source_root / include
+            rooted_path.parent.mkdir(parents=True, exist_ok=True)
+            rooted_path.touch()
+
+            findings = scan_include_files(repo, source_root, [rule], [tracked_source])
+            expected = (
+                [Finding(rule["id"], source, local_target, "deny package edge rejected")]
+                if should_parse
+                else []
+            )
+            if findings != expected:
+                errors.append(
+                    f"residual include-parser fixture {filename} returned {findings!r}; "
+                    f"expected {expected!r}"
+                )
+    return errors
+
+
+def project_rule_fixture_cases(
+    rule: dict, fixture_path: str
+) -> list[tuple[str, set[str], list[Finding]]]:
+    """Build independent exact-result cases from one project-ownership rule."""
+    required = rule["required_project"]
+    cases = [
+        ("required only", {required}, []),
+        (
+            "missing required",
+            set(),
+            [Finding(rule["id"], fixture_path, required, "missing required project ownership")],
+        ),
+    ]
+    for forbidden in rule.get("forbidden_projects", []):
+        cases.append(
+            (
+                f"required plus {forbidden}",
+                {required, forbidden},
+                [
+                    Finding(
+                        rule["id"],
+                        fixture_path,
+                        forbidden,
+                        "forbidden duplicate project ownership",
+                    )
+                ],
+            )
+        )
+    return cases
+
+
+def write_project_fixture(path: Path, items: list[str]) -> None:
+    """Write the minimal namespaced project XML consumed by project_items."""
+    namespace = MSBUILD_NAMESPACE["m"]
+    ET.register_namespace("", namespace)
+    root = ET.Element(f"{{{namespace}}}Project")
+    item_group = ET.SubElement(root, f"{{{namespace}}}ItemGroup")
+    for item in items:
+        item_type = "ClCompile" if Path(item).suffix.lower() == ".cpp" else "ClInclude"
+        ET.SubElement(
+            item_group,
+            f"{{{namespace}}}{item_type}",
+            {"Include": item.replace("/", "\\")},
+        )
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
+
+
+def project_rule_self_test(rule: dict) -> list[str]:
+    """Exercise exact direct and all-suffix repository-discovery ownership cases."""
+    errors: list[str] = []
+    fixture_path = normalize(f"{rule['path_prefix']}Fixture{rule['suffixes'][0]}")
+    fixture_paths = [
+        normalize(f"{rule['path_prefix']}Fixture{suffix}")
+        for suffix in rule["suffixes"]
+    ]
+    project_names = {
+        rule["required_project"],
+        *rule.get("forbidden_projects", []),
+    }
+    cases = project_rule_fixture_cases(rule, fixture_path)
+
+    for name, member_projects, expected in cases:
+        membership = {
+            project: ({fixture_path} if project in member_projects else set())
+            for project in project_names
+        }
+        actual = evaluate_project_rule(rule, {fixture_path}, membership)
+        if actual != expected:
+            errors.append(f"{rule['id']}: direct project fixture '{name}' returned {actual!r}")
+
+    with tempfile.TemporaryDirectory(prefix="skore_dependency_project_fixture_") as fixture_dir:
+        repo = Path(fixture_dir)
+        subprocess.run(
+            ["git", "init", "--quiet"],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        for tracked_fixture_path in fixture_paths:
+            fixture_source = repo / tracked_fixture_path
+            fixture_source.parent.mkdir(parents=True, exist_ok=True)
+            fixture_source.write_text("// tracked ownership fixture\n", encoding="utf-8")
+        untracked_path = normalize(
+            f"{rule['path_prefix']}UntrackedFixture{rule['suffixes'][0]}"
+        )
+        untracked_source = repo / untracked_path
+        untracked_source.write_text("// intentionally untracked\n", encoding="utf-8")
+        ignored_suffix_path = normalize(f"{rule['path_prefix']}TrackedButIgnored.txt")
+        ignored_suffix_source = repo / ignored_suffix_path
+        ignored_suffix_source.write_text("not source-bearing\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "--", *fixture_paths, ignored_suffix_path],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        noise_project = next(iter(rule.get("forbidden_projects", [])), rule["required_project"])
+        for name, member_projects, expected in cases:
+            for project in sorted(project_names):
+                items = list(fixture_paths) if project in member_projects else []
+                if project == noise_project:
+                    items.extend([untracked_path, ignored_suffix_path])
+                write_project_fixture(repo / project, items)
+
+            actual = scan_project_rules(repo, [rule])
+            end_to_end_expected = [
+                Finding(finding.rule_id, path, finding.target, finding.detail)
+                for path in sorted(fixture_paths)
+                for finding in expected
+            ]
+            if actual != end_to_end_expected:
+                errors.append(
+                    f"{rule['id']}: end-to-end XML/path fixture '{name}' returned {actual!r}"
+                )
+    return errors
+
+
 def include_fixture_sources(rule: dict) -> list[str]:
     source_files = rule.get("source_files", [])
     if source_files:
@@ -568,6 +765,7 @@ def scan_content(repo: Path, source_root: str, rules: list[dict]) -> list[Findin
 
 def self_test(config: dict) -> list[str]:
     errors = proof_self_test(config)
+    errors.extend(include_parser_limit_self_test(config))
     for rule in config["include_rules"]:
         sources = include_fixture_sources(rule)
         positive_targets = [normalize(rule["positive_target"])]
@@ -576,6 +774,11 @@ def self_test(config: dict) -> list[str]:
         )
         positive_targets = list(dict.fromkeys(positive_targets))
         negative_entries = include_fixture_negative_entries(rule)
+        if rule["mode"] == "allow":
+            future_target = normalize(
+                f"{rule['target_scope']}/UnregisteredPackage/Fixture.h"
+            )
+            negative_entries.append((future_target, future_target, True))
         negatives = [target for target, _, _ in negative_entries]
         for source in sources:
             for positive in positive_targets:
@@ -673,28 +876,7 @@ def self_test(config: dict) -> list[str]:
                 errors.append(f"{rule['id']}: end-to-end content fixture did not reject the retired vocabulary")
 
     for rule in config["project_rules"]:
-        required = rule["required_project"]
-        if rule["positive_projects"] != [required]:
-            errors.append(f"{rule['id']}: positive project fixture must contain only {required}")
-        if required in rule["negative_projects"] or not any(
-            project in rule.get("forbidden_projects", []) for project in rule["negative_projects"]
-        ):
-            errors.append(f"{rule['id']}: negative project fixture does not exercise a forbidden owner")
-            continue
-        fixture_path = normalize(f"{rule['path_prefix']}Fixture{rule['suffixes'][0]}")
-        project_names = {required, *rule.get("forbidden_projects", [])}
-        positive_membership = {
-            project: ({fixture_path} if project in rule["positive_projects"] else set())
-            for project in project_names
-        }
-        if evaluate_project_rule(rule, {fixture_path}, positive_membership):
-            errors.append(f"{rule['id']}: positive project fixture was rejected")
-        negative_membership = {
-            project: ({fixture_path} if project in rule["negative_projects"] else set())
-            for project in project_names
-        }
-        if not evaluate_project_rule(rule, {fixture_path}, negative_membership):
-            errors.append(f"{rule['id']}: negative project fixture was accepted")
+        errors.extend(project_rule_self_test(rule))
     return errors
 
 
@@ -727,19 +909,27 @@ def main() -> int:
     rendered_proof = render_dependency_proof(config)
     if args.self_test:
         negative_fixture_count = sum(
-            len(include_fixture_sources(rule)) * len(include_fixture_negative_targets(rule))
+            len(include_fixture_sources(rule))
+            * (
+                len(include_fixture_negative_targets(rule))
+                + (1 if rule["mode"] == "allow" else 0)
+            )
             for rule in config["include_rules"]
         )
         content_fixture_count = sum(
             len(rule.get("negative_fixtures", []))
             for rule in config.get("content_rules", [])
         )
+        project_fixture_count = sum(
+            2 * (2 + len(rule.get("forbidden_projects", [])))
+            for rule in config["project_rules"]
+        )
         print(
             f"SELF_TEST_PASS: {len(config['include_rules'])} include rules with "
             f"{negative_fixture_count} negative edge fixtures and "
             f"{len(config.get('content_rules', []))} content rules with "
             f"{content_fixture_count} negative content fixtures and "
-            f"{len(config['project_rules'])} project-rule fixtures plus "
+            f"{project_fixture_count} exact project-rule cases plus "
             "generated-proof fixtures passed"
         )
         return 0

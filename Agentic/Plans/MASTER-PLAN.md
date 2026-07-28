@@ -345,6 +345,20 @@ fixtures, final instructions/comment reconciliation, independent review, and
 the mapped fast/full gates. Evidence is in
 `../Reports/2026-07-28/dependency-proof-generation-dp1-checkpoint.md`.
 
+Dependency proof generation DP2 completed on 2026-07-28. Planted rule drift
+invalidates the prior generated block; missing, duplicate, and reversed markers
+fail closed; every Runtime allow row rejects a future package; four isolated
+parser cases pin the macro, continuation, quoted, angle, and local-first limits;
+and exact project cases exercise required-only, missing-required,
+required-plus-Core, required-plus-Tests, Git path discovery, both MSBuild item
+kinds, and all four governed suffixes. Follow-up independent review is clear,
+the 1/1 touched-tool comment audit is complete, and dependency, fast, and full
+gates pass with 438/438 tests, 2,419,221 assertions, zero DX12 errors, and
+byte-exact Physics. The completed plan left the ledger under rule 4, so the
+Principal Engineer Feedback Campaign has no live plan and the active/future
+ledger is empty (0%). Closure evidence is in
+`../Reports/2026-07-28/dependency-proof-generation-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -928,15 +942,14 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 2/3 (67%).
-Execute its one live plan in the table below. The owner has answered every
-active-plan question: retain SoA and run the five-scene Physics witness matrix;
-replace the hard 12-parameter ceiling with qualitative review and reopen all
-exact-12 rows;
-keep explicit PhysicsFixedList cloning on concrete owners; use bounded
-owner-managed SbResult diagnostics with no compatibility wrapper; and delete
-vector-vector `operator*` after migration. No plan may refresh a physics,
-Replay, visual, or performance baseline without explicit owner authority.
+The Principal Engineer Feedback Campaign and its protected final local action
+are complete. All seven plans closed and left the live inventory under rule 4;
+generated dependency proofs were the last 3/3 plan. The warm-start key-capacity
+guard then passed byte-exact contact stability, Physics-frame and inclusive
+solver performance gates, comment audit, and independent review without a
+baseline refresh. Permanent evidence is
+`../Reports/2026-07-28/persistent-contact-key-capacity-closure.md`. The live
+plan ledger remains empty at 0/0 and no local campaign action remains.
 
 The Nightrunner 26 July campaign is complete at 3/3. Replay scrub performance,
 owner code style, and the space-scene velocity-drag preview are closed, and the
@@ -2350,11 +2363,12 @@ Binding owner directions:
   relative to SoA. **Owner question before such work begins:** should
   "meaningful" mean more than 2%, more than 5%, or only a statistically
   significant regression?
-- The warm-start key capacity guard is the final actionable local change. It is
-  intentionally left uncommitted after the campaign-registration commit for
-  owner review; no baseline may be refreshed by the agent. **Owner question for
-  evaluation:** should acceptance be decided from Physics-frame time, solver
-  time, contact stability, or all three?
+- The warm-start key capacity guard was evaluated against all three proposed
+  dimensions and accepted. Physics remains byte-exact; DX12 and focused-bench
+  Physics/solver markers remain inside absolute and relative performance
+  policy; review is clear. The exact evidence is in
+  `../Reports/2026-07-28/persistent-contact-key-capacity-closure.md`, and no
+  baseline was refreshed.
 - Plan 2 replaces the hard 12-parameter ceiling with mandatory qualitative
   ownership review and reopens every current exact-12 row. No implementation
   may hide a wide operation in a courier, forwarding facade, capability slice,
@@ -2368,7 +2382,7 @@ Binding owner directions:
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
 | 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
-| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Active | 2/3 | DP2 prove planted drift and split project branches end to end, reconcile final instructions/comments, run independent review, and close with mapped fast/full gates |
+| 7 | [dependency-proof-generation](../Reports/2026-07-28/dependency-proof-generation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; planted drift, parser limits, exact project ownership, independent review, and all mapped gates pass |
 
 ## Features
 

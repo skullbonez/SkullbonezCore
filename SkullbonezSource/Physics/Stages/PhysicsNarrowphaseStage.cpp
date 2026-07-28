@@ -218,15 +218,16 @@ bool PersistentContactCacheEntryPrecedesKey( const PersistentContactCacheEntry& 
 bool ObjectPairHasPersistentContactCache( std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyA,
                                           int bodyB )
 {
-    constexpr uint64_t BODY_MASK = 0x7fffull;
     const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
     const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
 
     // Invariant: this mirrors the object/object prefix of the persistent solver
     // cache key. Feature ids occupy the low 32 bits, so masking those away
     // answers whether any cached contact row existed for this pair.
-    const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
-                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 );
+    const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 47 ) |
+                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 32 );
 
     const int64_t firstKey = static_cast<int64_t>( pairPrefix );
     auto cachedIt = std::lower_bound( persistentContactCache.begin(), persistentContactCache.end(), firstKey,
