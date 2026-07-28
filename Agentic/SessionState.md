@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 0/9 (0%). Plan 4 `sbresult-compact-success-path` is complete at 4/4 and has left the ledger; `vector-dot-product-api` VD0 is next. |
+| Active/future progress | 1/9 (11%). Plan 5 `vector-dot-product-api` is active at 1/3; VD0 found 171 exact dot-product calls and VD1 is next. |
+| Vector dot-product VD0 evidence | Type-aware AST census of 211 tracked TUs found 171 canonical calls across 34 files: 163 production and 8 tests; 96 Physics, 56 Runtime, 10 Maths, 1 Gameplay, and 8 test calls. `Vector3` is the only owned vector API, the only existing `Dot` is an OrbitalMechanics-local adapter, and no expression has unresolved intent. Documentation-only; no validation or baseline refresh required. |
 | Validation for SbResult closure | The result is 16 bytes and pointer-aligned; the fixed 256-slot store is 159,760 bytes. Exact 511-byte diagnostics, copy/move/identity, full-capacity, stale/foreign, cross-thread, no-allocation, high-water, lease/generation/re-entry Lane F, five DX12 epoch, and ImGui status-lifetime proofs pass. The corrected final capacity census is 221 publications plus 31 retained members, 252/256 with four slots of conservative headroom, one App store, and no multiplicative container/queue/worker path. Automation now uses one owner-held store and no report-input courier. Final-source tests pass 436/436 cases and 2,419,127 assertions; format, metadata, dependency, ownership inventories, Automation, performance, 60.576-second graphics stress, and the 355.5-second full gate pass without baseline refresh. Comment audit 18/18; independent review accepted. |
 | Validation for SbResult SR2 | At the SR2 checkpoint, MSVC x64 measured the migrated result at 16 bytes and the App-composed 256-slot store at 159,760 bytes. The explicit no-wrapper API was migrated across production and tests; SR2 reported 221 producer expressions plus 29 result-member sites, 250/256, with one production store and no result container/queue or hidden store. Focused success, formatting, lifetime, generation, capacity, exact concurrent owner/message bytes, stale/cross-store copy-out, owner overflow, double release, active-lease store destruction, and application-exit lease tests passed. Every normal `WinMain` exit reported active/session-high-water/capacity after store accessors unlocked and while the App store was alive; the production worker-self-test exit reported 0/0/256. Clean-worktree format, project filters, dependency graph, and `validate_fast` passed; all three ownership inventories passed; touched-source comment audit was 166/166 after the Automation-only closure. The closure row above supersedes SR2's capacity arithmetic and broad-proof status. |
 | Validation for SbResult SR1 | Documentation-only decision: one App-composed 256-slot (~160 KiB) immutable store, 16-byte pointer/token result, last-lease reclamation, 56-bit generation stale-handle protection, allocation-free synchronized failure publication, deterministic Lane F exhaustion/overflow, and explicit no-wrapper API migration. SR2 corrected the original spelling-sensitive 176+30 bound to 220+30, or 250/256, under verified no recursion/re-entry, worker publication, or result containers/queues; direct diagnostic pointers last only for the same live unmoved/unassigned lease and escaping use copies bounded bytes. The focused matrix includes test-only concurrent publication within capacity and a double-release Lane F child probe. No repository validation or baseline refresh required. |
@@ -37,10 +38,10 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 0/9. Physics body layout,
+The Principal Engineer Feedback Campaign is live at 1/9. Physics body layout,
 Replay restore/wide-signature governance, PhysicsFixedList copy semantics, and
-compact SbResult success values are complete; its three remaining TODO plans
-cover explicit vector dot products, isolated deterministic terrain fixtures,
+compact SbResult success values are complete; its three remaining plans cover
+explicit vector dot products, isolated deterministic terrain fixtures,
 and generated dependency proofs. The bounded registration response
 removes the exact Replay pure forwarder, publishes the anti-Hamilton/
 transposed-matrix quaternion
@@ -730,10 +731,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `vector-dot-product-api` at VD0. Classify every vector-vector multiply and
-record the exact dot-product migration surface before changing the public API.
-The principal-feedback campaign is 0/9 (0%). The future AoS threshold and the
-warm-start acceptance metric remain explicit owner questions in
-`Agentic/Plans/MASTER-PLAN.md`.
-Preserve the uncommitted warm-start review diff until the owner accepts or
-rejects it.
+Continue `vector-dot-product-api` at VD1. Add the shared `Math::Vector::Dot`
+operation with the current multiply/add order, migrate all 171 census rows one
+expression at a time, delete the OrbitalMechanics-local adapter and the
+vector-vector overload, and preserve the uncommitted warm-start review diff by
+partial-staging `PersistentContactSolver.cpp`. The principal-feedback campaign
+is 1/9 (11%). The future AoS threshold and warm-start acceptance metric remain
+explicit owner questions in `Agentic/Plans/MASTER-PLAN.md`.

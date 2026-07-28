@@ -1,7 +1,7 @@
 # Vector Dot Product API
 
 Date: 2026-07-28
-Status: TODO — 0/3 phases complete
+Status: ACTIVE — 1/3 phases complete
 Impact area: Maths API, Physics solver readability, deterministic expressions
 Owner: Maths + Physics
 Priority: Medium
@@ -25,7 +25,7 @@ to the explicit dot-product API. No compatibility spelling or macro remains.
 
 ## Phases
 
-- [ ] **VD0 — Inventory and classify every vector-vector multiply.** Separate
+- [x] **VD0 — Inventory and classify every vector-vector multiply.** Separate
   dot products from scalar, matrix, and component operations; identify
   determinism-sensitive solver expressions and tests.
 - [ ] **VD1 — Add `Dot` and migrate without arithmetic reshaping.** Prefer a
@@ -35,6 +35,25 @@ to the explicit dot-product API. No compatibility spelling or macro remains.
 - [ ] **VD2 — Prove readability and determinism.** Add focused Maths coverage,
   run source/deletion proofs, comment audit, byte-exact Physics, performance,
   and broad validation.
+
+## VD0 Evidence
+
+- Census: [vector-dot-product-api-vd0-census.md](../../Reports/2026-07-28/vector-dot-product-api-vd0-census.md)
+- 171 true vector-vector dot calls exist across 34 tracked first-party files:
+  163 production and 8 tests. The migration surface is 96 Physics, 56 Runtime,
+  10 Maths, 1 Gameplay, and 8 test calls.
+- `Vector3` is the only owned vector type; the tree has no owned `Vector2` or
+  `Vector4` API.
+- The only current `Dot` spelling is a file-local OrbitalMechanics adapter that
+  delegates to the ambiguous overload. VD1 will move the named API to the
+  `Math::Vector` owner, delete that adapter, migrate every row without
+  reassociation, and delete the vector-vector overload.
+- All Physics rows are byte-exact-sensitive. The census records every
+  expression and the focused/broad test map.
+- The 21 `PersistentContactSolver.cpp` rows do not overlap the protected
+  warm-start hunks; VD1 must partial-stage that file so those hunks remain
+  uncommitted.
+- No owner question remains for VD1.
 
 ## Acceptance
 

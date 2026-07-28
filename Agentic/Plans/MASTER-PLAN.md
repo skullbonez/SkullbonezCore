@@ -253,6 +253,12 @@ completed four-task plan left the ledger under rule 4, so the remaining
 Principal Engineer Feedback Campaign is 0/9 (0%). Closure evidence is in
 `../Reports/2026-07-28/sbresult-compact-success-path-closure.md`.
 
+Vector dot-product API VD0 completed on 2026-07-28. The type-aware tracked-tree
+census found 171 true vector-vector dot calls across 34 files: 163 production
+and 8 tests, including 96 byte-exact-sensitive Physics calls. Scalar, matrix,
+quaternion, component-wise, and unrelated multiplications are excluded by
+resolved type. The live campaign is now 1/9 (11%).
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -836,7 +842,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 0/9 (0%).
+The remaining Principal Engineer Feedback Campaign is binding at 1/9 (11%).
 Execute its three live plans in table order below. The owner has answered every
 active-plan question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2274,7 +2280,7 @@ Binding owner directions:
 | 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
-| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
+| 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Active | 1/3 | VD1 add shared `Dot`, migrate 171 calls without reassociation, and delete the vector-vector overload |
 | 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
 
