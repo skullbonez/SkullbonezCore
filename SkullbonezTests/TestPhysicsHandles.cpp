@@ -32,6 +32,8 @@
 //     duplicate pose, velocity, inertia, motion-kind, or sleep fields.
 //   - Partially submerged box and convex-hull forces remain finite and produce
 //     an upward velocity response.
+//   - Replay prediction storage seeding preserves committed scene capacity
+//     without exposing PhysicsEngine or concrete stores as ordinary values.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -55,6 +57,7 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/Stages/ExternalForceStage.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
 #include <cstddef>
@@ -125,13 +128,13 @@ ColliderAuthoringRecord MakeColliderAuthoringRecord( const char* contactMaterial
 
 PhysicsBodyStore& TestBodyStore()
 {
+
     // Why: PhysicsBodyStore owns runtime-reserved arrays; static storage keeps
     // the focused unit fixture off the doctest thread stack.
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
@@ -141,13 +144,13 @@ PhysicsBodyStore& TestBodyStore()
 
 ColliderStore& TestColliderStore()
 {
+
     // Why: ColliderStore mirrors runtime fixed storage, so tests reuse one
     // static fixture and Clear() it between cases instead of stack-allocating it.
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 4u, 4u );
     }
@@ -157,14 +160,17 @@ ColliderStore& TestColliderStore()
 
 ColliderShapeKind ShapeKind( const CollisionShape& shape )
 {
+
     if ( std::holds_alternative<BoundingBox>( shape ) )
     {
         return ColliderShapeKind::Box;
     }
+
     if ( std::holds_alternative<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>( shape ) )
     {
         return ColliderShapeKind::ConvexHull;
     }
+
     return ColliderShapeKind::Sphere;
 }
 
@@ -228,14 +234,14 @@ TEST_CASE( "Physics body cold record: vector metadata retains its 16-byte bounda
 
 TEST_CASE( "Buoyancy facts: refresh, swap-last erase, trim, and clear preserve dense row semantics" )
 {
+
     // Why: the fixed-step owner relies on row equality with body/collider
     // stores. This focused lifecycle test catches field drift and compaction
     // mistakes without reaching through PhysicsEngine internals.
     static BuoyancySystem buoyancy;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         buoyancy.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     buoyancy.Clear();
@@ -288,6 +294,7 @@ TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair moment
 
     // Invariant: application-point torque may change angular momentum, but the
     // zero-offset +J/-J pair cannot change total linear momentum.
+
     for ( int sample = 0; sample < 64; ++sample )
     {
         store.Clear();
@@ -298,11 +305,13 @@ TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair moment
         left.hot.inverseMass = 1.0f / leftMass;
         left.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ),
                                            random.Float( -5.0f, 5.0f ) );
+
         PhysicsBodyCreateRecord right = MakeBodyRecord( 2u, Vector3( 0.0f, 0.0f, 0.0f ) );
         right.cold.mass = rightMass;
         right.hot.inverseMass = 1.0f / rightMass;
         right.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ), random.Float( -5.0f, 5.0f ),
                                             random.Float( -5.0f, 5.0f ) );
+
         const PhysicsBodyHandle leftHandle = store.CreateBodyRecord( left );
         const PhysicsBodyHandle rightHandle = store.CreateBodyRecord( right );
         const Vector3 momentumBefore = left.hot.linearVelocity * leftMass + right.hot.linearVelocity * rightMass;
@@ -458,6 +467,7 @@ TEST_CASE( "Replay restore: stable body ids override stale row hints" )
     REQUIRE( store.RecordForHandle( second ) != nullptr );
     CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( first ) ) ).x ==
            1.0f );
+
     CHECK( PhysicsBodyPosition( store.HotFields(), static_cast<std::size_t>( store.ModelIndexForHandle( second ) ) ).x ==
            2.0f );
 
@@ -552,9 +562,11 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     const PhysicsColliderHandle first = store.CreateColliderRecord( MakeColliderRecord( bodyA, 111u, 1.0f ),
                                                                     MakeColliderShape( 1.0f ),
                                                                     MakeColliderAuthoringRecord( "stone" ) );
+
     const PhysicsColliderHandle middle = store.CreateColliderRecord( MakeColliderRecord( bodyB, 222u, 2.0f ),
                                                                      MakeColliderShape( 2.0f ),
                                                                      MakeColliderAuthoringRecord( "metal" ) );
+
     const PhysicsColliderHandle last = store.CreateColliderRecord( MakeColliderRecord( bodyC, 333u, 3.0f ),
                                                                    MakeColliderShape( 3.0f ),
                                                                    MakeColliderAuthoringRecord( "wood" ) );
@@ -574,6 +586,7 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     const PhysicsColliderHandle replacement = store.CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 14u, 1u },
                                                                                               444u, 4.0f ),
                                                                           MakeColliderShape( 4.0f ) );
+
     CHECK( replacement.index == middle.index );
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
@@ -590,8 +603,10 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
     const PhysicsColliderHandle firstCollider = colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ),
                                                                                 MakeColliderShape( 1.0f ) );
+
     const PhysicsColliderHandle middleCollider = colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ),
                                                                                  MakeColliderShape( 2.0f ) );
+
     const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ),
                                                                                MakeColliderShape( 3.0f ) );
 
@@ -619,8 +634,7 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     PhysicsColliderHandle last;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( 3u );
         store->ReserveShapeCapacity( 3u, 1u, 0u );
         first = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), sphereOne );
@@ -644,8 +658,7 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     REQUIRE( lastSphereBeforeGrowth != nullptr );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveShapeCapacity( 6u, 1u, 0u );
     }
 
@@ -659,33 +672,6 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     CHECK( firstSphereAfterGrowth->GetRadius() == doctest::Approx( 1.0f ) );
     CHECK( lastSphereAfterGrowth->GetRadius() == doctest::Approx( 3.0f ) );
     CHECK( store->HullShapeCapacity() == 0u );
-
-    std::unique_ptr<ColliderStore> copied;
-    {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        copied = std::make_unique<ColliderStore>( *store );
-    }
-
-    REQUIRE( copied->RecordForHandle( last ) != nullptr );
-    const BoundingSphere* sourceSphere = GetShapeIf<BoundingSphere>( &store->RecordForHandle( last )->shape );
-    const BoundingSphere* copiedSphere = GetShapeIf<BoundingSphere>( &copied->RecordForHandle( last )->shape );
-    REQUIRE( sourceSphere != nullptr );
-    REQUIRE( copiedSphere != nullptr );
-    CHECK( copiedSphere != sourceSphere );
-    CHECK( copiedSphere->GetRadius() == doctest::Approx( 3.0f ) );
-
-    std::unique_ptr<ColliderStore> moved;
-    {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        moved = std::make_unique<ColliderStore>( std::move( *copied ) );
-    }
-    REQUIRE( moved->RecordForHandle( last ) != nullptr );
-    const BoundingSphere* movedSphere = GetShapeIf<BoundingSphere>( &moved->RecordForHandle( last )->shape );
-    REQUIRE( movedSphere != nullptr );
-    CHECK( movedSphere != sourceSphere );
-    CHECK( movedSphere->GetRadius() == doctest::Approx( 3.0f ) );
 
     REQUIRE( store->DestroyColliderRecord( middle ) );
     CHECK( store->SphereShapeCount() == 2u );
@@ -701,6 +687,7 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     REQUIRE( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape ) != nullptr );
     CHECK( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape )->GetHalfExtents() ==
            Vector3( 4.0f, 5.0f, 6.0f ) );
+
     CHECK( store->HullShapeCapacity() == 0u );
 }
 
@@ -862,6 +849,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
     };
+
 #if defined( _DEBUG )
     CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 98 );
 #else
@@ -896,15 +884,18 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         }
 
         bool isProductionPhysicsOwner = false;
+
         for ( const char* prefix : productionPhysicsOwnerPrefixes )
         {
             const size_t prefixLength = std::strlen( prefix );
+
             if ( std::strncmp( row.ownerName, prefix, prefixLength ) == 0 )
             {
                 isProductionPhysicsOwner = true;
                 break;
             }
         }
+
         if ( !isProductionPhysicsOwner )
         {
             continue;
@@ -975,10 +966,20 @@ TEST_CASE( "External force fixed release uses scene-committed body scratch" )
 }
 
 
-TEST_CASE( "Prediction physics clone commits the live scene-sized capacity profile" )
+TEST_CASE( "Prediction physics seed commits the live scene-sized capacity profile" )
 {
+    using SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
     using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
     using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerDesc;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope;
+    using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
+    using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+    using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
+    using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_OWNER;
 
     auto liveEngine = std::make_unique<PhysicsEngine>();
 
@@ -988,11 +989,27 @@ TEST_CASE( "Prediction physics clone commits the live scene-sized capacity profi
     }
 
     auto predictionEngine = std::make_unique<PhysicsEngine>();
+    const auto owner = RuntimeReserveAllocator::RegisterOwner( RuntimeReserveOwnerDesc { REPLAY_PREDICTION_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+                                                                                         RuntimeReservePhase::Replay, 0, REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+                                                                                         RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+                                                                                         "replay prediction supports large retained path visualization under a hard byte "
+                                                                                         "budget" } );
+
+    const auto
+        growth = RuntimeReserveAllocator::RequestGrowth( owner,
+                                                         RuntimeReserveGrowthRequest { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                                       "TestPhysicsHandles.predictionEngine",
+                                                                                       RuntimeReservePhase::Replay, 0, 0,
+                                                                                       REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+                                                                                       1 } );
+
+    REQUIRE( growth.granted );
 
     {
-        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
-        predictionEngine->ReserveSceneCapacityLike( *liveEngine );
-        *predictionEngine = *liveEngine;
+        RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        predictionEngine->SeedReplayPredictionStorageFrom( *liveEngine );
     }
 
     CHECK( PhysicsEngine::ReadBodies( *predictionEngine ).RecordCapacity() == 200u );
@@ -1055,7 +1072,6 @@ TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending
 TEST_CASE( "Coverage floor contract: box and hull buoyancy stay finite under partial submersion" )
 {
     CheckUnderwaterForcePath( BoxShape( Vector3( 2.0f, 0.5f, 1.0f ) ), 601u );
-    CheckUnderwaterForcePath( SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile(
-                                  "SkullbonezData/hulls/pyramid.hull" ),
+    CheckUnderwaterForcePath( SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/pyramid.hull" ),
                               602u );
 }

@@ -252,10 +252,10 @@ struct ReplayPredictionIsolatedSimulation
     // Concept: prediction simulates the future in its own engine. Live stores
     // are never written by prediction, so replay preview state stays isolated.
     // Lifetime: constructed lazily on first prediction begin under the replay
-    // reserve owner, pre-sized by copying the current live physics facade, and
-    // reused across prediction builds so startup/perf-smoke memory stays flat.
+    // reserve owner, seeded through the explicit concrete-owner PhysicsEngine
+    // prediction seam, and reused so startup/perf-smoke memory stays flat.
     // Runtime allocation policy: owner replay_prediction_working_set; reason:
-    // private prediction needs a bounded physics copy for exploratory replay;
+    // private prediction needs bounded isolated physics storage for exploration;
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;

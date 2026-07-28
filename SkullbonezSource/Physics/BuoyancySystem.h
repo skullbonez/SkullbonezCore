@@ -41,6 +41,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 struct PhysicsWorldForces;
 
@@ -58,6 +59,12 @@ static_assert( sizeof( BuoyancyBodyFacts ) == sizeof( float ) * 5u,
 class BuoyancySystem
 {
   private:
+    friend class PhysicsEngine;
+
+    // Replay prediction keeps fluid facts aligned with the explicitly cloned
+    // body and collider rows; no ordinary BuoyancySystem copy is exposed.
+    void CloneReplayPredictionStorageFrom( const BuoyancySystem& source );
+
     PhysicsFixedList<BuoyancyBodyFacts, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
         m_bodyFacts { "BuoyancySystem.bodyFacts", PhysicsCapacityReason::SceneBodies };
 

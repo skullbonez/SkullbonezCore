@@ -9,9 +9,9 @@ Summary:
   during scene load, or under ReplayPrediction's already-approved replay growth
   scope, retains one allocator-registry handle and a concrete sizing reason,
   constructs only the live prefix, and treats growth past the runtime
-  reservation or compile-time cap as a policy failure. The first direct
-  instance claims capacity-row publication; copies and same-name clones keep
-  their backing private from that canonical diagnostic row.
+  reservation or compile-time cap as a policy failure. Each direct instance
+  claims capacity-row publication only when the allocator registry has no
+  canonical publisher for that owner.
 
 Glossary:
   Fixed-capacity list: Contiguous storage with a runtime reservation and a
@@ -19,8 +19,8 @@ Glossary:
   Live count: Number of initialized entries currently visible to callers.
   Capacity cap: Compile-time maximum entry count that replaces vector capacity.
   Capacity reason: Scene quantity or fixed semantic bound that sizes one owner.
-  Canonical publisher: Direct list instance holding the allocator token for its
-    conceptual owner's capacity row.
+  Canonical publisher: First live list instance holding the allocator token for
+    its conceptual owner's capacity row.
 
 Invariants:
   - Construction registers one nonzero Physics owner handle in the allocator's
@@ -30,12 +30,14 @@ Invariants:
     growth scope; the list never creates Replay authority itself.
   - Only indices below the live count hold constructed T instances.
   - Runtime-reservation and compile-time overflow both fail loudly.
+  - Copy and move are deleted because both used to hide phase-gated allocation
+    behind ordinary value syntax; concrete Physics owners perform any approved
+    replay prediction clone explicitly.
   - Iteration exposes the live prefix as ordinary contiguous pointers, and the
     list retains and publishes its own monotonic per-scene live-count high-water.
   - Capacity-session changes reset the local peak lazily before the next
     publication; retained stores do not carry a preceding scene's peak forward.
-  - Copy construction never duplicates the publisher token; move construction
-    transfers it, and noncanonical destruction cannot clear the canonical row.
+  - Noncanonical destruction cannot clear the canonical capacity row.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -100,63 +102,10 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
     }
 
-    PhysicsFixedList( const PhysicsFixedList& other )
-        : m_ownerName( other.m_ownerName ), m_capacityReason( other.m_capacityReason ), m_ownerHandle( other.m_ownerHandle )
-    {
-        Reserve( other.m_count );
-        CopyConstructFrom( other );
-    }
-
-    PhysicsFixedList& operator=( const PhysicsFixedList& other )
-    {
-
-        if ( this == &other )
-        {
-            return *this;
-        }
-
-        Reserve( other.m_count );
-        clear();
-        CopyConstructFrom( other );
-
-        return *this;
-    }
-
-    PhysicsFixedList( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
-        : m_ownerName( other.m_ownerName ), m_capacityReason( other.m_capacityReason ), m_ownerHandle( other.m_ownerHandle )
-    {
-        Reserve( other.m_count );
-        MoveConstructFrom( other );
-        m_capacityPublisher = other.m_capacityPublisher;
-        other.m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
-        other.clear();
-        PublishUsage();
-    }
-
-    PhysicsFixedList& operator=( PhysicsFixedList&& other ) noexcept( std::is_nothrow_move_constructible<T>::value )
-    {
-
-        if ( this == &other )
-        {
-            return *this;
-        }
-
-        Reserve( other.m_count );
-
-        if ( m_ownerHandle == other.m_ownerHandle &&
-             m_capacityPublisher == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER &&
-             other.m_capacityPublisher != SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
-        {
-            m_capacityPublisher = other.m_capacityPublisher;
-            other.m_capacityPublisher = SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER;
-        }
-
-        clear();
-        MoveConstructFrom( other );
-        other.clear();
-        PublishUsage();
-        return *this;
-    }
+    PhysicsFixedList( const PhysicsFixedList& ) = delete;
+    PhysicsFixedList& operator=( const PhysicsFixedList& ) = delete;
+    PhysicsFixedList( PhysicsFixedList&& ) = delete;
+    PhysicsFixedList& operator=( PhysicsFixedList&& ) = delete;
 
     ~PhysicsFixedList()
     {
@@ -533,84 +482,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         {
             FailCapacityExceeded( requested, "runtime_reservation" );
         }
-    }
-
-    void CopyConstructFrom( const PhysicsFixedList& other )
-    {
-
-        if constexpr ( std::is_trivially_copyable<T>::value )
-        {
-
-            if ( other.m_count > 0u )
-            {
-                std::memcpy( m_values.get(), other.m_values.get(), other.m_count * sizeof( Storage ) );
-            }
-
-            m_count = other.m_count;
-        }
-        else
-        {
-#if defined( _CPPUNWIND )
-            try
-            {
-#endif
-
-                for ( const T& value : other )
-                {
-                    new ( RawSlot( m_count ) ) T( value );
-                    ++m_count;
-                }
-
-#if defined( _CPPUNWIND )
-            }
-            catch ( ... )
-            {
-                DestroyLivePrefix();
-                throw;
-            }
-#endif
-        }
-
-        TrackHighWater();
-    }
-
-    void MoveConstructFrom( PhysicsFixedList& other )
-    {
-
-        if constexpr ( std::is_trivially_copyable<T>::value )
-        {
-
-            if ( other.m_count > 0u )
-            {
-                std::memcpy( m_values.get(), other.m_values.get(), other.m_count * sizeof( Storage ) );
-            }
-
-            m_count = other.m_count;
-        }
-        else
-        {
-#if defined( _CPPUNWIND )
-            try
-            {
-#endif
-
-                for ( T& value : other )
-                {
-                    new ( RawSlot( m_count ) ) T( std::move( value ) );
-                    ++m_count;
-                }
-
-#if defined( _CPPUNWIND )
-            }
-            catch ( ... )
-            {
-                DestroyLivePrefix();
-                throw;
-            }
-#endif
-        }
-
-        TrackHighWater();
     }
 
     void RelocateInto( Storage* replacement )

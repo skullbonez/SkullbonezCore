@@ -1,7 +1,7 @@
 # Physics Fixed List Copy Contract
 
 Date: 2026-07-28
-Status: ACTIVE — 1/3 phases complete
+Status: ACTIVE — 2/3 phases complete
 Impact area: Physics storage lifetime, prediction cloning, allocation policy
 Owner: Physics
 Priority: High
@@ -36,13 +36,22 @@ the hidden phase contract for arbitrary callers.
   The only production transfer is Replay prediction's pre-reserved implicit
   `PhysicsEngine` assignment; direct list and custom `ColliderStore` transfers
   are test-only, and no production move/by-value/queued owner path exists.
-- [ ] **FC1 — Delete implicit copies and install explicit owner clones.** Delete
+- [x] **FC1 — Delete implicit copies and install explicit owner clones.** Delete
   list copy construction/assignment, keep or narrow moves based on the same
   phase audit, and add only the explicit owner operations required by FC0.
   Each clone must name and enforce SceneLoad or approved ReplayPrediction scope.
+  Evidence:
+  `Agentic/Reports/2026-07-28/physics-fixed-list-copy-contract-fc1-owner-clones.md`.
+  All four list transfers are deleted; Replay prediction now uses one
+  exact-`replay_prediction_working_set` seed coordinator over private body,
+  collider, buoyancy, and world owner operations, with collider shape
+  references rebound explicitly.
 - [ ] **FC2 — Prove lifecycle and policy.** Add compile-time non-copyability
-  checks plus focused legal-clone and illegal-phase coverage; run comment audit,
-  allocation policy, Physics, Replay, performance, and broad validation.
+  checks plus focused legal-clone and illegal-phase coverage. Exercise
+  `SeedReplayPredictionEngine()` through the production reserve-owner/growth
+  adapter so the focused test cannot synthesize a drifting registration; run
+  comment audit, allocation policy, Physics, Replay, performance, and broad
+  validation.
 
 ## Acceptance
 

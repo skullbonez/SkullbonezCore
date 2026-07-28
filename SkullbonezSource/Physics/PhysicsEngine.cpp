@@ -46,6 +46,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsApi.h"
+#include "PhysicsEngine.ReplayPredictionCloneScope.h"
 
 #include "../Core/Common.h"
 #include "../Core/FatalError.h"
@@ -103,6 +104,17 @@ using SkullbonezCore::Physics::PointJointConstraint;
 
 namespace
 {
+template <typename List> void CloneFixedListForReplayPrediction( List& destination, const List& source )
+{
+    destination.Reserve( source.size() );
+    destination.clear();
+
+    for ( const auto& value : source )
+    {
+        destination.push_back( value );
+    }
+}
+
 int CountAsInt( PhysicsBodyCount count )
 {
     return static_cast<int>( count.value );
@@ -365,11 +377,36 @@ void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t bodyCapacity, std::
 }
 
 
-void PhysicsEngine::ReserveSceneCapacityLike( const PhysicsEngine& source )
+void PhysicsEngine::SeedReplayPredictionStorageFrom( const PhysicsEngine& source )
 {
+    Detail::RequireReplayPredictionCloneScope( "PhysicsEngine seed" );
+
+    if ( this == &source )
+    {
+        SB_FATAL( "Physics/ReplayPredictionClone", "A replay prediction engine cannot seed itself." );
+    }
+
     ReserveAuthoredBodyCapacity( source.m_bodyStore.RecordCapacity(), source.m_colliderStore.SphereShapeCapacity(),
                                  source.m_colliderStore.BoxShapeCapacity(), source.m_colliderStore.HullShapeCapacity(),
                                  source.m_world.PointJointCapacity() );
+
+    // Invariant: this is a prediction-specific seed, not PhysicsEngine copy
+    // semantics. Concrete stores retain clone authority, while solver/stage
+    // state is restored through PhysicsSolverSnapshot immediately afterward.
+    CloneFixedListForReplayPrediction( m_authoredBodyDescs, source.m_authoredBodyDescs );
+    m_bodyStore.CloneReplayPredictionStorageFrom( source.m_bodyStore );
+    m_colliderStore.CloneReplayPredictionStorageFrom( source.m_colliderStore );
+    m_buoyancySystem.CloneReplayPredictionStorageFrom( source.m_buoyancySystem );
+    m_world.CloneReplayPredictionTopologyFrom( source.m_world );
+
+    m_physicsMaterial = source.m_physicsMaterial;
+    m_bodySimulationLimits = source.m_bodySimulationLimits;
+    m_contactPolicy = source.m_contactPolicy;
+    m_runtimeSettings = source.m_runtimeSettings;
+    m_lastWorldForces = source.m_lastWorldForces;
+    m_hasLastWorldForces = source.m_hasLastWorldForces;
+    CloneFixedListForReplayPrediction( m_fixedTreeReleaseWakeBodies, source.m_fixedTreeReleaseWakeBodies );
+    CloneFixedListForReplayPrediction( m_broadphaseQueryScratch, source.m_broadphaseQueryScratch );
 }
 
 

@@ -21,9 +21,8 @@ Glossary:
     compacts the store; resolver APIs repair or invalidate it.
 
 Invariants:
-  - Runtime cold records and hot arrays stay in scene/model slot order
-
-    for current solver traversal, but public body handles are allocator-owned
+  - Runtime cold records and hot arrays stay in scene/model slot order for
+    current solver traversal, but public body handles are allocator-owned
     slots.
   - PhysicsEngine body rows are dense and handle-addressed; deletion may move
     the last row to close a hole without changing live handles.
@@ -40,6 +39,7 @@ Related:
 #include "BuoyancySystem.h"
 #include "ColliderStore.h"
 #include "PhysicsApi.h"
+#include "PhysicsEngine.ReplayPredictionCloneScope.h"
 #include "TerrainSupportClassifier.h"
 #include "PhysicsWorldForces.h"
 
@@ -95,6 +95,17 @@ using SkullbonezCore::Physics::PhysicsWorldForces;
 
 namespace
 {
+template <typename List> void CloneFixedListForReplayPrediction( List& destination, const List& source )
+{
+    destination.Reserve( source.size() );
+    destination.clear();
+
+    for ( const auto& value : source )
+    {
+        destination.push_back( value );
+    }
+}
+
 struct PhysicsBuoyancySample
 {
     static constexpr uint8_t MAX_WET_POINTS = 32;
@@ -1020,6 +1031,47 @@ PhysicsBodyCreateRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool 
 
 
 PhysicsBodyStore::PhysicsBodyStore() = default;
+
+
+void PhysicsBodyStore::CloneReplayPredictionStorageFrom( const PhysicsBodyStore& source )
+{
+    Detail::RequireReplayPredictionCloneScope( "PhysicsBodyStore clone" );
+
+    // Invariant: the cold row, every SoA field, and every handle map are cloned
+    // as one owner transaction so stable body identity cannot drift from the
+    // dense values restored immediately after seeding.
+#define CLONE_REPLAY_PREDICTION_BODY_LIST( field ) CloneFixedListForReplayPrediction( field, source.field )
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_bodies );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_positionX );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_positionY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_positionZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_orientationX );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_orientationY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_orientationZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_orientationW );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_linearVelocityX );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_linearVelocityY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_linearVelocityZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_angularVelocityX );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_angularVelocityY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_angularVelocityZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseMass );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaX );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaY );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_inverseInertiaZ );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_boundingRadius );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_fixed );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_awake );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_modelBodyHandles );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_handleGenerations );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_handleAlive );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_handleModelIndices );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_handleSceneObjectIds );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_freeHandleSlots );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_assignedHandleScratch );
+    CLONE_REPLAY_PREDICTION_BODY_LIST( m_preservedRefreshStateByHandle );
+#undef CLONE_REPLAY_PREDICTION_BODY_LIST
+}
 
 
 void PhysicsBodyStore::ReserveCapacity( std::size_t capacity )

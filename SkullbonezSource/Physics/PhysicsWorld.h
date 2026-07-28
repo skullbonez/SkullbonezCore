@@ -84,6 +84,7 @@ class WorkerPool;
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 struct BuoyancyBodyFacts;
 struct ColliderRecord;
@@ -155,6 +156,13 @@ class PhysicsWorld
     PhysicsStepDiagnostics m_stepDiagnostics;
 
   private:
+    friend class PhysicsEngine;
+
+    // Copies only the non-snapshot topology and sequencing cursors needed to
+    // seed an isolated replay prediction. PhysicsSolverSnapshot remains the
+    // authority for solver/stage state restored immediately afterward.
+    void CloneReplayPredictionTopologyFrom( const PhysicsWorld& source );
+
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
     void AdvancePointJointHandleGeneration();
 

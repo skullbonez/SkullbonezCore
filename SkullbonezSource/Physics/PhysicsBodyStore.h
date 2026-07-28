@@ -66,6 +66,7 @@ class Profiler;
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 struct BuoyancyBodyFacts;
 struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
@@ -430,6 +431,13 @@ class PhysicsBodyStore
                       float deltaSeconds, const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
+    friend class PhysicsEngine;
+
+    // Replay prediction seeds a private engine under the registered Replay
+    // owner. Keeping this clone private prevents ordinary store copies from
+    // hiding the phase-gated fixed-list backing contract.
+    void CloneReplayPredictionStorageFrom( const PhysicsBodyStore& source );
+
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                   PhysicsHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );

@@ -27,6 +27,8 @@
 //   - Release foreign frees are proved in a child so their process-lifetime
 //     counter cannot contaminate later parent-process diagnostics.
 //   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
+//   - A Replay growth owner other than the canonical prediction working set
+//     cannot seed isolated Physics storage.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -40,6 +42,7 @@
 
 #include "../SkullbonezSource/Core/AmortizedTask.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
@@ -388,6 +391,32 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "physics-prediction-seed-wrong-replay-owner" ) == 0 )
+    {
+        using namespace SkullbonezCore::Core::Allocation;
+        constexpr int wrongOwnerHardCapacity = 1024;
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+                                                                                          "Fatal probe for unrelated Replay growth authority" } );
+
+        const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
+            RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
+                                    RuntimeReservePhase::Replay, 0, 0, wrongOwnerHardCapacity, 1 } );
+
+        if ( !growth.granted )
+        {
+            return false;
+        }
+
+        auto source = std::make_unique<PhysicsEngine>();
+        auto destination = std::make_unique<PhysicsEngine>();
+        RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
+        RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        destination->SeedReplayPredictionStorageFrom( *source );
+        return true;
+    }
+
     const bool terrainLocateCellRange = std::strcmp( caseName, "terrain-locate-cell-range" ) == 0;
     const bool terrainLocateNonFinite = std::strcmp( caseName, "terrain-locate-nonfinite" ) == 0;
     const bool terrainLocateUnrepresentable = std::strcmp( caseName, "terrain-locate-unrepresentable" ) == 0;
@@ -448,6 +477,7 @@ bool RunRuntimeFatalCase( const char* caseName )
         const float xPosition = terrainLocateNonFinite
                                     ? ( std::numeric_limits<float>::quiet_NaN )()
                                     : ( terrainLocateUnrepresentable ? ( std::numeric_limits<float>::max )() : 3.0f );
+
         (void)terrain->LocatePolygon( xPosition, 0.0f );
         return true;
     }
@@ -488,8 +518,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
-            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -523,8 +552,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
-            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -623,8 +651,7 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -752,20 +779,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back(
-            [threadIndex, path, writesPerThread]()
-            {
-                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                {
-                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+        threads.emplace_back( [threadIndex, path, writesPerThread]()
+                              {
 
-                    if ( writeIndex % 16 == 0 )
-                    {
-                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                            threadIndex, writeIndex );
-                    }
-                }
-            } );
+                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                                  {
+                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
+
+                                      if ( writeIndex % 16 == 0 )
+                                      {
+                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                                              threadIndex, writeIndex );
+                                      }
+                                  }
+                              } );
     }
 
     for ( std::thread& thread : threads )
@@ -929,6 +956,11 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList reserve denied", "owner=fatal.physics-fixed-list.phase", "requested=1",
                        "runtime_capacity=0", "compile_capacity=2", "phase=startup" } );
 
+    ExpectFatalCase( "physics-prediction-seed-wrong-replay-owner",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
+                       "owner_name=replay_solver_snapshot", "required_owner=replay_prediction_working_set" } );
+
     ExpectFatalCase( "terrain-locate-cell-range",
                      { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );
 
@@ -968,9 +1000,11 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "replay-restore-pending-timeline-complete",
                      { "FATAL[Runtime/ReplayRestoreTransaction]",
                        "Restore completion reached without satisfying branch timeline state", "required=1", "applied=0" } );
+
     ExpectFatalCase( "replay-restore-unproved-rollback", { "FATAL[Runtime/ReplayRestoreTransaction]",
                                                            "Rollback completed without verified live-backup application",
                                                            "mutated=1", "backup=1", "applied=0" } );
+
     ExpectFatalCase( "scene-capacity-hard-ceiling", { "FATAL[Physics/SceneCapacity]", "owner=Physics/PhysicsEngine",
                                                       "requested_bodies=9000", "ceiling=8192" } );
 

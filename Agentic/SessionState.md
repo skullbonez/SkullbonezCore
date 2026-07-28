@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 1/16 (6%). Plan 3 FC0 found one production Replay prediction engine copy reaching 98 fixed lists, test-only direct list/store transfers, and no production move/by-value/queue path. |
+| Active/future progress | 2/16 (13%). Plan 3 FC1 deleted all four `PhysicsFixedList` transfers and replaced Replay's implicit engine assignment with an exact canonical-owner prediction seed over private concrete-owner clones. |
+| Validation for Physics fixed-list FC1 | Final Profile build passes in 31.5 s with zero warnings/errors. Focused doctests pass: `PhysicsFixedList:*` 6/6 and 68 assertions, prediction seed 1/1 and 11 assertions, collider shape stores 1/1 and 31 assertions, and the Runtime-contract child probes 1/1 and 175 assertions including rejection of the wrong valid Replay owner. Project/filter metadata passes 785/785. Aggregate rulings are 86/86, extraction scars 1/1, wide-signature inventory and allocation-policy scan pass, and the touched-source comment audit is 18/18 with zero deferred files. Broad closure gates and production reserve-adapter coordinator coverage remain FC2 work; no baseline was refreshed. |
 | Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
 | Validation for Replay restore closure | Independent review found one terminal-state false pass; transaction-owned branch/rollback proof and child fatal probes corrected it, and repeat review found zero blockers. Final-source `validate_fast` (211.8 s), `validate_tests` (35.6 s; 424/424 cases and 2,410,325 assertions), Replay visual fidelity (439.8 s), and `validate_full` (408.7 s) pass. All inventories pass; comment audit is 9/9. No baseline was refreshed. |
 | Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
@@ -32,7 +33,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 1/16. Physics body layout
+The Principal Engineer Feedback Campaign is live at 2/16. Physics body layout
 and Replay restore/wide-signature governance are complete; its five remaining
 TODO plans cover PhysicsFixedList copy semantics, compact SbResult success
 values, explicit vector dot products, isolated deterministic terrain fixtures,
@@ -722,9 +723,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-fixed-list-copy-contract` at FC1. Replace the implicit Replay
-prediction `PhysicsEngine` copy with named concrete-owner/prediction-snapshot
-clone operations, then delete generic `PhysicsFixedList` copy and move.
-Do not add a public list clone, context/service bag, or generic engine clone.
-The principal-feedback campaign is 1/16 (6%). Preserve the uncommitted
-warm-start review diff until the owner accepts or rejects it.
+Continue `physics-fixed-list-copy-contract` at FC2. Add compile-time deletion
+proofs plus focused legal prediction seed/collider-rebind and illegal-phase
+fatal coverage, then run comment audit, allocation policy, Physics, Replay,
+performance, and broad validation. Do not add a public list clone,
+context/service bag, or generic engine clone. The principal-feedback campaign
+is 2/16 (13%). Preserve the uncommitted warm-start review diff until the owner
+accepts or rejects it.

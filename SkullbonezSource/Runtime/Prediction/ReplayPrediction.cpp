@@ -379,12 +379,11 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
 
-    // Invariant: prediction capacity is committed before copy assignment so a
-    // fresh private engine never asks a Physics scene-load owner to allocate
-    // during Replay. Any larger handle high-water copied below remains inside
-    // this already-approved replay byte-growth scope.
-    predictionEngine.ReserveSceneCapacityLike( liveEngine );
-    predictionEngine = liveEngine;
+    // Invariant: predictionEngineReady remains false across the synchronous
+    // Physics seed and both restores below. No worker may observe or step the
+    // intentionally partial topology/store seed before body and solver state
+    // are coherent.
+    predictionEngine.SeedReplayPredictionStorageFrom( liveEngine );
     prediction.simulation.predictionEngineReserveBytes = (std::max)( currentBytes, requestedBytes );
     predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
