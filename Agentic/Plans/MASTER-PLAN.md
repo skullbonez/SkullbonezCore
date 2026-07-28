@@ -326,6 +326,25 @@ escaping is deterministic. It will not add a second checker, package branch,
 edge count, or budget. The live ledger is therefore 1/3 (33%). Evidence is in
 `../Reports/2026-07-28/dependency-proof-generation-dp0-comparison.md`.
 
+Dependency proof generation DP1 completed on 2026-07-28. The existing checker
+now renders, freshness-checks, and byte-preservingly rewrites one fail-closed
+marked `AGENTS.md` block. That projection replaces the independently maintained
+21-row Runtime table and all 27 mechanical `rg` proofs, while the sole broad
+Rendering vocabulary search remains explicitly qualitative. Prefixes and exact
+files are distinct columns; all six frame-view allowances are exact files and a
+`RuntimeFrameViews.h/Child.h` fixture is rejected. App is visibly closed-world,
+Camera's App allowance is shown at its true prefix scope, and UI prose now
+rejects both Runtime and Rendering. Determinism, Markdown escaping, missing /
+duplicate / reversed markers, stale/current blocks, and outside-byte
+preservation are covered by focused self-tests. The dependency gate reports 27
+include rules, 47 negative edge fixtures, two content fixtures, one project
+fixture, and zero repository findings. The live ledger is therefore 2/3 (67%).
+DP2 still owns planted rule drift, independent missing-required/Core/Tests
+project cases with end-to-end XML/path discovery, bounded residual-parser
+fixtures, final instructions/comment reconciliation, independent review, and
+the mapped fast/full gates. Evidence is in
+`../Reports/2026-07-28/dependency-proof-generation-dp1-checkpoint.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -909,7 +928,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 1/3 (33%).
+The remaining Principal Engineer Feedback Campaign is binding at 2/3 (67%).
 Execute its one live plan in the table below. The owner has answered every
 active-plan question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2349,7 +2368,7 @@ Binding owner directions:
 | 4 | [sbresult-compact-success-path](../Reports/2026-07-28/sbresult-compact-success-path-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; 16-byte carrier, exact diagnostics, 252/256 conservative bound, performance/full gates, and independent review are clear |
 | 5 | [vector-dot-product-api](../Reports/2026-07-28/vector-dot-product-api-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; 173 configuration-complete uses are explicit, arithmetic order is pinned, and every mapped gate passes |
 | 6 | [determinism-terrain-fixture-isolation](../Reports/2026-07-28/determinism-terrain-fixture-isolation-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; all fixture predecessor transitions, randomized determinism orders, byte-exact/deep Physics, full gates, and independent review are clear |
-| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Active | 1/3 | DP1 generate one fail-closed marked block owning the matrix, 27 mechanical proofs, exact-file distinctions, and freshness |
+| 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Active | 2/3 | DP2 prove planted drift and split project branches end to end, reconcile final instructions/comments, run independent review, and close with mapped fast/full gates |
 
 ## Features
 

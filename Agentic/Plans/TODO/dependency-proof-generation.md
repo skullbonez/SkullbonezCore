@@ -1,7 +1,7 @@
 # Dependency Proof Generation
 
 Date: 2026-07-28
-Status: ACTIVE — 1/3 phases complete
+Status: ACTIVE — 2/3 phases complete
 Impact area: Dependency governance, validation tooling, agent instructions
 Owner: Repository governance
 Priority: Medium
@@ -24,10 +24,12 @@ proofs from the authoritative rule data through one tested mechanism.
   deterministic difference report and classify information that is genuinely
   explanatory versus mechanically duplicated. Evidence:
   `../../Reports/2026-07-28/dependency-proof-generation-dp0-comparison.md`.
-- [ ] **DP1 — Generate or replace the mirror proofs.** Extend the existing
+- [x] **DP1 — Generate or replace the mirror proofs.** Extend the existing
   dependency checker to emit a review-friendly current proof/report from rule
   data, or generate a marked documentation block checked for freshness. Do not
   add a second checker, frozen edge count, or hardcoded package branch.
+  Evidence:
+  `../../Reports/2026-07-28/dependency-proof-generation-dp1-checkpoint.md`.
 - [ ] **DP2 — Prove drift detection and update instructions.** Add positive and
   negative fixtures showing a rule-data edit updates the proof while a stale
   generated block fails; update `AGENTS.md`, tool docs, comment audit, and all
