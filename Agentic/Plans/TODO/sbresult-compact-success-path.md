@@ -1,7 +1,7 @@
 # SbResult Compact Success Path
 
 Date: 2026-07-28
-Status: TODO — 0/4 phases complete
+Status: ACTIVE — 1/4 phases complete
 Impact area: Core error handling, per-frame Runtime phases, diagnostics lifetime
 Owner: Core + App composition
 Priority: Medium-high
@@ -32,7 +32,7 @@ diagnostic lifetime.
 
 ## Phases
 
-- [ ] **SR0 — Measure value flow and lifetime.** Census all construction,
+- [x] **SR0 — Measure value flow and lifetime.** Census all construction,
   return, copy/move, queue, persistence, and UI/log consumers; benchmark the
   current frame paths and record the exact 511-byte failure witness.
 - [ ] **SR1 — Select the compact diagnostic ownership model.** Compare bounded
@@ -52,6 +52,11 @@ diagnostic lifetime.
 Success is a compact trivially understandable value; all failure detail remains
 bounded, owned, and queryable for the approved lifetime; no allocation,
 exception, stale-reference, or diagnostic truncation regression is introduced.
+
+## Evidence
+
+- SR0 census:
+  [`../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md`](../../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md)
 
 ## Validation
 

@@ -212,6 +212,13 @@ ledger under rule 4. The remaining Principal Engineer Feedback Campaign is
 therefore 0/13. Closure evidence is in
 `../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md`.
 
+SbResult compact success path SR0 completed on 2026-07-28. The current type is
+528 bytes, its protected 511-byte failure payload remains intact, the complete
+177-definition value-flow/lifetime census found no queue or CPU-thread handoff,
+and the unrefreshed performance gate passed. The live ledger is therefore
+1/13 (8%). Evidence is in
+`../Reports/2026-07-28/sbresult-compact-success-path-sr0-census.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -795,7 +802,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The remaining Principal Engineer Feedback Campaign is binding at 0/13 (0%).
+The remaining Principal Engineer Feedback Campaign is binding at 1/13 (8%).
 Execute its four live plans in table order below. The owner has answered every
 campaign question: retain SoA and run the five-scene Physics witness matrix;
 replace the hard 12-parameter ceiling with qualitative review and reopen all
@@ -2228,7 +2235,7 @@ Binding owner directions:
 | 1 | [physics-body-hot-layout-evidence](../Reports/2026-07-28/physics-body-hot-layout-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; SoA retained, inert control-block alignment removed, and final review/gates clear |
 | 2 | [replay-restore-wide-signature-governance](../Reports/2026-07-28/replay-restore-wide-signature-governance-closure.md) | Complete | 4/4 | Closed 2026-07-28 and removed from the live ledger under rule 4; five Replay repair rows are gone, terminal state is enforced by the transaction, review is clear, and all gates pass without refresh |
 | 3 | [physics-fixed-list-copy-contract](../Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md) | Complete | 3/3 | Closed 2026-07-28 and removed from the live ledger under rule 4; implicit transfers are deleted, production construction/seeding is exact-owner scoped, lifecycle and phase proofs pass, and independent review is clear |
-| 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Ready | 0/4 | SR0 result-flow/lifetime census |
+| 4 | [sbresult-compact-success-path](TODO/sbresult-compact-success-path.md) | Active | 1/4 | SR1 compact diagnostic ownership model |
 | 5 | [vector-dot-product-api](TODO/vector-dot-product-api.md) | Ready | 0/3 | VD0 vector-vector multiply classification |
 | 6 | [determinism-terrain-fixture-isolation](TODO/determinism-terrain-fixture-isolation.md) | Ready | 0/3 | TF0 borrow/lifetime map |
 | 7 | [dependency-proof-generation](TODO/dependency-proof-generation.md) | Ready | 0/3 | DP0 JSON/matrix/regex/fixture comparison |
