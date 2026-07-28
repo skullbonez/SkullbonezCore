@@ -21,6 +21,9 @@ Invariants:
     storage; caller files reserve vectors through this wrapper.
   - Debug-contact rounding and engine estimates have one implementation shared
     by orchestration, publication, and memory reporting.
+  - Private Physics engine construction and storage seeding enter Replay
+    allocation, the canonical prediction owner, and its growth scope only
+    through this adapter.
   - A denied request is non-fatal to the process. Callers decide whether to keep
     partial UI data, retry later, or cancel the current prediction build.
 
@@ -191,6 +194,50 @@ int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine )
     }
 
     return static_cast<int>( bytes );
+}
+
+bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>& destination,
+                                        const Physics::PhysicsEngine& source, int currentReservedBytes,
+                                        int& outReservedBytes )
+{
+    outReservedBytes = currentReservedBytes;
+    const int requestedBytes = ReplayPredictionEngineReserveBytes( source );
+
+    if ( currentReservedBytes < 0 || requestedBytes <= 0 )
+    {
+        return false;
+    }
+
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
+
+    if ( requestedBytes > currentReservedBytes )
+    {
+
+        // Why: the private engine is retained across prediction rebuilds. Only
+        // real capacity increases should consume replay growth events; same-size
+        // reseeds just reuse the previous bounded reservation.
+
+        if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0,
+                                                    currentReservedBytes, requestedBytes, 1, result ) )
+        {
+            return false;
+        }
+    }
+
+    const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope
+        growthScope( owner, SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay, result );
+
+    if ( !destination )
+    {
+        destination = std::make_unique<Physics::PhysicsEngine>();
+    }
+
+    destination->SeedReplayPredictionStorageFrom( source );
+    outReservedBytes = (std::max)( currentReservedBytes, requestedBytes );
+    return true;
 }
 } // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

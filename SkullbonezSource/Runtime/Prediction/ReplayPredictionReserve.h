@@ -26,6 +26,9 @@ Invariants:
   - The hard cap is byte-based and shared by all prediction working-set users.
   - Vector and frame-payload helpers preserve request bytes, phase, scopes, and
     growth-counter order for every caller.
+  - Private Physics engine construction and storage seeding enter Replay
+    allocation, the canonical prediction owner, and its growth scope only
+    through this adapter.
 
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
@@ -39,6 +42,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace SkullbonezCore::Core
@@ -111,6 +115,13 @@ std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount );
 std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity );
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine );
 int ReplayPredictionEngineReserveBytes( const Physics::PhysicsEngine& engine );
+
+// Constructs and seeds one retained private Physics engine through the exact
+// production reserve-owner adapter. The destination remains partial until its
+// Runtime caller restores captured body and solver values.
+bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>& destination,
+                                        const Physics::PhysicsEngine& source, int currentReservedBytes,
+                                        int& outReservedBytes );
 
 // Invariant: the working-set owner is approved before allocation, then the
 // allocation phase, owner, and granted-growth scopes are entered in that order.

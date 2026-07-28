@@ -1,7 +1,7 @@
 # Physics Fixed List Copy Contract
 
 Date: 2026-07-28
-Status: ACTIVE — 2/3 phases complete
+Status: COMPLETE — 3/3 phases complete
 Impact area: Physics storage lifetime, prediction cloning, allocation policy
 Owner: Physics
 Priority: High
@@ -46,12 +46,16 @@ the hidden phase contract for arbitrary callers.
   exact-`replay_prediction_working_set` seed coordinator over private body,
   collider, buoyancy, and world owner operations, with collider shape
   references rebound explicitly.
-- [ ] **FC2 — Prove lifecycle and policy.** Add compile-time non-copyability
+- [x] **FC2 — Prove lifecycle and policy.** Add compile-time non-copyability
   checks plus focused legal-clone and illegal-phase coverage. Exercise
   `SeedReplayPredictionEngine()` through the production reserve-owner/growth
   adapter so the focused test cannot synthesize a drifting registration; run
   comment audit, allocation policy, Physics, Replay, performance, and broad
-  validation.
+  validation. Evidence:
+  `Agentic/Reports/2026-07-28/physics-fixed-list-copy-contract-closure.md`.
+  Construction and seeding now share the canonical production adapter;
+  lifecycle, deep collider rebinding, source destruction, bit-exact next-step,
+  illegal-phase, allocation, performance, visual, and broad gates all pass.
 
 ## Acceptance
 

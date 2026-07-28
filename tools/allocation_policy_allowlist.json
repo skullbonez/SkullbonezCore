@@ -177,13 +177,13 @@
       "removal_or_wrapper_plan": "Move prediction buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
     {
-      "path": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp",
       "patterns": [
-        "std::make_unique<PhysicsEngine>"
+        "std::make_unique<Physics::PhysicsEngine>"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "The private prediction engine object is constructed lazily inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
+      "reason": "The private prediction engine object is constructed lazily by the production reserve adapter inside the replay reserve owner scope so normal runtime startup and perf-smoke paths do not pay PhysicsWorld reserve memory.",
       "cap": "One PhysicsEngine instance retained by ReplayPrediction; its construction and copied store growth are counted under replay_prediction_working_set with the 256 MB hard cap.",
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },

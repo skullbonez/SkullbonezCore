@@ -27,8 +27,9 @@
 //   - Release foreign frees are proved in a child so their process-lifetime
 //     counter cannot contaminate later parent-process diagnostics.
 //   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
-//   - A Replay growth owner other than the canonical prediction working set
-//     cannot seed isolated Physics storage.
+//   - Physics storage seeding rejects missing allocation/owner scopes,
+//     SceneLoad phase, missing Replay owner, and any Replay owner other than
+//     the canonical prediction working set.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -413,6 +414,33 @@ bool RunRuntimeFatalCase( const char* caseName )
         RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
         RuntimeReserveOwnerScope ownerScope( owner );
         RuntimeReserveGrowthScope growthScope( owner, RuntimeReservePhase::Replay, growth );
+        destination->SeedReplayPredictionStorageFrom( *source );
+        return true;
+    }
+
+    const bool predictionSeedMissingScope = std::strcmp( caseName, "physics-prediction-seed-missing-scope" ) == 0;
+    const bool predictionSeedSceneLoad = std::strcmp( caseName, "physics-prediction-seed-scene-load" ) == 0;
+    const bool predictionSeedMissingOwner = std::strcmp( caseName, "physics-prediction-seed-missing-owner" ) == 0;
+
+    if ( predictionSeedMissingScope || predictionSeedSceneLoad || predictionSeedMissingOwner )
+    {
+        auto source = std::make_unique<PhysicsEngine>();
+        auto destination = std::make_unique<PhysicsEngine>();
+
+        if ( predictionSeedSceneLoad )
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            destination->SeedReplayPredictionStorageFrom( *source );
+            return true;
+        }
+
+        if ( predictionSeedMissingOwner )
+        {
+            RuntimeAllocationScope replayScope( RuntimeAllocationPhase::Replay );
+            destination->SeedReplayPredictionStorageFrom( *source );
+            return true;
+        }
+
         destination->SeedReplayPredictionStorageFrom( *source );
         return true;
     }
@@ -960,6 +988,21 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Physics/ReplayPredictionClone]",
                        "PhysicsEngine seed requires the canonical ReplayPrediction owner scope",
                        "owner_name=replay_solver_snapshot", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-missing-scope",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=startup", "owner=0",
+                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-scene-load",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=scene_load",
+                       "owner=0", "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
+
+    ExpectFatalCase( "physics-prediction-seed-missing-owner",
+                     { "FATAL[Physics/ReplayPredictionClone]",
+                       "PhysicsEngine seed requires the canonical ReplayPrediction owner scope", "phase=replay", "owner=0",
+                       "owner_name=<unregistered>", "required_owner=replay_prediction_working_set" } );
 
     ExpectFatalCase( "terrain-locate-cell-range",
                      { "FATAL[Terrain]", "Terrain polygon cell out of range", "worldXCell=3", "quadsPerSide=3" } );

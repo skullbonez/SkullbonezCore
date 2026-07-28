@@ -64,6 +64,9 @@
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Prediction">
+      <UniqueIdentifier>{E99C3DDA-C628-4F5D-A75D-B537DE91807B}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Planning">
       <UniqueIdentifier>{E858DBAF-986E-4C68-9C84-CA4756DD08E5}</UniqueIdentifier>
     </Filter>
@@ -389,6 +392,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Prediction\ReplayPredictionReserve.cpp">
+      <Filter>Source Files\Runtime\Prediction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
