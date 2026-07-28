@@ -311,6 +311,10 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
                                                RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample )
 {
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/Restore", ::HashStr( "Frame/Replay/Restore" ) );
+
+    // Invariant: every product and probe entry reaches the same cancellation
+    // barrier before mutating live physics authority.
+    m_predictionOwner.CancelJob( false );
     transaction.SelectArtifact( 0, 0 );
     ReplaySolverFrameSample liveBackup;
 

@@ -721,9 +721,10 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
             ReplayLiveRestoreOutcome outcome;
             outcome.restored = restored;
             strncpy_s( outcome.reason, restoreTransaction.FailureReason(), _TRUNCATE );
-            CompleteLiveRestoreRequest( restoreTransaction, liveRequest, outcome, world, scene, diagnosticsRuntime,
-                                        inputRouter, interaction, camera, restoreMode, attachedFollow,
-                                        camera.director.grabbed );
+            PublishRestoreDiagnostic( restoreTransaction, diagnosticsRuntime, scene );
+            ApplyRestoredBranchTimeline( restoreTransaction, outcome, sceneController, inputRouter, interaction, camera,
+                                         restoreMode, attachedFollow, camera.director.grabbed );
+            CompleteLiveRestoreScrubber( restoreTransaction, liveRequest, outcome );
 
             result.status = m_probeRunner.CompleteRestoreProbe( restoreRequest, outcome.restored, outcome.reason );
         }
@@ -1849,10 +1850,11 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
             ReplayLiveRestoreOutcome outcome;
             outcome.restored = restored;
             strncpy_s( outcome.reason, transaction.FailureReason(), _TRUNCATE );
-            CompleteLiveRestoreRequest( transaction, liveRequest, outcome, world, scene, diagnosticsRuntime,
-                                        loadInput.inputRouter, loadInput.interaction, loadInput.camera,
-                                        loadInput.normalizedRestoreMode, loadInput.attachedFollow,
-                                        loadInput.directorGrabbed );
+            PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
+            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter,
+                                         loadInput.interaction, loadInput.camera, loadInput.normalizedRestoreMode,
+                                         loadInput.attachedFollow, loadInput.directorGrabbed );
+            CompleteLiveRestoreScrubber( transaction, liveRequest, outcome );
 
             probeResult = m_probeRunner.CompleteCheckpointFileProbe( startup.checkpointProbePath, checkpoint, loadResult,
                                                                      outcome.restored, outcome.reason );
@@ -1871,8 +1873,8 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         strncpy_s( restoreRequest.path, startup.targetProbePath, _TRUNCATE );
         restoreRequest.requestedFrame = ( std::numeric_limits<ReplayFrameIndex>::max )();
         ReplayRestoreTransaction transaction { timelineReset };
-        const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, world, scene, debug, runtimeTools,
-                                                            simulation, config, assets, workerPool, uiOverrides,
+        const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
+                                                            runtimeTools, simulation, config, assets, workerPool, uiOverrides,
                                                             generatedObjectTypeOverride );
 
         PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
@@ -1896,14 +1898,17 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
         if ( probeResult.ok )
         {
             ReplayRestoreTransaction transaction { timelineReset };
-            ReplayLiveRestoreOutcome outcome = ApplyLiveRestoreRequest( transaction, restoreRequest, world, scene, debug,
-                                                                        runtimeTools, simulation, config, assets, workerPool,
-                                                                        uiOverrides, generatedObjectTypeOverride );
+            const bool restored = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
+                                                                runtimeTools, simulation, config, assets, workerPool,
+                                                                uiOverrides, generatedObjectTypeOverride );
 
-            CompleteLiveRestoreRequest( transaction, restoreRequest, outcome, world, scene, diagnosticsRuntime,
-                                        loadInput.inputRouter, loadInput.interaction, loadInput.camera,
-                                        loadInput.normalizedRestoreMode, loadInput.attachedFollow,
-                                        loadInput.directorGrabbed );
+            ReplayLiveRestoreOutcome outcome =
+                ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind, restored );
+            PublishRestoreDiagnostic( transaction, diagnosticsRuntime, scene );
+            ApplyRestoredBranchTimeline( transaction, outcome, sceneController, loadInput.inputRouter,
+                                         loadInput.interaction, loadInput.camera, loadInput.normalizedRestoreMode,
+                                         loadInput.attachedFollow, loadInput.directorGrabbed );
+            CompleteLiveRestoreScrubber( transaction, restoreRequest, outcome );
 
             probeResult = m_probeRunner.CompleteBranchFileProbe( startup.branchProbePath, outcome );
         }
@@ -1934,7 +1939,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 restoreRequest.requestedFrame = request.targetFrame;
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
-                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, world, scene, debug,
+                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
                                                                runtimeTools, simulation, config, assets, workerPool,
                                                                uiOverrides, generatedObjectTypeOverride );
 
@@ -1959,7 +1964,7 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
                 restoreRequest.injectTargetHashMismatchForProbe = request.forceHashMismatch;
                 strncpy_s( restoreRequest.path, startup.failureProbePath, _TRUNCATE );
                 ReplayRestoreTransaction transaction { timelineReset };
-                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, world, scene, debug,
+                step.succeeded = RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
                                                                runtimeTools, simulation, config, assets, workerPool,
                                                                uiOverrides, generatedObjectTypeOverride );
 

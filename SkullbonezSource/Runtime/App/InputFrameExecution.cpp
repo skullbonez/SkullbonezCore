@@ -1018,17 +1018,36 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                                                          static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
 
         ReplayRestoreTransaction transaction { timelineReset };
-        ReplayLiveRestoreOutcome restoreOutcome = replayRuntime
-                                                      .ApplyLiveRestoreRequest( transaction, restoreRequest,
-                                                                                sceneController.Scene(), SceneState(), debug,
-                                                                                runtimeTools, simulation, config, assets,
-                                                                                workerPool, ui.SceneNavigation().overrides,
-                                                                                launchOptions.generatedObjectTypeOverride );
+        bool restored = false;
 
-        replayRuntime.CompleteLiveRestoreRequest( transaction, restoreRequest, restoreOutcome, sceneController.Scene(),
-                                                  SceneState(), diagnosticsRuntime, inputRouter, interaction, camera,
-                                                  NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
-                                                  attachedCamera.State().activeFollow, camera.director.grabbed );
+        if ( restoreRequest.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
+        {
+            restored = replayRuntime.RestoreV2ArtifactTargetState( transaction, restoreRequest, sceneController, debug,
+                                                                   runtimeTools, simulation, config, assets, workerPool,
+                                                                   ui.SceneNavigation().overrides,
+                                                                   launchOptions.generatedObjectTypeOverride );
+        }
+        else if ( restoreRequest.kind == ReplayLiveRestoreKind::SolverSample && restoreRequest.solverSample )
+        {
+            restored = replayRuntime.RestoreSolverSampleAsLive( transaction, sceneController.Scene(), SceneState(), debug,
+                                                                 runtimeTools, *restoreRequest.solverSample );
+        }
+        else
+        {
+            transaction.FailBeforeMutation( "live solver restore request has no selected sample" );
+        }
+
+        ReplayLiveRestoreOutcome restoreOutcome =
+            ReplayLiveRestoreOperations::BuildOutcome( transaction, restoreRequest.kind, restored );
+#ifdef _DEBUG
+        replayRuntime.PublishRestoreDiagnostic( transaction, diagnosticsRuntime, SceneState() );
+#endif
+        replayRuntime.ApplyRestoredBranchTimeline(
+            transaction, restoreOutcome, sceneController, inputRouter, interaction, camera,
+            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+            attachedCamera.State().activeFollow, camera.director.grabbed );
+
+        replayRuntime.CompleteLiveRestoreScrubber( transaction, restoreRequest, restoreOutcome );
 
         if ( restoreOutcome.enterInteractive )
         {

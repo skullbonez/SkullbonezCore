@@ -102,6 +102,11 @@ class ReplayRestorePhaseCursor
         return adjacent || preMutationFailure || rollback;
     }
 
+    static constexpr bool IsScrubberPublicationTerminal( Phase phase, bool restored )
+    {
+        return restored ? phase == Phase::Complete : phase == Phase::Failed || phase == Phase::RolledBack;
+    }
+
     bool TryAdvance( Phase next )
     {
 
@@ -129,6 +134,9 @@ class ReplayRestorePhaseCursor
 // - Recoverable failure before mutation ends in Failed. Once live state may
 //   have changed, failure can return only after the retained backup is applied
 //   and the cursor reaches RolledBack.
+// - Scrubber publication accepts success only from Complete and recoverable
+//   failure only from Failed/RolledBack, so split completion calls cannot be
+//   reordered by caller convention.
 // - The transaction owns only detached values and its phase cursor. Every
 //   runtime owner is borrowed by one ReplayRuntime phase call and expires when
 //   that call returns.
@@ -199,6 +207,19 @@ class ReplayRestoreTransaction
     void Complete()
     {
         AdvanceOrFatal( ReplayRestorePhaseCursor::Phase::Complete, "Complete" );
+    }
+
+    void RequireScrubberPublicationTerminal( bool restored ) const
+    {
+        const ReplayRestorePhaseCursor::Phase current = m_phase.Current();
+
+        if ( !ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( current, restored ) )
+        {
+            SB_FATAL( "Runtime/ReplayRestoreTransaction",
+                      "Scrubber publication reached before the restore transaction became terminal. "
+                      "restored=%u phase=%u",
+                      restored ? 1u : 0u, static_cast<unsigned int>( current ) );
+        }
     }
 
     void FailBeforeMutation( const char* reason )

@@ -570,6 +570,12 @@ TEST_CASE( "Replay restore phase cursor exposes the complete legal transition ma
             const bool expected = adjacentSuccess || preMutationFailure || rollback;
             CHECK( ReplayRestorePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
         }
+
+        const Phase phase = phases[fromIndex];
+        CHECK( ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( phase, true ) ==
+               ( phase == Phase::Complete ) );
+        CHECK( ReplayRestorePhaseCursor::IsScrubberPublicationTerminal( phase, false ) ==
+               ( phase == Phase::Failed || phase == Phase::RolledBack ) );
     }
 
     ReplayRestorePhaseCursor cursor;

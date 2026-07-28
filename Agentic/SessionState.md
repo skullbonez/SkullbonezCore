@@ -13,7 +13,8 @@ plan inventory.
 | Branch | `nightrunner-28th-JUL-26` |
 | Current baseline | Main tip `0768593d`; principal-engineer feedback verified against the current tree before the bounded response. |
 | Current objective | Principal Engineer Feedback Campaign: commit the behavior-neutral fixes and execute seven deferred ownership/performance plans in binding order. |
-| Active/future progress | 1/20 (5%). Plan 2 RG0 freshly reviewed all 33 exact-12 operations: 28 retain-owner, five Replay restore/topology repairs owned by RG2, zero unreviewed. |
+| Active/future progress | 3/20 (15%). Plan 2 RG2 decomposed all five Replay restore/topology repairs; 28 current trigger signatures remain, all with current retain-owner rulings. |
+| Validation for Replay restore RG2 | Clean-worktree Profile build (45.9 s) and `validate_tests` (14.8 s rerun; 423/423 cases and 2,410,303 assertions) pass. Wide-signature strict scan is 28/28 ruled, aggregate scan is 86/86 ruled, and extraction-scar scan is 1/1 ruled. Comment audit is 8/8 with zero deferred files. |
 | Validation for Physics body hot layout | Clean-worktree `validate_physics` (109.1 s), `validate_perf` (91.5 s), and corrected `validate_full` (431.1 s) pass. Inventories are 86/86 aggregate rulings, 1/1 extraction-scar ruling, and zero signatures over 12. Comment audit is 1/1; independent review found zero blockers. No baseline was refreshed. |
 | Validation for principal feedback response | Final-source `validate_fast` (205.5 s), `validate_tests` (15.0 s), `validate_physics` (27.2 s), `validate_perf` (90.6 s), `validate_replay_visual_fidelity` (394.4 s), `validate_dx12_renderer` (53.5 s), and `validate_full` (310.6 s) pass. No baseline was refreshed. Ownership inventories report 86/86 aggregate rulings and 1/1 extraction-scar ruling; comment audit is 9/9. Independent review found one stale master-plan ruling and two missing Quaternion goldens; all were corrected before validation, leaving zero blockers. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
@@ -30,7 +31,7 @@ plan inventory.
 
 ## Live Queue
 
-The Principal Engineer Feedback Campaign is live at 1/20. Physics body layout
+The Principal Engineer Feedback Campaign is live at 3/20. Physics body layout
 evidence is complete; its six remaining TODO plans cover Replay restore/
 wide-signature governance, PhysicsFixedList copy semantics, compact SbResult
 success values, explicit vector dot products, isolated deterministic terrain
@@ -704,6 +705,9 @@ are not certified. Full evidence:
 | `tools\run_graphics_stress.bat 1` (N26 final) | 60.83 s | PASS; PID 34120 bounded stop, crash-free, descriptor churn proof complete, empty stderr |
 | wide-signature RG1 self-test + strict scan | 27.6 s | PASS; 33 current trigger rows, 28 retain-owner, 5 repair-plan, zero unruled/stale |
 | `tools\validate_fast.bat` (RG1 clean snapshot) | 228 s | PASS; format/metadata/dependencies, all three ownership inventories, Profile/Debug builds, and unit tests |
+| wide-signature RG2 self-tests + strict scans | 28.2 s max | PASS; 28/28 current trigger rows ruled, 86/86 aggregate rows ruled, 1/1 extraction scar ruled |
+| clean-worktree Profile build (RG2) | 45.9 s | PASS; zero warnings/errors |
+| `tools\validate_tests.bat` (RG2 clean snapshot) | 14.8 s | PASS; 423/423 cases and 2,410,303 assertions |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -711,10 +715,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-restore-wide-signature-governance` at RG2. Decompose the five
-`repair-plan` Replay restore/topology operations into focused concrete-owner
-operations while retaining `ReplayRestoreTransaction` only for its tested phase
-and arbitration invariant. Do not introduce a courier, context/service bag,
-capability-slice set, callback pack, pure forwarder, or owner reach-back. The
-principal-feedback campaign is 2/20 (10%). Preserve the uncommitted warm-start
-review diff until the owner accepts or rejects it.
+Continue `replay-restore-wide-signature-governance` at RG3. Run the mandatory
+independent ownership review, all three inventories, touched-file comment
+audit, one-invocation Replay visual-fidelity gate, and broad validation without
+refresh. The principal-feedback campaign is 3/20 (15%). Preserve the
+uncommitted warm-start review diff until the owner accepts or rejects it.

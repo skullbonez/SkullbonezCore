@@ -147,6 +147,14 @@ class ReplayRuntime;
 class InputRouter;
 class RuntimeTools;
 class SceneController;
+
+namespace ReplayLiveRestoreOperations
+{
+// Builds the detached result published after one restore transaction reaches a
+// success or recoverable-failure terminal phase.
+ReplayLiveRestoreOutcome BuildOutcome( const ReplayRestoreTransaction& transaction, ReplayLiveRestoreKind kind,
+                                       bool restored );
+}
 class DiagnosticsRuntime;
 class SimulationSystem;
 enum class GeneratedObjectTypeOverride;
@@ -340,22 +348,30 @@ class ReplayRuntime
     bool RestoreSolverSampleAsLive( ReplayRestoreTransaction& transaction, SceneWorld& world, SceneSessionState& scene,
                                     OverlayDebugState& debug, RuntimeTools& runtimeTools,
                                     const ReplaySolverFrameSample& sample );
+
+    // Restores one selected artifact target through the transaction's phase
+    // invariant. SceneController is borrowed as the concrete scene/session
+    // owner; the focused restore phases retain no participant pointer.
     bool RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                       SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug,
-                                       RuntimeTools& runtimeTools, SimulationSystem& simulation,
+                                       SceneController& sceneController, OverlayDebugState& debug, RuntimeTools& runtimeTools,
+                                       SimulationSystem& simulation,
                                        const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets,
                                        Threading::WorkerPool& workerPool,
                                        SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                                        GeneratedObjectTypeOverride& generatedObjectTypeOverride );
-    ReplayLiveRestoreOutcome ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world,
-                                                      SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation,
-                                                      const SkullbonezCore::Core::EngineConfig& config, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool,
-                                                      SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride );
-    void CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request,
-                                     ReplayLiveRestoreOutcome& outcome, SceneWorld& world, SceneSessionState& scene,
-                                     DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter,
-                                     RuntimeInteractionController& interaction, CameraControlState& camera,
-                                     RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed );
+
+    // Applies branch provenance and advances a verified restore to Complete.
+    // This phase must run before CompleteLiveRestoreScrubber.
+    void ApplyRestoredBranchTimeline( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreOutcome& outcome,
+                                      SceneController& sceneController, InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction, CameraControlState& camera,
+                                      RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed );
+
+    // Publishes the terminal result to the scrubber. The implementation fails
+    // fatally if success has not reached Complete or failure has not reached
+    // Failed/RolledBack.
+    void CompleteLiveRestoreScrubber( const ReplayRestoreTransaction& transaction,
+                                      const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome );
 #ifdef _DEBUG
 
     // Debug probes use the production phase transaction and receive concrete

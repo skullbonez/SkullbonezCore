@@ -82,15 +82,6 @@
       "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
     },
     {
-      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
-      "signature": "bool RebuildReplayGeneratedSceneTopology( RuntimeTools& runtimeTools, SimulationSystem& simulation, SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config, SceneWorld& world, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride, int sceneObjectCapacity, const ReplayEventSample& event, const ReplaySolverFrameSample& checkpoint, char* rebuildReason, std::size_t rebuildReasonSize )",
-      "owner": "Replay generated-topology restore path",
-      "disposition": "repair-plan",
-      "reason": "Generated topology rebuild, simulation/configuration, scene/UI/type overrides, event/checkpoint inputs, and diagnostic-buffer ownership are fused and require focused operations.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
-      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
-    },
-    {
       "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
       "signature": "void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext, const RenderInstanceStore& renderStore, const SkullbonezCore::Physics::ColliderStore& colliderStore, bool renderCollisionVolumes, const Matrix4& view, const Matrix4& projection, const float ( &lightPosition )[4], const SkullbonezCore::Core::CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha, const std::vector<uint8_t>* modelMask, bool drawMaskedModels )",
       "owner": "RenderInstanceRenderer",
@@ -137,33 +128,6 @@
       "disposition": "retain-owner",
       "reason": "Prediction owns source selection and calibration for one build frame; source facts and result output belong to that phase.",
       "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
-      "signature": "ReplayLiveRestoreOutcome ReplayRuntime::ApplyLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
-      "owner": "Replay live-restore apply path",
-      "disposition": "repair-plan",
-      "reason": "Scene mutation, artifact selection, simulation/configuration/assets, UI overrides, generated-type policy, and transaction authority cross concrete restore responsibilities.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
-      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
-      "signature": "void ReplayRuntime::CompleteLiveRestoreRequest( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, ReplayLiveRestoreOutcome& outcome, SceneWorld& world, SceneSessionState& scene, DiagnosticsRuntime& diagnosticsRuntime, InputRouter& inputRouter, RuntimeInteractionController& interaction, CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed )",
-      "owner": "Replay live-restore completion path",
-      "disposition": "repair-plan",
-      "reason": "Completion combines transaction advance, scene and diagnostics publication, input/interaction cleanup, and camera policy that require focused operations.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
-      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
-      "signature": "bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& transaction, const ReplayLiveRestoreRequest& request, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SimulationSystem& simulation, const SkullbonezCore::Core::EngineConfig& config, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides, GeneratedObjectTypeOverride& generatedObjectTypeOverride )",
-      "owner": "Replay V2 artifact restore path",
-      "disposition": "repair-plan",
-      "reason": "The surviving operation still receives the full multi-owner restore surface even though the same-class pure forwarding facade is gone.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
-      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
@@ -244,15 +208,6 @@
       "disposition": "retain-owner",
       "reason": "Automation owns this named phase and its ordering relative to input; concrete composition participants are borrowed only for the phase call.",
       "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
-    },
-    {
-      "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
-      "signature": "bool StepReplayRestoreTarget( ReplayRestoreTransaction& transaction, SceneWorld& world, SceneSessionState& scene, OverlayDebugState& debug, RuntimeTools& runtimeTools, SkullbonezCore::Assets::AssetSystem& assets, SkullbonezCore::Threading::WorkerPool& workerPool, int sceneObjectCapacity, const ReplayRestoreArtifactData& artifact, const ReplaySolverFrameSample& checkpoint, const ReplayV2SolverHashSample& target, SkullbonezCore::Core::Profiler* profiler )",
-      "owner": "Replay restore-target step",
-      "disposition": "repair-plan",
-      "reason": "The helper fuses transaction phase, scene/world mutation, artifact/checkpoint/target selection, tools/assets/workers, capacity, and diagnostics.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md",
-      "plan": "Agentic/Plans/TODO/replay-restore-wide-signature-governance.md"
     },
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
