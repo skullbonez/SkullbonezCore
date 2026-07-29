@@ -173,12 +173,11 @@ std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacit
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine )
 {
 
-    // Why: seeding the private engine copies physics-owned vectors and
-    // scene-sized fixed-list backing. Measure both before requesting the replay
-    // growth scope so every copy allocation shares one bounded prediction owner.
+    // Why: PhysicsWorld's total already includes its broadphase, diagnostics,
+    // and sleep-visual storage. Adding the debug subset again would double-count
+    // that memory and could reject an otherwise valid bounded replay reserve.
     uint64_t bytes = static_cast<uint64_t>( sizeof( Physics::PhysicsEngine ) );
     bytes += engine.CollectPhysicsWorldMemoryBytes();
-    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
     bytes += engine.CollectSceneSizedStoreMemoryBytes();
     return bytes;
 }

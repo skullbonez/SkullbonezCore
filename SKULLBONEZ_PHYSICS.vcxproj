@@ -216,6 +216,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseDebugView.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsView.h" />

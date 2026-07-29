@@ -28,8 +28,9 @@ Physics/PhysicsEngine.h -> Physics/PhysicsWorld.h
 `PhysicsEngine` remains the owner. IC2 will move its by-value `PhysicsWorld`
 member behind the repository's existing owner-boundary `std::unique_ptr`
 lifetime pattern and define construction/destruction out of line. Engine
-commands dereference once at the owner boundary; no per-body or per-pair loop
-gains a pointer chase. This removes `PhysicsWorld.h`, all sixteen stage headers,
+commands keep the pointer behind the owner boundary, and engine-side body
+iteration binds the world before entering the loop. This removes
+`PhysicsWorld.h`, all sixteen stage headers,
 and `SpatialGrid.h` from every one of the 61 TUs that reaches the public engine
 contract.
 

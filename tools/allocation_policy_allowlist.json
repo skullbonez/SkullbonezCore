@@ -8,7 +8,7 @@
       ],
       "owner": "PhysicsEngine cohesive solver owner",
       "phase": "physics_engine_owner_construction",
-      "reason": "PhysicsEngine creates one fixed-size PhysicsWorld owner while the caller is already in startup or registered replay-prediction construction; the pointer removes solver-private stage headers from the public engine contract and is never crossed inside body or pair loops.",
+      "reason": "PhysicsEngine creates one fixed-size PhysicsWorld owner while the caller is already in startup or registered replay-prediction construction; the pointer removes solver-private stage headers from the public engine contract, stays behind PhysicsEngine, and is bound before engine-side body iteration.",
       "cap": "Exactly one PhysicsWorld allocation per PhysicsEngine lifetime.",
       "removal_or_wrapper_plan": "Replace with typed owner-lifetime arena storage if Physics gains a dedicated construction arena; do not re-inline PhysicsWorld into the public header."
     },

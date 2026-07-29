@@ -49,7 +49,7 @@ Related:
 #include "../Direction/LiveStyleController.h"
 #include "../Scene/SceneAutomationGateConfiguration.h"
 #include "../Scene/SceneLifecycle.h"
-#include "../../Physics/SpatialGrid.h"
+#include "../../Physics/PhysicsBroadphaseDebugView.h"
 #include "../../Physics/PhysicsDebugData.h"
 
 namespace SkullbonezCore
@@ -100,8 +100,7 @@ class SceneAutomationGateTracker
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneAutomationGateConfiguration&& configuration );
 
     void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
-    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-                                         int activeCellCount );
+    void UpdateRequiredBroadphaseXCells( std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells );
     SceneAutomationGateStatus Status() const;
     void PrintMissingRequirements() const;
 

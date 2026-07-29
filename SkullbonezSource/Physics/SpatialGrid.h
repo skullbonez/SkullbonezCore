@@ -63,6 +63,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
+#include "PhysicsBroadphaseDebugView.h"
 #include "PhysicsStageCapacity.h"
 
 namespace SkullbonezCore
@@ -121,7 +122,7 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     // One power-of-two table keeps lookup, storage, iteration, and exhaustion
     // on the same deterministic path at both ordinary and scale-scene sizes.
-    static constexpr int TABLE_SIZE = 8192;
+    static constexpr int TABLE_SIZE = static_cast<int>( Physics::PHYSICS_SPATIAL_GRID_BUCKET_COUNT );
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
     static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
@@ -288,9 +289,10 @@ class SpatialGrid
     static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
 
     // Hazard: exact coordinates can reach +/-200,000 at the minimum cell size.
-    // Bucket and ActiveCell retain only a saturated visualization projection;
-    // collision identity continues to use the full-width Entry coordinates and
-    // hash key. Widen both visualization structs before removing saturation.
+    // Bucket and PhysicsBroadphaseActiveCell retain only a saturated
+    // visualization projection; collision identity continues to use the
+    // full-width Entry coordinates and hash key. Widen both visualization
+    // structs before removing saturation.
     static constexpr int MIN_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::min )();
     static constexpr int MAX_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::max )();
     static constexpr int MAX_ABSOLUTE_CELL_COORDINATE = static_cast<int>( MAX_WORLD_COORDINATE / MIN_CELL_SIZE );
@@ -298,12 +300,6 @@ class SpatialGrid
                    "SpatialGrid world/cell limits changed: review exact and visualization coordinate storage." );
     static_assert( MAX_ABSOLUTE_CELL_COORDINATE <= ( std::numeric_limits<int>::max )() - 1024,
                    "SpatialGrid exact cell coordinates exceed the guarded signed-int conversion range." );
-
-    struct ActiveCell
-    {
-        int16_t ix, iy, iz;
-        int objectCount;
-    };
 
     SpatialGrid( float fCellSize );
 
@@ -416,7 +412,7 @@ class SpatialGrid
         return overlayEntries.high_water();
     }
     uint64_t CollectDynamicMemoryBytes() const;
-    void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
+    void GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells, int maxCells ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

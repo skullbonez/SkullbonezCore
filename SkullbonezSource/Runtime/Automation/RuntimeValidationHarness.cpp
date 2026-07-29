@@ -194,11 +194,10 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 }
 
 
-void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells,
-                                                                 int activeCellCount )
+void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells )
 {
 
-    if ( m_configuration.m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
+    if ( m_configuration.m_requiredBroadphaseXCells.empty() || activeCells.empty() )
     {
         return;
     }
@@ -211,13 +210,12 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGr
             continue;
         }
 
-        required.lastActiveCellCount = activeCellCount;
+        required.lastActiveCellCount = static_cast<int>( activeCells.size() );
         required.lastMissingCellX = -1;
         required.hasObservedXRange = false;
 
-        for ( int i = 0; i < activeCellCount; ++i )
+        for ( const Physics::PhysicsBroadphaseActiveCell& active : activeCells )
         {
-            const SpatialGrid::ActiveCell& active = activeCells[i];
 
             if ( active.iy == required.cellY && active.iz == required.cellZ )
             {
@@ -238,16 +236,15 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGr
 
         // Why: the authored gate requires every x cell in the inclusive span,
         // not merely matching observed min/max bounds with holes between them.
-        // Both loops are bounded by SpatialGrid::MAX_BUCKETS.
+        // The outer span and authored x range are both bounded by their owners.
         bool allActive = true;
 
         for ( int x = required.minCellX; x <= required.maxCellX; ++x )
         {
             bool found = false;
 
-            for ( int i = 0; i < activeCellCount; ++i )
+            for ( const Physics::PhysicsBroadphaseActiveCell& active : activeCells )
             {
-                const SpatialGrid::ActiveCell& active = activeCells[i];
 
                 if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
                 {

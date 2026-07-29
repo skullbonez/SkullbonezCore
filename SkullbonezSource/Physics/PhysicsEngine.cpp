@@ -939,7 +939,8 @@ void PhysicsEngine::Step( float fChangeInTime, const PhysicsWorldForces& worldFo
 
 void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces )
 {
-    const std::span<const PhysicsFixedTreeReleaseEvent> releaseEvents = m_world->GetFixedTreeReleaseEvents();
+    PhysicsWorld& world = *m_world;
+    const std::span<const PhysicsFixedTreeReleaseEvent> releaseEvents = world.GetFixedTreeReleaseEvents();
 
     if ( releaseEvents.empty() )
     {
@@ -956,7 +957,7 @@ void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& world
 
         for ( int index : m_fixedTreeReleaseWakeBodies )
         {
-            m_world->WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), worldForces, index );
+            world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), worldForces, index );
         }
     }
 }
@@ -1001,17 +1002,18 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
 
     const PhysicsFixedTreeReleaseEvent event = { sourceIndex, seedLinearVelocity, seedAngularVelocity };
     m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
+    PhysicsWorld& world = *m_world;
 
     const auto wakeReleasedIndex = [&]( int index )
     {
 
         if ( m_hasLastWorldForces )
         {
-            m_world->WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
+            world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
         }
         else
         {
-            m_world->WakeModel( m_bodyStore, index );
+            world.WakeModel( m_bodyStore, index );
         }
     };
 
@@ -1027,7 +1029,7 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
 
     if ( sourceReleased || !m_fixedTreeReleaseWakeBodies.empty() )
     {
-        m_bodyStore.CopySleepStatesFrom( m_world->GetSleepStates() );
+        m_bodyStore.CopySleepStatesFrom( world.GetSleepStates() );
     }
 
     return true;
@@ -1416,9 +1418,18 @@ std::size_t PhysicsEngine::ReadBuoyancyFactCapacity( const PhysicsEngine& engine
 }
 
 
-const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::ReadSpatialGrid( const PhysicsEngine& engine )
+float PhysicsEngine::ReadBroadphaseCellSize( const PhysicsEngine& engine )
 {
-    return engine.m_world->GetSpatialGrid();
+    return engine.m_world->GetSpatialGrid().GetCellSize();
+}
+
+
+int PhysicsEngine::ReadBroadphaseActiveCells( const PhysicsEngine& engine, std::span<PhysicsBroadphaseActiveCell> outCells )
+{
+    const Math::CollisionDetection::SpatialGrid& grid = engine.m_world->GetSpatialGrid();
+    const int copiedCount = (std::min)( grid.GetActiveCellCount(), static_cast<int>( outCells.size() ) );
+    grid.GetActiveCells( outCells.data(), copiedCount );
+    return copiedCount;
 }
 
 

@@ -55,7 +55,7 @@
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "signature": "void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )",
-      "body_sha256": "8ba3ee5b4edf1a2b51459bb0d7421e1de7a5208165201a2169b19849fc017b4d",
+      "body_sha256": "c6489c2fd6321168420b0d8d8d3049a3487709b0577542d43596e3ab56fd29af",
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
       "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order; splitting field families would fragment the format invariant and byte-exact validation contract.",

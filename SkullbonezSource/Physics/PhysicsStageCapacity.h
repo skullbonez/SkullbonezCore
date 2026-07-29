@@ -4,24 +4,28 @@ Purpose:
   Defines shared scene-derived ceilings and list types for fixed-step stages.
 
 Summary:
-  Broadphase, narrowphase, contact solving, and diagnostics derive their runtime
-  reservations from the same admitted body count. Compile-time ceilings retain
-  the engine's absolute 8,192-body capability while PhysicsFixedList commits
-  only the active scene's required prefix during scene load.
+  Broadphase, narrowphase, contact solving, and diagnostics share their
+  compile-time ceilings here. Scene-derived reservations use the admitted body
+  count, while the spatial grid retains one fixed 8,192-bucket identity table.
 
 Glossary:
   B: Admitted body rows for the active scene.
   P: Candidate-pair rows, bounded to four per admitted body.
   K: Persistent contact/cache rows, four manifolds per pair plus eight terrain
     rows per body.
+  Grid bucket: Fixed hash-table row that owns one active broadphase cell.
 
 Invariants:
   - Every helper is monotonic through the supported body ceiling.
   - Runtime capacities never exceed their matching compile-time ceiling.
   - Candidate-pair and contact formulas are shared by every owning stage.
+  - Solver storage and its detached diagnostic projection use the same grid
+    bucket ceiling; diagnostics never define solver capacity.
 
 Related:
   - PhysicsFixedList.h
+  - PhysicsBroadphaseDebugView.h
+  - SpatialGrid.h
   - Stages/PhysicsBroadphaseStage.h
   - Stages/PhysicsContactSolverStage.h
 */
@@ -43,6 +47,7 @@ inline constexpr std::size_t PHYSICS_MAX_CONTACT_ROWS = PHYSICS_MAX_CANDIDATE_PA
 inline constexpr std::size_t PHYSICS_MAX_COLLISION_VISUAL_BODY_ROWS = PHYSICS_MAX_CANDIDATE_PAIRS * 2u;
 inline constexpr std::size_t PHYSICS_MAX_PIPELINE_TRACE_RECORDS = 4096u;
 inline constexpr std::size_t PHYSICS_MUTUAL_GRAVITY_MAX_BODIES = 512u;
+inline constexpr std::size_t PHYSICS_SPATIAL_GRID_BUCKET_COUNT = 8192u;
 inline constexpr std::size_t PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS = PHYSICS_MUTUAL_GRAVITY_MAX_BODIES *
                                                                 ( PHYSICS_MUTUAL_GRAVITY_MAX_BODIES - 1u ) / 2u;
 

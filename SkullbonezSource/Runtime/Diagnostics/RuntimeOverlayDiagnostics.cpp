@@ -29,6 +29,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 
 #include <algorithm>
+#include <span>
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Render/RuntimeRenderFrameValues.h"
@@ -40,7 +41,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 namespace SBUI = SkullbonezCore::UI;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
@@ -141,17 +141,15 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
     // gates remain coherent when the operator toggles the overlay.
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
     PhysicsEngine& physics = scene.Physics();
-    const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
-    m_renderResources.m_broadphaseOverlay.SetCellSize( grid.GetCellSize() );
-    SpatialGrid::ActiveCell activeCells[SpatialGrid::MAX_BUCKETS];
-    const int activeCellCount = grid.GetActiveCellCount();
-    grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
+    m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
+    PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
+    const int activeCellCount = PhysicsEngine::ReadBroadphaseActiveCells( physics, activeCells );
+    const std::span<const PhysicsBroadphaseActiveCell> activeCellView( activeCells,
+                                                                       static_cast<std::size_t>( activeCellCount ) );
     const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCells, activeCellCount,
-                                                  collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
+    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCellView, collisionKeys );
 
-    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCells,
-                                                                   (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
+    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCellView );
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 

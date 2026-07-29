@@ -12,9 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-5 are closed and excluded from the live ledger. Plan 6 IC0-IC2 are complete; IC3 next re-measures closure/build time, runs the mapped gates, and closes with independent review. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 3/17 (18%). Plan 6 is 3/4; plans 7-8 remain. |
-| Validation for runtime include closure IC2 | `PhysicsEngine` retains sole `PhysicsWorld` authority through one fixed-size owner allocation and out-of-line destruction; every public operation crosses once before hot solver work. `PhysicsDiagnosticsView.h` is a concrete Physics value contract, not a forwarding or declaration umbrella. `UI.h`'s corrected direct census is ten tab headers: profiler remains and nine redundant direct edges are removed. Allocation/dependency scans, 788/788 project/filter items, focused Profile, final `validate_fast`, and the 7/7 IC2 comment audit pass. The allocation allowlist gained one exact PhysicsEngine owner row; no baseline, golden, config, schema, or runtime artifact changed. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-6 are closed and excluded from the live ledger. Plan 7 QN0 is the next owner stop-or-proceed checkpoint; plan 8 remains last. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 0/13 (0%). Plans 7-8 remain. |
+| Validation for runtime include closure | TUs above 200 headers fall 17 to 16, maximum closure falls 255 to 248, and `PhysicsWorld.h`/`SpatialGrid.h` reach zero non-Physics TUs. Debug/Profile rebuild samples pass at 44.860/45.358 seconds with no speedup claimed. Full, Physics, DX12, graphics-stress, and 2,401-tick replay-visual gates pass without baseline refresh. Replay reserve accounting counts world debug/broadphase storage once. Comment audit is 30/30 and final independent review is clear. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-closure.md`. |
+| Validation for runtime include closure IC2 | `PhysicsEngine` retains sole `PhysicsWorld` authority through one fixed-size owner allocation and out-of-line destruction; the pointer stays private and engine-side body iteration binds the world before looping. `PhysicsDiagnosticsView.h` is a concrete Physics value contract, not a forwarding or declaration umbrella. `UI.h`'s corrected direct census is ten tab headers: profiler remains and nine redundant direct edges are removed. Allocation/dependency scans, 788/788 project/filter items, focused Profile, final `validate_fast`, and the 7/7 IC2 comment audit pass. The allocation allowlist gained one exact PhysicsEngine owner row; no baseline, golden, config, schema, or runtime artifact changed. |
 | Validation for runtime include closure IC1 | Six value-only consumers now include `PhysicsApi.h`; the other 27 classified files deliberately retain the concrete engine command/query contract. `ReplayPredictionIsolatedSimulation` destroys its incomplete `unique_ptr<PhysicsEngine>` out of line at the concrete owner. The first Profile build corrected IC0's overly literal 3/30 storage-owner classification and selected `PhysicsEngine.h -> PhysicsWorld.h`. The corrected focused Profile solution and `validate_fast` pass; fast reports 447/447 tests and 2,421,986 assertions. Two shifted aggregate-ruling site lines were refreshed as exact-current evidence. Comment audit is 8/8. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
 | Runtime include closure IC0 census | Documentation and measurement only: the current 254-TU/317-header graph reproduces 17 TUs above 200, 26 above 150, 62 above 100, lower median 38, maximum 255, and all six named fan-in rows. The corrected 33-file classification is 27 concrete engine-contract users and six value-only consumers. IC2 will break `PhysicsEngine.h -> PhysicsWorld.h` without moving ownership or adding a hot-loop pointer chase. Clean full rebuilds pass in 43.066 seconds Debug x64 and 44.614 seconds Profile x64. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`. No repository validation was required. |
 | Validation for broadphase capacity closure | `SpatialGrid` measures 623,256 inline bytes in Debug/Profile/Release. At 300 admitted bodies, inline plus registered backing falls from 8,535,792 to 839,264 bytes per grid: 7,696,528 bytes saved, 90.167708%, and 10.170568x smaller. All nine owners report SceneLoad-only capacity with zero Replay growth; owning memory totals include backing exactly once. All CPU passes 447/447 tests and 2,421,986 assertions; deep Physics, performance, allocation policy, format, all ownership inventories, and full validation pass. Comment audit is 9/9 and independent review reports zero blockers. No baseline, golden, config, schema, allowlist, or runtime artifact changed. Evidence: `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`. |
@@ -65,12 +66,10 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 3/17 (18%). Plans 1-5 are
-closed and excluded under rule 4. Plan 6 IC0-IC2 are complete; IC3 is the
-binding next item and re-measures closure/build time before the full mapped
-gates and independent review. Plans 6-8 remain sequenced, with only
-plans 7 and 8 authorized to move baselines under their plan-specific owner
-conditions.
+The Fresh-Read Engine Review Campaign is active at 0/13 (0%). Plans 1-6 are
+closed and excluded under rule 4. Plans 7-8 remain sequenced, with plan 7 QN0
+the next owner stop-or-proceed checkpoint. Only plans 7 and 8 are authorized to
+move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -775,8 +774,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 3/17 (18%) with Plan 6
-`Agentic/Plans/TODO/runtime-include-closure-reduction.md`, task IC3.
-IC0 baseline evidence is in
-`Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
-MASTER and SessionState agree on the 3/17 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 0/13 (0%) with Plan 7
+`Agentic/Plans/TODO/quaternion-convention-normalization.md`, task QN0.
+Runtime include-closure evidence is in
+`Agentic/Reports/2026-07-29/runtime-include-closure-reduction-closure.md`.
+MASTER and SessionState agree on the 0/13 live ledger.

@@ -179,6 +179,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseDebugView.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h">
       <Filter>Header Files\Collision</Filter>
     </ClInclude>

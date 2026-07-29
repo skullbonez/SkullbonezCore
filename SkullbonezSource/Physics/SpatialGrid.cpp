@@ -1655,7 +1655,7 @@ void SpatialGrid::GetFilteredCandidatePairsLegacyForOracle( SkullbonezCore::Phys
 
 // Active cell info is written into the caller-provided array.
 // Each entry contains the grid coordinate (ix, iy, iz) and object count.
-void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
+void SpatialGrid::GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells, int maxCells ) const
 {
     int count = ( activeBucketCount < maxCells ) ? activeBucketCount : maxCells;
 
