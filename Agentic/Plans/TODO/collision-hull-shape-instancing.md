@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress
 Ledger tasks: 4 (HS0-HS3)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 ## Goal
@@ -34,10 +34,14 @@ Measured on 2026-07-29 against `main` tip `90e4d52f`.
 | scalars, name, pose | — | ~120 |
 | **total** | | **~7,160** |
 
-Duplication in committed content:
+Duplication in committed content, corrected by HS0:
 
-- 35 authored `.hull` assets; 33 distinct hull paths referenced across all
-  scenes.
+- 35 authored `.hull` assets. The prior 33 figure counted raw direct-scene
+  token spellings; those normalize to 22 paths. Expanding every committed
+  `assetInstances[]` row yields 557 hull colliders and 25 distinct used paths
+  across all 145 committed scenes. Exact per-scene evidence and the correction
+  method are in
+  `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
 - `SkullbonezData/scenes/asd.scene.json` has 51 hull colliders drawn from a
   handful of distinct hulls — `tree_trunk_faceted` and `cedar_tier_top` appear
   8 times each.
@@ -82,6 +86,22 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
   `PhysicsCapacityReason::HullColliders` needs its reason string corrected to
   say what it now measures.
 
+## HS0 Decisions
+
+- **Identity:** normalized resolved authored path plus the exact validated
+  IEEE-754 bits of the cumulative X/Y/Z authored scale. Unit-scale scene rows
+  share. Editor-scaled copies carry their scale variant; callers without a
+  provable path-plus-scale identity remain explicitly non-shareable rather than
+  aliasing on path alone.
+- **Release:** retain identity rows until scene clear. Mid-scene last-user
+  destruction does not refcount, erase, or compact shared hull storage; later
+  recreation reuses the stable index. Unique editor variants therefore consume
+  monotonic scene-lifetime capacity and fail loudly through the existing fixed
+  capacity policy if exhausted.
+- **Evidence:** the complete lifecycle, mutation audit, and 145-scene census are
+  recorded in
+  `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
+
 ## Non-Goals
 
 - Sharing sphere or box payloads. Both are small; duplication there is not a
@@ -91,10 +111,11 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
 
 ## Ledger
 
-- [ ] HS0 — Census and decision. Record distinct-versus-total hull counts for
+- [x] HS0 — Census and decision. Record distinct-versus-total hull counts for
   every committed scene, the exact call paths that create, replace, and destroy
   hull shape rows, and whether any consumer mutates a hull after load. Decide
-  and record the identity key and the mid-scene release policy.
+  and record the identity key and the mid-scene release policy. Evidence:
+  `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
 - [ ] HS1 — Introduce the deduplicated hull store: identity-keyed append that
   returns an existing storage index on a repeat, corrected reservation input and
   capacity reason, and rebind coverage for the shared indices. Byte-exact

@@ -410,6 +410,15 @@ ownership questions with zero findings. The active/future ledger is now 0/25
 (0%). Evidence is in
 `../Reports/2026-07-29/contact-solve-phase-ownership-closure.md`.
 
+Collision hull shape instancing HS0 completed on 2026-07-29. The exact expanded
+census is 557 hull colliders across 145 scenes, with 33 direct raw token
+spellings normalizing to 22 direct paths and asset expansion producing 25 used
+paths globally. The cold identity is resolved path plus exact authored scale;
+unproved variants remain non-shareable. Hull rows are retained until scene
+clear, so mid-scene destruction neither refcounts nor compacts shared storage.
+The live ledger is now 1/25 (4%). Evidence is in
+`../Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -993,11 +1002,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/25
-(0%). Plans 1-3 are complete and excluded under rule 4; execute plans 4→8 in
-the listed order. Plan 4 HS0 is next and records the exact authored hull
-identity key, distinct-versus-total scene census, complete create/replace/remove
-call paths, post-load mutation census, and mid-scene release policy.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/25
+(4%). Plans 1-3 are complete and excluded under rule 4; execute plans 4→8 in
+the listed order. Plan 4 HS0 is complete; HS1 next introduces the
+identity-keyed hull store, distinct-variant reservation, and shared-index
+rebind coverage under the recorded scene-lifetime retention policy.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2492,7 +2501,7 @@ Dependency barriers:
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
 | 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
 | 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
-| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
+| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | In progress | 1/4 | HS0 census and decisions complete; HS1 introduces the deduplicated identity-keyed store |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
 | 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |

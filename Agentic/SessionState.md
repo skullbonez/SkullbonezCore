@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-3 are closed and excluded from the live ledger. Plan 4 collision-hull shape instancing is next; HS0 owns the exact scene census, identity key, lifecycle call paths, mutation audit, and release-policy decision. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 0/25 (0%). Plans 1-3 are complete; plans 4-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-3 are closed and excluded from the live ledger. Plan 4 collision-hull shape instancing is active at 1/4; HS1 introduces the identity-keyed hull store, distinct-variant reservation, and shared-index rebind coverage under HS0's scene-lifetime retention decision. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 1/25 (4%). Plans 1-3 are complete; plans 4-8 remain. |
+| Collision-hull HS0 census and decisions | Documentation-only: all 145 committed scenes expand to 557 authored hull colliders in 19 nonzero scenes and 25 used normalized paths. The prior 33 figure was a raw direct-token count that normalizes to 22 direct paths; asset expansion adds three used paths. The binding identity is normalized resolved path plus exact X/Y/Z authored-scale bits, with unproved variants non-shareable. Identity rows persist until scene clear; mid-scene destruction does not refcount or compact them. Exact create/replace/destroy/reserve/rebind/Replay-clone paths and the const-consumer mutation audit are in `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`. No source, baseline, golden, schema, config, or runtime artifact changed; no repository validation was required. |
 | Validation for contact-solve closure | The guarded transaction owns all thirteen construction, solve, and post-solve phases; `Solve` is a 108-body-line/depth-3 sequencer and all eighteen profiler strings remain unchanged. `ParseAction` is a 21-body-line/depth-3 ordered dispatch over 34 parsers; all 33 non-assert bodies and 79 assertion branches are token-equivalent to the parent source. Complexity passes 40/40 at the ratified 400/6 triggers with no repair rows, aggregates pass 85/85, the only extraction scar is the unrelated ruled WorkerPool row, and every 12+ signature is ruled. All CPU, deep Physics, performance, and full gates pass; full reports 440/440 tests and 2,420,840 assertions. Physics remains byte-exact to the CS0 SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. Comment audit is 9/9 and independent review has zero findings. No baseline, golden, config, schema, allowlist, or committed runtime artifact changed. |
 | Validation for contact-solve CS3 | The guarded transaction now owns all eight solve/post-solve phase bodies and `Solve` is a 108-body-line, depth-3 sequencer. Focused Profile filters pass 8/108 persistent-contact, 4/345 object-manifold, and 3/30,897 determinism cases/assertions. All eighteen profiler strings remain unchanged. Format and ownership inventories pass: complexity 41/41 at the ratified 400/6 triggers, aggregates 85/85, zero extraction scars, and every 12+ signature ruled. Final `tools\validate_physics.bat` and `tools\validate_perf.bat` pass; the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. The first compile exposed one unused terrain-stage borrow; removing it closed the local defect without changing behavior. |
 | Validation for contact-solve CS2 | The guarded transaction now owns `BodySetup`, `BuildManifolds`, `TerrainRows`, and `Precompute` phase advancement and bodies while retaining no store, span, stage, or diagnostics borrow. Focused Profile build and persistent-contact, object-manifold, and determinism filters pass. Format and ownership inventories pass: complexity 42/42 at the ratified 400/6 triggers, aggregates 85/85, zero extraction scars, and every 12+ signature ruled. Final `tools\validate_physics.bat` and `tools\validate_perf.bat` pass; the 88,802-row / 12,660,434-byte output remains byte-identical to CS0 at SHA-256 `8e9092cb7f28eafc0d9f167e90cf9d5292d022485d6ae93d591fb758caea6387`. No baseline, golden, allowlist, or committed runtime artifact changed. |
@@ -54,10 +55,10 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 0/25 (0%). Plans 1-3 are
-closed and excluded under rule 4. Plan 4 HS0 is the binding next item and owns
-the hull identity, lifecycle, mutation, and release-policy census. Plans 4-8
-remain sequenced, with only plans 7 and 8
+The Fresh-Read Engine Review Campaign is active at 1/25 (4%). Plans 1-3 are
+closed and excluded under rule 4. Plan 4 HS0 is complete; HS1 is the binding
+next item and owns the identity-keyed store, distinct-variant reservation, and
+shared-index rebind coverage. Plans 4-8 remain sequenced, with only plans 7 and 8
 authorized to move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
@@ -763,8 +764,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 0/25 (0%) with Plan 4
-`Agentic/Plans/TODO/collision-hull-shape-instancing.md`, task HS0. Plan 3
-closure evidence is in
-`Agentic/Reports/2026-07-29/contact-solve-phase-ownership-closure.md`. MASTER
-and SessionState agree on the 0/25 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 1/25 (4%) with Plan 4
+`Agentic/Plans/TODO/collision-hull-shape-instancing.md`, task HS1. HS0 census
+and decision evidence is in
+`Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
+MASTER and SessionState agree on the 1/25 live ledger.
