@@ -19,9 +19,10 @@ cache misses use a row-derived first-touch estimate, and positional repair
 shares one correction budget across a manifold.
 
 The dense 200-brick wall still reaches the 12-iteration cap in every measured
-frame. That residual is owned by the separately queued
-`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`; the Box
-campaign did not hide it by raising the iteration count.
+frame. The separately queued convergence campaign later closed on the
+owner-approved retain decision in
+`Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`;
+the Box campaign did not hide the residual by raising the iteration count.
 
 ## Terrain Preservation Oracle
 

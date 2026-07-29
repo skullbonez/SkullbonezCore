@@ -514,6 +514,14 @@ dimensions. All mapped gates, the 41/41 comment audit, and independent review
 are clear. The active/future ledger is now 0/7 (0%). Evidence is in
 `../Reports/2026-07-29/quaternion-convention-normalization-closure.md`.
 
+Persistent contact convergence early-out closed CE0-CE3 on 2026-07-30 and
+left the live ledger under rule 4. The owner approved retaining the current
+stopping criterion because the bounded per-iteration trace and controlled
+object-only chain prove honest row-level non-convergence. No behavior,
+threshold, iteration count, allocation policy, baseline, or golden changed.
+The active/future ledger is empty (0%). Evidence is in
+`../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -1097,12 +1105,12 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/4
-(50%). Plans 1-8 are complete and excluded under rule 4. Plan 9
-`persistent-contact-convergence-early-out` has completed CE1 with byte-exact
-diagnostics and a controlled cause oracle. CE2 is blocked on the explicit owner
-decision required before any behavior or baseline change; CE3's viable review,
-audit, repeat, and validation evidence is prepared.
+The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
+`persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
+approved retain decision: the dense wall's 12-iteration cap reflects honest
+row-level non-convergence, so the current stopping criterion remains unchanged.
+All nine plans are complete and excluded under rule 4; the active/future ledger
+is empty (0%).
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2601,7 +2609,7 @@ Dependency barriers:
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
 | 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
-| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | Blocked at owner decision | 2/4 | CE1 proves honest row-level non-convergence with byte-exact diagnostics and a controlled object-only oracle; CE2 requires an explicit owner convergence-contract decision, while CE3 evidence is prepared |
+| 9 | [persistent-contact-convergence-early-out](../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; owner-approved retain decision preserves the honest row-level stopping criterion, exact diagnostics, deterministic repeats, and final-source validation |
 
 ### Plan 8 Ordering Consequences
 

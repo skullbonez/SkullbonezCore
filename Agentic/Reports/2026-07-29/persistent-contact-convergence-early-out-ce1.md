@@ -6,7 +6,8 @@ Branch: `nightrunner-30th-JUL-26`
 
 Starting source tip: `8346f7dc`
 
-Plan: `Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`
+Plan closure:
+`Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`
 
 ## Outcome
 

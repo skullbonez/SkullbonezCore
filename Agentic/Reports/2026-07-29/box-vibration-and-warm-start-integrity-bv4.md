@@ -31,8 +31,8 @@ than proof that 12 iterations are insufficient.
 
 Per BV4's acceptance rule, the persistent wall non-convergence is registered as
 the separate queued plan
-`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`. It starts after
-this campaign closes and does not block BV5.
+`Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
+It started after this campaign closed and did not block BV5.
 
 ## Determinism
 

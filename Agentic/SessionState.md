@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-29
+Date: 2026-07-30
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,9 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-8 are closed and excluded from the live ledger. Plan 9 `persistent-contact-convergence-early-out` completed CE1 and is blocked at CE2 pending the explicit owner convergence-contract decision; CE3's viable evidence is prepared. |
-| Active/future progress | 2/4 (50%). Plan 9 has CE0-CE1 complete; CE2 is blocked and CE3 remains open. |
-| Persistent-contact convergence CE1 | A fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than a stale aggregate. Three 1,200-frame wall traces are byte-identical; focused Profile tests pass 9/9 and 16/16, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact Physics, deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. CE2 is blocked pending the plan-required owner decision. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md`. |
+| Current objective | Complete validation-gate integrity V3 after the owner-approved hosted CPU formatter repair and GitHub administration work. The Fresh-Read Engine Review Campaign is complete and excluded from the live ledger. |
+| Active/future progress | Empty (0%). All nine Fresh-Read plans are complete and excluded under rule 4; validation-gate V3 remains an externally blocked lane outside this denominator. |
+| Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity blocker | V0-V2 and V4-V5 are complete; V3 remains blocked on external GitHub administration and runner infrastructure. The 2026-07-30 audit confirms `main` is unprotected, the only ruleset is disabled, merge-group runs and self-hosted runners are both zero, and the latest DX12 run skipped. It also found a local hosted-CPU defect: PR 138 run 30447408778 rejects the clang-format 21-only `BinPackLongBracedList` key before tests. Owner: repository validation. First approve and repair that formatter compatibility; then unblock V3 by proving a real `merge_group` run, requiring the stable CPU check through branch protection, registering a trusted-ref DX12 runner, and using an ephemeral isolated GPU worker before public-PR GPU evidence becomes required. Evidence: `Agentic/Plans/TODO/validation-gate-integrity.md` and `Agentic/Reports/validation_ci_v3_20260710.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
 | Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
@@ -81,11 +81,11 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 2/4 (50%). Plans 1-8 are
-closed and excluded under rule 4. Plan 9 completed CE1 byte-exactly and is
-blocked at CE2 pending the explicit owner convergence-contract decision. CE3's
-viable review, audit, repeat, and validation evidence is prepared. Plan 9
-inherits no baseline-divergence authority from the completed Box campaign.
+The Fresh-Read Engine Review Campaign is complete. Plan 9 closed CE0-CE3 on the
+owner-approved retain decision and left the live ledger under rule 4. The
+active/future ledger is empty (0%). Validation-gate V3 is the approved next
+lane and remains outside this denominator while its external administration and
+runner proofs are incomplete.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -790,20 +790,12 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 2/4 (50%) with Plan 9
-`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`. CE1 is
-complete. CE2 is blocked pending the explicit owner decision required before
-changing the convergence contract or physics baselines; CE3's independent
-review, comment audit, deterministic repeat, and mapped validation evidence is
-prepared but cannot close the plan ahead of that decision. The exact unblock
-condition is either an owner-approved retain decision for the current stopping
-criterion or authorization of a named replacement convergence contract and its
-deterministic baseline consequences. Permanent evidence is in
-`Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md`.
-The other remaining MASTER row, `validation-gate-integrity`, is independently
-blocked at 5/6 on external GitHub administration and runner infrastructure;
-its restored owning plan records the exact unblock conditions. Its latest
-hosted CPU run also exposes a local clang-format compatibility defect awaiting
-fix approval. No other independent dependency-safe MASTER-PLAN item remains.
-MASTER and SessionState agree on the 2/4 Fresh-Read live ledger and the
-two-item blocker inventory.
+Continue `Agentic/Plans/TODO/validation-gate-integrity.md` at 5/6. The owner
+approved pinning clang-format 21 for the hosted CPU lane and proceeding with
+the required GitHub administration and runner setup. First prove the pinned
+hosted CPU lane on this branch; then require its stable check on `main`, obtain
+a real `merge_group` run, and register the trusted/ephemeral DX12 runner
+boundary. Permanent Fresh-Read closure evidence is in
+`Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
+MASTER and SessionState agree that the active/future ledger is empty (0%) and
+validation-gate V3 is the only remaining MASTER action.
