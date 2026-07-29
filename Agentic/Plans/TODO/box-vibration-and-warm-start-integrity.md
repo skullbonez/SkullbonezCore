@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0-BV1 complete; controlled bounce fix measured)
+State: In progress (BV0-BV2 complete; contact identity stabilized)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-29th-JUL-26
 PR: TBD
@@ -258,16 +258,18 @@ SAT change only (not the restitution change), from a binary at the old tip.
 
 Completed recovery and remaining handling:
 
-1. The reusable contact-identity regression test is preserved on
+1. The reusable contact-identity regression test was preserved on
    `origin/codex/contact-identity-regression-29th-jul-26` at commit `27906417`.
-   That branch is intentionally red until BV2 supplies the SAT identity fix; it
-   is a recovery artifact, not a merge-ready implementation.
+   That branch was intentionally red until BV2 supplied the SAT identity fix;
+   it remains a recovery artifact, not a merge-ready implementation.
 2. Re-derive the two source changes by hand against the current tip. Both are
    small: the SAT change is ~6 functional lines across two call sites, and the
    restitution change is one condition plus an `else` restructure.
-3. Cherry-pick or reapply the preserved test during BV2 after re-confirming the
-   feature-ID layout against the post-plan-7 key schema. It carries the A/B
-   evidence (fails 338 assertions without the SAT fix).
+3. BV2 reapplied the preserved test by hand after re-confirming the feature-ID
+   layout against the post-plan-7 key schema. No stale source or baseline hunk
+   was imported. The current-tip stateless selector reproduces the preserved
+   338 failures; margin bracketing fails 174 assertions at a 5% contact-band
+   margin and passes all 1,715 at 10% and above.
 4. The stashed baselines were dropped. Regenerate once, at the end, from the
    final Debug binary.
 5. The original stash was dropped only after the preservation branch was
@@ -319,7 +321,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 
 - [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
 - [x] **BV1** — Suppress restitution on persistent object/object contacts.
-- [ ] **BV2** — Stabilize SAT axis-type selection.
+- [x] **BV2** — Stabilize SAT axis-type selection.
 - [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
 - [ ] **BV4** — Re-measure convergence.
@@ -384,12 +386,26 @@ hysteresis margin that a challenger must beat *only when it would change the
 winning axis type*; within one axis type the comparison stays strict. The WIP
 implementation uses `max(1e-4, contactSkin * 0.25)`.
 
-The `0.25` fraction is empirical, not derived. BV2 should either justify it
-against the BV0 fixture or replace it with something principled.
+The original `0.25` fraction was empirical. BV2 must either justify it against
+the current controlled and structural instruments or replace it with something
+principled.
 
 Acceptance: face/edge and reference-swap counts near zero on the wall's
 structural rates; the regression test in the stash (or its successor) fails
 without the change; determinism holds.
+
+Completed 2026-07-29. The current-tip stateless control records 1,604 face/edge
+switches and 326 reference swaps across 31,158 wall-brick pair-frames in frames
+400-500. The final 25% contact-band selector records 116 and 281 across 31,679;
+in the slow-topple columns it reduces face/edge churn 92.84% and reference
+swaps 35.53%, with both residual rates below 1% of pair-frames. A 10% band
+passes the synthetic crossover but leaves more wall churn, while 5% fails 174
+focused assertions, which supplies current controlled/structural justification
+for retaining 25%. The recovered rocking oracle and a new sub-`1e-4`
+same-family strict-comparison oracle pass. The exact BV0/BV1 metric remains zero
+flips, zero cap-bound frames, one minimum iteration, and zero cache misses;
+repeat Debug CSVs are byte-identical. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md`.
 
 ### BV3 — Retire the terrain warm-start seed
 
