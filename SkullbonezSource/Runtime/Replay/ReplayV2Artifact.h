@@ -5,9 +5,8 @@ Purpose:
 
 Summary:
   The established ReplayV2Artifact API owns the .skreplay format family. The
-  v4 persists v3's complete replay-owned visual body state plus ordered RVIS
-  packet fields and the RVPD typed prediction-state payload. Its reader retains
-  deterministic v2/v3 compatibility.
+  v5 persists v4's complete replay-owned state with canonical Hamilton
+  quaternion components. Its reader retains deterministic v2-v4 compatibility.
   Optional solver hash/checkpoint chunks and branch provenance remain layered
   in for saved restore verification work.
 
@@ -27,7 +26,7 @@ Glossary:
 
 Invariants:
   - Presentation artifacts are little-endian and chunk-table based.
-  - The writer emits v4, the reader accepts v2/v3/v4, and future versions fail closed.
+  - The writer emits v5, the reader accepts v2-v5, and future versions fail closed.
   - The ReplayV2Artifact type name is retained API vocabulary, not the current
     wire-version declaration.
 

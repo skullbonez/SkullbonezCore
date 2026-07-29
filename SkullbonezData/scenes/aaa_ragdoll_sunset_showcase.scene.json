@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 3,
   "name": "AAA Ragdoll Sunset Showcase",
   "cinematic": {
     "rendering": true,
@@ -207,9 +207,9 @@
         -62
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "radius": 2.5,

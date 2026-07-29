@@ -1,7 +1,7 @@
 /*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
-  Verifies version-2 scene snapshots preserve every owner-published save field
+  Verifies version-3 scene snapshots preserve every owner-published save field
   and asset-instance live part state.
 
 Summary:
@@ -22,7 +22,7 @@ Glossary:
 
 Invariants:
   - Asset parts are emitted once in contiguous authored part order.
-  - Direct entities remain in objects[] and retain explicit schema-v2 ids.
+  - Direct entities remain in objects[] and retain explicit schema-v3 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
   - Every runtime save entry serializes all three owner publications.
@@ -620,7 +620,7 @@ void RecreateParsedOwners( const AuthoredScene& scene, SceneEntityStore& entitie
 }
 } // namespace
 
-TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritative live state" )
+TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritative live state" )
 {
     const TemporarySnapshotFiles cleanup;
     WriteAssetLibrary();
@@ -696,7 +696,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     REQUIRE( SceneSnapshotWriter::Save( diagnostics, request ).Ok() );
 
     const AuthoredScene saved = AuthoredScene::LoadFromFile( diagnostics, kSnapshotPath );
-    CHECK( saved.GetSchemaVersion() == 2u );
+    CHECK( saved.GetSchemaVersion() == 3u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
     CHECK( saved.IsEditableScene() );

@@ -263,6 +263,11 @@ void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string&
     ReadVec4( RequireMember( object, path, "ballState", "orientation" ), path, "ballState.orientation", state.orientX,
               state.orientY, state.orientZ, state.orientW );
 
+    if ( m_currentDocumentVersion < 3 )
+    {
+        Math::Orientation::ConjugateQuaternionVectorPart( state.orientX, state.orientY, state.orientZ );
+    }
+
     state.radius = ReadFloat( RequireMember( object, path, "ballState", "radius" ), path, "ballState.radius" );
     state.mass = ReadFloat( RequireMember( object, path, "ballState", "mass" ), path, "ballState.mass" );
     state.restitution = ReadFloat( RequireMember( object, path, "ballState", "restitution" ), path,
@@ -313,6 +318,11 @@ void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& 
 
     ReadVec4( RequireMember( object, path, "boxState", "orientation" ), path, "boxState.orientation", state.orientX,
               state.orientY, state.orientZ, state.orientW );
+
+    if ( m_currentDocumentVersion < 3 )
+    {
+        Math::Orientation::ConjugateQuaternionVectorPart( state.orientX, state.orientY, state.orientZ );
+    }
 
     ReadVec3( RequireMember( object, path, "boxState", "halfExtents" ), path, "boxState.halfExtents", state.halfX,
               state.halfY, state.halfZ );
@@ -365,6 +375,11 @@ void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::s
 
     ReadVec4( RequireMember( object, path, "convexHullState", "orientation" ), path, "convexHullState.orientation",
               state.orientX, state.orientY, state.orientZ, state.orientW );
+
+    if ( m_currentDocumentVersion < 3 )
+    {
+        Math::Orientation::ConjugateQuaternionVectorPart( state.orientX, state.orientY, state.orientZ );
+    }
 
     state.mass = ReadFloat( RequireMember( object, path, "convexHullState", "mass" ), path, "convexHullState.mass" );
     state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ), path,

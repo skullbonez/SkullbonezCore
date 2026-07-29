@@ -61,7 +61,7 @@ That is why this change is expensive out of proportion to its three-line core.
 | `GetOrientationMatrix` call sites | 55 | every consumer of the transposed basis |
 | `TransposeMultiply` sites | 14 across 9 files | includes `PersistentContactSolver`, `ObjectContactManifold`, `PhysicsBodyStore`, `Ragdoll` hot paths — each is a candidate compensation site |
 | `GetQtnRotatedAboutX/Y/Z` sites | 6 | produce positive-sine quaternions composed under the reversed multiply |
-| Scene files storing raw orientation | 23 | `SkullbonezData/scenes/*.scene.json` |
+| Scene files storing raw orientation | 22 | `SkullbonezData/scenes/*.scene.json`; the Euler-authored buoyancy fixture remains in the 23-scene acceptance set |
 | Replay artifact orientation | v2 binary | `ReplayV2Artifact.cpp:236` `AppendOrientation` writes raw floats |
 | Authored Euler composition | 1 | `AuthoredSceneParserSchema.h:119-132` composes `xRotation * yRotation * zRotation` under the reversed multiply; the effective order inverts when the multiply is fixed |
 
@@ -151,7 +151,7 @@ Recorded so the owner can re-scope at QN0 with full information.
   composition order in `AuthoredSceneParserSchema.h`. Characterization tests
   pass; existing physics baselines are expected to differ and are used only as a
   tripwire, not refreshed.
-- [ ] QN3 — Data migration. Bump the scene format version and the replay v2
+- [x] QN3 — Data migration. Bump the scene format version and the replay v2
   artifact version, add deterministic conjugation migration steps, upgrade all
   23 committed scene files, and add legacy / current / future / writer tests plus
   a conjugation round-trip losslessness test. Run
@@ -206,7 +206,7 @@ Recorded so the owner can re-scope at QN0 with full information.
 
 ## Comment-Audit Checklist
 
-- [ ] `SkullbonezSource/Maths/Quaternion.h`
+- [x] `SkullbonezSource/Maths/Quaternion.h`
 - [ ] `SkullbonezSource/Maths/Quaternion.cpp`
 - [ ] `SkullbonezSource/Maths/RotationMatrix.h`
 - [ ] `SkullbonezSource/Maths/RotationMatrix.cpp`
@@ -220,8 +220,18 @@ Recorded so the owner can re-scope at QN0 with full information.
 - [ ] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
 - [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp`
 - [ ] `SkullbonezSource/Scene/AuthoredSceneParserSchema.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp`
-- [ ] `SkullbonezTests/TestQuaternion.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp`
+- [x] `SkullbonezTests/TestQuaternion.cpp`
+- [x] `Agentic/Tests/SceneParserUnitTests/SceneParserUnitTests.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParser.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserBodies.cpp`
+- [x] `SkullbonezSource/Scene/SceneSnapshotWriter.cpp`
+- [x] `SkullbonezTests/TestReplayArtifact.cpp`
+- [x] `SkullbonezTests/TestSceneParserUnit.cpp`
+- [x] `SkullbonezTests/TestSceneSnapshotWriter.cpp`
+- [x] `tools/migrate_data_formats.py`
 
 Reconcile against `git diff --name-only` at QN5; the QN0 census will add sites.
 
@@ -230,8 +240,9 @@ Reconcile against `git diff --name-only` at QN5; the QN0 census will add sites.
 **PROCEED.** The owner ratified continuation and directed the campaign to be
 orchestrated to completion. The live census supersedes the aged estimates with
 35 production orientation-matrix calls, nine production transpose calls, and
-six axis-helper declaration/definition sites with zero consumers. The 23
-committed raw-orientation scenes are confirmed. Five representation-independent
+six axis-helper declaration/definition sites with zero consumers. The
+23-scene migration set is confirmed: 22 contain raw orientations and the
+buoyancy orientation fixture uses Euler authoring. Five representation-independent
 behavior tests pass on the pre-change Profile binary: 15 `Quaternion*` cases and
 66 assertions total.
 
@@ -272,3 +283,23 @@ Quaternion suite passes 15/15 and 66. `tools\validate_tests.bat` passes the
 complete 452-case unit harness. Repository formatting and the 5/5 QN2
 touched-source comment audit pass. No baseline, golden, schema, config, or
 committed runtime artifact changed.
+
+## QN3 Evidence
+
+Scene schema v3 and replay artifact v5 now store canonical Hamilton quaternion
+components. Scene v1/v2, replay v2-v4, and prediction archive v2 readers
+conjugate xyz exactly once; current writers emit scene v3, replay v5, and
+prediction archive v3. Historical replay presentation hashes are verified
+before migration and republished samples receive their canonical hash.
+
+All 23 acceptance scenes carry schema v3. A structural before/after probe
+confirms their only semantic changes are the version stamp and xyz
+conjugation; the Euler-authored buoyancy fixture changes only its version.
+Legacy/current/future/writer tests pass for scenes and replay artifacts, and a
+signed-zero/subnormal unit test proves double conjugation is bitwise lossless.
+
+`python tools\migrate_data_formats.py --check`, its self-test,
+`tools\validate_tests.bat`, `tools\validate_scene_parser_tests.bat`, and
+`tools\validate_all_cpu_tests.bat` pass. A full Profile app build also passes,
+including both replay codecs. The touched-source comment audit is 13/13 with
+zero deferred files. No baseline or golden artifact changed.

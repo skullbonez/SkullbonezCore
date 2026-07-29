@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 3,
   "cinematic": {},
   "simulation": {
     "seed": 424242,
@@ -90,9 +90,9 @@
         0
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "halfExtents": [
@@ -128,9 +128,9 @@
         0
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "halfExtents": [

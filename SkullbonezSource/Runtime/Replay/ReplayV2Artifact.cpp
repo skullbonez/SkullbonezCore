@@ -6,8 +6,8 @@ Purpose:
 Summary:
   The format is presentation-first: metadata is deduplicated into a body
   dictionary, v3 dense frames preserve complete replay-owned body visual state,
-  and v4 adds exact per-tick replay packet rows plus the typed prediction state
-  used by non-presenting round-trip verification. Optional solver chunks
+  v4 adds exact per-tick replay packet rows plus typed prediction state, and v5
+  stores canonical Hamilton quaternion components. Optional solver chunks
   provide restore evidence.
 
 Glossary:
@@ -32,8 +32,8 @@ Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
     Windows runtime. The manifest marks the file as little-endian.
   - V3+ visual rows are 76 bytes and v3+ dictionary rows are 80 bytes.
-  - V2 remains readable through a deterministic pose-only migration; v3 remains
-    directly readable; versions newer than v4 fail closed.
+  - V2-v4 hashes are checked against historical bytes before quaternion
+    migration; v5 is native and versions newer than v5 fail closed.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
@@ -68,11 +68,13 @@ namespace
 using Json = nlohmann::ordered_json;
 
 // Invariant: these byte counts describe the on-disk ABI for replay artifacts.
-// Version 4 retains v2/v3 presentation layouts and adds RVIS packet evidence.
+// Version 5 retains v2-v4 layouts while changing raw quaternion components to
+// the canonical Hamilton representation.
 // Readers accept the full supported migration interval and reject future files.
 constexpr uint32_t REPLAY_MINIMUM_VERSION = 2;
 constexpr uint32_t REPLAY_PRESENTATION_VISUAL_VERSION = 3;
-constexpr uint32_t REPLAY_CURRENT_VERSION = 4;
+constexpr uint32_t REPLAY_CANONICAL_QUATERNION_VERSION = 5;
+constexpr uint32_t REPLAY_CURRENT_VERSION = 5;
 constexpr uint32_t REPLAY_V2_HEADER_BYTES = 40;
 constexpr uint32_t REPLAY_V2_CHUNK_ENTRY_BYTES = 28;
 constexpr uint32_t REPLAY_V2_BODY_DICTIONARY_ENTRY_BYTES = 76;
@@ -1368,6 +1370,22 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
             return false;
         }
 
+        if ( version < REPLAY_CANONICAL_QUATERNION_VERSION )
+        {
+
+            // Invariant: validate the historical bytes against their historical
+            // hash before migrating. Published samples then carry a hash of the
+            // canonical in-memory values exposed to current replay consumers.
+
+            for ( ReplayBodyPresentationSample& body : sample.bodies )
+            {
+                SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart( body.orientation[0], body.orientation[1],
+                                                                                  body.orientation[2] );
+            }
+
+            sample.stateHash = ReplayRecorderOperations::ComputePresentationStateHash( sample );
+        }
+
         outSamples.push_back( std::move( sample ) );
     }
 
@@ -1814,7 +1832,7 @@ bool ReadLauncherVisual( ByteCursor& cursor, ReplayLauncherVisualSample& outLaun
     return true;
 }
 
-bool ReadSolverBody( ByteCursor& cursor, const std::vector<BodyDictionaryEntry>& dictionary,
+bool ReadSolverBody( ByteCursor& cursor, uint32_t version, const std::vector<BodyDictionaryEntry>& dictionary,
                      ReplaySolverBodySample& outBody )
 {
     outBody = ReplaySolverBodySample();
@@ -1852,11 +1870,18 @@ bool ReadSolverBody( ByteCursor& cursor, const std::vector<BodyDictionaryEntry>&
     outBody.sleepInhibited = sleepInhibited != 0;
     outBody.collisionContact = collisionContact != 0;
     outBody.sleepIslandVisualId = sleepIslandVisualId;
+
+    if ( version < REPLAY_CANONICAL_QUATERNION_VERSION )
+    {
+        SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart( outBody.orientation[0], outBody.orientation[1],
+                                                                          outBody.orientation[2] );
+    }
+
     (void)reserved16;
     return true;
 }
 
-bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk,
+bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkTableEntry& chunk, uint32_t version,
                              const std::vector<BodyDictionaryEntry>& dictionary,
                              std::vector<ReplaySolverFrameSample>& outCheckpoints )
 {
@@ -1910,7 +1935,7 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkT
         for ( ReplaySolverBodySample& body : sample.bodies )
         {
 
-            if ( !ReadSolverBody( cursor, dictionary, body ) )
+            if ( !ReadSolverBody( cursor, version, dictionary, body ) )
             {
                 return false;
             }
@@ -3049,7 +3074,7 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path, std::vector<Repl
         return false;
     }
 
-    if ( !ParseSolverCheckpoints( fileBytes, *checkpointChunk, dictionary, outCheckpoints ) )
+    if ( !ParseSolverCheckpoints( fileBytes, *checkpointChunk, version, dictionary, outCheckpoints ) )
     {
         outCheckpoints.clear();
         return false;

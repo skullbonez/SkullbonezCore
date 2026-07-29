@@ -16,7 +16,8 @@ Glossary:
 Invariants:
   - Every vector count is checked against a presentation-specific hard limit.
   - The complete payload fails closed above 128 MiB.
-  - Quaternion components retain their exact float bit patterns.
+  - The writer emits schema v3 canonical Hamilton quaternion components; the
+    reader conjugates schema v2 vector parts exactly once.
   - No deserialized value can create or schedule prediction physics work.
 
 Related:
@@ -39,7 +40,8 @@ namespace SkullbonezCore::Runtime
 namespace
 {
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAGIC = 0x44505652u; // "RVPD"
-constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 2u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA = 2u;
+constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 3u;
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0u;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
@@ -216,7 +218,7 @@ class ArchiveReader
     {
         return Float( value.x ) && Float( value.y ) && Float( value.z );
     }
-    bool Quaternion( Math::Orientation::Quaternion& value )
+    bool Quaternion( Math::Orientation::Quaternion& value, uint32_t schema )
     {
         float x = 0.0f;
         float y = 0.0f;
@@ -226,6 +228,14 @@ class ArchiveReader
         if ( !Float( x ) || !Float( y ) || !Float( z ) || !Float( w ) )
         {
             return false;
+        }
+
+        if ( schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+        {
+
+            // Compatibility: schema v2 stored the conjugate representation.
+            // Negating xyz changes only their sign bits and preserves w.
+            Math::Orientation::ConjugateQuaternionVectorPart( x, y, z );
         }
 
         value = Math::Orientation::Quaternion( x, y, z, w );
@@ -251,10 +261,11 @@ void WriteBody( ArchiveWriter& writer, const RunReplayPredictionBodySample& body
     writer.Boolean( body.sleeping );
 }
 
-bool ReadBody( ArchiveReader& reader, RunReplayPredictionBodySample& body )
+bool ReadBody( ArchiveReader& reader, uint32_t schema, RunReplayPredictionBodySample& body )
 {
     return reader.Scalar( body.id.value ) && reader.Scalar( body.modelRow.value ) && reader.Vector( body.position ) &&
-           reader.Quaternion( body.orientation ) && reader.Vector( body.linearVelocity ) && reader.Boolean( body.sleeping );
+           reader.Quaternion( body.orientation, schema ) && reader.Vector( body.linearVelocity ) &&
+           reader.Boolean( body.sleeping );
 }
 
 void WriteNode( ArchiveWriter& writer, const RunReplayPathTraceNode& node )
@@ -293,14 +304,14 @@ void WriteMarker( ArchiveWriter& writer, const ReplayPredictionRetainedMarker& m
     writer.Quaternion( marker.horizonOrientation );
 }
 
-bool ReadMarker( ArchiveReader& reader, ReplayPredictionRetainedMarker& marker )
+bool ReadMarker( ArchiveReader& reader, uint32_t schema, ReplayPredictionRetainedMarker& marker )
 {
     return reader.Scalar( marker.id.value ) && reader.Scalar( marker.modelRow.value ) &&
            reader.Boolean( marker.hasEntryPose ) && reader.Boolean( marker.hasRestPose ) &&
            reader.Boolean( marker.hasHorizonPose ) && reader.Vector( marker.entryPosition ) &&
-           reader.Quaternion( marker.entryOrientation ) && reader.Vector( marker.restPosition ) &&
-           reader.Quaternion( marker.restOrientation ) && reader.Vector( marker.horizonPosition ) &&
-           reader.Quaternion( marker.horizonOrientation );
+           reader.Quaternion( marker.entryOrientation, schema ) && reader.Vector( marker.restPosition ) &&
+           reader.Quaternion( marker.restOrientation, schema ) && reader.Vector( marker.horizonPosition ) &&
+           reader.Quaternion( marker.horizonOrientation, schema );
 }
 
 void WriteBaselinePose( ArchiveWriter& writer, const ReplayPredictionBaselineBodyPose& pose )
@@ -315,12 +326,12 @@ void WriteBaselinePose( ArchiveWriter& writer, const ReplayPredictionBaselineBod
     writer.Quaternion( pose.restOrientation );
 }
 
-bool ReadBaselinePose( ArchiveReader& reader, ReplayPredictionBaselineBodyPose& pose )
+bool ReadBaselinePose( ArchiveReader& reader, uint32_t schema, ReplayPredictionBaselineBodyPose& pose )
 {
     return reader.Scalar( pose.id.value ) && reader.Scalar( pose.modelRow.value ) && reader.Boolean( pose.hasEntryPose ) &&
            reader.Boolean( pose.hasRestPose ) && reader.Vector( pose.entryPosition ) &&
-           reader.Quaternion( pose.entryOrientation ) && reader.Vector( pose.restPosition ) &&
-           reader.Quaternion( pose.restOrientation );
+           reader.Quaternion( pose.entryOrientation, schema ) && reader.Vector( pose.restPosition ) &&
+           reader.Quaternion( pose.restOrientation, schema );
 }
 
 bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count )
@@ -540,10 +551,10 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     pathVisualizer.targetName[0] = '\0';
 
     if ( !reader.Scalar( magic ) || !reader.Scalar( schema ) || magic != REPLAY_PREDICTION_ARCHIVE_MAGIC ||
-         schema != REPLAY_PREDICTION_ARCHIVE_SCHEMA || !reader.Boolean( archivedHasTarget ) ||
-         !reader.Boolean( archivedPastPathVisible ) || !reader.Scalar( pathVisualizer.targetId.value ) ||
-         !reader.Scalar( pathVisualizer.targetModelRow.value ) || !reader.Scalar( targetNameLength ) ||
-         targetNameLength >= sizeof( pathVisualizer.targetName ) )
+         schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_SCHEMA ||
+         !reader.Boolean( archivedHasTarget ) || !reader.Boolean( archivedPastPathVisible ) ||
+         !reader.Scalar( pathVisualizer.targetId.value ) || !reader.Scalar( pathVisualizer.targetModelRow.value ) ||
+         !reader.Scalar( targetNameLength ) || targetNameLength >= sizeof( pathVisualizer.targetName ) )
     {
         WriteReason( outReason, reasonSize, "invalid prediction archive header" );
         return false;
@@ -620,7 +631,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
         for ( RunReplayPredictionBodySample& body : frame.bodies )
         {
 
-            if ( !ReadBody( reader, body ) )
+            if ( !ReadBody( reader, schema, body ) )
             {
                 WriteReason( outReason, reasonSize, "truncated prediction body" );
                 return false;
@@ -664,7 +675,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     for ( uint32_t markerIndex = 0; markerIndex < markerCount; ++markerIndex )
     {
 
-        if ( !ReadMarker( reader, prediction.futureNodeCache.retainedMarkers[markerIndex] ) )
+        if ( !ReadMarker( reader, schema, prediction.futureNodeCache.retainedMarkers[markerIndex] ) )
         {
             WriteReason( outReason, reasonSize, "truncated retained marker" );
             return false;
@@ -809,7 +820,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     for ( ReplayPredictionBaselineBodyPose& pose : baseline.bodyPoses )
     {
 
-        if ( !ReadBaselinePose( reader, pose ) )
+        if ( !ReadBaselinePose( reader, schema, pose ) )
         {
             WriteReason( outReason, reasonSize, "truncated baseline pose" );
             return false;

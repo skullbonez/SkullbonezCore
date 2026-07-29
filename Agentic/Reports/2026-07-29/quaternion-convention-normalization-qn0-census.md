@@ -41,7 +41,7 @@ contains:
 | Production `GetOrientationMatrix` calls | 55 | 35 | Superseded by the exhaustive table below. |
 | Production `TransposeMultiply` calls | 14 | 9 | Superseded by the exhaustive table below. |
 | `GetQtnRotatedAboutX/Y/Z` sites | 6 | 6 declarations/definitions, zero consumers | The six lexical sites are the API declaration/definition pairs, not call sites. |
-| Committed scenes with raw `orientation` arrays | 23 | 23 | Confirmed. |
+| Committed scenes with raw `orientation` arrays | 23 | 22 | The named buoyancy fixture currently uses Euler authoring; it remains in the 23-scene migration/visual set. |
 | Authored Euler composers | 1 | 4 composers plus one child-composition site | The same convention-sensitive construction was duplicated after the estimate. |
 
 ### Orientation-matrix consumers
@@ -124,7 +124,8 @@ compatibility path.
 
 ## Committed Raw-Orientation Scene Inventory
 
-Exactly 23 tracked scene files contain an `orientation` field:
+The 23-file migration and owner-visual set contains 22 tracked scenes with an
+`orientation` field plus the Euler-authored buoyancy orientation fixture:
 
 1. `aaa_ragdoll_clean_sky.scene.json`
 2. `aaa_ragdoll_graphite_focus.scene.json`

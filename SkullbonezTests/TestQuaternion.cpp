@@ -35,9 +35,12 @@
 #include "../SkullbonezSource/Maths/Quaternion.h"
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
 
+#include <bit>
 #include <cmath>
+#include <cstdint>
 
 using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -82,6 +85,24 @@ void CheckVectorNear( const Vector3& value, const Vector3& expected, float epsil
     CHECK( value.z == doctest::Approx( expected.z ).epsilon( epsilon ) );
 }
 } // namespace
+
+
+TEST_CASE( "Quaternion migration: double conjugation is bitwise lossless" )
+{
+    float x = std::bit_cast<float>( uint32_t { 0x80000000u } );
+    float y = std::bit_cast<float>( uint32_t { 0x00000001u } );
+    float z = -123.5f;
+    const uint32_t originalX = std::bit_cast<uint32_t>( x );
+    const uint32_t originalY = std::bit_cast<uint32_t>( y );
+    const uint32_t originalZ = std::bit_cast<uint32_t>( z );
+
+    ConjugateQuaternionVectorPart( x, y, z );
+    ConjugateQuaternionVectorPart( x, y, z );
+
+    CHECK( std::bit_cast<uint32_t>( x ) == originalX );
+    CHECK( std::bit_cast<uint32_t>( y ) == originalY );
+    CHECK( std::bit_cast<uint32_t>( z ) == originalZ );
+}
 
 
 TEST_CASE( "Quaternion: Normalise is idempotent for a non-zero quaternion" )

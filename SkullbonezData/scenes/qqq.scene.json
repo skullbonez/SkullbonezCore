@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 3,
   "simulation": {
     "physics": true,
     "text": true,
@@ -69,9 +69,9 @@
         0.0
       ],
       "orientation": [
-        0.0,
-        0.0,
-        0.0,
+        -0.0,
+        -0.0,
+        -0.0,
         1.0
       ],
       "mass": 24.0,
@@ -103,9 +103,9 @@
         0.0
       ],
       "orientation": [
-        0.0,
-        0.0,
-        0.0,
+        -0.0,
+        -0.0,
+        -0.0,
         1.0
       ],
       "mass": 24.0,
@@ -137,9 +137,9 @@
         0.0
       ],
       "orientation": [
-        0.0,
-        0.0,
-        0.0,
+        -0.0,
+        -0.0,
+        -0.0,
         1.0
       ],
       "mass": 24.0,
