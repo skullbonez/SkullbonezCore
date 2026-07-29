@@ -156,7 +156,7 @@ Recorded so the owner can re-scope at QN0 with full information.
   23 committed scene files, and add legacy / current / future / writer tests plus
   a conjugation round-trip losslessness test. Run
   `python tools\migrate_data_formats.py --check`.
-- [ ] QN4 — **Owner visual acceptance gate. Blocking.** Build the final binary
+- [x] QN4 — **Owner visual acceptance gate. Blocking.** Build the final binary
   and run every one of the 23 migrated scenes plus the ragdoll, buoyancy,
   convex-hull stacking, and space/orbital scenes. The owner confirms initial
   frames are visually indistinguishable from the pre-change build and that
@@ -232,6 +232,10 @@ Recorded so the owner can re-scope at QN0 with full information.
 - [x] `SkullbonezTests/TestSceneParserUnit.cpp`
 - [x] `SkullbonezTests/TestSceneSnapshotWriter.cpp`
 - [x] `tools/migrate_data_formats.py`
+- [x] `SkullbonezSource/Physics/SpatialGrid.h`
+- [x] `SkullbonezTests/TestSpatialGrid.cpp`
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp`
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp`
 
 Reconcile against `git diff --name-only` at QN5; the QN0 census will add sites.
 
@@ -303,3 +307,31 @@ signed-zero/subnormal unit test proves double conjugation is bitwise lossless.
 `tools\validate_all_cpu_tests.bat` pass. A full Profile app build also passes,
 including both replay codecs. The touched-source comment audit is 13/13 with
 zero deferred files. No baseline or golden artifact changed.
+
+## QN4 Prepared Evidence
+
+The final Debug and Profile solutions build with zero warnings and errors, and
+the complete 456-case unit harness passes. Both the pre-change `90e4d52f`
+Profile binary and the final Profile binary complete 60 fixed-step rendered
+frames for all 26 acceptance scenes with exit code zero; the final sweep also
+has empty stderr for every scene.
+
+Paired frame-zero captures cover every acceptance scene. Seventeen pairs are
+pixel exact. The other nine have an average channel delta no greater than
+`0.004605`; eight differ materially only in tiny HUD glyph regions (at most
+`0.005191%` of pixels exceed a channel delta of 10), while the shoreline pair
+contains only sub-LSB presentation noise (`max_diff=1`). Manual contact-sheet
+inspection finds no changed camera, spawn orientation, object placement,
+lighting, terrain, or UI layout.
+
+Evidence:
+
+- `TestOutput/qn4/visual/contact_sheet_1.png`
+- `TestOutput/qn4/visual/contact_sheet_2.png`
+- `TestOutput/qn4/visual/contact_sheet_3.png`
+- `TestOutput/qn4/visual/contact_sheet_4.png`
+- `TestOutput/qn4/visual/comparison_metrics.csv`
+
+No baseline or golden artifact was regenerated before acceptance. The owner
+reviewed the paired evidence, confirmed it "look[s] good", and explicitly
+directed baseline regeneration. QN4 is accepted with zero rejected scenes.

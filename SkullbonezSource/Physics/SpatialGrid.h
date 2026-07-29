@@ -127,11 +127,12 @@ class SpatialGrid
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
     static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
 
-    // Why: ordinary bodies consume at most eight rows, while accepted scenes
-    // include a one-body oversized-shape case that reaches 27. A fixed 32-row
-    // spill covers that measured 19-row excess without restoring the retired
-    // 4,096-row blanket.
-    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 32;
+    // Why: ordinary bodies consume at most eight rows, but the accepted
+    // shoreline-lever scene combines several oversized bodies at the 24 m
+    // configured cell size and crosses the old 64-row reservation. A fixed
+    // 128-row spill covers that measured multi-body excess without restoring
+    // the retired 4,096-row blanket or permitting steady-step growth.
+    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 128;
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                                    PERSISTENT_ENTRIES_PER_BODY;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
