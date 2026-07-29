@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress (IC0 complete)
 Ledger tasks: 4 (IC0-IC3)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 ## Goal
@@ -103,7 +103,7 @@ before steady gameplay.
 
 ## Ledger
 
-- [ ] IC0 — Baseline and target selection. Record per-TU closure counts, header
+- [x] IC0 — Baseline and target selection. Record per-TU closure counts, header
   fan-in, and clean full-rebuild wall time per configuration. For each of the 33
   direct `PhysicsEngine.h` includers, classify as owner (keeps it) or consumer
   (moves to `PhysicsApi.h`). Identify the single highest-value edge in the
@@ -119,6 +119,31 @@ before steady gameplay.
   pass independent review confirming no ownership moved and no forwarding
   header, alias, or umbrella declaration file was introduced, and run the mapped
   gates.
+
+## IC0 Evidence
+
+The current 254-TU/317-header graph exactly reproduces the registered baseline:
+17 TUs above 200 headers, 26 above 150, 62 above 100, lower median 38, and
+maximum 255. The six named heavy-header fan-in rows also reproduce exactly.
+The complete per-TU inventory is permanent evidence in
+`Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
+
+The 35 physical `PhysicsEngine.h` includes reconcile as the engine
+implementation, the selected `SceneWorld.h` ownership-chain edge, and the 33
+classification rows required here. Three owner implementations keep the
+concrete header: prediction simulation, prediction-engine reserve/construction,
+and the standalone startup lifecycle harness. The other 30 are consumers and
+move to the public `PhysicsApi.h` seam in IC1.
+
+IC2 will break `SceneWorld.h -> PhysicsEngine.h` with the existing
+composition-root `std::unique_ptr` lifetime pattern. Ownership and accessors
+remain with `SceneWorld`; the edge removes the solver subtree from every
+non-physics `SceneWorld` consumer without adding a new declaration convention.
+
+Clean full solution rebuilds pass in 43.066 seconds for Debug x64 and 44.614
+seconds for Profile x64. These are single wall-clock baselines, not a build-time
+improvement claim. IC0 is documentation/measurement only, so no repository
+validation gate was required.
 
 ## Acceptance
 

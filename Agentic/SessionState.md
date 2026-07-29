@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-5 are closed and excluded from the live ledger. Plan 6 IC0 next records include closure, fan-in, clean Debug/Profile full-rebuild timings, classifies all 33 `PhysicsEngine` includers, and selects the first chain edge. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 0/17 (0%). Plans 6-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-5 are closed and excluded from the live ledger. Plan 6 IC0 is complete; IC1 next converts the 30 classified consumers from `PhysicsEngine.h` to the public `PhysicsApi.h` seam. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 1/17 (6%). Plan 6 is 1/4; plans 7-8 remain. |
+| Runtime include closure IC0 census | Documentation and measurement only: the current 254-TU/317-header graph reproduces 17 TUs above 200, 26 above 150, 62 above 100, lower median 38, maximum 255, and all six named fan-in rows. The 35 physical `PhysicsEngine.h` includes reconcile as the engine implementation, the selected `SceneWorld.h` edge, 3 other owner implementations, and 30 consumers. IC2 will break `SceneWorld.h -> PhysicsEngine.h` without moving ownership. Clean full rebuilds pass in 43.066 seconds Debug x64 and 44.614 seconds Profile x64. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`. No repository validation was required. |
 | Validation for broadphase capacity closure | `SpatialGrid` measures 623,256 inline bytes in Debug/Profile/Release. At 300 admitted bodies, inline plus registered backing falls from 8,535,792 to 839,264 bytes per grid: 7,696,528 bytes saved, 90.167708%, and 10.170568x smaller. All nine owners report SceneLoad-only capacity with zero Replay growth; owning memory totals include backing exactly once. All CPU passes 447/447 tests and 2,421,986 assertions; deep Physics, performance, allocation policy, format, all ownership inventories, and full validation pass. Comment audit is 9/9 and independent review reports zero blockers. No baseline, golden, config, schema, allowlist, or runtime artifact changed. Evidence: `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`. |
 | Validation for broadphase capacity BC2 | The remaining seven `SpatialGrid` arrays now use registered storage: exact admitted body rows, four-per-body candidate staging, and an accurately labelled fixed 4,096-row swept-overlay ceiling. Additional live admission preserves existing membership topology through grow-only suffix construction. Focused checks pass SpatialGrid 20/20 with 8,590 assertions, fixed-list/reserve 21/21, fatal contracts 1/1 with 231, the 2,000-body owner census 1/1 with 6,320, and determinism 3/3 with 30,897. Physics is byte-exact across 44,401 rows. The final unchanged idle performance run passes both lanes with process memory lower by 5.18-6.22 MiB; two earlier runs alternated isolated marginal misses between lanes and did not reproduce. Allocation policy scans 463 files with zero allowlist errors; format, all four ownership inventories, and the 7/7 touched-file comment audit pass. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
 | Validation for broadphase capacity BC1 | `SpatialGrid.entries` and `pairSeen` now reserve registered backing first inside the existing SceneLoad stage boundary. Final capacities are `8 * bodies + 32` persistent rows and exact triangular pair words; the duplicated 4,096-row blanket is gone, while the retained 32-row spill covers BC3's measured oversized-shape maximum and compile-time ceilings remain. Clear/cell-size/frame transitions retain backing and high-water, and no Replay privilege exists. Focused checks pass 19/19 SpatialGrid cases with 8,545 assertions, fatal contracts 1/1 with 221, reserve allocator 20/20 with 212, determinism, and the 2,000-body owner census with 5,648 assertions. Physics remains byte-exact across 44,401 rows and performance passes. Format, complexity 40/40 at 400/6, aggregates 85/85, the one unrelated ruled extraction scar, and all 12+ signatures pass. Comment audit is 7/7 touched files. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
@@ -62,12 +63,11 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 0/17 (0%). Plans 1-5 are
-closed and excluded under rule 4. Plan 6 IC0 is the binding next item and
-records include closure, fan-in, clean full-rebuild timings, all 33
-`PhysicsEngine` includers, and the first selected chain edge. Plans 6-8 remain
-sequenced, with only plans 7 and 8 authorized to move baselines under their
-plan-specific owner conditions.
+The Fresh-Read Engine Review Campaign is active at 1/17 (6%). Plans 1-5 are
+closed and excluded under rule 4. Plan 6 IC0 is complete; IC1 is the binding
+next item and converts the 30 classified consumers from `PhysicsEngine.h` to
+the public `PhysicsApi.h` seam. Plans 6-8 remain sequenced, with only plans 7
+and 8 authorized to move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -772,8 +772,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 0/17 (0%) with Plan 6
-`Agentic/Plans/TODO/runtime-include-closure-reduction.md`, task IC0.
-Broadphase closure evidence remains in
-`Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`.
-MASTER and SessionState agree on the 0/17 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 1/17 (6%) with Plan 6
+`Agentic/Plans/TODO/runtime-include-closure-reduction.md`, task IC1.
+IC0 baseline evidence is in
+`Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
+MASTER and SessionState agree on the 1/17 live ledger.
