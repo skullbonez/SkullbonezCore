@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0-BV4 complete; convergence re-measured)
+State: In progress (BV0-BV5 complete; position correction bounded)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-30th-JUL-26
 PR: TBD
@@ -325,7 +325,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 - [x] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
 - [x] **BV4** — Re-measure convergence.
-- [ ] **BV5** — Position-correction divisor.
+- [x] **BV5** — Position-correction divisor.
 - [ ] **BV6** — Independent review, comment audit, closure report.
 
 ### BV0 — Build a controlled vibration fixture and record T0
@@ -470,6 +470,17 @@ Fix the latent defect found and set aside: divide the per-row correction by
 overlap against a stale penetration. The terrain restitution path already
 divides by point count at `:989`; position correction at `:1694-1695` divides
 nowhere.
+
+Completed 2026-07-29. The shared position-correction pass now divides its
+build-time penetration repair by the guarded manifold point count. A new exact
+one-point/four-point oracle pins one `0.16` total budget, `0.04` maximum per
+four-point row, and equal `0.08` body displacement; the retired implementation
+applies four times the total. The controlled vibration metric remains zero
+flips, zero cap-bound frames, one minimum iteration, and zero misses, with two
+byte-identical BV5 CSVs. Unit validation passes 463 cases / 2,423,855
+assertions; Physics/deep Physics reach only the inspected deferred baseline
+family and no golden was regenerated. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`.
 
 ### BV6 — Independent review, comment audit, closure report
 

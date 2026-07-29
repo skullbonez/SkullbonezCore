@@ -1699,7 +1699,13 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
         }
 
         const float rowPositionCorrectionPercent = c.isTerrain ? 0.4f : stepPolicy.objectPositionCorrectionPercent;
-        Vector3 correction = c.normal * ( ( c.penetration - rowContactSlop ) * rowPositionCorrectionPercent / totalInvMass );
+        const uint8_t manifoldPointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
+
+        // Invariant: narrowphase copies one build-time penetration sample into
+        // every row in a manifold. Share the positional repair across those
+        // rows so a four-point face removes one correction budget, not four.
+        Vector3 correction = c.normal * ( ( c.penetration - rowContactSlop ) * rowPositionCorrectionPercent /
+                                          ( totalInvMass * static_cast<float>( manifoldPointCount ) ) );
 
         float correctionMagnitude = Vector::VectorMag( correction );
         ++stage.m_persistentContactSolverStats.positionCorrectionRows;

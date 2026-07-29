@@ -286,6 +286,36 @@ struct SolverFixture
                                    inhibitsSleep );
     }
 
+    void AddTerrainFaceContact( int bodyIndex, uint32_t firstFeatureId, float penetration, uint8_t pointCount )
+    {
+        const auto hotFields = bodyStore.HotFields();
+        const float radius = hotFields.boundingRadius[static_cast<std::size_t>( bodyIndex )];
+        TerrainContactManifold manifold;
+        manifold.bodyA = bodyIndex;
+        manifold.bodyB = -1;
+        manifold.normal = Vector3( 0.0f, 1.0f, 0.0f );
+        manifold.tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
+        manifold.tangent2 = Vector3( 0.0f, 0.0f, 1.0f );
+        manifold.pointCount = pointCount;
+        manifold.supportsRestingPolicy = true;
+        manifold.allowsTangentFriction = true;
+
+        // Invariant: all rows carry the same build-time penetration while the
+        // symmetric arms model distinct points on one four-corner footprint.
+        for ( uint8_t pointIndex = 0; pointIndex < pointCount; ++pointIndex )
+        {
+            auto& point = manifold.points[pointIndex];
+            const float x = ( pointIndex & 1u ) != 0u ? 0.25f : -0.25f;
+            const float z = ( pointIndex & 2u ) != 0u ? 0.25f : -0.25f;
+            point.featureId = firstFeatureId + pointIndex;
+            point.rA = Vector3( x, -radius, z );
+            point.point = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) ) + point.rA;
+            point.penetration = penetration;
+        }
+
+        terrainContactManifolds.push_back( manifold );
+    }
+
     void CopySolverStateFrom( const SolverFixture& source )
     {
         PhysicsSolverSnapshot snapshot;
@@ -403,6 +433,37 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
         { return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart && record.featureId == 42u; } );
     REQUIRE( warmStart != pipeline.end() );
     CHECK( warmStart->scalarB == doctest::Approx( reducedCachedNormalImpulse ).epsilon( 0.00001 ) );
+}
+
+
+TEST_CASE( "Persistent contact solver: manifold rows share one position-correction budget" )
+{
+    SolverFixture onePoint;
+    onePoint.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    const float onePointInitialY = onePoint.bodyStore.HotFields().positionY[0];
+    onePoint.AddTerrainFaceContact( 0, 520u, 0.2f, 1u );
+    onePoint.Solve();
+
+    SolverFixture fourPoints;
+    fourPoints.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    const float fourPointInitialY = fourPoints.bodyStore.HotFields().positionY[0];
+    fourPoints.AddTerrainFaceContact( 0, 530u, 0.2f, 4u );
+    fourPoints.Solve();
+
+    const auto& onePointStats = onePoint.solver.GetStats();
+    const auto& fourPointStats = fourPoints.solver.GetStats();
+    const float onePointDisplacement = fabsf( onePoint.bodyStore.HotFields().positionY[0] - onePointInitialY );
+    const float fourPointDisplacement = fabsf( fourPoints.bodyStore.HotFields().positionY[0] - fourPointInitialY );
+
+    CHECK( onePointStats.positionCorrectionRows == 1 );
+    CHECK( fourPointStats.positionCorrectionRows == 4 );
+    CHECK( onePointStats.positionCorrectionTotal == doctest::Approx( 0.16f ).epsilon( 0.00001 ) );
+    CHECK( onePointDisplacement == doctest::Approx( 0.08f ).epsilon( 0.00001 ) );
+    CHECK( fourPointStats.positionCorrectionTotal ==
+           doctest::Approx( onePointStats.positionCorrectionTotal ).epsilon( 0.00001 ) );
+    CHECK( fourPointStats.positionCorrectionMax ==
+           doctest::Approx( onePointStats.positionCorrectionMax * 0.25f ).epsilon( 0.00001 ) );
+    CHECK( fourPointDisplacement == doctest::Approx( onePointDisplacement ).epsilon( 0.00001 ) );
 }
 
 
