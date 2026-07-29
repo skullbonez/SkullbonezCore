@@ -15,9 +15,9 @@
 //
 // Invariants:
 //   - Normalise() resets a zero quaternion to identity.
-//   - RotateAboutAxis() uses the current engine component sign convention.
-//   - Golden cases pin anti-Hamilton operand order and the transposed-Hamilton
-//     orientation matrix exposed by the public header.
+//   - RotateAboutAxis() stores the standard positive-sine axis-angle value.
+//   - Golden cases pin Hamilton operand order and the active-rotation matrix
+//     exposed by the public header.
 //   - Characterization cases pin world-space outcomes without inspecting stored
 //     quaternion components, so representation migrations must preserve them.
 //   - Orientation-matrix conversion accepts an immutable quaternion.
@@ -111,7 +111,7 @@ TEST_CASE( "Quaternion: axis-angle round trip returns to identity" )
 {
     Quaternion value;
     value.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), kHalfPi );
-    CheckQuaternionNear( value, QuaternionComponents { 0.0f, 0.0f, -0.70710677f, 0.70710677f } );
+    CheckQuaternionNear( value, QuaternionComponents { 0.0f, 0.0f, 0.70710677f, 0.70710677f } );
 
     value.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), -kHalfPi );
 
@@ -119,27 +119,27 @@ TEST_CASE( "Quaternion: axis-angle round trip returns to identity" )
 }
 
 
-TEST_CASE( "Quaternion: multiplication evaluates the Hamilton right operand times the left operand" )
+TEST_CASE( "Quaternion: multiplication evaluates the Hamilton left operand times the right operand" )
 {
     const Quaternion left( 1.0f, 2.0f, 3.0f, 4.0f );
     const Quaternion right( -2.0f, 5.0f, 7.0f, -3.0f );
 
-    // Concept: asymmetric components distinguish the engine's anti-Hamilton
-    // operand order from textbook Hamilton(left * right).
-    CheckQuaternionNear( left * right, QuaternionComponents { -10.0f, 27.0f, 10.0f, -41.0f } );
+    // Concept: asymmetric components distinguish Hamilton(left * right) from
+    // the retired reversed-operand implementation.
+    CheckQuaternionNear( left * right, QuaternionComponents { -12.0f, 1.0f, 28.0f, -41.0f } );
 }
 
 
-TEST_CASE( "Quaternion: orientation matrix transposes the Hamilton active rotation" )
+TEST_CASE( "Quaternion: orientation matrix exposes the Hamilton active rotation" )
 {
     constexpr float HALF_ROOT_TWO = 0.70710677f;
     const Quaternion positiveZQuarterTurn( 0.0f, 0.0f, HALF_ROOT_TWO, HALF_ROOT_TWO );
 
-    // Invariant: the public matrix convention maps +X to -Y for this positive
-    // Hamilton Z quarter-turn. A textbook active matrix would map it to +Y.
+    // Invariant: the public matrix maps +X to +Y for this positive Hamilton Z
+    // quarter-turn.
     const Vector3 rotated = positiveZQuarterTurn.GetOrientationMatrix() * Vector3( 1.0f, 0.0f, 0.0f );
     CHECK( rotated.x == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
-    CHECK( rotated.y == doctest::Approx( -1.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.y == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
     CHECK( rotated.z == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
 }
 

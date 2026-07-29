@@ -143,7 +143,7 @@ Recorded so the owner can re-scope at QN0 with full information.
   consumers, 14 transpose sites, 6 axis-constructor sites, and every
   serialization path, classifying each as compensation, neutral, or persisted
   data. **Owner checkpoint: stop-or-proceed decision recorded here.**
-- [ ] QN1 — Correct the core. `operator*` becomes true Hamilton,
+- [x] QN1 — Correct the core. `operator*` becomes true Hamilton,
   `GetOrientationMatrix` returns the untransposed active-rotation matrix, and
   `RotateAboutAxis` drops its compensating sine negation and operand reversal.
   Every characterization test from QN0 must still pass.
@@ -236,3 +236,21 @@ behavior tests pass on the pre-change Profile binary: 15 `Quaternion*` cases and
 Detailed site classification and persistence inventory:
 `Agentic/Reports/2026-07-29/quaternion-convention-normalization-qn0-census.md`.
 No baseline, golden, schema, config, or committed runtime artifact changed.
+
+## QN1 Evidence
+
+`Quaternion::operator*` is the textbook Hamilton product,
+`GetOrientationMatrix` emits the active-rotation matrix, and
+`RotateAboutAxis` uses the standard positive-sine delta with world-space
+left-multiplication. The retired anti-Hamilton glossary and convention
+invariants are deleted from the public header. Component goldens now distinguish
+the canonical formulas.
+
+The focused Profile build passes. All 15 `Quaternion*` cases and 66 assertions,
+including the five unchanged QN0 physical-behavior cases, pass. The full unit
+gate reports one planned QN2 compensation failure:
+`Matrix4: quaternion and axis-angle conversions agree within the rotation
+epsilon` (two assertions). Its quaternion conversion still emits the retired
+transposed basis and is the first QN2 repair. The remaining 451 cases pass. The
+touched-source comment audit is 3/3 and repository formatting passes. No
+baseline, golden, schema, config, or committed runtime artifact changed.
