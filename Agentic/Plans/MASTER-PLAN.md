@@ -410,22 +410,18 @@ ownership questions with zero findings. The active/future ledger is now 0/25
 (0%). Evidence is in
 `../Reports/2026-07-29/contact-solve-phase-ownership-closure.md`.
 
-Collision hull shape instancing HS0 completed on 2026-07-29. The exact expanded
-census is 557 hull colliders across 145 scenes, with 33 direct raw token
-spellings normalizing to 22 direct paths and asset expansion producing 25 used
-paths globally. The cold identity is resolved path plus exact authored scale;
-unproved variants remain non-shareable. Hull rows are retained until scene
-clear, so mid-scene destruction neither refcounts nor compacts shared storage.
-HS1 implements that identity-keyed retained store, distinct-variant
-reservation, shared-index replay rebinding, and editor undo identity
-preservation. The three acceptance scenes commit 12, 20, and 20 hull variants;
-byte-exact Physics and all 440 tests pass after repairing a compiler-exposed
-by-value variant-copy hazard. HS2 now pins canonical repeat sharing, exact-bit
-scale separation, conservative unique fallbacks, retained rows through
-destroy/create, and destination-owned Replay clone sharing. The mapped Physics
-and test gates pass with 441/441 tests and 2,420,993 assertions. The live
-ledger is now 3/25 (12%). Evidence is in
-`../Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
+Collision hull shape instancing closed HS0-HS3 on 2026-07-29 and left the live
+ledger under rule 4. Canonical resolved-path plus exact authored-scale identity
+reduces the three acceptance scenes from 911,352 to 387,504 committed hull
+bytes, saving 523,848 bytes (57.4803%). Retained scene-lifetime rows preserve
+stable indices through deletion, replacement, Replay clone, and editor undo;
+unproved variants remain unique. The 18-run, 42,120-frame narrowphase matrix
+shows no material measured timing change. Deep Physics, performance, the
+single authoritative Replay visual run, and full validation pass; full reports
+441/441 tests and 2,420,993 assertions. The 18/18 comment audit and independent
+review close with zero blockers. The active/future ledger is now 0/21 (0%).
+Evidence is in
+`../Reports/2026-07-29/collision-hull-shape-instancing-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -1010,11 +1006,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 3/25
-(12%). Plans 1-3 are complete and excluded under rule 4; execute plans 4→8 in
-the listed order. Plan 4 HS0-HS2 are complete; HS3 next measures exact
-committed-scene footprint and narrowphase markers, completes the comment audit
-and independent review, and runs the closure gates.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/21
+(0%). Plans 1-4 are complete and excluded under rule 4; execute plans 5→8 in
+the listed order. Plan 5 BC0 next measures the real `SpatialGrid` footprint in
+all three configurations, classifies fixed versus scene-sized members, and
+records the scene-load reservation order.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2509,7 +2505,7 @@ Dependency barriers:
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
 | 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
 | 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
-| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | In progress | 3/4 | HS0-HS2 complete; HS3 measures footprint and narrowphase markers, completes review, and runs closure gates |
+| 4 | [collision-hull-shape-instancing](../Reports/2026-07-29/collision-hull-shape-instancing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; 57.4803% measured acceptance-scene hull-store reduction, byte-exact Physics, stable narrowphase markers, 18/18 comment audit, all closure gates, and independent review are clear |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
 | 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |

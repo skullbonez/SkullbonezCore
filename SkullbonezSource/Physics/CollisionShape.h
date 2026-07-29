@@ -28,6 +28,9 @@ Invariants:
   - CollisionShapeReference never owns payload and remains valid only while its
     borrowed owning value lives; store-backed references are rebound whenever
     per-kind backing relocates.
+  - ColliderStore may bind multiple hull references to one canonical
+    path-plus-authored-scale row. Hull rows and their indices remain stable
+    until the store is cleared.
 
 Related:
   - Agentic/Reference/physics-overview.md

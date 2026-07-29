@@ -5,17 +5,21 @@ Purpose:
 
 Summary:
   Physics is deterministic fixed-step state update. Convex hull data is built
-  and validated at load time, then read without heap allocation by narrowphase.
+  and validated at load time. Canonical authored scaling produces a cold
+  scene-load copy before ColliderStore identity binding; stored rows are then
+  read without heap allocation or mutation by narrowphase.
 
 Glossary:
   Convex hull: Closed polytope whose faces enclose a volume with no concavity.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+    and penetration from candidate shape pairs.
   Face: One planar polygon on the hull boundary.
   Edge: Undirected segment shared by exactly two faces.
   Lane R: Recoverable result error lane for external input such as scene files
     and baked hull assets.
 
 Invariants:
-  - Hull topology is immutable after load-time validation.
+  - Stored hull topology is immutable after scene-load scaling and validation.
   - Face, edge, and vertex ordering is deterministic and becomes feature ID
     input for persistent contact warm starting.
 
