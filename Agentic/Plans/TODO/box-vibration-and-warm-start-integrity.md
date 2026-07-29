@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0 complete; controlled T0 recorded)
+State: In progress (BV0-BV1 complete; controlled bounce fix measured)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-29th-JUL-26
 PR: TBD
@@ -318,7 +318,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 ## Tasks
 
 - [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
-- [ ] **BV1** — Suppress restitution on persistent object/object contacts.
+- [x] **BV1** — Suppress restitution on persistent object/object contacts.
 - [ ] **BV2** — Stabilize SAT axis-type selection.
 - [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
@@ -359,12 +359,23 @@ A suppressed row must fall through to the Baumgarte penetration branch rather
 than being left with no bias.
 
 Note the reach limit: the cache only stores rows with `supportsRestingPolicy`
-(`:1766`), so edge/corner object contacts never cache and keep full restitution.
-That is arguably correct — a corner impact is impact-like — but record it.
+(`:1766`). The current classifier excludes vertical box edge-only support and
+the applicable non-sphere convex-hull thin footprint, so those rows keep full
+restitution. Lateral edge/corner rows may still carry the policy, cache, and
+suppress restitution on reuse. Record this exact classification boundary.
 
 Acceptance: BV0 metric drops substantially; terrain rows byte-unchanged in a
 terrain-only scene; a focused test pins that a fresh contact still bounces and a
 persistent one does not.
+
+Completed 2026-07-29. The exact BV0 metric falls from 566 meaningful flips to
+zero, all 900 cap-bound frames disappear, and the solver early-out reaches one
+iteration. Fresh object contacts retain restitution; a cached-load row receives
+the exact Baumgarte bias without a new bounce. The one-ball terrain-only CSV is
+byte-identical across pre/post Debug binaries. Exact resting-footprint cache
+reach, deterministic repeat output, focused tests, planned golden divergence,
+and deferred cumulative baseline regeneration are recorded in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv1.md`.
 
 ### BV2 — Stabilize SAT axis-type selection
 

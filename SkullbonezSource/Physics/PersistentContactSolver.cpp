@@ -993,30 +993,46 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
                 c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
             }
         }
-        else if ( vn < -restitutionThreshold )
+        else
         {
-            float restitution = 1.0f;
+            const bool carriedLoadLastFrame = HasCachedImpulse( stage.m_persistentContactCache, c.bodyA, c.bodyB,
+                                                                c.featureId );
 
-            if ( !elasticCollisions )
+            if ( vn < -restitutionThreshold && !carriedLoadLastFrame )
             {
-                const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-                const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
-                restitution = sqrtf( restitutionA * restitutionB );
-            }
+                float restitution = 1.0f;
 
-            c.bias = -restitution * vn;
-        }
-        else if ( vn >= -restitutionThreshold )
-        {
-            float penetrationError = c.penetration - contactSlop;
-
-            if ( penetrationError > 0.0f )
-            {
-                c.bias = baumgarteBeta * penetrationError * invDt;
-
-                if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                if ( !elasticCollisions )
                 {
-                    c.bias = maxBaumgarteBias;
+                    const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                    const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
+                    restitution = sqrtf( restitutionA * restitutionB );
+                }
+
+                c.bias = -restitution * vn;
+            }
+            else
+            {
+
+                // Concept: restitution represents a fresh impact, while cached
+                // load identifies a persistent support row. Suppressing bounce
+                // must still preserve Baumgarte penetration repair; otherwise a
+                // loaded overlap would receive no positional velocity target.
+                // Cache reach follows supportsRestingPolicy exactly. Vertical
+                // box edge-only support and non-sphere convex-hull one-point
+                // footprints stay impact-like, while a lateral edge/corner row
+                // may cache and therefore suppress restitution on reuse. This
+                // branch intentionally changes object-only byte-exact output.
+                float penetrationError = c.penetration - contactSlop;
+
+                if ( penetrationError > 0.0f )
+                {
+                    c.bias = baumgarteBeta * penetrationError * invDt;
+
+                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                    {
+                        c.bias = maxBaumgarteBias;
+                    }
                 }
             }
         }

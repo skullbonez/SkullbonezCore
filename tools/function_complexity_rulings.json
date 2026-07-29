@@ -25,11 +25,11 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
-      "body_sha256": "1e5d47974799c980b0461af92e9b28e4dd12cd9dd065a33b57f67b2ccdd2e68e",
+      "body_sha256": "2935b2e28232c31bf50d7e27d5a3ccb270209fa2b6681e040278c440cc1241b6",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, bias, friction bounds, warm-start impulses, and trace values; the nested contact-kind policy protects that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv1.md",
       "plan": ""
     },
     {
