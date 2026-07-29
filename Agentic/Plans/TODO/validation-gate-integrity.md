@@ -42,6 +42,23 @@ request run. The remaining V3 trust gap is a real `merge_group` proof, required
 CPU branch protection, and trusted DX12-runner activation; public-PR GPU
 evidence still requires an ephemeral isolated runner.
 
+Current external audit (2026-07-30):
+
+- GitHub still registers all three workflows as active.
+- `main` returns `Branch not protected`; the repository's only ruleset,
+  `Block Delete & Force Push`, remains disabled.
+- The repository has zero `merge_group` workflow runs and zero registered
+  self-hosted Actions runners.
+- Main-push DX12 run 30448024981 was skipped, so it supplies no runtime
+  evidence.
+- The latest pull-request CPU run, 30447408778 for PR 138, failed before tests
+  while baking shader metadata. The hosted Visual Studio clang-format rejects
+  `.clang-format` key `BinPackLongBracedList`, which LLVM documents as available
+  only from clang-format 21. This is a separate local workflow/toolchain
+  compatibility defect: the hosted lane must pin a compatible formatter or the
+  repository style must be made compatible without changing accepted layout.
+  It does not satisfy any of the external V3 administration conditions.
+
 ## Goal
 
 One documented PR entry point runs every required CPU test exactly once, then
@@ -118,7 +135,10 @@ Separate validation by capability rather than by historical script:
   persistent DX12 lane post-merge/informational until a dedicated trusted-ref
   runner is registered; require public-PR GPU evidence only after an ephemeral
   isolated runner replaces it. Current evidence and remaining administration
-  are recorded in `Agentic/Reports/validation_ci_v3_20260710.md`.
+  are recorded in `Agentic/Reports/validation_ci_v3_20260710.md`. The
+  2026-07-30 audit also found hosted CPU run 30447408778 failing on the
+  clang-format 21-only `BinPackLongBracedList` key; fix that local compatibility
+  defect before treating the CPU job as protection-ready.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
   equivalent static-analysis job. Record suppressions with owner, reason, and
