@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-8 are closed and excluded from the live ledger. Plan 9 `persistent-contact-convergence-early-out` is active at CE0. |
-| Active/future progress | 0/4 (0%). Plan 9 has 0/4 complete. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-8 are closed and excluded from the live ledger. Plan 9 `persistent-contact-convergence-early-out` is active at CE1 after CE0 proved existing diagnostics cannot attribute the capped residual. |
+| Active/future progress | 1/4 (25%). Plan 9 has 1/4 complete. |
+| Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
 | Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
 | Validation for box vibration BV5 | One-point/four-point coverage pins one 0.16 total correction budget, a 0.04 four-point row maximum, and equal 0.08 body displacement. Persistent-contact coverage passes 12 cases / 174 assertions; all unit coverage passes 463 cases / 2,423,855 assertions. The controlled fixture remains zero-flip/one-iteration/zero-miss and repeats byte-identically. Physics/deep Physics stop at the inspected deferred transition: 35,091 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs match, all ten shooting targets react, only the stacking known-issue hash moves beyond BV3, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`. |
 | Validation for box vibration BV4 | The controlled fixture retains zero flips, zero cap-bound frames, one minimum iteration, zero misses, and BV2's exact 842,927-byte CSV hash across two fresh Debug runs. The wall remains at 12 minimum/average/maximum iterations for all 1,000 measured frames despite 41,901 / 580,467 misses (7.218498%) and 557,764 / 582,238 warm-started rows (95.796564%). The required separate convergence finding is queued as plan 9; BV5 remains viable. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv4.md`. |
@@ -78,8 +79,8 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 0/4 (0%). Plans 1-8 are
-closed and excluded under rule 4. Plan 9 is active at CE0 and inherits no
+The Fresh-Read Engine Review Campaign is active at 1/4 (25%). Plans 1-8 are
+closed and excluded under rule 4. Plan 9 is active at CE1 and inherits no
 baseline-divergence authority from the completed Box campaign.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
@@ -785,10 +786,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 0/4 (0%) with Plan 9
-`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`, task CE0.
-The completed Box campaign's final measurements, baseline transition, terrain
-preservation oracle, comment audit, validation, and independent review are
-permanent in
-`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`.
-MASTER and SessionState agree on the 0/4 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 1/4 (25%) with Plan 9
+`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`, task CE1.
+CE0's final row-family census, pipeline-cap proof, and bounded diagnostic need
+are permanent in
+`Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`.
+MASTER and SessionState agree on the 1/4 live ledger.

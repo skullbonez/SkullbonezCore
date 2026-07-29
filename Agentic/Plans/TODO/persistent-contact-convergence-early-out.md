@@ -4,7 +4,7 @@ Date: 2026-07-29
 
 Owner: skullbonez
 
-State: In progress (CE0 next)
+State: In progress (CE0 complete; CE1 next)
 
 Ledger tasks: 4 (CE0-CE3)
 
@@ -60,7 +60,7 @@ count.
 
 ## Tasks
 
-- [ ] **CE0 — Current-source convergence census.** Reproduce BV4 from the
+- [x] **CE0 — Current-source convergence census.** Reproduce BV4 from the
       post-Box tip, inventory the early-out residuals and row families using
       existing diagnostics first, and record whether new diagnostic-only
       instrumentation is actually needed.
@@ -97,3 +97,10 @@ Mapped cumulatively:
 - `tools\validate_physics_deep.bat`
 - `tools\validate_full.bat`
 - SkullScope trace/query accounting for every runtime measurement.
+
+CE0 completed 2026-07-29. The post-Box wall remains at the cap in 1,000/1,000
+measured frames. Existing diagnostics prove the symptom and final row-family
+mix, but export only 23.8325% of iteration records before the pipeline cap and
+discard their scalar deltas. CE1 therefore needs a bounded per-iteration
+aggregate, not uncapped row tracing. Evidence:
+`Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`.

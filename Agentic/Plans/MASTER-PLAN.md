@@ -1097,10 +1097,10 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/4
-(0%). Plans 1-8 are complete and excluded under rule 4. Execute plan 9
-`persistent-contact-convergence-early-out`, beginning with CE0's current-source
-convergence census.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/4
+(25%). Plans 1-8 are complete and excluded under rule 4. Execute plan 9
+`persistent-contact-convergence-early-out`, continuing with CE1's bounded
+diagnostic aggregate and controlled cause oracle.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2599,7 +2599,7 @@ Dependency barriers:
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
 | 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
-| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | In progress | 0/4 | CE0 next: isolate the dense-wall residual/row-family cause with existing diagnostics first, never by raising the iteration count |
+| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | In progress | 1/4 | CE0 proves the existing trace cannot attribute the residual after its 4,096-record cap; continue CE1 with a bounded per-iteration aggregate and controlled cause oracle |
 
 ### Plan 8 Ordering Consequences
 
