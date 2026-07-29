@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-4 are closed and excluded from the live ledger. Plan 5 broadphase capacity right-sizing starts at BC0 with exact `SpatialGrid` size measurements, scene-size footprint arithmetic, member classification, and reservation ordering. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 0/21 (0%). Plans 1-4 are complete; plans 5-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-4 are closed and excluded from the live ledger. Plan 5 BC0 is complete; BC1 next converts `SpatialGrid::pairSeen` and persistent `entries` to registered SceneLoad storage while preserving byte-exact behavior and retaining no Replay growth privilege. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 1/21 (5%). Plan 5 is 1/4; plans 6-8 remain. |
+| Broadphase capacity BC0 census | Documentation-only: Debug, Profile, and Release all measure `SpatialGrid` as 8,535,792 bytes with 8-byte alignment. Current commitment is identical at 300, 4,000, and 8,192 admitted bodies: 8,535,792 bytes for one grid and 17,071,584 for live plus Replay prediction. Arrays targeted for registered storage are 7,913,120 bytes and the retained inline topology/state core is 622,672. The exact SceneLoad reservation chain and cold-clear/frame-begin interactions are recorded. `overlayEntries` is a fixed 4,096-row transient-work ceiling rather than an honest body-count formula. Evidence: `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`. No source, baseline, golden, schema, config, or runtime artifact changed; no repository validation was required. |
 | Validation for collision-hull closure | Canonical resolved-path plus exact authored-scale identity reduces the three acceptance scenes from 911,352 to 387,504 committed hull bytes, saving 523,848 bytes (57.4803%). The 18-run/42,120-frame matrix measures no material object-manifold timing change. Deep Physics, idle-machine performance, the single authoritative Replay visual run, and full validation pass; full reports 441/441 tests and 2,420,993 assertions with byte-exact Physics. Comment audit is 18/18 and independent review closes with zero blockers after three raw-log references were corrected. No baseline, golden, config, schema, allowlist, or committed runtime artifact changed. Evidence: `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-closure.md`. |
 | Collision-hull HS0 census and decisions | Documentation-only: all 145 committed scenes expand to 557 authored hull colliders in 19 nonzero scenes and 25 used normalized paths. The prior 33 figure was a raw direct-token count that normalizes to 22 direct paths; asset expansion adds three used paths. The binding identity is normalized resolved path plus exact X/Y/Z authored-scale bits, with unproved variants non-shareable. Identity rows persist until scene clear; mid-scene destruction does not refcount or compact them. Exact create/replace/destroy/reserve/rebind/Replay-clone paths and the const-consumer mutation audit are in `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`. No source, baseline, golden, schema, config, or runtime artifact changed; no repository validation was required. |
 | Validation for collision-hull HS1 | `ColliderStore` now shares canonical path-plus-scale hull variants, retains stable hull rows until clear, never overwrites shared geometry on replacement, and clones identity rows before replay rebinding. Editor delete/undo preserves proven identity; arbitrary transformed variants remain unique. Acceptance-scene probes commit 12/12/12, 20/20/20, and 20/20/20 capacity/live/high-water rows. A first full test run exposed a Profile-only large-return hazard that defaulted by-value box/hull variants to sphere after the descriptor grew, plus the expected one-row capacity census increase; borrowing/copying the source variant and updating the owner census repaired both. `validate_physics` remains byte-exact and `validate_tests` passes 440/440 cases with 2,420,846 assertions. Complexity passes 40/40 after re-ratifying two edited current bodies; aggregates pass 85/85; the only extraction scar is the unrelated ruled WorkerPool row; all 12+ signatures are ruled. Comment audit is 15/15 touched source files with three untouched plan-scope files deferred to HS2/HS3. No baseline, golden, schema, allowlist, config, or committed runtime artifact changed. |
@@ -58,11 +59,12 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 0/21 (0%). Plans 1-4 are
-closed and excluded under rule 4. Plan 5 BC0 is the binding next item and owns
-exact `SpatialGrid` size measurements, fixed-versus-scene-sized member
-classification, and scene-load reservation ordering. Plans 5-8 remain sequenced, with only plans 7 and 8
-authorized to move baselines under their plan-specific owner conditions.
+The Fresh-Read Engine Review Campaign is active at 1/21 (5%). Plans 1-4 are
+closed and excluded under rule 4. Plan 5 BC0 is complete. BC1 is the binding
+next item and converts `pairSeen` and persistent `entries` to registered
+SceneLoad storage while preserving byte-exact behavior. Plans 5-8 remain
+sequenced, with only plans 7 and 8 authorized to move baselines under their
+plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -767,8 +769,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 0/21 (0%) with Plan 5
-`Agentic/Plans/TODO/broadphase-capacity-right-sizing.md`, task BC0. Plan 4
-closure evidence is in
-`Agentic/Reports/2026-07-29/collision-hull-shape-instancing-closure.md`.
-MASTER and SessionState agree on the 0/21 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 1/21 (5%) with Plan 5
+`Agentic/Plans/TODO/broadphase-capacity-right-sizing.md`, task BC1. BC0
+measurement evidence is in
+`Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
+MASTER and SessionState agree on the 1/21 live ledger.

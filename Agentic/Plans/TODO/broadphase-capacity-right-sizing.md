@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress (BC0 complete)
 Ledger tasks: 4 (BC0-BC3)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 ## Goal
@@ -87,7 +87,7 @@ claimed.
 
 ## Ledger
 
-- [ ] BC0 — Confirm the real footprint with `sizeof` on each member and on
+- [x] BC0 — Confirm the real footprint with `sizeof` on each member and on
   `SpatialGrid` as a whole, in all three configurations. Record committed bytes
   for the 300-body default scene, the 4,000-body active capacity, and the
   8,192-body ceiling. Confirm which members are genuinely scene-sized versus
@@ -103,6 +103,31 @@ claimed.
   sizes and for the prediction engine, confirm the memory-tab capacity rows
   reflect the new owners, audit comments, pass independent review, and run every
   mapped gate.
+
+## BC0 Evidence
+
+Debug, Profile, and Release all measure `sizeof( SpatialGrid )` as exactly
+8,535,792 bytes with 8-byte alignment. Current committed bytes are therefore
+8,535,792 for one grid and 17,071,584 for the live plus Replay prediction grids
+at 300, 4,000, and 8,192 admitted bodies alike. Arrays targeted for registered
+scene-load storage account for 7,913,120 bytes; the retained inline hash
+topology/state core is 622,672 bytes.
+
+`buckets`, `bucketHashHeads`, `activeBuckets`, and `overlayActiveBuckets` are
+fixed topology. Body membership, triangular pair dedup, candidate heads/nodes/
+sort storage, cell-object stamps, and persistent cell entries are scene-derived.
+`overlayEntries` is a fixed 4,096-row transient-work ceiling rather than a
+body-count formula; BC2 still registers it but must not mislabel or shrink it
+without a separate behavior proof.
+
+The reservation chain is `SceneAuthoredSetup` -> `SceneWorld` SceneLoad scope ->
+`PhysicsEngine` -> `PhysicsWorld` -> `PhysicsBroadphaseStage`. BC1 adds the grid
+reservation first inside the stage reserve, before pair outputs. `SetCellSize`
+cold-clears retained rows and `BeginFrame` only shrinks/resets live prefixes;
+neither may reserve, decommit, or acquire Replay growth.
+
+Permanent evidence:
+`Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
 
 ## Dependencies
 
