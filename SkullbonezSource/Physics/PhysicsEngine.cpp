@@ -410,29 +410,41 @@ void PhysicsEngine::SeedReplayPredictionStorageFrom( const PhysicsEngine& source
 }
 
 
-void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const CollisionShape& shape )
+void PhysicsEngine::ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc )
 {
+    std::size_t sphereCount = 0u;
+    std::size_t boxCount = 0u;
+    std::size_t hullVariantCount = 0u;
+
     std::visit( [&]( const auto& shapeValue )
                 {
                     using ShapeT = std::decay_t<decltype( shapeValue )>;
 
                     if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
                     {
-                        ReserveAdditionalAuthoredCapacity( 1u, 0u, 0u, 0u );
+                        sphereCount = 1u;
                     }
                     else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
                     {
-                        ReserveAdditionalAuthoredCapacity( 0u, 1u, 0u, 0u );
+                        boxCount = 1u;
                     }
                     else
                     {
                         static_assert( std::is_same_v<ShapeT, ConvexHullShape>,
                                        "Every CollisionShape alternative requires an explicit capacity commit." );
 
-                        ReserveAdditionalAuthoredCapacity( 0u, 0u, 1u, 0u );
+                        // Why: every authored hull still consumes a body/collider row, but an exact shareable identity can
+                        // reuse its retained immutable hull variant. Unique editor/procedural geometry must reserve one.
+                        hullVariantCount = m_colliderStore.HasShareableHullIdentity( colliderDesc.hullIdentity ) ? 0u : 1u;
                     }
                 },
-                shape );
+                colliderDesc.shape );
+
+    const std::size_t bodyCapacity = m_authoredBodyDescs.size() + 1u;
+    const std::size_t sphereCapacity = m_colliderStore.SphereShapeCount() + sphereCount;
+    const std::size_t boxCapacity = m_colliderStore.BoxShapeCount() + boxCount;
+    const std::size_t hullCapacity = m_colliderStore.HullShapeCount() + hullVariantCount;
+    ReserveAuthoredBodyCapacity( bodyCapacity, sphereCapacity, boxCapacity, hullCapacity, m_world.PointJointCapacity() );
 }
 
 
@@ -601,7 +613,8 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
     const PhysicsColliderHandle collider = m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( colliderDesc,
                                                                                                              *record ),
                                                                                  colliderDesc.shape,
-                                                                                 MakeColliderAuthoringRecordFromDesc( colliderDesc ) );
+                                                                                 MakeColliderAuthoringRecordFromDesc( colliderDesc ),
+                                                                                 colliderDesc.hullIdentity );
 
     if ( !collider.IsValid() )
     {
@@ -779,7 +792,8 @@ bool PhysicsEngine::UpdateAuthoredBodyAndCollider( const PhysicsBodyUpdateDesc& 
 
     if ( !body ||
          !m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( colliderDesc, *body ),
-                                                 colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ) ) )
+                                                 colliderDesc.shape, MakeColliderAuthoringRecordFromDesc( colliderDesc ),
+                                                 colliderDesc.hullIdentity ) )
     {
 
         // Lane F: preflighted fixed-capacity rows disappearing during one

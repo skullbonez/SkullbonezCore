@@ -125,7 +125,7 @@
     {
       "file": "SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp",
       "signature": "bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, RunEditorPlacementState& editor, SceneWorld& world, SceneSessionState& scene, const Assets::AssetSystem& assets, int activeModelCapacity, EditorObjectPlacementRequest request, EditorObjectPlacementResult& outResult )",
-      "body_sha256": "663667db3561b1540cfd22d970f5355def05920d99391f2845b04489253c845a",
+      "body_sha256": "5f3f25dd1955cae41ec878da809491c900360c27783ae992283f4de007f928bc",
       "owner": "Editor object placement transaction",
       "disposition": "retain-owner",
       "reason": "One editor placement command resolves terrain pose, asset bounds, scene capacity, and history publication atomically; the output is committed only after the shared placement invariant succeeds.",
@@ -175,7 +175,7 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneSessionState& sceneState, SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )",
-      "body_sha256": "68e96a8631b31e03ab981a1094561a6253dfb1667da9ac8f05290cccb9b40668",
+      "body_sha256": "fcd418f8f468a29c4c6d81e9d0e95700fd3c7fc3f7d8ba0de7716c2df4b26b64",
       "owner": "SceneAuthoredSetup entity transaction",
       "disposition": "retain-owner",
       "reason": "One authored-scene setup transaction creates the complete entity topology and automation gates before publication; partial setup is diagnosed and cannot become the active scene.",

@@ -71,7 +71,7 @@ inline constexpr char
     ColliderHandleSlots[] = "Maximum of exact scene collider count and retained collider handle-slot high-water";
 inline constexpr char SphereColliders[] = "Exact scene sphere-collider count";
 inline constexpr char BoxColliders[] = "Exact scene box-collider count";
-inline constexpr char HullColliders[] = "Exact scene convex-hull-collider count";
+inline constexpr char HullColliders[] = "Distinct shareable plus explicitly unique scene convex-hull variant count";
 inline constexpr char PointJoints[] = "Exact authored and ragdoll point-joint count";
 inline constexpr char CandidatePairs[] = "Minimum of the scene body pair count and the compile-time candidate-pair ceiling";
 inline constexpr char

@@ -117,7 +117,7 @@ class PhysicsEngine
 
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.
-    void ReserveAdditionalAuthoredBodyCapacity( const Math::CollisionDetection::CollisionShape& shape );
+    void ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc );
     void ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount,
                                             std::size_t pointJointCount );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;

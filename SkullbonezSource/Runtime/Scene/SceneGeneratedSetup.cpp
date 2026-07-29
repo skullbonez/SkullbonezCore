@@ -234,7 +234,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
     }
 
     const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( count, sphereCapacity,
-                                                                                                 boxCapacity, 0, 0 );
+                                                                                                 boxCapacity, 0, 0, 0 );
 
     if ( !capacityCommit.Ok() )
     {
@@ -328,7 +328,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
     }
 
     const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( balls + boxes, balls, boxes,
-                                                                                                 0, 0 );
+                                                                                                 0, 0, 0 );
 
     if ( !capacityCommit.Ok() )
     {

@@ -19,15 +19,16 @@ Glossary:
   Authoring row: Cold scene round-trip text paired with one hot collider row.
   Narrowphase: Precise collision pass that computes actual contact points.
   Convex hull: Collision shape made from a closed convex set of authored points.
+  Hull identity: Cold normalized authored path plus exact canonical scale bits.
   Scene object id: Stable per-scene id paired with a body for replay diagnostics.
 
 Invariants:
   - Body-binding refresh keeps store row order aligned to scene physics order.
   - Hot and authoring rows share the same dense index and compact together.
-  - Shape payload stores compact by kind; every surviving collider reference is
-    rebound after backing relocation or swap-last removal.
-  - Hull capacity is driven by authored hull count, not total collider count;
-    a zero-hull scene retains zero hull storage.
+  - Sphere and box stores compact by kind; hull variants retain stable indices
+    until scene clear so shared references never need refcounts.
+  - Hull capacity is driven by distinct shareable plus explicitly unique
+    variants, not total hull collider count.
   - Standalone creation keeps rows dense for cache-friendly scans; handles map
     back to the current row after deletions move the last record down.
   - Collider handles are allocator-owned; model-order arrays use explicit maps
@@ -45,6 +46,7 @@ Related:
 #include <vector>
 
 #include "CollisionShape.h"
+#include "PhysicsApi.h"
 #include "PhysicsFixedList.h"
 #include "PhysicsHandles.h"
 #include "../Core/SceneCapacity.h"
@@ -105,6 +107,7 @@ using ColliderBoxShapeList = PhysicsFixedList<Math::CollisionDetection::Bounding
                                               SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHullShapeList = PhysicsFixedList<Math::CollisionDetection::ConvexHullShape,
                                                SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHullIdentityList = PhysicsFixedList<HullShapeIdentity, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 class ColliderStore
 {
@@ -127,6 +130,10 @@ class ColliderStore
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
                                                 const Math::CollisionDetection::CollisionShape& shape,
                                                 const ColliderAuthoringRecord& initialAuthoringRecord );
+    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
+                                                const Math::CollisionDetection::CollisionShape& shape,
+                                                const ColliderAuthoringRecord& initialAuthoringRecord,
+                                                const HullShapeIdentity& hullIdentity );
 
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
@@ -138,6 +145,9 @@ class ColliderStore
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
                                 const Math::CollisionDetection::CollisionShape& shape,
                                 const ColliderAuthoringRecord& authoringRecord );
+    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
+                                const Math::CollisionDetection::CollisionShape& shape,
+                                const ColliderAuthoringRecord& authoringRecord, const HullShapeIdentity& hullIdentity );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record,
                                     const Math::CollisionDetection::CollisionShape& shape );
 
@@ -184,6 +194,7 @@ class ColliderStore
     // like the hot row returned by RecordForHandle.
     const ColliderAuthoringRecord* AuthoringRecordForHandle( PhysicsColliderHandle handle ) const;
     const ColliderAuthoringRecord* AuthoringRecordForModelIndex( int modelIndex ) const;
+    const HullShapeIdentity* HullIdentityForHandle( PhysicsColliderHandle handle ) const;
 
   private:
     friend class PhysicsEngine;
@@ -196,8 +207,11 @@ class ColliderStore
     PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex, PhysicsSceneObjectId sceneObjectId,
                                                       ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
-    Math::CollisionDetection::CollisionShapeReference AppendShape( const Math::CollisionDetection::CollisionShape& shape );
-    void ReplaceShape( int recordIndex, const Math::CollisionDetection::CollisionShape& shape );
+    bool HasShareableHullIdentity( const HullShapeIdentity& identity ) const;
+    Math::CollisionDetection::CollisionShapeReference AppendShape( const Math::CollisionDetection::CollisionShape& shape,
+                                                                   const HullShapeIdentity& hullIdentity );
+    void ReplaceShape( int recordIndex, const Math::CollisionDetection::CollisionShape& shape,
+                       const HullShapeIdentity& hullIdentity );
     void RemoveShape( const ColliderRecord& record, int ignoredRecordIndex );
     void RebindShapeReferences();
     void RebindShapeReferences( ColliderShapeKind shapeKind );
@@ -229,11 +243,12 @@ class ColliderStore
     ColliderHandleAssignmentMask m_assignedHandleScratch { "ColliderStore.assignedHandleScratch",
                                                            PhysicsCapacityReason::ColliderHandleSlots };
 
-    // Shape payloads are dense by concrete type. In particular, hull backing is
-    // absent for a zero-hull scene instead of inflating every ColliderRecord.
+    // Shape payloads are dense by concrete type. Hull identity is cold,
+    // index-aligned storage used only while appending/replacing authored rows.
     ColliderSphereShapeList m_sphereShapes { "ColliderStore.sphereShapes", PhysicsCapacityReason::SphereColliders };
     ColliderBoxShapeList m_boxShapes { "ColliderStore.boxShapes", PhysicsCapacityReason::BoxColliders };
     ColliderHullShapeList m_hullShapes { "ColliderStore.hullShapes", PhysicsCapacityReason::HullColliders };
+    ColliderHullIdentityList m_hullIdentities { "ColliderStore.hullIdentities", PhysicsCapacityReason::HullColliders };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

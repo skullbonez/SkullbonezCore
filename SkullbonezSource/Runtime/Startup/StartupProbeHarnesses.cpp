@@ -514,7 +514,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCo
     SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Scene().Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
-    const SkullbonezCore::Core::SbResult capacityCommit = collection->Scene().CommitPhysicsSceneCapacity( 2, 2, 0, 0, 1 );
+    const SkullbonezCore::Core::SbResult capacityCommit = collection->Scene().CommitPhysicsSceneCapacity( 2, 2, 0, 0, 0, 1 );
 
     if ( !capacityCommit.Ok() )
     {

@@ -116,10 +116,12 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
   hull shape rows, and whether any consumer mutates a hull after load. Decide
   and record the identity key and the mid-scene release policy. Evidence:
   `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
-- [ ] HS1 — Introduce the deduplicated hull store: identity-keyed append that
+- [x] HS1 — Introduce the deduplicated hull store: identity-keyed append that
   returns an existing storage index on a repeat, corrected reservation input and
   capacity reason, and rebind coverage for the shared indices. Byte-exact
-  required.
+  required. Exact scene probes commit 12, 20, and 20 distinct variants for
+  `asd`, `convex_hull_stress_sleep`, and `convex_hull_stacking`; both mapped
+  validation gates pass without a baseline refresh.
 - [ ] HS2 — Extend `ColliderStore` and `TestPhysicsHandles` coverage: repeat
   append shares one row, destroy/create round-trips keep every surviving
   reference valid, replay-prediction clone preserves sharing, and a scene with
@@ -153,13 +155,57 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
   `tools\validate_replay_visual_fidelity.bat` (prediction clone path), and
   `tools\validate_full.bat`.
 
+## HS1 Evidence
+
+- `ColliderStore` owns an index-aligned cold identity list beside retained hull
+  geometry. Only normalized resolved path plus exact canonical X/Y/Z scale
+  bits can reuse a row; non-finite, overlong, procedural, or otherwise unproved
+  identities remain unique.
+- Same-kind hull replacement appends or reuses and switches the collider
+  reference; it never overwrites shared geometry. Hull destruction retains the
+  stable row until `Clear`, while sphere and box compaction is unchanged.
+- Replay prediction clones geometry and identity rows before rebinding. Editor
+  delete/undo preserves a proven identity, while arbitrary gizmo/history
+  transformations remain unique.
+- Runtime probes exit zero with variant capacity/live/high-water `12/12/12`,
+  `20/20/20`, and `20/20/20` for the three acceptance scenes.
+- The Profile and Automation builds pass with zero warnings and errors.
+  Focused hull, Physics-handle, contact-manifold, replay-seed lifecycle, and
+  capacity-owner tests pass. `tools\validate_physics.bat` remains byte-exact;
+  `tools\validate_tests.bat` passes 440/440 cases and 2,420,846 assertions.
+- The first full test run exposed a Profile-only large-return calling-convention
+  hazard: after `PhysicsColliderCreateDesc` gained the identity value, a
+  by-value source variant defaulted box and hull inputs to sphere. Borrowing the
+  source variant and copying it explicitly repaired the issue. The same run
+  identified the expected one-row capacity-census increase. Both were fixed
+  locally and the mapped gates then passed.
+- Strict complexity passes 40/40 current-body rulings after re-ratifying the two
+  edited existing owners. Aggregate ownership passes 85/85, the only
+  extraction scar is the unrelated ruled `WorkerPool` row, and every
+  12-or-more-parameter signature has a current ruling.
+- No baseline, golden, schema, allowlist, config, or committed runtime artifact
+  changed.
+
 ## Comment-Audit Checklist
 
-- [ ] `SkullbonezSource/Physics/ColliderStore.h`
-- [ ] `SkullbonezSource/Physics/ColliderStore.cpp`
-- [ ] `SkullbonezSource/Physics/CollisionShape.h`
-- [ ] `SkullbonezSource/Physics/ConvexHullShape.h`
-- [ ] `SkullbonezSource/Physics/PhysicsFixedList.h`
-- [ ] `SkullbonezSource/Physics/PhysicsEngine.cpp`
-- [ ] `SkullbonezTests/TestPhysicsHandles.cpp`
-- [ ] `SkullbonezTests/TestConvexHull.cpp`
+- [x] `SkullbonezSource/Physics/ColliderStore.h`
+- [x] `SkullbonezSource/Physics/ColliderStore.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsApi.h`
+- [x] `SkullbonezSource/Physics/PhysicsFixedList.h`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.h`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneWorld.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp`
+- [x] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp`
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp`
+- [ ] `SkullbonezSource/Physics/CollisionShape.h` — not touched; retained for
+  HS2/HS3 review.
+- [ ] `SkullbonezSource/Physics/ConvexHullShape.h` — not touched; retained for
+  HS2/HS3 review.
+- [ ] `SkullbonezTests/TestConvexHull.cpp` — not touched; retained for HS2/HS3
+  review.

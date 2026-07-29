@@ -101,7 +101,8 @@ class SceneWorld
 
     // Authored/generated setup supplies exact topology before its first append;
     // SceneWorld sequences concrete Physics owners without retaining a bag.
-    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount, int hullCount,
+    SkullbonezCore::Core::SbResult CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount,
+                                                               int hullColliderCount, int hullVariantCapacity,
                                                                int pointJointCount );
     SkullbonezCore::Core::SbResult ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount, int hullCount,
                                                                           int pointJointCount );

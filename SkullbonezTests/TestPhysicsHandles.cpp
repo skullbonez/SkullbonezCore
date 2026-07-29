@@ -995,9 +995,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 98 );
+    CHECK( physicsCapacityRowCount == 99 );
 #else
-    CHECK( physicsCapacityRowCount == 95 );
+    CHECK( physicsCapacityRowCount == 96 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
