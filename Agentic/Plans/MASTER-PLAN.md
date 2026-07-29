@@ -416,11 +416,15 @@ spellings normalizing to 22 direct paths and asset expansion producing 25 used
 paths globally. The cold identity is resolved path plus exact authored scale;
 unproved variants remain non-shareable. Hull rows are retained until scene
 clear, so mid-scene destruction neither refcounts nor compacts shared storage.
-HS1 now implements that identity-keyed retained store, distinct-variant
+HS1 implements that identity-keyed retained store, distinct-variant
 reservation, shared-index replay rebinding, and editor undo identity
 preservation. The three acceptance scenes commit 12, 20, and 20 hull variants;
 byte-exact Physics and all 440 tests pass after repairing a compiler-exposed
-by-value variant-copy hazard. The live ledger is now 2/25 (8%). Evidence is in
+by-value variant-copy hazard. HS2 now pins canonical repeat sharing, exact-bit
+scale separation, conservative unique fallbacks, retained rows through
+destroy/create, and destination-owned Replay clone sharing. The mapped Physics
+and test gates pass with 441/441 tests and 2,420,993 assertions. The live
+ledger is now 3/25 (12%). Evidence is in
 `../Reports/2026-07-29/collision-hull-shape-instancing-hs0-census.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
@@ -1006,11 +1010,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/25
-(8%). Plans 1-3 are complete and excluded under rule 4; execute plans 4→8 in
-the listed order. Plan 4 HS0-HS1 are complete; HS2 next pins repeated sharing,
-destroy/create stability, replay clone sharing, and mixed shared/unique
-capacity with focused tests.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 3/25
+(12%). Plans 1-3 are complete and excluded under rule 4; execute plans 4→8 in
+the listed order. Plan 4 HS0-HS2 are complete; HS3 next measures exact
+committed-scene footprint and narrowphase markers, completes the comment audit
+and independent review, and runs the closure gates.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2505,7 +2509,7 @@ Dependency barriers:
 | 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
 | 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
 | 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
-| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | In progress | 2/4 | HS0-HS1 complete; HS2 adds focused sharing, lifetime, clone, and mixed-identity tests |
+| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | In progress | 3/4 | HS0-HS2 complete; HS3 measures footprint and narrowphase markers, completes review, and runs closure gates |
 | 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
 | 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |

@@ -122,10 +122,12 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
   required. Exact scene probes commit 12, 20, and 20 distinct variants for
   `asd`, `convex_hull_stress_sleep`, and `convex_hull_stacking`; both mapped
   validation gates pass without a baseline refresh.
-- [ ] HS2 — Extend `ColliderStore` and `TestPhysicsHandles` coverage: repeat
+- [x] HS2 — Extend `ColliderStore` and `TestPhysicsHandles` coverage: repeat
   append shares one row, destroy/create round-trips keep every surviving
   reference valid, replay-prediction clone preserves sharing, and a scene with
-  mixed shared and unique hulls loads to the expected distinct count.
+  mixed shared and unique hulls loads to the expected distinct count. The
+  direct store case passes 44/44 assertions and the expanded production
+  replay-clone case passes 407/407 assertions.
 - [ ] HS3 — Closure. Measure the before/after committed-scene footprint and the
   narrowphase marker on the hull-heavy scenes, audit touched comments, pass
   independent review, and run every mapped gate.
@@ -186,6 +188,31 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
 - No baseline, golden, schema, allowlist, config, or committed runtime artifact
   changed.
 
+## HS2 Evidence
+
+- The direct `ColliderStore` matrix proves that normalized slash/case spellings
+  reuse one row, adjacent authored-scale bits remain distinct, and explicit,
+  overlong-path, and non-finite identities conservatively remain unique. Its
+  mixed input set retains exactly six hull rows.
+- Destroying shared and unique colliders leaves every surviving geometry
+  pointer valid. A later create with the same canonical identity reuses stable
+  row and storage index zero.
+- The production replay-prediction seed now contains two authored hull
+  colliders sharing one source row. The clone retains one destination-owned
+  row, preserves both shared indices and pointers, and remains valid after the
+  source engine is destroyed.
+- Profile compilation passes with warnings as errors. Focused direct-store,
+  replay-clone, sphere/box store, collider-handle, and convex-hull checks pass
+  at 44/44, 407/407, 31/31, 30/30, and 140/140 assertions.
+- `tools\validate_physics.bat` passes with the 44,401-row regression
+  byte-exact. `tools\validate_tests.bat` passes 441/441 cases and 2,420,993
+  assertions. Format and dependency gates pass; strict complexity is 40/40 at
+  the ratified 400/6 triggers, aggregates are 85/85, the sole extraction scar
+  is the unrelated ruled `WorkerPool` row, and all 12-or-more-parameter
+  signatures are ruled.
+- No baseline, golden, schema, allowlist, config, or committed runtime artifact
+  changed.
+
 ## Comment-Audit Checklist
 
 - [x] `SkullbonezSource/Physics/ColliderStore.h`
@@ -202,10 +229,10 @@ collider-to-hull mapping. The change is confined to `AppendShape`,
 - [x] `SkullbonezSource/Runtime/Scene/SceneWorld.h`
 - [x] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp`
 - [x] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp`
-- [x] `SkullbonezTests/TestPhysicsHandles.cpp`
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp` — re-audited after HS2.
 - [ ] `SkullbonezSource/Physics/CollisionShape.h` — not touched; retained for
-  HS2/HS3 review.
+  HS3 closure review.
 - [ ] `SkullbonezSource/Physics/ConvexHullShape.h` — not touched; retained for
-  HS2/HS3 review.
-- [ ] `SkullbonezTests/TestConvexHull.cpp` — not touched; retained for HS2/HS3
-  review.
+  HS3 closure review.
+- [ ] `SkullbonezTests/TestConvexHull.cpp` — not touched; retained for HS3
+  closure review.
