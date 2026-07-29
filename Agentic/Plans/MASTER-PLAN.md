@@ -467,13 +467,21 @@ The active/future ledger is now 0/17 (0%). Evidence is in
 
 Runtime include-closure reduction IC0 now records the complete 254-TU closure
 inventory and reproduces the registered distribution and six heavy-header
-fan-in rows exactly. The 35 physical `PhysicsEngine.h` includes reconcile as
-one engine implementation, one selected ownership-chain edge, three other
-owner implementations, and 30 consumers. IC2 will break
-`SceneWorld.h -> PhysicsEngine.h` without moving ownership. Clean full rebuilds
-pass in 43.066 seconds for Debug x64 and 44.614 seconds for Profile x64. The
-active/future ledger is now 1/17 (6%). Evidence is in
+fan-in rows exactly. IC1's first Profile compile corrected the initial
+storage-owner reading: the 33 classified files are 27 concrete command/query
+contract users and six value-only consumers. IC2 will break
+`PhysicsEngine.h -> PhysicsWorld.h` without moving ownership or adding a hot
+inner-loop pointer chase. Clean full rebuilds pass in 43.066 seconds for Debug
+x64 and 44.614 seconds for Profile x64. Evidence is in
 `../Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
+
+Runtime include-closure reduction IC1 now moves the six value-only consumers to
+`PhysicsApi.h`. Prediction's isolated-simulation destructor is out of line at
+the concrete owner so scheduling/publication units no longer need
+`PhysicsEngine.h` to destroy an incomplete `unique_ptr`. The corrected focused
+Profile solution and fast gate pass; fast reports 447/447 tests and 2,421,986
+assertions. The 8/8 comment audit is clear. The active/future ledger is now
+2/17 (12%).
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
@@ -1058,11 +1066,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/17
-(6%). Plans 1-5 are complete and excluded under rule 4; execute plans 6→8 in
-the listed order. Plan 6 IC1 next converts the 30 classified consumers from
-the solver-private `PhysicsEngine.h` include to the public `PhysicsApi.h` seam,
-adding only honest command/query values needed by those consumers.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/17
+(12%). Plans 1-5 are complete and excluded under rule 4; execute plans 6→8 in
+the listed order. Plan 6 IC2 next breaks
+`PhysicsEngine.h -> PhysicsWorld.h` at the existing owner boundary and reduces
+`UI.h`'s eleven tab includes to declaration-scope needs.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2559,7 +2567,7 @@ Dependency barriers:
 | 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
 | 4 | [collision-hull-shape-instancing](../Reports/2026-07-29/collision-hull-shape-instancing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; 57.4803% measured acceptance-scene hull-store reduction, byte-exact Physics, stable narrowphase markers, 18/18 comment audit, all closure gates, and independent review are clear |
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
-| 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | In progress | 1/4 | IC1 converts the 30 classified consumers to the public Physics API seam |
+| 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | In progress | 2/4 | IC2 breaks the engine-to-world chain edge and narrows UI declaration includes |
 | 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |
 | 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | Not started | 0/7 | Last, by owner direction. Investigation complete; re-record BV0's T0 harness after plan 7's baseline transition and re-resolve every source line number before acting on it |
 

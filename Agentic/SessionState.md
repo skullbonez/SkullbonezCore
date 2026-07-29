@@ -12,9 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-5 are closed and excluded from the live ledger. Plan 6 IC0 is complete; IC1 next converts the 30 classified consumers from `PhysicsEngine.h` to the public `PhysicsApi.h` seam. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 1/17 (6%). Plan 6 is 1/4; plans 7-8 remain. |
-| Runtime include closure IC0 census | Documentation and measurement only: the current 254-TU/317-header graph reproduces 17 TUs above 200, 26 above 150, 62 above 100, lower median 38, maximum 255, and all six named fan-in rows. The 35 physical `PhysicsEngine.h` includes reconcile as the engine implementation, the selected `SceneWorld.h` edge, 3 other owner implementations, and 30 consumers. IC2 will break `SceneWorld.h -> PhysicsEngine.h` without moving ownership. Clean full rebuilds pass in 43.066 seconds Debug x64 and 44.614 seconds Profile x64. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`. No repository validation was required. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-5 are closed and excluded from the live ledger. Plan 6 IC0-IC1 are complete; IC2 next breaks `PhysicsEngine.h -> PhysicsWorld.h` and narrows `UI.h` declaration includes. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 2/17 (12%). Plan 6 is 2/4; plans 7-8 remain. |
+| Validation for runtime include closure IC1 | Six value-only consumers now include `PhysicsApi.h`; the other 27 classified files deliberately retain the concrete engine command/query contract. `ReplayPredictionIsolatedSimulation` destroys its incomplete `unique_ptr<PhysicsEngine>` out of line at the concrete owner. The first Profile build corrected IC0's overly literal 3/30 storage-owner classification and selected `PhysicsEngine.h -> PhysicsWorld.h`. The corrected focused Profile solution and `validate_fast` pass; fast reports 447/447 tests and 2,421,986 assertions. Two shifted aggregate-ruling site lines were refreshed as exact-current evidence. Comment audit is 8/8. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
+| Runtime include closure IC0 census | Documentation and measurement only: the current 254-TU/317-header graph reproduces 17 TUs above 200, 26 above 150, 62 above 100, lower median 38, maximum 255, and all six named fan-in rows. The corrected 33-file classification is 27 concrete engine-contract users and six value-only consumers. IC2 will break `PhysicsEngine.h -> PhysicsWorld.h` without moving ownership or adding a hot-loop pointer chase. Clean full rebuilds pass in 43.066 seconds Debug x64 and 44.614 seconds Profile x64. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`. No repository validation was required. |
 | Validation for broadphase capacity closure | `SpatialGrid` measures 623,256 inline bytes in Debug/Profile/Release. At 300 admitted bodies, inline plus registered backing falls from 8,535,792 to 839,264 bytes per grid: 7,696,528 bytes saved, 90.167708%, and 10.170568x smaller. All nine owners report SceneLoad-only capacity with zero Replay growth; owning memory totals include backing exactly once. All CPU passes 447/447 tests and 2,421,986 assertions; deep Physics, performance, allocation policy, format, all ownership inventories, and full validation pass. Comment audit is 9/9 and independent review reports zero blockers. No baseline, golden, config, schema, allowlist, or runtime artifact changed. Evidence: `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`. |
 | Validation for broadphase capacity BC2 | The remaining seven `SpatialGrid` arrays now use registered storage: exact admitted body rows, four-per-body candidate staging, and an accurately labelled fixed 4,096-row swept-overlay ceiling. Additional live admission preserves existing membership topology through grow-only suffix construction. Focused checks pass SpatialGrid 20/20 with 8,590 assertions, fixed-list/reserve 21/21, fatal contracts 1/1 with 231, the 2,000-body owner census 1/1 with 6,320, and determinism 3/3 with 30,897. Physics is byte-exact across 44,401 rows. The final unchanged idle performance run passes both lanes with process memory lower by 5.18-6.22 MiB; two earlier runs alternated isolated marginal misses between lanes and did not reproduce. Allocation policy scans 463 files with zero allowlist errors; format, all four ownership inventories, and the 7/7 touched-file comment audit pass. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
 | Validation for broadphase capacity BC1 | `SpatialGrid.entries` and `pairSeen` now reserve registered backing first inside the existing SceneLoad stage boundary. Final capacities are `8 * bodies + 32` persistent rows and exact triangular pair words; the duplicated 4,096-row blanket is gone, while the retained 32-row spill covers BC3's measured oversized-shape maximum and compile-time ceilings remain. Clear/cell-size/frame transitions retain backing and high-water, and no Replay privilege exists. Focused checks pass 19/19 SpatialGrid cases with 8,545 assertions, fatal contracts 1/1 with 221, reserve allocator 20/20 with 212, determinism, and the 2,000-body owner census with 5,648 assertions. Physics remains byte-exact across 44,401 rows and performance passes. Format, complexity 40/40 at 400/6, aggregates 85/85, the one unrelated ruled extraction scar, and all 12+ signatures pass. Comment audit is 7/7 touched files. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
@@ -63,11 +64,12 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 1/17 (6%). Plans 1-5 are
-closed and excluded under rule 4. Plan 6 IC0 is complete; IC1 is the binding
-next item and converts the 30 classified consumers from `PhysicsEngine.h` to
-the public `PhysicsApi.h` seam. Plans 6-8 remain sequenced, with only plans 7
-and 8 authorized to move baselines under their plan-specific owner conditions.
+The Fresh-Read Engine Review Campaign is active at 2/17 (12%). Plans 1-5 are
+closed and excluded under rule 4. Plan 6 IC0-IC1 are complete; IC2 is the
+binding next item and breaks `PhysicsEngine.h -> PhysicsWorld.h` while
+narrowing `UI.h` declaration includes. Plans 6-8 remain sequenced, with only
+plans 7 and 8 authorized to move baselines under their plan-specific owner
+conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -772,8 +774,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 1/17 (6%) with Plan 6
-`Agentic/Plans/TODO/runtime-include-closure-reduction.md`, task IC1.
+Continue the Fresh-Read Engine Review Campaign at 2/17 (12%) with Plan 6
+`Agentic/Plans/TODO/runtime-include-closure-reduction.md`, task IC2.
 IC0 baseline evidence is in
 `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
-MASTER and SessionState agree on the 1/17 live ledger.
+MASTER and SessionState agree on the 2/17 live ledger.

@@ -41,7 +41,6 @@ Related:
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/ConvexHullShape.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../UI/UITabEditor.h"

@@ -15,26 +15,29 @@ median is 38 headers; the two central rows are 38 and 39. The maximum is 255.
 The complete per-TU inventory is stored beside this report in
 `runtime-include-closure-reduction-ic0-tu-closure.csv`.
 
+The first IC1 Profile build corrected the initial classification and edge
+ruling recorded in commit `bd7b7e24`. Treat the corrected evidence below as
+authoritative.
+
 The selected IC2 chain edge is:
 
 ```text
-Runtime/Scene/SceneWorld.h -> Physics/PhysicsEngine.h
+Physics/PhysicsEngine.h -> Physics/PhysicsWorld.h
 ```
 
-`SceneWorld` remains the owner. IC2 will move its by-value `PhysicsEngine`
-member behind the repository's existing composition-root `std::unique_ptr`
-lifetime pattern, define construction/destruction out of line, and preserve the
-same accessor authority. This breaks the solver-private subtree for every
-non-physics translation unit that reaches `SceneWorld.h` without adding a
-forwarding header, alias, umbrella declarations, service bag, or new ownership
-convention.
+`PhysicsEngine` remains the owner. IC2 will move its by-value `PhysicsWorld`
+member behind the repository's existing owner-boundary `std::unique_ptr`
+lifetime pattern and define construction/destruction out of line. Engine
+commands dereference once at the owner boundary; no per-body or per-pair loop
+gains a pointer chase. This removes `PhysicsWorld.h`, all sixteen stage headers,
+and `SpatialGrid.h` from every one of the 61 TUs that reaches the public engine
+contract.
 
-This edge is higher value than moving `Run -> SceneController`: the latter
-helps only the Run-facing closure and leaves every other `SceneWorld` consumer
-unchanged. It is safer than moving `PhysicsEngine -> PhysicsWorld`: that edge is
-inside the Physics owner and risks adding pointer access to hot owner methods.
-The selected edge is the existing Runtime-to-Physics composition boundary, and
-the same project already uses the pattern for `Run::m_operatorUi`.
+This edge is higher value than moving `Run -> SceneController`, which helps
+only the Run-facing closure, or `SceneWorld -> PhysicsEngine`, which leaves all
+direct engine-contract users on the solver subtree. It preserves the existing
+public engine command/query surface without adding a Runtime facade, forwarding
+header, alias, umbrella declarations, service bag, or new ownership convention.
 
 ## Measurement Method
 
@@ -76,51 +79,52 @@ and `Core/SceneCapacity.h` at 174. They are context, not IC1/IC2 targets.
 ## Direct `PhysicsEngine.h` Classification
 
 There are 35 physical direct includes. `Physics/PhysicsEngine.cpp` is the
-owner's implementation and `Runtime/Scene/SceneWorld.h` is the selected IC2
-ownership edge. The remaining 33 rows are the IC0 classification set:
-3 owner implementations keep the concrete header and 30 consumers move to
-`PhysicsApi.h` in IC1.
+owner's implementation and `Runtime/Scene/SceneWorld.h` is the by-value owner
+declaration. The remaining 33 rows are the IC0 classification set: 27 files
+invoke or implement the concrete engine command/query contract and keep
+`PhysicsEngine.h`; 6 value-only consumers move to `PhysicsApi.h` in IC1.
 
-“Consumer” describes ownership, not whether the current file happens to call a
-concrete method. Query and command consumers must receive the smallest honest
-public values/commands needed at the existing owner edge; they do not gain a
-solver-private include merely because the current API exposes a store.
+Here “Owner” includes a source file that directly implements or invokes the
+concrete owner contract. It does not claim that every caller stores the engine.
+The compile failure from moving query/command callers to `PhysicsApi.h` proved
+that the earlier 3/30 split confused storage ownership with dependency on the
+concrete contract.
 
 | Direct includer | Classification | Evidence |
 |---|---|---|
-| `Runtime/App/ReplayRuntime.cpp` | Consumer | Coordinates live/replay queries and commands; owns no engine. |
-| `Runtime/App/ReplayScrubberTools.cpp` | Consumer | Reads body/collider query state from a borrowed engine. |
-| `Runtime/App/ReplayValidation.Probes.cpp` | Consumer | Probe orchestration borrows the engine and reads public evidence. |
-| `Runtime/App/ReplayValidation.cpp` | Consumer | Validation orchestration borrows `SceneWorld` physics. |
-| `Runtime/App/RunFrame.cpp` | Consumer | Sequences the owner for one frame; stores no physics authority. |
-| `Runtime/Automation/InteractionAutomationController.cpp` | Consumer | Applies automation commands and reads detached/query facts. |
-| `Runtime/Automation/InteractionAutomationReportWriter.cpp` | Consumer | Produces reports from borrowed query state. |
+| `Runtime/App/ReplayRuntime.cpp` | Owner | Invokes the engine command/query contract for live/replay coordination. |
+| `Runtime/App/ReplayScrubberTools.cpp` | Owner | Invokes body/collider query operations on a borrowed engine. |
+| `Runtime/App/ReplayValidation.Probes.cpp` | Owner | Invokes engine queries and commands for validation probes. |
+| `Runtime/App/ReplayValidation.cpp` | Owner | Invokes the concrete engine contract through `SceneWorld`. |
+| `Runtime/App/RunFrame.cpp` | Owner | Sequences the concrete engine command contract for one frame. |
+| `Runtime/Automation/InteractionAutomationController.cpp` | Owner | Invokes engine queries and commands for automation. |
+| `Runtime/Automation/InteractionAutomationReportWriter.cpp` | Owner | Invokes engine queries while producing reports. |
 | `Runtime/Camera/AttachedCameraController.cpp` | Consumer | No direct engine token; public physics values are the dependency. |
-| `Runtime/Diagnostics/RuntimeDiagnostics.cpp` | Consumer | Configures and samples a borrowed engine for diagnostics. |
-| `Runtime/Diagnostics/SceneMemoryDiagnostics.cpp` | Consumer | Reads memory/capacity values; owns no simulation state. |
+| `Runtime/Diagnostics/RuntimeDiagnostics.cpp` | Owner | Invokes the engine diagnostics/configuration contract. |
+| `Runtime/Diagnostics/SceneMemoryDiagnostics.cpp` | Owner | Invokes concrete memory and capacity queries. |
 | `Runtime/Editor/EditorGizmoTools.cpp` | Consumer | No direct engine token; editor values are the dependency. |
-| `Runtime/Editor/EditorHistory.cpp` | Consumer | Reads buoyancy/query facts for history projection. |
-| `Runtime/Editor/EditorInteractionTools.cpp` | Consumer | Sends handle-based editor commands to the existing owner. |
+| `Runtime/Editor/EditorHistory.cpp` | Owner | Invokes concrete buoyancy queries for history projection. |
+| `Runtime/Editor/EditorInteractionTools.cpp` | Owner | Invokes handle-based editor commands on the engine. |
 | `Runtime/Editor/EditorObjectPlacement.cpp` | Consumer | No direct engine token; placement descriptors are the dependency. |
-| `Runtime/Editor/MousePickupTools.cpp` | Consumer | Performs queries and commands through a borrowed engine. |
-| `Runtime/Planning/ReplayPlanningRuntime.cpp` | Consumer | Reads and commands live physics but owns neither engine. |
+| `Runtime/Editor/MousePickupTools.cpp` | Owner | Invokes engine queries and commands through a borrow. |
+| `Runtime/Planning/ReplayPlanningRuntime.cpp` | Owner | Invokes the live engine command/query contract. |
 | `Runtime/Prediction/ReplayPrediction.cpp` | Owner | Implements the isolated prediction simulation and directly steps/seeds its engine. |
-| `Runtime/Prediction/ReplayPredictionDrawing.cpp` | Consumer | Projects borrowed body/collider query state into presentation. |
+| `Runtime/Prediction/ReplayPredictionDrawing.cpp` | Owner | Invokes concrete body/collider engine queries for presentation. |
 | `Runtime/Prediction/ReplayPredictionPublication.cpp` | Consumer | No direct engine token; publication values are the dependency. |
 | `Runtime/Prediction/ReplayPredictionReserve.cpp` | Owner | Constructs, sizes, and owns the prediction engine backing. |
 | `Runtime/Prediction/ReplayPredictionScheduling.cpp` | Consumer | No direct engine token; scheduling values are the dependency. |
 | `Runtime/Prediction/ReplayPredictionTopologyPublication.cpp` | Consumer | No direct engine token; topology publication values are the dependency. |
-| `Runtime/Render/RenderModelFramePublisher.cpp` | Consumer | Projects immutable physics views into one render frame. |
-| `Runtime/Replay/ReplayAuthoringVelocity.cpp` | Consumer | Applies authoring commands and reads public body/collider facts. |
-| `Runtime/Replay/ReplayRecorder.cpp` | Consumer | Records immutable contacts, sleep, and pipeline views. |
-| `Runtime/Replay/ReplayRestoreService.h` | Consumer | Header-only restore orchestration applies commands to a borrowed owner. |
-| `Runtime/Scene/SceneAuthoredSetup.cpp` | Consumer | Builds descriptors and issues commands to `SceneWorld`'s owner. |
-| `Runtime/Scene/SceneController.cpp` | Consumer | Reads owner counts for controller policy; owns no physics state. |
-| `Runtime/Scene/SceneGeneratedSetup.cpp` | Consumer | Issues generated-scene commands to `SceneWorld`'s owner. |
+| `Runtime/Render/RenderModelFramePublisher.cpp` | Owner | Invokes concrete engine queries for frame publication. |
+| `Runtime/Replay/ReplayAuthoringVelocity.cpp` | Owner | Invokes authoring commands and body/collider queries. |
+| `Runtime/Replay/ReplayRecorder.cpp` | Owner | Invokes contact, sleep, and pipeline engine queries. |
+| `Runtime/Replay/ReplayRestoreService.h` | Owner | Header-only restore orchestration invokes engine commands. |
+| `Runtime/Scene/SceneAuthoredSetup.cpp` | Owner | Invokes scene-creation commands on `SceneWorld`'s engine. |
+| `Runtime/Scene/SceneController.cpp` | Owner | Invokes concrete engine count queries. |
+| `Runtime/Scene/SceneGeneratedSetup.cpp` | Owner | Invokes generated-scene engine commands. |
 | `Runtime/Startup/StartupProbeHarnesses.cpp` | Owner | Constructs standalone engines and proves their lifecycle directly. |
-| `Runtime/Tools/RuntimeTools.cpp` | Consumer | Performs launcher queries and handle-based commands against a borrow. |
-| `Runtime/UI/OperatorEditorFrameComposer.cpp` | Consumer | Projects query/settings values for UI composition. |
-| `Runtime/UI/RuntimeViewModel.cpp` | Consumer | Publishes model-count/query values only. |
+| `Runtime/Tools/RuntimeTools.cpp` | Owner | Invokes launcher queries and handle-based commands. |
+| `Runtime/UI/OperatorEditorFrameComposer.cpp` | Owner | Invokes engine query/settings operations for UI composition. |
+| `Runtime/UI/RuntimeViewModel.cpp` | Owner | Invokes the concrete engine model-count query. |
 
 ## Clean Full-Rebuild Baseline
 

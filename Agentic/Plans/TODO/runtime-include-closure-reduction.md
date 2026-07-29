@@ -108,7 +108,7 @@ before steady gameplay.
   direct `PhysicsEngine.h` includers, classify as owner (keeps it) or consumer
   (moves to `PhysicsApi.h`). Identify the single highest-value edge in the
   `Run.h` → `SpatialGrid.h` chain and record why it is the right one to break.
-- [ ] IC1 — Convert every classified consumer to `PhysicsApi.h`, adding any
+- [x] IC1 — Convert every classified consumer to `PhysicsApi.h`, adding any
   missing descriptor or query value to that header rather than widening a
   consumer's include set. Zero behavior change.
 - [ ] IC2 — Break the selected chain edge and reduce `UI.h`'s eleven tab
@@ -129,21 +129,53 @@ The complete per-TU inventory is permanent evidence in
 `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
 
 The 35 physical `PhysicsEngine.h` includes reconcile as the engine
-implementation, the selected `SceneWorld.h` ownership-chain edge, and the 33
-classification rows required here. Three owner implementations keep the
-concrete header: prediction simulation, prediction-engine reserve/construction,
-and the standalone startup lifecycle harness. The other 30 are consumers and
-move to the public `PhysicsApi.h` seam in IC1.
+implementation, the `SceneWorld.h` by-value owner declaration, and the 33
+classification rows required here. The first IC1 Profile build corrected the
+initial overly literal storage-owner classification: 27 files invoke or
+implement the concrete engine contract and keep its header; six value-only
+consumers move to `PhysicsApi.h`.
 
-IC2 will break `SceneWorld.h -> PhysicsEngine.h` with the existing
-composition-root `std::unique_ptr` lifetime pattern. Ownership and accessors
-remain with `SceneWorld`; the edge removes the solver subtree from every
-non-physics `SceneWorld` consumer without adding a new declaration convention.
+IC2 will break `PhysicsEngine.h -> PhysicsWorld.h` with the existing
+owner-boundary `std::unique_ptr` lifetime pattern. `PhysicsEngine` retains
+authority and dereferences once per public operation; no per-body or per-pair
+loop gains a pointer chase. The edge removes all sixteen stage headers and
+`SpatialGrid.h` from every TU that reaches the engine contract.
 
 Clean full solution rebuilds pass in 43.066 seconds for Debug x64 and 44.614
 seconds for Profile x64. These are single wall-clock baselines, not a build-time
 improvement claim. IC0 is documentation/measurement only, so no repository
 validation gate was required.
+
+## IC1 Evidence
+
+The six value-only consumers now include `PhysicsApi.h` directly:
+`AttachedCameraController.cpp`, `EditorGizmoTools.cpp`,
+`EditorObjectPlacement.cpp`, `ReplayPredictionPublication.cpp`,
+`ReplayPredictionScheduling.cpp`, and
+`ReplayPredictionTopologyPublication.cpp`. The other 27 classified files keep
+the concrete command/query contract deliberately.
+
+Removing the transitive full type exposed one legitimate incomplete-owner
+lifetime: `ReplayPredictionIsolatedSimulation` stores a
+`unique_ptr<PhysicsEngine>`. Its destructor is now declared in the header and
+defined in `ReplayPrediction.cpp`, where the concrete engine is already an
+owner dependency. Value-only scheduling/publication units no longer require
+the solver header merely to destroy the prediction state.
+
+The first focused Profile build failed because the initial 3/30 classification
+had moved concrete query/command callers to the value-only seam. Correcting the
+classification and edge selection made the dependency explicit; the next
+focused Profile solution build passed. The failed attempt is a resolved design
+finding, not validation evidence.
+
+`tools\validate_fast.bat` passes with 447/447 doctest cases and
+2,421,986/2,421,986 assertions, current dependency proof, all ownership
+inventories, and clean Profile/Debug builds. Its first attempt found only two
+aggregate-ruling site lines shifted by the deleted include in
+`ReplayPredictionTopologyPublication.cpp`; updating those exact-current
+locations resolved the local evidence drift. Comment audit is 8/8 touched
+source files with zero deferred. No baseline, golden, config, schema,
+allocation allowlist, or committed runtime artifact changed.
 
 ## Acceptance
 

@@ -234,6 +234,8 @@ struct RunReplayPredictionBuildState
 // by one isolated future. No live Physics store is reachable through it.
 struct ReplayPredictionIsolatedSimulation
 {
+    ~ReplayPredictionIsolatedSimulation();
+
     float horizonSeconds = REPLAY_FUTURE_DEFAULT_SECONDS;
     Physics::ModelRowHint targetModelRow;
     Physics::PhysicsSceneObjectId targetId;
