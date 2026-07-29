@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Complete validation-gate integrity V3 after the owner-approved hosted CPU formatter repair and GitHub administration work. The Fresh-Read Engine Review Campaign is complete and excluded from the live ledger. |
+| Current objective | Complete validation-gate integrity V3 by obtaining one real `merge_group` proof after moving the repository to an eligible organization or after GitHub expands merge-queue availability. The Fresh-Read Engine Review Campaign is complete and excluded from the live ledger. |
 | Active/future progress | Empty (0%). All nine Fresh-Read plans are complete and excluded under rule 4; validation-gate V3 remains an externally blocked lane outside this denominator. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
-| Validation-gate integrity blocker | V0-V2 and V4-V5 are complete; V3 remains blocked on external GitHub administration and runner infrastructure. The 2026-07-30 audit confirms `main` is unprotected, the only ruleset is disabled, merge-group runs and self-hosted runners are both zero, and the latest DX12 run skipped. It also found a local hosted-CPU defect: PR 138 run 30447408778 rejects the clang-format 21-only `BinPackLongBracedList` key before tests. Owner: repository validation. First approve and repair that formatter compatibility; then unblock V3 by proving a real `merge_group` run, requiring the stable CPU check through branch protection, registering a trusted-ref DX12 runner, and using an ephemeral isolated GPU worker before public-PR GPU evidence becomes required. Evidence: `Agentic/Plans/TODO/validation-gate-integrity.md` and `Agentic/Reports/validation_ci_v3_20260710.md`. |
+| Validation-gate integrity blocker | V0-V2 and V4-V5 are complete; V3 remains at 5/6 solely for a real `merge_group` proof. Hosted CPU run 30469139071 passes with pinned LLVM 21.1.8; `main` strictly requires `Mandatory CPU lane (Windows hosted)`; the sole trusted RTX 3080 runner is online with labels `self-hosted`, `Windows`, `X64`, and `dx12`; and manual runtime run 30472584471 passes the full gate at `f4c0b33e`. GitHub rejected merge-queue activation with HTTP 422 because this public repository is user-owned, while the feature requires organization ownership. Owner: repository validation plus repository ownership administration. Transfer to an eligible organization or wait for GitHub availability to change, then explicitly authorize a proof PR and enqueue it. Public-PR GPU evidence is not required; if later desired, it still requires an ephemeral isolated worker. Evidence: `Agentic/Plans/TODO/validation-gate-integrity.md` and `Agentic/Reports/validation_ci_v3_20260710.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
 | Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
 | Validation for box vibration BV5 | One-point/four-point coverage pins one 0.16 total correction budget, a 0.04 four-point row maximum, and equal 0.08 body displacement. Persistent-contact coverage passes 12 cases / 174 assertions; all unit coverage passes 463 cases / 2,423,855 assertions. The controlled fixture remains zero-flip/one-iteration/zero-miss and repeats byte-identically. Physics/deep Physics stop at the inspected deferred transition: 35,091 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs match, all ten shooting targets react, only the stacking known-issue hash moves beyond BV3, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`. |
@@ -790,12 +790,15 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/validation-gate-integrity.md` at 5/6. The owner
-approved pinning clang-format 21 for the hosted CPU lane and proceeding with
-the required GitHub administration and runner setup. First prove the pinned
-hosted CPU lane on this branch; then require its stable check on `main`, obtain
-a real `merge_group` run, and register the trusted/ephemeral DX12 runner
-boundary. Permanent Fresh-Read closure evidence is in
+Continue `Agentic/Plans/TODO/validation-gate-integrity.md` at 5/6. LLVM 21.1.8
+is pinned and proven in hosted run 30469139071; `main` strictly requires the
+stable hosted CPU check; the sole trusted RTX 3080 runner is online; and DX12
+run 30472584471 passes the full runtime gate at `f4c0b33e`. The sole remaining
+acceptance item is a real `merge_group` proof. GitHub rejected merge-queue
+activation because `SkullbonezCore` is user-owned and merge queues require an
+organization-owned repository. Transfer it to an eligible organization or
+wait for GitHub availability to change, then explicitly authorize creation and
+enqueue of a proof PR. Permanent Fresh-Read closure evidence is in
 `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
 MASTER and SessionState agree that the active/future ledger is empty (0%) and
 validation-gate V3 is the only remaining MASTER action.

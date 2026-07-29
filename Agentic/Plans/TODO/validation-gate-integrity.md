@@ -2,7 +2,7 @@
 
 Date: 2026-07-10
 
-Status: Blocked — 5/6 phases complete; V3 requires external GitHub administration and runner infrastructure
+Status: Blocked — 5/6 phases complete; V3 requires organization-owned GitHub merge-queue infrastructure
 
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
@@ -34,30 +34,38 @@ validation:
 The repository therefore had strong local scripts but no single trustworthy
 answer to "is this PR safe to merge?"
 
-Current state (2026-07-11): `validate_full` and `agent_validate` reach all four
+Current state (2026-07-30): `validate_full` and `agent_validate` reach all four
 CPU test targets through `validate_all_cpu_tests` before runtime work, V4
 supplies a proven ASan plus bounded `/analyze` lane, and all three workflows are
-active on the default branch. Mandatory CPU validation passed a real pull-
-request run. The remaining V3 trust gap is a real `merge_group` proof, required
-CPU branch protection, and trusted DX12-runner activation; public-PR GPU
-evidence still requires an ephemeral isolated runner.
+active on the default branch. Mandatory CPU validation passed real pull-request
+runs and a fresh manual run with clang-format 21.1.8 pinned. `main` requires the
+stable hosted CPU check, and one trusted persistent DX12 runner has produced a
+green full-runtime proof. The remaining V3 trust gap is a real `merge_group`
+proof. Public-PR GPU evidence remains optional and would require an ephemeral
+isolated runner before it could become merge-blocking.
 
 Current external audit (2026-07-30):
 
-- GitHub still registers all three workflows as active.
-- `main` returns `Branch not protected`; the repository's only ruleset,
-  `Block Delete & Force Push`, remains disabled.
-- The repository has zero `merge_group` workflow runs and zero registered
-  self-hosted Actions runners.
-- Main-push DX12 run 30448024981 was skipped, so it supplies no runtime
-  evidence.
-- The latest pull-request CPU run, 30447408778 for PR 138, failed before tests
-  while baking shader metadata. The hosted Visual Studio clang-format rejects
-  `.clang-format` key `BinPackLongBracedList`, which LLVM documents as available
-  only from clang-format 21. This is a separate local workflow/toolchain
-  compatibility defect: the hosted lane must pin a compatible formatter or the
-  repository style must be made compatible without changing accepted layout.
-  It does not satisfy any of the external V3 administration conditions.
+- GitHub registers all three workflows as active. Hosted CPU manual run
+  30469139071 passed at exact SHA `1faac75e` after the workflow installed and
+  verified LLVM 21.1.8, then passed preflight and all 2,423,885 assertions.
+- `main` branch protection is active and strict for
+  `Mandatory CPU lane (Windows hosted)`, bound to the GitHub Actions app;
+  administrators are included and force pushes/deletions remain disabled.
+- Exactly one self-hosted runner is registered and online:
+  `skullbonez-dx12-sesch-rtx3080`, with effective labels `self-hosted`,
+  `Windows`, `X64`, and `dx12`. The trusted-only runtime variable is enabled.
+- Trusted manual DX12 run 30472584471 passed at exact SHA `f4c0b33e`: full CPU
+  validation, DX12 InfoQueue, screenshots, byte-exact Physics, deep Physics,
+  performance, and the complete full gate all passed. The workflow remains
+  post-merge/manual and informational.
+- The repository still has zero `merge_group` runs. GitHub rejected an active
+  merge-queue ruleset with HTTP 422 because `SkullbonezCore` is owned by the
+  personal account `skullbonez`; GitHub merge queues are available only to
+  organization-owned repositories. V3 therefore requires repository transfer
+  to an eligible organization (or a future GitHub availability change), then
+  merge-queue enablement and one real queued-PR proof. Repository rules also
+  prohibit creating or merging that proof PR without explicit user direction.
 
 ## Goal
 
@@ -125,20 +133,17 @@ Separate validation by capability rather than by historical script:
   Runtime may become a required PR check only after replacement by an
   ephemeral, disposable, isolated GPU worker. Binding design and activation
   checklist: `Agentic/Reports/validation_ci_v3_20260710.md`.
-  Activation audit refreshed 2026-07-11: GitHub registers all three default-
-  branch workflows, and `Mandatory CPU validation` passed pull-request run
-  29148955729 for `engine-cleanup-10th-july`. DX12 main-push runs 29149260881
-  and 29149344794 were correctly skipped because trusted runner activation is
-  still disabled; skipped jobs are not evidence. `main` remains unprotected.
-  No local implementation is missing. Prove the `merge_group` event next, then
-  require the stable CPU job name through branch protection. Keep the
-  persistent DX12 lane post-merge/informational until a dedicated trusted-ref
-  runner is registered; require public-PR GPU evidence only after an ephemeral
-  isolated runner replaces it. Current evidence and remaining administration
-  are recorded in `Agentic/Reports/validation_ci_v3_20260710.md`. The
-  2026-07-30 audit also found hosted CPU run 30447408778 failing on the
-  clang-format 21-only `BinPackLongBracedList` key; fix that local compatibility
-  defect before treating the CPU job as protection-ready.
+  Activation audit refreshed 2026-07-30: clang-format 21.1.8 is pinned and
+  hosted CPU run 30469139071 passes; `main` now strictly requires the stable
+  CPU job; one dedicated trusted-ref DX12 runner is online and run 30472584471
+  passes the full runtime gate. Keep that persistent DX12 lane
+  post-merge/informational. The only V3 acceptance item left is a real
+  `merge_group` proof, but GitHub rejects merge-queue enablement because this
+  public repository is user-owned rather than organization-owned. Transfer to
+  an eligible organization or wait for GitHub availability to change, then
+  explicitly authorize creation/enqueue of a proof PR. Current evidence and
+  the exact external boundary are recorded in
+  `Agentic/Reports/validation_ci_v3_20260710.md`.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
   equivalent static-analysis job. Record suppressions with owner, reason, and

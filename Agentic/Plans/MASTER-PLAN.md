@@ -1621,8 +1621,10 @@ and deliberately excluded from this ledger. The previous replay critical path
 completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
-   complete. Remaining work requires a real `merge_group` proof, required CPU
-   branch protection, and trusted/ephemeral DX12 runner administration.
+   complete. Hosted CPU protection and the trusted informational DX12 runner
+   are active and proven. The sole remaining acceptance item is a real
+   `merge_group` proof, blocked because GitHub does not offer merge queues to
+   this user-owned repository.
 1. **Replay visual-fidelity mega probe — complete on
    `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
    single-generation causal, and durable offline equality gate generates and
@@ -1713,7 +1715,7 @@ completed on `nightrunner-14th-july`.
 
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
+| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs one real merge-group proof; CPU protection and the trusted informational DX12 runner are active, but GitHub merge queues require organization ownership |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
