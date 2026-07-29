@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0-BV3 complete; terrain seed retired)
+State: In progress (BV0-BV4 complete; convergence re-measured)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-30th-JUL-26
 PR: TBD
@@ -324,7 +324,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 - [x] **BV2** — Stabilize SAT axis-type selection.
 - [x] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
-- [ ] **BV4** — Re-measure convergence.
+- [x] **BV4** — Re-measure convergence.
 - [ ] **BV5** — Position-correction divisor.
 - [ ] **BV6** — Independent review, comment audit, closure report.
 
@@ -451,6 +451,16 @@ With BV1-BV3 landed, re-run the wall and the BV0 fixture. If the solver now
 reaches its early-out, record it. If it still never converges, that is a new
 finding and gets its own plan — do not raise the iteration count to hide it
 (48 iterations made things worse).
+
+Completed 2026-07-29. The controlled fixture remains at zero flips, zero
+cap-bound frames, one minimum iteration, and zero misses; two CSV runs are
+byte-identical and retain BV2's hash. The wall still records 1,000/1,000 frames
+at 12 iterations, with minimum/average/maximum all 12, despite a 7.218498%
+cache-miss rate and 95.796564% warm-started rows. The required separate finding
+is registered as
+`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`; it is queued
+behind this campaign and does not block BV5. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv4.md`.
 
 ### BV5 — Position-correction divisor
 

@@ -1097,10 +1097,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 4/7
-(57%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
-`box-vibration-and-warm-start-integrity`, continuing with BV4's controlled
-convergence re-measurement.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 5/11
+(45%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
+`box-vibration-and-warm-start-integrity`, continuing with BV5's
+position-correction divisor. Plan 9 is the queued dense-contact convergence
+finding registered by BV4 and starts only after plan 8 closes.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
@@ -2598,7 +2599,8 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 4/7 | BV3 complete: fixed terrain seed scales and impulse floors are gone; row-derived cache-miss support, honest terrain friction, shoreline caching, 462 passing unit cases, and inspected cumulative divergence are recorded without regenerating baselines; continue BV4 |
+| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 5/7 | BV4 complete: the controlled fixture remains at zero flips/one iteration and repeats byte-identically, while the wall remains cap-bound in 1,000/1,000 frames despite 95.796564% warm-started rows; continue BV5 |
+| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | Queued | 0/4 | Starts after plan 8 closes; isolate the dense-wall residual/row-family cause with a controlled oracle, never by raising the iteration count |
 
 ### Plan 8 Ordering Consequences
 
