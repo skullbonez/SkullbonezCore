@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started
+State: In progress
 Ledger tasks: 6 (QN0-QN5)
-Branch: TBD (register at start)
+Branch: `nightrunner-29th-JUL-26`
 PR: TBD
 
 **Sequenced last in the campaign by owner direction.** It is the only plan here
@@ -136,7 +136,7 @@ Recorded so the owner can re-scope at QN0 with full information.
 
 ## Ledger
 
-- [ ] QN0 — Characterize and census. Write characterization tests that pin the
+- [x] QN0 — Characterize and census. Write characterization tests that pin the
   current *observable* behavior — composed world rotation, matrix application to
   a vector, world-inertia transformation, contact tangent basis, camera basis —
   independent of internal representation. Census every one of the 55 matrix
@@ -222,3 +222,17 @@ Recorded so the owner can re-scope at QN0 with full information.
 - [ ] `SkullbonezTests/TestQuaternion.cpp`
 
 Reconcile against `git diff --name-only` at QN5; the QN0 census will add sites.
+
+## QN0 Evidence And Owner Decision
+
+**PROCEED.** The owner ratified continuation and directed the campaign to be
+orchestrated to completion. The live census supersedes the aged estimates with
+35 production orientation-matrix calls, nine production transpose calls, and
+six axis-helper declaration/definition sites with zero consumers. The 23
+committed raw-orientation scenes are confirmed. Five representation-independent
+behavior tests pass on the pre-change Profile binary: 15 `Quaternion*` cases and
+66 assertions total.
+
+Detailed site classification and persistence inventory:
+`Agentic/Reports/2026-07-29/quaternion-convention-normalization-qn0-census.md`.
+No baseline, golden, schema, config, or committed runtime artifact changed.
