@@ -71,10 +71,9 @@ namespace
 {
 
 // ENGINE-SPECIFIC:
-//   Feature IDs are compact and deterministic because the warm-start cache only
-//   keeps the low 16 bits in the persistent solver cache key. The kind bits make
-//   sphere/box, face/face, and edge/edge contacts distinct even for the same
-//   body pair.
+//   Feature IDs are compact and deterministic. The persistent solver key keeps
+//   all 32 feature bits beside two 15-bit body indices, so the kind bits keep
+//   sphere/box, face/face, edge/edge, and hull contacts distinct for one pair.
 constexpr uint32_t FEATURE_KIND_SPHERE_BOX = 1u;
 constexpr uint32_t FEATURE_KIND_BOX_FACE = 2u;
 constexpr uint32_t FEATURE_KIND_BOX_EDGE = 3u;

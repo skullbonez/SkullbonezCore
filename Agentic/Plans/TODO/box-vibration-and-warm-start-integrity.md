@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started (investigation complete, regression test preserved)
+State: In progress (BV0 complete; controlled T0 recorded)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-29th-JUL-26
 PR: TBD
@@ -317,7 +317,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 
 ## Tasks
 
-- [ ] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
+- [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
 - [ ] **BV1** — Suppress restitution on persistent object/object contacts.
 - [ ] **BV2** — Stabilize SAT axis-type selection.
 - [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
@@ -340,19 +340,26 @@ Also record the T0 byte-exact harness: `validate_physics`,
 Acceptance: a committed scene, a documented vibration metric with its query, and
 a T0 report showing the metric is non-zero before any fix.
 
+Completed 2026-07-29. The four-brick controlled scene records 566 meaningful
+downward-to-upward `vel_y` flips over frames 300-1199, with all 900 measured
+frames at the 12-iteration cap. Two Debug CSV runs are byte-identical. Current
+line/key re-resolution, exact SkullScope SQL, the cumulative oracle list, and
+artifact accounting are permanent in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv0-t0.md`.
+
 ### BV1 — Suppress restitution on persistent object/object contacts
 
 The bounce fix. In the object branch of the bias computation
-(`PersistentContactSolver.cpp`, currently `:1200-1226`), apply restitution only
-when the contact was *not* already carrying load last frame. `hasCachedImpulse(
-bodyA, bodyB, featureId )` already exists at `:283` and answers exactly that
-without reordering the cache lookup.
+(`PersistentContactSolver.cpp`, currently `:996-1018`), apply restitution only
+when the contact was *not* already carrying load last frame. `HasCachedImpulse(
+cache, bodyA, bodyB, featureId )` already exists at `:183-197` and answers
+exactly that without reordering the cache lookup.
 
 A suppressed row must fall through to the Baumgarte penetration branch rather
 than being left with no bias.
 
 Note the reach limit: the cache only stores rows with `supportsRestingPolicy`
-(`:1729`), so edge/corner object contacts never cache and keep full restitution.
+(`:1766`), so edge/corner object contacts never cache and keep full restitution.
 That is arguably correct — a corner impact is impact-like — but record it.
 
 Acceptance: BV0 metric drops substantially; terrain rows byte-unchanged in a
@@ -384,8 +391,8 @@ Staged:
 1. Decouple friction from the seed. Remove `max(accN, terrainWarmStart)` from
    all three sites and give terrain rows an honest bound. This closes audit
    finding #6 and has an independent justification.
-2. Stop flooring `accN` at `:1311`; apply the seed only on a cache miss.
-3. Relax cache admission at `:1729` so touching terrain rows cache, not just
+2. Stop flooring `accN` at `:1110-1112`; apply the seed only on a cache miss.
+3. Relax cache admission at `:1766` so touching terrain rows cache, not just
    `supportsRestingPolicy` ones, so shoreline contacts warm-start from a real
    solved impulse instead of `0.35 x weight`.
 4. If a first-touch seed is still needed, derive it from the row's own
@@ -408,10 +415,11 @@ finding and gets its own plan — do not raise the iteration count to hide it
 ### BV5 — Position-correction divisor
 
 Fix the latent defect found and set aside: divide the per-row correction by
-`c.manifoldPointCount` (already populated for both terrain and object rows at
-`:934` and `:1065`), or otherwise guard against N rows each removing the full
+`c.manifoldPointCount` (already populated for object and terrain rows at
+`:691` and `:837`), or otherwise guard against N rows each removing the full
 overlap against a stale penetration. The terrain restitution path already
-divides by point count at `:1197`; position correction divides nowhere.
+divides by point count at `:989`; position correction at `:1694-1695` divides
+nowhere.
 
 ### BV6 — Independent review, comment audit, closure report
 
