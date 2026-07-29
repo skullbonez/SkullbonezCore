@@ -92,9 +92,11 @@ claimed.
   for the 300-body default scene, the 4,000-body active capacity, and the
   8,192-body ceiling. Confirm which members are genuinely scene-sized versus
   fixed-topology, and record the reservation call site and ordering.
-- [ ] BC1 — Convert `pairSeen` and `entries` to reserved storage with registered
+- [x] BC1 — Convert `pairSeen` and `entries` to reserved storage with registered
   owners and capacity reasons. These two are 82% of the total. Byte-exact
-  required.
+  required. The runtime capacities are the triangular pair-word count and
+  `8 * bodyCapacity + 4` persistent rows; the historical additional 4,096
+  persistent rows are removed because swept occupancy has its own store.
 - [ ] BC2 — Convert the remaining scene-sized members: `bodyMemberships`,
   `candidatePairHeads`, `cellObjectSeen`, `candidatePairNodes`,
   `candidatePairSortKeys`, `candidatePairSortScratch`, `overlayEntries`.
@@ -129,6 +131,37 @@ neither may reserve, decommit, or acquire Replay growth.
 Permanent evidence:
 `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
 
+## BC1 Evidence
+
+`SpatialGrid.entries` and `SpatialGrid.pairSeen` now use registered
+`PhysicsFixedList` backing reserved first inside
+`PhysicsBroadphaseStage::ReserveSceneCapacity`. Persistent entries reserve
+`8 * bodyCapacity + 4`; pair dedup reserves the triangular identity bit count
+rounded up to 64-bit words. Both retain backing and high-water through
+`Clear`, `SetCellSize`, and `BeginFrame`, and neither has Replay growth
+privilege.
+
+The historical extra 4,096 persistent rows are not carried into runtime
+capacity: production cell-size selection bounds ordinary membership to eight
+cells per body, while swept occupancy is already isolated in
+`overlayEntries`. The compile-time ceiling remains unchanged. Focused tests
+prove exact capacity/reason rows, deterministic append/free-list reuse,
+retained backing/high-water, allocation-free dense-prefix shrink, startup
+reserve denial, and a 12-row reserve whose thirteenth Physics-phase insert
+fails with exact owner, capacity, high-water, and phase.
+
+Profile-focused coverage passes SpatialGrid 19/19 cases and 8,545 assertions,
+fatal contracts 1/1 and 221 assertions, reserve allocator 20/20 and 212
+assertions, the determinism source suite, and the 2,000-body exact owner census
+with 5,648 assertions. `tools\validate_physics.bat` remains byte-exact across
+44,401 rows and `tools\validate_perf.bat` passes. Format, strict complexity at
+the ratified 400/6 triggers (40/40), aggregates (85/85), the sole unrelated
+ruled extraction scar, and all 12-or-more-parameter signature rulings pass.
+The first performance scan caught the generic `pairSeen.resize` spelling;
+using the bounded-owner `ResetDefault` API resolved the local policy issue
+without a semantic or capacity change. No baseline, golden, config, schema,
+allowlist, or committed runtime artifact changed.
+
 ## Dependencies
 
 - `broadphase-canonical-order-guard` should close first. Both plans touch
@@ -162,10 +195,12 @@ Permanent evidence:
 
 ## Comment-Audit Checklist
 
-- [ ] `SkullbonezSource/Physics/SpatialGrid.h`
-- [ ] `SkullbonezSource/Physics/SpatialGrid.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsFixedList.h`
+- [x] `SkullbonezSource/Physics/SpatialGrid.h`
+- [x] `SkullbonezSource/Physics/SpatialGrid.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsFixedList.h`
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
-- [ ] `SkullbonezTests/TestSpatialGrid.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
+- [x] `SkullbonezTests/TestSpatialGrid.cpp`
 - [ ] `SkullbonezTests/TestReserveAllocator.cpp`
+- [x] `SkullbonezTests/TestRuntimeContracts.cpp`
+- [x] `SkullbonezTests/TestPhysicsHandles.cpp`

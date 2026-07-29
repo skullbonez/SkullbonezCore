@@ -79,6 +79,9 @@ inline constexpr char
 inline constexpr char PipelineRecords[] = "Fixed 4096-record physics pipeline trace ceiling";
 inline constexpr char CollisionVisualBodies[] = "Two body references per bounded candidate pair";
 inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
+inline constexpr char SpatialGridPersistentEntries
+    [] = "Eight persistent broadphase cells per scene body plus four deterministic sentinel rows";
+inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
 inline constexpr char ExplicitTestCapacity[] = "Explicit unit-test fixed-list capacity";
 } // namespace PhysicsCapacityReason
 
@@ -606,14 +609,15 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     [[noreturn]] void FailCapacityExceeded( std::size_t requested, const char* ceiling ) const
     {
+        const char* phaseName = SkullbonezCore::Core::Allocation::RuntimeReservePhaseName( SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() );
         std::fprintf( stderr,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
-                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
-                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling, phaseName );
         std::fprintf( stdout,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
-                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
-                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling, phaseName );
         std::fflush( stderr );
         std::fflush( stdout );
         assert( false && "PhysicsFixedList capacity exceeded" );

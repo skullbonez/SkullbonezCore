@@ -24,6 +24,8 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
+//   - SceneLoad reservation fixes persistent-entry and pair-dedup backing;
+//     BeginFrame and Clear() retain both capacity and recorded high-water.
 //
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
@@ -35,16 +37,20 @@
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
+#include <algorithm>
+#include <cstring>
+#include <memory>
 #include <utility>
 #include <vector>
 
-using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
@@ -81,10 +87,17 @@ bool HasPair( const std::vector<std::pair<int, int>>& pairs, int a, int b )
 
 SpatialGrid& TestGrid()
 {
-    // Why: SpatialGrid owns large fixed arrays; static storage keeps the test
-    // fixture aligned with runtime storage expectations instead of consuming the
-    // doctest thread stack.
+    // Why: fixed hash topology remains too large for the test thread stack.
+    // Reserve the supported ceiling once so behavior tests can choose arbitrary
+    // dense body indices without each case restating scene admission.
     static SpatialGrid grid( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid.ReserveSceneCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     grid.Clear();
     grid.SetCellSize( 10.0f );
     return grid;
@@ -123,6 +136,106 @@ ColliderStore& CeilingColliderStore()
     return store;
 }
 } // namespace
+
+
+TEST_CASE( "SpatialGrid: scene reserve sizes persistent and pair storage from admitted bodies" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 3u );
+    }
+
+    CHECK( grid->GetPersistentEntryCapacity() == 28u );
+    CHECK( grid->GetPairDedupWordCapacity() == 1u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 28u * 40u + sizeof( uint64_t ) );
+
+    const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
+    const auto findRow = [capacityRows]( const char* ownerName )
+    {
+        return std::find_if( capacityRows.begin(), capacityRows.end(), [ownerName]( const auto& row )
+                             { return row.ownerName && std::strcmp( row.ownerName, ownerName ) == 0; } );
+    };
+    const auto entriesRow = findRow( "SpatialGrid.entries" );
+    const auto pairSeenRow = findRow( "SpatialGrid.pairSeen" );
+    REQUIRE( entriesRow != capacityRows.end() );
+    REQUIRE( pairSeenRow != capacityRows.end() );
+    CHECK( std::strcmp( entriesRow->capacityReason,
+                        SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries ) == 0 );
+    CHECK( std::strcmp( pairSeenRow->capacityReason,
+                        SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords ) == 0 );
+    CHECK( entriesRow->currentCapacity == 28 );
+    CHECK( pairSeenRow->currentCapacity == 1 );
+}
+
+
+TEST_CASE( "SpatialGrid: Clear and cell-size reset retain scene backing and high-water" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    REQUIRE( CandidatePairs( *grid ).size() == 1u );
+    CHECK( grid->GetPersistentEntryHighWater() == 2u );
+    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+
+    const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
+    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    grid->Clear();
+    grid->SetCellSize( 5.0f );
+
+    CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
+    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetPersistentEntryHighWater() == 2u );
+    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetActiveCellCount() == 0 );
+}
+
+
+TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backing" )
+{
+    using SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
+
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
+    const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
+    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    {
+        RuntimeAllocationScope gameplayScope( RuntimeAllocationPhase::Physics );
+        grid->BeginFrame( 1 );
+    }
+    const uint64_t violations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( violations == 0u );
+    CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
+    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetMaintenanceStats().removedBodies == 1 );
+}
 
 
 TEST_CASE( "SpatialGrid: insert/query returns a single deduplicated pair" )

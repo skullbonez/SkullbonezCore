@@ -40,6 +40,8 @@ Invariants:
     Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
+  - Persistent-entry and pair-dedup backing is reserved under SceneLoad,
+    retained across cold clears, and never grows during fixed-step work.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -82,7 +84,7 @@ namespace CollisionDetection
     fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
     occupancy uses a separate per-frame stamped overlay. Pair deduplication uses a triangular bit array; fixed radix
     staging emits ascending normalized pairs independent of discovery order. Unchanged integer ranges touch no cells.
-    No heap allocations after construction.
+    SceneLoad reservation establishes retained backing; fixed-step work performs no heap allocation.
 
     Layman version:
       Instead of asking every object about every other object, the world is cut
@@ -122,7 +124,10 @@ class SpatialGrid
     static constexpr int TABLE_SIZE = 8192;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
-    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 8;
+    static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
+    static constexpr int PERSISTENT_ENTRY_SENTINELS = 4;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
+                                                   PERSISTENT_ENTRIES_PER_BODY;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
@@ -196,7 +201,6 @@ class SpatialGrid
     int freeBucketHead;
     int freeEntryHead;
     int persistentEntryCount;
-    int persistentEntryHighWater;
     int objectCount;
     int activeBucketCount;
     int overlayEntryCount;
@@ -206,10 +210,12 @@ class SpatialGrid
     int bucketHashHeads[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
     int overlayActiveBuckets[TABLE_SIZE];
-    Entry entries[MAX_CELL_ENTRIES];
+    Physics::PhysicsFixedList<Entry, MAX_CELL_ENTRIES>
+        entries { "SpatialGrid.entries", Physics::PhysicsCapacityReason::SpatialGridPersistentEntries };
     SweptOverlayEntry overlayEntries[MAX_SWEPT_CELL_ENTRIES];
     BodyMembership bodyMemberships[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
-    uint64_t pairSeen[PAIR_WORDS];
+    Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
+                                                               Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
 
     // Canonical pair staging is fixed storage owned by the grid. Cell traversal
     // may discover pairs in any bucket/list order, but emission is always sorted
@@ -285,6 +291,11 @@ class SpatialGrid
 
     SpatialGrid( float fCellSize );
 
+    // SceneLoad-only sizing for the two scene-derived stores migrated in BC1.
+    // The compile-time ceilings remain larger so future evidence can change a
+    // runtime formula without changing supported scene limits.
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
+
     // Cold reset for scene load, replay restore, and cell-size changes.
     void Clear();
 
@@ -340,6 +351,23 @@ class SpatialGrid
     {
         return maintenanceStats;
     }
+    std::size_t GetPersistentEntryCapacity() const
+    {
+        return entries.capacity();
+    }
+    std::size_t GetPersistentEntryHighWater() const
+    {
+        return entries.high_water();
+    }
+    std::size_t GetPairDedupWordCapacity() const
+    {
+        return pairSeen.capacity();
+    }
+    std::size_t GetPairDedupWordHighWater() const
+    {
+        return pairSeen.high_water();
+    }
+    uint64_t CollectDynamicMemoryBytes() const;
     void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
 };
 } // namespace CollisionDetection

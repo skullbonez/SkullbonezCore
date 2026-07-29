@@ -156,11 +156,27 @@ int64_t SpatialCellKey( int ix, int iy, int iz )
 
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), overlayGeneration( 1 ), pairSourceGeneration( 1 ), freeBucketHead( -1 ),
-      freeEntryHead( -1 ), persistentEntryCount( 0 ), persistentEntryHighWater( 0 ), objectCount( 0 ),
-      activeBucketCount( 0 ), overlayEntryCount( 0 ), overlayActiveBucketCount( 0 ), cellObjectGeneration( 0 )
+      freeEntryHead( -1 ), persistentEntryCount( 0 ), objectCount( 0 ), activeBucketCount( 0 ), overlayEntryCount( 0 ),
+      overlayActiveBucketCount( 0 ), cellObjectGeneration( 0 )
 {
     Clear();
     SetCellSize( fCellSize );
+}
+
+
+void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
+{
+    const std::size_t persistentEntryCapacity = bodyCapacity * static_cast<std::size_t>( PERSISTENT_ENTRIES_PER_BODY ) +
+                                                PERSISTENT_ENTRY_SENTINELS;
+
+    const std::size_t pairIdentities = bodyCapacity > 1u ? bodyCapacity * ( bodyCapacity - 1u ) / 2u : 0u;
+    const std::size_t pairWordCapacity = ( pairIdentities + 63u ) / 64u;
+
+    // Why: swept occupancy has its own overlay store. The retired additional
+    // 4,096 persistent rows duplicated that unrelated ceiling; production's
+    // scene-derived cell size bounds ordinary membership to eight cells/body.
+    entries.Reserve( persistentEntryCapacity );
+    pairSeen.Reserve( pairWordCapacity );
 }
 
 
@@ -198,6 +214,8 @@ void SpatialGrid::Clear()
     // Cold path: scene load, replay restore, or a cell-size change may invalidate
     // every dense-row membership. Steady fixed steps use BeginFrame instead.
     memset( cellObjectSeen, 0, sizeof( cellObjectSeen ) );
+    entries.clear();
+    pairSeen.clear();
 
     for ( int bucketIndex = 0; bucketIndex < TABLE_SIZE; ++bucketIndex )
     {
@@ -205,11 +223,6 @@ void SpatialGrid::Clear()
         buckets[bucketIndex] = Bucket {};
         buckets[bucketIndex].activeIndex = -1;
         buckets[bucketIndex].nextFree = bucketIndex + 1 < TABLE_SIZE ? bucketIndex + 1 : -1;
-    }
-
-    for ( int entryIndex = 0; entryIndex < MAX_CELL_ENTRIES; ++entryIndex )
-    {
-        entries[entryIndex].nextFree = entryIndex + 1 < MAX_CELL_ENTRIES ? entryIndex + 1 : -1;
     }
 
     for ( BodyMembership& membership : bodyMemberships )
@@ -220,9 +233,8 @@ void SpatialGrid::Clear()
     overlayGeneration = 1;
     pairSourceGeneration = 1;
     freeBucketHead = 0;
-    freeEntryHead = 0;
+    freeEntryHead = -1;
     persistentEntryCount = 0;
-    persistentEntryHighWater = 0;
     objectCount = 0;
     activeBucketCount = 0;
     overlayEntryCount = 0;
@@ -388,18 +400,17 @@ void SpatialGrid::RetireBucketIfEmpty( int bucketIndex )
 int SpatialGrid::AllocatePersistentEntry()
 {
 
-    if ( freeEntryHead == -1 )
+    if ( freeEntryHead != -1 )
     {
-        SB_FATAL( "Physics/SpatialGrid",
-                  "SpatialGrid persistent entry capacity exceeded: owner=Physics/SpatialGrid capacity=%d "
-                  "high_water=%d phase=steady_gameplay.",
-                  MAX_CELL_ENTRIES, persistentEntryHighWater );
+        const int entryIndex = freeEntryHead;
+        freeEntryHead = entries[entryIndex].nextFree;
+        ++persistentEntryCount;
+        return entryIndex;
     }
 
-    const int entryIndex = freeEntryHead;
-    freeEntryHead = entries[entryIndex].nextFree;
+    const int entryIndex = static_cast<int>( entries.size() );
+    entries.emplace_back();
     ++persistentEntryCount;
-    persistentEntryHighWater = (std::max)( persistentEntryHighWater, persistentEntryCount );
     return entryIndex;
 }
 
@@ -462,7 +473,7 @@ void SpatialGrid::InsertPersistentCell( int index, int ix, int iy, int iz )
 void SpatialGrid::RemovePersistentEntry( int entryIndex )
 {
 
-    if ( entryIndex < 0 || entryIndex >= MAX_CELL_ENTRIES )
+    if ( entryIndex < 0 || static_cast<std::size_t>( entryIndex ) >= entries.size() )
     {
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid persistent entry index out of bounds" );
     }
@@ -1090,7 +1101,12 @@ void SpatialGrid::ResetCandidatePairDedup()
         wordsNeeded = PAIR_WORDS;
     }
 
-    memset( pairSeen, 0, wordsNeeded * sizeof( uint64_t ) );
+    pairSeen.ResetDefault( static_cast<std::size_t>( wordsNeeded ) );
+
+    if ( wordsNeeded > 0 )
+    {
+        memset( pairSeen.data(), 0, static_cast<std::size_t>( wordsNeeded ) * sizeof( uint64_t ) );
+    }
 }
 
 
@@ -1612,4 +1628,10 @@ void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
         outCells[i].iz = b.iz;
         outCells[i].objectCount = b.count + ( b.overlayGeneration == overlayGeneration ? b.overlayCount : 0 );
     }
+}
+
+
+uint64_t SpatialGrid::CollectDynamicMemoryBytes() const
+{
+    return static_cast<uint64_t>( entries.committed_bytes() + pairSeen.committed_bytes() );
 }

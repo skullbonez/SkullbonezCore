@@ -428,6 +428,7 @@ PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADP
 
 void PhysicsBroadphaseStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
+    m_spatialGrid.ReserveSceneCapacity( bodyCapacity );
     const std::size_t pairCapacity = PhysicsCandidatePairCapacity( bodyCapacity );
     m_candidatePairs.Reserve( pairCapacity );
     m_collisionCellKeys.Reserve( pairCapacity );
@@ -883,7 +884,8 @@ uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 
 uint64_t PhysicsBroadphaseStage::CollectDebugAndBroadphaseMemoryBytes() const
 {
-    return static_cast<uint64_t>( sizeof( m_spatialGrid ) ) + CollectDynamicMemoryBytes();
+    return static_cast<uint64_t>( sizeof( m_spatialGrid ) ) + m_spatialGrid.CollectDynamicMemoryBytes() +
+           CollectDynamicMemoryBytes();
 }
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -435,6 +435,14 @@ transient-work ceiling rather than a body-count formula. The active/future
 ledger is now 1/21 (5%). Evidence is in
 `../Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
 
+Broadphase capacity right-sizing BC1 now moves the two dominant arrays to
+registered SceneLoad storage. Persistent entries reserve `8 * bodies + 4`;
+pair dedup reserves exact triangular identity words. The duplicated 4,096-row
+persistent headroom is removed while the compile-time ceiling remains.
+Backing/high-water survive cold clears, no Replay privilege exists, and exact
+phase/capacity fatal probes pass. Physics remains byte-exact across 44,401 rows
+and the performance gate passes. The active/future ledger is now 2/21 (10%).
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -1018,10 +1026,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 1/21
-(5%). Plans 1-4 are complete and excluded under rule 4; execute plans 5→8 in
-the listed order. Plan 5 BC1 next converts `pairSeen` and persistent `entries`
-to registered scene-load storage while preserving byte-exact behavior.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 2/21
+(10%). Plans 1-4 are complete and excluded under rule 4; execute plans 5→8 in
+the listed order. Plan 5 BC2 next converts the remaining registered-storage
+targets while preserving the fixed hash topology and the fixed 4,096-row
+overlay-work ceiling.
 
 Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
 move a baseline, and both are sequenced last by owner direction: plan 7
@@ -2517,7 +2526,7 @@ Dependency barriers:
 | 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
 | 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
 | 4 | [collision-hull-shape-instancing](../Reports/2026-07-29/collision-hull-shape-instancing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; 57.4803% measured acceptance-scene hull-store reduction, byte-exact Physics, stable narrowphase markers, 18/18 comment audit, all closure gates, and independent review are clear |
-| 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | In progress | 1/4 | BC1 converts `pairSeen` and persistent `entries` |
+| 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | In progress | 2/4 | BC2 converts remaining scene-sized rows and the accurately labelled fixed overlay-work store |
 | 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
 | 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |
 | 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | Not started | 0/7 | Last, by owner direction. Investigation complete; re-record BV0's T0 harness after plan 7's baseline transition and re-resolve every source line number before acting on it |

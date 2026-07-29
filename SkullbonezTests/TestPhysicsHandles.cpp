@@ -40,6 +40,8 @@
 //     scene capacity, owns an independent collider graph after source
 //     destruction, retains a per-test terrain owner through both engine
 //     lifetimes, and advances identical seeded state bit-for-bit.
+//   - The exact reserve census includes both SpatialGrid retained owners and
+//     rejects any unregistered growth or capacity-reporting row.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -959,9 +961,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 94 );
+    REQUIRE( eventCount == 96 );
 #else
-    REQUIRE( eventCount == 91 );
+    REQUIRE( eventCount == 93 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -997,6 +999,8 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
+        { "SpatialGrid.entries", 16004 },
+        { "SpatialGrid.pairSeen", 31235 },
 #if defined( _DEBUG )
         { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
         { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
@@ -1071,9 +1075,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 98 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 100 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 95 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 97 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1088,11 +1092,20 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         capacityRows = RuntimeReserveAllocator::CapacityRows();
     int physicsCapacityRowCount = 0;
     const char* productionPhysicsOwnerPrefixes[] = {
-        "BuoyancySystem.",         "ColliderStore.",          "ExternalForceStage.",
-        "PhysicsBodyStore.",       "PhysicsBroadphaseStage.", "PhysicsContactSolverStage.",
-        "PhysicsEngine",           "PhysicsForceStage.",      "PhysicsNarrowphaseStage.",
-        "PhysicsSleepController.", "PhysicsStepDiagnostics.", "PhysicsTerrainStage.",
+        "BuoyancySystem.",
+        "ColliderStore.",
+        "ExternalForceStage.",
+        "PhysicsBodyStore.",
+        "PhysicsBroadphaseStage.",
+        "PhysicsContactSolverStage.",
+        "PhysicsEngine",
+        "PhysicsForceStage.",
+        "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.",
+        "PhysicsStepDiagnostics.",
+        "PhysicsTerrainStage.",
         "PhysicsWorld.",
+        "SpatialGrid.",
     };
 
     for ( const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& row : capacityRows )
@@ -1132,9 +1145,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 99 );
+    CHECK( physicsCapacityRowCount == 101 );
 #else
-    CHECK( physicsCapacityRowCount == 96 );
+    CHECK( physicsCapacityRowCount == 98 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );

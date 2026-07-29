@@ -36,6 +36,8 @@
 //   - Physics storage seeding rejects missing allocation/owner scopes,
 //     SceneLoad phase, missing Replay owner, and any Replay owner other than
 //     the canonical prediction working set.
+//   - Spatial-grid backing reserves only during SceneLoad; fixed-step
+//     exhaustion reports the exact owner, capacity, high-water, and phase.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -718,10 +720,37 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "spatial-grid-reserve-phase" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+        grid.ReserveSceneCapacity( 1u );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "spatial-grid-entry-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 1u );
+        }
+
+        grid.BeginFrame( 1 );
+        RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
+        grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 1.1f );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
         static SpatialGrid grid( 1.0f );
-        grid.Clear();
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( SpatialGrid::MAX_BUCKETS );
+        }
+
         constexpr int persistentCells = SpatialGrid::MAX_BUCKETS / 2;
 
         for ( int cell = 0; cell < persistentCells; ++cell )
@@ -1187,6 +1216,14 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
+
+    ExpectFatalCase( "spatial-grid-reserve-phase",
+                     { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=12",
+                       "runtime_capacity=0", "compile_capacity=69636", "phase=startup" } );
+
+    ExpectFatalCase( "spatial-grid-entry-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=13",
+                       "runtime_capacity=12", "compile_capacity=69636", "high_water=12", "phase=physics" } );
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
