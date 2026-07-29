@@ -4,7 +4,7 @@ Date: 2026-07-29
 
 Owner: skullbonez
 
-State: In progress (CE0 complete; CE1 next)
+State: Blocked at owner decision (CE0-CE1 complete; CE3 evidence prepared)
 
 Ledger tasks: 4 (CE0-CE3)
 
@@ -64,17 +64,22 @@ count.
       post-Box tip, inventory the early-out residuals and row families using
       existing diagnostics first, and record whether new diagnostic-only
       instrumentation is actually needed.
-- [ ] **CE1 — Controlled cause oracle.** Isolate the row family or residual
+- [x] **CE1 — Controlled cause oracle.** Isolate the row family or residual
       keeping dense contact at the cap. Add a deterministic focused fixture that
       fails for the measured cause and distinguishes honest non-convergence from
       a stale/over-broad stopping metric.
-- [ ] **CE2 — Owner-approved correction.** After the required decision, make the
-      smallest owner-correct change. Do not raise iterations, weaken terrain
-      restitution, or add a hidden tolerance budget. Prove the controlled oracle
-      and wall structural rate without deleting existing contact coverage.
-- [ ] **CE3 — Closure.** Run independent ownership review, touched-source comment
-      audit, ownership inventories, all mapped validation, and a closure report
-      with exact pre/post convergence evidence.
+- [ ] **CE2 — Owner-approved correction. BLOCKED:** CE1 proves honest
+      row-level non-convergence and recommends retaining the current stopping
+      criterion. This plan authorizes no behavior or baseline change without an
+      explicit owner decision naming a different convergence contract. After
+      that decision, make the smallest owner-correct change. Do not raise
+      iterations, weaken terrain restitution, or add a hidden tolerance budget.
+      Prove the controlled oracle and wall structural rate without deleting
+      existing contact coverage.
+- [ ] **CE3 — Closure. PREPARED:** Independent ownership review,
+      touched-source comment audit, ownership inventories, all mapped validation,
+      deterministic repeat, and exact CE1 evidence are complete. Final closure
+      remains blocked on the CE2 owner decision.
 
 ## Acceptance
 
@@ -104,3 +109,13 @@ mix, but export only 23.8325% of iteration records before the pipeline cap and
 discard their scalar deltas. CE1 therefore needs a bounded per-iteration
 aggregate, not uncapped row tracing. Evidence:
 `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`.
+
+CE1 completed 2026-07-30 without simulation or state-baseline movement. A
+fixed-capacity per-iteration trace and controlled object-only chain prove that
+the cap reflects honest row-level non-convergence rather than a stale or
+over-broad aggregate. The wall remains capped in 1,000/1,000 measured frames;
+every settled iteration-12 maximum row exceeds the historical threshold.
+Three wall repeats are byte-identical. Profile tests, exact query regression,
+Physics/deep Physics, performance, full validation, a 9/9 touched-source
+comment audit, and independent review pass. Evidence:
+`Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md`.

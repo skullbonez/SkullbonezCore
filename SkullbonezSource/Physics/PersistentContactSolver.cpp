@@ -43,10 +43,13 @@ Invariants:
     are the validation contract.
   - Contact setting clamps resolve once before row construction and iteration.
   - Every solve phase crosses the transaction cursor before its pass body runs.
+  - Convergence attribution observes the historical squared-delta expression
+    after each row; it never participates in impulse arithmetic or early-out.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -80,6 +83,19 @@ namespace Vector = SkullbonezCore::Math::Vector;
 namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
+
+// Why: the ordinary specialization must not construct or even contain a
+// convergence record. The attributed specialization remains available to
+// Profile tests, while production worlds select the empty specialization
+// unless a live diagnostics sink requests the trace.
+template <bool CollectConvergenceDiagnostics> struct PersistentContactIterationDiagnosticsStorage
+{
+};
+
+template <> struct PersistentContactIterationDiagnosticsStorage<true>
+{
+    PersistentContactIterationDiagnostics value;
+};
 } // namespace
 
 PersistentContactSolverStepPolicy
@@ -1159,13 +1175,12 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     }
 }
 
-void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                   const PersistentContactSolverStepPolicy& stepPolicy,
-                                                   std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+template <bool CollectConvergenceDiagnostics>
+void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolverStage& stage,
+                                                             const PhysicsBodyStore& bodyStore,
+                                                             const PersistentContactSolverStepPolicy& stepPolicy,
+                                                             std::size_t pipelineRecordCapacity )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
-    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::SolveRows, "SolveRows" );
-
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     const SolverBodyState staticTerrainBody;
 
@@ -1198,6 +1213,12 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     {
         stage.m_persistentContactSolverStats.solverIterations = iter + 1;
         float iterImpulseSq = 0.0f;
+        PersistentContactIterationDiagnosticsStorage<CollectConvergenceDiagnostics> diagnosticsStorage;
+
+        if constexpr ( CollectConvergenceDiagnostics )
+        {
+            diagnosticsStorage.value.iteration = iter + 1;
+        }
 
         for ( PersistentContact& c : stage.m_persistentContacts )
         {
@@ -1205,6 +1226,7 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
             const SolverBodyState& b = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
             Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
             Vector3 velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
+
             float vn = Dot( ( velB - velA ), c.normal );
             float lambdaN = c.normalMass * ( c.bias - vn );
             float oldAccN = c.accN;
@@ -1248,6 +1270,41 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
             ApplyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
             iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
 
+            if constexpr ( CollectConvergenceDiagnostics )
+            {
+                PersistentContactIterationDiagnostics& iterationDiagnostics = diagnosticsStorage.value;
+
+                // Why: retain independent diagnostic sums after the historical
+                // stopping expression above. These values do not feed
+                // simulation, and inactive/private worlds skip the work.
+                const float normalDeltaSq = deltaN * deltaN;
+                const float tangentDeltaSq = deltaT1 * deltaT1 + deltaT2 * deltaT2;
+                const float rowDeltaSq = normalDeltaSq + tangentDeltaSq;
+                iterationDiagnostics.normalImpulseDeltaSq += normalDeltaSq;
+                iterationDiagnostics.tangentImpulseDeltaSq += tangentDeltaSq;
+
+                if ( deltaN != 0.0f )
+                {
+                    ++iterationDiagnostics.normalChangedRowCount;
+                }
+
+                if ( deltaT1 != 0.0f || deltaT2 != 0.0f )
+                {
+                    ++iterationDiagnostics.tangentChangedRowCount;
+                }
+
+                if ( rowDeltaSq > iterationDiagnostics.maxRowImpulseDeltaSq )
+                {
+                    iterationDiagnostics.maxRowImpulseDeltaSq = rowDeltaSq;
+                    iterationDiagnostics.maxRowNormalImpulseDeltaSq = normalDeltaSq;
+                    iterationDiagnostics.maxRowTangentImpulseDeltaSq = tangentDeltaSq;
+                    iterationDiagnostics.maxRowBodyA = c.bodyA;
+                    iterationDiagnostics.maxRowBodyB = c.bodyB;
+                    iterationDiagnostics.maxRowFeatureId = c.featureId;
+                    iterationDiagnostics.maxRowIsTerrain = c.isTerrain;
+                }
+            }
+
             if ( canRecordPipeline() )
             {
                 Physics::PhysicsPipelineRecord record;
@@ -1265,6 +1322,13 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
             }
         }
 
+        if constexpr ( CollectConvergenceDiagnostics )
+        {
+            PersistentContactIterationDiagnostics& iterationDiagnostics = diagnosticsStorage.value;
+            iterationDiagnostics.stoppingImpulseDeltaSq = iterImpulseSq;
+            stage.m_persistentContactConvergenceTrace.Append( iterationDiagnostics );
+        }
+
         // ENGINE-SPECIFIC:
         //   Catto lists residual/delta-based termination as a possible
         //   Gauss-Seidel criterion on PDF p. 15, Section 7.1, then uses fixed
@@ -1275,6 +1339,30 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
         {
             break;
         }
+    }
+}
+
+void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                                                   const PersistentContactSolverStepPolicy& stepPolicy,
+                                                   std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+{
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
+    AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::SolveRows, "SolveRows" );
+    stage.m_persistentContactConvergenceTrace.Clear();
+
+    // Why: one branch per solve selects an attributed or clean PGS loop.
+    // Template specialization removes diagnostics storage, arithmetic, and row
+    // branches from ordinary/Profile worlds while preserving the same solver
+    // statements. Profile tests intentionally select the attributed path so the
+    // diagnostic contract remains covered by the repository's formal test gate.
+
+    if ( stepPolicy.collectConvergenceDiagnostics )
+    {
+        SolveRowsIterations<true>( stage, bodyStore, stepPolicy, pipelineRecordCapacity );
+    }
+    else
+    {
+        SolveRowsIterations<false>( stage, bodyStore, stepPolicy, pipelineRecordCapacity );
     }
 }
 
@@ -1959,6 +2047,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
                                          static_cast<int>( colliderRecords.size() ) } );
 
     m_persistentContactSolverStats = PersistentContactSolverStats();
+    m_persistentContactConvergenceTrace.Clear();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
     m_persistentRestingContactCounts.assign( modelCount, 0 );

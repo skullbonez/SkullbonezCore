@@ -76,6 +76,11 @@ struct PersistentContactSolverStepPolicy
     float contactEpsilon = 0.0f;
     int iterations = 1;
     bool elasticCollisions = false;
+
+    // Why: convergence attribution is observational work for an active
+    // diagnostics sink. Private Replay prediction engines have no sink and
+    // must not spend their amortized simulation budget collecting live trace.
+    bool collectConvergenceDiagnostics = false;
 };
 
 struct PersistentContactCacheEntry

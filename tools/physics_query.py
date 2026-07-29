@@ -11,15 +11,20 @@
 # Glossary:
 #   SQLite: Local embedded database used as a bounded query cache for large
 #   diagnostics traces.
+#   Convergence summary: One bounded row per retained solver iteration, with
+#     normal/tangent and maximum-row attribution.
 #   Validation gate: Repository script that proves a class of changes before
 #   commit or PR.
 #
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
+#   - Solver convergence queries import only the engine-capped iteration trace;
+#     the query layer never reconstructs missing row-level history.
 #
 # Related:
 #   - AGENTS.md
+#   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 #   - Agentic/Reference/comment-style-guide.md
 #
 #
@@ -41,7 +46,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -327,6 +332,26 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table solver_iteration_summaries(
+            run_id text not null,
+            frame integer not null,
+            iteration integer not null,
+            stopping_impulse_delta_sq real,
+            normal_impulse_delta_sq real,
+            tangent_impulse_delta_sq real,
+            normal_changed_rows integer,
+            tangent_changed_rows integer,
+            max_row_impulse_delta_sq real,
+            max_row_normal_impulse_delta_sq real,
+            max_row_tangent_impulse_delta_sq real,
+            max_row_body_a integer,
+            max_row_body_b integer,
+            max_row_feature_id integer,
+            max_row_is_terrain integer,
+            dropped_iterations integer,
+            primary key(run_id, frame, iteration)
+        );
+
         create table pipeline_stages(
             run_id text not null,
             frame integer not null,
@@ -423,6 +448,8 @@ def create_indexes(conn):
         create index idx_members_body_frame on island_members(run_id, body_id, frame);
         create index idx_support_edges_frame on support_edges(run_id, frame);
         create index idx_solver_stats_frame on solver_stats(run_id, frame);
+        create index idx_solver_iteration_summaries_frame
+            on solver_iteration_summaries(run_id, frame, iteration);
         create index idx_pipeline_stages_frame on pipeline_stages(run_id, frame);
         create index idx_replay_scrubs_frame on replay_scrubs(run_id, selected_replay_frame, live_replay_frame);
         create index idx_replay_restores_frame on replay_restores(run_id, target_replay_frame);
@@ -541,6 +568,7 @@ def import_trace(conn, trace_path):
         "support_edge": 0,
         "broadphase": 0,
         "solver_stats": 0,
+        "solver_iteration_summary": 0,
         "pipeline_stages": 0,
         "replay_scrub": 0,
         "replay_restore": 0,
@@ -579,6 +607,8 @@ def import_trace(conn, trace_path):
                 insert_broadphase(conn, item)
             elif kind == "solver_stats":
                 insert_solver_stats(conn, item)
+            elif kind == "solver_iteration_summary":
+                insert_solver_iteration_summary(conn, item)
             elif kind == "pipeline_stages":
                 insert_pipeline_stages(conn, item)
             elif kind == "replay_scrub":
@@ -859,6 +889,40 @@ def insert_solver_stats(conn, item):
             as_float(item.get("position_correction_total")),
             as_float(item.get("position_correction_max")),
             as_int(item.get("solver_iterations")),
+        ),
+    )
+
+
+def insert_solver_iteration_summary(conn, item):
+    conn.execute(
+        """
+        insert or replace into solver_iteration_summaries(
+            run_id, frame, iteration, stopping_impulse_delta_sq,
+            normal_impulse_delta_sq, tangent_impulse_delta_sq,
+            normal_changed_rows, tangent_changed_rows, max_row_impulse_delta_sq,
+            max_row_normal_impulse_delta_sq, max_row_tangent_impulse_delta_sq,
+            max_row_body_a, max_row_body_b, max_row_feature_id,
+            max_row_is_terrain, dropped_iterations
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_int(item.get("iteration")),
+            as_float(item.get("stopping_impulse_delta_sq")),
+            as_float(item.get("normal_impulse_delta_sq")),
+            as_float(item.get("tangent_impulse_delta_sq")),
+            as_int(item.get("normal_changed_rows")),
+            as_int(item.get("tangent_changed_rows")),
+            as_float(item.get("max_row_impulse_delta_sq")),
+            as_float(item.get("max_row_normal_impulse_delta_sq")),
+            as_float(item.get("max_row_tangent_impulse_delta_sq")),
+            as_int(item.get("max_row_body_a")),
+            as_int(item.get("max_row_body_b")),
+            as_int(item.get("max_row_feature_id")),
+            as_int(item.get("max_row_is_terrain")),
+            as_int(item.get("dropped_iterations")),
         ),
     )
 
@@ -1707,11 +1771,48 @@ def query_solver(conn, cache, args):
     stats["warm_start_rate"] = (warm_started_rows / total_contact_rows) if total_contact_rows else None
     stats["position_correction_row_rate"] = (correction_rows / total_contact_rows) if total_contact_rows else None
 
+    convergence_limit = max(1, args.limit or DEFAULT_LIMIT)
+    convergence_rows = conn.execute(
+        f"""
+        select frame, iteration, stopping_impulse_delta_sq,
+               normal_impulse_delta_sq, tangent_impulse_delta_sq,
+               normal_changed_rows, tangent_changed_rows,
+               max_row_impulse_delta_sq, max_row_normal_impulse_delta_sq,
+               max_row_tangent_impulse_delta_sq, max_row_body_a, max_row_body_b,
+               max_row_feature_id, max_row_is_terrain, dropped_iterations
+        from solver_iteration_summaries
+        where {' and '.join(where)}
+        order by stopping_impulse_delta_sq desc, frame, iteration
+        limit ?
+        """,
+        [*params, convergence_limit],
+    ).fetchall()
+    convergence_stats_row = conn.execute(
+        f"""
+        select count(*) as sample_count,
+               count(distinct frame) as frame_count,
+               max(stopping_impulse_delta_sq) as max_stopping_impulse_delta_sq,
+               max(normal_impulse_delta_sq) as max_normal_impulse_delta_sq,
+               max(tangent_impulse_delta_sq) as max_tangent_impulse_delta_sq,
+               max(max_row_impulse_delta_sq) as max_row_impulse_delta_sq,
+               max(max_row_normal_impulse_delta_sq) as max_row_normal_impulse_delta_sq,
+               max(max_row_tangent_impulse_delta_sq) as max_row_tangent_impulse_delta_sq,
+               sum(normal_changed_rows) as normal_changed_rows,
+               sum(tangent_changed_rows) as tangent_changed_rows,
+               max(dropped_iterations) as max_dropped_iterations
+        from solver_iteration_summaries
+        where {' and '.join(where)}
+        """,
+        params,
+    ).fetchone()
+
     return {
         "cache": cache,
         "run": run_id,
         "stats": stats,
         "timeline": rows_to_dicts(sample_rows(rows, args.limit or DEFAULT_LIMIT)),
+        "convergenceStats": row_to_dict(convergence_stats_row) or {},
+        "convergenceWorst": rows_to_dicts(convergence_rows),
         "note": None if rows else "Dedicated solver_stats rows are not present for this trace yet.",
         "relatedQueries": ["contacts --top impulse", "contacts --top penetration", "frame <frame>"],
     }

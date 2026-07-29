@@ -7,7 +7,8 @@
 //   Most tests feed one deterministic terrain manifold directly into
 //   PhysicsContactSolverStage. The box sleep test additionally exercises exact
 //   object narrowphase so support classification is checked on real manifold
-//   geometry without running a full PhysicsEngine frame.
+//   geometry without running a full PhysicsEngine frame. Convergence cases pin
+//   the diagnostic cap, replay exclusion, and a normal-row saturation cause.
 //
 // Glossary:
 //   Contact row: Solver constraint row that applies one normal impulse and two
@@ -23,6 +24,8 @@
 //     sleep eligibility through an object stack.
 //   Solver step policy: Once-per-solve normalized contact limits shared by
 //     object and terrain rows.
+//   Convergence trace: Bounded per-iteration attribution of the solver's
+//     stopping metric.
 //
 // Invariants:
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
@@ -31,11 +34,13 @@
 //     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS records on the doctest stack.
 //   - Raw stamped settings normalize once at the solver boundary; direct value
 //     tests pin every lower and upper bound used by contact rows.
+//   - Diagnostic samples observe solver work but never enter replay state.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
 //   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+//   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -324,11 +329,12 @@ struct SolverFixture
         solver.RestoreReplayState( snapshot );
     }
 
-    void Solve()
+    void Solve( bool collectConvergenceDiagnostics = true )
     {
         worldForces.gravity = config.worldForces.gravity;
         diagnostics.BeginStep( bodyStore.Count() );
-        const auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
+        auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
+        policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
         solver.Solve( bodyStore, colliderStore, policy, candidatePairs, sleepState, sleepSupportEdges,
                       terrainContactManifolds, terrainRestApplied, sleepSupportedThisFrame, diagnostics, kSolverDt,
                       nullptr );
@@ -393,6 +399,52 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     CHECK( policy.terrainBaumgarteBeta == settings.terrain.baumgarteBeta );
     CHECK( policy.maxBaumgarteBias == settings.terrain.maxBaumgarteBias );
     CHECK( policy.iterations == settings.solver.iterations );
+}
+
+
+TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and outside replay state" )
+{
+    SkullbonezCore::Physics::PersistentContactConvergenceTrace trace;
+    SkullbonezCore::Physics::PersistentContactIterationDiagnostics sample;
+
+    for ( std::size_t iteration = 0u;
+          iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u; ++iteration )
+    {
+        sample.iteration = static_cast<int>( iteration + 1u );
+        trace.Append( sample );
+    }
+
+    REQUIRE( trace.Samples().size() == SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY );
+    CHECK( trace.DroppedIterationCount() == 3u );
+    CHECK( trace.Samples().front().iteration == 1 );
+    CHECK( trace.Samples().back().iteration ==
+           static_cast<int>( SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY ) );
+
+    SolverFixture source;
+    source.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
+    source.AddTerrainContact( 0, 42u, 0.05f );
+    source.Solve();
+    REQUIRE_FALSE( source.solver.GetConvergenceTrace().Samples().empty() );
+
+    PhysicsSolverSnapshot snapshot;
+    source.solver.CaptureReplayState( snapshot );
+    SolverFixture restored;
+    restored.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
+    restored.AddTerrainContact( 0, 7u, 0.05f );
+    restored.Solve();
+    REQUIRE_FALSE( restored.solver.GetConvergenceTrace().Samples().empty() );
+    restored.solver.RestoreReplayState( snapshot );
+
+    // Invariant: convergence rows describe one live solve; replay owns neither
+    // their values nor their retention. Restore clears any stale live trace.
+    CHECK( restored.solver.GetConvergenceTrace().Samples().empty() );
+    CHECK( restored.solver.GetConvergenceTrace().DroppedIterationCount() == 0u );
+
+    SolverFixture disabled;
+    disabled.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
+    disabled.AddTerrainContact( 0, 9u, 0.05f );
+    disabled.Solve( false );
+    CHECK( disabled.solver.GetConvergenceTrace().Samples().empty() );
 }
 
 
@@ -915,6 +967,52 @@ TEST_CASE( "Persistent contact solver: restitution suppression follows exact res
     // resting-cache reach. Vertical box edge-only support is excluded; this
     // lateral thin box contact is admitted and suppresses restitution after
     // cached load.
+}
+
+
+TEST_CASE( "Persistent contact solver: object support chain exposes honest normal-row non-convergence" )
+{
+    constexpr float contactOverlap = 0.02f;
+    constexpr int dynamicBoxCount = 3;
+    SolverFixture fixture;
+    fixture.config.solver.slop = 0.0f;
+    fixture.config.solver.baumgarteBeta = 0.2f;
+    fixture.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
+
+    for ( int bodyIndex = 1; bodyIndex <= dynamicBoxCount; ++bodyIndex )
+    {
+        const float height = static_cast<float>( bodyIndex ) * ( 2.0f - contactOverlap );
+        fixture.AddBox( Vector3( 0.0f, height, 0.0f ), 0.0f, false );
+        fixture.candidatePairs.emplace_back( bodyIndex - 1, bodyIndex );
+    }
+
+    fixture.Solve();
+
+    const auto samples = fixture.solver.GetConvergenceTrace().Samples();
+    REQUIRE( samples.size() == static_cast<std::size_t>( fixture.config.solver.iterations ) );
+    CHECK( fixture.solver.GetConvergenceTrace().DroppedIterationCount() == 0u );
+    CHECK( samples.front().stoppingImpulseDeltaSq > samples.back().stoppingImpulseDeltaSq );
+
+    const auto& finalIteration = samples.back();
+
+    // Invariant: this aligned object-only chain has negligible tangent demand.
+    // If it reaches the configured cap, a single normal row still exceeds the
+    // broad stopping threshold; the cap is honest non-convergence, not merely
+    // the sum of many individually quiet rows or stale terrain/friction work.
+    CHECK( finalIteration.iteration == fixture.config.solver.iterations );
+    CHECK( finalIteration.stoppingImpulseDeltaSq > 1.0e-6f );
+    CHECK( finalIteration.maxRowImpulseDeltaSq > 1.0e-6f );
+    CHECK( finalIteration.maxRowNormalImpulseDeltaSq > 1.0e-6f );
+    CHECK( finalIteration.maxRowTangentImpulseDeltaSq < 1.0e-6f );
+    CHECK( finalIteration.normalImpulseDeltaSq ==
+           doctest::Approx( finalIteration.stoppingImpulseDeltaSq ).epsilon( 0.00001 ) );
+    CHECK( finalIteration.tangentImpulseDeltaSq < 1.0e-6f );
+    CHECK( finalIteration.normalChangedRowCount > 0 );
+    CHECK( finalIteration.normalImpulseDeltaSq > finalIteration.tangentImpulseDeltaSq * 1000.0f );
+    CHECK_FALSE( finalIteration.maxRowIsTerrain );
+    CHECK( finalIteration.maxRowBodyA >= 0 );
+    CHECK( finalIteration.maxRowBodyB >= 0 );
+    CHECK( fixture.solver.GetStats().solverIterations == fixture.config.solver.iterations );
 }
 
 

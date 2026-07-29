@@ -11,6 +11,8 @@ Summary:
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
+  Convergence trace: Per-iteration solver summary that attributes the stopping
+    metric without retaining every contact-row update.
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
 
@@ -19,10 +21,13 @@ Invariants:
     byte-exact physics CSV validation artifact.
   - Frame emission samples retained physics diagnostics; it does not mutate the
     solver, contacts, sleep islands, or spatial grid.
+  - Convergence output is capped by the solver-owned trace; this writer cannot
+    request or allocate additional iteration history.
 
 Related:
   - SkullbonezSource/Physics/Diagnostics/SkullScope.h
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullScope.h"
@@ -176,6 +181,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     // counters and paths, never solver containers.
     const auto& persistentContacts = physicsDiagnostics.persistentContacts;
     const auto& persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
+    const auto& persistentContactConvergenceTrace = physicsDiagnostics.persistentContactConvergenceTrace;
     const auto& sleepIslandParent = physicsDiagnostics.sleepIslandParent;
     const auto& sleepSupportedThisFrame = physicsDiagnostics.sleepSupportedThisFrame;
     const auto& sleepInhibitedThisFrame = physicsDiagnostics.sleepInhibitedThisFrame;
@@ -415,6 +421,24 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                  persistentContactSolverStats.cacheMisses, persistentContactSolverStats.warmStartedRows,
                  persistentContactSolverStats.positionCorrectionRows, persistentContactSolverStats.positionCorrectionTotal,
                  persistentContactSolverStats.positionCorrectionMax, persistentContactSolverStats.solverIterations );
+
+    for ( const Physics::PersistentContactIterationDiagnostics& iteration : persistentContactConvergenceTrace.Samples() )
+    {
+        SkullbonezCore::Core::Log()
+            .Writef( m_physicsDiagnosticsPath,
+                     "{\"kind\":\"solver_iteration_summary\",\"run\":\"%s\",\"frame\":%d,\"iteration\":%d,"
+                     "\"stopping_impulse_delta_sq\":%.9g,\"normal_impulse_delta_sq\":%.9g,"
+                     "\"tangent_impulse_delta_sq\":%.9g,\"normal_changed_rows\":%d,\"tangent_changed_rows\":%d,"
+                     "\"max_row_impulse_delta_sq\":%.9g,\"max_row_normal_impulse_delta_sq\":%.9g,"
+                     "\"max_row_tangent_impulse_delta_sq\":%.9g,\"max_row_body_a\":%d,\"max_row_body_b\":%d,"
+                     "\"max_row_feature_id\":%u,\"max_row_is_terrain\":%s,\"dropped_iterations\":%zu}\n",
+                     m_physicsDiagnosticsRunId, frame, iteration.iteration, iteration.stoppingImpulseDeltaSq,
+                     iteration.normalImpulseDeltaSq, iteration.tangentImpulseDeltaSq, iteration.normalChangedRowCount,
+                     iteration.tangentChangedRowCount, iteration.maxRowImpulseDeltaSq, iteration.maxRowNormalImpulseDeltaSq,
+                     iteration.maxRowTangentImpulseDeltaSq, iteration.maxRowBodyA, iteration.maxRowBodyB,
+                     iteration.maxRowFeatureId, iteration.maxRowIsTerrain ? "true" : "false",
+                     persistentContactConvergenceTrace.DroppedIterationCount() );
+    }
 
     {
         const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );

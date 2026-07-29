@@ -21,6 +21,8 @@ Glossary:
   Wake access: Narrow synchronous capability that can invalidate cache rows
     without exposing the contact-solver owner to the sleep subsystem.
   Warm start: Reuse of last tick's accumulated contact impulses.
+  Convergence trace: Fixed-capacity live diagnostic history for PGS stopping
+    metrics; it is not replay state.
 
 Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
@@ -33,12 +35,15 @@ Invariants:
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
   - Wake propagation receives only a cache-invalidation capability, never the
     concrete contact-solver owner.
+  - At most 64 convergence samples survive one solve; excess iterations are
+    counted, and replay capture never copies the trace.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 */
 #pragma once
 
@@ -211,6 +216,9 @@ class PersistentContactSolveTransaction
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
+    template <bool CollectConvergenceDiagnostics>
+    void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                              const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity );
     void SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                     const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity,
                     Core::Profiler* profiler );
@@ -283,6 +291,7 @@ class PhysicsContactSolverStage
     PersistentContactCacheList m_persistentContactCache { "PhysicsContactSolverStage.persistentContactCache",
                                                           PhysicsCapacityReason::PersistentContacts };
     PersistentContactSolverStats m_persistentContactSolverStats;
+    PersistentContactConvergenceTrace m_persistentContactConvergenceTrace;
     PersistentContactCountList m_persistentContactCounts { "PhysicsContactSolverStage.persistentContactCounts",
                                                            PhysicsCapacityReason::SceneBodies };
     PersistentContactCountList m_persistentRestingContactCounts { "PhysicsContactSolverStage.persistentRestingContactCounts",
@@ -317,6 +326,7 @@ class PhysicsContactSolverStage
     std::span<const PersistentContact> GetPersistentContacts() const;
     std::span<const PersistentContactCacheEntry> GetPersistentContactCache() const;
     const PersistentContactSolverStats& GetStats() const;
+    const PersistentContactConvergenceTrace& GetConvergenceTrace() const;
     std::span<const uint16_t> GetPersistentContactCounts() const;
     std::span<const uint16_t> GetPersistentRestingContactCounts() const;
     const PersistentContactSolverSideEffects& GetSideEffects() const;
