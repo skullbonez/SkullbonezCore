@@ -2,7 +2,7 @@
 
 Date: 2026-07-10
 
-Status: Blocked — 5/6 phases complete; V3 requires organization-owned GitHub merge-queue infrastructure
+Status: Blocked — 5/6 phases complete; V3 requires an eligible GitHub organization destination and a real merge-queue run
 
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
@@ -66,6 +66,9 @@ Current external audit (2026-07-30):
   to an eligible organization (or a future GitHub availability change), then
   merge-queue enablement and one real queued-PR proof. Repository rules also
   prohibit creating or merging that proof PR without explicit user direction.
+  A continuation audit found zero organization memberships for the
+  authenticated owner, so no existing transfer destination can be selected
+  safely.
 
 ## Goal
 
@@ -140,7 +143,9 @@ Separate validation by capability rather than by historical script:
   post-merge/informational. The only V3 acceptance item left is a real
   `merge_group` proof, but GitHub rejects merge-queue enablement because this
   public repository is user-owned rather than organization-owned. Transfer to
-  an eligible organization or wait for GitHub availability to change, then
+  an eligible organization or wait for GitHub availability to change. The
+  authenticated owner currently has zero organization memberships, so first
+  create or join an organization that can receive the repository; then
   explicitly authorize creation/enqueue of a proof PR. Current evidence and
   the exact external boundary are recorded in
   `Agentic/Reports/validation_ci_v3_20260710.md`.

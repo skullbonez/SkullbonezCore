@@ -345,7 +345,10 @@ disabled `Block Delete & Force Push` ruleset was untouched, and the repository
 still reports zero `merge_group` runs.
 
 V3 remains blocked at 5/6 solely on the real `merge_group` proof. The exact
-unblock is: transfer the repository to an eligible organization (or wait for
-GitHub to expand feature availability), enable the merge queue on `main`, then
-explicitly authorize creation and enqueue of a proof pull request. Creating or
-merging that PR remains outside current authority.
+unblock is: create or join an eligible organization that can receive the
+repository, transfer it there (or wait for GitHub to expand feature
+availability), enable the merge queue on `main`, then explicitly authorize
+creation and enqueue of a proof pull request. The authenticated owner currently
+reports zero organization memberships, so there is no existing transfer
+destination to select. Creating an organization, transferring the repository,
+and creating or merging that PR remain outside current authority.
