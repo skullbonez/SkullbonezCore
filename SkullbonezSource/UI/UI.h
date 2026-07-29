@@ -55,16 +55,7 @@ Related:
 #include "UISceneNavigationModel.h"
 #include "UIState.h"
 #include "UIDrawList.h"
-#include "UITabBar.h"
-#include "UITabCinematic.h"
-#include "UITabControls.h"
-#include "UITabEditor.h"
-#include "UITabMemory.h"
-#include "UITabOptions.h"
-#include "UITabPhysics.h"
 #include "UITabProfiler.h"
-#include "UITabScene.h"
-#include "UITabSky.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
 

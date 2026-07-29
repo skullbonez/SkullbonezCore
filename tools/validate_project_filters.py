@@ -202,6 +202,7 @@ PHYSICS_DIAGNOSTICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
+    "PhysicsDiagnosticsView",
     "SkullScope",
 )
 

@@ -185,6 +185,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsView.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>

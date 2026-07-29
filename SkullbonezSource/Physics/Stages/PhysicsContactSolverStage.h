@@ -48,6 +48,7 @@ Related:
 
 #include "../PersistentContactSolver.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsDiagnosticsView.h"
 #include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsStageCapacity.h"
@@ -70,59 +71,6 @@ struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
 class PhysicsStepDiagnostics;
-
-struct PersistentContact
-{
-
-    // One solver row for one contact point. bodyB == -1 means static terrain.
-    // Accumulated impulses are cache-sensitive and validation-sensitive.
-    int bodyA = -1;
-    int bodyB = -1;
-    uint32_t featureId = 0;
-    int64_t key = 0;
-    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 tangent1 = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rB = Math::Vector::ZERO_VECTOR;
-    float penetration = 0.0f;
-    float normalMass = 0.0f;
-    float tangentMass1 = 0.0f;
-    float tangentMass2 = 0.0f;
-    float bias = 0.0f;
-    float frictionLimit = 0.0f;
-    float accN = 0.0f;
-    float accT1 = 0.0f;
-    float accT2 = 0.0f;
-    bool warmStarted = false;
-    bool isTerrain = false;
-    bool supportsRestingPolicy = true;
-    bool allowsTangentFriction = true;
-    bool normalCoupledFriction = false;
-    bool inhibitsSleep = false;
-    uint8_t manifoldPointCount = 1;
-    Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
-    float terrainWarmStart = 0.0f;
-
-    // Captured before impulses so diagnostics can reject force-transfer
-    // rows that had no actual relative impact motion.
-    float preSolveNormalSpeed = 0.0f;
-    float preSolveClosingSpeed = 0.0f;
-    float preSolveSlipSpeed = 0.0f;
-};
-
-struct PersistentContactSolverStats
-{
-    int rowCount = 0;
-    int cachePreviousRows = 0;
-    int cacheHits = 0;
-    int cacheMisses = 0;
-    int warmStartedRows = 0;
-    int positionCorrectionRows = 0;
-    int solverIterations = 0;
-    float positionCorrectionTotal = 0.0f;
-    float positionCorrectionMax = 0.0f;
-};
 
 using PersistentContactList = PhysicsFixedList<PersistentContact, PHYSICS_MAX_CONTACT_ROWS>;
 using PersistentContactCacheList = PhysicsFixedList<PersistentContactCacheEntry, PHYSICS_MAX_CONTACT_ROWS>;

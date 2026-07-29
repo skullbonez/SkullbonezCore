@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (IC0 complete)
+State: In progress (IC0-IC2 complete)
 Ledger tasks: 4 (IC0-IC3)
 Branch: `nightrunner-29th-JUL-26`
 PR: TBD
@@ -111,7 +111,7 @@ before steady gameplay.
 - [x] IC1 — Convert every classified consumer to `PhysicsApi.h`, adding any
   missing descriptor or query value to that header rather than widening a
   consumer's include set. Zero behavior change.
-- [ ] IC2 — Break the selected chain edge and reduce `UI.h`'s eleven tab
+- [x] IC2 — Break the selected chain edge and reduce `UI.h`'s ten tab
   includes to what the composer actually needs at declaration scope. Zero
   behavior change.
 - [ ] IC3 — Closure. Re-measure closure counts and rebuild time, confirm
@@ -135,7 +135,7 @@ initial overly literal storage-owner classification: 27 files invoke or
 implement the concrete engine contract and keep its header; six value-only
 consumers move to `PhysicsApi.h`.
 
-IC2 will break `PhysicsEngine.h -> PhysicsWorld.h` with the existing
+IC2 breaks `PhysicsEngine.h -> PhysicsWorld.h` with the existing
 owner-boundary `std::unique_ptr` lifetime pattern. `PhysicsEngine` retains
 authority and dereferences once per public operation; no per-body or per-pair
 loop gains a pointer chase. The edge removes all sixteen stage headers and
@@ -177,6 +177,43 @@ locations resolved the local evidence drift. Comment audit is 8/8 touched
 source files with zero deferred. No baseline, golden, config, schema,
 allocation allowlist, or committed runtime artifact changed.
 
+## IC2 Evidence
+
+`PhysicsEngine` still owns the cohesive `PhysicsWorld`, now through one
+fixed-size `unique_ptr` created with the engine and destroyed out of line.
+Every public operation crosses that owner pointer once before solver work; no
+body or pair loop gained a pointer chase. `PhysicsEngine.h` no longer reaches
+`PhysicsWorld.h`, its sixteen stage headers, or `SpatialGrid.h`.
+
+The diagnostics surface is a concrete value contract in
+`PhysicsDiagnosticsView.h`, not a forwarding or forward-declaration umbrella.
+It owns the published persistent-contact records, solver statistics, and
+borrowed view shape. `PhysicsWorld` and its contact-solver stage consume that
+same Physics-owned contract. The project/filter metadata classifies the header
+under Physics diagnostics.
+
+The original plan text counted eleven direct `UITab*.h` includes in `UI.h`;
+the implementation census found ten. `UITabProfiler.h` is the one declaration
+dependency because `InGameUIFrameData` stores profiler values. The other nine
+direct tab includes are removed. `UIWindowInteractionOwner.h` remains the
+honest concrete interaction-owner dependency; no second indirection convention
+was introduced.
+
+The allocation-policy checker initially rejected the new `make_unique` site.
+Its exact owner row now records one `PhysicsWorld` allocation per engine during
+caller-controlled startup or registered Replay-prediction construction. The
+first fast-gate attempt found formatter normalization in `PhysicsEngine.cpp`;
+the next found the new header missing from the separate semantic filter-rule
+table. Both local findings were repaired, and the final
+`tools\validate_fast.bat` passes with formatting, 788/788 project/filter items,
+current dependency proof, allocation policy, all ownership inventories,
+Profile/Debug builds, and the complete fast test set.
+
+Comment audit is 7/7 IC2 source-bearing files with zero deferred. No physics,
+replay, screenshot, config, schema, or runtime artifact changed. The allocation
+allowlist gained only the exact fixed-size PhysicsEngine owner row described
+above.
+
 ## Acceptance
 
 - The count of TUs above 200 headers falls from 17. Report the exact new
@@ -211,10 +248,23 @@ allocation allowlist, or committed runtime artifact changed.
 
 ## Comment-Audit Checklist
 
-Populate from `git diff --name-only` at IC3; the touched set is not knowable
-before IC0 classifies the 33 includers. Seed entries:
+The cumulative IC1-IC2 source-bearing inventory is exact at fifteen files:
 
-- [ ] `SkullbonezSource/Physics/PhysicsApi.h`
-- [ ] `SkullbonezSource/Runtime/App/Run.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.h`
-- [ ] `SkullbonezSource/UI/UI.h`
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsView.h`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.h`
+- [x] `SkullbonezSource/Physics/PhysicsWorld.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h`
+- [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp`
+- [x] `SkullbonezSource/UI/UI.h`
+- [x] `tools/validate_project_filters.py`
+
+IC3 must reconcile this list against the plan-start-to-final tracked diff before
+closure reporting.

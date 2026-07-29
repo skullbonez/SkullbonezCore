@@ -40,16 +40,19 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
 #include "ColliderStore.h"
 #include "BuoyancySystem.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsDiagnosticsSink.h"
+#include "PhysicsDiagnosticsView.h"
 #include "PhysicsObjectPolicy.h"
 #include "PhysicsRuntimeSettings.h"
+#include "PhysicsSolverSnapshot.h"
 #include "PhysicsStageCapacity.h"
-#include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 
 namespace SkullbonezCore
@@ -80,11 +83,14 @@ struct PhysicsPointJointUpdateDesc;
 struct PhysicsRayCastDesc;
 struct PhysicsRayCastHit;
 struct PhysicsMaterial;
+struct ExternalForceFrameInput;
+class PhysicsWorld;
 
 class PhysicsEngine
 {
   public:
     PhysicsEngine();
+    ~PhysicsEngine();
     PhysicsEngine( const PhysicsEngine& ) = delete;
     PhysicsEngine& operator=( const PhysicsEngine& ) = delete;
     PhysicsEngine( PhysicsEngine&& ) = delete;
@@ -263,7 +269,10 @@ class PhysicsEngine
     void ValidatePhysicsStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                           // Deterministic solver and debug state over body-store records.
+    // Lifetime: this fixed-size owner allocation is created and destroyed with
+    // PhysicsEngine. Public operations cross the pointer once; hot body/pair
+    // loops execute entirely inside PhysicsWorld and never pointer-chase it.
+    std::unique_ptr<PhysicsWorld> m_world;
     PhysicsBodyRowList<PhysicsBodyCreateDesc>
         m_authoredBodyDescs { "PhysicsEngine.m_authoredBodyDescs",
                               PhysicsCapacityReason::SceneBodies }; // Cold descriptors keyed by scene/model order.
