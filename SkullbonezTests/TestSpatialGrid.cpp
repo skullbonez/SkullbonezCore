@@ -24,8 +24,9 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
-//   - SceneLoad reservation fixes persistent-entry and pair-dedup backing;
-//     BeginFrame and Clear() retain both capacity and recorded high-water.
+//   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
+//     and Clear retain backing/high-water; additional admission also preserves
+//     existing persistent membership and generation state.
 //
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
@@ -138,7 +139,7 @@ ColliderStore& CeilingColliderStore()
 } // namespace
 
 
-TEST_CASE( "SpatialGrid: scene reserve sizes persistent and pair storage from admitted bodies" )
+TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its owning ceiling" )
 {
     auto grid = std::make_unique<SpatialGrid>( 10.0f );
 
@@ -150,7 +151,14 @@ TEST_CASE( "SpatialGrid: scene reserve sizes persistent and pair storage from ad
 
     CHECK( grid->GetPersistentEntryCapacity() == 28u );
     CHECK( grid->GetPairDedupWordCapacity() == 1u );
-    CHECK( grid->CollectDynamicMemoryBytes() == 28u * 40u + sizeof( uint64_t ) );
+    CHECK( grid->GetBodyMembershipCapacity() == 3u );
+    CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
+    CHECK( grid->GetCandidatePairNodeCapacity() == 12u );
+    CHECK( grid->GetCandidatePairSortKeyCapacity() == 12u );
+    CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
+    CHECK( grid->GetCellObjectSeenCapacity() == 3u );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 83360u );
 
     const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
     const auto findRow = [capacityRows]( const char* ownerName )
@@ -158,16 +166,72 @@ TEST_CASE( "SpatialGrid: scene reserve sizes persistent and pair storage from ad
         return std::find_if( capacityRows.begin(), capacityRows.end(), [ownerName]( const auto& row )
                              { return row.ownerName && std::strcmp( row.ownerName, ownerName ) == 0; } );
     };
-    const auto entriesRow = findRow( "SpatialGrid.entries" );
-    const auto pairSeenRow = findRow( "SpatialGrid.pairSeen" );
-    REQUIRE( entriesRow != capacityRows.end() );
-    REQUIRE( pairSeenRow != capacityRows.end() );
-    CHECK( std::strcmp( entriesRow->capacityReason,
-                        SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries ) == 0 );
-    CHECK( std::strcmp( pairSeenRow->capacityReason,
-                        SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords ) == 0 );
-    CHECK( entriesRow->currentCapacity == 28 );
-    CHECK( pairSeenRow->currentCapacity == 1 );
+    struct ExpectedOwner
+    {
+        const char* name;
+        const char* reason;
+        int capacity;
+    };
+    const ExpectedOwner expectedOwners[] = {
+        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 28 },
+        { "SpatialGrid.pairSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords, 1 },
+        { "SpatialGrid.bodyMemberships", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridBodyMemberships, 3 },
+        { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,
+          3 },
+        { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes,
+          12 },
+        { "SpatialGrid.candidatePairSortKeys",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys, 12 },
+        { "SpatialGrid.candidatePairSortScratch",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch, 12 },
+        { "SpatialGrid.cellObjectSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCellObjectSeen, 3 },
+        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries,
+          4096 },
+    };
+
+    for ( const ExpectedOwner& expected : expectedOwners )
+    {
+        const auto row = findRow( expected.name );
+        REQUIRE( row != capacityRows.end() );
+        CHECK( std::strcmp( row->capacityReason, expected.reason ) == 0 );
+        CHECK( row->currentCapacity == expected.capacity );
+    }
+}
+
+
+TEST_CASE( "SpatialGrid: additional scene reserve preserves live membership and extends only new dense rows" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    REQUIRE( CandidatePairs( *grid ).size() == 1u );
+    const std::size_t entryHighWater = grid->GetPersistentEntryHighWater();
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 4u );
+    }
+
+    const auto pairsAfterReserve = CandidatePairs( *grid );
+    REQUIRE( pairsAfterReserve.size() == 1u );
+    CHECK( pairsAfterReserve[0] == std::make_pair( 0, 1 ) );
+    CHECK( grid->GetPersistentEntryHighWater() == entryHighWater );
+    CHECK( grid->GetBodyMembershipCapacity() == 4u );
+    CHECK( grid->GetCellObjectSeenCapacity() == 4u );
+
+    grid->BeginFrame( 4 );
+    grid->Insert( 2, Vector3( 25.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 3, Vector3( 26.0f, 5.0f, 5.0f ), 1.0f );
+    CHECK( HasPair( CandidatePairs( *grid ), 2, 3 ) );
 }
 
 
@@ -185,18 +249,24 @@ TEST_CASE( "SpatialGrid: Clear and cell-size reset retain scene backing and high
     grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
     grid->Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
     REQUIRE( CandidatePairs( *grid ).size() == 1u );
+    grid->InsertSwept( 0, Vector3( 5.0f, 5.0f, 5.0f ), Vector3( 20.0f, 0.0f, 0.0f ), 1.0f );
     CHECK( grid->GetPersistentEntryHighWater() == 2u );
     CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetSweptOverlayEntryHighWater() > 0u );
 
     const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
     const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    const std::size_t overlayCapacity = grid->GetSweptOverlayEntryCapacity();
+    const std::size_t overlayHighWater = grid->GetSweptOverlayEntryHighWater();
     grid->Clear();
     grid->SetCellSize( 5.0f );
 
     CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
     CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == overlayCapacity );
     CHECK( grid->GetPersistentEntryHighWater() == 2u );
     CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetSweptOverlayEntryHighWater() == overlayHighWater );
     CHECK( grid->GetActiveCellCount() == 0 );
 }
 
@@ -221,6 +291,13 @@ TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backin
     grid->Insert( 1, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
     const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
     const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    const std::size_t bodyMembershipCapacity = grid->GetBodyMembershipCapacity();
+    const std::size_t candidatePairHeadCapacity = grid->GetCandidatePairHeadCapacity();
+    const std::size_t candidatePairNodeCapacity = grid->GetCandidatePairNodeCapacity();
+    const std::size_t candidatePairSortKeyCapacity = grid->GetCandidatePairSortKeyCapacity();
+    const std::size_t candidatePairSortScratchCapacity = grid->GetCandidatePairSortScratchCapacity();
+    const std::size_t cellObjectSeenCapacity = grid->GetCellObjectSeenCapacity();
+    const std::size_t sweptOverlayEntryCapacity = grid->GetSweptOverlayEntryCapacity();
 
     ResetRuntimeAllocationCounters();
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
@@ -234,6 +311,13 @@ TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backin
     CHECK( violations == 0u );
     CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
     CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetBodyMembershipCapacity() == bodyMembershipCapacity );
+    CHECK( grid->GetCandidatePairHeadCapacity() == candidatePairHeadCapacity );
+    CHECK( grid->GetCandidatePairNodeCapacity() == candidatePairNodeCapacity );
+    CHECK( grid->GetCandidatePairSortKeyCapacity() == candidatePairSortKeyCapacity );
+    CHECK( grid->GetCandidatePairSortScratchCapacity() == candidatePairSortScratchCapacity );
+    CHECK( grid->GetCellObjectSeenCapacity() == cellObjectSeenCapacity );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == sweptOverlayEntryCapacity );
     CHECK( grid->GetMaintenanceStats().removedBodies == 1 );
 }
 
@@ -489,16 +573,7 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
 
     const auto pairs = CandidatePairs( grid );
     const std::vector<std::pair<int, int>> expected = {
-        { 0, 1 },
-        { 0, 2 },
-        { 0, 3 },
-        { 0, 4 },
-        { 1, 2 },
-        { 1, 3 },
-        { 1, 4 },
-        { 2, 3 },
-        { 2, 4 },
-        { 3, 4 },
+        { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 2, 3 }, { 2, 4 }, { 3, 4 },
     };
 
     // Invariant: solver work order is a function of normalized body identity,
@@ -615,9 +690,7 @@ TEST_CASE( "Property invariant: identical sphere insert/query round-trips includ
     for ( int sample = 0; sample < 64; ++sample )
     {
         grid.Clear();
-        const Vector3 center( random.Float( -50.0f, 50.0f ),
-                              random.Float( -50.0f, 50.0f ),
-                              random.Float( -50.0f, 50.0f ) );
+        const Vector3 center( random.Float( -50.0f, 50.0f ), random.Float( -50.0f, 50.0f ), random.Float( -50.0f, 50.0f ) );
         const float radius = sample % 8 == 0 ? 0.0f : random.Float( 0.0f, 4.0f );
 
         grid.Insert( 0, center, radius );

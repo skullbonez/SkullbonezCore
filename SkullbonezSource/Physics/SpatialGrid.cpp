@@ -171,12 +171,30 @@ void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
 
     const std::size_t pairIdentities = bodyCapacity > 1u ? bodyCapacity * ( bodyCapacity - 1u ) / 2u : 0u;
     const std::size_t pairWordCapacity = ( pairIdentities + 63u ) / 64u;
+    const std::size_t candidatePairCapacity = Physics::PhysicsCandidatePairCapacity( bodyCapacity );
 
     // Why: swept occupancy has its own overlay store. The retired additional
     // 4,096 persistent rows duplicated that unrelated ceiling; production's
     // scene-derived cell size bounds ordinary membership to eight cells/body.
     entries.Reserve( persistentEntryCapacity );
     pairSeen.Reserve( pairWordCapacity );
+    bodyMemberships.Reserve( bodyCapacity );
+    candidatePairHeads.Reserve( bodyCapacity );
+    candidatePairNodes.Reserve( candidatePairCapacity );
+    candidatePairSortKeys.Reserve( candidatePairCapacity );
+    candidatePairSortScratch.Reserve( candidatePairCapacity );
+    cellObjectSeen.Reserve( bodyCapacity );
+
+    // Why: swept work has a fixed per-frame safety ceiling rather than a
+    // body-derived formula. It still uses the SceneLoad owner contract so no
+    // steady-step path can acquire backing or Replay growth authority.
+    overlayEntries.Reserve( MAX_SWEPT_CELL_ENTRIES );
+
+    // Lifetime: additional authored-capacity admission can run while existing
+    // bodies retain memberships and generation stamps. Grow only the new dense
+    // suffix; transient staging remains untouched until its owning reset path.
+    bodyMemberships.ExtendDefaultTo( bodyCapacity );
+    cellObjectSeen.ExtendDefaultTo( bodyCapacity );
 }
 
 
@@ -213,9 +231,14 @@ void SpatialGrid::Clear()
 
     // Cold path: scene load, replay restore, or a cell-size change may invalidate
     // every dense-row membership. Steady fixed steps use BeginFrame instead.
-    memset( cellObjectSeen, 0, sizeof( cellObjectSeen ) );
+    std::fill( cellObjectSeen.begin(), cellObjectSeen.end(), 0u );
     entries.clear();
     pairSeen.clear();
+    candidatePairHeads.clear();
+    candidatePairNodes.clear();
+    candidatePairSortKeys.clear();
+    candidatePairSortScratch.clear();
+    overlayEntries.clear();
 
     for ( int bucketIndex = 0; bucketIndex < TABLE_SIZE; ++bucketIndex )
     {
@@ -251,6 +274,14 @@ void SpatialGrid::BeginFrame( int currentObjectCount )
     {
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid frame object count invalid: count=%d capacity=%d.", currentObjectCount,
                   SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
+    const std::size_t frameObjectCount = static_cast<std::size_t>( currentObjectCount );
+
+    if ( frameObjectCount > bodyMemberships.size() )
+    {
+        bodyMemberships.ExtendDefaultTo( frameObjectCount );
+        cellObjectSeen.ExtendDefaultTo( frameObjectCount );
     }
 
     maintenanceStats = MaintenanceStats {};
@@ -701,6 +732,14 @@ void SpatialGrid::MaintainBounds( int index, const Vector3& minBounds, const Vec
         SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds" );
     }
 
+    const std::size_t requiredBodyRows = static_cast<std::size_t>( index + 1 );
+
+    if ( requiredBodyRows > bodyMemberships.size() )
+    {
+        bodyMemberships.ExtendDefaultTo( requiredBodyRows );
+        cellObjectSeen.ExtendDefaultTo( requiredBodyRows );
+    }
+
     const CellRange nextRange = RangeForBounds( index, minBounds, maxBounds, MAX_CELL_ENTRIES );
 
     if ( index >= objectCount )
@@ -762,6 +801,7 @@ void SpatialGrid::ResetSweptOverlay()
     }
 
     overlayEntryCount = 0;
+    overlayEntries.clear();
     overlayActiveBucketCount = 0;
     ++overlayGeneration;
 
@@ -823,17 +863,10 @@ void SpatialGrid::InsertOverlayCell( int index, int ix, int iy, int iz )
         }
     }
 
-    if ( overlayEntryCount >= MAX_SWEPT_CELL_ENTRIES )
-    {
-        SB_FATAL( "Physics/SpatialGrid",
-                  "SpatialGrid swept-overlay capacity exceeded: owner=Physics/SpatialGrid capacity=%d "
-                  "high_water=%d phase=steady_gameplay.",
-                  MAX_SWEPT_CELL_ENTRIES, overlayEntryCount );
-    }
-
-    overlayEntries[overlayEntryCount] = SweptOverlayEntry { index, bucket.overlayHead, ix, iy, iz };
-
-    bucket.overlayHead = overlayEntryCount++;
+    const int overlayEntryIndex = static_cast<int>( overlayEntries.size() );
+    overlayEntries.Append( SweptOverlayEntry { index, bucket.overlayHead, ix, iy, iz } );
+    bucket.overlayHead = overlayEntryIndex;
+    overlayEntryCount = static_cast<int>( overlayEntries.size() );
     ++bucket.overlayCount;
     ++maintenanceStats.sweptOverlayCellsAdded;
 }
@@ -864,7 +897,7 @@ int SpatialGrid::CollectBucketObjects( const Bucket& bucket, int* outIndices, in
 
     if ( cellObjectGeneration == 0 )
     {
-        memset( cellObjectSeen, 0, sizeof( cellObjectSeen ) );
+        std::fill( cellObjectSeen.begin(), cellObjectSeen.end(), 0u );
         cellObjectGeneration = 1;
     }
 
@@ -1204,7 +1237,8 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     // production overload always receives concrete stores and step values.
     outPairs.clear();
     ResetCandidatePairDedup();
-    std::fill_n( candidatePairHeads, objectCount, -1 );
+    candidatePairHeads.ResetFill( static_cast<std::size_t>( objectCount ), -1 );
+    candidatePairNodes.clear();
     int candidatePairNodeCount = 0;
 
     for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
@@ -1260,8 +1294,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 
                 const size_t callerCapacity = outPairs.capacity();
 
-                if ( candidatePairNodeCount >= MAX_CANDIDATE_PAIRS ||
-                     static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
+                if ( static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
                 {
                     SB_FATAL( "Physics/SpatialGrid",
                               "Canonical candidate list exhausted: owner=Physics/SpatialGrid "
@@ -1269,7 +1302,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                               callerCapacity, MAX_CANDIDATE_PAIRS, candidatePairNodeCount );
                 }
 
-                candidatePairNodes[candidatePairNodeCount] = CandidatePairNode { b, candidatePairHeads[a] };
+                candidatePairNodes.Append( CandidatePairNode { b, candidatePairHeads[a] } );
                 candidatePairHeads[a] = candidatePairNodeCount++;
             }
         }
@@ -1277,12 +1310,14 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 
     for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
     {
-        int pairCount = 0;
+        candidatePairSortKeys.clear();
 
         for ( int nodeIndex = candidatePairHeads[minIndex]; nodeIndex != -1; nodeIndex = candidatePairNodes[nodeIndex].next )
         {
-            candidatePairSortKeys[pairCount++] = candidatePairNodes[nodeIndex].maxIndex;
+            candidatePairSortKeys.Append( candidatePairNodes[nodeIndex].maxIndex );
         }
+
+        const int pairCount = static_cast<int>( candidatePairSortKeys.size() );
 
         if ( pairCount == 0 )
         {
@@ -1301,6 +1336,8 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         {
             lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
         }
+
+        candidatePairSortScratch.ResetDefault( static_cast<std::size_t>( pairCount ) );
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
@@ -1356,7 +1393,8 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
     }
 
     ResetCandidatePairDedup();
-    std::fill_n( candidatePairHeads, objectCount, -1 );
+    candidatePairHeads.ResetFill( static_cast<std::size_t>( objectCount ), -1 );
+    candidatePairNodes.clear();
     int candidatePairNodeCount = 0;
 
     for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
@@ -1430,8 +1468,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
                 const size_t callerCapacity = outPairs.capacity();
 
-                if ( candidatePairNodeCount >= MAX_CANDIDATE_PAIRS ||
-                     static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
+                if ( static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
                 {
 
                     // Lane F: growing or dropping the list would respectively
@@ -1442,8 +1479,7 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
                               callerCapacity, MAX_CANDIDATE_PAIRS, candidatePairNodeCount );
                 }
 
-                candidatePairNodes[candidatePairNodeCount] = CandidatePairNode { bIdx, candidatePairHeads[a] };
-
+                candidatePairNodes.Append( CandidatePairNode { bIdx, candidatePairHeads[a] } );
                 candidatePairHeads[a] = candidatePairNodeCount++;
             }
         }
@@ -1455,12 +1491,14 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
     for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
     {
-        int pairCount = 0;
+        candidatePairSortKeys.clear();
 
         for ( int nodeIndex = candidatePairHeads[minIndex]; nodeIndex != -1; nodeIndex = candidatePairNodes[nodeIndex].next )
         {
-            candidatePairSortKeys[pairCount++] = candidatePairNodes[nodeIndex].maxIndex;
+            candidatePairSortKeys.Append( candidatePairNodes[nodeIndex].maxIndex );
         }
+
+        const int pairCount = static_cast<int>( candidatePairSortKeys.size() );
 
         if ( pairCount == 0 )
         {
@@ -1479,6 +1517,8 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
         {
             lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
         }
+
+        candidatePairSortScratch.ResetDefault( static_cast<std::size_t>( pairCount ) );
 
         for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
         {
@@ -1633,5 +1673,9 @@ void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
 
 uint64_t SpatialGrid::CollectDynamicMemoryBytes() const
 {
-    return static_cast<uint64_t>( entries.committed_bytes() + pairSeen.committed_bytes() );
+    return static_cast<uint64_t>( entries.committed_bytes() + overlayEntries.committed_bytes() +
+                                  bodyMemberships.committed_bytes() + pairSeen.committed_bytes() +
+                                  candidatePairHeads.committed_bytes() + candidatePairNodes.committed_bytes() +
+                                  candidatePairSortKeys.committed_bytes() + candidatePairSortScratch.committed_bytes() +
+                                  cellObjectSeen.committed_bytes() );
 }

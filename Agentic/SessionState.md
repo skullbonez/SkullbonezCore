@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-4 are closed and excluded from the live ledger. Plan 5 BC0-BC1 are complete; BC2 next converts the remaining `SpatialGrid` registered-storage targets while retaining the fixed hash topology and accurately labelling the fixed 4,096-row overlay-work ceiling. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 2/21 (10%). Plan 5 is 2/4; plans 6-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-4 are closed and excluded from the live ledger. Plan 5 BC0-BC2 are complete; BC3 next measures exact post-change broadphase commitment, verifies registered Memory-tab rows and replay policy, passes independent review, and runs all mapped closure gates. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 3/21 (14%). Plan 5 is 3/4; plans 6-8 remain. |
+| Validation for broadphase capacity BC2 | The remaining seven `SpatialGrid` arrays now use registered storage: exact admitted body rows, four-per-body candidate staging, and an accurately labelled fixed 4,096-row swept-overlay ceiling. Additional live admission preserves existing membership topology through grow-only suffix construction. Focused checks pass SpatialGrid 20/20 with 8,590 assertions, fixed-list/reserve 21/21, fatal contracts 1/1 with 231, the 2,000-body owner census 1/1 with 6,320, and determinism 3/3 with 30,897. Physics is byte-exact across 44,401 rows. The final unchanged idle performance run passes both lanes with process memory lower by 5.18-6.22 MiB; two earlier runs alternated isolated marginal misses between lanes and did not reproduce. Allocation policy scans 463 files with zero allowlist errors; format, all four ownership inventories, and the 7/7 touched-file comment audit pass. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
 | Validation for broadphase capacity BC1 | `SpatialGrid.entries` and `pairSeen` now reserve registered backing first inside the existing SceneLoad stage boundary. Capacities are `8 * bodies + 4` persistent rows and exact triangular pair words; the duplicated 4,096-row persistent headroom is gone, while compile-time ceilings remain. Clear/cell-size/frame transitions retain backing and high-water, and no Replay privilege exists. Focused checks pass 19/19 SpatialGrid cases with 8,545 assertions, fatal contracts 1/1 with 221, reserve allocator 20/20 with 212, determinism, and the 2,000-body owner census with 5,648 assertions. Physics remains byte-exact across 44,401 rows and performance passes. Format, complexity 40/40 at 400/6, aggregates 85/85, the one unrelated ruled extraction scar, and all 12+ signatures pass. Comment audit is 7/7 touched files. No baseline, golden, config, schema, allowlist, or runtime artifact changed. |
 | Broadphase capacity BC0 census | Documentation-only: Debug, Profile, and Release all measure `SpatialGrid` as 8,535,792 bytes with 8-byte alignment. Current commitment is identical at 300, 4,000, and 8,192 admitted bodies: 8,535,792 bytes for one grid and 17,071,584 for live plus Replay prediction. Arrays targeted for registered storage are 7,913,120 bytes and the retained inline topology/state core is 622,672. The exact SceneLoad reservation chain and cold-clear/frame-begin interactions are recorded. `overlayEntries` is a fixed 4,096-row transient-work ceiling rather than an honest body-count formula. Evidence: `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`. No source, baseline, golden, schema, config, or runtime artifact changed; no repository validation was required. |
 | Validation for collision-hull closure | Canonical resolved-path plus exact authored-scale identity reduces the three acceptance scenes from 911,352 to 387,504 committed hull bytes, saving 523,848 bytes (57.4803%). The 18-run/42,120-frame matrix measures no material object-manifold timing change. Deep Physics, idle-machine performance, the single authoritative Replay visual run, and full validation pass; full reports 441/441 tests and 2,420,993 assertions with byte-exact Physics. Comment audit is 18/18 and independent review closes with zero blockers after three raw-log references were corrected. No baseline, golden, config, schema, allowlist, or committed runtime artifact changed. Evidence: `Agentic/Reports/2026-07-29/collision-hull-shape-instancing-closure.md`. |
@@ -60,10 +61,10 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 2/21 (10%). Plans 1-4 are
-closed and excluded under rule 4. Plan 5 BC0-BC1 are complete. BC2 is the
-binding next item and converts the remaining registered-storage targets while
-retaining fixed hash topology and the fixed overlay-work ceiling. Plans 5-8 remain
+The Fresh-Read Engine Review Campaign is active at 3/21 (14%). Plans 1-4 are
+closed and excluded under rule 4. Plan 5 BC0-BC2 are complete. BC3 is the
+binding next item and measures exact commitment, verifies owner telemetry and
+Replay policy, completes independent review, and runs closure gates. Plans 5-8 remain
 sequenced, with only plans 7 and 8 authorized to move baselines under their
 plan-specific owner conditions.
 
@@ -770,8 +771,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 2/21 (10%) with Plan 5
-`Agentic/Plans/TODO/broadphase-capacity-right-sizing.md`, task BC2. BC0
-measurement evidence remains in
+Continue the Fresh-Read Engine Review Campaign at 3/21 (14%) with Plan 5
+`Agentic/Plans/TODO/broadphase-capacity-right-sizing.md`, task BC3. BC0
+before-measurement evidence remains in
 `Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
-MASTER and SessionState agree on the 2/21 live ledger.
+MASTER and SessionState agree on the 3/21 live ledger.

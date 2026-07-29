@@ -97,10 +97,12 @@ claimed.
   required. The runtime capacities are the triangular pair-word count and
   `8 * bodyCapacity + 4` persistent rows; the historical additional 4,096
   persistent rows are removed because swept occupancy has its own store.
-- [ ] BC2 — Convert the remaining scene-sized members: `bodyMemberships`,
+- [x] BC2 — Convert the remaining scene-sized members: `bodyMemberships`,
   `candidatePairHeads`, `cellObjectSeen`, `candidatePairNodes`,
   `candidatePairSortKeys`, `candidatePairSortScratch`, `overlayEntries`.
-  Byte-exact required.
+  Byte-exact required. Body-indexed rows reserve the admitted body count,
+  candidate staging reserves `PhysicsCandidatePairCapacity(bodyCapacity)`, and
+  swept overlay reserves its accurately labelled fixed 4,096-row ceiling.
 - [ ] BC3 — Closure. Report before/after committed bytes at all three scene
   sizes and for the prediction engine, confirm the memory-tab capacity rows
   reflect the new owners, audit comments, pass independent review, and run every
@@ -162,6 +164,42 @@ using the bounded-owner `ResetDefault` API resolved the local policy issue
 without a semantic or capacity change. No baseline, golden, config, schema,
 allowlist, or committed runtime artifact changed.
 
+## BC2 Evidence
+
+The remaining seven arrays now use registered `PhysicsFixedList` backing.
+`bodyMemberships`, `candidatePairHeads`, and `cellObjectSeen` reserve the exact
+admitted body count. Candidate nodes, sort keys, and sort scratch reserve
+`PhysicsCandidatePairCapacity(bodyCapacity)`, currently four rows per admitted
+body. `overlayEntries` reserves its fixed 4,096-row transient swept-work
+ceiling and reports that reason explicitly rather than presenting it as a body
+multiplier. All nine grid owners contribute their committed backing to
+`CollectDynamicMemoryBytes`.
+
+Additional authored-capacity admission exposed a live-state hazard during
+review: resetting `bodyMemberships` inside `ReserveSceneCapacity` would detach
+existing bodies from retained entry chains. The final implementation uses a
+grow-only default extension that preserves the admitted prefix and constructs
+only the new suffix; reservation does not reset transient staging. A focused
+two-to-four-body test proves the existing 0-1 pair remains after reserve and a
+new 2-3 pair can then be admitted. Another focused fatal probe exhausts the
+4,096-row overlay and verifies the exact owner, requested capacity, runtime and
+compile ceilings, high-water, and Physics phase.
+
+Profile-focused coverage passes SpatialGrid 20/20 cases with 8,590 assertions,
+the fixed-list/reserve suite 21/21, runtime fatal contracts 1/1 with 231
+assertions, the exact 2,000-body owner census 1/1 with 6,320 assertions, and the
+determinism-name subset 3/3 with 30,897 assertions.
+`tools\validate_physics.bat` remains byte-exact across 44,401 rows.
+`tools\validate_perf.bat` passes unchanged on the final idle run, with DX12
+process memory lower by 5.44-6.22 MiB and Physics-bench process memory lower by
+5.18-5.54 MiB. Two earlier runs alternated isolated marginal misses between
+DX12 Physics (+23.1% against 22%) and aggregate Physics-bench frame (+17.9%
+against 15%); neither reproduced in the other run and both lanes passed
+together on the third unchanged run. Allocation policy scans 463 files with
+zero allowlist errors, and format plus all four ownership inventories pass.
+No baseline, golden, config, schema, allowlist, or committed runtime artifact
+changed.
+
 ## Dependencies
 
 - `broadphase-canonical-order-guard` should close first. Both plans touch
@@ -201,6 +239,6 @@ allowlist, or committed runtime artifact changed.
 - [ ] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h`
 - [x] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
 - [x] `SkullbonezTests/TestSpatialGrid.cpp`
-- [ ] `SkullbonezTests/TestReserveAllocator.cpp`
+- [x] `SkullbonezTests/TestReserveAllocator.cpp`
 - [x] `SkullbonezTests/TestRuntimeContracts.cpp`
 - [x] `SkullbonezTests/TestPhysicsHandles.cpp`

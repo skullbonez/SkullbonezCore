@@ -40,7 +40,7 @@
 //     scene capacity, owns an independent collider graph after source
 //     destruction, retains a per-test terrain owner through both engine
 //     lifetimes, and advances identical seeded state bit-for-bit.
-//   - The exact reserve census includes both SpatialGrid retained owners and
+//   - The exact reserve census includes every registered SpatialGrid owner and
 //     rejects any unregistered growth or capacity-reporting row.
 //
 // Related:
@@ -961,9 +961,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 96 );
+    REQUIRE( eventCount == 102 );
 #else
-    REQUIRE( eventCount == 93 );
+    REQUIRE( eventCount == 99 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -1001,6 +1001,12 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
         { "SpatialGrid.entries", 16004 },
         { "SpatialGrid.pairSeen", 31235 },
+        { "SpatialGrid.bodyMemberships", 2000 },
+        { "SpatialGrid.candidatePairHeads", 2000 },
+        { "SpatialGrid.candidatePairNodes", 8000 },
+        { "SpatialGrid.candidatePairSortKeys", 8000 },
+        { "SpatialGrid.candidatePairSortScratch", 8000 },
+        { "SpatialGrid.cellObjectSeen", 2000 },
 #if defined( _DEBUG )
         { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
         { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
@@ -1072,12 +1078,13 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries },
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 100 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 107 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 97 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 104 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1145,9 +1152,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 101 );
+    CHECK( physicsCapacityRowCount == 108 );
 #else
-    CHECK( physicsCapacityRowCount == 98 );
+    CHECK( physicsCapacityRowCount == 105 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );

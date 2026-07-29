@@ -466,9 +466,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
-                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
-                                                                                          "Fatal probe for unrelated Replay growth authority" } );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+            { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+              RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+              "Fatal probe for unrelated Replay growth authority" } );
 
         const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
             RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
@@ -617,7 +618,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
+            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -651,7 +653,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -691,6 +694,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "spatial-grid-nan" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 8u );
+        }
         grid.Insert( 7, Vector3( std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f ), 1.0f );
         return true;
     }
@@ -698,6 +705,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "spatial-grid-extent" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 12u );
+        }
         grid.Insert( 11, Vector3( SpatialGrid::MAX_WORLD_COORDINATE + 1.0f, 0.0f, 0.0f ), 1.0f );
         return true;
     }
@@ -742,6 +753,22 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "spatial-grid-overlay-entry-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 2u );
+        }
+
+        grid.BeginFrame( 2 );
+        RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
+        grid.InsertSwept( 0, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2047.0f, 0.0f, 0.0f ), 0.0f );
+        grid.InsertSwept( 1, Vector3( 5000.25f, 0.25f, 0.25f ), Vector3( 2050.0f, 0.0f, 0.0f ), 0.0f );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
         static SpatialGrid grid( 1.0f );
@@ -777,7 +804,8 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -973,20 +1001,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back( [threadIndex, path, writesPerThread]()
-                              {
+        threads.emplace_back(
+            [threadIndex, path, writesPerThread]()
+            {
+                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                {
+                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
 
-                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                                  {
-                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
-
-                                      if ( writeIndex % 16 == 0 )
-                                      {
-                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                                              threadIndex, writeIndex );
-                                      }
-                                  }
-                              } );
+                    if ( writeIndex % 16 == 0 )
+                    {
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                            threadIndex, writeIndex );
+                    }
+                }
+            } );
     }
 
     for ( std::thread& thread : threads )
@@ -1225,6 +1253,10 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=13",
                        "runtime_capacity=12", "compile_capacity=69636", "high_water=12", "phase=physics" } );
 
+    ExpectFatalCase( "spatial-grid-overlay-entry-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.overlayEntries", "requested=4097",
+                       "runtime_capacity=4096", "compile_capacity=4096", "high_water=4096", "phase=physics" } );
+
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
 
@@ -1302,8 +1334,7 @@ TEST_CASE( "Persistent contact solve transaction enforces every phase edge throu
             const bool emptyInput = fromIndex == entryIndex && toIndex == completeIndex;
             const bool emptyRows = fromIndex == terrainRowsIndex && toIndex == completeIndex;
             const bool expected = adjacent || emptyInput || emptyRows;
-            CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) ==
-                   expected );
+            CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
 
             // Count is a sentinel and cannot become the cursor's current state.
 

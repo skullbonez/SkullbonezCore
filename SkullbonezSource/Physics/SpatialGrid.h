@@ -40,8 +40,8 @@ Invariants:
     Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
-  - Persistent-entry and pair-dedup backing is reserved under SceneLoad,
-    retained across cold clears, and never grows during fixed-step work.
+  - Every scene-sized store is reserved under SceneLoad, retained across cold
+    clears, and never grows during fixed-step work.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -212,20 +212,31 @@ class SpatialGrid
     int overlayActiveBuckets[TABLE_SIZE];
     Physics::PhysicsFixedList<Entry, MAX_CELL_ENTRIES>
         entries { "SpatialGrid.entries", Physics::PhysicsCapacityReason::SpatialGridPersistentEntries };
-    SweptOverlayEntry overlayEntries[MAX_SWEPT_CELL_ENTRIES];
-    BodyMembership bodyMemberships[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    Physics::PhysicsFixedList<SweptOverlayEntry, MAX_SWEPT_CELL_ENTRIES>
+        overlayEntries { "SpatialGrid.overlayEntries", Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries };
+    Physics::PhysicsFixedList<BodyMembership, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        bodyMemberships { "SpatialGrid.bodyMemberships", Physics::PhysicsCapacityReason::SpatialGridBodyMemberships };
     Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
                                                                Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
 
-    // Canonical pair staging is fixed storage owned by the grid. Cell traversal
-    // may discover pairs in any bucket/list order, but emission is always sorted
-    // by normalized body identity before narrowphase sees it.
-    int candidatePairHeads[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
-    CandidatePairNode candidatePairNodes[MAX_CANDIDATE_PAIRS];
-    int candidatePairSortKeys[MAX_CANDIDATE_PAIRS];
-    int candidatePairSortScratch[MAX_CANDIDATE_PAIRS];
+    // Canonical pair staging is scene-reserved storage owned by the grid. Cell
+    // traversal may discover pairs in any bucket/list order, but emission is
+    // always sorted by normalized body identity before narrowphase sees it.
+    Physics::PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        candidatePairHeads { "SpatialGrid.candidatePairHeads",
+                             Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads };
+    Physics::PhysicsFixedList<CandidatePairNode, MAX_CANDIDATE_PAIRS>
+        candidatePairNodes { "SpatialGrid.candidatePairNodes",
+                             Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes };
+    Physics::PhysicsFixedList<int, MAX_CANDIDATE_PAIRS>
+        candidatePairSortKeys { "SpatialGrid.candidatePairSortKeys",
+                                Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys };
+    Physics::PhysicsFixedList<int, MAX_CANDIDATE_PAIRS>
+        candidatePairSortScratch { "SpatialGrid.candidatePairSortScratch",
+                                   Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch };
     uint32_t cellObjectGeneration;
-    uint32_t cellObjectSeen[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    Physics::PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        cellObjectSeen { "SpatialGrid.cellObjectSeen", Physics::PhysicsCapacityReason::SpatialGridCellObjectSeen };
     MaintenanceStats maintenanceStats;
 
     int FindBucket( int64_t key ) const;
@@ -291,9 +302,9 @@ class SpatialGrid
 
     SpatialGrid( float fCellSize );
 
-    // SceneLoad-only sizing for the two scene-derived stores migrated in BC1.
-    // The compile-time ceilings remain larger so future evidence can change a
-    // runtime formula without changing supported scene limits.
+    // SceneLoad-only sizing for every scene-derived store. The compile-time
+    // ceilings remain larger so future evidence can change a runtime formula
+    // without changing supported scene limits.
     void ReserveSceneCapacity( std::size_t bodyCapacity );
 
     // Cold reset for scene load, replay restore, and cell-size changes.
@@ -366,6 +377,38 @@ class SpatialGrid
     std::size_t GetPairDedupWordHighWater() const
     {
         return pairSeen.high_water();
+    }
+    std::size_t GetBodyMembershipCapacity() const
+    {
+        return bodyMemberships.capacity();
+    }
+    std::size_t GetCandidatePairHeadCapacity() const
+    {
+        return candidatePairHeads.capacity();
+    }
+    std::size_t GetCandidatePairNodeCapacity() const
+    {
+        return candidatePairNodes.capacity();
+    }
+    std::size_t GetCandidatePairSortKeyCapacity() const
+    {
+        return candidatePairSortKeys.capacity();
+    }
+    std::size_t GetCandidatePairSortScratchCapacity() const
+    {
+        return candidatePairSortScratch.capacity();
+    }
+    std::size_t GetCellObjectSeenCapacity() const
+    {
+        return cellObjectSeen.capacity();
+    }
+    std::size_t GetSweptOverlayEntryCapacity() const
+    {
+        return overlayEntries.capacity();
+    }
+    std::size_t GetSweptOverlayEntryHighWater() const
+    {
+        return overlayEntries.high_water();
     }
     uint64_t CollectDynamicMemoryBytes() const;
     void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
