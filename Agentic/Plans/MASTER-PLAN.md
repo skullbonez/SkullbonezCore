@@ -1097,10 +1097,10 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 3/7
-(43%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
-`box-vibration-and-warm-start-integrity`, continuing with BV3's staged terrain
-warm-start seed retirement.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 4/7
+(57%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
+`box-vibration-and-warm-start-integrity`, continuing with BV4's controlled
+convergence re-measurement.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
@@ -2598,7 +2598,7 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 3/7 | BV2 complete: current-tip SAT axis-type hysteresis cuts wall face/edge churn 92.77%, preserves strict same-family selection, keeps the controlled metric at zero flips/one iteration, and leaves cumulative baseline regeneration deferred; continue BV3 |
+| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 4/7 | BV3 complete: fixed terrain seed scales and impulse floors are gone; row-derived cache-miss support, honest terrain friction, shoreline caching, 462 passing unit cases, and inspected cumulative divergence are recorded without regenerating baselines; continue BV4 |
 
 ### Plan 8 Ordering Consequences
 

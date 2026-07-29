@@ -326,6 +326,7 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     settings.body.contactRestitutionThreshold = 0.9f;
 
     PhysicsWorldForces worldForces;
+    worldForces.gravity = 12.5f;
     worldForces.mutualGravity.enabled = true;
     worldForces.mutualGravity.elasticCollisions = true;
     auto policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
@@ -342,6 +343,9 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     CHECK( policy.nonNegativeSleepAngularSpeed == 0.0f );
     CHECK( policy.rawContactRestitutionThreshold == settings.body.contactRestitutionThreshold );
     CHECK( policy.contactRestitutionThreshold == 0.0f );
+    CHECK( policy.gravityAcceleration.x == 0.0f );
+    CHECK( policy.gravityAcceleration.y == worldForces.gravity );
+    CHECK( policy.gravityAcceleration.z == 0.0f );
 
     settings.solver.slop = 0.15f;
     settings.solver.baumgarteBeta = 0.25f;
@@ -372,21 +376,37 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( first.solver.GetStats().cachePreviousRows == 0 );
     CHECK( first.solver.GetStats().cacheMisses == 1 );
     CHECK( first.solver.GetPersistentContactCache()[0].accN > 0.0f );
+    PhysicsSolverSnapshot reducedCache;
+    first.solver.CaptureReplayState( reducedCache );
+    REQUIRE( reducedCache.persistentContactCache.size() == 1u );
+    reducedCache.persistentContactCache[0].accN *= 0.25f;
+    reducedCache.persistentContactCache[0].accT1 = 0.0f;
+    reducedCache.persistentContactCache[0].accT2 = 0.0f;
+    const float reducedCachedNormalImpulse = reducedCache.persistentContactCache[0].accN;
 
     SolverFixture second;
     second.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
     second.AddTerrainContact( 0, 42u, 0.05f );
-    second.CopySolverStateFrom( first );
+    second.solver.RestoreReplayState( reducedCache );
     second.Solve();
 
     CHECK( second.solver.GetStats().cachePreviousRows == 1 );
     CHECK( second.solver.GetStats().cacheHits == 1 );
     CHECK( second.solver.GetStats().warmStartedRows == 1 );
     CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
+    REQUIRE( second.solver.GetPersistentContacts().size() == 1u );
+    CHECK( second.solver.GetPersistentContacts()[0].terrainWarmStart > reducedCachedNormalImpulse );
+
+    const auto& pipeline = second.solver.GetSideEffects().pipelineRecords;
+    const auto warmStart = std::find_if(
+        pipeline.begin(), pipeline.end(), []( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+        { return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart && record.featureId == 42u; } );
+    REQUIRE( warmStart != pipeline.end() );
+    CHECK( warmStart->scalarB == doctest::Approx( reducedCachedNormalImpulse ).epsilon( 0.00001 ) );
 }
 
 
-TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame resting sink" )
+TEST_CASE( "Persistent contact solver: terrain row uses row-derived first-touch support instead of a fixed weight seed" )
 {
     SolverFixture fixture;
     fixture.config.solver.iterations = 1;
@@ -399,15 +419,43 @@ TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame re
     const auto& contact = fixture.solver.GetPersistentContacts()[0];
     const float expectedWeightImpulse = fixture.bodyStore.Records()[0].mass * gravityStepSpeed;
     CHECK( contact.terrainWarmStart == doctest::Approx( expectedWeightImpulse ).epsilon( 0.00001 ) );
+    CHECK( contact.accN == doctest::Approx( expectedWeightImpulse ).epsilon( 0.00001 ) );
     CHECK( fixture.solver.GetStats().warmStartedRows == 1 );
+    CHECK( fixture.solver.GetPersistentContactCounts()[0] == 1u );
     CHECK( fixture.terrainRestApplied[0] == 1u );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] >= -0.00001f );
 }
 
 
-TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bob without becoming cached support" )
+TEST_CASE( "Persistent contact solver: terrain first-touch load is shared across every body contact row" )
 {
-    constexpr float shorelineScale = 0.35f;
+    SolverFixture fixture;
+    fixture.config.solver.iterations = 1;
+    const float gravityStepSpeed = fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -gravityStepSpeed, 0.0f ) );
+    fixture.AddTerrainContact( 0, 511u, 0.0f );
+    fixture.AddTerrainContact( 0, 512u, 0.0f );
+    fixture.Solve();
+
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 2u );
+    CHECK( fixture.solver.GetPersistentContactCounts()[0] == 2u );
+    const float expectedTotalImpulse = fixture.bodyStore.Records()[0].mass * gravityStepSpeed;
+    const float expectedRowImpulse = expectedTotalImpulse * 0.5f;
+    float totalFirstTouchImpulse = 0.0f;
+
+    for ( const auto& contact : fixture.solver.GetPersistentContacts() )
+    {
+        CHECK( contact.terrainWarmStart == doctest::Approx( expectedRowImpulse ).epsilon( 0.00001 ) );
+        totalFirstTouchImpulse += contact.terrainWarmStart;
+    }
+
+    CHECK( totalFirstTouchImpulse == doctest::Approx( expectedTotalImpulse ).epsilon( 0.00001 ) );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] >= -0.00001f );
+}
+
+
+TEST_CASE( "Persistent contact solver: shoreline rows cache row-derived impulses without becoming sleep support" )
+{
     constexpr float tiltedEdgeRadians = 0.75f;
     const float tiltedBoxCenterY = cosf( tiltedEdgeRadians ) + sinf( tiltedEdgeRadians );
 
@@ -455,7 +503,7 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     SolverFixture shoreline;
     shoreline.config.solver.iterations = 1;
     const float gravityStepSpeed = fabsf( shoreline.config.worldForces.gravity ) * kSolverDt;
-    const float shorelineResidualSpeed = gravityStepSpeed * shorelineScale;
+    const float shorelineResidualSpeed = gravityStepSpeed * 0.35f;
     TerrainContactManifold shorelineManifold = buildUnsupportedTerrainEdge( shoreline, shorelineResidualSpeed );
 
     PhysicsTerrainStage terrainStage;
@@ -481,23 +529,23 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
     shoreline.Solve();
 
     REQUIRE( shoreline.solver.GetPersistentContacts().size() == shorelineManifold.pointCount );
-    const float expectedShorelineImpulse = shoreline.bodyStore.Records()[0].mass * shorelineResidualSpeed;
-    float shorelineWarmStart = 0.0f;
+    float solvedNormalImpulse = 0.0f;
 
     for ( const auto& contact : shoreline.solver.GetPersistentContacts() )
     {
-        shorelineWarmStart += contact.terrainWarmStart;
-        CHECK( contact.terrainWarmStart ==
-               doctest::Approx( expectedShorelineImpulse / static_cast<float>( shorelineManifold.pointCount ) )
-                   .epsilon( 0.00001 ) );
+        solvedNormalImpulse += contact.accN;
+        CHECK( contact.terrainWarmStart > 0.0f );
+        CHECK( contact.accN >= 0.0f );
     }
 
-    CHECK( shorelineWarmStart == doctest::Approx( expectedShorelineImpulse ).epsilon( 0.00001 ) );
+    CHECK( solvedNormalImpulse > 0.0f );
     CHECK( shoreline.solver.GetStats().warmStartedRows == shorelineManifold.pointCount );
-    CHECK( shoreline.solver.GetPersistentContactCache().empty() );
+    CHECK( shoreline.solver.GetStats().cacheMisses == shorelineManifold.pointCount );
+    REQUIRE( shoreline.solver.GetPersistentContactCache().size() == shorelineManifold.pointCount );
+    CHECK( shoreline.solver.GetPersistentContactCounts()[0] == shorelineManifold.pointCount );
     CHECK( shoreline.terrainRestApplied[0] == 0u );
     const float shorelineFinalVerticalVelocity = shoreline.bodyStore.HotFields().linearVelocityY[0];
-    CHECK( fabsf( shorelineFinalVerticalVelocity ) <= 0.0002f );
+    CHECK( fabsf( shorelineFinalVerticalVelocity ) <= shorelineResidualSpeed * 0.085f );
 
     const auto& shorelinePipeline = shoreline.solver.GetSideEffects().pipelineRecords;
     const auto
@@ -510,48 +558,57 @@ TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bo
                                                       record.iteration == 0;
                                            } );
     REQUIRE( shorelineIteration != shorelinePipeline.end() );
-    CHECK( fabsf( shorelineIteration->scalarA ) <= 0.00001f );
+    CHECK( shorelineIteration->scalarA == 0.0f );
 
-    SolverFixture unseeded;
-    unseeded.config.solver.iterations = 1;
-    TerrainContactManifold unseededManifold = buildUnsupportedTerrainEdge( unseeded, shorelineResidualSpeed );
-    unseededManifold.inhibitsSleep = false;
-    unseeded.terrainContactManifolds.push_back( unseededManifold );
-    unseeded.Solve();
+    SolverFixture cached;
+    cached.config.solver.iterations = 1;
+    TerrainContactManifold cachedManifold = buildUnsupportedTerrainEdge( cached, shorelineResidualSpeed );
+    cached.terrainContactManifolds.push_back( cachedManifold );
+    cached.CopySolverStateFrom( shoreline );
+    cached.Solve();
 
-    REQUIRE( unseeded.solver.GetPersistentContacts().size() == unseededManifold.pointCount );
+    REQUIRE( cached.solver.GetPersistentContacts().size() == cachedManifold.pointCount );
 
-    for ( const auto& contact : unseeded.solver.GetPersistentContacts() )
+    for ( const auto& contact : cached.solver.GetPersistentContacts() )
     {
-        CHECK( contact.terrainWarmStart == 0.0f );
+        CHECK( contact.terrainWarmStart > 0.0f );
+        CHECK( contact.accN >= 0.0f );
     }
 
-    CHECK( unseeded.solver.GetStats().warmStartedRows == 0 );
+    CHECK( cached.solver.GetStats().cachePreviousRows == shorelineManifold.pointCount );
+    CHECK( cached.solver.GetStats().cacheHits == cachedManifold.pointCount );
+    CHECK( cached.solver.GetStats().cacheMisses == 0 );
+    CHECK( cached.solver.GetStats().warmStartedRows == cachedManifold.pointCount );
+    REQUIRE( cached.solver.GetPersistentContactCache().size() == cachedManifold.pointCount );
+    CHECK( cached.solver.GetPersistentContactCounts()[0] == cachedManifold.pointCount );
+    CHECK( cached.terrainRestApplied[0] == 0u );
+    const float cachedFinalVerticalVelocity = cached.bodyStore.HotFields().linearVelocityY[0];
+    CHECK( fabsf( cachedFinalVerticalVelocity ) <= shorelineResidualSpeed * 0.085f );
+    CHECK( fabsf( cachedFinalVerticalVelocity ) < fabsf( shorelineFinalVerticalVelocity ) );
 
-    const auto& unseededPipeline = unseeded.solver.GetSideEffects().pipelineRecords;
+    const auto& cachedPipeline = cached.solver.GetSideEffects().pipelineRecords;
     const auto
-        unseededIteration = std::find_if( unseededPipeline.begin(), unseededPipeline.end(),
-                                          [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-                                          {
-                                              return record.stage ==
-                                                         SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
-                                                     record.featureId == unseededManifold.points[0].featureId &&
-                                                     record.iteration == 0;
-                                          } );
-    REQUIRE( unseededIteration != unseededPipeline.end() );
-    CHECK( unseededIteration->scalarA == 0.0f );
-    const float unseededFinalVerticalVelocity = unseeded.bodyStore.HotFields().linearVelocityY[0];
-    CHECK( unseededFinalVerticalVelocity == doctest::Approx( -shorelineResidualSpeed ).epsilon( 0.00001 ) );
-    CHECK( fabsf( shorelineFinalVerticalVelocity ) < fabsf( unseededFinalVerticalVelocity ) );
+        cachedIteration = std::find_if( cachedPipeline.begin(), cachedPipeline.end(),
+                                        [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+                                        {
+                                            return record.stage ==
+                                                       SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
+                                                   record.featureId == cachedManifold.points[0].featureId &&
+                                                   record.iteration == 0;
+                                        } );
+    REQUIRE( cachedIteration != cachedPipeline.end() );
+    CHECK( cachedIteration->scalarA == 0.0f );
 }
 
 
-TEST_CASE( "Persistent contact solver: terrain seed strength bounds one-iteration three-box stack sink" )
+TEST_CASE( "Persistent contact solver: terrain support variants share row-derived load without first-touch over-push" )
 {
     struct StackMeasurement
     {
         std::array<float, 3> verticalVelocity = {};
-        float terrainWarmStart = 0.0f;
+        float terrainNormalImpulse = 0.0f;
+        float firstTouchEstimate = 0.0f;
+        float gravityStepSpeed = 0.0f;
     };
 
     auto measureStack = []( bool supportsRestingPolicy, bool inhibitsSleep, uint32_t featureId )
@@ -587,7 +644,9 @@ TEST_CASE( "Persistent contact solver: terrain seed strength bounds one-iteratio
         REQUIRE( terrainContact != fixture.solver.GetPersistentContacts().end() );
 
         StackMeasurement result;
-        result.terrainWarmStart = terrainContact->terrainWarmStart;
+        result.terrainNormalImpulse = terrainContact->accN;
+        result.firstTouchEstimate = terrainContact->terrainWarmStart;
+        result.gravityStepSpeed = gravityStepSpeed;
         const auto solvedHotFields = fixture.bodyStore.HotFields();
 
         for ( std::size_t bodyIndex = 0; bodyIndex < result.verticalVelocity.size(); ++bodyIndex )
@@ -602,22 +661,33 @@ TEST_CASE( "Persistent contact solver: terrain seed strength bounds one-iteratio
     const StackMeasurement shoreline = measureStack( false, true, 602u );
     const StackMeasurement zero = measureStack( false, false, 603u );
 
-    CHECK( full.terrainWarmStart > 0.0f );
-    CHECK( shoreline.terrainWarmStart == doctest::Approx( full.terrainWarmStart * 0.35f ).epsilon( 0.00001 ) );
-    CHECK( zero.terrainWarmStart == 0.0f );
+    CHECK( full.firstTouchEstimate > 0.0f );
+    CHECK( shoreline.firstTouchEstimate > 0.0f );
+    CHECK( zero.firstTouchEstimate > 0.0f );
+    CHECK( full.firstTouchEstimate == doctest::Approx( shoreline.firstTouchEstimate ).epsilon( 0.00001 ) );
+    CHECK( shoreline.firstTouchEstimate == doctest::Approx( zero.firstTouchEstimate ).epsilon( 0.00001 ) );
+    CHECK( full.terrainNormalImpulse > 0.0f );
+    CHECK( shoreline.terrainNormalImpulse > 0.0f );
+    CHECK( zero.terrainNormalImpulse > 0.0f );
+    CHECK( full.terrainNormalImpulse == doctest::Approx( shoreline.terrainNormalImpulse ).epsilon( 0.00001 ) );
+    CHECK( shoreline.terrainNormalImpulse == doctest::Approx( zero.terrainNormalImpulse ).epsilon( 0.00001 ) );
+    CHECK( fabsf( full.verticalVelocity[2] ) < full.gravityStepSpeed );
+    CHECK( fabsf( shoreline.verticalVelocity[2] ) < shoreline.gravityStepSpeed );
+    CHECK( fabsf( zero.verticalVelocity[2] ) < zero.gravityStepSpeed );
+    CHECK( full.verticalVelocity[2] <= 0.00001f );
+    CHECK( shoreline.verticalVelocity[2] <= 0.00001f );
+    CHECK( zero.verticalVelocity[2] <= 0.00001f );
+    CHECK( full.firstTouchEstimate == doctest::Approx( 0.1f ).epsilon( 0.00001 ) );
+    CHECK( full.terrainNormalImpulse == doctest::Approx( 0.852343f ).epsilon( 0.00001 ) );
     CHECK( full.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
-    CHECK( full.verticalVelocity[1] == doctest::Approx( -0.249842f ).epsilon( 0.00001 ) );
-    CHECK( full.verticalVelocity[2] == doctest::Approx( 0.011951f ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[1] == doctest::Approx( -0.291092f ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[2] == doctest::Approx( -0.0166234f ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[1] == doctest::Approx( -0.313303f ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[2] == doctest::Approx( -0.0320095f ).epsilon( 0.00001 ) );
-    CHECK( full.verticalVelocity[1] > shoreline.verticalVelocity[1] );
-    CHECK( shoreline.verticalVelocity[1] > zero.verticalVelocity[1] );
-    CHECK( full.verticalVelocity[2] > shoreline.verticalVelocity[2] );
-    CHECK( shoreline.verticalVelocity[2] > zero.verticalVelocity[2] );
+    CHECK( full.verticalVelocity[1] == doctest::Approx( -0.300611f ).epsilon( 0.00001 ) );
+    CHECK( full.verticalVelocity[2] == doctest::Approx( -0.0232174f ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[0] == doctest::Approx( full.verticalVelocity[0] ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[1] == doctest::Approx( full.verticalVelocity[1] ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[2] == doctest::Approx( full.verticalVelocity[2] ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[0] == doctest::Approx( full.verticalVelocity[0] ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[1] == doctest::Approx( full.verticalVelocity[1] ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[2] == doctest::Approx( full.verticalVelocity[2] ).epsilon( 0.00001 ) );
 }
 
 
@@ -643,11 +713,7 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
     const PersistentContactCacheEntry& cached = fixture.solver.GetPersistentContactCache()[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
-    const float terrainWarmStart = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
-                                   kSolverDt;
-
-    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient *
-                                ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
+    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient * cached.accN;
 
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );

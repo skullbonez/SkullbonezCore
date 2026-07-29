@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0-BV2 complete; contact identity stabilized)
+State: In progress (BV0-BV3 complete; terrain seed retired)
 Ledger tasks: 7 (BV0-BV6)
-Branch: nightrunner-29th-JUL-26
+Branch: nightrunner-30th-JUL-26
 PR: TBD
 
 ## Goal
@@ -322,7 +322,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 - [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
 - [x] **BV1** — Suppress restitution on persistent object/object contacts.
 - [x] **BV2** — Stabilize SAT axis-type selection.
-- [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
+- [x] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
 - [ ] **BV4** — Re-measure convergence.
 - [ ] **BV5** — Position-correction divisor.
@@ -431,6 +431,19 @@ Staged:
 Acceptance: `TERRAIN_SHORELINE_SUPPORT_SEED_SCALE` deleted or justified with
 fresh evidence; the 58 assertions in the T3 fixture updated rather than deleted;
 no shoreline bobbing regression.
+
+Completed 2026-07-29. Both fixed terrain seed scales and every
+`max(accN, terrainWarmStart)` floor are deleted. Cache-miss-only first-touch
+support now uses row effective mass, the live signed gravity vector, fixed-step
+duration, and all body contact rows; cache hits always win, terrain friction is
+bounded only by accumulated normal impulse, and touching terrain rows cache
+without acquiring sleep authority. The retained two-point shoreline fixture
+holds residual vertical speed below 8.5% of input, caches both rows, and improves
+again on reuse. The three T3 variants remain and no longer over-push the top
+box. Unit validation passes 462 cases / 2,423,848 assertions. Physics/deep
+Physics stop only at the inspected, deliberately deferred cumulative golden
+transition; no baseline was regenerated. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`.
 
 ### BV4 — Re-measure convergence
 

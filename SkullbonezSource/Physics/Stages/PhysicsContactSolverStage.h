@@ -203,10 +203,9 @@ class PersistentContactSolveTransaction
                          std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState,
                          PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity,
                          Core::Profiler* profiler );
-    void BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                           const PersistentContactSolverStepPolicy& stepPolicy,
+    void BuildTerrainRows( PhysicsContactSolverStage& stage,
                            PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, float dt,
+                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity,
                            Core::Profiler* profiler );
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,

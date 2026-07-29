@@ -78,6 +78,11 @@ struct PersistentContact
     bool inhibitsSleep = false;
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
+
+    // First-touch terrain impulse derived from row effective mass, signed
+    // gravity, and total body contact rows. Cache hits never use this estimate.
+    // The historical member name remains because Replay v2 conversion and
+    // hashing project this diagnostics record directly.
     float terrainWarmStart = 0.0f;
 
     // Captured before impulses so diagnostics can reject force-transfer rows
