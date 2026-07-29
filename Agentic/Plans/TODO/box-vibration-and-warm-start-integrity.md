@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: In progress (BV0-BV2 complete; contact identity stabilized)
+State: In progress (BV0-BV3 complete; terrain warm-start seed retired)
 Ledger tasks: 7 (BV0-BV6)
 Branch: nightrunner-29th-JUL-26
 PR: TBD
@@ -296,10 +296,11 @@ The owner reported visible box vibration on 2026-07-27 and directed on
 gameplay motivation, which is the exact condition the standing MASTER-PLAN entry
 named for revisiting this work.
 
-BV3 therefore supersedes the 2026-07-27 ruling on owner direction. It does not
-overturn it silently: if the owner would rather keep the seed and take only
-BV1/BV2, BV3 can be dropped without affecting the vibration fix, because the
-vibration is caused by object/object restitution and not by the terrain seed.
+BV3 therefore supersedes the 2026-07-27 ruling on owner direction. The owner
+ratified removal on 2026-07-29 after reviewing the staged result, so the earlier
+optional/drop decision is closed. The terrain seed remained separate from the
+object/object vibration cause, but its removal now carries its own measured
+shoreline and cache evidence.
 
 ## Design Constraints
 
@@ -322,7 +323,7 @@ vibration is caused by object/object restitution and not by the terrain seed.
 - [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
 - [x] **BV1** — Suppress restitution on persistent object/object contacts.
 - [x] **BV2** — Stabilize SAT axis-type selection.
-- [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
+- [x] **BV3** — Retire the terrain warm-start seed. Owner-ratified; supersedes a
       prior owner ruling.
 - [ ] **BV4** — Re-measure convergence.
 - [ ] **BV5** — Position-correction divisor.
@@ -432,6 +433,18 @@ Acceptance: `TERRAIN_SHORELINE_SUPPORT_SEED_SCALE` deleted or justified with
 fresh evidence; the 58 assertions in the T3 fixture updated rather than deleted;
 no shoreline bobbing regression.
 
+Completed 2026-07-29. Both terrain seed scales and every fabricated-load use
+were deleted. Terrain friction now uses the solved normal impulse, all touching
+terrain rows may cache their solved impulses, and terrain rows contribute to
+the persistent-contact count. The focused one-row proof converges to the exact
+support load in one iteration, so no replacement first-touch assist was needed.
+The evolved T3 coverage preserves its original 58 assertions and now totals
+266 focused assertions, including multi-row shoreline cache reuse. The
+integrated shoreline fixture reduces visible velocity-sign flips from 8 to 2
+without a bobbing regression, and repeat post-change CSVs are byte-identical.
+Terrain restitution and rolling policy were not changed. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`.
+
 ### BV4 — Re-measure convergence
 
 With BV1-BV3 landed, re-run the wall and the BV0 fixture. If the solver now
@@ -531,6 +544,9 @@ are `solver_stats` aggregates, per-pair feature-id transition counts via
 
 - `Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md`
   — ratified the terrain seed without changing behavior; BV3 supersedes it.
+- `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`
+  — owner-ratified seed retirement, focused proofs, shoreline A/B, and
+  cumulative validation accounting.
 - `Agentic/Audits/physics-solver-catto-reference-audit.md` — finding #6, the
   three live friction models.
 - `Agentic/Reference/physics-query-reference.md` — SkullScope workflow.

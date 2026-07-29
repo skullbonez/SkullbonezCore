@@ -33,8 +33,8 @@ Glossary:
   Friction: Tangent impulse that resists sliding along the contact plane.
   Feature ID: Deterministic contact identifier used to match rows across
     frames for warm starting.
-  Resting footprint: Stable multi-point support patch that can seed sleep and
-  cached support impulses.
+  Resting footprint: Stable multi-point support patch that can grant sleep
+  eligibility and cache solved support impulses.
   Step policy: Once-per-solve normalized view of authored contact bounds used
   by both object and terrain rows.
 
@@ -48,6 +48,7 @@ Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md
 */
 #include "PersistentContactSolver.h"
 
@@ -79,8 +80,6 @@ namespace Vector = SkullbonezCore::Math::Vector;
 namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
-constexpr float TERRAIN_RESTING_SUPPORT_SEED_SCALE = 1.0f;
-constexpr float TERRAIN_SHORELINE_SUPPORT_SEED_SCALE = 0.35f;
 } // namespace
 
 PersistentContactSolverStepPolicy
@@ -729,15 +728,13 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
     }
 }
 
-void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
-                                                          PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState, int modelCount,
-                                                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )
+void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
+                                                          std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
 {
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
     PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BuildTerrainRows" );
 
-    const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     auto canRecordPipeline = [&]() { return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity; };
     auto recordPipeline = [&]( const PhysicsPipelineRecord& record )
     {
@@ -782,34 +779,16 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
             recordPipeline( manifoldRecord );
         }
 
-        // Why: terrain support needs two strengths of warm starting.
+        // Concept: terrain load is solved, never fabricated.
         //
-        // Stable resting footprints get a full gravity-sized seed so a body
-        // already on the ground does not sink before the solver converges.
-        // Shoreline edge contacts are not stable enough for sleep or cached
-        // friction, but they still need a small one-frame support seed;
-        // otherwise a half-wet log or jetty beam falls into the slope, gets
-        // pushed out, and repeats as visible bobbing. This seed is not
-        // written to the persistent cache, so the contact remains wakeable
-        // and cannot become a hidden sleep anchor.
-        //
-        // Invariant: gravityMagnitude is the magnitude of the engine's
-        // vertical -Y gravity, the manifold normal is unit length, and
-        // fabs(normal.y) is its supported fraction. The total weight seed is
-        // projected onto that normal and divided evenly across every point
-        // in the non-empty manifold.
-        //
-        // Hazard: a future non-vertical gravity vector would make that
-        // scalar projection wrong. Directional gravity must replace both
-        // terms together rather than reusing this vertical approximation.
-        const float supportSeedScale = manifold.supportsRestingPolicy
-                                           ? TERRAIN_RESTING_SUPPORT_SEED_SCALE
-                                           : ( manifold.inhibitsSleep ? TERRAIN_SHORELINE_SUPPORT_SEED_SCALE : 0.0f );
-
-        const float warmStartTotal = bodyRecords[static_cast<size_t>( manifold.bodyA )].mass * stepPolicy.gravityMagnitude *
-                                     fabsf( manifold.normal.y ) * dt * supportSeedScale;
-
-        const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
+        // Every touching manifold point becomes an ordinary row whose effective
+        // mass and closing speed determine its normal impulse. Counting each row
+        // alongside object rows gives later per-body policy the complete support
+        // surface instead of silently treating terrain as free extra capacity.
+        // No gravity-sized first-touch assist is needed: the focused one-iteration
+        // fixture solves exact resting weight, while the integrated shoreline
+        // scene remains bounded through real cached impulses. This deliberately
+        // changes the byte-exact Physics baselines.
 
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
@@ -836,8 +815,8 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
             c.inhibitsSleep = manifold.inhibitsSleep;
             c.manifoldPointCount = manifold.pointCount;
             c.terrainNormal = manifold.normal;
-            c.terrainWarmStart = warmStartPerContact;
             stage.m_persistentContacts.push_back( c );
+            ++stage.m_persistentContactCounts[static_cast<std::size_t>( c.bodyA )];
 
             if ( canRecordPipeline() )
             {
@@ -849,7 +828,7 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
                 rowRecord.point = point.point;
                 rowRecord.normal = manifold.normal;
                 rowRecord.scalarA = point.penetration;
-                rowRecord.scalarB = warmStartPerContact;
+                rowRecord.scalarB = 0.0f;
                 rowRecord.scalarC = static_cast<float>( pointIndex );
                 recordPipeline( rowRecord );
             }
@@ -964,13 +943,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         {
             const float terrainSlop = stepPolicy.terrainSlop;
 
-            if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
-            {
-                c.normalMass = 0.0f;
-                c.tangentMass1 = 0.0f;
-                c.tangentMass2 = 0.0f;
-            }
-            else if ( fabsf( vn ) < restitutionThreshold )
+            if ( fabsf( vn ) < restitutionThreshold )
             {
                 float penetrationError = c.penetration - terrainSlop;
 
@@ -1057,12 +1030,15 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
         //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
         //   solved normal force while keeping static friction usable in games.
-        c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
+        // ENGINE-SPECIFIC:
+        //   Stable object footprints retain that constant contact-mass bound.
+        //   Terrain instead uses Coulomb load from its actual accumulated normal
+        //   impulse below; a row earns no friction from a fabricated support floor.
+        c.frictionLimit = ( elasticCollisions || !c.allowsTangentFriction || c.isTerrain )
                               ? 0.0f
-                              : ( c.isTerrain ? stepPolicy.terrainFrictionCoefficient * c.terrainWarmStart
-                                              : ( c.normalCoupledFriction ? 0.0f
-                                                                          : objectFrictionCoeff * contactMass *
-                                                                                stepPolicy.gravityMagnitude * dt ) );
+                              : ( c.normalCoupledFriction
+                                      ? 0.0f
+                                      : objectFrictionCoeff * contactMass * stepPolicy.gravityMagnitude * dt );
 
         // CATTO REF:
         //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -1073,7 +1049,13 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // lookup does not linearly scan every previous-frame contact.
         // Why: warm-start cache is a stack-support tool. In elastic space it
         // can preserve last frame's push and make grazing bodies look glued.
-        const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
+        // Concept: terrain cache admission follows contact truth, not sleep policy.
+        //
+        // A touching shoreline row may not become a sleep anchor, but its solved
+        // impulse is still the honest next-frame warm start. Keeping those decisions
+        // separate removes the fabricated shoreline seed without making edge
+        // contacts rediscover support every tick.
+        const bool canUseCachedWarmStart = ( c.isTerrain || c.supportsRestingPolicy ) && !elasticCollisions;
         auto cachedIt = canUseCachedWarmStart
                             ? std::lower_bound( stage.m_persistentContactCache.begin(), stage.m_persistentContactCache.end(),
                                                 c.key, []( const PersistentContactCacheEntry& entry, int64_t key )
@@ -1088,12 +1070,9 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             c.accT2 = cachedIt->accT2;
             const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                                   ? 0.0f
-                                                  : ( c.isTerrain
-                                                          ? stepPolicy.terrainFrictionCoefficient *
-                                                                ( ( c.accN > c.terrainWarmStart ) ? c.accN
-                                                                                                  : c.terrainWarmStart )
-                                                          : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
-                                                                                      : c.frictionLimit ) );
+                                                  : ( c.isTerrain ? stepPolicy.terrainFrictionCoefficient * c.accN
+                                                                  : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
+                                                                                              : c.frictionLimit ) );
 
             Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
             c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
@@ -1123,11 +1102,9 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
         }
 
-        if ( c.isTerrain && c.terrainWarmStart > c.accN )
-        {
-            c.accN = c.terrainWarmStart;
-            c.warmStarted = c.accN > 0.0f || c.warmStarted;
-        }
+        c.frictionLimit = c.isTerrain && !elasticCollisions && c.allowsTangentFriction
+                              ? stepPolicy.terrainFrictionCoefficient * c.accN
+                              : c.frictionLimit;
 
         if ( c.warmStarted )
         {
@@ -1244,11 +1221,9 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
             c.accT2 = oldAccT2 + lambdaT2;
             const float frictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                             ? 0.0f
-                                            : ( c.isTerrain
-                                                    ? stepPolicy.terrainFrictionCoefficient *
-                                                          ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
-                                                    : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
-                                                                                : c.frictionLimit ) );
+                                            : ( c.isTerrain ? stepPolicy.terrainFrictionCoefficient * c.accN
+                                                            : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN
+                                                                                        : c.frictionLimit ) );
 
             Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
             float deltaT1 = c.accT1 - oldAccT1;
@@ -1779,7 +1754,7 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
 
-        if ( !c.supportsRestingPolicy )
+        if ( !c.isTerrain && !c.supportsRestingPolicy )
         {
             continue;
         }
@@ -1991,8 +1966,8 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     m_solveTransaction.BuildManifolds( *this, bodyStore, colliderStore, stepPolicy, candidatePairs, sleepState,
                                        sleepSupportEdges, modelCount, pipelineRecordCapacity, profiler );
 
-    m_solveTransaction.BuildTerrainRows( *this, bodyStore, stepPolicy, terrainContactManifolds, sleepState, modelCount,
-                                         pipelineRecordCapacity, dt, profiler );
+    m_solveTransaction.BuildTerrainRows( *this, terrainContactManifolds, sleepState, modelCount, pipelineRecordCapacity,
+                                         profiler );
 
     if ( m_persistentContacts.empty() )
     {

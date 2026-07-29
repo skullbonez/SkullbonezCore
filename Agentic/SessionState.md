@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-7 are closed and excluded from the live ledger. Plan 8 `box-vibration-and-warm-start-integrity` is at BV3 after BV2 stabilized SAT contact identity while preserving strict same-family overlap selection and BV1's zero-flip controlled result. |
-| Active/future progress | 3/7 (43%). Plan 8 remains. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-7 are closed and excluded from the live ledger. Plan 8 `box-vibration-and-warm-start-integrity` is at BV4 after BV3 retired the terrain warm-start seed while preserving BV1's zero-flip controlled result and shoreline behavior. |
+| Active/future progress | 4/7 (57%). Plan 8 remains. |
+| Validation for box vibration BV3 | Both terrain fabricated-load scales are deleted; terrain friction and cache reuse now use solved normal impulses, and the focused one-row proof reaches the exact support load in one iteration without a replacement assist. The evolved focused solver filter passes 10 cases / 266 assertions, friction property coverage passes 36/36, the sleep edge passes 10/10, and all 461 unit cases / 2,423,947 assertions pass. The BV0/BV1 controlled metric remains zero flips, zero cap frames, one minimum iteration, and zero cache misses. Shoreline visible velocity-sign flips improve 8→2 without a bobbing regression; repeat post-change CSVs are byte-identical. Physics/deep Physics stop only at planned cumulative golden mismatches; no baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`. |
 | Validation for box vibration BV2 | Current-tip wall frames 400-500 move from 1,604 face/edge switches and 326 reference swaps to 116 and 281; slow-topple columns improve 754/197 to 54/127. The recovered rocking oracle reproduces all 338 failures without BV2, fails 174 assertions at a 5% contact-band margin, and passes at 10%+, while the wall evidence justifies retaining 25%. The BV0/BV1 metric remains zero flips, zero cap frames, one minimum iteration, and zero cache misses; repeat CSVs are byte-identical. Six focused manifold cases / 2,064 assertions and all 461 unit cases / 2,423,809 assertions pass. Physics/deep Physics stop only at the planned cumulative 14,834-line golden mismatch while five deep outputs stay byte-exact. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md`. |
 | Validation for box vibration BV1 | The exact BV0 metric falls 566→0 flips, affected bricks 4→0, cap-bound frames 900→0, and minimum iterations 12→1; repeat Debug CSVs are byte-identical. A focused fresh/persistent object oracle proves cached load falls through to the exact Baumgarte bias. The one-ball terrain-only pre/post CSV is byte-identical. The initial 458-case unit gate passes; the review-added cache-reach oracle passes in the final 10-case / 128-assertion solver filter. Physics/deep Physics reach only the planned stale `physics_regression_varied.csv` mismatch while five deep outputs remain exact; no baseline was regenerated before the cumulative final Debug refresh. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv1.md`. |
 | Validation for box vibration BV0 | `box_vibration_t0.scene.json` records 566 meaningful vertical-velocity flips across four supported bricks over frames 300-1199; all 900 frames hit the 12-iteration cap. Repeat Debug CSVs are byte-identical. Focused manifold/solver oracles, Physics, deep Physics, all 457 unit cases / 2,422,070 assertions, and the full gate pass without baseline movement. The exact query, current line/key map, cumulative oracle list, and SkullScope accounting are in `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv0-t0.md`. |
@@ -74,8 +75,8 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 3/7 (43%). Plans 1-7 are
-closed and excluded under rule 4. Plan 8 BV0-BV2 are complete; BV3 is the
+The Fresh-Read Engine Review Campaign is active at 4/7 (57%). Plans 1-7 are
+closed and excluded under rule 4. Plan 8 BV0-BV3 are complete; BV4 is the
 binding next task. Plan 8 alone remains authorized to move physics baselines under its
 explicit bounded-divergence conditions.
 
@@ -782,11 +783,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 3/7 (43%) with Plan 8
-`Agentic/Plans/TODO/box-vibration-and-warm-start-integrity.md`, task BV3.
-BV2's current-tip feature/key proof, 92.77% wall face/edge-churn reduction,
-recovered rocking oracle, strict same-family oracle, zero-flip controlled
-result, deterministic repeat CSV, and deferred cumulative baseline transition
-are permanent in
-`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md`.
-MASTER and SessionState agree on the 3/7 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 4/7 (57%) with Plan 8
+`Agentic/Plans/TODO/box-vibration-and-warm-start-integrity.md`, task BV4.
+BV3's owner-ratified terrain-seed retirement, exact one-iteration support proof,
+multi-row shoreline cache reuse, 8→2 visible sign-flip result, preserved
+zero-flip controlled metric, deterministic repeat CSV, and deferred cumulative
+baseline transition are permanent in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`.
+MASTER and SessionState agree on the 4/7 live ledger.
