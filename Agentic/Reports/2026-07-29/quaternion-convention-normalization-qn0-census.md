@@ -1,8 +1,8 @@
 # Quaternion Convention Normalization QN0 Census
 
-Date: 2026-07-29  
-Branch: `nightrunner-29th-JUL-26`  
-Task: QN0  
+Date: 2026-07-29
+Branch: `nightrunner-29th-JUL-26`
+Task: QN0
 Decision: **PROCEED**
 
 ## Owner Checkpoint
