@@ -105,6 +105,12 @@ std::string BuildOverCapacityTornadoScene()
     scene += "]}}";
     return scene;
 }
+
+std::string BuildVersionedQuaternionScene( uint32_t version )
+{
+    return std::string( R"({"format":"skullbonez.scene.json","version":)" ) + std::to_string( version ) +
+           R"(,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":12,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0.25,-0.5,0.75,-1],"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
 } // namespace
 
 
@@ -244,6 +250,44 @@ TEST_CASE( "AuthoredSceneParser: malformed JSON reports recoverable load failure
                                                  "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [" );
     AuthoredScene scene;
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, malformed.path, scene ), malformed.path, "Invalid JSON" );
+}
+
+TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the scene boundary" )
+{
+    SUBCASE( "legacy schema is conjugated into canonical memory" )
+    {
+        const TemporaryMalformedSceneFile legacy( "unit_scene_parser_legacy_quaternion.scene.json",
+                                                  BuildVersionedQuaternionScene( 2 ) );
+        const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, legacy.path );
+        REQUIRE( scene.GetBallStateCount() == 1 );
+        const auto& body = scene.GetBallState( 0 );
+        CHECK( body.orientX == doctest::Approx( -0.25f ) );
+        CHECK( body.orientY == doctest::Approx( 0.5f ) );
+        CHECK( body.orientZ == doctest::Approx( -0.75f ) );
+        CHECK( body.orientW == doctest::Approx( -1.0f ) );
+    }
+
+    SUBCASE( "current schema is already canonical" )
+    {
+        const TemporaryMalformedSceneFile current( "unit_scene_parser_current_quaternion.scene.json",
+                                                   BuildVersionedQuaternionScene( 3 ) );
+        const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, current.path );
+        REQUIRE( scene.GetBallStateCount() == 1 );
+        const auto& body = scene.GetBallState( 0 );
+        CHECK( body.orientX == doctest::Approx( 0.25f ) );
+        CHECK( body.orientY == doctest::Approx( -0.5f ) );
+        CHECK( body.orientZ == doctest::Approx( 0.75f ) );
+        CHECK( body.orientW == doctest::Approx( -1.0f ) );
+    }
+
+    SUBCASE( "future schema fails closed" )
+    {
+        const TemporaryMalformedSceneFile future( "unit_scene_parser_future_quaternion.scene.json",
+                                                  BuildVersionedQuaternionScene( 4 ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, future.path, scene ), future.path,
+                          "Unsupported scene schema version: 4" );
+    }
 }
 
 

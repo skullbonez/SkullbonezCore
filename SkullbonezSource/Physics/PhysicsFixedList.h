@@ -71,7 +71,7 @@ inline constexpr char
     ColliderHandleSlots[] = "Maximum of exact scene collider count and retained collider handle-slot high-water";
 inline constexpr char SphereColliders[] = "Exact scene sphere-collider count";
 inline constexpr char BoxColliders[] = "Exact scene box-collider count";
-inline constexpr char HullColliders[] = "Exact scene convex-hull-collider count";
+inline constexpr char HullColliders[] = "Distinct shareable plus explicitly unique scene convex-hull variant count";
 inline constexpr char PointJoints[] = "Exact authored and ragdoll point-joint count";
 inline constexpr char CandidatePairs[] = "Minimum of the scene body pair count and the compile-time candidate-pair ceiling";
 inline constexpr char
@@ -79,6 +79,17 @@ inline constexpr char
 inline constexpr char PipelineRecords[] = "Fixed 4096-record physics pipeline trace ceiling";
 inline constexpr char CollisionVisualBodies[] = "Two body references per bounded candidate pair";
 inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
+inline constexpr char SpatialGridPersistentEntries
+    [] = "Eight cells per scene body plus a fixed 32-row spill covering the measured 19-row oversized-shape excess";
+inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
+inline constexpr char SpatialGridBodyMemberships[] = "Exact scene body count for persistent broadphase membership";
+inline constexpr char SpatialGridCandidatePairHeads[] = "Exact scene body count for canonical candidate-pair head rows";
+inline constexpr char SpatialGridCellObjectSeen[] = "Exact scene body count for per-cell dedup generation stamps";
+inline constexpr char SpatialGridCandidatePairNodes[] = "Four canonical candidate-pair nodes per scene body";
+inline constexpr char SpatialGridCandidatePairSortKeys[] = "Four canonical candidate-pair sort-key rows per scene body";
+inline constexpr char
+    SpatialGridCandidatePairSortScratch[] = "Four canonical candidate-pair radix-sort scratch rows per scene body";
+inline constexpr char SpatialGridSweptOverlayEntries[] = "Fixed 4096-row transient swept broadphase occupancy ceiling";
 inline constexpr char ExplicitTestCapacity[] = "Explicit unit-test fixed-list capacity";
 } // namespace PhysicsCapacityReason
 
@@ -281,6 +292,42 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         resize( 0u );
     }
 
+    void ResetDefault( std::size_t count )
+    {
+
+        // Why: runtime phase owners need to replace a working set without
+        // exposing an STL-growth spelling or bypassing this list's capacity
+        // check, construction, destruction, and high-water accounting.
+        clear();
+        resize( count );
+    }
+
+    void ResetFill( std::size_t count, const T& value )
+    {
+
+        // Why: runtime owners replace bounded working sets without exposing
+        // STL-growth vocabulary that would obscure the fixed-list policy.
+        assign( count, value );
+    }
+
+    void ExtendDefaultTo( std::size_t count )
+    {
+        CheckCapacity( count );
+
+        // Why: additional scene admission may enlarge indexed owner storage
+        // while live rows still carry authoritative state. Construct only the
+        // newly admitted suffix; shrinking or resetting the prefix here would
+        // detach parallel stores from their stable body identities.
+
+        while ( m_count < count )
+        {
+            new ( RawSlot( m_count ) ) T();
+            ++m_count;
+        }
+
+        TrackHighWater();
+    }
+
     void resize( std::size_t count )
     {
         CheckCapacity( count );
@@ -355,6 +402,16 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         new ( RawSlot( m_count ) ) T( std::move( value ) );
         ++m_count;
         TrackHighWater();
+    }
+
+    void Append( const T& value )
+    {
+        push_back( value );
+    }
+
+    void Append( T&& value )
+    {
+        push_back( std::move( value ) );
     }
 
     template <typename... Args> T& emplace_back( Args&&... args )
@@ -596,14 +653,15 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     [[noreturn]] void FailCapacityExceeded( std::size_t requested, const char* ceiling ) const
     {
+        const char* phaseName = SkullbonezCore::Core::Allocation::RuntimeReservePhaseName( SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase() );
         std::fprintf( stderr,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
-                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
-                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling, phaseName );
         std::fprintf( stdout,
                       "FATAL: PhysicsFixedList capacity exceeded owner=%s requested=%zu runtime_capacity=%zu "
-                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s.\n",
-                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling );
+                      "compile_capacity=%zu count=%zu high_water=%zu ceiling=%s phase=%s.\n",
+                      m_ownerName, requested, m_runtimeCapacity, Capacity, m_count, m_highWater, ceiling, phaseName );
         std::fflush( stderr );
         std::fflush( stdout );
         assert( false && "PhysicsFixedList capacity exceeded" );

@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - Preflight and commit must use matching geometry decisions.
   - Placement names and model order are replay-visible and must stay stable.
+  - Hull sharing is published only for geometry copied from a known base asset
+    and scaled once in canonical X/Y/Z order.
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
@@ -39,7 +41,6 @@ Related:
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/ConvexHullShape.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../UI/UITabEditor.h"
@@ -58,6 +59,7 @@ using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::Math::Vector::Vector3;
 using Json = SkullbonezCore::Runtime::EditorPlacementJson;
 
@@ -91,13 +93,15 @@ void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, b
 }
 } // namespace
 
-PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution )
+PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution,
+                                                  HullShapeIdentity hullIdentity = {} )
 {
 
     // Why: placement commit already owns the primitive geometry selected by the
     // editor. Pass that value into physics at append time so the collider store
     // receives exact shape facts without a legacy object record readback.
-    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
+    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ), nullptr,
+                                   std::move( hullIdentity ) );
 }
 
 
@@ -379,7 +383,8 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         addModel( std::move( model ),
                   MakeEditorBodyDesc( scaledHull, center, hullOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
                                       Vector3( 0.0f, 0.0f, 0.0f ), scaledHull.ComputeBoxApproxInertia( mass ), mass, 0.25f ),
-                  MakeEditorColliderDesc( scaledHull, 0.25f ), placementFixed );
+                  MakeEditorColliderDesc( scaledHull, 0.25f, MakeShareableHullShapeIdentity( path, placementScale ) ),
+                  placementFixed );
     };
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
@@ -443,7 +448,10 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
             bodyDesc.releasesFromFixedOnContact = part.contactReleaseOnImpact;
             bodyDesc.contactReleaseImpulseThreshold = part.contactReleaseImpulseThreshold;
 
-            if ( !addModel( std::move( model ), std::move( bodyDesc ), MakeEditorColliderDesc( hull, part.restitution ),
+            if ( !addModel( std::move( model ), std::move( bodyDesc ),
+                            MakeEditorColliderDesc( hull, part.restitution,
+                                                    MakeShareableHullShapeIdentity( EditorHullAssetPath( part.hullAsset ),
+                                                                                    Vector3( 1.0f, 1.0f, 1.0f ) ) ),
                             partFixed, treeDefinition.seedAsleep && !partFixed ) )
             {
                 return;
@@ -569,7 +577,11 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                            finishPartModel( std::move( model ),
                                                                             MakeEditorBodyDesc( hull, center, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
                                                                                                 Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
-                                                                            MakeEditorColliderDesc( hull, restitution ) );
+                                                                            MakeEditorColliderDesc( hull, restitution,
+                                                                                                    MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath(
+                                                                                                                                        hullPath.c_str() ),
+                                                                                                                                    Vector3( 1.0f, 1.0f,
+                                                                                                                                             1.0f ) ) ) );
 
                                                            return;
                                                        }

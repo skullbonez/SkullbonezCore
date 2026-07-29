@@ -43,7 +43,6 @@ Related:
 #pragma once
 
 #include "SceneController.h"
-#include "SceneLoadPreparation.h"
 #include "SceneLoadPresentation.h"
 #include "SceneResetPreservation.h"
 
@@ -56,6 +55,7 @@ namespace SkullbonezCore
 namespace Runtime
 {
 struct SceneLoadTransactionTestAccess;
+struct SceneLoadBeginResult;
 
 class SceneLoadPhaseCursor
 {

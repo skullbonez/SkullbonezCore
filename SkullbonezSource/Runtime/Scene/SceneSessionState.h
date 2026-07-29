@@ -37,7 +37,6 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Physics/PhysicsTimestep.h"
-#include "../../Physics/SpatialGrid.h"
 #include "SceneAuthoredSetup.h"
 #include "SceneLifecycle.h"
 #include "../../Scene/SceneSnapshotWriter.h"

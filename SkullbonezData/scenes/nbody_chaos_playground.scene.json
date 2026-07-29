@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 3,
   "cinematic": {
     "rendering": true,
     "skyAtmosphere": true,
@@ -108,9 +108,9 @@
         0
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "radius": 4,
@@ -143,9 +143,9 @@
         0
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "radius": 5,
@@ -178,9 +178,9 @@
         0
       ],
       "orientation": [
-        0,
-        0,
-        0,
+        -0.0,
+        -0.0,
+        -0.0,
         1
       ],
       "radius": 3.6,

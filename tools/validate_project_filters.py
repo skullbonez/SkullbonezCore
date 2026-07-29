@@ -199,9 +199,11 @@ GAMEPLAY_PREFIXES = (
 )
 
 PHYSICS_DIAGNOSTICS_PREFIXES = (
+    "PhysicsBroadphaseDebugView",
     "PhysicsDebugData",
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
+    "PhysicsDiagnosticsView",
     "SkullScope",
 )
 

@@ -40,16 +40,20 @@ Related:
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
 #include "ColliderStore.h"
 #include "BuoyancySystem.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsBroadphaseDebugView.h"
+#include "PhysicsDiagnosticsSink.h"
+#include "PhysicsDiagnosticsView.h"
 #include "PhysicsObjectPolicy.h"
 #include "PhysicsRuntimeSettings.h"
+#include "PhysicsSolverSnapshot.h"
 #include "PhysicsStageCapacity.h"
-#include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 
 namespace SkullbonezCore
@@ -80,11 +84,14 @@ struct PhysicsPointJointUpdateDesc;
 struct PhysicsRayCastDesc;
 struct PhysicsRayCastHit;
 struct PhysicsMaterial;
+struct ExternalForceFrameInput;
+class PhysicsWorld;
 
 class PhysicsEngine
 {
   public:
     PhysicsEngine();
+    ~PhysicsEngine();
     PhysicsEngine( const PhysicsEngine& ) = delete;
     PhysicsEngine& operator=( const PhysicsEngine& ) = delete;
     PhysicsEngine( PhysicsEngine&& ) = delete;
@@ -117,7 +124,7 @@ class PhysicsEngine
 
     // Cold editor/tool topology can extend a loaded scene one body at a time.
     // A complete load-time commit makes this a no-op during initial population.
-    void ReserveAdditionalAuthoredBodyCapacity( const Math::CollisionDetection::CollisionShape& shape );
+    void ReserveAdditionalAuthoredBodyCapacity( const PhysicsColliderCreateDesc& colliderDesc );
     void ReserveAdditionalAuthoredCapacity( std::size_t sphereCount, std::size_t boxCount, std::size_t hullCount,
                                             std::size_t pointJointCount );
     PhysicsAuthoredBodyCount AuthoredBodyDescriptorCount() const;
@@ -235,7 +242,8 @@ class PhysicsEngine
     static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
     static std::span<const BuoyancyBodyFacts> ReadBuoyancyFacts( const PhysicsEngine& engine );
     static std::size_t ReadBuoyancyFactCapacity( const PhysicsEngine& engine );
-    static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
+    static float ReadBroadphaseCellSize( const PhysicsEngine& engine );
+    static int ReadBroadphaseActiveCells( const PhysicsEngine& engine, std::span<PhysicsBroadphaseActiveCell> outCells );
     static std::span<const int> ReadFixedContactHighlightBodies( const PhysicsEngine& engine );
     static std::span<const int64_t> ReadCollisionCellKeys( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadCollisionVisualContacts( const PhysicsEngine& engine );
@@ -263,7 +271,10 @@ class PhysicsEngine
     void ValidatePhysicsStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                           // Deterministic solver and debug state over body-store records.
+    // Lifetime: this fixed-size owner allocation is created and destroyed with
+    // PhysicsEngine. PhysicsWorld owns its hot stage storage; the indirection is
+    // confined to engine/world boundaries rather than leaking into consumers.
+    std::unique_ptr<PhysicsWorld> m_world;
     PhysicsBodyRowList<PhysicsBodyCreateDesc>
         m_authoredBodyDescs { "PhysicsEngine.m_authoredBodyDescs",
                               PhysicsCapacityReason::SceneBodies }; // Cold descriptors keyed by scene/model order.

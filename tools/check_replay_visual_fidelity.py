@@ -17,7 +17,8 @@ Glossary:
     measured wall-clock throughput and retains every simulation/visual input.
 
 Invariants:
-  - Validation never updates the baseline.
+  - Ordinary validation never updates the baseline; only an explicit cold
+    approval command may replace it.
   - Reveal rows are contiguous ReplayFrameIndex values 0 through 2400.
   - All 200 authored wall bricks participate, every causal path reveals, and
     more than half the wall is grounded and sleeping throughout the final second.
@@ -354,46 +355,46 @@ def validate_causal_shape(report: dict[str, Any]) -> dict[str, Any]:
 def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     artifact_report = report.get("replayArtifact", {})
     if artifact_report.get("schemaVersion") != 4 or not artifact_report.get("saved"):
-        raise ValueError("v4 durable replay artifact was not saved by the fidelity probe")
+        raise ValueError("replay artifact report schema v4 was not saved by the fidelity probe")
     path = Path(str(artifact_report.get("path", "")))
     if not path.is_absolute():
         path = ROOT / path
     if not path.is_file():
-        raise ValueError(f"v4 durable replay artifact is missing: {path}")
+        raise ValueError(f"current durable replay artifact is missing: {path}")
 
     try:
         artifact = ReplayV2(path)
         packet_hashes = artifact.presentation_packet_hashes()
     except ReplayQueryError as error:
-        raise ValueError(f"v4 durable replay artifact is invalid: {error}") from error
-    if artifact.version != 4 or artifact.manifest.get("version") != 4:
+        raise ValueError(f"current durable replay artifact is invalid: {error}") from error
+    if artifact.version != 5 or artifact.manifest.get("version") != 5:
         raise ValueError(
             "durable replay artifact version mismatch: "
             f"header={artifact.version} manifest={artifact.manifest.get('version')}"
         )
     if artifact.manifest.get("bodyPoseBytes") != 76:
-        raise ValueError("v4 artifact did not retain the full 76-byte visual body state")
+        raise ValueError("v5 artifact did not retain the full 76-byte visual body state")
     if len(packet_hashes) != artifact_report.get("sampleCount"):
         raise ValueError(
-            "v4 artifact sample count mismatch: "
+            "v5 artifact sample count mismatch: "
             f"report={artifact_report.get('sampleCount')} loaded={len(packet_hashes)}"
         )
 
     if not packet_hashes:
-        raise ValueError("v4 artifact omitted its retained presentation samples")
+        raise ValueError("v5 artifact omitted its retained presentation samples")
     visual_ticks_report = report.get("replayVisualFidelity", {}).get("ticks", [])
     if len(artifact.visual_packets) != EXPECTED_TICKS or artifact_report.get("visualPacketCount") != EXPECTED_TICKS:
         raise ValueError(
-            "v4 artifact visual-packet horizon mismatch: "
+            "v5 artifact visual-packet horizon mismatch: "
             f"expected={EXPECTED_TICKS} loaded={len(artifact.visual_packets)} "
             f"reported={artifact_report.get('visualPacketCount')}"
         )
     prediction_chunk = artifact.chunks.get("RVPD")
     if not prediction_chunk or prediction_chunk.record_count != 1 or prediction_chunk.size <= 8:
-        raise ValueError("v4 artifact omitted its durable typed prediction-state chunk")
+        raise ValueError("v5 artifact omitted its durable typed prediction-state chunk")
     if artifact.manifest.get("visualPredictionBytes") != prediction_chunk.size:
         raise ValueError(
-            "v4 artifact prediction-state manifest mismatch: "
+            "v5 artifact prediction-state manifest mismatch: "
             f"manifest={artifact.manifest.get('visualPredictionBytes')} chunk={prediction_chunk.size}"
         )
     prediction_hash = replay_visual_byte_hash(artifact._chunk_bytes("RVPD"))
@@ -401,13 +402,13 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     report_prediction_hash = artifact_report.get("visualPredictionHash")
     if manifest_prediction_hash != prediction_hash or report_prediction_hash != f"0x{prediction_hash:016X}":
         raise ValueError(
-            "v4 artifact prediction-state hash mismatch: "
+            "v5 artifact prediction-state hash mismatch: "
             f"manifest={manifest_prediction_hash} report={report_prediction_hash} "
             f"actual=0x{prediction_hash:016X}"
         )
     if artifact.manifest.get("visualPacketEntryBytes") != VISUAL_PACKET_RECORD.size:
         raise ValueError(
-            "v4 artifact visual-packet row size mismatch: "
+            "v5 artifact visual-packet row size mismatch: "
             f"manifest={artifact.manifest.get('visualPacketEntryBytes')} "
             f"reader={VISUAL_PACKET_RECORD.size}"
         )

@@ -18,6 +18,7 @@ Glossary:
   Authoring row: Cold scene round-trip text paired with one hot collider row.
   Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that builds contacts for candidate pairs.
+  Hull identity: Cold normalized authored path plus exact canonical scale bits.
   Scene object id: Stable per-scene id used when replay and diagnostics name a
     physics body across frames.
 
@@ -26,9 +27,9 @@ Invariants:
     but public collider handles are allocator-owned slots.
   - Authoring rows have exactly the same count and compaction moves as hot rows.
   - Per-kind shape backing capacity grows only at approved cold mutation
-    boundaries; every relocation or compaction rebinds affected hot-row
-    references.
-  - A scene with no convex-hull colliders reserves no convex-hull shape rows.
+    boundaries; relocation rebinds affected hot-row references.
+  - Hull rows retain stable scene-lifetime indices and share only when their
+    cold authored identities match exactly.
   - Standalone records stay dense; deleting a collider may move the final row
     and updates only the moved handle's row map.
   - Body-binding refresh preserves shape/material fields; it must not reopen
@@ -63,6 +64,7 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::HullShapeIdentity;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -142,6 +144,7 @@ void ColliderStore::CloneReplayPredictionStorageFrom( const ColliderStore& sourc
     CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_sphereShapes );
     CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_boxShapes );
     CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_hullShapes );
+    CLONE_REPLAY_PREDICTION_COLLIDER_LIST( m_hullIdentities );
 #undef CLONE_REPLAY_PREDICTION_COLLIDER_LIST
     RebindShapeReferences();
 }
@@ -165,6 +168,7 @@ void ColliderStore::ReserveShapeCapacity( std::size_t sphereCapacity, std::size_
     m_sphereShapes.Reserve( sphereCapacity );
     m_boxShapes.Reserve( boxCapacity );
     m_hullShapes.Reserve( hullCapacity );
+    m_hullIdentities.Reserve( hullCapacity );
     RebindShapeReferences();
 }
 
@@ -279,6 +283,7 @@ void ColliderStore::Clear()
     m_sphereShapes.clear();
     m_boxShapes.clear();
     m_hullShapes.clear();
+    m_hullIdentities.clear();
 
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -387,7 +392,19 @@ void ColliderStore::RebindShapeReferences()
 }
 
 
-CollisionShapeReference ColliderStore::AppendShape( const CollisionShape& shape )
+bool ColliderStore::HasShareableHullIdentity( const HullShapeIdentity& identity ) const
+{
+
+    if ( !identity.shareable )
+    {
+        return false;
+    }
+
+    return std::find( m_hullIdentities.begin(), m_hullIdentities.end(), identity ) != m_hullIdentities.end();
+}
+
+
+CollisionShapeReference ColliderStore::AppendShape( const CollisionShape& shape, const HullShapeIdentity& hullIdentity )
 {
     return std::visit( [&]( const auto& shapeValue ) -> CollisionShapeReference
                        {
@@ -423,16 +440,33 @@ CollisionShapeReference ColliderStore::AppendShape( const CollisionShape& shape 
                            }
                            else
                            {
+
+                               if ( hullIdentity.shareable )
+                               {
+                                   const auto match = std::find( m_hullIdentities.begin(), m_hullIdentities.end(), hullIdentity );
+
+                                   if ( match != m_hullIdentities.end() )
+                                   {
+                                       const uint32_t index = static_cast<uint32_t>( match - m_hullIdentities.begin() );
+                                       return CollisionShapeReference( m_hullShapes[index], index );
+                                   }
+                               }
+
+                               // Invariant: hull geometry and its cold identity
+                               // append as one index-aligned transaction.
+                               assert( m_hullShapes.size() == m_hullIdentities.size() );
                                const std::size_t required = m_hullShapes.size() + 1u;
 
-                               if ( required > m_hullShapes.capacity() )
+                               if ( required > m_hullShapes.capacity() || required > m_hullIdentities.capacity() )
                                {
                                    m_hullShapes.Reserve( NextShapeCapacity( m_hullShapes.capacity(), required ) );
+                                   m_hullIdentities.Reserve( m_hullShapes.capacity() );
                                    RebindShapeReferences( ColliderShapeKind::ConvexHull );
                                }
 
                                const uint32_t index = static_cast<uint32_t>( m_hullShapes.size() );
                                m_hullShapes.push_back( shapeValue );
+                               m_hullIdentities.push_back( hullIdentity );
                                return CollisionShapeReference( m_hullShapes[index], index );
                            }
                        },
@@ -513,22 +547,18 @@ void ColliderStore::RemoveShape( const ColliderRecord& record, int ignoredRecord
     case ColliderShapeKind::ConvexHull:
     {
         assert( removedIndex < m_hullShapes.size() );
-        const std::size_t last = m_hullShapes.size() - 1u;
+        assert( m_hullShapes.size() == m_hullIdentities.size() );
 
-        if ( removedIndex != last )
-        {
-            m_hullShapes[removedIndex] = std::move( m_hullShapes[last] );
-        }
-
-        m_hullShapes.pop_back();
-        remapMovedShape( last );
+        // Lifetime: hull variants and their stable indices remain until Clear.
+        // Cold destruction needs no refcount and cannot invalidate another
+        // collider that shares this immutable geometry row.
         break;
     }
     }
 }
 
 
-void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape )
+void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape, const HullShapeIdentity& hullIdentity )
 {
     ColliderRecord& record = m_colliders[static_cast<std::size_t>( recordIndex )];
     const ColliderShapeKind nextKind = ShapeKindForShape( shape );
@@ -548,15 +578,14 @@ void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape )
             record.shape = CollisionShapeReference( m_boxShapes[index], static_cast<uint32_t>( index ) );
             break;
         case ColliderShapeKind::ConvexHull:
-            m_hullShapes[index] = std::get<ConvexHullShape>( shape );
-            record.shape = CollisionShapeReference( m_hullShapes[index], static_cast<uint32_t>( index ) );
+            record.shape = AppendShape( shape, hullIdentity );
             break;
         }
 
         return;
     }
 
-    const CollisionShapeReference nextShape = AppendShape( shape );
+    const CollisionShapeReference nextShape = AppendShape( shape, hullIdentity );
     const ColliderRecord previous = record;
     RemoveShape( previous, recordIndex );
     record.shape = nextShape;
@@ -566,12 +595,20 @@ void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape )
 
 PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape )
 {
-    return CreateColliderRecord( initialRecord, shape, ColliderAuthoringRecord {} );
+    return CreateColliderRecord( initialRecord, shape, ColliderAuthoringRecord {}, HullShapeIdentity {} );
 }
 
 
 PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape,
                                                            const ColliderAuthoringRecord& initialAuthoringRecord )
+{
+    return CreateColliderRecord( initialRecord, shape, initialAuthoringRecord, HullShapeIdentity {} );
+}
+
+
+PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape,
+                                                           const ColliderAuthoringRecord& initialAuthoringRecord,
+                                                           const HullShapeIdentity& hullIdentity )
 {
     uint32_t slot = 0;
 
@@ -597,7 +634,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
     ColliderRecord record = initialRecord;
     record.handle = handle;
     record.shapeKind = ShapeKindForShape( shape );
-    record.shape = AppendShape( shape );
+    record.shape = AppendShape( shape, hullIdentity );
 
     if ( !record.sceneObjectId.IsValid() )
     {
@@ -627,12 +664,21 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     }
 
     const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
-    return UpdateRecordForHandle( handle, record, shape, m_authoringRecords[static_cast<std::size_t>( recordIndex )] );
+    return UpdateRecordForHandle( handle, record, shape, m_authoringRecords[static_cast<std::size_t>( recordIndex )],
+                                  HullShapeIdentity {} );
 }
 
 
 bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
                                            const CollisionShape& shape, const ColliderAuthoringRecord& authoringRecord )
+{
+    return UpdateRecordForHandle( handle, record, shape, authoringRecord, HullShapeIdentity {} );
+}
+
+
+bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
+                                           const CollisionShape& shape, const ColliderAuthoringRecord& authoringRecord,
+                                           const HullShapeIdentity& hullIdentity )
 {
 
     if ( !Contains( handle ) )
@@ -641,7 +687,7 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     }
 
     const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
-    ReplaceShape( recordIndex, shape );
+    ReplaceShape( recordIndex, shape, hullIdentity );
     const CollisionShapeReference updatedShape = m_colliders[static_cast<std::size_t>( recordIndex )].shape;
     const ColliderShapeKind updatedShapeKind = m_colliders[static_cast<std::size_t>( recordIndex )].shapeKind;
 
@@ -952,6 +998,7 @@ uint64_t ColliderStore::CollectRuntimeCapacityMemoryBytes() const
     bytes += m_sphereShapes.committed_bytes();
     bytes += m_boxShapes.committed_bytes();
     bytes += m_hullShapes.committed_bytes();
+    bytes += m_hullIdentities.committed_bytes();
     return bytes;
 }
 
@@ -995,4 +1042,18 @@ const ColliderAuthoringRecord* ColliderStore::AuthoringRecordForHandle( PhysicsC
 const ColliderAuthoringRecord* ColliderStore::AuthoringRecordForModelIndex( int modelIndex ) const
 {
     return AuthoringRecordForHandle( HandleForModelIndex( modelIndex ) );
+}
+
+
+const HullShapeIdentity* ColliderStore::HullIdentityForHandle( PhysicsColliderHandle handle ) const
+{
+    const ColliderRecord* record = RecordForHandle( handle );
+
+    if ( !record || record->shapeKind != ColliderShapeKind::ConvexHull )
+    {
+        return nullptr;
+    }
+
+    const std::size_t index = record->shape.StorageIndex();
+    return index < m_hullIdentities.size() ? &m_hullIdentities[index] : nullptr;
 }

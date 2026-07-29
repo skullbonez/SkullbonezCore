@@ -16,6 +16,7 @@ Glossary:
     validation run can complete.
   Collider descriptor: Value packet carrying parsed shape and contact material
     facts into the physics collider store.
+  Hull variant: One normalized resolved hull path plus exact authored scale bits.
   Lane R: Recoverable result error lane for external input such as scene files
     and authored asset metadata.
   Ragdoll part: One model body in the generated simple ragdoll assembly.
@@ -29,6 +30,8 @@ Invariants:
   - Parsed scene object ids, not loop order, are authoritative identity.
   - Authored hull tokens resolve through the editor hull asset table for
     compatibility with saved scenes.
+  - Initial hull reservation counts distinct unit-scale variants without
+    allocating a second scene identity collection.
   - Gate state is initialized here but completed by frame/runtime observation.
 
 Related:
@@ -77,8 +80,10 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderShapeKind;
+using SkullbonezCore::Physics::HullShapeIdentity;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::MakeShareableHullShapeIdentity;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -104,9 +109,11 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
     const float yHalf = eulerYDeg * DEG2RAD * 0.5f;
     const float zHalf = eulerZDeg * DEG2RAD * 0.5f;
 
-    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+    // Invariant: scene Euler degrees preserve their established world-space
+    // meaning across the canonical Hamilton representation change.
+    const Quaternion xRotation( -sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, -sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, -sinf( zHalf ), cosf( zHalf ) );
 
     Quaternion orientation;
     orientation *= xRotation * yRotation * zRotation;
@@ -151,10 +158,55 @@ PhysicsColliderCreateDesc MakeSceneBoxColliderDesc( const Vector3& halfExtents, 
     return MakeSceneColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution, materialName );
 }
 
-PhysicsColliderCreateDesc MakeSceneHullColliderDesc( const ConvexHullShape& hull, float restitution,
-                                                     const char* materialName )
+HullShapeIdentity UnitHullIdentity( const char* authoredPath )
 {
-    return MakeSceneColliderDesc( hull, restitution, materialName );
+    return MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath( authoredPath ), Vector3( 1.0f, 1.0f, 1.0f ) );
+}
+
+int CountDistinctAuthoredHullVariants( const AuthoredScene& scene )
+{
+    int distinct = 0;
+
+    for ( int index = 0; index < scene.GetConvexHullCount(); ++index )
+    {
+        const HullShapeIdentity identity = UnitHullIdentity( scene.GetConvexHull( index ).hullPath );
+        bool seen = false;
+
+        for ( int previous = 0; previous < index; ++previous )
+        {
+            seen = seen || identity == UnitHullIdentity( scene.GetConvexHull( previous ).hullPath );
+        }
+
+        distinct += seen ? 0 : 1;
+    }
+
+    for ( int index = 0; index < scene.GetConvexHullStateCount(); ++index )
+    {
+        const HullShapeIdentity identity = UnitHullIdentity( scene.GetConvexHullState( index ).hullPath );
+        bool seen = false;
+
+        for ( int previous = 0; previous < scene.GetConvexHullCount(); ++previous )
+        {
+            seen = seen || identity == UnitHullIdentity( scene.GetConvexHull( previous ).hullPath );
+        }
+
+        for ( int previous = 0; previous < index; ++previous )
+        {
+            seen = seen || identity == UnitHullIdentity( scene.GetConvexHullState( previous ).hullPath );
+        }
+
+        distinct += seen ? 0 : 1;
+    }
+
+    return distinct;
+}
+
+PhysicsColliderCreateDesc MakeSceneHullColliderDesc( const ConvexHullShape& hull, const char* authoredPath,
+                                                     float restitution, const char* materialName )
+{
+    PhysicsColliderCreateDesc desc = MakeSceneColliderDesc( hull, restitution, materialName );
+    desc.hullIdentity = UnitHullIdentity( authoredPath );
+    return desc;
 }
 
 Vector3 ScaleSceneVector( const Vector3& value, float scale )
@@ -523,10 +575,12 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
                          scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
 
     const int hullCount = scene.GetConvexHullCount() + scene.GetConvexHullStateCount();
+    const int hullVariantCapacity = CountDistinctAuthoredHullVariants( scene );
     const int bodyCount = sphereCount + boxCount + hullCount;
     const int pointJointCount = scene.GetPointJointConstraintCount() + scene.GetRagdollCount() * simpleRagdollJointCount;
     const SkullbonezCore::Core::SbResult capacityCommit = sceneWorld.CommitPhysicsSceneCapacity( bodyCount, sphereCount,
                                                                                                  boxCount, hullCount,
+                                                                                                 hullVariantCapacity,
                                                                                                  pointJointCount );
 
     if ( !capacityCommit.Ok() )
@@ -782,7 +836,8 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc,
-                                                                   MakeSceneHullColliderDesc( hull, hullScene.restitution,
+                                                                   MakeSceneHullColliderDesc( hull, hullScene.hullPath,
+                                                                                              hullScene.restitution,
                                                                                               hullScene.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )
@@ -844,7 +899,8 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const auto appendResult = sceneWorld.TryCreateSceneEntity( std::move( entity ), bodyDesc,
-                                                                   MakeSceneHullColliderDesc( hull, hullScene.restitution,
+                                                                   MakeSceneHullColliderDesc( hull, hullScene.hullPath,
+                                                                                              hullScene.restitution,
                                                                                               hullScene.contactMaterial ) );
 
         if ( !appendResult.status.Ok() )

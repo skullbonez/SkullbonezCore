@@ -56,7 +56,6 @@ Related:
 
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
-using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Transformation::Matrix4;
 
 namespace
@@ -267,8 +266,8 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
 }
 
 
-void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* activeCells, int activeCellCount,
-                                   const int64_t* collisionKeys, int collisionKeyCount )
+void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseActiveCell> activeCells,
+                                   std::span<const int64_t> collisionKeys )
 {
 
     if ( !m_enabled )
@@ -289,10 +288,10 @@ void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* acti
 
     // Process active cells from the spatial grid
 
-    for ( int i = 0; i < activeCellCount; ++i )
+    for ( const PhysicsBroadphaseActiveCell& activeCell : activeCells )
     {
-        int64_t key = PackKey( activeCells[i].ix, activeCells[i].iy, activeCells[i].iz );
-        int idx = FindOrAddCell( key, activeCells[i].ix, activeCells[i].iy, activeCells[i].iz );
+        int64_t key = PackKey( activeCell.ix, activeCell.iy, activeCell.iz );
+        int idx = FindOrAddCell( key, activeCell.ix, activeCell.iy, activeCell.iz );
 
         if ( idx < 0 )
         {
@@ -315,9 +314,9 @@ void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* acti
 
     // Process collision cells — mark them as colliding with increased heat
 
-    for ( int i = 0; i < collisionKeyCount; ++i )
+    for ( int64_t collisionKey : collisionKeys )
     {
-        int idx = FindCell( collisionKeys[i] );
+        int idx = FindCell( collisionKey );
 
         if ( idx < 0 )
         {

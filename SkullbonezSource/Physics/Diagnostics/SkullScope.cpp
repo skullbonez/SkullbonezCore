@@ -473,10 +473,10 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     if ( activeCellCount > 0 )
     {
-        std::vector<SpatialGrid::ActiveCell> activeCells( activeCellCount );
+        std::vector<PhysicsBroadphaseActiveCell> activeCells( activeCellCount );
         spatialGrid.GetActiveCells( activeCells.data(), activeCellCount );
 
-        for ( const SpatialGrid::ActiveCell& cell : activeCells )
+        for ( const PhysicsBroadphaseActiveCell& cell : activeCells )
         {
 
             if ( cell.objectCount > maxCellOccupancy )

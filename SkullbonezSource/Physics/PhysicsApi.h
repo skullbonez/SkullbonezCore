@@ -20,6 +20,8 @@ Glossary:
     typed handles at the PhysicsEngine owner boundary.
   Deterministic order: Broadphase candidates iterate stable body-store order so
     validation does not depend on allocator addresses or hash traversal.
+  Hull identity: Cold normalized authored path and exact canonical X/Y/Z scale
+    bits that prove immutable hull geometry can share one store row.
   Restitution: Bounce response copied from collider material data into contact
     views for diagnostics and future solver inputs.
   Ray cast: Query that shoots a line segment through physics space and returns
@@ -32,6 +34,8 @@ Invariants:
     scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; PhysicsEngine owns allocation order and
     deterministic solver mutation.
+  - Unproved or procedurally transformed hull geometry carries a non-shareable
+    identity and therefore receives its own cold storage row.
   - Query views borrow PhysicsEngine fixed scratch and never expose mutable
     storage.
 
@@ -42,6 +46,7 @@ Related:
 */
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -166,6 +171,72 @@ struct PhysicsBodyUpdateDesc
     const char* diagnosticName = nullptr;
 };
 
+struct HullShapeIdentity
+{
+    static constexpr std::size_t MAX_PATH_BYTES = 260u;
+
+    char normalizedResolvedPath[MAX_PATH_BYTES] = {};
+    uint32_t scaleXBits = 0u;
+    uint32_t scaleYBits = 0u;
+    uint32_t scaleZBits = 0u;
+    bool shareable = false;
+
+    // Invariant: equality proves both authored source and canonical X/Y/Z
+    // scale construction. Unproved or procedurally built hulls stay unique.
+    bool operator==( const HullShapeIdentity& rhs ) const
+    {
+        return shareable && rhs.shareable && scaleXBits == rhs.scaleXBits && scaleYBits == rhs.scaleYBits &&
+               scaleZBits == rhs.scaleZBits && strcmp( normalizedResolvedPath, rhs.normalizedResolvedPath ) == 0;
+    }
+};
+
+inline uint32_t HullScaleBits( float value )
+{
+    uint32_t bits = 0u;
+    static_assert( sizeof( bits ) == sizeof( value ), "Hull identity requires 32-bit IEEE-754 floats." );
+    memcpy( &bits, &value, sizeof( bits ) );
+    return bits;
+}
+
+inline HullShapeIdentity MakeShareableHullShapeIdentity( const char* resolvedAuthoredPath,
+                                                         const Math::Vector::Vector3& cumulativeScale )
+{
+    HullShapeIdentity identity;
+
+    if ( !resolvedAuthoredPath || resolvedAuthoredPath[0] == '\0' || !std::isfinite( cumulativeScale.x ) ||
+         !std::isfinite( cumulativeScale.y ) || !std::isfinite( cumulativeScale.z ) )
+    {
+        return identity;
+    }
+
+    std::size_t writeIndex = 0u;
+
+    for ( const char* read = resolvedAuthoredPath; *read != '\0'; ++read )
+    {
+
+        if ( writeIndex + 1u >= HullShapeIdentity::MAX_PATH_BYTES )
+        {
+            return HullShapeIdentity {};
+        }
+
+        char value = *read == '\\' ? '/' : *read;
+
+        if ( value >= 'A' && value <= 'Z' )
+        {
+            value = static_cast<char>( value - 'A' + 'a' );
+        }
+
+        identity.normalizedResolvedPath[writeIndex++] = value;
+    }
+
+    identity.normalizedResolvedPath[writeIndex] = '\0';
+    identity.scaleXBits = HullScaleBits( cumulativeScale.x );
+    identity.scaleYBits = HullScaleBits( cumulativeScale.y );
+    identity.scaleZBits = HullScaleBits( cumulativeScale.z );
+    identity.shareable = true;
+    return identity;
+}
+
 struct PhysicsColliderCreateDesc
 {
     PhysicsBodyHandle body;
@@ -178,6 +249,7 @@ struct PhysicsColliderCreateDesc
     char contactMaterialName[32] = {};
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
+    HullShapeIdentity hullIdentity;
 };
 
 struct PhysicsAuthoredBodyRegistration
@@ -194,16 +266,21 @@ struct PhysicsAuthoredBodyRegistration
     }
 };
 
-inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape, float restitution,
-                                                         uint32_t contactMaterialId,
-                                                         const char* contactMaterialName = nullptr )
+// Hazard: keep the source variant borrowed and copy it explicitly into the
+// large return packet. Passing both values by value made MSVC Profile builds
+// default box and hull inputs back to the sphere alternative after this packet
+// gained HullShapeIdentity.
+inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDetection::CollisionShape& shape,
+                                                         float restitution, uint32_t contactMaterialId,
+                                                         const char* contactMaterialName = nullptr,
+                                                         HullShapeIdentity hullIdentity = {} )
 {
 
     // Why: creation paths already know the exact primitive facts. Build the
     // collider import packet once there so PhysicsEngine owns the live row and
     // collection owners do not rediscover shape metrics on append.
     PhysicsColliderCreateDesc desc;
-    desc.shape = std::move( shape );
+    desc.shape = shape;
     desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
     desc.restitution = restitution;
     desc.contactMaterialId = contactMaterialId;
@@ -215,6 +292,7 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetectio
 
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
     desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
+    desc.hullIdentity = std::move( hullIdentity );
     return desc;
 }
 

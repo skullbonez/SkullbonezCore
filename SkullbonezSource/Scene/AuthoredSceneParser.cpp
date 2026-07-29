@@ -92,22 +92,26 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json
 {
     uint32_t first = 0;
 
-    if ( m_currentDocumentVersion == 2 )
+    if ( m_currentDocumentVersion >= 2 && FindMember( object, "sceneObjectId" ) )
+    {
+        first = ReadUInt( RequireMember( object, path, context, "sceneObjectId" ), path, "sceneObjectId" );
+    }
+    else if ( m_currentDocumentVersion == 2 )
     {
         first = ReadUInt( RequireMember( object, path, context, "sceneObjectId" ), path, "sceneObjectId" );
     }
     else
     {
 
-        if ( FindMember( object, "sceneObjectId" ) )
+        if ( m_currentDocumentVersion == 1 && FindMember( object, "sceneObjectId" ) )
         {
-            Fail( path, "sceneObjectId requires scene schema version 2" );
+            Fail( path, "sceneObjectId requires scene schema version 2 or later" );
             return {};
         }
 
-        // Version 1 is upgraded only after parsing, in the historical
-        // runtime shape-section order. A zero placeholder cannot escape a
-        // successful parse.
+        // Compatibility: v3 files migrated from v1 retain their compact
+        // identity shape. The shared post-parse pass fills only absent ids in
+        // historical section order; writer-made v3 files keep explicit ids.
         return {};
     }
 
@@ -253,7 +257,14 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
     if ( !parts )
     {
-        Fail( path, "assetInstance is missing required field 'parts'" );
+
+        if ( m_currentDocumentVersion == 2 )
+        {
+            Fail( path, "assetInstance is missing required field 'parts'" );
+        }
+
+        // Compatibility: a migrated v1 instance in schema v3 keeps its
+        // recipe-authored part identities and receives ids after parsing.
         return nullptr;
     }
 
@@ -607,7 +618,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
         return;
     }
 
-    if ( documentVersion != 1 && documentVersion != 2 )
+    if ( documentVersion < 1 || documentVersion > 3 )
     {
         Fail( path, "Unsupported scene schema version: " + std::to_string( documentVersion ) );
         return;

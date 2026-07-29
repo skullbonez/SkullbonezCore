@@ -1,0 +1,168 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 3,
+  "cinematic": {},
+  "simulation": {
+    "seed": 20260729,
+    "physics": true,
+    "text": false,
+    "timeScale": 1,
+    "world": {
+      "gravity": -50,
+      "fluidHeight": -1000,
+      "fluidDensity": 0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 1200,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -1000,
+      "slopeX": 0,
+      "slopeZ": 0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true,
+    "collisionVisualizer": false
+  },
+  "cameras": [
+    {
+      "name": "vibration_t0",
+      "position": [
+        460,
+        30,
+        555
+      ],
+      "view": [
+        500,
+        11,
+        500
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "foundation",
+      "position": [
+        500,
+        0,
+        500
+      ],
+      "halfExtents": [
+        8,
+        1.45,
+        4
+      ],
+      "mass": 1000,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "brick_01",
+      "position": [
+        500,
+        2.98,
+        500
+      ],
+      "halfExtents": [
+        4,
+        1.45,
+        4
+      ],
+      "mass": 30,
+      "restitution": 0.08,
+      "fixed": false,
+      "euler": [
+        0,
+        0.15,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "brick_02",
+      "position": [
+        500.04,
+        5.96,
+        500
+      ],
+      "halfExtents": [
+        4,
+        1.45,
+        4
+      ],
+      "mass": 30,
+      "restitution": 0.08,
+      "fixed": false,
+      "euler": [
+        0,
+        -0.15,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "brick_03",
+      "position": [
+        499.96,
+        8.94,
+        500
+      ],
+      "halfExtents": [
+        4,
+        1.45,
+        4
+      ],
+      "mass": 30,
+      "restitution": 0.08,
+      "fixed": false,
+      "euler": [
+        0,
+        0.15,
+        0
+      ]
+    },
+    {
+      "type": "box",
+      "name": "brick_04",
+      "position": [
+        500.04,
+        11.92,
+        500
+      ],
+      "halfExtents": [
+        4,
+        1.45,
+        4
+      ],
+      "mass": 30,
+      "restitution": 0.08,
+      "fixed": false,
+      "euler": [
+        0,
+        -0.15,
+        0
+      ],
+      "velocity": [
+        0.25,
+        0,
+        0.05
+      ]
+    }
+  ]
+}

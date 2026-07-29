@@ -9,8 +9,9 @@ Summary:
   conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Active rotation: Rotation that moves a vector in a fixed world basis.
+  Clip-space depth: Projected depth range consumed by the graphics pipeline;
+    DX12 callers use zero through one.
 
 Invariants:
   - Matrix storage is column-major and must match shader constant upload layout.
@@ -307,8 +308,8 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
     //   [   xz2-wy2     yz2+wx2   1-(xx2+yy2)  0 ]
     //   [      0           0           0        1 ]
     //
-    // This engine uses an anti-Hamilton quaternion convention — GetOrientationMatrix() returns
-    // the transpose of a standard active rotation.  Do NOT change the sign convention here.
+    // Quaternion and RotationMatrix expose the same canonical active rotation.
+    // Keep this column-major form equivalent to Quaternion::GetOrientationMatrix.
 
     float qx, qy, qz, qw;
     q.GetComponents( qx, qy, qz, qw );
@@ -319,15 +320,15 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 
     const float r[16] = {
         1.0f - ( yy2 + zz2 ),
-        xy2 - wz2,
-        xz2 + wy2,
-        0.0f, // col0: local X (right)
         xy2 + wz2,
-        1.0f - ( xx2 + zz2 ),
-        yz2 - wx2,
-        0.0f, // col1: local Y (up)
         xz2 - wy2,
+        0.0f, // col0: local X (right)
+        xy2 - wz2,
+        1.0f - ( xx2 + zz2 ),
         yz2 + wx2,
+        0.0f, // col1: local Y (up)
+        xz2 + wy2,
+        yz2 - wx2,
         1.0f - ( xx2 + yy2 ),
         0.0f, // col2: local Z (forward)
         0.0f,

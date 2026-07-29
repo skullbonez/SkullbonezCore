@@ -36,13 +36,18 @@ Invariants:
     hide a collision.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
+  - Exact cell coordinates remain `int` through hashing and membership.
+    Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
+  - Every scene-sized store is reserved under SceneLoad, retained across cold
+    clears, and never grows during fixed-step work.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 */
 #pragma once
 
@@ -53,10 +58,12 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <limits>
 #include <span>
 #include "../Core/Common.h"
 #include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
+#include "PhysicsBroadphaseDebugView.h"
 #include "PhysicsStageCapacity.h"
 
 namespace SkullbonezCore
@@ -78,7 +85,7 @@ namespace CollisionDetection
     fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
     occupancy uses a separate per-frame stamped overlay. Pair deduplication uses a triangular bit array; fixed radix
     staging emits ascending normalized pairs independent of discovery order. Unchanged integer ranges touch no cells.
-    No heap allocations after construction.
+    SceneLoad reservation establishes retained backing; fixed-step work performs no heap allocation.
 
     Layman version:
       Instead of asking every object about every other object, the world is cut
@@ -115,19 +122,29 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     // One power-of-two table keeps lookup, storage, iteration, and exhaustion
     // on the same deterministic path at both ordinary and scale-scene sizes.
-    static constexpr int TABLE_SIZE = 8192;
+    static constexpr int TABLE_SIZE = static_cast<int>( Physics::PHYSICS_SPATIAL_GRID_BUCKET_COUNT );
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
-    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 8;
+    static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
+
+    // Why: ordinary bodies consume at most eight rows, but the accepted
+    // shoreline-lever and low-poly stress scenes combine oversized bodies with
+    // dense ordinary occupancy. A fixed 1,024-row spill covers the measured
+    // 1,340-row stress layout with deterministic motion margin, without
+    // restoring the retired 4,096-row blanket or permitting steady-step growth.
+    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 1024;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
+                                                   PERSISTENT_ENTRIES_PER_BODY;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
     static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
-                                            ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2 +
-                                        63 ) /
-                                      64;
+    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
+                                                   ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
+    static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
+                   "MAX_SCENE_OBJECTS exceeds the signed candidate-pair identity range." );
+    static constexpr int PAIR_WORDS = static_cast<int>( ( MAX_PAIR_IDENTITIES + 63 ) / 64 );
 
     struct CellRange
     {
@@ -191,7 +208,6 @@ class SpatialGrid
     int freeBucketHead;
     int freeEntryHead;
     int persistentEntryCount;
-    int persistentEntryHighWater;
     int objectCount;
     int activeBucketCount;
     int overlayEntryCount;
@@ -201,20 +217,33 @@ class SpatialGrid
     int bucketHashHeads[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
     int overlayActiveBuckets[TABLE_SIZE];
-    Entry entries[MAX_CELL_ENTRIES];
-    SweptOverlayEntry overlayEntries[MAX_SWEPT_CELL_ENTRIES];
-    BodyMembership bodyMemberships[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
-    uint64_t pairSeen[PAIR_WORDS];
+    Physics::PhysicsFixedList<Entry, MAX_CELL_ENTRIES>
+        entries { "SpatialGrid.entries", Physics::PhysicsCapacityReason::SpatialGridPersistentEntries };
+    Physics::PhysicsFixedList<SweptOverlayEntry, MAX_SWEPT_CELL_ENTRIES>
+        overlayEntries { "SpatialGrid.overlayEntries", Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries };
+    Physics::PhysicsFixedList<BodyMembership, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        bodyMemberships { "SpatialGrid.bodyMemberships", Physics::PhysicsCapacityReason::SpatialGridBodyMemberships };
+    Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
+                                                               Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
 
-    // Canonical pair staging is fixed storage owned by the grid. Cell traversal
-    // may discover pairs in any bucket/list order, but emission is always sorted
-    // by normalized body identity before narrowphase sees it.
-    int candidatePairHeads[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
-    CandidatePairNode candidatePairNodes[MAX_CANDIDATE_PAIRS];
-    int candidatePairSortKeys[MAX_CANDIDATE_PAIRS];
-    int candidatePairSortScratch[MAX_CANDIDATE_PAIRS];
+    // Canonical pair staging is scene-reserved storage owned by the grid. Cell
+    // traversal may discover pairs in any bucket/list order, but emission is
+    // always sorted by normalized body identity before narrowphase sees it.
+    Physics::PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        candidatePairHeads { "SpatialGrid.candidatePairHeads",
+                             Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads };
+    Physics::PhysicsFixedList<CandidatePairNode, MAX_CANDIDATE_PAIRS>
+        candidatePairNodes { "SpatialGrid.candidatePairNodes",
+                             Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes };
+    Physics::PhysicsFixedList<int, MAX_CANDIDATE_PAIRS>
+        candidatePairSortKeys { "SpatialGrid.candidatePairSortKeys",
+                                Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys };
+    Physics::PhysicsFixedList<int, MAX_CANDIDATE_PAIRS>
+        candidatePairSortScratch { "SpatialGrid.candidatePairSortScratch",
+                                   Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch };
     uint32_t cellObjectGeneration;
-    uint32_t cellObjectSeen[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    Physics::PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        cellObjectSeen { "SpatialGrid.cellObjectSeen", Physics::PhysicsCapacityReason::SpatialGridCellObjectSeen };
     MaintenanceStats maintenanceStats;
 
     int FindBucket( int64_t key ) const;
@@ -260,13 +289,25 @@ class SpatialGrid
     // from integer limits for supported broadphase cell sizes.
     static constexpr float MAX_WORLD_COORDINATE = 100000.0f;
 
-    struct ActiveCell
-    {
-        int16_t ix, iy, iz;
-        int objectCount;
-    };
+    // Hazard: exact coordinates can reach +/-200,000 at the minimum cell size.
+    // Bucket and PhysicsBroadphaseActiveCell retain only a saturated
+    // visualization projection; collision identity continues to use the
+    // full-width Entry coordinates and hash key. Widen both visualization
+    // structs before removing saturation.
+    static constexpr int MIN_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::min )();
+    static constexpr int MAX_VISUALIZATION_CELL_COORDINATE = ( std::numeric_limits<int16_t>::max )();
+    static constexpr int MAX_ABSOLUTE_CELL_COORDINATE = static_cast<int>( MAX_WORLD_COORDINATE / MIN_CELL_SIZE );
+    static_assert( MAX_ABSOLUTE_CELL_COORDINATE == 200000,
+                   "SpatialGrid world/cell limits changed: review exact and visualization coordinate storage." );
+    static_assert( MAX_ABSOLUTE_CELL_COORDINATE <= ( std::numeric_limits<int>::max )() - 1024,
+                   "SpatialGrid exact cell coordinates exceed the guarded signed-int conversion range." );
 
     SpatialGrid( float fCellSize );
+
+    // SceneLoad-only sizing for every scene-derived store. The compile-time
+    // ceilings remain larger so future evidence can change a runtime formula
+    // without changing supported scene limits.
+    void ReserveSceneCapacity( std::size_t bodyCapacity );
 
     // Cold reset for scene load, replay restore, and cell-size changes.
     void Clear();
@@ -323,7 +364,56 @@ class SpatialGrid
     {
         return maintenanceStats;
     }
-    void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
+    std::size_t GetPersistentEntryCapacity() const
+    {
+        return entries.capacity();
+    }
+    std::size_t GetPersistentEntryHighWater() const
+    {
+        return entries.high_water();
+    }
+    std::size_t GetPairDedupWordCapacity() const
+    {
+        return pairSeen.capacity();
+    }
+    std::size_t GetPairDedupWordHighWater() const
+    {
+        return pairSeen.high_water();
+    }
+    std::size_t GetBodyMembershipCapacity() const
+    {
+        return bodyMemberships.capacity();
+    }
+    std::size_t GetCandidatePairHeadCapacity() const
+    {
+        return candidatePairHeads.capacity();
+    }
+    std::size_t GetCandidatePairNodeCapacity() const
+    {
+        return candidatePairNodes.capacity();
+    }
+    std::size_t GetCandidatePairSortKeyCapacity() const
+    {
+        return candidatePairSortKeys.capacity();
+    }
+    std::size_t GetCandidatePairSortScratchCapacity() const
+    {
+        return candidatePairSortScratch.capacity();
+    }
+    std::size_t GetCellObjectSeenCapacity() const
+    {
+        return cellObjectSeen.capacity();
+    }
+    std::size_t GetSweptOverlayEntryCapacity() const
+    {
+        return overlayEntries.capacity();
+    }
+    std::size_t GetSweptOverlayEntryHighWater() const
+    {
+        return overlayEntries.high_water();
+    }
+    uint64_t CollectDynamicMemoryBytes() const;
+    void GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells, int maxCells ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

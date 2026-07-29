@@ -49,6 +49,7 @@ Related:
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
+#include "PhysicsDiagnosticsView.h"
 #include "PhysicsDebugData.h"
 #include "PhysicsStageCapacity.h"
 #include "Ragdoll.h"
@@ -91,7 +92,6 @@ struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsPointJointCreateDesc;
 struct PhysicsPointJointUpdateDesc;
-struct PhysicsDiagnosticsView;
 struct PhysicsWorldForces;
 struct SleepSupportPropagationContext;
 class DisjointSet;
@@ -269,27 +269,6 @@ class PhysicsWorld
     void SetPhysicsDiagnosticsRunId( const char* runId );
     bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
-};
-
-struct PhysicsDiagnosticsView
-{
-    std::span<const PersistentContact> persistentContacts;
-    const PersistentContactSolverStats& persistentContactSolverStats;
-    std::span<const int> sleepIslandParent;
-    std::span<const uint8_t> sleepSupportedThisFrame;
-    std::span<const uint8_t> sleepInhibitedThisFrame;
-    std::span<const uint8_t> sleepState;
-    std::span<const uint8_t> sleepCounter;
-    std::span<const uint8_t> sleepIslandEligible;
-    std::span<const uint8_t> sleepIslandCanSleep;
-    std::span<const PointJointConstraint> pointJointConstraints;
-    const Math::CollisionDetection::SpatialGrid& spatialGrid;
-    std::span<const std::pair<int, int>> candidatePairs;
-    std::span<const int64_t> collisionCellKeys;
-    std::span<const std::pair<int, int>> sleepSupportEdges;
-    std::span<const int> sleepIslandVisualId;
-    std::span<const PhysicsPipelineRecord> physicsPipelineTrace;
-    std::span<const TerrainContactManifold> terrainContactManifolds;
 };
 
 } // namespace Physics

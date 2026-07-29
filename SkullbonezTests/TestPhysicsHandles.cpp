@@ -17,6 +17,8 @@
 //     deletion compacts the store.
 //   Collider authoring row: Cold scene round-trip text paired with one dense
 //     hot collider row.
+//   Hull identity: Cold normalized source path and exact authored scale bits
+//     that permit equal immutable hull geometry to share one retained row.
 //   Scene object id: Stable id used by replay/diagnostics to find a body even
 //     when a model-index hint is stale.
 //   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
@@ -26,6 +28,8 @@
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
 //   - Destroying a middle row moves the final row down and updates its handle map.
 //   - Collider hot and authoring rows compact together under the same handle.
+//   - Shareable hull identities reuse one stable row until store clear; unique
+//     identities retain independent rows through collider deletion.
 //   - Buoyancy facts remain a compact five-float row and compact by swap-last.
 //   - Reused handle slots must increment generation before accepting new records.
 //   - Hot state has one authority: aligned SoA arrays; cold records do not
@@ -36,6 +40,8 @@
 //     scene capacity, owns an independent collider graph after source
 //     destruction, retains a per-test terrain owner through both engine
 //     lifetimes, and advances identical seeded state bit-for-bit.
+//   - The exact reserve census includes every registered SpatialGrid owner and
+//     rejects any unregistered growth or capacity-reporting row.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -80,6 +86,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
@@ -101,7 +108,9 @@ using SkullbonezCore::Physics::ColliderAuthoringRecord;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::HullShapeIdentity;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
+using SkullbonezCore::Physics::MakeShareableHullShapeIdentity;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
@@ -217,7 +226,8 @@ PhysicsBodyStore& TestBodyStore()
     static PhysicsBodyStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
@@ -233,7 +243,8 @@ ColliderStore& TestColliderStore()
     static ColliderStore store;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         store.ReserveShapeCapacity( 16u, 4u, 4u );
     }
@@ -324,7 +335,8 @@ TEST_CASE( "Buoyancy facts: refresh, swap-last erase, trim, and clear preserve d
     static BuoyancySystem buoyancy;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         buoyancy.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
     buoyancy.Clear();
@@ -717,7 +729,8 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     PhysicsColliderHandle last;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( 3u );
         store->ReserveShapeCapacity( 3u, 1u, 0u );
         first = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), sphereOne );
@@ -741,7 +754,8 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
     REQUIRE( lastSphereBeforeGrowth != nullptr );
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveShapeCapacity( 6u, 1u, 0u );
     }
 
@@ -772,6 +786,131 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
            Vector3( 4.0f, 5.0f, 6.0f ) );
 
     CHECK( store->HullShapeCapacity() == 0u );
+}
+
+
+TEST_CASE( "Collider hull shape store: canonical identities share stable scene-lifetime rows" )
+{
+    auto store = std::make_unique<ColliderStore>();
+    const CollisionShape hull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::
+        LoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull" );
+    const Vector3 unitScale( 1.0f, 1.0f, 1.0f );
+    const HullShapeIdentity canonical = MakeShareableHullShapeIdentity( "SkullbonezData/hulls/pyramid.hull", unitScale );
+    const HullShapeIdentity alternateSpelling = MakeShareableHullShapeIdentity( "SKULLBONEZDATA\\HULLS\\PYRAMID.HULL",
+                                                                                unitScale );
+    const HullShapeIdentity adjacentScale = MakeShareableHullShapeIdentity( "SkullbonezData/hulls/pyramid.hull",
+                                                                            Vector3( std::nextafter( 1.0f, 2.0f ), 1.0f,
+                                                                                     1.0f ) );
+    char overlongPath[HullShapeIdentity::MAX_PATH_BYTES + 1u] = {};
+    std::memset( overlongPath, 'a', HullShapeIdentity::MAX_PATH_BYTES );
+    const HullShapeIdentity rejectedOverlong = MakeShareableHullShapeIdentity( overlongPath, unitScale );
+    const HullShapeIdentity
+        rejectedNonFinite = MakeShareableHullShapeIdentity( "SkullbonezData/hulls/pyramid.hull",
+                                                            Vector3( ( std::numeric_limits<float>::infinity )(), 1.0f,
+                                                                     1.0f ) );
+
+    REQUIRE( canonical.shareable );
+    REQUIRE( alternateSpelling.shareable );
+    REQUIRE( adjacentScale.shareable );
+    CHECK( std::strcmp( canonical.normalizedResolvedPath, "skullbonezdata/hulls/pyramid.hull" ) == 0 );
+    CHECK( std::strcmp( alternateSpelling.normalizedResolvedPath, canonical.normalizedResolvedPath ) == 0 );
+    CHECK( alternateSpelling == canonical );
+    CHECK_FALSE( adjacentScale == canonical );
+    CHECK( adjacentScale.scaleXBits != canonical.scaleXBits );
+    CHECK( canonical.scaleYBits == SkullbonezCore::Physics::HullScaleBits( 1.0f ) );
+    CHECK_FALSE( rejectedOverlong.shareable );
+    CHECK_FALSE( rejectedNonFinite.shareable );
+
+    PhysicsColliderHandle sharedFirst;
+    PhysicsColliderHandle sharedSecond;
+    PhysicsColliderHandle scaled;
+    PhysicsColliderHandle uniqueFirst;
+    PhysicsColliderHandle uniqueSecond;
+    PhysicsColliderHandle overlongUnique;
+    PhysicsColliderHandle nonFiniteUnique;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store->ReserveCapacity( 8u );
+        store->ReserveShapeCapacity( 0u, 0u, 8u );
+        sharedFirst = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 1001u, 2.0f ), hull, {},
+                                                   canonical );
+        sharedSecond = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 2u, 1u }, 1002u, 2.0f ), hull,
+                                                    {}, alternateSpelling );
+        scaled = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 3u, 1u }, 1003u, 2.0f ), hull, {},
+                                              adjacentScale );
+        uniqueFirst = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 4u, 1u }, 1004u, 2.0f ), hull, {},
+                                                   HullShapeIdentity {} );
+        uniqueSecond = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 5u, 1u }, 1005u, 2.0f ), hull,
+                                                    {}, HullShapeIdentity {} );
+        overlongUnique = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 6u, 1u }, 1006u, 2.0f ), hull,
+                                                      {}, rejectedOverlong );
+        nonFiniteUnique = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 7u, 1u }, 1007u, 2.0f ), hull,
+                                                       {}, rejectedNonFinite );
+    }
+
+    REQUIRE( sharedFirst.IsValid() );
+    REQUIRE( sharedSecond.IsValid() );
+    REQUIRE( scaled.IsValid() );
+    REQUIRE( uniqueFirst.IsValid() );
+    REQUIRE( uniqueSecond.IsValid() );
+    REQUIRE( overlongUnique.IsValid() );
+    REQUIRE( nonFiniteUnique.IsValid() );
+    REQUIRE( store->RecordForHandle( sharedFirst ) != nullptr );
+    REQUIRE( store->RecordForHandle( sharedSecond ) != nullptr );
+    CHECK( store->HullShapeCount() == 6u );
+    CHECK( store->RecordForHandle( sharedFirst )->shape.StorageIndex() == 0u );
+    CHECK( store->RecordForHandle( sharedSecond )->shape.StorageIndex() == 0u );
+
+    const auto* sharedPointer = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &store->RecordForHandle( sharedSecond )->shape );
+    const auto* scaledPointer = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &store->RecordForHandle( scaled )->shape );
+    const auto* uniquePointer = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &store->RecordForHandle( uniqueSecond )->shape );
+    const auto* overlongPointer = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &store->RecordForHandle( overlongUnique )->shape );
+    const auto* nonFinitePointer = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &store->RecordForHandle( nonFiniteUnique )->shape );
+    REQUIRE( sharedPointer != nullptr );
+    REQUIRE( scaledPointer != nullptr );
+    REQUIRE( uniquePointer != nullptr );
+    REQUIRE( overlongPointer != nullptr );
+    REQUIRE( nonFinitePointer != nullptr );
+
+    // Invariant: hull rows live until Clear(), so dense collider deletion cannot
+    // invalidate another collider's shared or unique cold geometry reference.
+    REQUIRE( store->DestroyColliderRecord( sharedFirst ) );
+    REQUIRE( store->DestroyColliderRecord( uniqueFirst ) );
+    CHECK( store->HullShapeCount() == 6u );
+    REQUIRE( store->RecordForHandle( sharedSecond ) != nullptr );
+    REQUIRE( store->RecordForHandle( scaled ) != nullptr );
+    REQUIRE( store->RecordForHandle( uniqueSecond ) != nullptr );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( sharedSecond )->shape ) == sharedPointer );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( scaled )->shape ) == scaledPointer );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( uniqueSecond )->shape ) == uniquePointer );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( overlongUnique )->shape ) == overlongPointer );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( nonFiniteUnique )->shape ) == nonFinitePointer );
+
+    PhysicsColliderHandle recreated;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        recreated = store->CreateColliderRecord( MakeColliderRecord( PhysicsBodyHandle { 8u, 1u }, 1008u, 2.0f ), hull, {},
+                                                 alternateSpelling );
+    }
+    REQUIRE( recreated.IsValid() );
+    REQUIRE( store->RecordForHandle( recreated ) != nullptr );
+    CHECK( store->HullShapeCount() == 6u );
+    CHECK( store->RecordForHandle( recreated )->shape.StorageIndex() == 0u );
+    CHECK( GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+               &store->RecordForHandle( recreated )->shape ) == sharedPointer );
 }
 
 
@@ -822,9 +961,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 94 );
+    REQUIRE( eventCount == 102 );
 #else
-    REQUIRE( eventCount == 91 );
+    REQUIRE( eventCount == 99 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -860,6 +999,14 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
+        { "SpatialGrid.entries", 17024 },
+        { "SpatialGrid.pairSeen", 31235 },
+        { "SpatialGrid.bodyMemberships", 2000 },
+        { "SpatialGrid.candidatePairHeads", 2000 },
+        { "SpatialGrid.candidatePairNodes", 8000 },
+        { "SpatialGrid.candidatePairSortKeys", 8000 },
+        { "SpatialGrid.candidatePairSortScratch", 8000 },
+        { "SpatialGrid.cellObjectSeen", 2000 },
 #if defined( _DEBUG )
         { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
         { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
@@ -931,12 +1078,13 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsContactSolverStage.pipelineRecords", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsStepDiagnostics.physicsPipelineTrace", SkullbonezCore::Physics::PhysicsCapacityReason::PipelineRecords },
         { "PhysicsSleepController.m_sleepSupportEdges", SkullbonezCore::Physics::PhysicsCapacityReason::CandidatePairs },
+        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries },
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 98 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 107 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 95 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 104 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -951,11 +1099,20 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         capacityRows = RuntimeReserveAllocator::CapacityRows();
     int physicsCapacityRowCount = 0;
     const char* productionPhysicsOwnerPrefixes[] = {
-        "BuoyancySystem.",         "ColliderStore.",          "ExternalForceStage.",
-        "PhysicsBodyStore.",       "PhysicsBroadphaseStage.", "PhysicsContactSolverStage.",
-        "PhysicsEngine",           "PhysicsForceStage.",      "PhysicsNarrowphaseStage.",
-        "PhysicsSleepController.", "PhysicsStepDiagnostics.", "PhysicsTerrainStage.",
+        "BuoyancySystem.",
+        "ColliderStore.",
+        "ExternalForceStage.",
+        "PhysicsBodyStore.",
+        "PhysicsBroadphaseStage.",
+        "PhysicsContactSolverStage.",
+        "PhysicsEngine",
+        "PhysicsForceStage.",
+        "PhysicsNarrowphaseStage.",
+        "PhysicsSleepController.",
+        "PhysicsStepDiagnostics.",
+        "PhysicsTerrainStage.",
         "PhysicsWorld.",
+        "SpatialGrid.",
     };
 
     for ( const SkullbonezCore::Core::Allocation::RuntimeReserveCapacityView& row : capacityRows )
@@ -995,9 +1152,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 98 );
+    CHECK( physicsCapacityRowCount == 108 );
 #else
-    CHECK( physicsCapacityRowCount == 95 );
+    CHECK( physicsCapacityRowCount == 105 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
@@ -1008,6 +1165,35 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 24u );
     CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 24u );
 }
+
+
+TEST_CASE( "Broadphase owning memory total includes registered grid backing exactly once" )
+{
+    SkullbonezCore::Physics::PhysicsBroadphaseStage stage;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveSceneCapacity( 3u );
+    }
+
+    constexpr uint64_t candidateCapacity = 12u;
+    constexpr uint64_t productionStageBytes =
+        candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
+#if defined( _DEBUG )
+    constexpr uint64_t debugOracleBytes = candidateCapacity * sizeof( std::pair<int, int> ) * 3u;
+#else
+    constexpr uint64_t debugOracleBytes = 0u;
+#endif
+
+    const uint64_t gridBackingBytes = stage.GetSpatialGrid().CollectDynamicMemoryBytes();
+    const uint64_t owningDynamicBytes = stage.CollectDynamicMemoryBytes();
+    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugOracleBytes );
+    CHECK( stage.CollectDebugAndBroadphaseMemoryBytes() ==
+           static_cast<uint64_t>( sizeof( SkullbonezCore::Math::CollisionDetection::SpatialGrid ) ) +
+               owningDynamicBytes );
+}
+
 
 TEST_CASE( "External force fixed release uses scene-committed body scratch" )
 {
@@ -1051,7 +1237,7 @@ TEST_CASE( "External force fixed release uses scene-committed body scratch" )
 
 TEST_CASE( "Prediction physics seed uses the production reserve owner and survives source destruction" )
 {
-    constexpr int bodyCount = 3;
+    constexpr int bodyCount = 4;
     SkullbonezCore::Core::EngineConfig config;
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
@@ -1077,9 +1263,12 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     forces.gasDensity = config.worldForces.gasDensity;
     forces.angularDragMultiplier = 0.0f;
 
+    const CollisionShape sharedHull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::
+        LoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull" );
+    const HullShapeIdentity sharedHullIdentity = MakeShareableHullShapeIdentity( "SKULLBONEZDATA\\HULLS\\PYRAMID.HULL",
+                                                                                 Vector3( 1.0f, 1.0f, 1.0f ) );
     const CollisionShape shapes[bodyCount] = { MakeColliderShape( 1.25f ), BoxShape( Vector3( 1.5f, 2.0f, 2.5f ) ),
-          SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( diagnostics,
-                                                                                   "SkullbonezData/hulls/pyramid.hull" ) };
+                                               sharedHull, sharedHull };
 
     auto liveEngine = std::make_unique<PhysicsEngine>();
     liveEngine->ApplyRuntimeConfig( config );
@@ -1087,7 +1276,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration registrations[bodyCount] = {};
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         liveEngine->ReserveAuthoredBodyCapacity( bodyCount, 1u, 1u, 1u, 1u );
 
         for ( int row = 0; row < bodyCount; ++row )
@@ -1110,7 +1300,9 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
                                                                              100u + static_cast<uint32_t>( row ),
                                                                              row == 0   ? "seed-sphere"
                                                                              : row == 1 ? "seed-box"
-                                                                                        : "seed-hull" );
+                                                                                        : "seed-hull",
+                                                                             row >= 2 ? sharedHullIdentity
+                                                                                      : HullShapeIdentity {} );
 
             collider.sceneObjectId = body.sceneObjectId;
             collider.friction = 0.2f * static_cast<float>( row + 1 );
@@ -1140,18 +1332,20 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
 
     std::unique_ptr<PhysicsEngine> predictionEngineOwner;
     int reservedBytes = 0;
-    REQUIRE( SkullbonezCore::Runtime::ReplayPredictionReserveOperations::SeedReplayPredictionEngineStorage( predictionEngineOwner,
-                                                                                                            *liveEngine, 0,
-                                                                                                            reservedBytes ) );
+    REQUIRE(
+        SkullbonezCore::Runtime::ReplayPredictionReserveOperations::SeedReplayPredictionEngineStorage( predictionEngineOwner,
+                                                                                                       *liveEngine, 0,
+                                                                                                       reservedBytes ) );
 
     REQUIRE( predictionEngineOwner != nullptr );
 
     REQUIRE( reservedBytes ==
              SkullbonezCore::Runtime::ReplayPredictionReserveOperations::ReplayPredictionEngineReserveBytes( *liveEngine ) );
 
-    REQUIRE( predictionEngineOwner->RestoreReplaySolverSnapshot( solverSnapshot,
-                                                                 SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
-                                                                     bodyCount ) ) );
+    REQUIRE(
+        predictionEngineOwner->RestoreReplaySolverSnapshot( solverSnapshot,
+                                                            SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt(
+                                                                bodyCount ) ) );
 
     PhysicsEngine& predictionEngine = *predictionEngineOwner;
 
@@ -1182,6 +1376,14 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     REQUIRE( clonedColliders.Count() == bodyCount );
     REQUIRE( sourceBuoyancy.size() == bodyCount );
     REQUIRE( clonedBuoyancy.size() == bodyCount );
+    CHECK( sourceColliders.HullShapeCount() == 1u );
+    CHECK( clonedColliders.HullShapeCount() == 1u );
+    const HullShapeIdentity* sourceHullIdentity = sourceColliders.HullIdentityForHandle( registrations[2].collider );
+    const HullShapeIdentity* clonedHullIdentity = clonedColliders.HullIdentityForHandle( registrations[2].collider );
+    REQUIRE( sourceHullIdentity != nullptr );
+    REQUIRE( clonedHullIdentity != nullptr );
+    CHECK( *sourceHullIdentity == sharedHullIdentity );
+    CHECK( *clonedHullIdentity == sharedHullIdentity );
 
     for ( int row = 0; row < bodyCount; ++row )
     {
@@ -1228,25 +1430,44 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
         CHECK( FloatBitsEqual( sourceBuoyancy[index].volume, clonedBuoyancy[index].volume ) );
         CHECK( FloatBitsEqual( sourceBuoyancy[index].projectedSurfaceArea, clonedBuoyancy[index].projectedSurfaceArea ) );
         CHECK( FloatBitsEqual( sourceBuoyancy[index].dragCoefficient, clonedBuoyancy[index].dragCoefficient ) );
-        CHECK( FloatBitsEqual( sourceBuoyancy[index].submergedVolumePercent, clonedBuoyancy[index].submergedVolumePercent ) );
+        CHECK(
+            FloatBitsEqual( sourceBuoyancy[index].submergedVolumePercent, clonedBuoyancy[index].submergedVolumePercent ) );
         CHECK( FloatBitsEqual( sourceBuoyancy[index].contactEpsilon, clonedBuoyancy[index].contactEpsilon ) );
     }
 
-    const BoundingSphere* sourceSphere = GetShapeIf<BoundingSphere>( &sourceColliders.RecordForHandle( registrations[0].collider )->shape );
-    const BoundingSphere* clonedSphere = GetShapeIf<BoundingSphere>( &clonedColliders.RecordForHandle( registrations[0].collider )->shape );
-    const BoundingBox* sourceBox = GetShapeIf<BoundingBox>( &sourceColliders.RecordForHandle( registrations[1].collider )->shape );
-    const BoundingBox* clonedBox = GetShapeIf<BoundingBox>( &clonedColliders.RecordForHandle( registrations[1].collider )->shape );
-    const auto* sourceHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>( &sourceColliders.RecordForHandle( registrations[2].collider )->shape );
-    const auto* clonedHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>( &clonedColliders.RecordForHandle( registrations[2].collider )->shape );
+    const BoundingSphere* sourceSphere = GetShapeIf<BoundingSphere>(
+        &sourceColliders.RecordForHandle( registrations[0].collider )->shape );
+    const BoundingSphere* clonedSphere = GetShapeIf<BoundingSphere>(
+        &clonedColliders.RecordForHandle( registrations[0].collider )->shape );
+    const BoundingBox* sourceBox = GetShapeIf<BoundingBox>(
+        &sourceColliders.RecordForHandle( registrations[1].collider )->shape );
+    const BoundingBox* clonedBox = GetShapeIf<BoundingBox>(
+        &clonedColliders.RecordForHandle( registrations[1].collider )->shape );
+    const auto* sourceHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &sourceColliders.RecordForHandle( registrations[2].collider )->shape );
+    const auto* sourceSharedHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &sourceColliders.RecordForHandle( registrations[3].collider )->shape );
+    const auto* clonedHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &clonedColliders.RecordForHandle( registrations[2].collider )->shape );
+    const auto* clonedSharedHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &clonedColliders.RecordForHandle( registrations[3].collider )->shape );
     REQUIRE( sourceSphere != nullptr );
     REQUIRE( clonedSphere != nullptr );
     REQUIRE( sourceBox != nullptr );
     REQUIRE( clonedBox != nullptr );
     REQUIRE( sourceHull != nullptr );
+    REQUIRE( sourceSharedHull != nullptr );
     REQUIRE( clonedHull != nullptr );
+    REQUIRE( clonedSharedHull != nullptr );
     CHECK( sourceSphere != clonedSphere );
     CHECK( sourceBox != clonedBox );
     CHECK( sourceHull != clonedHull );
+    CHECK( sourceHull == sourceSharedHull );
+    CHECK( clonedHull == clonedSharedHull );
+    CHECK( sourceColliders.RecordForHandle( registrations[2].collider )->shape.StorageIndex() == 0u );
+    CHECK( sourceColliders.RecordForHandle( registrations[3].collider )->shape.StorageIndex() == 0u );
+    CHECK( clonedColliders.RecordForHandle( registrations[2].collider )->shape.StorageIndex() == 0u );
+    CHECK( clonedColliders.RecordForHandle( registrations[3].collider )->shape.StorageIndex() == 0u );
     CHECK( FloatBitsEqual( sourceSphere->GetRadius(), clonedSphere->GetRadius() ) );
     CheckVectorBitsEqual( sourceBox->GetHalfExtents(), clonedBox->GetHalfExtents() );
     CHECK( sourceHull->GetVertexCount() == clonedHull->GetVertexCount() );
@@ -1277,7 +1498,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
         CheckHotStateBitsEqual( SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( *liveEngine )
                                                                                       .HotFields(),
                                                                                   index ),
-                                SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( predictionEngine )
+                                SkullbonezCore::Physics::LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies(
+                                                                                      predictionEngine )
                                                                                       .HotFields(),
                                                                                   index ) );
     }
@@ -1286,15 +1508,28 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     // Destroying the live engine must not invalidate prediction references.
     liveEngine.reset();
     const ColliderStore& survivingColliders = PhysicsEngine::ReadColliders( predictionEngine );
-    const BoundingSphere* survivingSphere = GetShapeIf<BoundingSphere>( &survivingColliders.RecordForHandle( registrations[0].collider )->shape );
-    const BoundingBox* survivingBox = GetShapeIf<BoundingBox>( &survivingColliders.RecordForHandle( registrations[1].collider )->shape );
-    const auto* survivingHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>( &survivingColliders.RecordForHandle( registrations[2].collider )->shape );
+    const BoundingSphere* survivingSphere = GetShapeIf<BoundingSphere>(
+        &survivingColliders.RecordForHandle( registrations[0].collider )->shape );
+    const BoundingBox* survivingBox = GetShapeIf<BoundingBox>(
+        &survivingColliders.RecordForHandle( registrations[1].collider )->shape );
+    const auto* survivingHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &survivingColliders.RecordForHandle( registrations[2].collider )->shape );
+    const auto* survivingSharedHull = GetShapeIf<SkullbonezCore::Math::CollisionDetection::ConvexHullShape>(
+        &survivingColliders.RecordForHandle( registrations[3].collider )->shape );
     REQUIRE( survivingSphere != nullptr );
     REQUIRE( survivingBox != nullptr );
     REQUIRE( survivingHull != nullptr );
+    REQUIRE( survivingSharedHull != nullptr );
     CHECK( FloatBitsEqual( survivingSphere->GetRadius(), 1.25f ) );
     CheckVectorBitsEqual( survivingBox->GetHalfExtents(), Vector3( 1.5f, 2.0f, 2.5f ) );
     CHECK( survivingHull->GetVertexCount() > 0u );
+    CHECK( survivingHull == survivingSharedHull );
+    CHECK( survivingHull == clonedHull );
+    CHECK( survivingSharedHull == clonedSharedHull );
+    CHECK( survivingColliders.RecordForHandle( registrations[2].collider )->shape.StorageIndex() == 0u );
+    CHECK( survivingColliders.RecordForHandle( registrations[3].collider )->shape.StorageIndex() == 0u );
+    REQUIRE( survivingColliders.HullIdentityForHandle( registrations[3].collider ) != nullptr );
+    CHECK( *survivingColliders.HullIdentityForHandle( registrations[3].collider ) == sharedHullIdentity );
 }
 
 

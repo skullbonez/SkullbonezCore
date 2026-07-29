@@ -31,10 +31,12 @@ Do not claim to be a separate model or independent process unless you actually i
 4. For any change that adds, moves, or deletes C++ types or functions, answer the
    five ownership questions below. For every operation with 12 or more
    parameters, also verify its exact current wide-signature ruling and name the
-   concrete owner or repair plan. These are not style comments — `AGENTS.md`
-   delegates enforcement of its aggregate, slice, extraction, and wide-signature
-   rules to this review, so a critique that skips them leaves those rules
-   unenforced.
+   concrete owner or repair plan. For every function at 400 body lines or brace
+   depth 6, verify the exact current-body complexity ruling and challenge its
+   cohesion reason. These are not style comments — `AGENTS.md` delegates
+   enforcement of its aggregate, slice, extraction, wide-signature, and
+   function-complexity rules to this review, so skipping them leaves those
+   rules unenforced.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -78,13 +80,22 @@ answer with `tools/wide_signature_ownership_rulings.json`. `UNRULED`,
 reviewable evidence, not immunity: disagree with it when source responsibility
 does not support its reason.
 
-Cite evidence rather than asserting a conclusion. Three repeatable inventories
-produce it, and all three are read-only:
+For every function at the 400-line or depth-6 review trigger, state the concrete
+owner and whether all parsing, arbitration, mutation, publication, or lifecycle
+phases are one cohesive operation. Compare that answer with
+`tools/function_complexity_rulings.json`. `UNRULED`, `EDITED-BODY`,
+`STALE-RULING`, or a missing repair plan is `[Blocking]`. A split into a helper
+called once immediately is not decomposition when the same authority and phase
+order remain in the caller; follow that helper before accepting the ruling.
+
+Cite evidence rather than asserting a conclusion. Four repeatable inventories
+produce it, and all four are read-only:
 
 ```bash
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo . --strict
+python tools/inventory_function_complexity.py --repo . --strict
 ```
 
 Verdicts for the aggregate and extraction-scar inventories live in
@@ -92,9 +103,11 @@ Verdicts for the aggregate and extraction-scar inventories live in
 judged it yet; a ruled row means an owner has, and the reason field says why.
 Wide-signature rulings live in
 `tools/wide_signature_ownership_rulings.json` and match the current file plus
-normalized signature; prior dispositions do not satisfy the gate. None of these
-tools is a count budget — do not report a number as a finding, report the
-unowned operation or invariant.
+normalized signature. Function-complexity rulings live in
+`tools/function_complexity_rulings.json` and also match the current body digest;
+prior dispositions do not satisfy either gate. None of these tools is a count
+budget — do not report a number as a finding, report the unowned operation or
+invariant.
 
 ## Output Shape
 

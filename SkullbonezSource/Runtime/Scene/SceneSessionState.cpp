@@ -34,7 +34,6 @@ Related:
 #include <utility>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 
 namespace

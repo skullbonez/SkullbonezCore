@@ -14,9 +14,11 @@ Glossary:
   Stable resolution: Finding the current dense row from PhysicsSceneObjectId.
 
 Invariants:
-  - Only standalone sphere/box recipes enter place/delete history.
+  - Only standalone collision-shape recipes enter place/delete history.
   - Transform apply preflights every stable id before mutating any row.
   - Undo/redo never stores or resolves stale body/collider handles from entries.
+  - Hull delete/undo carries proven immutable geometry identity, while shape
+    transforms remain explicitly unique.
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorCommandHistory.h
@@ -160,6 +162,13 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.friction = collider->friction;
     outRecipe.contactMaterialId = collider->contactMaterialId;
     strcpy_s( outRecipe.contactMaterialName, colliderAuthoring->contactMaterialName );
+    outRecipe.hullIdentity = {};
+
+    if ( const HullShapeIdentity* hullIdentity = world.Colliders().HullIdentityForHandle( collider->handle ) )
+    {
+        outRecipe.hullIdentity = *hullIdentity;
+    }
+
     return true;
 }
 
@@ -197,7 +206,7 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
     bodyDesc.usesWorldInertia = recipe.body.usesWorldInertia;
     bodyDesc.contactReleaseImpulseThreshold = recipe.body.contactReleaseImpulseThreshold;
     PhysicsColliderCreateDesc colliderDesc = MakeColliderCreateDesc( shape, recipe.restitution, recipe.contactMaterialId,
-                                                                     recipe.contactMaterialName );
+                                                                     recipe.contactMaterialName, recipe.hullIdentity );
 
     colliderDesc.friction = recipe.friction;
     const SceneEntityCreateResult result = world.TryCreateSceneEntity( recipe.entity, std::move( bodyDesc ),

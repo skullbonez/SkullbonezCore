@@ -31,15 +31,20 @@
 //   - Release foreign frees are proved in a child so their process-lifetime
 //     counter cannot contaminate later parent-process diagnostics.
 //   - Allocation-size overflow reaches allocation Lane F before CRT malloc.
+//   - The contact-solve phase cursor admits only its full ordered walk and two
+//     existing no-work terminal edges; every other edge terminates in Lane F.
 //   - Physics storage seeding rejects missing allocation/owner scopes,
 //     SceneLoad phase, missing Replay owner, and any Replay owner other than
 //     the canonical prediction working set.
+//   - Spatial-grid backing reserves only during SceneLoad; fixed-step
+//     exhaustion reports the exact owner, capacity, high-water, and phase.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
 //   - SkullbonezSource/Core/AmortizedTask.h
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
+//   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
 //
 
@@ -61,6 +66,7 @@
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -107,6 +113,17 @@ using SkullbonezCore::Threading::WorkerPool;
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+struct PersistentContactSolveTransactionTestAccess
+{
+    static void Advance( PersistentContactSolveTransaction& transaction, PersistentContactSolvePhaseCursor::Phase next )
+    {
+        transaction.AdvanceOrFatal( next, "ExhaustiveFatalProbe" );
+    }
+};
+} // namespace Physics
+
 namespace Runtime
 {
 struct OperatorCommandTransactionTestAccess
@@ -324,6 +341,48 @@ struct WorkerFatalProbe
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    unsigned int contactSolvePhaseFrom = 0u;
+    unsigned int contactSolvePhaseTo = 0u;
+
+    if ( sscanf_s( caseName, "contact-solve-phase-%u-%u", &contactSolvePhaseFrom, &contactSolvePhaseTo ) == 2 )
+    {
+        using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
+        using SkullbonezCore::Physics::PersistentContactSolveTransaction;
+        using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
+        using Phase = PersistentContactSolvePhaseCursor::Phase;
+        constexpr std::array phases { Phase::Idle,
+                                      Phase::EntryPolicySetup,
+                                      Phase::BodySetup,
+                                      Phase::BuildManifolds,
+                                      Phase::TerrainRows,
+                                      Phase::Precompute,
+                                      Phase::SolveRows,
+                                      Phase::PointSupportInstability,
+                                      Phase::TerrainRestPolicy,
+                                      Phase::WriteBack,
+                                      Phase::DebugContacts,
+                                      Phase::PositionCorrection,
+                                      Phase::CacheStore,
+                                      Phase::FixedContactRelease,
+                                      Phase::Complete,
+                                      Phase::Count };
+
+        if ( contactSolvePhaseFrom >= phases.size() - 1u || contactSolvePhaseTo >= phases.size() )
+        {
+            return false;
+        }
+
+        PersistentContactSolveTransaction transaction;
+
+        for ( unsigned int phaseIndex = 1u; phaseIndex <= contactSolvePhaseFrom; ++phaseIndex )
+        {
+            PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+        }
+
+        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[contactSolvePhaseTo] );
+        return true;
+    }
+
     unsigned int operatorPhaseFrom = 0u;
     unsigned int operatorPhaseTo = 0u;
 
@@ -407,9 +466,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         using namespace SkullbonezCore::Core::Allocation;
         constexpr int wrongOwnerHardCapacity = 1024;
-        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
-                                                                                          RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
-                                                                                          "Fatal probe for unrelated Replay growth authority" } );
+        const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+            { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, RuntimeReserveSubsystem::Replay,
+              RuntimeReservePhase::Replay, 0, wrongOwnerHardCapacity, RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED, true,
+              "Fatal probe for unrelated Replay growth authority" } );
 
         const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::
             RequestGrowth( owner, { SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER, "PhysicsEngine seed",
@@ -558,7 +618,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-shaped-header" ) == 0 )
     {
-        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>( std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
+        auto* candidate = static_cast<ForeignAllocationHeaderLayout*>(
+            std::malloc( sizeof( ForeignAllocationHeaderLayout ) ) );
 
         if ( !candidate )
         {
@@ -592,7 +653,8 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "allocation-foreign-crt-release" ) == 0 )
     {
-        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode( SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
+        SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Measure );
         SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
         void* foreignPointer = std::malloc( 64u );
 
@@ -632,6 +694,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "spatial-grid-nan" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 8u );
+        }
         grid.Insert( 7, Vector3( std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f ), 1.0f );
         return true;
     }
@@ -639,6 +705,10 @@ bool RunRuntimeFatalCase( const char* caseName )
     if ( std::strcmp( caseName, "spatial-grid-extent" ) == 0 )
     {
         static SpatialGrid grid( 10.0f );
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 12u );
+        }
         grid.Insert( 11, Vector3( SpatialGrid::MAX_WORLD_COORDINATE + 1.0f, 0.0f, 0.0f ), 1.0f );
         return true;
     }
@@ -661,10 +731,53 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "spatial-grid-reserve-phase" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+        grid.ReserveSceneCapacity( 1u );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "spatial-grid-entry-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 1u );
+        }
+
+        grid.BeginFrame( 1 );
+        RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
+        grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 5.0f );
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "spatial-grid-overlay-entry-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( 2u );
+        }
+
+        grid.BeginFrame( 2 );
+        RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
+        grid.InsertSwept( 0, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2047.0f, 0.0f, 0.0f ), 0.0f );
+        grid.InsertSwept( 1, Vector3( 5000.25f, 0.25f, 0.25f ), Vector3( 2050.0f, 0.0f, 0.0f ), 0.0f );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
         static SpatialGrid grid( 1.0f );
-        grid.Clear();
+
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            grid.ReserveSceneCapacity( SpatialGrid::MAX_BUCKETS );
+        }
+
         constexpr int persistentCells = SpatialGrid::MAX_BUCKETS / 2;
 
         for ( int cell = 0; cell < persistentCells; ++cell )
@@ -691,7 +804,8 @@ bool RunRuntimeFatalCase( const char* caseName )
             edges { "TestRuntimeContracts.sleepSupportEdges",
                     SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
             edges.Reserve( MAX_SLEEP_SUPPORT_EDGES );
         }
         edges.clear();
@@ -887,20 +1001,20 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
     for ( int threadIndex = 0; threadIndex < threadCount; ++threadIndex )
     {
-        threads.emplace_back( [threadIndex, path, writesPerThread]()
-                              {
+        threads.emplace_back(
+            [threadIndex, path, writesPerThread]()
+            {
+                for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
+                {
+                    SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
 
-                                  for ( int writeIndex = 0; writeIndex < writesPerThread; ++writeIndex )
-                                  {
-                                      SkullbonezCore::Core::EngineLog::Get().Writef( path, "%d,%d\n", threadIndex, writeIndex );
-
-                                      if ( writeIndex % 16 == 0 )
-                                      {
-                                          SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
-                                                                                              threadIndex, writeIndex );
-                                      }
-                                  }
-                              } );
+                    if ( writeIndex % 16 == 0 )
+                    {
+                        SkullbonezCore::Core::EngineLog::Get().WriteEventf( "runtime_contract_log_test thread=%d write=%d",
+                                                                            threadIndex, writeIndex );
+                    }
+                }
+            } );
     }
 
     for ( std::thread& thread : threads )
@@ -1131,6 +1245,18 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
 
+    ExpectFatalCase( "spatial-grid-reserve-phase",
+                     { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=1032",
+                       "runtime_capacity=0", "compile_capacity=69636", "phase=startup" } );
+
+    ExpectFatalCase( "spatial-grid-entry-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033",
+                       "runtime_capacity=1032", "compile_capacity=69636", "high_water=1032", "phase=physics" } );
+
+    ExpectFatalCase( "spatial-grid-overlay-entry-capacity",
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.overlayEntries", "requested=4097",
+                       "runtime_capacity=4096", "compile_capacity=4096", "high_water=4096", "phase=physics" } );
+
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
 
@@ -1171,6 +1297,70 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 #endif
     ExpectFatalCase( "allocation-size-overflow", { "FATAL[Runtime/Allocation]", "global operator new failed",
                                                    "reason=size_arithmetic_overflow", "size=18446744073709551615" } );
+}
+
+TEST_CASE( "Persistent contact solve transaction enforces every phase edge through Lane F" )
+{
+    using SkullbonezCore::Physics::PersistentContactSolvePhaseCursor;
+    using SkullbonezCore::Physics::PersistentContactSolveTransaction;
+    using SkullbonezCore::Physics::PersistentContactSolveTransactionTestAccess;
+    using Phase = PersistentContactSolvePhaseCursor::Phase;
+    constexpr std::array phases { Phase::Idle,
+                                  Phase::EntryPolicySetup,
+                                  Phase::BodySetup,
+                                  Phase::BuildManifolds,
+                                  Phase::TerrainRows,
+                                  Phase::Precompute,
+                                  Phase::SolveRows,
+                                  Phase::PointSupportInstability,
+                                  Phase::TerrainRestPolicy,
+                                  Phase::WriteBack,
+                                  Phase::DebugContacts,
+                                  Phase::PositionCorrection,
+                                  Phase::CacheStore,
+                                  Phase::FixedContactRelease,
+                                  Phase::Complete,
+                                  Phase::Count };
+    constexpr std::size_t entryIndex = 1u;
+    constexpr std::size_t terrainRowsIndex = 4u;
+    constexpr std::size_t completeIndex = phases.size() - 2u;
+
+    for ( std::size_t fromIndex = 0u; fromIndex < phases.size(); ++fromIndex )
+    {
+
+        for ( std::size_t toIndex = 0u; toIndex < phases.size(); ++toIndex )
+        {
+            const bool adjacent = fromIndex < completeIndex && toIndex == fromIndex + 1u;
+            const bool emptyInput = fromIndex == entryIndex && toIndex == completeIndex;
+            const bool emptyRows = fromIndex == terrainRowsIndex && toIndex == completeIndex;
+            const bool expected = adjacent || emptyInput || emptyRows;
+            CHECK( PersistentContactSolvePhaseCursor::IsLegalTransition( phases[fromIndex], phases[toIndex] ) == expected );
+
+            // Count is a sentinel and cannot become the cursor's current state.
+
+            if ( fromIndex == phases.size() - 1u || expected )
+            {
+                continue;
+            }
+
+            char caseName[96] = {};
+            std::snprintf( caseName, sizeof( caseName ), "contact-solve-phase-%zu-%zu", fromIndex, toIndex );
+            ExpectFatalCase( caseName, { "FATAL[Physics/PersistentContactSolveTransaction]", "Illegal phase transition",
+                                         "operation=ExhaustiveFatalProbe" } );
+        }
+    }
+
+    PersistentContactSolveTransaction transaction;
+    CHECK( transaction.Phase() == Phase::Idle );
+
+    for ( std::size_t phaseIndex = 1u; phaseIndex <= completeIndex; ++phaseIndex )
+    {
+        PersistentContactSolveTransactionTestAccess::Advance( transaction, phases[phaseIndex] );
+    }
+
+    CHECK( transaction.Phase() == Phase::Complete );
+    static_assert( !std::is_copy_constructible_v<PersistentContactSolveTransaction> );
+    static_assert( !std::is_copy_assignable_v<PersistentContactSolveTransaction> );
 }
 
 TEST_CASE( "Operator command transaction enforces every phase edge through Lane F" )

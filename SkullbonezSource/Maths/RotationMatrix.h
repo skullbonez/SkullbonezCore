@@ -9,8 +9,8 @@ Summary:
   conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
+  Orthogonal basis: Three perpendicular unit axes; its transpose is also its
+    inverse.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as

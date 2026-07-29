@@ -671,6 +671,109 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
 }
 
 
+TEST_CASE( "Persistent contact solver: object restitution applies only to a fresh contact" )
+{
+    auto buildImpact = []( SolverFixture& fixture )
+    {
+        constexpr float restitution = 0.75f;
+        fixture.config.solver.slop = 0.0f;
+        fixture.config.solver.baumgarteBeta = 0.2f;
+        fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), restitution, true );
+        fixture.AddDynamicSphere( Vector3( 0.0f, 1.99f, 0.0f ), Vector3( 0.0f, -6.0f, 0.0f ), restitution );
+        fixture.candidatePairs.emplace_back( 0, 1 );
+    };
+
+    SolverFixture fresh;
+    buildImpact( fresh );
+    fresh.Solve();
+
+    REQUIRE( fresh.solver.GetPersistentContactCache().size() == 1u );
+    REQUIRE( fresh.diagnostics.GetDebugContacts().size() == 1u );
+    CHECK( fresh.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed > fresh.config.body.contactRestitutionThreshold );
+    CHECK( fresh.bodyStore.HotFields().linearVelocityY[1] > 0.0f );
+    const float freshSeparatingSpeed = fresh.bodyStore.HotFields().linearVelocityY[1];
+
+    SolverFixture persistent;
+    buildImpact( persistent );
+    persistent.CopySolverStateFrom( fresh );
+    persistent.Solve();
+
+    // Invariant: cached normal load marks support carried from the previous
+    // frame, so the same high closing speed gets Baumgarte repair but no new
+    // restitution energy. Cache reach is pinned separately against the exact
+    // resting-footprint classifier rather than inferred from feature shape.
+    REQUIRE( persistent.solver.GetStats().cacheHits == 1 );
+    REQUIRE( persistent.diagnostics.GetDebugContacts().size() == 1u );
+    REQUIRE( persistent.solver.GetPersistentContacts().size() == 1u );
+    CHECK( persistent.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
+           persistent.config.body.contactRestitutionThreshold );
+    const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta *
+                                        persistent.solver.GetPersistentContacts()[0].penetration / kSolverDt;
+    CHECK( persistent.solver.GetPersistentContacts()[0].bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
+           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
+}
+
+
+TEST_CASE( "Persistent contact solver: restitution suppression follows exact resting-footprint cache reach" )
+{
+    constexpr float thinContactRotation = 0.75f;
+    constexpr float contactOverlap = 0.02f;
+    const float thinContactDistance = 1.0f + cosf( thinContactRotation ) + sinf( thinContactRotation ) - contactOverlap;
+
+    auto buildBoxPair = [&]( SolverFixture& fixture, const Vector3& dynamicPosition )
+    {
+        fixture.config.solver.slop = 0.0f;
+        fixture.config.solver.baumgarteBeta = 0.2f;
+        fixture.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
+        fixture.AddBox( dynamicPosition, thinContactRotation, false );
+        fixture.candidatePairs.emplace_back( 0, 1 );
+    };
+
+    SolverFixture verticalEdge;
+    buildBoxPair( verticalEdge, Vector3( 0.0f, thinContactDistance, -0.5f ) );
+    verticalEdge.Solve();
+
+    REQUIRE_FALSE( verticalEdge.solver.GetPersistentContacts().empty() );
+    CHECK( std::none_of( verticalEdge.solver.GetPersistentContacts().begin(),
+                         verticalEdge.solver.GetPersistentContacts().end(),
+                         []( const SkullbonezCore::Physics::PersistentContact& contact )
+                         { return contact.supportsRestingPolicy; } ) );
+    CHECK( verticalEdge.solver.GetPersistentContactCache().empty() );
+
+    SolverFixture lateralFresh;
+    buildBoxPair( lateralFresh, Vector3( 0.0f, -0.5f, thinContactDistance ) );
+    lateralFresh.Solve();
+
+    REQUIRE_FALSE( lateralFresh.solver.GetPersistentContacts().empty() );
+    CHECK( std::all_of( lateralFresh.solver.GetPersistentContacts().begin(),
+                        lateralFresh.solver.GetPersistentContacts().end(),
+                        []( const SkullbonezCore::Physics::PersistentContact& contact )
+                        { return contact.supportsRestingPolicy; } ) );
+    REQUIRE_FALSE( lateralFresh.solver.GetPersistentContactCache().empty() );
+
+    SolverFixture lateralPersistent;
+    buildBoxPair( lateralPersistent, Vector3( 0.0f, -0.5f, thinContactDistance ) );
+    lateralPersistent.bodyStore.MutableHotFields().linearVelocityZ[1] = -6.0f;
+    lateralPersistent.CopySolverStateFrom( lateralFresh );
+    lateralPersistent.Solve();
+
+    REQUIRE( lateralPersistent.solver.GetStats().cacheHits > 0 );
+    const auto reusedRow = std::find_if( lateralPersistent.solver.GetPersistentContacts().begin(),
+                                         lateralPersistent.solver.GetPersistentContacts().end(),
+                                         []( const SkullbonezCore::Physics::PersistentContact& contact )
+                                         { return contact.warmStarted; } );
+    REQUIRE( reusedRow != lateralPersistent.solver.GetPersistentContacts().end() );
+    const float expectedBaumgarteBias = lateralPersistent.config.solver.baumgarteBeta * reusedRow->penetration / kSolverDt;
+    CHECK( reusedRow->bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+
+    // Invariant: `supportsRestingPolicy`, not edge/corner vocabulary, defines
+    // BV1 reach. Vertical box edge-only support is excluded; this lateral thin
+    // box contact is admitted and suppresses restitution after cached load.
+}
+
+
 TEST_CASE( "Property invariant: friction and restitution outputs stay bounded [seed 0x16C0111D]" )
 {
     SkullbonezTests::FixedSeed random( 0x16C0111Du );

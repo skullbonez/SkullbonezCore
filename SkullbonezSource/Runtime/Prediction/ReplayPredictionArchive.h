@@ -49,6 +49,13 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
 
+// Validation seam: emits an authentic supported schema, including that
+// schema's historical quaternion representation. Runtime save paths use the
+// current-schema builder above.
+bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisualizerState& pathVisualizer,
+                                                      const RunReplayPredictionState& prediction, uint32_t schema,
+                                                      std::vector<uint8_t>& outBytes );
+
 // Automation restores and rebuilds one captured RVPD payload. Product
 // configurations deliberately expose no verifier declaration or fallback.
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );

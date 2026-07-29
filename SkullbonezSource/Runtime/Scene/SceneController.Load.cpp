@@ -4,9 +4,9 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Summary:
-  SceneController owns cold scene mutation and borrows only the owners required
+  SceneController owns cold scene mutation and borrows only the owners needed
 
-  while scene storage is changing. SceneLoadTransaction owns the phase cursor
+  while storage changes. SceneLoadTransaction owns the phase cursor
   and detached outputs, then sequences idempotent reactions at the excluded
   camera, input, interaction, tool, Replay, UI, and validation owners.
 
@@ -180,9 +180,11 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
     const float yHalf = eulerYDeg * DEG2RAD * 0.5f;
     const float zHalf = eulerZDeg * DEG2RAD * 0.5f;
 
-    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+    // Invariant: scene Euler degrees preserve their established world-space
+    // meaning across the canonical Hamilton representation change.
+    const Quaternion xRotation( -sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, -sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, -sinf( zHalf ), cosf( zHalf ) );
 
     Quaternion orientation;
     orientation *= xRotation * yRotation * zRotation;

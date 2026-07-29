@@ -13,10 +13,6 @@ Glossary:
   during incremental orientation updates.
   Identity quaternion: No-rotation value (0,0,0,1); multiplying by it leaves an
   orientation unchanged.
-  Anti-Hamilton composition: For code operands lhs * rhs, the implementation
-  returns the textbook Hamilton product rhs * lhs.
-  Orientation matrix: The transpose of the textbook Hamilton active-rotation
-  matrix; engine transform and collision callers depend on this exact basis.
   Euler decomposition: Splitting rotation into ordered X/Y/Z angles; this file
   avoids depending on that order for incremental angular displacement.
   Shortest nlerp: Normalized linear interpolation that first chooses the
@@ -24,12 +20,6 @@ Glossary:
 
 Invariants:
   - IDENTITY_QUATERNION is the no-rotation sentinel and must stay (0,0,0,1).
-  - lhs * rhs computes Hamilton(rhs * lhs), not Hamilton(lhs * rhs).
-  - GetOrientationMatrix returns the transpose of the Hamilton active-rotation
-    matrix. RotateAboutAxis negates the delta sine term so an active positive
-    world-axis rotation remains positive under both engine conventions.
-  - These conventions are byte-exact physics and rendering contracts; do not
-    import a textbook formula or normalize either convention independently.
   - Orientation interpolation normalizes its result and clamps alpha to [0,1].
 
 Related:
@@ -71,13 +61,12 @@ class Quaternion
     RotateAboutAxis( const Vector::Vector3& axis,
                      float angle );                         // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
 
-    // Returns the transpose of the textbook Hamilton active-rotation matrix.
-    // This is the immutable engine basis consumed by transforms and collision.
+    // Returns the active-rotation matrix for this Hamilton quaternion.
     Transformation::RotationMatrix GetOrientationMatrix() const;
     void RotateAboutXYZ( float xRadians, float yRadians,
                          float zRadians );                  // Rotate by angular-displacement components without Euler decomposition
 
-    // Anti-Hamilton order: lhs * rhs computes Hamilton(rhs * lhs).
+    // Standard Hamilton order: lhs * rhs applies rhs first, then lhs.
     Quaternion operator*( const Quaternion& q ) const;
     Quaternion& operator*=( const Quaternion& q );          // In-place rotation composition; caller normalizes if drift matters.
     void GetComponents( float& x, float& y, float& z,
@@ -93,6 +82,17 @@ class Quaternion
 
 // One program-wide no-rotation value shared by every including translation unit.
 inline const Quaternion IDENTITY_QUATERNION( 0.0f, 0.0f, 0.0f, 1.0f );
+
+inline void ConjugateQuaternionVectorPart( float& x, float& y, float& z ) noexcept
+{
+
+    // Invariant: IEEE-754 negation changes only the sign bit. Applying this
+    // migration twice therefore restores every finite component bit-for-bit,
+    // including signed zero and subnormal values.
+    x = -x;
+    y = -y;
+    z = -z;
+}
 
 inline Quaternion NlerpShortest( const Quaternion& previous, const Quaternion& current, float alpha )
 {

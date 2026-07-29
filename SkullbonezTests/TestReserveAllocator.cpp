@@ -34,6 +34,8 @@
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //   - A new capacity session resets the visible and list-local peak lazily.
+//   - Grow-only default extension preserves the existing admitted prefix and
+//     value-initializes only newly admitted rows.
 //
 // Related:
 //   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -144,25 +146,26 @@ TEST_CASE( "RuntimeAllocationScope: concurrent threads retain independent nested
 
     {
         RuntimeAllocationScope mainRenderScope( RuntimeAllocationPhase::Render );
-        std::thread worker( [&]()
-                            {
-                                SetRuntimeAllocationPhase( RuntimeAllocationPhase::BackendInit );
-                                bool phasesCorrect = GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
-                                {
-                                    RuntimeAllocationScope workerReplayScope( RuntimeAllocationPhase::Replay );
-                                    phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
-                                    workerEnteredReplay.store( true, std::memory_order_release );
+        std::thread worker(
+            [&]()
+            {
+                SetRuntimeAllocationPhase( RuntimeAllocationPhase::BackendInit );
+                bool phasesCorrect = GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+                {
+                    RuntimeAllocationScope workerReplayScope( RuntimeAllocationPhase::Replay );
+                    phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+                    workerEnteredReplay.store( true, std::memory_order_release );
 
-                                    while ( !mainObservedRender.load( std::memory_order_acquire ) )
-                                    {
-                                        std::this_thread::yield();
-                                    }
+                    while ( !mainObservedRender.load( std::memory_order_acquire ) )
+                    {
+                        std::this_thread::yield();
+                    }
 
-                                    phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
-                                }
-                                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
-                                workerPhasesCorrect.store( phasesCorrect, std::memory_order_release );
-                            } );
+                    phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+                }
+                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+                workerPhasesCorrect.store( phasesCorrect, std::memory_order_release );
+            } );
 
         while ( !workerEnteredReplay.load( std::memory_order_acquire ) )
         {
@@ -227,7 +230,8 @@ TEST_CASE( "RuntimeAllocationTracker: public mode and phase names cover every li
     CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Gameplay ) ) == "gameplay" );
     CHECK( std::string( RuntimeAllocationGuardModeName( static_cast<RuntimeAllocationGuardMode>( 99 ) ) ) == "unknown" );
 
-    const std::array<const char*, static_cast<size_t>( RuntimeAllocationPhase::Count )> expected = { "startup", "scene_load", "backend_init", "steady_gameplay", "physics",
+    const std::array<const char*, static_cast<size_t>( RuntimeAllocationPhase::Count )> expected =
+        { "startup", "scene_load", "backend_init", "steady_gameplay", "physics",
           "render",  "replay",     "capture",      "diagnostics",     "shutdown" };
 
     for ( size_t index = 0; index < expected.size(); ++index )
@@ -467,7 +471,8 @@ TEST_CASE( "RuntimeReserveAllocator: replay growth count limit denies later bump
 {
     RuntimeReserveAllocator::ResetCounters();
     constexpr const char* ownerName = "unit.reserve.e1.limit";
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 4, 12, 1 ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 4, 12, 1 ) );
     REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
 
     const RuntimeReserveGrowthResult first = RuntimeReserveAllocator::RequestGrowth( owner,
@@ -491,7 +496,8 @@ TEST_CASE( "RuntimeReserveAllocator: replay byte owners share one active allocat
 {
     RuntimeReserveAllocator::ResetCounters();
     constexpr const char* ownerName = "unit.reserve.e1.aggregate-bytes";
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 0, 100 ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 0, 100 ) );
     REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
 
     RuntimeReserveAllocator::RecordAllocation( owner, 6, 80u );
@@ -515,7 +521,8 @@ TEST_CASE( "RuntimeReserveAllocator: ResetCounters clears growth events without 
 {
     RuntimeReserveAllocator::ResetCounters();
     constexpr const char* ownerName = "unit.reserve.e1.reset";
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 4, 10, 1 ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 4, 10, 1 ) );
     REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
     REQUIRE( RuntimeReserveAllocator::RequestGrowth( owner, MakeGrowthRequest( ownerName, 4, 6 ) ).granted );
     REQUIRE( RuntimeReserveAllocator::GrowthEventCount() == 1u );
@@ -539,7 +546,8 @@ TEST_CASE( "RuntimeReserveAllocator: owner stats expose fixed-registry growth ev
 {
     RuntimeReserveAllocator::ResetCounters();
     constexpr const char* ownerName = "unit.reserve.e1.owner-stats";
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 4, 12 ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 4, 12 ) );
     REQUIRE( owner != INVALID_RUNTIME_RESERVE_OWNER );
     REQUIRE( RuntimeReserveAllocator::RequestGrowth( owner, MakeGrowthRequest( ownerName, 4, 9 ) ).granted );
 
@@ -652,6 +660,41 @@ TEST_CASE( "PhysicsFixedList: scene-load reserve fills exact runtime capacity th
     SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
     CHECK( warmedLogAllocationViolations == 0u );
     std::fclose( capacityLog );
+}
+
+
+TEST_CASE( "PhysicsFixedList: grow-only default extension preserves the admitted prefix" )
+{
+    PhysicsFixedList<int, 8> values( "unit.physics-fixed-list.extend-default", ExplicitTestCapacity );
+
+    {
+        RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
+        values.Reserve( 2u );
+        values.ExtendDefaultTo( 2u );
+    }
+
+    REQUIRE( values.size() == 2u );
+    values[0] = 17;
+    values[1] = 29;
+
+    {
+        RuntimeAllocationScope additionalSceneLoad( RuntimeAllocationPhase::SceneLoad );
+        values.Reserve( 5u );
+        values.ExtendDefaultTo( 5u );
+    }
+
+    REQUIRE( values.size() == 5u );
+    CHECK( values[0] == 17 );
+    CHECK( values[1] == 29 );
+    CHECK( values[2] == 0 );
+    CHECK( values[3] == 0 );
+    CHECK( values[4] == 0 );
+    CHECK( values.high_water() == 5u );
+
+    values.ExtendDefaultTo( 3u );
+    CHECK( values.size() == 5u );
+    CHECK( values[0] == 17 );
+    CHECK( values[1] == 29 );
 }
 
 
@@ -829,7 +872,8 @@ TEST_CASE( "PhysicsFixedList: failed non-trivial relocation cleans every constru
 TEST_CASE( "PhysicsFixedList: replay reserve requires an approved outer owner and growth scope" )
 {
     constexpr const char* ownerName = "unit.physics-fixed-list.replay-owner";
-    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner( MakeReplayOwnerDesc( ownerName, 0, 1024 ) );
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::RegisterOwner(
+        MakeReplayOwnerDesc( ownerName, 0, 1024 ) );
     RuntimeReserveGrowthRequest request = MakeGrowthRequest( ownerName, 0, 128 );
     request.elementSizeBytes = 1;
     const RuntimeReserveGrowthResult growth = RuntimeReserveAllocator::RequestGrowth( owner, request );

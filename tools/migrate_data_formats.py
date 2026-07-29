@@ -1,10 +1,10 @@
 # File: tools/migrate_data_formats.py
-# Purpose: Upgrade authored asset libraries, convex hulls, and engine config files.
+# Purpose: Upgrade authored scenes, asset libraries, convex hulls, and engine config files.
 #
 # Mental model:
 #   Runtime readers retain only their current/current-1 compatibility window.
 #   This cold tool owns durable rewrites from legacy authored inputs to the
-#   current native stamp without changing scene version history.
+#   current native stamp, including exact quaternion representation migrations.
 #
 # Glossary:
 #   Native stamp: The integer version field/directive owned by one file format.
@@ -24,7 +24,7 @@
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
-#   - Scene/style JSON is outside this tool; its v1->v2 path remains parser-owned.
+#   - Scene v1/v2 raw orientations are conjugated exactly once on the v3 step.
 #   - Config migrations edit only their owned rows and preserve unrelated rows.
 #
 # Related:
@@ -46,12 +46,88 @@ import bake_hulls
 
 ASSET_LIBRARY_VERSION = 1
 CONFIG_VERSION = 6
+SCENE_VERSION = 3
 ASSET_FORMAT = "skullbonez.asset_library.json"
+SCENE_FORMAT = "skullbonez.scene.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
+JSON_NUMBER = r"-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?"
+ORIENTATION_RE = re.compile(
+    rf'("orientation"\s*:\s*\[\s*)({JSON_NUMBER})(\s*,\s*)({JSON_NUMBER})'
+    rf'(\s*,\s*)({JSON_NUMBER})(\s*,\s*)({JSON_NUMBER})(\s*\])'
+)
+SCENE_VERSION_RE = re.compile(r'("version"\s*:\s*)(\d+)')
 
 
 class MigrationError(RuntimeError):
     pass
+
+
+def _negate_json_number(token: str) -> str:
+    if token.startswith("-"):
+        positive = token[1:]
+        return "0.0" if float(positive) == 0.0 and "." not in positive and "e" not in positive.lower() else positive
+    if float(token) == 0.0 and "." not in token and "e" not in token.lower():
+        return "-0.0"
+    return f"-{token}"
+
+
+def _count_scene_orientations(value: object) -> int:
+    if isinstance(value, dict):
+        count = 0
+        for key, child in value.items():
+            if key == "orientation":
+                if (
+                    not isinstance(child, list)
+                    or len(child) != 4
+                    or any(not isinstance(component, (int, float)) or isinstance(component, bool) for component in child)
+                ):
+                    raise MigrationError("scene orientation must be a four-number array")
+                count += 1
+            count += _count_scene_orientations(child)
+        return count
+    if isinstance(value, list):
+        return sum(_count_scene_orientations(child) for child in value)
+    return 0
+
+
+def migrate_scene_text(text: str, path: Path) -> str:
+    try:
+        document = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise MigrationError(f"{path}: invalid scene JSON: {exc}") from exc
+    if not isinstance(document, dict) or document.get("format") != SCENE_FORMAT:
+        raise MigrationError(f"{path}: expected format {SCENE_FORMAT!r}")
+
+    version = document.get("version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise MigrationError(f"{path}: scene version must be a positive integer")
+    if version > SCENE_VERSION:
+        raise MigrationError(f"{path}: scene version {version} is newer than current version {SCENE_VERSION}")
+    if version == SCENE_VERSION:
+        return text
+
+    expected_count = _count_scene_orientations(document)
+
+    def conjugate(match: re.Match[str]) -> str:
+        return (
+            match.group(1)
+            + _negate_json_number(match.group(2))
+            + match.group(3)
+            + _negate_json_number(match.group(4))
+            + match.group(5)
+            + _negate_json_number(match.group(6))
+            + match.group(7)
+            + match.group(8)
+            + match.group(9)
+        )
+
+    migrated, count = ORIENTATION_RE.subn(conjugate, text)
+    if count != expected_count:
+        raise MigrationError(f"{path}: parsed {expected_count} orientations but rewrote {count}")
+    migrated, version_count = SCENE_VERSION_RE.subn(rf"\g<1>{SCENE_VERSION}", migrated, count=1)
+    if version_count != 1:
+        raise MigrationError(f"{path}: scene version field was not found")
+    return migrated
 
 
 def migrate_asset_text(text: str, path: Path) -> str:
@@ -84,6 +160,7 @@ def migrate_asset_text(text: str, path: Path) -> str:
 
 
 def migrate_config_text(text: str, path: Path) -> str:
+    newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.splitlines()
     version_rows: list[tuple[int, re.Match[str]]] = []
     for index, line in enumerate(lines):
@@ -150,7 +227,7 @@ def migrate_config_text(text: str, path: Path) -> str:
     terrain_render_step_key = "terrain_render_step_size"
     lines = [line for line in lines if line.partition("=")[0].strip() != terrain_render_step_key]
 
-    return "\n".join(lines) + "\n"
+    return newline.join(lines) + newline
 
 
 def migrate_hull(path: Path) -> str:
@@ -165,6 +242,8 @@ def classify(path: Path) -> str:
     name = path.name.lower()
     if name.endswith(".assets.json"):
         return "asset"
+    if name.endswith(".scene.json"):
+        return "scene"
     if name.endswith(".hull"):
         return "hull"
     if name == "engine.cfg":
@@ -176,21 +255,54 @@ def expected_text(path: Path) -> str:
     kind = classify(path)
     if kind == "hull":
         return migrate_hull(path)
-    current = path.read_text(encoding="utf-8")
+    current = path.read_bytes().decode("utf-8")
     if kind == "asset":
         return migrate_asset_text(current, path)
+    if kind == "scene":
+        return migrate_scene_text(current, path)
     return migrate_config_text(current, path)
 
 
 def discover(repo: Path, explicit: list[Path]) -> list[Path]:
     if explicit:
         return [path.resolve() if path.is_absolute() else (repo / path).resolve() for path in explicit]
-    return sorted((repo / "SkullbonezData" / "assets").glob("*.assets.json")) + sorted(
-        (repo / "SkullbonezData" / "hulls").glob("*.hull")
-    ) + [repo / "SkullbonezData" / "engine.cfg"]
+    # The campaign census includes the buoyancy orientation fixture even though
+    # its current authoring uses Euler values. Stamp it with the same scene
+    # generation so the owner visual-acceptance set has one unambiguous schema
+    # boundary.
+    scenes = [
+        path
+        for path in sorted((repo / "SkullbonezData" / "scenes").glob("*.scene.json"))
+        if '"orientation"' in path.read_bytes().decode("utf-8")
+        or path.name == "buoyancy_inertia_orientation.scene.json"
+    ]
+    return (
+        sorted((repo / "SkullbonezData" / "assets").glob("*.assets.json"))
+        + sorted((repo / "SkullbonezData" / "hulls").glob("*.hull"))
+        + scenes
+        + [repo / "SkullbonezData" / "engine.cfg"]
+    )
 
 
 def self_test() -> None:
+    scene_path = Path("legacy.scene.json")
+    legacy_scene = (
+        '{"format":"skullbonez.scene.json","version":2,'
+        '"orientation":[0,-0.0,1.25e-3,-4.0]}'
+    )
+    scene = migrate_scene_text(legacy_scene, scene_path)
+    assert scene == (
+        '{"format":"skullbonez.scene.json","version":3,'
+        '"orientation":[-0.0,0.0,-1.25e-3,-4.0]}'
+    )
+    assert migrate_scene_text(scene, scene_path) == scene
+    try:
+        migrate_scene_text('{"format":"skullbonez.scene.json","version":4}', scene_path)
+    except MigrationError as exc:
+        assert "newer than current version 3" in str(exc)
+    else:
+        raise AssertionError("future scene version must fail")
+
     asset_path = Path("legacy.assets.json")
     asset = migrate_asset_text('{"format":"skullbonez.asset_library.json","assets":[]}', asset_path)
     assert '"version": 1' in asset
@@ -278,14 +390,14 @@ def main() -> int:
     paths = discover(repo, args.paths)
     for path in paths:
         try:
-            current = path.read_text(encoding="utf-8")
+            current = path.read_bytes().decode("utf-8")
             expected = expected_text(path)
             if current == expected:
                 if args.write:
                     print(f"current {path.relative_to(repo)}")
                 continue
             if args.write:
-                path.write_text(expected, encoding="utf-8", newline="\n")
+                path.write_bytes(expected.encode("utf-8"))
                 print(f"migrated {path.relative_to(repo)}")
             else:
                 stale.append(path)

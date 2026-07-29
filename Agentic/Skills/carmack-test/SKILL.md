@@ -144,6 +144,12 @@ contained:
   that names its concrete owner or active repair plan. Twelve starts mandatory
   review; it is not a maximum, an allowance, or an automatic defect. A current
   ruling is evidence to challenge against the source, not immunity.
+- A function at 400 body lines or brace depth 6 lacks an exact current-body
+  qualitative ruling, or its ruling does not prove one cohesive owner or active
+  repair plan. Either signal starts mandatory review; neither is a maximum,
+  allowance, target, or automatic defect. Moving the same body into a helper
+  called once immediately does not move responsibility and does not close the
+  finding.
 - A deleted banned shape reappeared under a different suffix, or a header states
   an invariant, ownership, or sequencing fact the current source does not hold.
 - A test file is named for a coverage gate, a metric, or a plan rather than the
@@ -158,14 +164,18 @@ read-only inventories rather than impression:
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo . --strict
+python tools/inventory_function_complexity.py --repo . --strict
 ```
 
 Aggregate and extraction-scar verdicts live in
 `tools/aggregate_ownership_rulings.json`; wide-signature verdicts live in
 `tools/wide_signature_ownership_rulings.json` and match an exact current file
-plus normalized signature. `UNRULED` means nobody has judged the row yet, and
-`STALE-RULING` means the source changed or disappeared. None of these is a count
-budget: report the unowned operation or invariant, never the number.
+plus normalized signature. Function-complexity verdicts live in
+`tools/function_complexity_rulings.json` and additionally match the full body
+digest. `UNRULED` means nobody has judged the row yet, `EDITED-BODY` means the
+judgement predates a body edit, and `STALE-RULING` means the source changed
+shape or disappeared. None of these is a count budget: report the unowned
+operation or invariant, never the number.
 
 Verdict caps:
 
@@ -179,9 +189,10 @@ Verdict caps:
 - A serious ownership leak from physics/render into runtime policy caps
   encapsulation at `2 / 5`.
 - An unruled authority-free aggregate, nominal capability slice, or extraction
-  scar, or an unruled/stale wide-signature review, caps encapsulation at `3 / 5`.
-  A rename or a parameter reshuffle does not lift the cap; only an owned
-  invariant/current operation ruling or a deletion does.
+  scar, or an unruled/stale wide-signature or function-complexity review, caps
+  encapsulation at `3 / 5`. A rename, parameter reshuffle, or one-call helper
+  split does not lift the cap; only an owned invariant/current operation ruling
+  or a real responsibility move does.
 
 ## Positive Evidence
 

@@ -2,9 +2,9 @@
 
 Date: 2026-07-29
 Owner: skullbonez
-State: Not started (investigation complete, WIP stashed)
+State: In progress (BV0-BV2 complete; contact identity stabilized)
 Ledger tasks: 7 (BV0-BV6)
-Branch: TBD (register at start)
+Branch: nightrunner-29th-JUL-26
 PR: TBD
 
 ## Goal
@@ -227,10 +227,11 @@ Recorded so nobody spends the time again.
    pushing contacts apart, not the cause.
 3. **Solver iteration starvation.** 48 iterations made it worse, not better.
 
-## Work In Progress — Stashed
+## Recovered Investigation Artifact
 
-`stash@{0}` on `main`: *"WIP: SAT axis-type hysteresis + object-only restitution
-suppression + 3 refreshed physics baselines"*. Six files:
+The original `stash@{0}` on `main` was named *"WIP: SAT axis-type hysteresis +
+object-only restitution suppression + 3 refreshed physics baselines"*. It
+contained six files:
 
 | File | Change | State |
 |---|---|---|
@@ -241,7 +242,7 @@ suppression + 3 refreshed physics baselines"*. Six files:
 | `TestOutput/baselines/physics_known_issue_signatures.json` | Refreshed | For the SAT change **only** |
 | `TestOutput/baselines/physics_query_varied.json` | Refreshed | For the SAT change **only** |
 
-**The stash does not apply cleanly to current main.** Verified 2026-07-29:
+**The stash did not apply cleanly to current main.** Verified 2026-07-29:
 
 ```
 git stash show -p "stash@{0}" > wip.patch
@@ -249,24 +250,30 @@ git apply --check --include='SkullbonezSource/*' --include='SkullbonezTests/*' w
   -> error: patch failed: SkullbonezSource/Physics/ObjectContactManifold.cpp:580
 ```
 
-It was taken against `0768593d`; both target files have since moved. Do not
-force-merge it.
+It was taken against `0768593d`; both target files have since moved. It was not
+force-merged.
 
 **The three baselines are also stale twice over** — they were generated for the
 SAT change only (not the restitution change), from a binary at the old tip.
 
-Recommended handling:
+Completed recovery and remaining handling:
 
-1. Read the stash as a *reference implementation*, not a patch to apply:
-   `git stash show -p "stash@{0}" | less`.
+1. The reusable contact-identity regression test was preserved on
+   `origin/codex/contact-identity-regression-29th-jul-26` at commit `27906417`.
+   That branch was intentionally red until BV2 supplied the SAT identity fix;
+   it remains a recovery artifact, not a merge-ready implementation.
 2. Re-derive the two source changes by hand against the current tip. Both are
    small: the SAT change is ~6 functional lines across two call sites, and the
    restitution change is one condition plus an `else` restructure.
-3. Recover the regression test from the stash — it is the most reusable piece
-   and carries the A/B evidence (fails 338 assertions without the SAT fix).
-4. Drop the stashed baselines entirely. Regenerate once, at the end, from the
+3. BV2 reapplied the preserved test by hand after re-confirming the feature-ID
+   layout against the post-plan-7 key schema. No stale source or baseline hunk
+   was imported. The current-tip stateless selector reproduces the preserved
+   338 failures; margin bracketing fails 174 assertions at a 5% contact-band
+   margin and passes all 1,715 at 10% and above.
+4. The stashed baselines were dropped. Regenerate once, at the end, from the
    final Debug binary.
-5. Drop the stash only after the test is recovered.
+5. The original stash was dropped only after the preservation branch was
+   pushed.
 
 Note the restitution change in the stash is **compiles-unverified**: the last
 build attempt failed on a file lock from a background `validate_full`, and it
@@ -312,9 +319,9 @@ vibration is caused by object/object restitution and not by the terrain seed.
 
 ## Tasks
 
-- [ ] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
-- [ ] **BV1** — Suppress restitution on persistent object/object contacts.
-- [ ] **BV2** — Stabilize SAT axis-type selection.
+- [x] **BV0** — Controlled vibration fixture and T0 harness. See BV0 below.
+- [x] **BV1** — Suppress restitution on persistent object/object contacts.
+- [x] **BV2** — Stabilize SAT axis-type selection.
 - [ ] **BV3** — Retire the terrain warm-start seed. Droppable; supersedes a
       prior owner ruling.
 - [ ] **BV4** — Re-measure convergence.
@@ -335,24 +342,42 @@ Also record the T0 byte-exact harness: `validate_physics`,
 Acceptance: a committed scene, a documented vibration metric with its query, and
 a T0 report showing the metric is non-zero before any fix.
 
+Completed 2026-07-29. The four-brick controlled scene records 566 meaningful
+downward-to-upward `vel_y` flips over frames 300-1199, with all 900 measured
+frames at the 12-iteration cap. Two Debug CSV runs are byte-identical. Current
+line/key re-resolution, exact SkullScope SQL, the cumulative oracle list, and
+artifact accounting are permanent in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv0-t0.md`.
+
 ### BV1 — Suppress restitution on persistent object/object contacts
 
 The bounce fix. In the object branch of the bias computation
-(`PersistentContactSolver.cpp`, currently `:1200-1226`), apply restitution only
-when the contact was *not* already carrying load last frame. `hasCachedImpulse(
-bodyA, bodyB, featureId )` already exists at `:283` and answers exactly that
-without reordering the cache lookup.
+(`PersistentContactSolver.cpp`, currently `:996-1018`), apply restitution only
+when the contact was *not* already carrying load last frame. `HasCachedImpulse(
+cache, bodyA, bodyB, featureId )` already exists at `:183-197` and answers
+exactly that without reordering the cache lookup.
 
 A suppressed row must fall through to the Baumgarte penetration branch rather
 than being left with no bias.
 
 Note the reach limit: the cache only stores rows with `supportsRestingPolicy`
-(`:1729`), so edge/corner object contacts never cache and keep full restitution.
-That is arguably correct — a corner impact is impact-like — but record it.
+(`:1766`). The current classifier excludes vertical box edge-only support and
+the applicable non-sphere convex-hull thin footprint, so those rows keep full
+restitution. Lateral edge/corner rows may still carry the policy, cache, and
+suppress restitution on reuse. Record this exact classification boundary.
 
 Acceptance: BV0 metric drops substantially; terrain rows byte-unchanged in a
 terrain-only scene; a focused test pins that a fresh contact still bounces and a
 persistent one does not.
+
+Completed 2026-07-29. The exact BV0 metric falls from 566 meaningful flips to
+zero, all 900 cap-bound frames disappear, and the solver early-out reaches one
+iteration. Fresh object contacts retain restitution; a cached-load row receives
+the exact Baumgarte bias without a new bounce. The one-ball terrain-only CSV is
+byte-identical across pre/post Debug binaries. Exact resting-footprint cache
+reach, deterministic repeat output, focused tests, planned golden divergence,
+and deferred cumulative baseline regeneration are recorded in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv1.md`.
 
 ### BV2 — Stabilize SAT axis-type selection
 
@@ -361,12 +386,26 @@ hysteresis margin that a challenger must beat *only when it would change the
 winning axis type*; within one axis type the comparison stays strict. The WIP
 implementation uses `max(1e-4, contactSkin * 0.25)`.
 
-The `0.25` fraction is empirical, not derived. BV2 should either justify it
-against the BV0 fixture or replace it with something principled.
+The original `0.25` fraction was empirical. BV2 must either justify it against
+the current controlled and structural instruments or replace it with something
+principled.
 
 Acceptance: face/edge and reference-swap counts near zero on the wall's
 structural rates; the regression test in the stash (or its successor) fails
 without the change; determinism holds.
+
+Completed 2026-07-29. The current-tip stateless control records 1,604 face/edge
+switches and 326 reference swaps across 31,158 wall-brick pair-frames in frames
+400-500. The final 25% contact-band selector records 116 and 281 across 31,679;
+in the slow-topple columns it reduces face/edge churn 92.84% and reference
+swaps 35.53%, with both residual rates below 1% of pair-frames. A 10% band
+passes the synthetic crossover but leaves more wall churn, while 5% fails 174
+focused assertions, which supplies current controlled/structural justification
+for retaining 25%. The recovered rocking oracle and a new sub-`1e-4`
+same-family strict-comparison oracle pass. The exact BV0/BV1 metric remains zero
+flips, zero cap-bound frames, one minimum iteration, and zero cache misses;
+repeat Debug CSVs are byte-identical. Evidence:
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md`.
 
 ### BV3 — Retire the terrain warm-start seed
 
@@ -379,8 +418,8 @@ Staged:
 1. Decouple friction from the seed. Remove `max(accN, terrainWarmStart)` from
    all three sites and give terrain rows an honest bound. This closes audit
    finding #6 and has an independent justification.
-2. Stop flooring `accN` at `:1311`; apply the seed only on a cache miss.
-3. Relax cache admission at `:1729` so touching terrain rows cache, not just
+2. Stop flooring `accN` at `:1110-1112`; apply the seed only on a cache miss.
+3. Relax cache admission at `:1766` so touching terrain rows cache, not just
    `supportsRestingPolicy` ones, so shoreline contacts warm-start from a real
    solved impulse instead of `0.35 x weight`.
 4. If a first-touch seed is still needed, derive it from the row's own
@@ -403,10 +442,11 @@ finding and gets its own plan — do not raise the iteration count to hide it
 ### BV5 — Position-correction divisor
 
 Fix the latent defect found and set aside: divide the per-row correction by
-`c.manifoldPointCount` (already populated for both terrain and object rows at
-`:934` and `:1065`), or otherwise guard against N rows each removing the full
+`c.manifoldPointCount` (already populated for object and terrain rows at
+`:691` and `:837`), or otherwise guard against N rows each removing the full
 overlap against a stale penetration. The terrain restitution path already
-divides by point count at `:1197`; position correction divides nowhere.
+divides by point count at `:989`; position correction at `:1694-1695` divides
+nowhere.
 
 ### BV6 — Independent review, comment audit, closure report
 
@@ -494,6 +534,6 @@ are `solver_stats` aggregates, per-pair feature-id transition counts via
 - `Agentic/Audits/physics-solver-catto-reference-audit.md` — finding #6, the
   three live friction models.
 - `Agentic/Reference/physics-query-reference.md` — SkullScope workflow.
-- `Agentic/Plans/TODO/contact-solve-phase-ownership.md` — also edits
+- `Agentic/Reports/2026-07-29/contact-solve-phase-ownership-closure.md` — also edits
   `PersistentContactSolver.cpp`; that plan is strictly byte-exact and this one is
   not, so they must not run concurrently.

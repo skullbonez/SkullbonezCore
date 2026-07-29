@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 3,
   "name": "AAA Ragdoll Soft Pale",
   "cinematic": {
     "rendering": true,
@@ -164,9 +164,9 @@
         -62.0
       ],
       "orientation": [
-        0.0,
-        0.0,
-        0.0,
+        -0.0,
+        -0.0,
+        -0.0,
         1.0
       ],
       "radius": 2.5,

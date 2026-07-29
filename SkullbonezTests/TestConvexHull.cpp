@@ -10,6 +10,8 @@
 //
 // Glossary:
 //   Baked hull: Serialized runtime representation produced by tools/bake_hulls.py.
+//   Narrowphase: Precise collision pass that computes contact points, normals,
+//     and penetration from candidate shape pairs.
 //   Face index stream: Flat list of vertex ids; each face owns a contiguous span.
 //   Adjacent faces: The two hull faces sharing one undirected edge.
 //

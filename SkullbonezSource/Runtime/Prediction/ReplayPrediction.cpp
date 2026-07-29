@@ -98,6 +98,8 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+
+SkullbonezCore::Runtime::ReplayPredictionIsolatedSimulation::~ReplayPredictionIsolatedSimulation() = default;
 namespace Physics = SkullbonezCore::Physics;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;

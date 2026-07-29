@@ -348,20 +348,23 @@ int SceneWorld::ActiveSceneObjectCapacity() const
 
 
 SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyCount, int sphereCount, int boxCount,
-                                                                       int hullCount, int pointJointCount )
+                                                                       int hullColliderCount, int hullVariantCapacity,
+                                                                       int pointJointCount )
 {
     constexpr int ceiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
 
-    if ( bodyCount > ceiling || sphereCount > ceiling || boxCount > ceiling || hullCount > ceiling ||
-         pointJointCount > ceiling )
+    if ( bodyCount > ceiling || sphereCount > ceiling || boxCount > ceiling || hullColliderCount > ceiling ||
+         hullVariantCapacity > ceiling || pointJointCount > ceiling )
     {
         SB_FATAL( "Scene/SceneWorld",
                   "Scene physics capacity exceeds the hard ceiling: owner=Scene/SceneWorld requested_bodies=%d "
-                  "requested_spheres=%d requested_boxes=%d requested_hulls=%d requested_point_joints=%d ceiling=%d.",
-                  bodyCount, sphereCount, boxCount, hullCount, pointJointCount, ceiling );
+                  "requested_spheres=%d requested_boxes=%d requested_hull_colliders=%d "
+                  "requested_hull_variants=%d requested_point_joints=%d ceiling=%d.",
+                  bodyCount, sphereCount, boxCount, hullColliderCount, hullVariantCapacity, pointJointCount, ceiling );
     }
 
-    if ( bodyCount < 0 || sphereCount < 0 || boxCount < 0 || hullCount < 0 || pointJointCount < 0 )
+    if ( bodyCount < 0 || sphereCount < 0 || boxCount < 0 || hullColliderCount < 0 || hullVariantCapacity < 0 ||
+         pointJointCount < 0 )
     {
         return m_diagnostics.Failure( "Scene/SceneWorld", "Scene physics capacity cannot be negative." );
     }
@@ -375,19 +378,30 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
                       bodyCount, m_activeSceneObjectCapacity );
     }
 
-    if ( sphereCount + boxCount + hullCount != bodyCount )
+    // Invariant: hullColliderCount participates in body topology, while hullVariantCapacity counts retained immutable
+    // geometry rows. Exact shareable identities let those two values differ without under-reserving either owner.
+
+    if ( sphereCount + boxCount + hullColliderCount != bodyCount )
     {
         return m_diagnostics
             .Failure( "Scene/SceneWorld",
-                      "Shape capacity does not exactly match body topology: bodies=%d spheres=%d boxes=%d hulls=%d.",
-                      bodyCount, sphereCount, boxCount, hullCount );
+                      "Shape topology does not exactly match body count: bodies=%d spheres=%d boxes=%d hulls=%d.", bodyCount,
+                      sphereCount, boxCount, hullColliderCount );
+    }
+
+    if ( hullVariantCapacity > hullColliderCount )
+    {
+        return m_diagnostics.Failure( "Scene/SceneWorld",
+                                      "Hull variant capacity %d exceeds authored hull collider count %d.",
+                                      hullVariantCapacity, hullColliderCount );
     }
 
     // Lifetime: SceneWorld coordinates one ordered commit while each concrete
     // Physics owner remains the authority for its own monotonic backing.
     SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     m_physics.ReserveAuthoredBodyCapacity( static_cast<std::size_t>( bodyCount ), static_cast<std::size_t>( sphereCount ),
-                                           static_cast<std::size_t>( boxCount ), static_cast<std::size_t>( hullCount ),
+                                           static_cast<std::size_t>( boxCount ),
+                                           static_cast<std::size_t>( hullVariantCapacity ),
                                            static_cast<std::size_t>( pointJointCount ) );
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -501,7 +515,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
         // topology. The initial scene commit makes this a no-op during loading;
         // later additions grow only the concrete body and shape owners needed.
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneMutationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        m_physics.ReserveAdditionalAuthoredBodyCapacity( colliderDesc.shape );
+        m_physics.ReserveAdditionalAuthoredBodyCapacity( colliderDesc );
     }
 
     if ( !m_physics.CanRegisterAuthoredBody( MakePhysicsAuthoredBodyCountFromNonNegativeInt( modelIndex ) ) )

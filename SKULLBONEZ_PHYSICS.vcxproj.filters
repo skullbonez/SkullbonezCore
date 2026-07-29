@@ -179,10 +179,16 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsBroadphaseDebugView.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTerrainView.h">
       <Filter>Header Files\Collision</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsView.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h">

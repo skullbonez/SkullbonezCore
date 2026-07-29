@@ -18,7 +18,8 @@ Glossary:
   output rather than renderer screenshots.
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
   Scene object id: Stable nonzero physics identity explicitly authored in v2
-    scenes or deterministically upgraded from v1 input.
+    and writer-made v3 scenes, or deterministically filled for compact v1/v3
+    input.
   Lane R result: Recoverable parser failure returned by AuthoredScene::TryLoad*
     entry points with owner/message diagnostics.
 
@@ -408,7 +409,7 @@ void TestAssetInstanceProvenanceAndTransformComposition()
     EXPECT_NEAR( instance.posY, 20.0f );
     EXPECT_NEAR( instance.posZ, 30.0f );
     EXPECT_NEAR( instance.eulerY, 90.0f );
-    EXPECT_NEAR( instance.orientY, 0.70710678f );
+    EXPECT_NEAR( instance.orientY, -0.70710678f );
     EXPECT_NEAR( instance.orientW, 0.70710678f );
     EXPECT_NEAR( instance.velX, 1.0f );
     EXPECT_NEAR( instance.velY, 2.0f );

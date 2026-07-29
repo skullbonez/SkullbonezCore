@@ -380,6 +380,140 @@ the same day by placing it after `quaternion-convention-normalization`, so it is
 listed as plan 8 of the Fresh-Read queue rather than as a separate campaign; its
 owner directions and superseded ruling remain in its own section below.
 
+Broadphase canonical-order guard closed BG0-BG1 on 2026-07-29 and left the
+live ledger under rule 4. Both pair collectors derive their radix layout from
+`MAX_SCENE_OBJECTS`; triangular identities and reset arithmetic are wide before
+their guarded signed-int narrowing; exact cell coordinates remain full-width
+while the visualization projection saturates explicitly. Unfiltered and
+production-filtered ceiling-order proofs pass through body index 8,191, Physics
+is byte-exact, performance is clear, and independent review closed both of its
+initial blockers. The active/future ledger is now 0/33 (0%). Evidence is in
+`../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md`.
+
+Function complexity review trigger closed CX0-CX2 on 2026-07-29 and left the
+live ledger under rule 4. The owner ratified 400 inclusive body lines and brace
+depth 6 as independent qualitative-review triggers. The current tree reports
+6,285 definitions and 40/40 exact current-body rulings; self-tests fail closed
+for body drift, stale/deleted rows, invalid repair-plan paths, malformed
+recognized bodies, and conflicting self-test modes. Governance, mapped fast
+validation, 3/3 comment audit, and independent review are clear. The
+active/future ledger is now 0/30 (0%). Evidence is in
+`../Reports/2026-07-29/function-complexity-review-trigger-closure.md`.
+
+Contact solve phase ownership closed CS0-CS4 on 2026-07-29 and left the live
+ledger under rule 4. One guarded transaction owns all thirteen construction,
+solve, and post-solve phases; `Solve` is a 108-body-line, depth-3 sequencer.
+`ParseAction` is a 21-body-line ordered dispatch across 34 exact per-action
+parsers. Physics remains byte-exact, performance and full validation pass, the
+9/9 comment audit is complete, and independent review answers all five
+ownership questions with zero findings. The active/future ledger is now 0/25
+(0%). Evidence is in
+`../Reports/2026-07-29/contact-solve-phase-ownership-closure.md`.
+
+Collision hull shape instancing closed HS0-HS3 on 2026-07-29 and left the live
+ledger under rule 4. Canonical resolved-path plus exact authored-scale identity
+reduces the three acceptance scenes from 911,352 to 387,504 committed hull
+bytes, saving 523,848 bytes (57.4803%). Retained scene-lifetime rows preserve
+stable indices through deletion, replacement, Replay clone, and editor undo;
+unproved variants remain unique. The 18-run, 42,120-frame narrowphase matrix
+shows no material measured timing change. Deep Physics, performance, the
+single authoritative Replay visual run, and full validation pass; full reports
+441/441 tests and 2,420,993 assertions. The 18/18 comment audit and independent
+review close with zero blockers. The active/future ledger is now 0/21 (0%).
+Evidence is in
+`../Reports/2026-07-29/collision-hull-shape-instancing-closure.md`.
+
+Broadphase capacity right-sizing BC0 completed on 2026-07-29. Debug, Profile,
+and Release all measure `SpatialGrid` at exactly 8,535,792 bytes: 7,913,120
+bytes targeted for registered storage plus a 622,672-byte retained inline
+topology/state core. Current
+committed bytes remain 8,535,792 for one grid and 17,071,584 for the live plus
+Replay prediction grids at 300, 4,000, and 8,192 bodies alike. The exact
+SceneLoad reservation chain and `SetCellSize`/`BeginFrame` lifetime interaction
+are recorded; `overlayEntries` is correctly classified as a fixed 4,096-row
+transient-work ceiling rather than a body-count formula. The active/future
+ledger is now 1/21 (5%). Evidence is in
+`../Reports/2026-07-29/broadphase-capacity-right-sizing-bc0-census.md`.
+
+Broadphase capacity right-sizing BC1 now moves the two dominant arrays to
+registered SceneLoad storage. Persistent entries ultimately reserve
+`8 * bodies + 32`; pair dedup reserves exact triangular identity words. The
+duplicated 4,096-row blanket is removed while a measured 32-row oversized-shape
+spill and the compile-time ceiling remain.
+Backing/high-water survive cold clears, no Replay privilege exists, and exact
+phase/capacity fatal probes pass. Physics remains byte-exact across 44,401 rows
+and the performance gate passes. The active/future ledger is now 2/21 (10%).
+
+Broadphase capacity right-sizing BC2 now moves the remaining seven arrays to
+registered storage. Body rows use exact admission, candidate staging uses four
+rows per admitted body, and the swept overlay retains its accurately labelled
+fixed 4,096-row transient ceiling. Additional live admission preserves existing
+membership topology through grow-only suffix construction. Exact capacity,
+retention, exhaustion, owner-census, allocation-policy, byte-exact Physics, and
+unchanged idle performance checks pass. The active/future ledger is now 3/21
+(14%).
+
+Broadphase capacity right-sizing closed BC0-BC3 on 2026-07-29 and left the live
+ledger under rule 4. `SpatialGrid` measures 623,256 inline bytes in Debug,
+Profile, and Release. At 300 admitted bodies, exact inline plus registered
+backing falls from 8,535,792 to 839,264 bytes per grid: 7,696,528 bytes saved,
+a 90.167708% reduction, and 10.170568 times smaller. All nine owners report
+SceneLoad-only capacity with zero Replay growth privilege; owning memory totals
+include the backing exactly once. All CPU, deep Physics, performance,
+allocation policy, formatting, ownership inventories, and full validation
+pass. The 9/9 comment audit and independent review close with zero blockers.
+The active/future ledger is now 0/17 (0%). Evidence is in
+`../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`.
+
+Runtime include-closure reduction IC0 now records the complete 254-TU closure
+inventory and reproduces the registered distribution and six heavy-header
+fan-in rows exactly. IC1's first Profile compile corrected the initial
+storage-owner reading: the 33 classified files are 27 concrete command/query
+contract users and six value-only consumers. IC2 will break
+`PhysicsEngine.h -> PhysicsWorld.h` without moving ownership or adding a hot
+inner-loop pointer chase. Clean full rebuilds pass in 43.066 seconds for Debug
+x64 and 44.614 seconds for Profile x64. Evidence is in
+`../Reports/2026-07-29/runtime-include-closure-reduction-ic0-census.md`.
+
+Runtime include-closure reduction IC1 now moves the six value-only consumers to
+`PhysicsApi.h`. Prediction's isolated-simulation destructor is out of line at
+the concrete owner so scheduling/publication units no longer need
+`PhysicsEngine.h` to destroy an incomplete `unique_ptr`. The corrected focused
+Profile solution and fast gate pass; fast reports 447/447 tests and 2,421,986
+assertions. The 8/8 comment audit is clear. The active/future ledger is now
+2/17 (12%).
+
+Runtime include-closure reduction IC2 now breaks
+`PhysicsEngine.h -> PhysicsWorld.h` through one fixed-size owner allocation and
+an out-of-line destructor. The public diagnostics view is a concrete
+Physics-owned value contract, not a forwarding or forward-declaration umbrella.
+`UI.h`'s corrected direct census is ten tab headers: it retains the profiler
+declaration dependency and removes the other nine. The focused Profile build,
+allocation/dependency scans, 788/788 project/filter inventory, final fast gate,
+and 7/7 IC2 comment audit pass. The active/future ledger is now 3/17 (18%).
+
+Runtime include-closure reduction closed IC0-IC3 on 2026-07-29 and left the
+live ledger under rule 4. TUs above 200 headers fall 17 to 16, the maximum
+falls 255 to 248, and `PhysicsWorld.h`/`SpatialGrid.h` reach zero non-Physics
+TUs. Debug and Profile rebuild samples pass at 44.860 and 45.358 seconds,
+respectively, with no speedup claimed. Full, Physics, DX12, graphics-stress,
+and replay-visual gates pass without baseline refresh; replay reserve accounting
+now counts world debug/broadphase storage exactly once. The 30/30 comment audit
+and final independent review are clear. The active/future ledger is now 0/13
+(0%). Evidence is in
+`../Reports/2026-07-29/runtime-include-closure-reduction-closure.md`.
+
+Quaternion convention normalization closed QN0-QN5 on 2026-07-29 and left the
+live ledger under rule 4. Textbook Hamilton multiplication, active orientation
+matrices, canonical Euler composition, scene v3, replay v5, and prediction
+archive v3 are live; legacy readers migrate once and losslessness is proved.
+Owner visual acceptance preceded every baseline change. The complete refresh
+preserves all CSV identities and finite-state/peak-energy bounds, Replay keeps
+2,401 ticks and 200 causal nodes, and the accepted DX12 images retain their
+dimensions. All mapped gates, the 41/41 comment audit, and independent review
+are clear. The active/future ledger is now 0/7 (0%). Evidence is in
+`../Reports/2026-07-29/quaternion-convention-normalization-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -963,20 +1097,20 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/35
-(0%). Execute plans 1→8 in the listed order; the dependency barriers in that
-section are binding. Plans 1 and 2 are cheap and independent and should land
-first: plan 1 closes a silent determinism hazard in two tasks, and plan 2 builds
-the complexity inventory that plan 3 uses to prove its own closure.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 3/7
+(43%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
+`box-vibration-and-warm-start-integrity`, continuing with BV3's staged terrain
+warm-start seed retirement.
 
-Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
-move a baseline, and both are sequenced last by owner direction: plan 7
-`quaternion-convention-normalization` gates every regeneration behind its QN4
-hands-on visual acceptance checkbox, and plan 8
+Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
+QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
+baseline under its explicit bounded-divergence allowance:
 `box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
-allowance for a visible owner-reported defect. Before starting plan 1, recover
-the contact-identity regression test out of `stash@{0}` so it does not have to
-survive the whole queue in a stash.
+allowance for a visible owner-reported defect. The required pre-plan-1 recovery
+is complete: the contact-identity regression test is pushed at
+`origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`, the
+stale source/baseline hunks were not imported, and the original stash was
+dropped.
 
 The Principal Engineer Feedback Campaign and its protected final local action
 are complete. All seven plans closed and left the live inventory under rule 4;
@@ -2448,7 +2582,8 @@ Binding owner directions:
 
 Dependency barriers:
 
-- Plan 1 before plan 5 — both edit `SpatialGrid`, and the guard is smaller.
+- Satisfied: plan 1 closed before plan 5; both edit `SpatialGrid`, and the guard
+  landed first.
 - Plan 2 CX1 before plan 3 CS4 — CS4 clears the `repair-plan` rulings CX1 seeds.
   Plan 3 CS0-CS3 may run earlier.
 - Plan 5 before plan 6 — plan 6 breaks the include chain that reaches
@@ -2456,14 +2591,14 @@ Dependency barriers:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [broadphase-canonical-order-guard](TODO/broadphase-canonical-order-guard.md) | Not started | 0/2 | Ready now; bind the radix digit widths to `MAX_SCENE_OBJECTS` so raising the ceiling fails compilation instead of silently de-canonicalizing pair order |
-| 2 | [function-complexity-review-trigger](TODO/function-complexity-review-trigger.md) | Not started | 0/3 | Ready now; CX0 publishes the measured distribution and the owner ratifies the trigger values before any ruling is written |
-| 3 | [contact-solve-phase-ownership](TODO/contact-solve-phase-ownership.md) | Not started | 0/5 | CS0-CS3 ready now; CS4 waits on plan 2 CX1 |
-| 4 | [collision-hull-shape-instancing](TODO/collision-hull-shape-instancing.md) | Not started | 0/4 | Ready now; HS0 records the identity key and mid-scene release policy |
-| 5 | [broadphase-capacity-right-sizing](TODO/broadphase-capacity-right-sizing.md) | Not started | 0/4 | After plan 1 |
-| 6 | [runtime-include-closure-reduction](TODO/runtime-include-closure-reduction.md) | Not started | 0/4 | After plan 5 |
-| 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | Not started | 0/6 | QN0 is an owner stop-or-proceed checkpoint; QN4 is a blocking hands-on visual acceptance gate before QN5 touches any baseline |
-| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | Not started | 0/7 | Last, by owner direction. Investigation complete; re-record BV0's T0 harness after plan 7's baseline transition and re-resolve every source line number before acting on it |
+| 1 | [broadphase-canonical-order-guard](../Reports/2026-07-29/broadphase-canonical-order-guard-closure.md) | Complete | 2/2 | Closed 2026-07-29 and removed from the live ledger under rule 4; compile-time capacity guards, both ceiling-order paths, byte-exact Physics, performance, ownership inventories, and independent review are clear |
+| 2 | [function-complexity-review-trigger](../Reports/2026-07-29/function-complexity-review-trigger-closure.md) | Complete | 3/3 | Closed 2026-07-29 and removed from the live ledger under rule 4; 40/40 current-body rulings, fail-closed fixtures, governance, mapped validation, and independent review are clear |
+| 3 | [contact-solve-phase-ownership](../Reports/2026-07-29/contact-solve-phase-ownership-closure.md) | Complete | 5/5 | Closed 2026-07-29 and removed from the live ledger under rule 4; guarded phase ownership, byte-exact Physics, ordered parser dispatch, all closure gates, 9/9 comment audit, and independent review are clear |
+| 4 | [collision-hull-shape-instancing](../Reports/2026-07-29/collision-hull-shape-instancing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; 57.4803% measured acceptance-scene hull-store reduction, byte-exact Physics, stable narrowphase markers, 18/18 comment audit, all closure gates, and independent review are clear |
+| 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
+| 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
+| 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
+| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 3/7 | BV2 complete: current-tip SAT axis-type hysteresis cuts wall face/edge churn 92.77%, preserves strict same-family selection, keeps the controlled metric at zero flips/one iteration, and leaves cumulative baseline regeneration deferred; continue BV3 |
 
 ### Plan 8 Ordering Consequences
 
@@ -2471,18 +2606,18 @@ Plan 8's own section below carries its owner directions, evidence, and
 superseded ruling. Two consequences follow specifically from placing it last,
 and BV0 must account for both:
 
-- **Its evidence ages by two baseline transitions.** Every measurement in plan 8
+- **Its evidence aged by two baseline transitions.** Every measurement in plan 8
   was taken at tip `0768593d`; the plan already warns that line numbers moved at
-  `90e4d52f`, and plan 7 will move physics baselines again before plan 8 starts.
+  `90e4d52f`, and plan 7 moved physics baselines again before plan 8 starts.
   Inventory Rule 7 applies twice over. BV0's T0 harness must be recorded against
   the post-plan-7 tree, not against the numbers in the plan body, and the
   feature-ID bit layout must be re-confirmed against the current key schema.
-- **`stash@{0}` must survive 34 intervening tasks.** It holds the only copy of
-  the contact-identity regression test, which fails 338 assertions without the
-  SAT fix and is the most reusable artifact of the investigation. Its baselines
-  are stale twice over and its restitution change is compiles-unverified, but
-  the test is worth preserving now rather than at BV2. Recover it to a branch
-  before plan 1 starts; the stash is then droppable.
+- **The contact-identity regression must survive 34 intervening tasks.** It
+  fails 338 assertions without the SAT fix and is the most reusable artifact of
+  the investigation. It is now preserved at
+  `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`.
+  Its stale source/baseline companions were not imported, and the original
+  stash was dropped after the preservation branch was pushed.
 
 ## Box Vibration And Warm-Start Integrity (2026-07-29)
 

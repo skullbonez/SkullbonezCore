@@ -82,6 +82,15 @@ constexpr std::size_t kChunkEntryBytes = 28u;
 constexpr std::size_t kChunkSizeOffset = 12u;
 constexpr std::size_t kChunkRecordCountOffset = 20u;
 
+// Invariant: the downgrade fixture edits the documented PRES ABI directly.
+// These offsets must move with the writer layout constants and its round-trip
+// assertions, or the legacy-hash test must fail rather than patch another row.
+constexpr std::size_t kChunkPayloadOffset = 4u;
+constexpr std::size_t kPresentationFrameHeaderBytes = 92u;
+constexpr std::size_t kPresentationBodyBytes = 76u;
+constexpr std::size_t kPresentationStateHashOffset = 24u;
+constexpr std::size_t kPresentationBodyOrientationOffset = 16u;
+
 std::string ArtifactPath( const char* leaf )
 {
 
@@ -106,6 +115,10 @@ ReplaySolverFrameSample MakeArtifactSample( ReplayFrameIndex frameIndex )
     body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( 0 );
     body.shapeKind = ReplayBodyShapeKind::Box;
     body.position = Vector3( static_cast<float>( frameIndex ), 2.0f, -3.0f );
+    body.orientation[0] = 0.125f;
+    body.orientation[1] = -0.25f;
+    body.orientation[2] = 0.5f;
+    body.orientation[3] = 0.75f;
     body.linearVelocity = Vector3( 1.0f, 0.0f, 0.0f );
     body.mass = 2.0f;
     body.inverseMass = 0.5f;
@@ -218,6 +231,34 @@ void CheckRejected( const std::string& path, const std::vector<uint8_t>& bytes )
     CHECK_FALSE( ReplayV2Artifact::LoadPresentation( path.c_str(), output ) );
     CHECK( output.empty() );
 }
+
+void DowngradePresentationQuaternionsToV3( std::vector<uint8_t>& bytes,
+                                           const std::vector<ReplayPresentationSample>& canonicalSamples )
+{
+    WriteValue<uint32_t>( bytes, kVersionOffset, 3u );
+    const std::size_t entry = FindChunkEntry( bytes, "PRES" );
+    const uint64_t payloadOffset = ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset );
+    REQUIRE( ReadValue<uint32_t>( bytes, static_cast<std::size_t>( payloadOffset ) ) == canonicalSamples.size() );
+
+    std::size_t frameOffset = static_cast<std::size_t>( payloadOffset ) + sizeof( uint32_t );
+
+    for ( const ReplayPresentationSample& canonical : canonicalSamples )
+    {
+        REQUIRE( canonical.bodies.size() == 1u );
+        ReplayPresentationSample legacy = canonical;
+        SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart(
+            legacy.bodies[0].orientation[0], legacy.bodies[0].orientation[1], legacy.bodies[0].orientation[2] );
+        legacy.stateHash = ReplayRecorderOperations::ComputePresentationStateHash( legacy );
+        WriteValue<uint64_t>( bytes, frameOffset + kPresentationStateHashOffset, legacy.stateHash );
+
+        const std::size_t orientationOffset =
+            frameOffset + kPresentationFrameHeaderBytes + kPresentationBodyOrientationOffset;
+        WriteValue<float>( bytes, orientationOffset + 0u, legacy.bodies[0].orientation[0] );
+        WriteValue<float>( bytes, orientationOffset + 4u, legacy.bodies[0].orientation[1] );
+        WriteValue<float>( bytes, orientationOffset + 8u, legacy.bodies[0].orientation[2] );
+        frameOffset += kPresentationFrameHeaderBytes + kPresentationBodyBytes;
+    }
+}
 } // namespace
 
 TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-canonical" )
@@ -232,6 +273,7 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     const std::vector<uint8_t> firstBytes = ReadFile( firstPath );
     const std::vector<uint8_t> secondBytes = ReadFile( secondPath );
     CHECK( firstBytes == secondBytes );
+    CHECK( ReadValue<uint32_t>( firstBytes, kVersionOffset ) == 5u );
     CHECK( saveResult.sampleCount == 2u );
     CHECK( saveResult.bodyDictionaryCount == 1u );
     CHECK( saveResult.fileBytes == firstBytes.size() );
@@ -245,6 +287,10 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     REQUIRE( loaded[0].bodies.size() == 1u );
     CHECK( loaded[0].bodies[0].id.value == 900u );
     CHECK( loaded[1].bodies[0].position.x == doctest::Approx( 11.0f ) );
+    CHECK( loaded[0].bodies[0].orientation[0] == doctest::Approx( 0.125f ) );
+    CHECK( loaded[0].bodies[0].orientation[1] == doctest::Approx( -0.25f ) );
+    CHECK( loaded[0].bodies[0].orientation[2] == doctest::Approx( 0.5f ) );
+    CHECK( loaded[0].bodies[0].orientation[3] == doctest::Approx( 0.75f ) );
 
     // The base writer intentionally omits every optional stream. Each
     // chunk-specific loader must distinguish absence from a valid empty track
@@ -264,6 +310,30 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     CHECK( hashes.empty() );
     CHECK( packets.empty() );
     CHECK( predictionState.empty() );
+}
+
+TEST_CASE( "Replay artifact codec: v3 quaternion bytes migrate after historical hash validation" )
+{
+    ReplayRecorder recorder = MakeArtifactRecorder();
+    const std::string currentPath = ArtifactPath( "quaternion_v5_source.skreplay" );
+    const std::string legacyPath = ArtifactPath( "quaternion_v3_legacy.skreplay" );
+    REQUIRE( ReplayV2Artifact::SavePresentation( recorder, currentPath.c_str() ) );
+
+    std::vector<ReplayPresentationSample> canonicalSamples;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( currentPath.c_str(), canonicalSamples ) );
+    std::vector<uint8_t> bytes = ReadFile( currentPath );
+    DowngradePresentationQuaternionsToV3( bytes, canonicalSamples );
+    WriteFile( legacyPath, bytes );
+
+    std::vector<ReplayPresentationSample> migrated;
+    REQUIRE( ReplayV2Artifact::LoadPresentation( legacyPath.c_str(), migrated ) );
+    REQUIRE( migrated.size() == canonicalSamples.size() );
+    REQUIRE( migrated[0].bodies.size() == 1u );
+    CHECK( migrated[0].bodies[0].orientation[0] == doctest::Approx( 0.125f ) );
+    CHECK( migrated[0].bodies[0].orientation[1] == doctest::Approx( -0.25f ) );
+    CHECK( migrated[0].bodies[0].orientation[2] == doctest::Approx( 0.5f ) );
+    CHECK( migrated[0].bodies[0].orientation[3] == doctest::Approx( 0.75f ) );
+    CHECK( migrated[0].stateHash == canonicalSamples[0].stateHash );
 }
 
 TEST_CASE( "Replay artifact codec: empty recorder is not a zero-count artifact" )
@@ -295,7 +365,7 @@ TEST_CASE( "Replay artifact codec: malformed header and table ranges fail closed
     {
         std::vector<uint8_t> bytes = canonical;
 
-        WriteValue<uint32_t>( bytes, kVersionOffset, 5u );
+        WriteValue<uint32_t>( bytes, kVersionOffset, 6u );
         CheckRejected( ArtifactPath( "future.skreplay" ), bytes );
     }
     SUBCASE( "chunk length past EOF" )

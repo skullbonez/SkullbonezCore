@@ -13,8 +13,8 @@
 # Glossary:
 #   ReplayV2Artifact: Established API/file-family name for chunked .skreplay
 #     artifacts; the current writer version is declared inside the file.
-#   Previous-version fixture: Deterministic v3 artifact derived from a current
-#     writer result to prove the one supported migration path.
+#   Legacy-version fixture: Deterministic presentation-only v3 artifact whose
+#     quaternion bytes and state hashes use the historical convention.
 #   SkullScope slice: Bounded NDJSON exported from selected replay frames.
 #
 # Invariants:
@@ -522,47 +522,125 @@ def write_versioned_file(path, chunks, version):
     path.write_bytes(output)
 
 
-def build_previous_version_fixture(current):
+STATE_HASH_FNV_OFFSET = 14695981039346656037
+STATE_HASH_FNV_PRIME = 1099511628211
+
+
+def append_state_hash(value, payload):
+    for byte in payload:
+        value ^= byte
+        value = (value * STATE_HASH_FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
+def presentation_state_hash(presentation, frame, bodies):
+    """Reproduce ReplayRecorderOperations::ComputePresentationStateHash."""
+    header_offset = frame.presentation_offset
+    values = FRAME_HEADER.unpack_from(presentation, header_offset)
+    flags = values[8]
+    value = append_state_hash(STATE_HASH_FNV_OFFSET, presentation[header_offset + 40 : header_offset + 52])
+    for mask in (1, 2, 4, 8, 16):
+        value = append_state_hash(value, bytes((1 if flags & mask else 0,)))
+    value = append_state_hash(value, struct.pack("<iii", frame.body_count, values[5], values[6]))
+
+    cursor = header_offset + FRAME_HEADER.size
+    for _ in range(frame.body_count):
+        dictionary_index = struct.unpack_from("<I", presentation, cursor)[0]
+        if dictionary_index >= len(bodies):
+            raise RuntimeError("legacy fixture encountered an invalid body dictionary index")
+        body = bodies[dictionary_index]
+        visual_flags = presentation[cursor + 56]
+        sleep_island = struct.unpack_from("<i", presentation, cursor + 60)[0]
+        contact_count = struct.unpack_from("<H", presentation, cursor + 64)[0]
+
+        value = append_state_hash(value, struct.pack("<Iii", body.body_id, body.model_index, body.shape_kind))
+        value = append_state_hash(value, presentation[cursor + 4 : cursor + 56])
+        value = append_state_hash(value, struct.pack("<f", body.mass))
+        value = append_state_hash(value, bytes((1 if body.fixed else 0,)))
+        for mask in (1, 2, 4, 8):
+            value = append_state_hash(value, bytes((1 if visual_flags & mask else 0,)))
+        value = append_state_hash(value, struct.pack("<ii", sleep_island, contact_count))
+        value = append_state_hash(value, presentation[cursor + 68 : cursor + 76])
+        cursor += BODY_VISUAL_STATE_V3.size
+
+    return value
+
+
+def build_legacy_version_fixture(current):
     manifest = dict(current.manifest)
     manifest["version"] = 3
-    manifest["schema"] = str(manifest.get("schema", "")).replace(
-        "presentation-v4-visual-state", "presentation-v3-visual-state"
+    manifest["schema"] = "presentation-v3-visual-state"
+    manifest["tracks"] = ["presentation"]
+    manifest["chunks"] = ["MANI", "BODY", "PRES", "INDX"]
+    manifest["notes"] = (
+        "Historical presentation v3 fixture with conjugate quaternion bytes and matching pre-migration state hashes."
     )
-    manifest["schema"] = manifest["schema"].replace("+replay-visual-packets", "").replace(
-        "+replay-visual-prediction-state", ""
-    )
-    manifest.pop("visualPacketCount", None)
-    manifest.pop("visualPacketEntryBytes", None)
-    manifest.pop("visualPredictionBytes", None)
-    manifest.pop("visualPredictionHash", None)
-    manifest["chunks"] = [chunk for chunk in manifest.get("chunks", []) if chunk not in ("RVIS", "RVPD")]
-    manifest["tracks"] = [
-        track
-        for track in manifest.get("tracks", [])
-        if track not in ("replayVisualPackets", "replayVisualPredictionState")
-    ]
-    manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
+    for key in (
+        "branchCount",
+        "eventCount",
+        "eventCursorCount",
+        "solverHashCount",
+        "solverCheckpointCount",
+        "visualPacketCount",
+        "visualPredictionBytes",
+        "visualPredictionHash",
+        "branchEntryBytes",
+        "eventEntryBytes",
+        "eventCursorEntryBytes",
+        "solverHashBytes",
+        "solverBodyBytes",
+        "visualPacketEntryBytes",
+    ):
+        manifest.pop(key, None)
 
-    chunks = []
-    for ident, chunk in current.chunks.items():
-        if ident not in ("RVIS", "RVPD"):
-            chunks.append((ident, manifest_raw if ident == "MANI" else current._chunk_bytes(ident), chunk.record_count))
+    presentation = bytearray(current._chunk_bytes("PRES"))
+    migrated_frame_count = 0
+    for frame in current.frames:
+        canonical_hash = struct.unpack_from("<Q", presentation, frame.presentation_offset + 24)[0]
+        if presentation_state_hash(presentation, frame, current.bodies) != canonical_hash:
+            raise RuntimeError("current presentation state hash did not reproduce before legacy conversion")
+
+        cursor = frame.presentation_offset + FRAME_HEADER.size
+        for _ in range(frame.body_count):
+            for component_offset in (16, 20, 24):
+                bits = struct.unpack_from("<I", presentation, cursor + component_offset)[0]
+                struct.pack_into("<I", presentation, cursor + component_offset, bits ^ 0x80000000)
+            cursor += BODY_VISUAL_STATE_V3.size
+
+        legacy_hash = presentation_state_hash(presentation, frame, current.bodies)
+        struct.pack_into("<Q", presentation, frame.presentation_offset + 24, legacy_hash)
+        if legacy_hash == canonical_hash:
+            raise RuntimeError("legacy quaternion conversion did not change the historical state hash")
+        migrated_frame_count += 1
+
+    if migrated_frame_count != len(current.frames):
+        raise RuntimeError("legacy quaternion conversion did not cover every presentation frame")
+
+    manifest_raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
+    chunks = [
+        ("MANI", manifest_raw, 1),
+        ("BODY", current._chunk_bytes("BODY"), current.chunks["BODY"].record_count),
+        ("PRES", bytes(presentation), current.chunks["PRES"].record_count),
+        ("INDX", current._chunk_bytes("INDX"), current.chunks["INDX"].record_count),
+    ]
     write_versioned_file(LEGACY_ARTIFACT, chunks, 3)
 
 
 def validate_version_policy():
     current = ReplayV2(ARTIFACT)
-    if current.version != 4 or current.manifest.get("version") != 4:
-        raise RuntimeError("current writer did not emit replay version 4")
+    if current.version != 5 or current.manifest.get("version") != 5:
+        raise RuntimeError("current writer did not emit replay version 5")
     if current.manifest.get("bodyDictionaryEntryBytes") != 80 or current.manifest.get("bodyPoseBytes") != 76:
-        raise RuntimeError("current writer did not retain the complete v3 visual-state ABI in v4")
+        raise RuntimeError("current writer did not retain the complete visual-state ABI in v5")
     if not current.presentation_packet_hashes():
         raise RuntimeError("current writer produced no exact presentation packet hashes")
 
-    build_previous_version_fixture(current)
+    build_legacy_version_fixture(current)
     legacy = ReplayV2(LEGACY_ARTIFACT)
     if legacy.version != 3 or len(legacy.frames) != len(current.frames):
-        raise RuntimeError("previous-version fixture did not migrate through replay_query")
+        raise RuntimeError("legacy-version fixture did not migrate through replay_query")
+    if legacy.manifest.get("tracks") != ["presentation"] or set(legacy.chunks) != {"MANI", "BODY", "PRES", "INDX"}:
+        raise RuntimeError("legacy-version fixture was not reduced to an authentic presentation-only artifact")
     legacy_stdout = run_checked(
         [
             str(EXE),
@@ -580,15 +658,15 @@ def validate_version_policy():
         REPO,
     )
     if "Load probe passed" not in legacy_stdout:
-        raise RuntimeError("runtime did not scrub the deterministic previous-version migration fixture")
+        raise RuntimeError("runtime did not scrub the deterministic legacy-version migration fixture")
 
     future_bytes = bytearray(ARTIFACT.read_bytes())
-    struct.pack_into("<I", future_bytes, 8, 5)
+    struct.pack_into("<I", future_bytes, 8, 6)
     FUTURE_ARTIFACT.write_bytes(future_bytes)
     try:
         ReplayV2(FUTURE_ARTIFACT)
     except ReplayQueryError as error:
-        if "unsupported replay version 5" not in str(error):
+        if "unsupported replay version 6" not in str(error):
             raise RuntimeError(f"future-version tooling failed for the wrong reason: {error}") from error
     else:
         raise RuntimeError("future-version artifact was accepted by replay_query")
@@ -647,9 +725,9 @@ def validate_version_policy():
         text=True,
     )
     if mutation_result.returncode == 0:
-        raise RuntimeError("runtime accepted a v4 artifact with a mutated visual-state float")
+        raise RuntimeError("runtime accepted a v5 artifact with a mutated visual-state float")
     print(
-        "  Version policy passed: writer=4 previous=3 future=5-rejected visual-float=rejected "
+        "  Version policy passed: writer=5 legacy=3 future=6-rejected visual-float=rejected "
         f"legacy_frames={len(legacy.frames)}"
     )
 
@@ -660,7 +738,7 @@ def query_artifact():
     print("    tools\\replay_query.bat TestOutput\\validation\\replay_v2\\replay_save_probe.skreplay summary")
     summary_stdout, summary = run_json(summary_command, REPO)
 
-    if summary.get("version") != 4 or summary.get("track") != "presentation":
+    if summary.get("version") != 5 or summary.get("track") != "presentation":
         raise RuntimeError(f"unexpected current replay summary: {summary}")
     if int(summary.get("frameCount") or 0) < 24:
         raise RuntimeError(f"expected at least 24 replay frames, found {summary.get('frameCount')}")

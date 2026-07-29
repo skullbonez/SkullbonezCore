@@ -5,9 +5,8 @@ Purpose:
 
 Summary:
   The owner translates startup options and committed physics stores into UI,
-  render-policy, and visualizer state. This keeps Run responsible for ordering
-
-  while the presentation domain owns its state transitions.
+  render-policy, and visualizer state. Run remains responsible for ordering;
+  the presentation domain owns its state transitions.
 
 Glossary:
   Active cell: A populated broadphase grid bucket drawn by the spatial overlay.
@@ -18,7 +17,8 @@ Glossary:
 Invariants:
   - Construction is a single bounded startup allocation outside steady play.
   - Visualizer refresh occurs after physics commits and before render samples.
-  - Required validation gates are updated from the same sampled visual data.
+  - A pending broadphase gate and a visible overlay consume the same active-cell
+    snapshot; no snapshot is copied when neither consumer needs one.
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h
@@ -29,6 +29,7 @@ Related:
 #include "../Automation/RuntimeValidationHarness.h"
 
 #include <algorithm>
+#include <span>
 
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Render/RuntimeRenderFrameValues.h"
@@ -40,7 +41,6 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 namespace SBUI = SkullbonezCore::UI;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
@@ -137,21 +137,26 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 
-    // Why: hidden broadphase state still advances so cell fades and validation
-    // gates remain coherent when the operator toggles the overlay.
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
     PhysicsEngine& physics = scene.Physics();
-    const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
-    m_renderResources.m_broadphaseOverlay.SetCellSize( grid.GetCellSize() );
-    SpatialGrid::ActiveCell activeCells[SpatialGrid::MAX_BUCKETS];
-    const int activeCellCount = grid.GetActiveCellCount();
-    grid.GetActiveCells( activeCells, SpatialGrid::MAX_BUCKETS );
-    const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-    m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCells, activeCellCount,
-                                                  collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
+    const bool requiresBroadphaseCells = m_presentationState.isBroadphaseOverlay ||
+                                         validationHarness.SceneGates().RequiresBroadphaseXCellObservation();
 
-    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCells,
-                                                                   (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
+    // Why: copying every active cell is observable debug work. Retail frames
+    // pay it only for a visible overlay; automation pays it only until an
+    // authored broadphase requirement has been observed.
+
+    if ( requiresBroadphaseCells )
+    {
+        m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
+        PhysicsBroadphaseActiveCell activeCells[PHYSICS_BROADPHASE_ACTIVE_CELL_CAPACITY];
+        const int activeCellCount = PhysicsEngine::ReadBroadphaseActiveCells( physics, activeCells );
+        const std::span<const PhysicsBroadphaseActiveCell> activeCellView( activeCells,
+                                                                           static_cast<std::size_t>( activeCellCount ) );
+        const std::span<const int64_t> collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
+        m_renderResources.m_broadphaseOverlay.Update( static_cast<float>( secondsPerFrame ), activeCellView, collisionKeys );
+        validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCellView );
+    }
 
     PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 

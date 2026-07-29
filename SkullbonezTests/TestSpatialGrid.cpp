@@ -24,22 +24,39 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
+//   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
+//     and Clear retain backing/high-water; additional admission also preserves
+//     existing persistent membership and generation state.
 //
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
+//   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestFixedSeed.h"
 
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
+#include <algorithm>
+#include <cstring>
+#include <memory>
 #include <utility>
 #include <vector>
 
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
 {
@@ -71,15 +88,291 @@ bool HasPair( const std::vector<std::pair<int, int>>& pairs, int a, int b )
 
 SpatialGrid& TestGrid()
 {
-    // Why: SpatialGrid owns large fixed arrays; static storage keeps the test
-    // fixture aligned with runtime storage expectations instead of consuming the
-    // doctest thread stack.
+    // Why: fixed hash topology remains too large for the test thread stack.
+    // Reserve the supported ceiling once so behavior tests can choose arbitrary
+    // dense body indices without each case restating scene admission.
     static SpatialGrid grid( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid.ReserveSceneCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
     grid.Clear();
     grid.SetCellSize( 10.0f );
     return grid;
 }
+
+PhysicsBodyStore& CeilingBodyStore()
+{
+    // Why: the production-filtered ceiling proof needs dense rows through
+    // index 8,191. Static owner storage keeps that capacity off the test stack.
+    static PhysicsBodyStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+
+    store.Clear();
+    return store;
+}
+
+ColliderStore& CeilingColliderStore()
+{
+    // Why: filtered broadphase consumes the collider row at every candidate
+    // index, so this owner must mirror the body's complete dense prefix.
+    static ColliderStore store;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        store.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+        store.ReserveShapeCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS, 0u, 0u );
+    }
+
+    store.Clear();
+    return store;
+}
 } // namespace
+
+
+TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its owning ceiling" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 3u );
+    }
+
+    CHECK( grid->GetPersistentEntryCapacity() == 1048u );
+    CHECK( grid->GetPairDedupWordCapacity() == 1u );
+    CHECK( grid->GetBodyMembershipCapacity() == 3u );
+    CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
+    CHECK( grid->GetCandidatePairNodeCapacity() == 12u );
+    CHECK( grid->GetCandidatePairSortKeyCapacity() == 12u );
+    CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
+    CHECK( grid->GetCellObjectSeenCapacity() == 3u );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 124160u );
+
+    const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
+    const auto findRow = [capacityRows]( const char* ownerName )
+    {
+        return std::find_if( capacityRows.begin(), capacityRows.end(), [ownerName]( const auto& row )
+                             { return row.ownerName && std::strcmp( row.ownerName, ownerName ) == 0; } );
+    };
+    struct ExpectedOwner
+    {
+        const char* name;
+        const char* reason;
+        int capacity;
+    };
+    const ExpectedOwner expectedOwners[] = {
+        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 1048 },
+        { "SpatialGrid.pairSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords, 1 },
+        { "SpatialGrid.bodyMemberships", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridBodyMemberships, 3 },
+        { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,
+          3 },
+        { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes,
+          12 },
+        { "SpatialGrid.candidatePairSortKeys",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortKeys, 12 },
+        { "SpatialGrid.candidatePairSortScratch",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairSortScratch, 12 },
+        { "SpatialGrid.cellObjectSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCellObjectSeen, 3 },
+        { "SpatialGrid.overlayEntries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries,
+          4096 },
+    };
+
+    for ( const ExpectedOwner& expected : expectedOwners )
+    {
+        const auto row = findRow( expected.name );
+        REQUIRE( row != capacityRows.end() );
+        CHECK( std::strcmp( row->capacityReason, expected.reason ) == 0 );
+        CHECK( row->currentCapacity == expected.capacity );
+    }
+}
+
+
+TEST_CASE( "SpatialGrid: scene reserve covers the multi-oversized shoreline layout" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 24.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 4u );
+    }
+
+    grid->BeginFrame( 4 );
+
+    // Invariant: these conservative spheres reproduce the four authored
+    // shoreline-lever bodies. Their combined persistent occupancy exceeds the
+    // retired 64-row reservation and must still fit without physics-phase growth.
+    grid->Insert( 0, Vector3( 500.0f, 1.6f, 540.0f ), 42.27f );
+    grid->Insert( 1, Vector3( 498.0f, 1.5f, 462.0f ), 29.19f );
+    grid->Insert( 2, Vector3( 500.0f, 3.6f, 492.0f ), 9.48f );
+    grid->Insert( 3, Vector3( 490.0f, 2.7f, 516.0f ), 9.48f );
+
+    CHECK( grid->GetPersistentEntryHighWater() > 64u );
+    CHECK( grid->GetPersistentEntryHighWater() <= grid->GetPersistentEntryCapacity() );
+}
+
+
+TEST_CASE( "SpatialGrid: scene reserve covers dense ordinary occupancy plus one oversized body" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+    constexpr int ordinaryBodyCount = 100;
+    constexpr int totalBodyCount = ordinaryBodyCount + 1;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( totalBodyCount );
+    }
+
+    grid->BeginFrame( totalBodyCount );
+    for ( int bodyIndex = 0; bodyIndex < ordinaryBodyCount; ++bodyIndex )
+    {
+        const float separatedCellBoundary = static_cast<float>( bodyIndex * 100 );
+        grid->Insert( bodyIndex, Vector3( separatedCellBoundary, 0.0f, 0.0f ), 1.0f );
+    }
+
+    // Invariant: the oversized row reproduces the stress layout's combination
+    // of more than eight persistent cells for one body and dense ordinary rows.
+    grid->Insert( ordinaryBodyCount, Vector3( 20000.0f, 0.0f, 0.0f ), 40.0f );
+
+    CHECK( grid->GetPersistentEntryHighWater() > 1340u );
+    CHECK( grid->GetPersistentEntryHighWater() <= grid->GetPersistentEntryCapacity() );
+}
+
+
+TEST_CASE( "SpatialGrid: additional scene reserve preserves live membership and extends only new dense rows" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    REQUIRE( CandidatePairs( *grid ).size() == 1u );
+    const std::size_t entryHighWater = grid->GetPersistentEntryHighWater();
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 4u );
+    }
+
+    const auto pairsAfterReserve = CandidatePairs( *grid );
+    REQUIRE( pairsAfterReserve.size() == 1u );
+    CHECK( pairsAfterReserve[0] == std::make_pair( 0, 1 ) );
+    CHECK( grid->GetPersistentEntryHighWater() == entryHighWater );
+    CHECK( grid->GetBodyMembershipCapacity() == 4u );
+    CHECK( grid->GetCellObjectSeenCapacity() == 4u );
+
+    grid->BeginFrame( 4 );
+    grid->Insert( 2, Vector3( 25.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 3, Vector3( 26.0f, 5.0f, 5.0f ), 1.0f );
+    CHECK( HasPair( CandidatePairs( *grid ), 2, 3 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: Clear and cell-size reset retain scene backing and high-water" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    REQUIRE( CandidatePairs( *grid ).size() == 1u );
+    grid->InsertSwept( 0, Vector3( 5.0f, 5.0f, 5.0f ), Vector3( 20.0f, 0.0f, 0.0f ), 1.0f );
+    CHECK( grid->GetPersistentEntryHighWater() == 2u );
+    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetSweptOverlayEntryHighWater() > 0u );
+
+    const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
+    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    const std::size_t overlayCapacity = grid->GetSweptOverlayEntryCapacity();
+    const std::size_t overlayHighWater = grid->GetSweptOverlayEntryHighWater();
+    grid->Clear();
+    grid->SetCellSize( 5.0f );
+
+    CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
+    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == overlayCapacity );
+    CHECK( grid->GetPersistentEntryHighWater() == 2u );
+    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetSweptOverlayEntryHighWater() == overlayHighWater );
+    CHECK( grid->GetActiveCellCount() == 0 );
+}
+
+
+TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backing" )
+{
+    using SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+    using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+    using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
+
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid->Insert( 1, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
+    const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
+    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    const std::size_t bodyMembershipCapacity = grid->GetBodyMembershipCapacity();
+    const std::size_t candidatePairHeadCapacity = grid->GetCandidatePairHeadCapacity();
+    const std::size_t candidatePairNodeCapacity = grid->GetCandidatePairNodeCapacity();
+    const std::size_t candidatePairSortKeyCapacity = grid->GetCandidatePairSortKeyCapacity();
+    const std::size_t candidatePairSortScratchCapacity = grid->GetCandidatePairSortScratchCapacity();
+    const std::size_t cellObjectSeenCapacity = grid->GetCellObjectSeenCapacity();
+    const std::size_t sweptOverlayEntryCapacity = grid->GetSweptOverlayEntryCapacity();
+
+    ResetRuntimeAllocationCounters();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    {
+        RuntimeAllocationScope gameplayScope( RuntimeAllocationPhase::Physics );
+        grid->BeginFrame( 1 );
+    }
+    const uint64_t violations = RuntimeAllocationGuardViolationCount();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( violations == 0u );
+    CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
+    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetBodyMembershipCapacity() == bodyMembershipCapacity );
+    CHECK( grid->GetCandidatePairHeadCapacity() == candidatePairHeadCapacity );
+    CHECK( grid->GetCandidatePairNodeCapacity() == candidatePairNodeCapacity );
+    CHECK( grid->GetCandidatePairSortKeyCapacity() == candidatePairSortKeyCapacity );
+    CHECK( grid->GetCandidatePairSortScratchCapacity() == candidatePairSortScratchCapacity );
+    CHECK( grid->GetCellObjectSeenCapacity() == cellObjectSeenCapacity );
+    CHECK( grid->GetSweptOverlayEntryCapacity() == sweptOverlayEntryCapacity );
+    CHECK( grid->GetMaintenanceStats().removedBodies == 1 );
+}
 
 
 TEST_CASE( "SpatialGrid: insert/query returns a single deduplicated pair" )
@@ -333,21 +626,81 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
 
     const auto pairs = CandidatePairs( grid );
     const std::vector<std::pair<int, int>> expected = {
-        { 0, 1 },
-        { 0, 2 },
-        { 0, 3 },
-        { 0, 4 },
-        { 1, 2 },
-        { 1, 3 },
-        { 1, 4 },
-        { 2, 3 },
-        { 2, 4 },
-        { 3, 4 },
+        { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 2, 3 }, { 2, 4 }, { 3, 4 },
     };
 
     // Invariant: solver work order is a function of normalized body identity,
     // never the bucket-creation or linked-list order used to discover a pair.
     CHECK( pairs == expected );
+}
+
+
+TEST_CASE( "SpatialGrid: canonical output reaches the current scene-index ceiling" )
+{
+    SpatialGrid& grid = TestGrid();
+    constexpr int kSceneCeiling = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
+    constexpr int insertionOrder[] = { kSceneCeiling - 1, 128, 4096, 0, kSceneCeiling - 2, 127 };
+    constexpr int canonicalBodies[] = { 0, 127, 128, 4096, kSceneCeiling - 2, kSceneCeiling - 1 };
+    grid.BeginFrame( kSceneCeiling );
+
+    for ( int body : insertionOrder )
+    {
+        grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
+    }
+
+    std::vector<std::pair<int, int>> expected;
+    expected.reserve( 15u );
+
+    for ( int smaller = 0; smaller < 6; ++smaller )
+    {
+
+        for ( int larger = smaller + 1; larger < 6; ++larger )
+        {
+            expected.emplace_back( canonicalBodies[smaller], canonicalBodies[larger] );
+        }
+    }
+
+    // Hazard: this crosses both radix digits and reaches the largest valid
+    // body index. Discovery order is deliberately non-canonical.
+    const auto pairs = CandidatePairs( grid, static_cast<int>( expected.size() ) );
+    CHECK( pairs == expected );
+
+    PhysicsBodyStore& bodyStore = CeilingBodyStore();
+    ColliderStore& colliderStore = CeilingColliderStore();
+    const CollisionShape sphere( BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < kSceneCeiling; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = Vector3( 5.0f, 5.0f, 5.0f );
+        body.hot.boundingRadius = 0.1f;
+        const auto bodyHandle = bodyStore.CreateBodyRecord( body );
+
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.1f;
+        (void)colliderStore.CreateColliderRecord( collider, sphere );
+    }
+
+    std::vector<uint8_t> sleepState( static_cast<size_t>( kSceneCeiling ), 0u );
+    SkullbonezCore::Physics::PhysicsCandidatePairList filteredPairs {
+        "TestSpatialGrid.ceilingFilteredPairs",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        filteredPairs.Reserve( expected.size() );
+    }
+
+    grid.GetFilteredCandidatePairs( filteredPairs, bodyStore, colliderStore, sleepState, 0.0f, 0.0f, false );
+    REQUIRE( filteredPairs.size() == expected.size() );
+
+    for ( size_t pairIndex = 0; pairIndex < expected.size(); ++pairIndex )
+    {
+        CHECK( filteredPairs[pairIndex] == expected[pairIndex] );
+    }
 }
 
 
@@ -390,9 +743,7 @@ TEST_CASE( "Property invariant: identical sphere insert/query round-trips includ
     for ( int sample = 0; sample < 64; ++sample )
     {
         grid.Clear();
-        const Vector3 center( random.Float( -50.0f, 50.0f ),
-                              random.Float( -50.0f, 50.0f ),
-                              random.Float( -50.0f, 50.0f ) );
+        const Vector3 center( random.Float( -50.0f, 50.0f ), random.Float( -50.0f, 50.0f ), random.Float( -50.0f, 50.0f ) );
         const float radius = sample % 8 == 0 ? 0.0f : random.Float( 0.0f, 4.0f );
 
         grid.Insert( 0, center, radius );

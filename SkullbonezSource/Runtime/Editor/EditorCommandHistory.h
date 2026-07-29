@@ -10,7 +10,7 @@ Summary:
 
 Glossary:
   History cursor: Boundary between applied commands and the redo suffix.
-  Primitive recipe: Fixed recreation facts for one standalone sphere or box.
+  Primitive recipe: Fixed recreation facts for one standalone collision shape.
   Transform item: One scene-identity pose/shape pair inside a coalesced gesture.
 
 Invariants:
@@ -18,6 +18,8 @@ Invariants:
   - New edits after undo truncate the redo suffix.
   - Overflow drops the oldest entry; exhaustion is ordinary editor behavior.
   - Entries key live objects only by PhysicsSceneObjectId, never handles or rows.
+  - Hull recreation preserves a proven store identity; arbitrary shape edits
+    remain unique unless they reconstruct canonical base geometry.
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorHistory.cpp
@@ -30,6 +32,7 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../Scene/SceneEntityStore.h"
 
 #include <array>
@@ -111,6 +114,7 @@ struct EditorPrimitiveRecreateRecipe
     float friction = 0.0f;
     uint32_t contactMaterialId = 0;
     char contactMaterialName[32] = {};
+    Physics::HullShapeIdentity hullIdentity;
 };
 
 struct EditorCommandEntry

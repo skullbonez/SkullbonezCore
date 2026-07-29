@@ -9,16 +9,17 @@ Summary:
   conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Active rotation: Rotation that moves a vector in a fixed world basis.
+  World-axis delta: Incremental rotation expressed around a world-space axis
+    and composed before the current orientation.
 
 Invariants:
   - Orientation quaternions should remain normalized before conversion to
     matrices or solver rows.
   - RotateAboutXYZ treats xyz as one angular-displacement vector rather than an
     ordered Euler rotation.
-  - lhs * rhs computes Hamilton(rhs * lhs), while GetOrientationMatrix returns
-    the transpose of the Hamilton active-rotation matrix.
+  - World-axis deltas left-multiply the current orientation so call order stays
+    visible in active-rotation space.
 
 Related:
   - SkullbonezSource/Maths/Quaternion.h
@@ -102,15 +103,11 @@ void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 {
 
-    // Single rotation about an arbitrary WORLD-space axis — no Euler decomposition,
-    // no gimbal lock. This codebase uses "anti-Hamilton" quaternion multiplication
-    // (operator* computes Hamilton(q2*q1) when called as q1*q2), and GetOrientationMatrix
-    // returns the transpose of the Hamilton active-rotation matrix. The combination
-    // means: to apply an ACTIVE world rotation by +angle about world axis to the
-    // existing orientation we must left-multiply by the *inverse* delta in code-space
-    // — i.e. negate the axis (or sin) component of delta and pre-multiply.
+    // A positive right-handed world-axis delta left-multiplies the current
+    // orientation. Hamilton composition then exposes the same order as the
+    // corresponding active matrices: R(delta * current) = R(delta)R(current).
     float halfAngle = angle * 0.5f;
-    float s = -sinf( halfAngle );
+    float s = sinf( halfAngle );
     Quaternion delta( axis.x * s, axis.y * s, axis.z * s, cosf( halfAngle ) );
     *this = delta * *this;
     Normalise();
@@ -122,10 +119,10 @@ RotationMatrix Quaternion::GetOrientationMatrix() const
 
     // The engine uses right-handed object orientation math; render projection is
     // handled separately by Matrix4.
-    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
-                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ), ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
-                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ), ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
+    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ), ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
+                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ), ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
+                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ), ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
+                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ), ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
                            1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
 }
 
@@ -136,11 +133,11 @@ Quaternion Quaternion::operator*( const Quaternion& q ) const
 
     result.m_w = m_w * q.m_w - m_x * q.m_x - m_y * q.m_y - m_z * q.m_z;
 
-    result.m_x = m_w * q.m_x + m_x * q.m_w - m_y * q.m_z + m_z * q.m_y;
+    result.m_x = m_w * q.m_x + m_x * q.m_w + m_y * q.m_z - m_z * q.m_y;
 
-    result.m_y = m_w * q.m_y + m_x * q.m_z + m_y * q.m_w - m_z * q.m_x;
+    result.m_y = m_w * q.m_y - m_x * q.m_z + m_y * q.m_w + m_z * q.m_x;
 
-    result.m_z = m_w * q.m_z - m_x * q.m_y + m_y * q.m_x + m_z * q.m_w;
+    result.m_z = m_w * q.m_z + m_x * q.m_y - m_y * q.m_x + m_z * q.m_w;
 
     return result;
 }

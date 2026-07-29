@@ -1,10 +1,27 @@
-"""Generate or verify the deterministic 5,000-body sleeping scale fixture.
+"""File: tools/generate_physics_scale_sleepy_scene.py
+Purpose:
+  Generates or verifies the deterministic 5,000-body sleeping scale fixture.
 
-The fixture deliberately uses only the current version-2 authored body schema:
-4,000 rows begin asleep and 1,000 high-altitude rows remain in flight for the
-bounded perf run. Wide X/Z spacing avoids knife-edge contacts. One isolated
-large-radius sleeper fixes broadphase cell size at the existing 24-unit cap so
-the scene stays inside SpatialGrid's ratified 8,192-bucket envelope.
+Mental model:
+  The fixture uses the current version-3 authored body schema. Four thousand
+  rows begin asleep and 1,000 high-altitude rows remain in flight for the
+  bounded performance run. Wide X/Z spacing avoids knife-edge contacts.
+
+Glossary:
+  Sleeping row: Authored body state that begins outside active integration.
+  Broadphase cell: Coarse collision-grid region used to discover candidate
+    body pairs.
+
+Invariants:
+  - One isolated large-radius sleeper fixes cell size at the 24-unit cap so the
+    scene remains inside SpatialGrid's ratified 8,192-bucket envelope.
+  - Generated JSON is byte-stable; check mode never rewrites the fixture.
+  - Version and quaternion components match the current authored scene schema.
+
+Related:
+  - SkullbonezData/scenes/physics_scale_sleepy_5000.scene.json
+  - SkullbonezSource/Physics/SpatialGrid.h
+  - tools/validate_perf.bat
 """
 
 from __future__ import annotations
@@ -46,7 +63,7 @@ def _body(index: int) -> dict:
         "position": position,
         "velocity": velocity,
         "angularVelocity": [0.0, 0.0, 0.0],
-        "orientation": [0.0, 0.0, 0.0, 1.0],
+        "orientation": [-0.0, -0.0, -0.0, 1.0],
         "radius": radius,
         "mass": 1.0,
         "restitution": 0.0,
@@ -59,7 +76,7 @@ def _body(index: int) -> dict:
 def _scene() -> dict:
     return {
         "format": "skullbonez.scene.json",
-        "version": 2,
+        "version": 3,
         "cinematic": {},
         "simulation": {
             "seed": 3235774467,

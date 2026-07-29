@@ -470,9 +470,12 @@ Quaternion EditorQuaternionFromEulerDegrees( const Vector3& eulerDegrees )
     const float xHalf = eulerDegrees.x * DEG2RAD * 0.5f;
     const float yHalf = eulerDegrees.y * DEG2RAD * 0.5f;
     const float zHalf = eulerDegrees.z * DEG2RAD * 0.5f;
-    const Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    const Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    const Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+
+    // Invariant: asset Euler degrees retain their established scene-space
+    // meaning while editor quaternions use canonical Hamilton components.
+    const Quaternion xRotation( -sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Quaternion yRotation( 0.0f, -sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Quaternion zRotation( 0.0f, 0.0f, -sinf( zHalf ), cosf( zHalf ) );
     Quaternion q;
     q *= xRotation * yRotation * zRotation;
     q.Normalise();
