@@ -147,7 +147,7 @@ Recorded so the owner can re-scope at QN0 with full information.
   `GetOrientationMatrix` returns the untransposed active-rotation matrix, and
   `RotateAboutAxis` drops its compensating sine negation and operand reversal.
   Every characterization test from QN0 must still pass.
-- [ ] QN2 — Fix every compensation site identified by QN0, including the Euler
+- [x] QN2 — Fix every compensation site identified by QN0, including the Euler
   composition order in `AuthoredSceneParserSchema.h`. Characterization tests
   pass; existing physics baselines are expected to differ and are used only as a
   tripwire, not refreshed.
@@ -217,6 +217,8 @@ Recorded so the owner can re-scope at QN0 with full information.
 - [ ] `SkullbonezSource/Physics/Ragdoll.cpp`
 - [ ] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp`
 - [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.cpp`
+- [ ] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
+- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp`
 - [ ] `SkullbonezSource/Scene/AuthoredSceneParserSchema.h`
 - [ ] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp`
 - [ ] `SkullbonezTests/TestQuaternion.cpp`
@@ -254,3 +256,19 @@ epsilon` (two assertions). Its quaternion conversion still emits the retired
 transposed basis and is the first QN2 repair. The remaining 451 cases pass. The
 touched-source comment audit is 3/3 and repository formatting passes. No
 baseline, golden, schema, config, or committed runtime artifact changed.
+
+## QN2 Evidence
+
+`Matrix4::FromQuaternion` now emits the same active basis as
+`Quaternion::GetOrientationMatrix`, closing QN1's only full-unit failure. All
+four live authored/editor Euler composers preserve their established
+world-space scene meaning with canonical components. The exact algebra
+reclassified `EditorBuildingPartOrientation` as neutral: composing two migrated
+physical orientations in the existing textual order remains correct, so no
+local reversal or compatibility path was added.
+
+The focused Matrix4 suite passes 9/9 cases and 218 assertions; the focused
+Quaternion suite passes 15/15 and 66. `tools\validate_tests.bat` passes the
+complete 452-case unit harness. Repository formatting and the 5/5 QN2
+touched-source comment audit pass. No baseline, golden, schema, config, or
+committed runtime artifact changed.

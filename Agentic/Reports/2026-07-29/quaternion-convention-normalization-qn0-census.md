@@ -103,7 +103,8 @@ compatibility path.
 | `Scene/AuthoredSceneParserSchema.h:119-132` | compensation | Preserve authored Euler physical order under Hamilton multiplication. |
 | `Runtime/Scene/SceneController.Load.cpp:176-190` | compensation | Preserve legacy scene-controller Euler behavior. |
 | `Runtime/Scene/SceneAuthoredSetup.cpp:105-119` | compensation | Preserve authored setup Euler behavior. |
-| `Runtime/Editor/EditorPlacementAssets.cpp:467-490` | compensation | Preserve editor Euler and placement/part composition behavior. |
+| `Runtime/Editor/EditorPlacementAssets.cpp:467-479` | compensation | Preserve editor Euler behavior. |
+| `Runtime/Editor/EditorPlacementAssets.cpp:483-490` | neutral | Composing two migrated physical orientations in the same textual order preserves placement/part behavior. |
 | Other `RotateAboutAxis` callers | neutral | They express positive world-axis rotations through the public API. |
 | Quaternion interpolation and component equality/hash sites | neutral | Conjugating both endpoints preserves interpolation; hashes may change only as representation evidence. |
 

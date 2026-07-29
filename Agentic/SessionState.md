@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-6 are closed and excluded from the live ledger. Plan 7 QN0-QN1 are complete; QN2 repairs the identified convention compensation sites next, and plan 8 remains last. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 2/13 (15%). Plans 7-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-6 are closed and excluded from the live ledger. Plan 7 QN0-QN2 are complete; QN3 migrates persisted scene and replay orientations next, and plan 8 remains last. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 3/13 (23%). Plans 7-8 remain. |
+| Quaternion normalization QN2 | Matrix4 now emits the canonical active basis, and all four authored/editor Euler constructors preserve their established scene-space behavior. The child placement composition is algebraically neutral and remains unchanged. Matrix4 passes 9/9 cases / 218 assertions, Quaternion passes 15/15 / 66, and `validate_tests` passes all 452 cases. Formatting and the 5/5 QN2 comment audit pass. No baseline, golden, schema, config, or committed runtime artifact changed. |
 | Quaternion normalization QN1 | Canonical Hamilton multiplication, active orientation matrices, and positive-sine world-axis updates are implemented. The focused Profile build and all 15 `Quaternion*` cases / 66 assertions pass unchanged at the behavioral layer. The broad unit gate has one planned QN2 Matrix4 conversion failure (two assertions); the remaining 451 cases pass. Formatting and the 3/3 touched-source comment audit pass. No baseline, golden, schema, config, or committed runtime artifact changed. |
 | Quaternion normalization QN0 | Owner decision: proceed. Live source has 35 production orientation-matrix consumers, nine transpose consumers, zero axis-helper callers, four Euler composers plus one child-composition site, and 23 committed raw-orientation scenes. Five representation-independent characterization cases pass in the pre-change Profile binary; the `Quaternion*` filter totals 15 cases and 66 assertions. Evidence: `Agentic/Reports/2026-07-29/quaternion-convention-normalization-qn0-census.md`. No baseline, golden, schema, config, or committed runtime artifact changed. |
 | Validation for runtime include closure | TUs above 200 headers fall 17 to 16, maximum closure falls 255 to 248, and `PhysicsWorld.h`/`SpatialGrid.h` reach zero non-Physics TUs. Debug/Profile rebuild samples pass at 44.860/45.358 seconds with no speedup claimed. Full, Physics, DX12, graphics-stress, and 2,401-tick replay-visual gates pass without baseline refresh. Replay reserve accounting counts world debug/broadphase storage once. Comment audit is 30/30 and final independent review is clear. Evidence: `Agentic/Reports/2026-07-29/runtime-include-closure-reduction-closure.md`. |
@@ -68,9 +69,9 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 2/13 (15%). Plans 1-6 are
-closed and excluded under rule 4. Plans 7-8 remain sequenced, with plan 7 QN2
-next after the canonical core conversion. Only plans 7 and 8 are authorized to
+The Fresh-Read Engine Review Campaign is active at 3/13 (23%). Plans 1-6 are
+closed and excluded under rule 4. Plans 7-8 remain sequenced, with plan 7 QN3
+next after the compensation-site closure. Only plans 7 and 8 are authorized to
 move baselines under their plan-specific owner conditions.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
@@ -776,7 +777,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 2/13 (15%) with Plan 7
-`Agentic/Plans/TODO/quaternion-convention-normalization.md`, task QN2.
-QN1 leaves one expected Matrix4 compensation failure and no other unit-test
-failure. MASTER and SessionState agree on the 2/13 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 3/13 (23%) with Plan 7
+`Agentic/Plans/TODO/quaternion-convention-normalization.md`, task QN3.
+The complete unit gate is green before persisted scene and replay orientation
+migration. MASTER and SessionState agree on the 3/13 live ledger.

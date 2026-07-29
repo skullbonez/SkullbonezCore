@@ -122,9 +122,11 @@ inline Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, 
     const float yHalf = eulerYDeg * kSceneDegreesToRadians * 0.5f;
     const float zHalf = eulerZDeg * kSceneDegreesToRadians * 0.5f;
 
-    const Math::Orientation::Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    const Math::Orientation::Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    const Math::Orientation::Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+    // Invariant: authored Euler degrees keep their established world-space
+    // meaning while live quaternions use canonical Hamilton components.
+    const Math::Orientation::Quaternion xRotation( -sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Math::Orientation::Quaternion yRotation( 0.0f, -sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Math::Orientation::Quaternion zRotation( 0.0f, 0.0f, -sinf( zHalf ), cosf( zHalf ) );
 
     Math::Orientation::Quaternion orientation;
     orientation *= xRotation * yRotation * zRotation;
