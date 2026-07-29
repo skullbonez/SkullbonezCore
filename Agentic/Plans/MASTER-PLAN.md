@@ -1621,11 +1621,12 @@ and deliberately excluded from this ledger. The previous replay critical path
 completed on `nightrunner-14th-july`.
 
 0. **Validation-gate V3 — blocked external lane.** Repository implementation is
-   complete. Hosted CPU protection and the trusted informational DX12 runner
-   are active and proven. The sole remaining acceptance item is a real
-   `merge_group` proof, blocked because GitHub does not offer merge queues to
-   this user-owned repository and the authenticated owner currently belongs to
-   no organization that could receive it.
+   complete. Hosted CPU protection is active and proven. By owner ruling, all
+   validation that needs a graphics card is local-only; the GitHub DX12
+   workflow, runner, variable, task, and dedicated installations are removed.
+   The sole remaining acceptance item is a real `merge_group` proof, blocked
+   because GitHub does not offer merge queues to this user-owned repository and
+   the authenticated owner belongs to no organization that could receive it.
 1. **Replay visual-fidelity mega probe — complete on
    `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
    single-generation causal, and durable offline equality gate generates and

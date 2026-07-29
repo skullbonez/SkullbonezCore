@@ -8,8 +8,7 @@ Branch: `engine-cleanup-10th-july`
 
 ## Result
 
-Three capability-honest workflows are active on the default branch. The two V3
-workflows are:
+Two capability-honest hosted workflows remain active on the default branch:
 
 - `.github/workflows/mandatory-cpu-validation.yml` runs the mandatory hosted
   lane on `windows-latest`: `validate_fast --preflight-only` followed by the
@@ -17,21 +16,15 @@ workflows are:
   `Mandatory CPU lane (Windows hosted)`. It makes no renderer, GPU, or
   DX12-runtime claim. It covers pull requests, merge-queue `merge_group`
   checks, and manual dispatch.
-- `.github/workflows/dx12-runtime-validation.yml` runs
-  `tools\validate_full.bat` only on a runner matching all four labels:
-  `self-hosted`, `Windows`, `x64`, and `dx12`. Its stable check name is
-  `Runtime validation (self-hosted DX12)`. Because this repository is public,
-  it has no pull-request trigger; it covers trusted pushes to `main` and
-  privileged manual dispatch only.
+- `.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
+  manual hosted diagnostics lane.
 
-Both workflows have read-only repository permissions, use immutable commit pins
-for the official checkout and artifact actions, capture their batch exit code
-without losing it through PowerShell logging, and bound execution/artifact
-retention.
-
-`.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
-manual hosted diagnostics lane. It does not change the V3 CPU/runtime security
-boundary.
+Owner ruling (2026-07-30): anything needing a graphics card is local-only
+validation. The experimental `.github/workflows/dx12-runtime-validation.yml`,
+self-hosted runner, enable variable, scheduled task, and dedicated local
+installations were removed. No persistent or ephemeral GitHub GPU lane may
+replace them. The historical design and run evidence below are retained only
+to make the rejected experiment auditable.
 
 ## Hosted CPU And Merge-Queue Lane
 
@@ -79,7 +72,10 @@ doctest runner from executing before the umbrella, so the doctest,
 interaction-policy, scene-parser, and device-free DX12 architecture targets
 each run exactly once.
 
-## Self-Hosted Runtime Lane
+## Superseded Self-Hosted Runtime Lane (Historical)
+
+This section describes the rejected experiment and is not an active repository
+contract. The owner subsequently ruled all graphics-card validation local-only.
 
 The runtime workflow is intentionally absent from pull requests. It responds
 only to a reviewed commit pushed to `main` or a privileged maintainer's manual
@@ -226,6 +222,9 @@ repository-variable state, and trusted runtime evidence can be recorded below.
 
 ## External Activation Checklist
 
+The self-hosted/GPU rows below are historical execution evidence, not current
+requirements. The owner ruling above retires that entire GitHub GPU path.
+
 - [x] Push the workflow files and observe one successful pull-request run of
   `Mandatory CPU lane (Windows hosted)`. Evidence: run 29148955729 completed
   successfully on 2026-07-11.
@@ -352,3 +351,24 @@ creation and enqueue of a proof pull request. The authenticated owner currently
 reports zero organization memberships, so there is no existing transfer
 destination to select. Creating an organization, transferring the repository,
 and creating or merging that PR remain outside current authority.
+
+## Owner-Directed GPU Rollback — 2026-07-30
+
+The owner ruled that there will be no DX12 validation on GitHub and that
+anything requiring a graphics card is local-only validation. The rollback
+removed every active component of the rejected experiment:
+
+- disabled GitHub workflow ID 311199536 and deleted tracked
+  `.github/workflows/dx12-runtime-validation.yml`;
+- deleted repository variable `SKULLBONEZ_DX12_CI_ENABLED`;
+- unregistered runner ID 22, `skullbonez-dx12-sesch-rtx3080`;
+- stopped its one listener process and removed scheduled task
+  `SkullbonezCore-GitHub-DX12-Runner`;
+- moved the dedicated runner directory and PowerShell 7.6.4 installation to
+  the Windows Recycle Bin.
+
+The hosted CPU workflow, its strict `main` branch protection, and the
+device-free DX12 architecture tests remain. Real renderer, InfoQueue,
+screenshot, graphics-stress, and other GPU-dependent gates run locally only.
+Historical workflow runs and artifacts remain finite-retention audit evidence;
+they do not authorize or reactivate a GitHub GPU lane.

@@ -36,29 +36,28 @@ answer to "is this PR safe to merge?"
 
 Current state (2026-07-30): `validate_full` and `agent_validate` reach all four
 CPU test targets through `validate_all_cpu_tests` before runtime work, V4
-supplies a proven ASan plus bounded `/analyze` lane, and all three workflows are
-active on the default branch. Mandatory CPU validation passed real pull-request
-runs and a fresh manual run with clang-format 21.1.8 pinned. `main` requires the
-stable hosted CPU check, and one trusted persistent DX12 runner has produced a
-green full-runtime proof. The remaining V3 trust gap is a real `merge_group`
-proof. Public-PR GPU evidence remains optional and would require an ephemeral
-isolated runner before it could become merge-blocking.
+supplies a proven ASan plus bounded `/analyze` lane, and the hosted CPU and
+native-diagnostics workflows are active on the default branch. Mandatory CPU
+validation passed real pull-request runs and a fresh manual run with
+clang-format 21.1.8 pinned. `main` requires the stable hosted CPU check. By
+owner ruling, anything needing a graphics card is local-only validation: no
+GitHub workflow, runner, variable, or future merge-blocking GPU lane is allowed.
+The remaining V3 trust gap is solely a real `merge_group` proof.
 
 Current external audit (2026-07-30):
 
-- GitHub registers all three workflows as active. Hosted CPU manual run
+- GitHub registers the hosted CPU and native-diagnostics workflows as active.
+  Hosted CPU manual run
   30469139071 passed at exact SHA `1faac75e` after the workflow installed and
   verified LLVM 21.1.8, then passed preflight and all 2,423,885 assertions.
 - `main` branch protection is active and strict for
   `Mandatory CPU lane (Windows hosted)`, bound to the GitHub Actions app;
   administrators are included and force pushes/deletions remain disabled.
-- Exactly one self-hosted runner is registered and online:
-  `skullbonez-dx12-sesch-rtx3080`, with effective labels `self-hosted`,
-  `Windows`, `X64`, and `dx12`. The trusted-only runtime variable is enabled.
-- Trusted manual DX12 run 30472584471 passed at exact SHA `f4c0b33e`: full CPU
-  validation, DX12 InfoQueue, screenshots, byte-exact Physics, deep Physics,
-  performance, and the complete full gate all passed. The workflow remains
-  post-merge/manual and informational.
+- The rejected self-hosted experiment is fully rolled back. GitHub workflow
+  `dx12-runtime-validation.yml` is disabled and deleted; the repository has
+  zero self-hosted runners and no `SKULLBONEZ_DX12_CI_ENABLED` variable. The
+  host scheduled task, runner directory, and dedicated PowerShell installation
+  are removed. Historical runs remain audit evidence, not active CI.
 - The repository still has zero `merge_group` runs. GitHub rejected an active
   merge-queue ruleset with HTTP 422 because `SkullbonezCore` is owned by the
   personal account `skullbonez`; GitHub merge queues are available only to
@@ -72,9 +71,10 @@ Current external audit (2026-07-30):
 
 ## Goal
 
-One documented PR entry point runs every required CPU test exactly once, then
-the smallest required runtime lanes. Pull requests receive an automatic Windows
-CPU signal; a GPU-capable runner supplies DX12/runtime evidence when available.
+One documented PR entry point runs every required CPU test exactly once.
+Pull requests receive an automatic Windows CPU signal. Renderer, screenshot,
+InfoQueue, graphics-stress, and any other graphics-card validation run locally
+and never on GitHub Actions.
 
 ## Design
 
@@ -83,10 +83,10 @@ Separate validation by capability rather than by historical script:
 1. **CPU mandatory lane:** format, project/filter checks, staged-size policy,
    Profile build, doctest suite, interaction policy tests, scene parser tests,
    and DX12 architecture tests.
-2. **Runtime evidence lane:** Debug/Profile ready builds, DX12 renderer
-   validation, and core physics determinism. A persistent GPU machine executes
-   trusted `main`/manual refs only; public pull requests require a disposable,
-   isolated GPU runner before this evidence can become merge-blocking.
+2. **Local runtime evidence lane:** Debug/Profile ready builds, DX12 renderer
+   validation, screenshots, graphics stress, and core physics determinism run
+   only on a local developer machine. No GitHub-hosted, self-hosted,
+   persistent, ephemeral, or merge-blocking GPU lane is permitted.
 3. **Targeted lanes:** deep physics, replay scrub, interaction clicks, perf,
    graphics stress, and fault injection when touched files require them.
 4. **Scheduled safety lane:** sanitizer/static analysis that is informative
@@ -129,25 +129,22 @@ Separate validation by capability rather than by historical script:
   baselines, then a byte-exact 20,001-line physics baseline.
 - [ ] **V3 — BLOCKED: Pull-request CI.** Add a `windows-latest` GitHub Actions
   workflow for CPU preflight, every CPU test target, and a Profile engine build,
-  with artifact upload on failure and merge-queue coverage. Add a separate
-  self-hosted label (`Windows`, `x64`, `dx12`) for trusted `main`/manual runtime
-  evidence; never run public-PR code on a persistent machine or treat a skipped
-  job as evidence. Require the CPU lane after a real PR/merge-group proof.
-  Runtime may become a required PR check only after replacement by an
-  ephemeral, disposable, isolated GPU worker. Binding design and activation
-  checklist: `Agentic/Reports/validation_ci_v3_20260710.md`.
+  with artifact upload on failure and merge-queue coverage. Require the CPU
+  lane after a real PR/merge-group proof. Do not add any GitHub workflow or
+  runner for validation that needs a graphics card; those gates are local-only.
+  Binding design and activation evidence:
+  `Agentic/Reports/validation_ci_v3_20260710.md`.
   Activation audit refreshed 2026-07-30: clang-format 21.1.8 is pinned and
-  hosted CPU run 30469139071 passes; `main` now strictly requires the stable
-  CPU job; one dedicated trusted-ref DX12 runner is online and run 30472584471
-  passes the full runtime gate. Keep that persistent DX12 lane
-  post-merge/informational. The only V3 acceptance item left is a real
-  `merge_group` proof, but GitHub rejects merge-queue enablement because this
-  public repository is user-owned rather than organization-owned. Transfer to
-  an eligible organization or wait for GitHub availability to change. The
-  authenticated owner currently has zero organization memberships, so first
-  create or join an organization that can receive the repository; then
-  explicitly authorize creation/enqueue of a proof PR. Current evidence and
-  the exact external boundary are recorded in
+  hosted CPU run 30469139071 passes; `main` strictly requires the stable CPU
+  job. The owner rejected GitHub graphics-card validation, so the experimental
+  DX12 workflow and all runner infrastructure were removed. The only V3
+  acceptance item left is a real `merge_group` proof, but GitHub rejects
+  merge-queue enablement because this public repository is user-owned rather
+  than organization-owned. Transfer to an eligible organization or wait for
+  GitHub availability to change. The authenticated owner currently has zero
+  organization memberships, so first create or join an organization that can
+  receive the repository; then explicitly authorize creation/enqueue of a
+  proof PR. Current evidence and the exact external boundary are recorded in
   `Agentic/Reports/validation_ci_v3_20260710.md`.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
