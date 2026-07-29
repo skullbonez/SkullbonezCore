@@ -1,8 +1,8 @@
 # Box Vibration And Warm-Start Integrity — BV0 T0
 
-Date: 2026-07-29  
-Branch: `nightrunner-29th-JUL-26`  
-Measured source tip: `6a88c9c04b5258df9c807a400ace5b8997d3417b`  
+Date: 2026-07-29
+Branch: `nightrunner-29th-JUL-26`
+Measured source tip: `6a88c9c04b5258df9c807a400ace5b8997d3417b`
 Scope: BV0 only; no solver behavior or baseline was changed
 
 ## Result
