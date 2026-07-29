@@ -86,6 +86,10 @@ void WriteReason( char* destination, std::size_t size, const char* message )
 class ArchiveWriter
 {
   public:
+    explicit ArchiveWriter( uint32_t schema = REPLAY_PREDICTION_ARCHIVE_SCHEMA ) : m_schema( schema )
+    {
+    }
+
     template <typename T> void Scalar( T value )
     {
         static_assert( std::is_integral_v<T> );
@@ -130,6 +134,16 @@ class ArchiveWriter
         float z = 0.0f;
         float w = 1.0f;
         value.GetComponents( x, y, z, w );
+
+        if ( m_schema < REPLAY_PREDICTION_ARCHIVE_SCHEMA )
+        {
+
+            // Compatibility: schema v2 stored the conjugate representation.
+            // This validation writer produces authentic historical bytes so the
+            // reader's migration is tested against the actual old convention.
+            Math::Orientation::ConjugateQuaternionVectorPart( x, y, z );
+        }
+
         Float( x );
         Float( y );
         Float( z );
@@ -146,6 +160,7 @@ class ArchiveWriter
 
   private:
     std::vector<uint8_t> m_bytes;
+    uint32_t m_schema = REPLAY_PREDICTION_ARCHIVE_SCHEMA;
     bool m_overflow = false;
 };
 
@@ -342,12 +357,14 @@ bool ReadBoundedCount( ArchiveReader& reader, uint32_t maximum, uint32_t& count 
 
 namespace ReplayPredictionArchiveOperations
 {
-bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
-                                   const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
+bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisualizerState& pathVisualizer,
+                                                      const RunReplayPredictionState& prediction, uint32_t schema,
+                                                      std::vector<uint8_t>& outBytes )
 {
     outBytes.clear();
 
-    if ( prediction.build.building || !prediction.build.complete || prediction.simulation.frames.size() < 2u ||
+    if ( schema < REPLAY_PREDICTION_ARCHIVE_MINIMUM_SCHEMA || schema > REPLAY_PREDICTION_ARCHIVE_SCHEMA ||
+         prediction.build.building || !prediction.build.complete || prediction.simulation.frames.size() < 2u ||
          prediction.simulation.frames.size() > REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES ||
          prediction.futureNodeCache.retainedMarkerCount > prediction.futureNodeCache.retainedMarkers.size() ||
          prediction.trajectoryStore.records.size() > REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS )
@@ -355,9 +372,9 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
         return false;
     }
 
-    ArchiveWriter writer;
+    ArchiveWriter writer( schema );
     writer.Scalar( REPLAY_PREDICTION_ARCHIVE_MAGIC );
-    writer.Scalar( REPLAY_PREDICTION_ARCHIVE_SCHEMA );
+    writer.Scalar( schema );
     writer.Boolean( pathVisualizer.hasTarget );
     writer.Boolean( pathVisualizer.pastPathVisible );
     writer.Scalar( pathVisualizer.targetId.value );
@@ -529,6 +546,13 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
     const bool valid = writer.Valid();
     outBytes = writer.Finish();
     return valid && !outBytes.empty();
+}
+
+bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisualizer,
+                                   const RunReplayPredictionState& prediction, std::vector<uint8_t>& outBytes )
+{
+    return BuildReplayPredictionArchiveForSchemaValidation( pathVisualizer, prediction, REPLAY_PREDICTION_ARCHIVE_SCHEMA,
+                                                            outBytes );
 }
 
 bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,

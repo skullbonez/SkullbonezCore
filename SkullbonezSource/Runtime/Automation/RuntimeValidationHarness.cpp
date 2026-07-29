@@ -194,6 +194,12 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 }
 
 
+bool SceneAutomationGateTracker::RequiresBroadphaseXCellObservation() const
+{
+    return !m_configuration.m_requiredBroadphaseXCells.empty() && !RequiredBroadphaseXCellsComplete();
+}
+
+
 void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells )
 {
 

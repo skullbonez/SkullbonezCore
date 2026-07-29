@@ -749,7 +749,7 @@ bool RunRuntimeFatalCase( const char* caseName )
 
         grid.BeginFrame( 1 );
         RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
-        grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 2.6f );
+        grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 5.0f );
         return true;
     }
 
@@ -1246,12 +1246,12 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
 
     ExpectFatalCase( "spatial-grid-reserve-phase",
-                     { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=136",
+                     { "FATAL: PhysicsFixedList reserve denied", "owner=SpatialGrid.entries", "requested=1032",
                        "runtime_capacity=0", "compile_capacity=69636", "phase=startup" } );
 
     ExpectFatalCase( "spatial-grid-entry-capacity",
-                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=137",
-                       "runtime_capacity=136", "compile_capacity=69636", "high_water=136", "phase=physics" } );
+                     { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.entries", "requested=1033",
+                       "runtime_capacity=1032", "compile_capacity=69636", "high_water=1032", "phase=physics" } );
 
     ExpectFatalCase( "spatial-grid-overlay-entry-capacity",
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.overlayEntries", "requested=4097",

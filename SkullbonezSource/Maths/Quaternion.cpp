@@ -9,8 +9,9 @@ Summary:
   conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Active rotation: Rotation that moves a vector in a fixed world basis.
+  World-axis delta: Incremental rotation expressed around a world-space axis
+    and composed before the current orientation.
 
 Invariants:
   - Orientation quaternions should remain normalized before conversion to

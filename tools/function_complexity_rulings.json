@@ -245,7 +245,7 @@
     {
       "file": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request )",
-      "body_sha256": "721e3a31338f81fe45bea0ef643de3bd103b0cfc239bea039afa36f2237e3b35",
+      "body_sha256": "d00c83b08d92a7258a031ea09b1676a1d60f41d7fbcdf417c89ac23e236c31b7",
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
       "reason": "One scene writer validates the request and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",

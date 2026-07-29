@@ -149,7 +149,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
         grid->ReserveSceneCapacity( 3u );
     }
 
-    CHECK( grid->GetPersistentEntryCapacity() == 152u );
+    CHECK( grid->GetPersistentEntryCapacity() == 1048u );
     CHECK( grid->GetPairDedupWordCapacity() == 1u );
     CHECK( grid->GetBodyMembershipCapacity() == 3u );
     CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
@@ -158,7 +158,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
     CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
     CHECK( grid->GetCellObjectSeenCapacity() == 3u );
     CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
-    CHECK( grid->CollectDynamicMemoryBytes() == 88320u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 124160u );
 
     const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
     const auto findRow = [capacityRows]( const char* ownerName )
@@ -173,7 +173,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
         int capacity;
     };
     const ExpectedOwner expectedOwners[] = {
-        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 152 },
+        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 1048 },
         { "SpatialGrid.pairSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords, 1 },
         { "SpatialGrid.bodyMemberships", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridBodyMemberships, 3 },
         { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,
@@ -220,6 +220,34 @@ TEST_CASE( "SpatialGrid: scene reserve covers the multi-oversized shoreline layo
     grid->Insert( 3, Vector3( 490.0f, 2.7f, 516.0f ), 9.48f );
 
     CHECK( grid->GetPersistentEntryHighWater() > 64u );
+    CHECK( grid->GetPersistentEntryHighWater() <= grid->GetPersistentEntryCapacity() );
+}
+
+
+TEST_CASE( "SpatialGrid: scene reserve covers dense ordinary occupancy plus one oversized body" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 10.0f );
+    constexpr int ordinaryBodyCount = 100;
+    constexpr int totalBodyCount = ordinaryBodyCount + 1;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( totalBodyCount );
+    }
+
+    grid->BeginFrame( totalBodyCount );
+    for ( int bodyIndex = 0; bodyIndex < ordinaryBodyCount; ++bodyIndex )
+    {
+        const float separatedCellBoundary = static_cast<float>( bodyIndex * 100 );
+        grid->Insert( bodyIndex, Vector3( separatedCellBoundary, 0.0f, 0.0f ), 1.0f );
+    }
+
+    // Invariant: the oversized row reproduces the stress layout's combination
+    // of more than eight persistent cells for one body and dense ordinary rows.
+    grid->Insert( ordinaryBodyCount, Vector3( 20000.0f, 0.0f, 0.0f ), 40.0f );
+
+    CHECK( grid->GetPersistentEntryHighWater() > 1340u );
     CHECK( grid->GetPersistentEntryHighWater() <= grid->GetPersistentEntryCapacity() );
 }
 

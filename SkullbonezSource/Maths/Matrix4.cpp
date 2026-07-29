@@ -9,8 +9,9 @@ Summary:
   conventions, and numerical assumptions and on the glossary/invariants below.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Active rotation: Rotation that moves a vector in a fixed world basis.
+  Clip-space depth: Projected depth range consumed by the graphics pipeline;
+    DX12 callers use zero through one.
 
 Invariants:
   - Matrix storage is column-major and must match shader constant upload layout.

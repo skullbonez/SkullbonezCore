@@ -128,11 +128,11 @@ class SpatialGrid
     static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
 
     // Why: ordinary bodies consume at most eight rows, but the accepted
-    // shoreline-lever scene combines several oversized bodies at the 24 m
-    // configured cell size and crosses the old 64-row reservation. A fixed
-    // 128-row spill covers that measured multi-body excess without restoring
-    // the retired 4,096-row blanket or permitting steady-step growth.
-    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 128;
+    // shoreline-lever and low-poly stress scenes combine oversized bodies with
+    // dense ordinary occupancy. A fixed 1,024-row spill covers the measured
+    // 1,340-row stress layout with deterministic motion margin, without
+    // restoring the retired 4,096-row blanket or permitting steady-step growth.
+    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 1024;
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                                    PERSISTENT_ENTRIES_PER_BODY;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;

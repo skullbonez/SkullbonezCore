@@ -514,7 +514,7 @@ class ReplayV2:
             if self.data[:1] == b"{":
                 raise ReplayQueryError("this is a legacy JSON replay artifact, not v2 binary")
             raise ReplayQueryError("unrecognized replay magic")
-        if version not in (2, 3, 4):
+        if version not in (2, 3, 4, 5):
             raise ReplayQueryError(f"unsupported replay version {version}")
         if header_size != HEADER.size:
             raise ReplayQueryError(f"unexpected v2 header size {header_size}")

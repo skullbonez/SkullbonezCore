@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-29th-JUL-26`, tracking `origin/nightrunner-29th-JUL-26`. |
 | Current baseline | Main tip `90e4d52f`; PR #137 merged the 28 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-6 are closed and excluded from the live ledger. Plan 7 QN0-QN3 are complete; QN4 is the hands-on owner visual acceptance gate, and plan 8 remains last. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
-| Active/future progress | 4/13 (31%). Plans 7-8 remain. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-7 are closed and excluded from the live ledger. Plan 8 `box-vibration-and-warm-start-integrity` remains; begin BV0 by re-recording the T0 harness after plan 7's baseline transition and re-resolving every source line. The contact-identity regression is preserved at `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`; stale source/baseline hunks were not imported and the original stash was dropped. |
+| Active/future progress | 0/7 (0%). Plan 8 remains. |
+| Validation for quaternion normalization | Textbook Hamilton multiplication, active orientation matrices, scene v3, replay v5, and prediction archive v3 are live with one-time legacy migration and bitwise conjugation round-trip proof. Owner visual acceptance preceded baseline regeneration. All CSV identities and finite-state/peak-energy bounds are preserved; Replay retains 2,401 ticks and 200 causal nodes; accepted DX12 images retain 1784x961 RGB geometry. SpatialGrid's gate-exposed generated-scene reserve defect is closed with measured `8 * bodies + 1024` backing and exact fatal tests. Every mapped gate, 41/41 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/quaternion-convention-normalization-closure.md`. |
 | Quaternion normalization QN3 | Scene v3, replay v5, and prediction archive v3 store canonical Hamilton components; legacy readers conjugate xyz once and replay verifies historical hashes before migration. All 23 acceptance scenes are schema v3, with structural proof that only versions/orientations moved. Migration/self-tests, 452 unit cases, scene-parser tests, the six-stage CPU umbrella, dependency preflight, and a full Profile app build pass. Comment audit is 13/13. No baseline or golden artifact changed. |
 | Quaternion normalization QN2 | Matrix4 now emits the canonical active basis, and all four authored/editor Euler constructors preserve their established scene-space behavior. The child placement composition is algebraically neutral and remains unchanged. Matrix4 passes 9/9 cases / 218 assertions, Quaternion passes 15/15 / 66, and `validate_tests` passes all 452 cases. Formatting and the 5/5 QN2 comment audit pass. No baseline, golden, schema, config, or committed runtime artifact changed. |
 | Quaternion normalization QN1 | Canonical Hamilton multiplication, active orientation matrices, and positive-sine world-axis updates are implemented. The focused Profile build and all 15 `Quaternion*` cases / 66 assertions pass unchanged at the behavioral layer. The broad unit gate has one planned QN2 Matrix4 conversion failure (two assertions); the remaining 451 cases pass. Formatting and the 3/3 touched-source comment audit pass. No baseline, golden, schema, config, or committed runtime artifact changed. |
@@ -778,8 +779,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 4/13 (31%) with Plan 7
-`Agentic/Plans/TODO/quaternion-convention-normalization.md`, task QN4.
-QN3 migration, unit/CPU gates, and the Profile app build are green. Build the
-final Debug binary and execute the recorded 23-scene hands-on comparison before
-any baseline refresh. MASTER and SessionState agree on the 4/13 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 0/7 (0%) with Plan 8
+`Agentic/Plans/TODO/box-vibration-and-warm-start-integrity.md`, task BV0.
+Plan 7 is closed after prior owner visual acceptance, inspected baseline
+regeneration, all mapped validation, a 41/41 comment audit, and clear
+independent review. Re-record BV0's T0 harness against this post-plan-7 tree,
+re-resolve every source line and the feature-ID bit layout, and preserve the
+contact-identity regression from commit `27906417`. MASTER and SessionState
+agree on the 0/7 live ledger.

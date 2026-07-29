@@ -999,7 +999,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
-        { "SpatialGrid.entries", 16128 },
+        { "SpatialGrid.entries", 17024 },
         { "SpatialGrid.pairSeen", 31235 },
         { "SpatialGrid.bodyMemberships", 2000 },
         { "SpatialGrid.candidatePairHeads", 2000 },

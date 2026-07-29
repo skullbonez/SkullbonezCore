@@ -503,6 +503,17 @@ and final independent review are clear. The active/future ledger is now 0/13
 (0%). Evidence is in
 `../Reports/2026-07-29/runtime-include-closure-reduction-closure.md`.
 
+Quaternion convention normalization closed QN0-QN5 on 2026-07-29 and left the
+live ledger under rule 4. Textbook Hamilton multiplication, active orientation
+matrices, canonical Euler composition, scene v3, replay v5, and prediction
+archive v3 are live; legacy readers migrate once and losslessness is proved.
+Owner visual acceptance preceded every baseline change. The complete refresh
+preserves all CSV identities and finite-state/peak-energy bounds, Replay keeps
+2,401 ticks and 200 causal nodes, and the accepted DX12 images retain their
+dimensions. All mapped gates, the 41/41 comment audit, and independent review
+are clear. The active/future ledger is now 0/7 (0%). Evidence is in
+`../Reports/2026-07-29/quaternion-convention-normalization-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
 remains deliberately excluded. Scene-controller ownership closed at 7/7 and
@@ -1086,14 +1097,14 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 4/13
-(31%). Plans 1-6 are complete and excluded under rule 4; execute plans 7→8 in
-the listed order. Plan 7 QN4 is the hands-on owner visual acceptance gate.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/7
+(0%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
+`box-vibration-and-warm-start-integrity`, beginning with BV0's post-quaternion
+T0 recensus and current-line re-resolution.
 
-Plans 1-6 are strictly byte-exact. Plans 7 and 8 are the only two permitted to
-move a baseline, and both are sequenced last by owner direction: plan 7
-`quaternion-convention-normalization` gates every regeneration behind its QN4
-hands-on visual acceptance checkbox, and plan 8
+Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
+QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
+baseline under its explicit bounded-divergence allowance:
 `box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
 allowance for a visible owner-reported defect. The required pre-plan-1 recovery
 is complete: the contact-identity regression test is pushed at
@@ -2586,7 +2597,7 @@ Dependency barriers:
 | 4 | [collision-hull-shape-instancing](../Reports/2026-07-29/collision-hull-shape-instancing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; 57.4803% measured acceptance-scene hull-store reduction, byte-exact Physics, stable narrowphase markers, 18/18 comment audit, all closure gates, and independent review are clear |
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
-| 7 | [quaternion-convention-normalization](TODO/quaternion-convention-normalization.md) | In progress | 4/6 | QN0-QN3 complete; all 23 acceptance scenes, scene v3, replay v5, legacy migration, losslessness tests, unit/CPU gates, and the Profile app build pass. QN4 is the hands-on owner visual gate |
+| 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
 | 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | Not started | 0/7 | Last, by owner direction. Investigation complete; re-record BV0's T0 harness after plan 7's baseline transition and re-resolve every source line number before acting on it |
 
 ### Plan 8 Ordering Consequences
@@ -2595,9 +2606,9 @@ Plan 8's own section below carries its owner directions, evidence, and
 superseded ruling. Two consequences follow specifically from placing it last,
 and BV0 must account for both:
 
-- **Its evidence ages by two baseline transitions.** Every measurement in plan 8
+- **Its evidence aged by two baseline transitions.** Every measurement in plan 8
   was taken at tip `0768593d`; the plan already warns that line numbers moved at
-  `90e4d52f`, and plan 7 will move physics baselines again before plan 8 starts.
+  `90e4d52f`, and plan 7 moved physics baselines again before plan 8 starts.
   Inventory Rule 7 applies twice over. BV0's T0 harness must be recorded against
   the post-plan-7 tree, not against the numbers in the plan body, and the
   feature-ID bit layout must be re-confirmed against the current key schema.

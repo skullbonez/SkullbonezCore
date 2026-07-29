@@ -4,9 +4,9 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Summary:
-  SceneController owns cold scene mutation and borrows only the owners required
+  SceneController owns cold scene mutation and borrows only the owners needed
 
-  while scene storage is changing. SceneLoadTransaction owns the phase cursor
+  while storage changes. SceneLoadTransaction owns the phase cursor
   and detached outputs, then sequences idempotent reactions at the excluded
   camera, input, interaction, tool, Replay, UI, and validation owners.
 

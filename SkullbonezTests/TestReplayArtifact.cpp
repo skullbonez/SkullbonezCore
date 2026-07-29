@@ -232,10 +232,10 @@ void CheckRejected( const std::string& path, const std::vector<uint8_t>& bytes )
     CHECK( output.empty() );
 }
 
-void DowngradePresentationQuaternionsToV4( std::vector<uint8_t>& bytes,
+void DowngradePresentationQuaternionsToV3( std::vector<uint8_t>& bytes,
                                            const std::vector<ReplayPresentationSample>& canonicalSamples )
 {
-    WriteValue<uint32_t>( bytes, kVersionOffset, 4u );
+    WriteValue<uint32_t>( bytes, kVersionOffset, 3u );
     const std::size_t entry = FindChunkEntry( bytes, "PRES" );
     const uint64_t payloadOffset = ReadValue<uint64_t>( bytes, entry + kChunkPayloadOffset );
     REQUIRE( ReadValue<uint32_t>( bytes, static_cast<std::size_t>( payloadOffset ) ) == canonicalSamples.size() );
@@ -312,17 +312,17 @@ TEST_CASE( "Replay artifact codec: presentation round-trip is complete and byte-
     CHECK( predictionState.empty() );
 }
 
-TEST_CASE( "Replay artifact codec: v4 quaternion bytes migrate after historical hash validation" )
+TEST_CASE( "Replay artifact codec: v3 quaternion bytes migrate after historical hash validation" )
 {
     ReplayRecorder recorder = MakeArtifactRecorder();
     const std::string currentPath = ArtifactPath( "quaternion_v5_source.skreplay" );
-    const std::string legacyPath = ArtifactPath( "quaternion_v4_legacy.skreplay" );
+    const std::string legacyPath = ArtifactPath( "quaternion_v3_legacy.skreplay" );
     REQUIRE( ReplayV2Artifact::SavePresentation( recorder, currentPath.c_str() ) );
 
     std::vector<ReplayPresentationSample> canonicalSamples;
     REQUIRE( ReplayV2Artifact::LoadPresentation( currentPath.c_str(), canonicalSamples ) );
     std::vector<uint8_t> bytes = ReadFile( currentPath );
-    DowngradePresentationQuaternionsToV4( bytes, canonicalSamples );
+    DowngradePresentationQuaternionsToV3( bytes, canonicalSamples );
     WriteFile( legacyPath, bytes );
 
     std::vector<ReplayPresentationSample> migrated;

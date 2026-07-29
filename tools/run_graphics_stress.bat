@@ -19,10 +19,12 @@
 @rem Invariants:
 @rem   - Process cleanup uses the launched PID only.
 @rem   - stdout and stderr are mirrored to stable files under TestOutput.
+@rem   - Any SB_FATAL diagnostic forces a nonzero gate result even if window
+@rem     teardown reports a zero process exit code.
 @rem
 @rem Related:
 @rem   - SkullbonezData/scenes/graphics_stress.suite.json
-@rem   - SkullbonezSource/Runtime/RunStress.cpp
+@rem   - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
 @rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off
@@ -88,6 +90,10 @@ set "SKORE_STRESS_MEMORY_CSV=%MEMORY_CSV%"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0run_graphics_stress.ps1" -Exe "%SKORE_STRESS_EXE%" -Repo "%SKORE_STRESS_REPO%" -ArgumentLine "%SKORE_STRESS_ARGS%" -Stdout "%SKORE_STRESS_STDOUT%" -Stderr "%SKORE_STRESS_STDERR%" -MemoryCsv "%SKORE_STRESS_MEMORY_CSV%" -Minutes %SKORE_STRESS_MINUTES% -SampleSeconds 15
 set "RUN_EXIT=%ERRORLEVEL%"
+REM Invariant: SB_FATAL diagnostics are failures even when Windows teardown
+REM reports a zero process exit code after the fatal path closes the window.
+findstr /L /C:"FATAL:" "%STDERR%" >nul 2>&1
+if not errorlevel 1 set "RUN_EXIT=4"
 if not "%RUN_EXIT%"=="0" if not "%RUN_EXIT%"=="124" (
     echo [graphics-stress] Process failed with exit code %RUN_EXIT%.
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if(Test-Path -LiteralPath $env:SKORE_STRESS_STDOUT){ Write-Host '--- stdout tail ---'; Get-Content -LiteralPath $env:SKORE_STRESS_STDOUT -Tail 80 }; if(Test-Path -LiteralPath $env:SKORE_STRESS_STDERR){ Write-Host '--- stderr tail ---'; Get-Content -LiteralPath $env:SKORE_STRESS_STDERR -Tail 80 }"

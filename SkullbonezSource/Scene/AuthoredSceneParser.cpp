@@ -257,6 +257,7 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
     if ( !parts )
     {
+
         if ( m_currentDocumentVersion == 2 )
         {
             Fail( path, "assetInstance is missing required field 'parts'" );

@@ -10,8 +10,8 @@ Summary:
   below.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  Orthogonal basis: Three perpendicular unit axes; its transpose maps a
+    world-space vector back into local space.
 
 Invariants:
   - RotationMatrix represents an orthogonal 3x3 rotation basis; TransposeMultiply

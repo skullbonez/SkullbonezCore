@@ -1,28 +1,3 @@
-#
-# File: tools/update_baselines.py
-# Purpose:
-#   Documents and runs the update_baselines.py developer/validation helper script.
-#
-# Mental model:
-#   Tools are command-line guardrails around builds, validation, screenshots,
-#   diagnostics, and artifact handling. They make the safe path repeatable and
-#   keep output bounded for humans and agents.
-#
-# Glossary:
-#   JSON (JavaScript Object Notation): Structured text format used by
-#   diagnostics, baselines, and tool reports.
-#   Validation gate: Repository script that proves a class of changes before
-#   commit or PR.
-#
-# Invariants:
-#   - Tool output should be bounded and readable because agents and humans use
-#   it for decisions.
-#
-# Related:
-#   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
-#
-#
 #!/usr/bin/env python3
 #
 # File: tools/update_baselines.py
@@ -61,6 +36,7 @@ from pathlib import Path
 VISUALS = [
     ("dx12_screenshot.bmp", "baseline_dx12_water_ball_test.png"),
     ("dx12_solver_smoke.bmp", "baseline_dx12_solver_smoke.png"),
+    ("dx12_space_three_body.bmp", "baseline_dx12_space_three_body.png"),
 ]
 
 PERF = [

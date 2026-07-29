@@ -31,9 +31,8 @@ Glossary:
   Restitution: Bounce response that restores closing speed along the contact
     normal after impact.
   Friction: Tangent impulse that resists sliding along the contact plane.
-  Feature ID: Deterministic contact identifier used to match rows across frames
-
-    for warm starting.
+  Feature ID: Deterministic contact identifier used to match rows across
+    frames for warm starting.
   Resting footprint: Stable multi-point support patch that can seed sleep and
   cached support impulses.
   Step policy: Once-per-solve normalized view of authored contact bounds used
