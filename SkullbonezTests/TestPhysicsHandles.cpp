@@ -999,7 +999,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "ExternalForceStage.releaseWakeBodies", 2000 },
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
-        { "SpatialGrid.entries", 16004 },
+        { "SpatialGrid.entries", 16032 },
         { "SpatialGrid.pairSeen", 31235 },
         { "SpatialGrid.bodyMemberships", 2000 },
         { "SpatialGrid.candidatePairHeads", 2000 },
@@ -1165,6 +1165,35 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     CHECK( PhysicsEngine::ReadPointJointConstraints( *engine ).capacity() == 24u );
     CHECK( PhysicsEngine::ReadPointJointCapacity( *engine ) == 24u );
 }
+
+
+TEST_CASE( "Broadphase owning memory total includes registered grid backing exactly once" )
+{
+    SkullbonezCore::Physics::PhysicsBroadphaseStage stage;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        stage.ReserveSceneCapacity( 3u );
+    }
+
+    constexpr uint64_t candidateCapacity = 12u;
+    constexpr uint64_t productionStageBytes =
+        candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
+#if defined( _DEBUG )
+    constexpr uint64_t debugOracleBytes = candidateCapacity * sizeof( std::pair<int, int> ) * 3u;
+#else
+    constexpr uint64_t debugOracleBytes = 0u;
+#endif
+
+    const uint64_t gridBackingBytes = stage.GetSpatialGrid().CollectDynamicMemoryBytes();
+    const uint64_t owningDynamicBytes = stage.CollectDynamicMemoryBytes();
+    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugOracleBytes );
+    CHECK( stage.CollectDebugAndBroadphaseMemoryBytes() ==
+           static_cast<uint64_t>( sizeof( SkullbonezCore::Math::CollisionDetection::SpatialGrid ) ) +
+               owningDynamicBytes );
+}
+
 
 TEST_CASE( "External force fixed release uses scene-committed body scratch" )
 {

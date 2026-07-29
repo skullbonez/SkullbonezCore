@@ -80,7 +80,7 @@ inline constexpr char PipelineRecords[] = "Fixed 4096-record physics pipeline tr
 inline constexpr char CollisionVisualBodies[] = "Two body references per bounded candidate pair";
 inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
 inline constexpr char SpatialGridPersistentEntries
-    [] = "Eight persistent broadphase cells per scene body plus four deterministic sentinel rows";
+    [] = "Eight cells per scene body plus a fixed 32-row spill covering the measured 19-row oversized-shape excess";
 inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
 inline constexpr char SpatialGridBodyMemberships[] = "Exact scene body count for persistent broadphase membership";
 inline constexpr char SpatialGridCandidatePairHeads[] = "Exact scene body count for canonical candidate-pair head rows";

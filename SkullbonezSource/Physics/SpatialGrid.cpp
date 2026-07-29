@@ -167,7 +167,7 @@ SpatialGrid::SpatialGrid( float fCellSize )
 void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
     const std::size_t persistentEntryCapacity = bodyCapacity * static_cast<std::size_t>( PERSISTENT_ENTRIES_PER_BODY ) +
-                                                PERSISTENT_ENTRY_SENTINELS;
+                                                PERSISTENT_ENTRY_SPILL_ROWS;
 
     const std::size_t pairIdentities = bodyCapacity > 1u ? bodyCapacity * ( bodyCapacity - 1u ) / 2u : 0u;
     const std::size_t pairWordCapacity = ( pairIdentities + 63u ) / 64u;

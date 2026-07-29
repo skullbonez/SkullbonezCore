@@ -873,7 +873,13 @@ void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 
 uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
-    uint64_t bytes = ListCapacityBytes( m_candidatePairs ) + ListCapacityBytes( m_collisionCellKeys );
+
+    // Invariant: this is the owning contribution used by PhysicsWorld's total.
+    // SpatialGrid's inline control/topology is already inside sizeof(PhysicsWorld);
+    // its registered backing must be added here exactly once.
+    uint64_t bytes = m_spatialGrid.CollectDynamicMemoryBytes() + ListCapacityBytes( m_candidatePairs ) +
+                     ListCapacityBytes( m_collisionCellKeys );
+
 #if defined( _DEBUG )
     bytes += ListCapacityBytes( m_sleepPrunedPairs ) + ListCapacityBytes( m_pairOracleShadowPairs ) +
              ListCapacityBytes( m_pairOracleNormalizedDriverPairs );
@@ -884,8 +890,10 @@ uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 
 uint64_t PhysicsBroadphaseStage::CollectDebugAndBroadphaseMemoryBytes() const
 {
-    return static_cast<uint64_t>( sizeof( m_spatialGrid ) ) + m_spatialGrid.CollectDynamicMemoryBytes() +
-           CollectDynamicMemoryBytes();
+
+    // Historical diagnostic subset: include the grid's inline bytes plus the
+    // same owning dynamic contribution, but do not add this subset to totals.
+    return static_cast<uint64_t>( sizeof( m_spatialGrid ) ) + CollectDynamicMemoryBytes();
 }
 } // namespace Physics
 } // namespace SkullbonezCore

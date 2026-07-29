@@ -149,7 +149,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
         grid->ReserveSceneCapacity( 3u );
     }
 
-    CHECK( grid->GetPersistentEntryCapacity() == 28u );
+    CHECK( grid->GetPersistentEntryCapacity() == 56u );
     CHECK( grid->GetPairDedupWordCapacity() == 1u );
     CHECK( grid->GetBodyMembershipCapacity() == 3u );
     CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
@@ -158,7 +158,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
     CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
     CHECK( grid->GetCellObjectSeenCapacity() == 3u );
     CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
-    CHECK( grid->CollectDynamicMemoryBytes() == 83360u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 84480u );
 
     const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
     const auto findRow = [capacityRows]( const char* ownerName )
@@ -173,7 +173,7 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
         int capacity;
     };
     const ExpectedOwner expectedOwners[] = {
-        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 28 },
+        { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 56 },
         { "SpatialGrid.pairSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords, 1 },
         { "SpatialGrid.bodyMemberships", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridBodyMemberships, 3 },
         { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,

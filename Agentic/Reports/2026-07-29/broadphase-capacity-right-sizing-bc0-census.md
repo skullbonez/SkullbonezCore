@@ -2,7 +2,8 @@
 
 Date: 2026-07-29
 Branch: `nightrunner-29th-JUL-26`
-Plan: `Agentic/Plans/TODO/broadphase-capacity-right-sizing.md`
+Plan: archived under ledger rule 4; closure evidence is
+`Agentic/Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md`
 Scope: documentation and measurement only
 
 ## Result

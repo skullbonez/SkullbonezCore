@@ -125,7 +125,12 @@ class SpatialGrid
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
     static constexpr int PERSISTENT_ENTRIES_PER_BODY = 8;
-    static constexpr int PERSISTENT_ENTRY_SENTINELS = 4;
+
+    // Why: ordinary bodies consume at most eight rows, while accepted scenes
+    // include a one-body oversized-shape case that reaches 27. A fixed 32-row
+    // spill covers that measured 19-row excess without restoring the retired
+    // 4,096-row blanket.
+    static constexpr int PERSISTENT_ENTRY_SPILL_ROWS = 32;
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                                    PERSISTENT_ENTRIES_PER_BODY;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
