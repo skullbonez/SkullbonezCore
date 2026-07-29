@@ -38,6 +38,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 */
 #pragma once
 

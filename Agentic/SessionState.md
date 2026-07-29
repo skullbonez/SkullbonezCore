@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-7 are closed and excluded from the live ledger. Plan 8 `box-vibration-and-warm-start-integrity` is at BV6 after BV5 made position correction one shared budget per manifold without regressing the controlled vibration metric. Plan 9 `persistent-contact-convergence-early-out` is queued behind plan 8. |
-| Active/future progress | 6/11 (55%). Plan 8 has 6/7 complete; queued plan 9 has 0/4. |
+| Current objective | Execute the Fresh-Read Engine Review Campaign in order. Plans 1-8 are closed and excluded from the live ledger. Plan 9 `persistent-contact-convergence-early-out` is active at CE0. |
+| Active/future progress | 0/4 (0%). Plan 9 has 0/4 complete. |
+| Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
 | Validation for box vibration BV5 | One-point/four-point coverage pins one 0.16 total correction budget, a 0.04 four-point row maximum, and equal 0.08 body displacement. Persistent-contact coverage passes 12 cases / 174 assertions; all unit coverage passes 463 cases / 2,423,855 assertions. The controlled fixture remains zero-flip/one-iteration/zero-miss and repeats byte-identically. Physics/deep Physics stop at the inspected deferred transition: 35,091 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs match, all ten shooting targets react, only the stacking known-issue hash moves beyond BV3, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`. |
 | Validation for box vibration BV4 | The controlled fixture retains zero flips, zero cap-bound frames, one minimum iteration, zero misses, and BV2's exact 842,927-byte CSV hash across two fresh Debug runs. The wall remains at 12 minimum/average/maximum iterations for all 1,000 measured frames despite 41,901 / 580,467 misses (7.218498%) and 557,764 / 582,238 warm-started rows (95.796564%). The required separate convergence finding is queued as plan 9; BV5 remains viable. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv4.md`. |
 | Validation for box vibration BV3 | Fixed terrain seed scales and all accumulated-impulse floors are deleted. The two-point shoreline fixture caches both rows, stays outside resting policy, holds first-frame residual vertical speed below 8.5% of input, and improves on reuse. Persistent-contact coverage passes 11 cases / 167 assertions; all unit coverage passes 462 cases / 2,423,848 assertions. Physics/deep Physics stop at the inspected deferred transition: 35,093 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs are identical, all ten shooting targets react, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`. |
@@ -77,11 +78,9 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is active at 6/11 (55%). Plans 1-7 are
-closed and excluded under rule 4. Plan 8 BV0-BV5 are complete; BV6 is the
-binding next task. Plan 9 contributes 0/4 future tasks and starts after plan 8
-closes. Plan 8 alone remains authorized to move physics baselines under its
-explicit bounded-divergence conditions; plan 9 inherits no such authority.
+The Fresh-Read Engine Review Campaign is active at 0/4 (0%). Plans 1-8 are
+closed and excluded under rule 4. Plan 9 is active at CE0 and inherits no
+baseline-divergence authority from the completed Box campaign.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -786,10 +785,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue the Fresh-Read Engine Review Campaign at 6/11 (55%) with Plan 8
-`Agentic/Plans/TODO/box-vibration-and-warm-start-integrity.md`, task BV6.
-BV5's one-budget-per-manifold oracle, preserved controlled metric, deterministic
-repeat CSV, inspected cumulative divergence, and deferred baseline transition
-are permanent in
-`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`.
-MASTER and SessionState agree on the 6/11 live ledger.
+Continue the Fresh-Read Engine Review Campaign at 0/4 (0%) with Plan 9
+`Agentic/Plans/TODO/persistent-contact-convergence-early-out.md`, task CE0.
+The completed Box campaign's final measurements, baseline transition, terrain
+preservation oracle, comment audit, validation, and independent review are
+permanent in
+`Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`.
+MASTER and SessionState agree on the 0/4 live ledger.

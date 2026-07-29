@@ -4,7 +4,7 @@ Date: 2026-07-29
 
 Owner: skullbonez
 
-State: Queued (starts after Box Vibration And Warm-Start Integrity closes)
+State: In progress (CE0 next)
 
 Ledger tasks: 4 (CE0-CE3)
 
@@ -47,10 +47,9 @@ count.
 
 ## Dependencies And Decisions
 
-- Starts only after
-  `Agentic/Plans/TODO/box-vibration-and-warm-start-integrity.md` closes, because
-  BV5 still changes position correction and BV6 owns that campaign's final
-  source/baseline state.
+- Start condition satisfied: Box Vibration And Warm-Start Integrity closed with
+  its final source and baseline state recorded in
+  `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`.
 - CE0 and CE1 are diagnostic and must remain byte-exact.
 - This plan does not inherit the Box campaign's bounded-divergence authority.
   A behavior-changing CE2 requires an explicit owner decision after CE1 records

@@ -1097,19 +1097,17 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 6/11
-(55%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
-`box-vibration-and-warm-start-integrity`, continuing with BV6's final review,
-comment audit, baseline transition, and closure. Plan 9 is the queued
-dense-contact convergence finding registered by BV4 and starts only after plan
-8 closes.
+The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 0/4
+(0%). Plans 1-8 are complete and excluded under rule 4. Execute plan 9
+`persistent-contact-convergence-early-out`, beginning with CE0's current-source
+convergence census.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
-QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
-baseline under its explicit bounded-divergence allowance:
-`box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
-allowance for a visible owner-reported defect. The required pre-plan-1 recovery
-is complete: the contact-identity regression test is pushed at
+QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
+bounded-divergence allowance once and closed with the final four-artifact
+transition recorded in its closure report. Plan 9 inherits no divergence
+authority. The required pre-plan-1 recovery is complete: the contact-identity
+regression test is pushed at
 `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`, the
 stale source/baseline hunks were not imported, and the original stash was
 dropped.
@@ -2600,8 +2598,8 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 6/7 | BV5 complete: one-point/four-point coverage proves one position-correction budget per manifold, the controlled metric remains zero flips/one iteration, 463 unit cases pass, and cumulative baselines remain deferred; continue BV6 |
-| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | Queued | 0/4 | Starts after plan 8 closes; isolate the dense-wall residual/row-family cause with a controlled oracle, never by raising the iteration count |
+| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
+| 9 | [persistent-contact-convergence-early-out](TODO/persistent-contact-convergence-early-out.md) | In progress | 0/4 | CE0 next: isolate the dense-wall residual/row-family cause with existing diagnostics first, never by raising the iteration count |
 
 ### Plan 8 Ordering Consequences
 

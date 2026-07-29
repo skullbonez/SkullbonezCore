@@ -27,6 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */

@@ -25,6 +25,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Physics/PhysicsWorld.h
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 */
 #pragma once
 

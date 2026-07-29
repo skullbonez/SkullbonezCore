@@ -17,8 +17,8 @@ Glossary:
   collision tests.
   PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
   bounded contact impulses.
-  Warm starting: Reusing an estimated previous support impulse so resting
-  contacts do not have to rediscover the full normal force from zero each tick.
+  Warm starting: Initializing a row from its previous solved impulse. A terrain
+    row with no cache entry may instead use a row-derived first-touch estimate.
   Sleep: Optimization that stops simulating stable bodies until collision,
   movement, or explicit gameplay input wakes them.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
@@ -46,6 +46,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */

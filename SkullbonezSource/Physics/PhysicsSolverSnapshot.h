@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 */
 #pragma once
 

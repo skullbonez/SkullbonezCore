@@ -35,6 +35,7 @@
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
+//   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -789,12 +790,27 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1u );
+    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
+    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
+    const auto& contact = fixture.solver.GetPersistentContacts()[0];
+    const auto& cached = fixture.solver.GetPersistentContactCache()[0];
     CHECK( fixture.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
            fixture.config.body.contactRestitutionThreshold );
 
-    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse > 0.0f );
-    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
-    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
+    // Invariant: BV3 may change how a cold terrain row obtains support, and
+    // BV5 may divide positional repair across manifold rows, but neither may
+    // change terrain restitution. These values are the exact pre-campaign
+    // one-point sphere oracle: 0.5 N*s first-touch support, 4.5 m/s rebound,
+    // 21 N*s accumulated normal impulse, and no zero-penetration translation.
+    CHECK( contact.terrainWarmStart == doctest::Approx( 0.5f ).epsilon( 0.00001 ) );
+    CHECK( contact.bias == doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
+    CHECK( cached.accN == doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse ==
+           doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] ==
+           doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
+    CHECK( fixture.bodyStore.HotFields().positionY[0] ==
+           doctest::Approx( 1.0f ).epsilon( 0.00001 ) );
 }
 
 
@@ -896,8 +912,9 @@ TEST_CASE( "Persistent contact solver: restitution suppression follows exact res
     CHECK( reusedRow->bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
 
     // Invariant: `supportsRestingPolicy`, not edge/corner vocabulary, defines
-    // BV1 reach. Vertical box edge-only support is excluded; this lateral thin
-    // box contact is admitted and suppresses restitution after cached load.
+    // resting-cache reach. Vertical box edge-only support is excluded; this
+    // lateral thin box contact is admitted and suppresses restitution after
+    // cached load.
 }
 
 

@@ -28,7 +28,7 @@
 //
 // Related:
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
-//   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md
+//   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
