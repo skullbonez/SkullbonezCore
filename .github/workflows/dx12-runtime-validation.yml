@@ -26,6 +26,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+          submodules: recursive
 
       - name: Record DX12-runner context
         shell: pwsh
