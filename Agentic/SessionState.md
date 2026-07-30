@@ -12,9 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Complete the Claim Integrity Campaign in binding order. Build Configuration Parity is closed; Maths Surface Reachability MR0 is next. |
-| Active/future progress | Claim Integrity Campaign: 0/10 (0%). Build Configuration Parity closed BP0-BP5 and left the live ledger under rule 4. |
+| Current objective | Complete the Claim Integrity Campaign in binding order. Build Configuration Parity and Maths Surface Reachability are closed; Inverse-Trig Domain Guards TD0 is next. |
+| Active/future progress | Claim Integrity Campaign: 0/10 (0%). Build Configuration Parity and Maths Surface Reachability closed and left the ledger under rule 4; the remaining plans are Inverse-Trig Domain Guards (4), Retirement Diagnostic Honesty (2), and Unreachable Symbol Remediation (4). |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
+| Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
@@ -83,10 +84,10 @@ plan inventory.
 ## Live Queue
 
 The Claim Integrity Campaign is active at 0/10 (0%). Build Configuration Parity
-closed BP0-BP5 and left the live ledger under rule 4. The binding next action is
-Maths Surface Reachability MR0: perform the type-aware Debug-and-Profile
-reachability census before any deletion. Inverse-Trig Domain Guards follows
-MR1; Retirement Diagnostic Honesty remains the final independent plan.
+and Maths Surface Reachability closed and left the live ledger under rule 4.
+The binding next action is Inverse-Trig Domain Guards TD0. Retirement Diagnostic
+Honesty follows it, and Unreachable Symbol Remediation runs last after the
+original four plans have settled the source tree.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -793,6 +794,7 @@ targeted Automation and final full passes.
 
 Build Configuration Parity is closed at 6/6 and excluded under rule 4. MASTER
 and SessionState agree that the Claim Integrity Campaign now has 0/10 active or
-future tasks complete (0%). Continue with Maths Surface Reachability MR0: record
-the type-aware Debug-and-Profile reachability census before deleting any
-surface. Its MR1 deletion is the barrier before Inverse-Trig Domain Guards TD1.
+future tasks complete (0%). Maths Surface Reachability is also closed at 4/4.
+Continue with Inverse-Trig Domain Guards TD0 against the post-deletion tree.
+The four-phase Unreachable Symbol Remediation follow-up runs after the original
+four plans.

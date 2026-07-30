@@ -324,7 +324,7 @@ the targeted validation gates below.
 
 **Repeatable inventories are the instrument, not budgets.** Banning frozen counts
 removed the wrong instrument but left nothing in its place, so shape rules were
-enforced only when a human happened to notice. Four tools now report current
+enforced only when a human happened to notice. Six tools now report current
 structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
@@ -334,8 +334,9 @@ structure without ratcheting anything:
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 | `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
 | `tools/check_build_config_consistency.py` | effective C++ project metadata, shared-source divergence, dropped list inheritance | Build Configuration Consistency Rule |
+| `tools/inventory_unreachable_symbols.py` | Debug/Profile decorated-symbol reachability, test-only and unrooted same-TU definitions, exact current rulings | Symbol Reachability Ownership Review Rule |
 
-All five outputs are **current measurements requiring review**, never
+All six outputs are **current measurements requiring review**, never
 allowances. The aggregate and extraction-scar inventories use the shared
 unruled-fails/ruled-passes gate backed by
 `tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
@@ -346,7 +347,10 @@ The function-complexity inventory uses
 normalized signature, and full-body digest. The build-configuration inventory
 uses `tools/build_config_rulings.json`; a shared file/setting pair must match
 the digest of every current cross-project configuration variant, while dropped
-list inheritance is always a defect and cannot be ruled away. Historical
+list inheritance is always a defect and cannot be ruled away. The reachability
+inventory uses `tools/reachability_rulings.json`; its file/signature identity
+must match the current definition, and a repair ruling must name a live plan.
+Historical
 dispositions never satisfy either gate. Never convert any inventory into a count threshold, ratio,
 or "no more than N" budget, and never add a ruling merely to make a number look
 better — a row records a judgement and names the plan that owns the repair.
@@ -356,6 +360,40 @@ file the reviewer actually reads. A rule that exists only here, while
 `Agentic/Skills/rubber-duck/SKILL.md` and
 `Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
 practice.
+
+## Symbol Reachability Ownership Review Rule
+
+An ordinary out-of-line first-party function definition in a `.cpp` file, with
+a matching first-party header declaration and no Debug or Profile production
+reference outside its own translation unit, triggers qualitative owner review.
+Constructors, destructors, operators, inline/header definitions, and
+internal-linkage helpers remain review-owned outside this inventory. This is a
+review trigger, not proof that the symbol is dead: virtual dispatch, callbacks,
+exports, compiler-generated uses, and a source-to-symbol join uncertainty must
+be resolved before deletion.
+
+`tools/inventory_unreachable_symbols.py` runs after current Debug and Profile
+builds. Decorated COFF names preserve overload type identity after each
+configuration's preprocessor has run. The source pass supplies same-TU helper
+edges; compiler objects own production cross-TU and `SKULLBONEZ_TESTS`
+references. Standalone `Agentic/Tests` projects contribute masked lexical test
+edges because their objects live outside the Debug/Profile roots. Every row is
+classified as no-reference, test-only, own-TU-only, or own-TU-and-test-only.
+
+For every row, the reviewer must answer:
+
+1. Which concrete module or invariant owns the symbol?
+2. What exact production invocation mechanism reaches it, if any?
+3. Is a test proving a deliberately exposed invariant seam, or manufacturing
+   reachability for retired surface?
+4. Does an unrooted same-TU component have a live entry, or should it be
+   internalized/deleted?
+5. Is the exact current ruling `retain-owner`, or does `repair-plan` name the
+   active plan that owns adjudication and deletion?
+
+An unruled row, stale signature ruling, or missing repair plan fails
+`validate_fast`. A ruled row is current judgement, not an allowance. Never
+convert the row count into a ceiling, target ratio, or ratchet.
 
 ## Wide Signature Ownership Review Rule
 
@@ -792,6 +830,7 @@ render, or tool gate; it does not replace it.
 | `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
+| `tools/inventory_unreachable_symbols.py`, `tools/reachability_rulings.json`, or externally declared C++ symbol reachability | Build Debug and Profile, then `validate_fast`; run `python tools\inventory_unreachable_symbols.py --self-test` and `python tools\inventory_unreachable_symbols.py --repo . --strict` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

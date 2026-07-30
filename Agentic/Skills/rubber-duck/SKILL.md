@@ -40,6 +40,11 @@ Do not claim to be a separate model or independent process unless you actually i
    For project-file or build-inventory changes, also inspect the fifth
    inventory: every shared file/setting divergence needs an exact current
    fingerprint ruling, and dropped list inheritance is always blocking.
+   For changes that add, move, or delete C++ functions, inspect the sixth
+   inventory after current Debug/Profile builds. Every non-production-rooted
+   definition needs an exact current reachability ruling; distinguish dynamic
+   invocation and deliberate test seams from dead surface, and require a live
+   plan for every repair disposition.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -91,11 +96,12 @@ phases are one cohesive operation. Compare that answer with
 called once immediately is not decomposition when the same authority and phase
 order remain in the caller; follow that helper before accepting the ruling.
 
-Cite evidence rather than asserting a conclusion. Five repeatable inventories
-produce it, and all five are read-only:
+Cite evidence rather than asserting a conclusion. Six repeatable inventories
+produce it, and all six are read-only:
 
 ```bash
 python tools/check_build_config_consistency.py --repo .
+python tools/inventory_unreachable_symbols.py --repo . --strict
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo . --strict
@@ -111,9 +117,11 @@ normalized signature. Function-complexity rulings live in
 `tools/function_complexity_rulings.json` and also match the current body digest.
 Build-configuration rulings live in `tools/build_config_rulings.json` and match
 the complete current cross-project variant set for one file/setting pair;
-prior dispositions do not satisfy any gate. None of these tools is a count
+reachability rulings live in `tools/reachability_rulings.json` and match the
+current definition file/signature while every repair row names a live plan.
+Prior dispositions do not satisfy any gate. None of these tools is a count
 budget — do not report a number as a finding, report the unowned operation or
-invariant, or build-contract divergence.
+invariant, unreachable seam, or build-contract divergence.
 
 ## Output Shape
 

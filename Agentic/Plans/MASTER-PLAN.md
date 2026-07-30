@@ -539,7 +539,10 @@ listed; the ordering rationale, dependency barriers, and per-plan gates live in
 the campaign section below.
 
 Build configuration parity closed BP0-BP5 on 2026-07-30 and left the live
-ledger under rule 4. The remaining Claim Integrity Campaign is therefore 0/10.
+ledger under rule 4. Maths Surface Reachability MR2 then registered the
+four-phase Unreachable Symbol Remediation follow-up, growing the remaining
+ledger from 0/10 to 0/14. Maths Surface Reachability then closed MR0-MR3 and
+left the ledger under rule 4, returning the active/future total to 0/10.
 All 1,640 compile rows have inherited list metadata, the 61 shared sources have
 exact owner rulings for their intentional test/engine differences, production
 JSON semantics reach the test binary, and every mapped gate is clear. Closure
@@ -1141,12 +1144,12 @@ hosted CPU run 30505659321 passed, and graphics-card validation remains
 local-only.
 
 The Claim Integrity Campaign (2026-07-30) is the active queue at 0/10 (0%).
-Build configuration parity closed BP0-BP5 and left the ledger under rule 4.
-Start with plan 2 `maths-surface-reachability`; MR0 must confirm type-aware
-Debug-and-Profile reachability before MR1 deletes the ruled unreachable surface.
-Plans 3-4 follow in order under the dependency barriers recorded in the campaign
-section. No plan in this campaign carries a bounded-divergence allowance; all
-four are strictly byte-exact for physics.
+Build configuration parity and Maths surface reachability closed BP0-BP5 and
+MR0-MR3, then left the ledger under rule 4. Plan 3
+`inverse-trig-domain-guards` is next; plans 4-5 follow in order under the
+dependency barriers recorded in the campaign section. No plan in this campaign
+carries a bounded-divergence allowance; all five registered plans are strictly
+byte-exact for physics.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2745,8 +2748,9 @@ as a plan here. It is recorded so the next review does not re-derive it.
 
 Binding owner directions:
 
-- No plan in this campaign carries a bounded-divergence allowance. All four are
-  strictly byte-exact for physics. A differing physics byte means the change
+- No plan in this campaign carries a bounded-divergence allowance. All five
+  registered plans are strictly byte-exact for physics. A differing physics
+  byte means the change
   altered evaluation rather than configuration or domain guarding, and the task
   is reverted rather than baselined.
 - `inverse-trig-domain-guards` inverts the usual reading of a byte difference.
@@ -2761,6 +2765,9 @@ Binding owner directions:
   than harden it. Hardening would retain a public maths API with no runtime
   caller. MR0 may escalate a specific symbol back only on evidence that a live
   caller was intended and lost its edge in a refactor.
+- Plan 2 MR2 registered plan 5 after the first compiler-backed inventory exposed
+  a repository-wide population that cannot be adjudicated honestly inside the
+  focused Maths plan. Its exact rows are current judgements, never allowances.
 
 Dependency barriers:
 
@@ -2771,28 +2778,33 @@ Dependency barriers:
   sites. Running TD1 first would harden code that is about to be removed.
 - Plan 4 has no barrier in either direction and is sequenced last only because it
   is the smallest and lowest-risk.
+- Plan 5 starts after the four originally registered plans. Their source changes
+  must settle before the repository-wide reachability population is adjudicated.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [build-configuration-parity](../Reports/2026-07-30/build-configuration-parity-closure.md) | Complete | 6/6 | Closed 2026-07-30 and removed from the live ledger under rule 4; production JSON semantics, inherited forced includes, exact rulings, clear review, and all final gates complete |
-| 2 | [maths-surface-reachability](TODO/maths-surface-reachability.md) | Not started | 0/4 | Starts after plan 1 BP1. MR0 confirms reachability with a type-aware Debug-and-Profile census before any deletion |
+| 2 | [maths-surface-reachability](../Reports/2026-07-30/maths-surface-reachability-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; eight dead definitions removed, 407 exact follow-up rulings registered, review clear, coverage and all final gates pass |
 | 3 | [inverse-trig-domain-guards](TODO/inverse-trig-domain-guards.md) | Not started | 0/4 | Starts after plan 2 MR1. TD0 re-confirms the eight-site census against the post-deletion tree; TD1 unifies the three existing clamp spellings |
 | 4 | [retirement-diagnostic-honesty](TODO/retirement-diagnostic-honesty.md) | Not started | 0/2 | No barrier; may run any time after plan 1. DH0 adds real high-water accounting to the DX12 retirement quarantine |
+| 5 | [unreachable-symbol-remediation](TODO/unreachable-symbol-remediation.md) | Not started | 0/4 | Starts after plans 1-4; UR0 reproduces and partitions every current exact reachability row before any repository-wide deletion |
 
 ### Governance Gap This Campaign Closes
 
-The four findings share a cause worth naming, because it predicts where the next
+The four original findings share a cause worth naming, because it predicts where the next
 one appears. Everything mechanically enforced in this repository is at 100%:
 all 573 first-party `SkullbonezSource` `.cpp`/`.h`/`.hpp`/`.inl` files carry a
 learning header, and that source has zero `throw`, zero `catch`, zero `goto`,
 zero `TODO`/`FIXME`/`HACK`, and one `const_cast`. Everything enforced only by review sits at whatever the last
-reviewer happened to look at — and all four findings are review-only.
+reviewer happened to look at — and all four original findings are review-only.
 
 Plans 1 and 2 convert two of those review-only rules into inventories:
 `check_build_config_consistency.py` reports files compiled under divergent
 settings, and `inventory_unreachable_symbols.py` reports symbols with no
 non-test caller. Both follow the established unruled-fails/ruled-passes contract
-and neither introduces a threshold. Plans 3 and 4 stay review-enforced because
+and neither introduces a threshold. Plan 5 owns the repository-wide remediation
+population discovered by the second inventory. Plans 3 and 4 stay
+review-enforced because
 their subject matter has no honest mechanical proxy; a regex that flags every
 `acosf` without an adjacent `clamp` would fire on the four correctly guarded
 sites and miss a guard placed three lines earlier.

@@ -16,6 +16,8 @@
 @rem Invariants:
 @rem   - Every advertised selector maps to one concrete owning script.
 @rem   - Successful broad targets suppress the redundant ready-build footer.
+@rem   - The fast selector builds Debug before delegating because validate_fast
+@rem   owns a two-configuration compiled-symbol reachability gate.
 @rem
 @rem Related:
 @rem   - AGENTS.md
@@ -41,8 +43,15 @@ for %%A in (%*) do (
     set "ARG=%%~A"
     set "KNOWN=1"
     if /I "!ARG!"=="fast" (
-        call "%ROOT%validate_fast.bat"
-        if errorlevel 1 set "FAILED=1"
+        call "%ROOT%validate_build.bat" Debug
+        if errorlevel 1 (
+            set "FAILED=1"
+        ) else (
+            set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
+            call "%ROOT%validate_fast.bat"
+            if errorlevel 1 set "FAILED=1"
+            if not errorlevel 1 set "READY_BUILDS_HANDLED=1"
+        )
     ) else if /I "!ARG!"=="all-cpu-tests" (
         call "%ROOT%validate_all_cpu_tests.bat"
         if errorlevel 1 set "FAILED=1"

@@ -135,18 +135,21 @@ queue policy.
 ### Ownership Evidence For The End-Of-Plan Review
 
 Before dispatching the end-of-plan `$rubber-duck` pass on a plan that changed
-C++ source, run the four read-only inventories and include their output in the
+C++ source, run the six read-only inventories and include their output in the
 review prompt:
 
 ```bash
+python tools/check_build_config_consistency.py --repo .
+python tools/inventory_unreachable_symbols.py --repo . --strict
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo .
 python tools/inventory_function_complexity.py --repo . --strict
 ```
 
-`AGENTS.md` delegates its aggregate, capability-slice, extraction-scar,
-wide-signature, and function-complexity rules to this review, so the reviewer
+`AGENTS.md` delegates its build-configuration, reachability, aggregate,
+capability-slice, extraction-scar, wide-signature, and function-complexity rules
+to this review, so the reviewer
 needs the evidence rather than an impression. A review that returns clean
 without answering the ownership questions in
 `Agentic/Skills/rubber-duck/SKILL.md`, including one-call-helper complexity

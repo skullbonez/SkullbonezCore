@@ -5,8 +5,9 @@
 @rem
 @rem Mental model:
 @rem   Fast validation checks source hygiene, project metadata, staged-file size,
-@rem   and a Profile build before running the main unit-test executable. The
-@rem   broad gate reuses the preflight and lets the CPU umbrella own all tests.
+@rem   and current Profile/Debug build evidence before running the main unit-test
+@rem   executable. The broad gate reuses the preflight and lets the CPU umbrella
+@rem   own all tests.
 @rem
 @rem Glossary:
 @rem   Preflight-only: Internal broad-gate mode that runs checks/builds but
@@ -18,6 +19,8 @@
 @rem   - Direct validate_fast calls still run SKULLBONEZ_TESTS.
 @rem   - Preflight-only mode never runs a test executable, preventing broad-gate
 @rem   duplication when the CPU umbrella follows it.
+@rem   - A parent may skip ready builds only after proving Debug is current;
+@rem   Profile is always built here before compiled-symbol reachability runs.
 @rem
 @rem Related:
 @rem   - AGENTS.md
@@ -47,7 +50,7 @@ echo   VALIDATE_FAST - Format + Metadata + Dependencies + Ownership + Size + Bui
 echo ========================================
 echo.
 
-echo [1/8] Checking formatting...
+echo [1/9] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
     echo.
@@ -55,21 +58,23 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/8] Checking Visual Studio project filters...
+echo [2/9] Checking Visual Studio project filters...
 call "%~dp0validate_project_filters.bat"
 if errorlevel 1 exit /b 2
 
-echo [3/8] Checking dependency graph...
+echo [3/9] Checking dependency graph...
 call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
-echo [4/8] Checking ownership rulings...
+echo [4/9] Checking ownership rulings...
 REM Why: the build-config, shape, wide-signature, and function-complexity
 REM inventories report current structure and fail on missing/stale owner
 REM judgements. Their triggers start qualitative review; none is a ceiling or
 REM count budget. Self-tests run first so a scanner regression is
 REM distinguishable from a source finding.
 python "%~dp0check_build_config_consistency.py" --self-test
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_unreachable_symbols.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_authority_free_aggregates.py" --self-test
 if errorlevel 1 exit /b 8
@@ -90,7 +95,7 @@ if errorlevel 1 exit /b 8
 python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
 if errorlevel 1 exit /b 8
 
-echo [5/8] Checking staged file sizes...
+echo [5/9] Checking staged file sizes...
 REM Why: the checker reads the git index, so keep it before the expensive build
 REM steps and pass the repo root explicitly for callers outside the worktree.
 REM Hosted CI supplies a base commit because its clean index contains no pending
@@ -102,11 +107,11 @@ if defined SKORE_SIZE_DIFF_BASE (
 )
 if errorlevel 1 exit /b 3
 
-echo [6/8] Building Profile x64...
+echo [6/9] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 4
 
-echo [7/8] Running unit tests...
+echo [7/9] Running unit tests...
 if "%PREFLIGHT_ONLY%"=="1" goto :tests_deferred
 call "%~dp0validate_tests.bat"
 if errorlevel 1 exit /b 5
@@ -117,9 +122,22 @@ echo       Deferred to validate_all_cpu_tests.bat; no test executable ran.
 
 :tests_complete
 
-echo [8/8] Checking ready builds...
+echo [8/9] Checking ready builds...
+if /I "%SKULLBONEZ_SKIP_READY_BUILDS%"=="1" if /I not "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
+    echo ERROR: Compiled-symbol reachability requires a current Debug build.
+    echo        A parent that skips ready builds must build Debug first and set
+    echo        SKULLBONEZ_ASSUME_DEBUG_BUILT=1.
+    exit /b 6
+)
 call "%~dp0validate_ready_builds.bat"
 if errorlevel 1 exit /b 6
+
+echo [9/9] Checking compiled-symbol reachability...
+REM Invariant: Profile and Debug objects must be current before this scan.
+REM Decorated COFF identities distinguish overloads after both configurations'
+REM preprocessors have run; exact rulings own every non-production-rooted row.
+python "%~dp0inventory_unreachable_symbols.py" --repo "%~dp0.." --format json --strict >nul
+if errorlevel 1 exit /b 8
 
 echo.
 echo ========================================
