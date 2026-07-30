@@ -23,7 +23,7 @@
 @rem
 @rem Related:
 @rem   - tools/validate_full.bat
-@rem   - Agentic/Plans/TODO/validation-gate-integrity.md
+@rem   - Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md
 @rem   - Agentic/Reports/validation_gate_inventory_20260710.md
 @rem
 @echo off

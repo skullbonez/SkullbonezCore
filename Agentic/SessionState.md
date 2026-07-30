@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Close validation-gate integrity V3 after the owner retired merge queues: prove the final pull-request/manual-only hosted CPU workflow on its exact commit, then remove the completed plan under rule 4. |
-| Active/future progress | Empty (0%). All nine Fresh-Read plans are complete and excluded under rule 4; validation-gate V3 is an active closure lane outside this denominator at 5/6. |
+| Current objective | All MASTER plans are complete. No active or future implementation work remains. |
+| Active/future progress | Empty (0%). All Fresh-Read and validation-gate plans are complete and excluded under rule 4. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
-| Validation-gate integrity closure | V0-V2 and V4-V5 are complete; V3 is active at 5/6 for one final exact-commit hosted CPU proof. Hosted run 30469139071 passes with pinned LLVM 21.1.8, and `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues are retired, repository ownership will not change, and anything needing a graphics card is local-only validation. The experimental GitHub DX12 workflow and runner infrastructure are removed. The final workflow has only `pull_request` and `workflow_dispatch` triggers and no merge-group base branch. Evidence: `Agentic/Reports/validation_ci_v3_20260710.md`. |
+| Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
 | Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
 | Validation for box vibration BV5 | One-point/four-point coverage pins one 0.16 total correction budget, a 0.04 four-point row maximum, and equal 0.08 body displacement. Persistent-contact coverage passes 12 cases / 174 assertions; all unit coverage passes 463 cases / 2,423,855 assertions. The controlled fixture remains zero-flip/one-iteration/zero-miss and repeats byte-identically. Physics/deep Physics stop at the inspected deferred transition: 35,091 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs match, all ten shooting targets react, only the stacking known-issue hash moves beyond BV3, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`. |
@@ -83,9 +83,9 @@ plan inventory.
 
 The Fresh-Read Engine Review Campaign is complete. Plan 9 closed CE0-CE3 on the
 owner-approved retain decision and left the live ledger under rule 4. The
-active/future ledger is empty (0%). Validation-gate V3 is active outside this
-denominator only for one final exact-commit hosted CPU proof after the owner
-retired merge queues and GitHub GPU validation.
+active/future ledger is empty (0%). Validation-gate integrity also closed V0-V5
+at 6/6 and left the live inventory under rule 4. No active or future MASTER plan
+remains.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -790,13 +790,12 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/validation-gate-integrity.md` at 5/6. LLVM 21.1.8
-is pinned and proven in hosted run 30469139071; `main` strictly requires the
-stable hosted CPU check. Anything needing a graphics card is local-only, and
-merge queues are retired. Push and prove the final
-`pull_request`/`workflow_dispatch`-only CPU workflow on its exact commit; then
-close V3 at 6/6, write permanent closure evidence, and delete the TODO under
-rule 4. Permanent Fresh-Read closure evidence is in
+All MASTER plans are complete and the active/future ledger is empty (0%).
+Validation-gate integrity closed V0-V5 at 6/6 after exact-commit hosted CPU run
+30505659321 passed. Merge queues and GitHub repository-ownership changes are
+retired; graphics-card validation is local-only. Permanent validation closure
+evidence is in
+`Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. Permanent
+Fresh-Read closure evidence is in
 `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
-MASTER and SessionState agree that the active/future ledger is empty (0%) and
-validation-gate V3 has one final hosted-proof action outside the denominator.
+MASTER and SessionState agree that no next MASTER action remains.

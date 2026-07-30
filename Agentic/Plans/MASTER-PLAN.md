@@ -522,12 +522,17 @@ threshold, iteration count, allocation policy, baseline, or golden changed.
 The active/future ledger is empty (0%). Evidence is in
 `../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
 
+Validation-gate integrity closed V0-V5 at 6/6 on 2026-07-30 and left the live
+ledger under rule 4. The owner retired merge queues and any repository-
+ownership change. Hosted CPU validation remains required on pull requests;
+graphics-card validation is local-only. Exact-commit hosted run 30505659321
+passed the final workflow shape. Evidence is in
+`../Reports/2026-07-30/validation-gate-integrity-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
-excluded under commit-contract rule 4. Validation-gate V3 is active only for
-its final post-ruling hosted CPU proof and remains deliberately excluded from
-the portfolio denominator. Scene-controller ownership closed at 7/7 and
-monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the live ledger
-under rule 4. Their closure evidence is in
+excluded under commit-contract rule 4. Scene-controller ownership closed at
+7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
+live ledger under rule 4. Their closure evidence is in
 `../Reports/2026-07-17/scene-controller-ownership-closure.md` and
 `../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. Code-level red-flags
 C0-C6 closed on 2026-07-18 and also left the live ledger under rule 4. Its
@@ -1113,6 +1118,11 @@ row-level non-convergence, so the current stopping criterion remains unchanged.
 All nine plans are complete and excluded under rule 4; the active/future ledger
 is empty (0%).
 
+Validation-gate integrity is also complete at 6/6 and excluded under rule 4.
+The owner retired merge queues and any GitHub ownership change, exact-commit
+hosted CPU run 30505659321 passed, and graphics-card validation remains
+local-only. No active or future MASTER action remains.
+
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
 bounded-divergence allowance once and closed with the final four-artifact
@@ -1617,17 +1627,11 @@ The PhysicsWorld campaign completed P0-P10 in strict order at 11/11 with zero
 baseline refresh, a clear independent ownership review, and passing
 full/performance/allocation gates. The 2026-07-15 round-5 lane is complete at
 10/10 and all six round-4 plans are complete at 22/22, all on
-`15th-of-July-Night-Runner`. Validation-gate V3 is no longer externally
-blocked; the owner retired merge queues and it needs one exact-commit hosted
-CPU proof before closure. It remains deliberately excluded from this ledger.
-The previous replay critical path completed on `nightrunner-14th-july`.
+`15th-of-July-Night-Runner`. Validation-gate integrity is complete at 6/6,
+excluded under rule 4, and recorded in
+`Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. The previous
+replay critical path completed on `nightrunner-14th-july`.
 
-0. **Validation-gate V3 — active closure lane.** Hosted CPU protection is
-   active and proven. By owner ruling, merge queues are out of scope and all
-   validation that needs a graphics card is local-only. The GitHub DX12
-   workflow and runner infrastructure are removed. One exact-commit hosted CPU
-   run must prove the final pull-request/manual-only workflow shape before V3
-   closes.
 1. **Replay visual-fidelity mega probe — complete on
    `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
    single-generation causal, and durable offline equality gate generates and
@@ -1718,10 +1722,9 @@ The previous replay critical path completed on `nightrunner-14th-july`.
 
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Active | 5/6 | Prove the final pull-request/manual-only hosted CPU workflow on its exact commit, then close V3 |
-| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
-| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
+| [replay-visual-fidelity-mega-probe](../Reports/2026-07-14/replay-visual-fidelity-mega-probe-closure.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
+| replay-monolith-decomposition | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
+| future-path-vector-splines | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 

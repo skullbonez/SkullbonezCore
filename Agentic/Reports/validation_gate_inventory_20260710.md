@@ -1,6 +1,7 @@
 # Validation Gate Inventory — 2026-07-10
 
-Plan: `Agentic/Plans/TODO/validation-gate-integrity.md` V0-V2
+Closure: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`
+records completion of V0-V2 and the complete V0-V5 campaign.
 
 Owner: repository validation
 

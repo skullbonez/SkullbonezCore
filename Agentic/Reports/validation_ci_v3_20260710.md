@@ -1,6 +1,7 @@
 # Validation CI V3 Evidence — 2026-07-10
 
-Plan: `Agentic/Plans/TODO/validation-gate-integrity.md` V3
+Closure: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`
+records V3 completion.
 
 Owner: repository validation
 
@@ -388,3 +389,22 @@ queues and directed that the entire idea be removed. The final V3 contract is:
 
 The historical merge-queue investigation above remains audit evidence, not an
 active requirement.
+
+## Final V3 Closure — 2026-07-30
+
+V3 is complete at 6/6. GitHub Actions run
+[30505659321](https://github.com/skullbonez/SkullbonezCore/actions/runs/30505659321)
+passed on exact commit
+`47a95da000234023d5255431eeea122da70a96a8`. The log records the pinned LLVM
+tooling, `VALIDATE_FAST: PREFLIGHT PASSED`, 465/465 doctest cases,
+2,423,885/2,423,885 assertions, `VALIDATE_COVERAGE: ALL PASSED`, and
+`VALIDATE_ALL_CPU_TESTS: ALL PASSED`.
+
+The manual run proves the final pull-request/manual-only workflow and hosted
+CPU lane on the retirement commit. It is not changed-file-size evidence because
+manual dispatch has no pull-request base SHA. `main` remains in strict mode and
+requires `Mandatory CPU lane (Windows hosted)`. The closing external audit
+found zero self-hosted runners and zero repository Actions variables.
+
+Permanent closure evidence is in
+`2026-07-30/validation-gate-integrity-closure.md`.
