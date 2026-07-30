@@ -523,8 +523,9 @@ The active/future ledger is empty (0%). Evidence is in
 `../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
-excluded under commit-contract rule 4. The externally blocked validation lane
-remains deliberately excluded. Scene-controller ownership closed at 7/7 and
+excluded under commit-contract rule 4. Validation-gate V3 is active only for
+its final post-ruling hosted CPU proof and remains deliberately excluded from
+the portfolio denominator. Scene-controller ownership closed at 7/7 and
 monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the live ledger
 under rule 4. Their closure evidence is in
 `../Reports/2026-07-17/scene-controller-ownership-closure.md` and
@@ -1616,17 +1617,17 @@ The PhysicsWorld campaign completed P0-P10 in strict order at 11/11 with zero
 baseline refresh, a clear independent ownership review, and passing
 full/performance/allocation gates. The 2026-07-15 round-5 lane is complete at
 10/10 and all six round-4 plans are complete at 22/22, all on
-`15th-of-July-Night-Runner`. Validation-gate V3 remains externally blocked
-and deliberately excluded from this ledger. The previous replay critical path
-completed on `nightrunner-14th-july`.
+`15th-of-July-Night-Runner`. Validation-gate V3 is no longer externally
+blocked; the owner retired merge queues and it needs one exact-commit hosted
+CPU proof before closure. It remains deliberately excluded from this ledger.
+The previous replay critical path completed on `nightrunner-14th-july`.
 
-0. **Validation-gate V3 — blocked external lane.** Repository implementation is
-   complete. Hosted CPU protection is active and proven. By owner ruling, all
-   validation that needs a graphics card is local-only; the GitHub DX12
-   workflow, runner, variable, task, and dedicated installations are removed.
-   The sole remaining acceptance item is a real `merge_group` proof, blocked
-   because GitHub does not offer merge queues to this user-owned repository and
-   the authenticated owner belongs to no organization that could receive it.
+0. **Validation-gate V3 — active closure lane.** Hosted CPU protection is
+   active and proven. By owner ruling, merge queues are out of scope and all
+   validation that needs a graphics card is local-only. The GitHub DX12
+   workflow and runner infrastructure are removed. One exact-commit hosted CPU
+   run must prove the final pull-request/manual-only workflow shape before V3
+   closes.
 1. **Replay visual-fidelity mega probe — complete on
    `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
    single-generation causal, and durable offline equality gate generates and
@@ -1717,7 +1718,7 @@ completed on `nightrunner-14th-july`.
 
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs one real merge-group proof; create or join an eligible organization, transfer the repository, enable the queue, then authorize and enqueue a proof PR |
+| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Active | 5/6 | Prove the final pull-request/manual-only hosted CPU workflow on its exact commit, then close V3 |
 | [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
 | [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
 | [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |

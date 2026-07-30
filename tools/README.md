@@ -95,10 +95,10 @@ the CPU umbrella. `agent_validate.bat` delegates once to `validate_full.bat`, so
 it has the same ordering and exit status.
 
 The file-size preflight reads the git index for local pending commits. Hosted
-PR and merge-queue jobs set `SKORE_SIZE_DIFF_BASE` so the same gate compares
-changed HEAD blobs with the event base instead of silently inspecting a clean
-CI index. Both modes disable Git rename detection so moving an allowlisted blob
-to an ordinary path checks the destination under its new policy.
+pull-request jobs set `SKORE_SIZE_DIFF_BASE` so the same gate compares changed
+HEAD blobs with the pull-request base instead of silently inspecting a clean CI
+index. Both modes disable Git rename detection so moving an allowlisted blob to
+an ordinary path checks the destination under its new policy.
 
 ## Native Diagnostics
 

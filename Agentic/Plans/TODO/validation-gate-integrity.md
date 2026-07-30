@@ -2,7 +2,7 @@
 
 Date: 2026-07-10
 
-Status: Blocked — 5/6 phases complete; V3 requires an eligible GitHub organization destination and a real merge-queue run
+Status: Active — 5/6 phases complete; V3 needs one final hosted CPU proof after the owner retired merge queues
 
 Impact area: validation tooling, unit-test projects, GitHub pull-request gates,
 sanitizer/static-analysis coverage
@@ -42,7 +42,10 @@ validation passed real pull-request runs and a fresh manual run with
 clang-format 21.1.8 pinned. `main` requires the stable hosted CPU check. By
 owner ruling, anything needing a graphics card is local-only validation: no
 GitHub workflow, runner, variable, or future merge-blocking GPU lane is allowed.
-The remaining V3 trust gap is solely a real `merge_group` proof.
+The owner also ruled that the repository will not change ownership for a merge
+queue. The `merge_group` trigger and base-SHA branch are therefore retired.
+The remaining V3 work is one exact-commit hosted manual proof of the final
+pull-request/manual-only workflow.
 
 Current external audit (2026-07-30):
 
@@ -58,16 +61,9 @@ Current external audit (2026-07-30):
   zero self-hosted runners and no `SKULLBONEZ_DX12_CI_ENABLED` variable. The
   host scheduled task, runner directory, and dedicated PowerShell installation
   are removed. Historical runs remain audit evidence, not active CI.
-- The repository still has zero `merge_group` runs. GitHub rejected an active
-  merge-queue ruleset with HTTP 422 because `SkullbonezCore` is owned by the
-  personal account `skullbonez`; GitHub merge queues are available only to
-  organization-owned repositories. V3 therefore requires repository transfer
-  to an eligible organization (or a future GitHub availability change), then
-  merge-queue enablement and one real queued-PR proof. Repository rules also
-  prohibit creating or merging that proof PR without explicit user direction.
-  A continuation audit found zero organization memberships for the
-  authenticated owner, so no existing transfer destination can be selected
-  safely.
+- The owner rejected changing repository ownership and retired the merge-queue
+  requirement. V3 no longer requires a `merge_group` event, organization
+  membership, repository transfer, or proof PR.
 
 ## Goal
 
@@ -127,24 +123,20 @@ Separate validation by capability rather than by historical script:
   subsequently passed end-to-end: 78/78 doctest cases and 1,883 assertions,
   every standalone CPU target, zero DX12 validation errors and matching visual
   baselines, then a byte-exact 20,001-line physics baseline.
-- [ ] **V3 — BLOCKED: Pull-request CI.** Add a `windows-latest` GitHub Actions
+- [ ] **V3 — FINAL PROOF: Pull-request CI.** Add a `windows-latest` GitHub Actions
   workflow for CPU preflight, every CPU test target, and a Profile engine build,
-  with artifact upload on failure and merge-queue coverage. Require the CPU
-  lane after a real PR/merge-group proof. Do not add any GitHub workflow or
-  runner for validation that needs a graphics card; those gates are local-only.
+  with artifact upload on failure. Require the stable CPU lane on `main`. Do
+  not add any GitHub workflow or runner for validation that needs a graphics
+  card; those gates are local-only.
   Binding design and activation evidence:
   `Agentic/Reports/validation_ci_v3_20260710.md`.
   Activation audit refreshed 2026-07-30: clang-format 21.1.8 is pinned and
   hosted CPU run 30469139071 passes; `main` strictly requires the stable CPU
   job. The owner rejected GitHub graphics-card validation, so the experimental
-  DX12 workflow and all runner infrastructure were removed. The only V3
-  acceptance item left is a real `merge_group` proof, but GitHub rejects
-  merge-queue enablement because this public repository is user-owned rather
-  than organization-owned. Transfer to an eligible organization or wait for
-  GitHub availability to change. The authenticated owner currently has zero
-  organization memberships, so first create or join an organization that can
-  receive the repository; then explicitly authorize creation/enqueue of a
-  proof PR. Current evidence and the exact external boundary are recorded in
+  DX12 workflow and all runner infrastructure were removed. The owner also
+  retired merge queues rather than changing repository ownership. The
+  `merge_group` trigger and base-SHA branch are removed; one final exact-commit
+  hosted manual run must pass before V3 closes. Current evidence is recorded in
   `Agentic/Reports/validation_ci_v3_20260710.md`.
 - [x] **V4 — Sanitizer/static-analysis lane.** Add an MSVC AddressSanitizer
   configuration for CPU-testable engine code and a bounded `/analyze` or
@@ -174,8 +166,8 @@ Separate validation by capability rather than by historical script:
 
 ## Dependencies And Safety
 
-- CI configuration must not claim DX12 evidence without a GPU-capable runner,
-  and a persistent self-hosted runner must never execute public-PR code.
+- GitHub CI must not claim GPU-dependent DX12 evidence. Renderer, screenshot,
+  InfoQueue, and graphics-stress validation are local-only.
 - V1/V2 should land before plans add more tests, otherwise new suites can remain
   orphaned.
 - Behavioral-test-depth P6 closed after V2 and V5; durable evidence is in
@@ -186,8 +178,8 @@ Separate validation by capability rather than by historical script:
 ## Validation
 
 Changes under `tools/` require `tools\validate_fast.bat`, then the changed
-script. Workflow YAML should be syntax-checked locally where practical and
-proven by an actual pull-request run before the CI phase is checked complete.
+script. Workflow YAML should be syntax-checked locally and proven by an actual
+hosted run before the CI phase is checked complete.
 
 ## Definition Of Done
 
@@ -195,8 +187,6 @@ proven by an actual pull-request run before the CI phase is checked complete.
 - Every first-party test executable runs through one CPU umbrella.
 - `agent_validate` cannot pass with a broken unit test.
 - A required Windows CI check protects pull requests.
-- GPU validation is required only where a real, safely isolated DX12 runner
-  supplies evidence; the persistent trusted-ref workflow is post-merge until
-  that stronger boundary exists.
+- GPU-dependent validation runs locally only and has no GitHub Actions lane.
 - Sanitizer/static-analysis findings have an owned baseline and no silent
   blanket suppression.

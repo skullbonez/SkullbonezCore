@@ -2,8 +2,6 @@ name: Mandatory CPU validation
 
 "on":
   pull_request:
-  merge_group:
-    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -91,7 +89,7 @@ jobs:
 
       - name: Run mandatory hosted CPU lane
         env:
-          SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || '' }}
+          SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || '' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"

@@ -14,8 +14,7 @@ Two capability-honest hosted workflows remain active on the default branch:
   lane on `windows-latest`: `validate_fast --preflight-only` followed by the
   complete CPU test umbrella. Its stable check name is
   `Mandatory CPU lane (Windows hosted)`. It makes no renderer, GPU, or
-  DX12-runtime claim. It covers pull requests, merge-queue `merge_group`
-  checks, and manual dispatch.
+  DX12-runtime claim. It covers pull requests and manual dispatch.
 - `.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
   manual hosted diagnostics lane.
 
@@ -26,13 +25,12 @@ installations were removed. No persistent or ephemeral GitHub GPU lane may
 replace them. The historical design and run evidence below are retained only
 to make the rejected experiment auditable.
 
-## Hosted CPU And Merge-Queue Lane
+## Hosted CPU Lane
 
-The hosted workflow runs on pull requests, merge-queue `merge_group` events,
-and manual dispatch. Checkout uses `fetch-depth: 0` so the exact event base is
-available locally. The lane exports `SKORE_SIZE_DIFF_BASE` from the pull
-request base SHA or merge-group base SHA before one fail-fast PowerShell loop
-runs these children in order:
+The hosted workflow runs on pull requests and manual dispatch. Checkout uses
+`fetch-depth: 0` so the exact pull-request base is available locally. The lane
+exports `SKORE_SIZE_DIFF_BASE` from the pull-request base SHA before one
+fail-fast PowerShell loop runs these children in order:
 
 1. `tools\validate_fast.bat --preflight-only` owns formatting, production
    project/filter metadata, staged-size policy, and its Profile preflight build
@@ -52,11 +50,11 @@ before the context step creates the artifact directory, or while the artifact
 action itself is unavailable. The GitHub Actions log remains the evidence for
 those earlier failures.
 
-Pull-request and merge-group runs therefore ask staged-size policy to inspect
-the exact changed HEAD blobs relative to the event's base commit. Manual
-dispatch has neither event field, so `SKORE_SIZE_DIFF_BASE` is empty and the
-checker falls back to local-index mode. Because checkout is clean, a manual run
-is **not** changed-file size evidence and must not be cited as such.
+Pull-request runs therefore ask staged-size policy to inspect the exact changed
+HEAD blobs relative to the event's base commit. Manual dispatch has no
+pull-request field, so `SKORE_SIZE_DIFF_BASE` is empty and the checker falls
+back to local-index mode. Because checkout is clean, a manual run is **not**
+changed-file size evidence and must not be cited as such.
 
 Independent review found that filtering only added/modified Git statuses could
 miss a rename from an allowlisted data directory into an ordinary path. Both
@@ -126,7 +124,10 @@ These Node 24 action releases require a self-hosted Actions runner at version
 owner must keep its agent current. The runtime steps also require PowerShell
 7.2 or newer (`pwsh`).
 
-## Local Static Validation
+## Historical Local Static Validation
+
+This section records the pre-retirement workflow shape. The final
+pull-request/manual-only validation is recorded in the closure section below.
 
 No repository validation or engine launch is appropriate for workflow-only
 configuration. The downloaded `actionlint` v1.7.12 Windows binary matched its
@@ -372,3 +373,18 @@ device-free DX12 architecture tests remain. Real renderer, InfoQueue,
 screenshot, graphics-stress, and other GPU-dependent gates run locally only.
 Historical workflow runs and artifacts remain finite-retention audit evidence;
 they do not authorize or reactivate a GitHub GPU lane.
+
+## Owner-Directed Merge-Queue Retirement — 2026-07-30
+
+The owner will not change the GitHub repository or its ownership for merge
+queues and directed that the entire idea be removed. The final V3 contract is:
+
+- hosted CPU CI runs on `pull_request` and `workflow_dispatch` only;
+- `main` strictly requires `Mandatory CPU lane (Windows hosted)`;
+- `SKORE_SIZE_DIFF_BASE` uses only `pull_request.base.sha`;
+- no `merge_group` trigger, merge-queue requirement, organization transfer, or
+  proof PR remains;
+- all graphics-card validation is local-only.
+
+The historical merge-queue investigation above remains audit evidence, not an
+active requirement.
