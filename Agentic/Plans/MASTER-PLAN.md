@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-28
+Date: 2026-07-30
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -537,6 +537,14 @@ build-configuration parity (6 tasks, BP0-BP5), maths surface reachability
 retirement diagnostic honesty (2 tasks, DH0-DH1). Execution order is 1→4 as
 listed; the ordering rationale, dependency barriers, and per-plan gates live in
 the campaign section below.
+
+Build configuration parity closed BP0-BP5 on 2026-07-30 and left the live
+ledger under rule 4. The remaining Claim Integrity Campaign is therefore 0/10.
+All 1,640 compile rows have inherited list metadata, the 61 shared sources have
+exact owner rulings for their intentional test/engine differences, production
+JSON semantics reach the test binary, and every mapped gate is clear. Closure
+evidence is in
+`../Reports/2026-07-30/build-configuration-parity-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1132,13 +1140,13 @@ The owner retired merge queues and any GitHub ownership change, exact-commit
 hosted CPU run 30505659321 passed, and graphics-card validation remains
 local-only.
 
-The Claim Integrity Campaign (2026-07-30) is the active queue at 0/16 (0%).
-Start with plan 1 `build-configuration-parity`: it holds the campaign's only
-correctness divergence between the test binary and the shipping binary, and its
-BP4 inventory also covers the finding class behind BP3. Plans 2-4 follow in
-order under the dependency barriers recorded in the campaign section. No plan in
-this campaign carries a bounded-divergence allowance; all four are strictly
-byte-exact for physics.
+The Claim Integrity Campaign (2026-07-30) is the active queue at 0/10 (0%).
+Build configuration parity closed BP0-BP5 and left the ledger under rule 4.
+Start with plan 2 `maths-surface-reachability`; MR0 must confirm type-aware
+Debug-and-Profile reachability before MR1 deletes the ruled unreachable surface.
+Plans 3-4 follow in order under the dependency barriers recorded in the campaign
+section. No plan in this campaign carries a bounded-divergence allowance; all
+four are strictly byte-exact for physics.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2766,7 +2774,7 @@ Dependency barriers:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [build-configuration-parity](TODO/build-configuration-parity.md) | Not started | 0/6 | Ready now. BP0 censuses per-file build settings across all five projects and classifies every external-JSON accessor in the four shared TUs |
+| 1 | [build-configuration-parity](../Reports/2026-07-30/build-configuration-parity-closure.md) | Complete | 6/6 | Closed 2026-07-30 and removed from the live ledger under rule 4; production JSON semantics, inherited forced includes, exact rulings, clear review, and all final gates complete |
 | 2 | [maths-surface-reachability](TODO/maths-surface-reachability.md) | Not started | 0/4 | Starts after plan 1 BP1. MR0 confirms reachability with a type-aware Debug-and-Profile census before any deletion |
 | 3 | [inverse-trig-domain-guards](TODO/inverse-trig-domain-guards.md) | Not started | 0/4 | Starts after plan 2 MR1. TD0 re-confirms the eight-site census against the post-deletion tree; TD1 unifies the three existing clamp spellings |
 | 4 | [retirement-diagnostic-honesty](TODO/retirement-diagnostic-honesty.md) | Not started | 0/2 | No barrier; may run any time after plan 1. DH0 adds real high-water accounting to the DX12 retirement quarantine |

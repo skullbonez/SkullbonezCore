@@ -64,10 +64,13 @@ call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
 echo [4/8] Checking ownership rulings...
-REM Why: the shape, wide-signature, and function-complexity inventories report
-REM current structure and fail on missing/stale owner judgements. Their triggers
-REM start qualitative review; none is a ceiling or count budget. Self-tests run
-REM first so a scanner regression is distinguishable from a source finding.
+REM Why: the build-config, shape, wide-signature, and function-complexity
+REM inventories report current structure and fail on missing/stale owner
+REM judgements. Their triggers start qualitative review; none is a ceiling or
+REM count budget. Self-tests run first so a scanner regression is
+REM distinguishable from a source finding.
+python "%~dp0check_build_config_consistency.py" --self-test
+if errorlevel 1 exit /b 8
 python "%~dp0inventory_authority_free_aggregates.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --self-test
@@ -83,6 +86,8 @@ if errorlevel 1 exit /b 8
 python "%~dp0inventory_wide_signatures.py" --repo "%~dp0.." --threshold 12 --format json --strict >nul
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_function_complexity.py" --repo "%~dp0.." --strict
+if errorlevel 1 exit /b 8
+python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
 if errorlevel 1 exit /b 8
 
 echo [5/8] Checking staged file sizes...

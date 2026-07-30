@@ -333,8 +333,9 @@ structure without ratcheting anything:
 | `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 | `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
+| `tools/check_build_config_consistency.py` | effective C++ project metadata, shared-source divergence, dropped list inheritance | Build Configuration Consistency Rule |
 
-All four outputs are **current measurements requiring review**, never
+All five outputs are **current measurements requiring review**, never
 allowances. The aggregate and extraction-scar inventories use the shared
 unruled-fails/ruled-passes gate backed by
 `tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
@@ -342,8 +343,11 @@ unruled-fails/ruled-passes gate backed by
 review trigger must match a current ruling by file and normalized signature.
 The function-complexity inventory uses
 `tools/function_complexity_rulings.json`; a triggered body must match by file,
-normalized signature, and full-body digest. Historical dispositions never
-satisfy either gate. Never convert any inventory into a count threshold, ratio,
+normalized signature, and full-body digest. The build-configuration inventory
+uses `tools/build_config_rulings.json`; a shared file/setting pair must match
+the digest of every current cross-project configuration variant, while dropped
+list inheritance is always a defect and cannot be ruled away. Historical
+dispositions never satisfy either gate. Never convert any inventory into a count threshold, ratio,
 or "no more than N" budget, and never add a ruling merely to make a number look
 better — a row records a judgement and names the plan that owns the repair.
 
@@ -787,6 +791,7 @@ render, or tool gate; it does not replace it.
 | `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
 | `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
+| `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

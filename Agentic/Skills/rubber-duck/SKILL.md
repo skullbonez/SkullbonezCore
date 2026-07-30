@@ -37,6 +37,9 @@ Do not claim to be a separate model or independent process unless you actually i
    enforcement of its aggregate, slice, extraction, wide-signature, and
    function-complexity rules to this review, so skipping them leaves those
    rules unenforced.
+   For project-file or build-inventory changes, also inspect the fifth
+   inventory: every shared file/setting divergence needs an exact current
+   fingerprint ruling, and dropped list inheritance is always blocking.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -88,10 +91,11 @@ phases are one cohesive operation. Compare that answer with
 called once immediately is not decomposition when the same authority and phase
 order remain in the caller; follow that helper before accepting the ruling.
 
-Cite evidence rather than asserting a conclusion. Four repeatable inventories
-produce it, and all four are read-only:
+Cite evidence rather than asserting a conclusion. Five repeatable inventories
+produce it, and all five are read-only:
 
 ```bash
+python tools/check_build_config_consistency.py --repo .
 python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo . --strict
@@ -104,10 +108,12 @@ judged it yet; a ruled row means an owner has, and the reason field says why.
 Wide-signature rulings live in
 `tools/wide_signature_ownership_rulings.json` and match the current file plus
 normalized signature. Function-complexity rulings live in
-`tools/function_complexity_rulings.json` and also match the current body digest;
-prior dispositions do not satisfy either gate. None of these tools is a count
+`tools/function_complexity_rulings.json` and also match the current body digest.
+Build-configuration rulings live in `tools/build_config_rulings.json` and match
+the complete current cross-project variant set for one file/setting pair;
+prior dispositions do not satisfy any gate. None of these tools is a count
 budget — do not report a number as a finding, report the unowned operation or
-invariant.
+invariant, or build-contract divergence.
 
 ## Output Shape
 
