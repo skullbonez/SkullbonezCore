@@ -38,6 +38,8 @@
 //     the canonical prediction working set.
 //   - Spatial-grid backing reserves only during SceneLoad; fixed-step
 //     exhaustion reports the exact owner, capacity, high-water, and phase.
+//   - DX12 retirement accounting records a real below-capacity peak, resets at
+//     device boundaries, and reports release/fence facts at exhaustion.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -67,6 +69,7 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
+#include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h"
@@ -90,6 +93,17 @@
 #include <thread>
 #include <vector>
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
+
+namespace SkullbonezCore::Rendering
+{
+struct Dx12DeferredReleaseOwnerTestAccess
+{
+    static void ObservePendingCount( Dx12DeferredReleaseOwner& owner, size_t pendingCount )
+    {
+        owner.m_diagnostics.ObservePendingCount( pendingCount );
+    }
+};
+} // namespace SkullbonezCore::Rendering
 
 namespace
 {
@@ -341,6 +355,50 @@ struct WorkerFatalProbe
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
+    {
+        SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
+        retirementDiagnostics.ObservePendingCount(
+            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
+        retirementDiagnostics.FatalExhaustion(
+            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
+            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+    }
+
+    const bool resetForDevice = std::strcmp( caseName, "dx12-retirement-reset-live-device" ) == 0;
+    const bool resetAfterShutdown = std::strcmp( caseName, "dx12-retirement-reset-live-shutdown" ) == 0;
+
+    if ( resetForDevice || resetAfterShutdown )
+    {
+        SkullbonezCore::Rendering::Dx12DeferredReleaseOwner retirements;
+        retirements.QuarantineStaticDescriptor( 7u );
+
+        if ( resetForDevice )
+        {
+            retirements.ResetForDevice();
+        }
+        else
+        {
+            retirements.ResetAfterShutdown();
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "dx12-retirement-capacity" ) == 0 )
+    {
+        SkullbonezCore::Rendering::Dx12DeferredReleaseOwner retirements;
+
+        for ( size_t index = 0; index < retirements.MAX_PENDING_RETIREMENTS; ++index )
+        {
+            retirements.QuarantineStaticDescriptor( static_cast<UINT>( index ) );
+        }
+
+        retirements.QuarantineStaticDescriptor( static_cast<UINT>( retirements.MAX_PENDING_RETIREMENTS ) );
+        return true;
+    }
+
     unsigned int contactSolvePhaseFrom = 0u;
     unsigned int contactSolvePhaseTo = 0u;
 
@@ -1161,6 +1219,63 @@ TEST_CASE( "SbResult: success and formatted failure values propagate owner and m
     CHECK_FALSE( defaultFailure.Ok() );
     CHECK( std::strcmp( defaultFailure.ErrorOwner(), "" ) == 0 );
     CHECK( std::strcmp( defaultFailure.ErrorMessage(), "recoverable operation failed" ) == 0 );
+}
+
+
+TEST_CASE( "DX12 retirement diagnostics retain real peaks and reset at device boundaries" )
+{
+    using SkullbonezCore::Rendering::Dx12RetirementDiagnosticState;
+
+    Dx12RetirementDiagnosticState retirementDiagnostics;
+    retirementDiagnostics.ObservePendingCount( 3u );
+    retirementDiagnostics.ObservePendingCount( 2u );
+    CHECK( retirementDiagnostics.PendingHighWater() == 3u );
+    CHECK( retirementDiagnostics.PendingHighWater() !=
+           SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+
+    retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
+    CHECK( retirementDiagnostics.LastReleaseInputCount() == 9u );
+    CHECK( retirementDiagnostics.LastReleasedCount() == 5u );
+    CHECK( retirementDiagnostics.LastReleaseSurvivorCount() == 4u );
+    CHECK( retirementDiagnostics.LastFrameFenceReady() );
+    CHECK( retirementDiagnostics.LastObservedCompletedFence() == 77u );
+
+    retirementDiagnostics.ObserveRelease( 4u, 4u, false, 0u );
+    CHECK( retirementDiagnostics.LastReleaseInputCount() == 4u );
+    CHECK( retirementDiagnostics.LastReleasedCount() == 0u );
+    CHECK( retirementDiagnostics.LastReleaseSurvivorCount() == 4u );
+    CHECK_FALSE( retirementDiagnostics.LastFrameFenceReady() );
+    CHECK( retirementDiagnostics.LastObservedCompletedFence() == 77u );
+
+    SkullbonezCore::Rendering::Dx12DeferredReleaseOwner retirements;
+    SkullbonezCore::Rendering::Dx12DeferredReleaseOwnerTestAccess::ObservePendingCount( retirements, 2u );
+    CHECK( retirements.HighWater() == 2u );
+    retirements.ResetForDevice();
+    CHECK( retirements.HighWater() == 0u );
+
+    SkullbonezCore::Rendering::Dx12DeferredReleaseOwnerTestAccess::ObservePendingCount( retirements, 3u );
+    CHECK( retirements.HighWater() == 3u );
+    retirements.ResetAfterShutdown();
+    CHECK( retirements.HighWater() == 0u );
+}
+
+
+TEST_CASE( "DX12 retirement exhaustion reports truthful queue and fence diagnostics" )
+{
+    ExpectFatalCase( "dx12-retirement-capacity",
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine",
+                       "capacity=512 count=512 high_water=512",
+                       "last_release_input=0 last_released=0 last_survivors=0",
+                       "fence_ready=0 last_completed_fence=0" } );
+    ExpectFatalCase( "dx12-retirement-release-snapshot",
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine",
+                       "capacity=512 count=512 high_water=512",
+                       "last_release_input=9 last_released=5 last_survivors=4",
+                       "fence_ready=1 last_completed_fence=77" } );
+    ExpectFatalCase( "dx12-retirement-reset-live-device",
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=device_reset", "count=1" } );
+    ExpectFatalCase( "dx12-retirement-reset-live-shutdown",
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=shutdown_reset", "count=1" } );
 }
 
 

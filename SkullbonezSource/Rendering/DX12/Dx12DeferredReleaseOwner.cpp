@@ -14,6 +14,7 @@ Glossary:
 
 Invariants:
   - Queue exhaustion is fatal with owner and high-water diagnostics; it never grows at runtime.
+  - The last release snapshot derives released rows from one input/survivor pair.
   - Unfenced retirement is legal only when submitted-work state proves no GPU reference remains.
   - Descriptor rows retire under the same fence proof as their associated resource.
 
@@ -26,40 +27,6 @@ Related:
 #include "../../Core/FatalError.h"
 
 using namespace SkullbonezCore::Rendering;
-
-void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind,
-                                           UINT cpuDescriptorIndex )
-{
-
-    if ( resource || descriptorIndex != UINT_MAX || cpuKind != Dx12CpuDescriptorKind::None )
-    {
-
-        if ( m_pendingCount >= MAX_PENDING_RETIREMENTS )
-        {
-            SB_FATAL( "Dx12DeferredReleaseOwner",
-                      "Retirement capacity exhausted. owner=Rendering/DX12 capacity=%zu high_water=%zu",
-                      MAX_PENDING_RETIREMENTS, m_pendingCount );
-        }
-
-        DeferredResourceReleaseDX12 retired;
-        retired.resource = resource;
-        retired.staticDescriptorIndex = descriptorIndex;
-        retired.cpuDescriptorKind = cpuKind;
-        retired.cpuDescriptorIndex = cpuDescriptorIndex;
-        m_pending[m_pendingCount++] = retired;
-    }
-}
-
-
-void Dx12DeferredReleaseOwner::QuarantineStaticDescriptor( UINT descriptorIndex )
-{
-
-    if ( descriptorIndex != UINT_MAX )
-    {
-        Quarantine( nullptr, descriptorIndex );
-    }
-}
-
 
 void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
 {
@@ -89,6 +56,7 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device, Dx12D
 {
     const bool fenceReady = device.FrameFence().IsReady();
     const UINT64 completedFence = fenceReady ? device.FrameFence().CompletedValue() : 0;
+    const size_t releaseInputCount = m_pendingCount;
 
     if ( fenceReady )
     {
@@ -97,6 +65,7 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device, Dx12D
 
     if ( m_pendingCount == 0 )
     {
+        m_diagnostics.ObserveRelease( releaseInputCount, 0, fenceReady, completedFence );
         return;
     }
 
@@ -150,6 +119,7 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device, Dx12D
         m_pending[index] = {};
     }
 
+    m_diagnostics.ObserveRelease( releaseInputCount, writeIndex, fenceReady, completedFence );
     m_pendingCount = writeIndex;
 }
 

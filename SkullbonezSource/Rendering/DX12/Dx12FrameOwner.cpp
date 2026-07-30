@@ -114,6 +114,7 @@ void Dx12FrameOwner::ResetForDevice()
     m_recording.ResetForDevice();
     m_submittedWork.ResetForDevice();
     m_deviceHealth.ResetForDevice();
+    m_retirement.ResetForDevice();
     m_profilerStackState.Reset();
     m_profilerScopes.fill( Dx12PlatformProfilerGpuScopeDX12() );
 
@@ -134,6 +135,7 @@ void Dx12FrameOwner::ResetForDevice()
 
 void Dx12FrameOwner::ResetAfterShutdown()
 {
+    m_retirement.ResetAfterShutdown();
     m_profilerStackState.Reset();
     m_profilerScopes.fill( Dx12PlatformProfilerGpuScopeDX12() );
 
