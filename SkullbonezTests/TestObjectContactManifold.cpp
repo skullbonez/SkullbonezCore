@@ -33,6 +33,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestResultLoadFixtures.h"
 
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
@@ -289,8 +290,10 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
 {
     const CollisionShape sphere = SphereShape( 2.0f );
     const CollisionShape box = BoxShape( Vector3( 2.0f, 2.0f, 2.0f ) );
-    const CollisionShape hull = SkullbonezCore::Math::CollisionDetection::ConvexHullShape::
-        LoadFromFile( diagnostics, "SkullbonezData/hulls/pyramid.hull" );
+    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hullShape;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
+        diagnostics, "SkullbonezData/hulls/pyramid.hull", hullShape ) );
+    const CollisionShape hull = hullShape;
 
     ObjectContactBodyView a;
     a.position = Vector3( 0.0f, 0.0f, 0.0f );

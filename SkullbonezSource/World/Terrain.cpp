@@ -723,15 +723,6 @@ float Terrain::GetTerrainHeightAt( float xPosition, float zPosition, bool isFlui
 }
 
 
-Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
-{
-    float terrainHeight = 0.0f;
-    Vector3 normal;
-    QueryCollisionData( xPosition, zPosition, terrainHeight, &normal, nullptr );
-    return normal;
-}
-
-
 void Terrain::GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Vector3& outNormal )
 {
     QueryCollisionData( xPosition, zPosition, outHeight, &outNormal, nullptr );

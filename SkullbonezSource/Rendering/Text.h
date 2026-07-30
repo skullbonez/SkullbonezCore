@@ -117,8 +117,7 @@ class Text2d
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
     // string accepts printf-style arguments.
-    static void Render2dText( TextBatch& batch, float xPosition, float yPosition, float fSize, const char* cRawText,
-                              ... );                                        // Queues white SDF text for this frame's text batch.
+    // Queues white SDF text for this frame's text batch.
     static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float fSize, float r, float g,
                                    float b, const char* cRawText,
                                    ... );                                   // Queues colored SDF text for this frame's text batch.

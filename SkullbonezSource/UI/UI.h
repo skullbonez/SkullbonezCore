@@ -265,7 +265,6 @@ class InGameUI
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );
-    void ToggleMaximizeMinimize( int screenW, int screenH, double now );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
@@ -280,9 +279,7 @@ class InGameUI
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
     void SetPerformanceHistogramEnabled( bool enabled );
-    bool IsPerformanceHistogramEnabled() const;
     void TogglePerformanceHistogramEnabled();
-    void SetMemoryOverlayEnabled( bool enabled );
     bool IsMemoryOverlayEnabled() const;
     void ToggleMemoryOverlayEnabled();
     bool NeedsUiTextPass() const;

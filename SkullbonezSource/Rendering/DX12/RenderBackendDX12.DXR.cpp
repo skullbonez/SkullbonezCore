@@ -152,10 +152,6 @@ bool Dx12RaytracingOwner::Initialized() const
     return m_commandList4 != nullptr && m_pipeline != nullptr && m_reflectionTexture != nullptr;
 }
 
-const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
-{
-    return m_featureResult.Current();
-}
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {

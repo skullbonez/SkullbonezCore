@@ -70,27 +70,6 @@ Matrix4::Matrix4( const float* values )
 }
 
 
-Matrix4 Matrix4::Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane )
-{
-    Matrix4 result;
-    float fovRad = fovDegrees * ( _PI / 180.0f );
-    float tanHalf = tanf( fovRad * 0.5f );
-
-    for ( int i = 0; i < 16; ++i )
-    {
-        result.m[i] = 0.0f;
-    }
-
-    result.m[0] = 1.0f / ( aspect * tanHalf );
-    result.m[5] = 1.0f / tanHalf;
-    result.m[10] = -( farPlane + nearPlane ) / ( farPlane - nearPlane );
-    result.m[11] = -1.0f;
-    result.m[14] = -( 2.0f * farPlane * nearPlane ) / ( farPlane - nearPlane );
-
-    return result;
-}
-
-
 Matrix4 Matrix4::PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane, float farPlane )
 {
     Matrix4 result;
@@ -223,12 +202,6 @@ Matrix4 Matrix4::Translate( float x, float y, float z )
 }
 
 
-Matrix4 Matrix4::Scale( const Vector3& v )
-{
-    return Scale( v.x, v.y, v.z );
-}
-
-
 Matrix4 Matrix4::Scale( float x, float y, float z )
 {
     Matrix4 result;
@@ -242,47 +215,6 @@ Matrix4 Matrix4::Scale( float x, float y, float z )
 Matrix4 Matrix4::Scale( float uniform )
 {
     return Scale( uniform, uniform, uniform );
-}
-
-
-Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axisZ )
-{
-    float rad = angleDeg * ( 3.14159265f / 180.0f );
-    float c = cosf( rad );
-    float s = sinf( rad );
-    float t = 1.0f - c;
-
-    // Normalise axis
-    float mag = sqrtf( axisX * axisX + axisY * axisY + axisZ * axisZ );
-
-    if ( mag > 0.0f )
-    {
-        axisX /= mag;
-        axisY /= mag;
-        axisZ /= mag;
-    }
-
-    Matrix4 result;
-    result.m[0] = t * axisX * axisX + c;
-    result.m[1] = t * axisX * axisY + s * axisZ;
-    result.m[2] = t * axisX * axisZ - s * axisY;
-    result.m[3] = 0.0f;
-
-    result.m[4] = t * axisX * axisY - s * axisZ;
-    result.m[5] = t * axisY * axisY + c;
-    result.m[6] = t * axisY * axisZ + s * axisX;
-    result.m[7] = 0.0f;
-
-    result.m[8] = t * axisX * axisZ + s * axisY;
-    result.m[9] = t * axisY * axisZ - s * axisX;
-    result.m[10] = t * axisZ * axisZ + c;
-    result.m[11] = 0.0f;
-
-    result.m[12] = 0.0f;
-    result.m[13] = 0.0f;
-    result.m[14] = 0.0f;
-    result.m[15] = 1.0f;
-    return result;
 }
 
 
@@ -342,177 +274,6 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
     };
 
     return Matrix4( r );
-}
-
-
-Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& N, float scale )
-{
-
-    // Fused single-pass evaluation of: T(tx,ty,tz) * RotFromUpToN * Scale(scale)
-    //
-    // WHY: The old shadow path called GetTerrainNormalAt (a second LocatePolygon walk),
-    // then built a rotation from world-up to N by computing acosf(N.y), converting the
-    // result to degrees, passing it into RotateAxis (which called cosf+sinf on the angle
-    // we just computed from acosf — immediately undoing the trig), then performed three
-    // separate Matrix4 multiplications.  This function fuses the entire chain into one
-    // pass with one sqrtf and zero transcendentals.
-    //
-    // ROTATION DERIVATION:
-    //   We need a rotation R such that R * (0,1,0) = N.
-    //   The rotation axis is the cross product of world-up and N:
-    //     axis = (0,1,0) × N = (0*N.z - 1*N.y, 1*N.x - 0*N.z, 0*N.y - 0*N.x)
-    //                        = (-N.y*0... wait: (0,1,0)×(Nx,Ny,Nz) = (1*Nz-0*Ny, 0*Nx-0*Nz, 0*Ny-1*Nx)
-    //                        = (N.z, 0, -N.x)
-    //   Magnitude of axis = sqrt(N.z² + N.x²) = sinA  (since |N|=1 and cosA = N.y)
-    //   Normalised axis:  ax = N.z/sinA,  ay = 0,  az = -N.x/sinA
-    //   cosA = N·up = N.y,  sinA = sqrt(N.x² + N.z²)
-    //
-    // RODRIGUES FORMULA for unit-axis (ax, 0, az), cos=c, sin=s, t=(1-c):
-    //   R = [ t·ax²+c     t·ax·ay - s·az    t·ax·az + s·ay ]
-    //       [ t·ay·ax+s·az   t·ay²+c      t·ay·az - s·ax   ]
-    //       [ t·az·ax - s·ay  t·az·ay+s·ax    t·az²+c      ]
-    //
-    //   With ay = 0, simplify each element:
-    //     R[0][0] = t·ax²+c              R[0][1] = -s·az = N.x/sinA·sinA = N.x   R[0][2] = t·ax·az
-    //     R[1][0] = s·az  = -N.x         R[1][1] =  c = N.y                       R[1][2] = -s·ax = -N.z
-    //     R[2][0] = t·az·ax              R[2][1] =  s·ax = N.z                    R[2][2] = t·az²+c
-    //
-    //   Observation: column 1 of R = (-s·az, c, s·ax) = (N.x, N.y, N.z) = N.
-    //   Column 1 IS the terrain normal — already held in N, no multiply needed.
-    //   s·az and s·ax also simplify to -N.x and N.z respectively (substituted directly).
-    //
-    //   Multiplying each direction column by 'scale' and setting col3 = (tx,ty,tz,1)
-    //   gives the complete TRS matrix in memory layout:
-    //     col0 = (t·ax²+c, -N.x,    t·ax·az) * scale
-    //     col1 = (N.x,      N.y,    N.z    ) * scale   ← the terrain normal itself
-    //     col2 = (t·ax·az, -N.z,   t·az²+c ) * scale
-    //     col3 = (tx, ty, tz, 1)
-    //
-    // COST: 1 sqrtf + ~20 FP ops.  Old path: acosf + 2× (cosf+sinf) + 3× Matrix4 multiply.
-    //
-    // The Debug path below performs each step individually for debugger visibility;
-    // it is numerically equivalent within float tolerance. Its trig path can
-    // retain tiny sin(pi) residuals where the fused path writes exact zeros.
-#ifdef _DEBUG
-
-    // Debug: step-by-step — shows the mathematical composition being fused.
-    // The acosf→degrees→RotateAxis round-trip recovers cosf/sinf from the angle we
-    // derived from acosf — the exact waste the release path eliminates.
-    Matrix4 model = Translate( tx, ty, tz );
-    const float cosA = SkullbonezCore::Math::ClampUnit( N.y );
-
-    if ( cosA <= -0.9999f )
-    {
-
-        // A fully inverted normal has no unique horizontal rotation axis.
-        // World X is deterministic and produces the required antiparallel up.
-        model = model * RotateAxis( 180.0f, 1.0f, 0.0f, 0.0f );
-    }
-    else if ( cosA < 0.9999f )
-    {
-        float axisX = N.z;
-        float axisZ = -N.x;
-        float axisMag = sqrtf( axisX * axisX + axisZ * axisZ );
-        axisX /= axisMag;
-        axisZ /= axisMag;
-        float angleDeg = acosf( cosA ) * ( 180.0f / 3.14159265f );
-        model = model * RotateAxis( angleDeg, axisX, 0.0f, axisZ );
-    }
-
-    return model * Scale( scale );
-#else
-
-    // c = cosA = N·up = N.y (dot product of two unit vectors, one of which is (0,1,0))
-    const float c = SkullbonezCore::Math::ClampUnit( N.y );
-    float res[16];
-
-    if ( c >= 0.9999f )
-    {
-
-        // Terrain is within ~0.8° of flat — rotation is effectively identity.
-        // R = I, so the TRS result is just a uniform scale placed at (tx,ty,tz).
-        res[0] = scale;
-        res[1] = 0.0f;
-        res[2] = 0.0f;
-        res[3] = 0.0f;
-        res[4] = 0.0f;
-        res[5] = scale;
-        res[6] = 0.0f;
-        res[7] = 0.0f;
-        res[8] = 0.0f;
-        res[9] = 0.0f;
-        res[10] = scale;
-        res[11] = 0.0f;
-    }
-    else if ( c <= -0.9999f )
-    {
-
-        // Antiparallel world-up has infinitely many valid horizontal axes.
-        // Choose world X so a zero cross-product never reaches the divisions below.
-        res[0] = scale;
-        res[1] = 0.0f;
-        res[2] = 0.0f;
-        res[3] = 0.0f;
-        res[4] = 0.0f;
-        res[5] = -scale;
-        res[6] = 0.0f;
-        res[7] = 0.0f;
-        res[8] = 0.0f;
-        res[9] = 0.0f;
-        res[10] = -scale;
-        res[11] = 0.0f;
-    }
-    else
-    {
-
-        // sinA = |axis| = sqrt(N.x² + N.z²).  With |N|=1 and c=N.y: sinA = sqrt(1-c²).
-        const float sinA = sqrtf( N.x * N.x + N.z * N.z );
-        const float t = 1.0f - c; // Rodrigues (1-cos) factor
-
-        // Normalised axis components: ax = N.z/sinA,  az = -N.x/sinA
-        const float ax = N.z / sinA;
-
-        const float az = -N.x / sinA;
-
-        // Rodrigues diagonal and off-diagonal terms (factored to avoid repeating ax²,az²,ax·az)
-        const float tax2 = t * ax * ax; // t·ax²     → contributes to R[0][0]
-        const float taz2 = t * az * az; // t·az²     → contributes to R[2][2]
-
-        const float taxz = t * ax * az; // t·ax·az   → off-diagonal shared by R[0][2] and R[2][0]
-
-        // Column-major assignment  (res[col*4 + row]):
-        // col0 = (t·ax²+c,  -N.x,  t·ax·az, 0) * scale
-        res[0] = ( tax2 + c ) * scale; // R[0][0] = t·ax²+c
-        res[1] = -N.x * scale;         // R[1][0] = s·az  = -(N.x/sinA)·sinA = -N.x
-
-        res[2] = taxz * scale; // R[2][0] = t·ax·az
-
-        res[3] = 0.0f;
-
-        // col1 = N * scale  (the terrain normal IS the rotated-up axis — see derivation above)
-        res[4] = N.x * scale; // R[0][1] = -s·az = N.x
-        res[5] = N.y * scale; // R[1][1] = c     = N.y
-
-        res[6] = N.z * scale; // R[2][1] = s·ax  = (N.z/sinA)·sinA = N.z
-
-        res[7] = 0.0f;
-
-        // col2 = (t·ax·az,  -N.z,  t·az²+c, 0) * scale
-        res[8] = taxz * scale; // R[0][2] = t·ax·az
-        res[9] = -N.z * scale; // R[1][2] = -s·ax = -N.z
-
-        res[10] = ( taz2 + c ) * scale; // R[2][2] = t·az²+c
-
-        res[11] = 0.0f;
-    }
-
-    // col3: translation (homogeneous row = 1)
-    res[12] = tx;
-    res[13] = ty;
-    res[14] = tz;
-    res[15] = 1.0f;
-    return Matrix4( res );
-#endif
 }
 
 

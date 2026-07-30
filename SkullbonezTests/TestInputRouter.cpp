@@ -73,10 +73,25 @@ RuntimeInputContextMask Context( RuntimeInputBindingContext context )
 }
 
 
+InputKeySnapshot SnapshotFromDownKeys( std::initializer_list<int> downKeys )
+{
+    std::array<uint64_t, InputKeySnapshot::WORD_COUNT> words = {};
+    for ( const int virtualKey : downKeys )
+    {
+        if ( virtualKey >= 0 && virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
+        {
+            words[static_cast<std::size_t>( virtualKey ) / 64u] |=
+                uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) % 64u );
+        }
+    }
+    return InputKeySnapshot::FromWords( words );
+}
+
+
 DeviceInputFrame FocusedFrame( std::initializer_list<int> downKeys, bool leftDown = false, bool rightDown = false )
 {
     DeviceInputFrame frame;
-    frame.keys = InputKeySnapshot::FromDownKeys( downKeys.begin(), downKeys.size() );
+    frame.keys = SnapshotFromDownKeys( downKeys );
     frame.appFocused = true;
     frame.leftDown = leftDown;
     frame.rightDown = rightDown;
@@ -128,8 +143,7 @@ TEST_CASE( "Input router: world pointer arbitration exhaustively preserves produ
 
 TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual keys" )
 {
-    const int downKeys[] = { -1, 0, 'A', 255, 256 };
-    const InputKeySnapshot snapshot = InputKeySnapshot::FromDownKeys( downKeys, 5 );
+    const InputKeySnapshot snapshot = SnapshotFromDownKeys( { -1, 0, 'A', 255, 256 } );
 
     CHECK( snapshot.IsDown( 0 ) );
     CHECK( snapshot.IsDown( 'A' ) );
@@ -238,7 +252,7 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output, UiInputCaptureIntent { true, true, true } );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );
     CHECK_FALSE( router.DeviceFrame().keys.IsDown( 'A' ) );
     CHECK_FALSE( router.DeviceFrame().leftDown );
@@ -247,12 +261,12 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
     // resynchronizes levels instead of manufacturing a press.
     router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
     CHECK( output.mouse.leftReleased );
 
     router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
@@ -263,13 +277,10 @@ TEST_CASE( "Input router: captured tool input requires release and repress befor
 }
 
 
-TEST_CASE( "Input router: semantic context and action storage belong to the router" )
+TEST_CASE( "Input router: action storage belongs to the router" )
 {
     SbDiagnosticStore diagnostics;
     InputRouter router { diagnostics };
-    const InputRouter& constRouter = router;
-    CHECK( &router.RuntimeContext() == &constRouter.RuntimeContext() );
-    CHECK( &router.Actions() == &constRouter.Actions() );
 
     router.BeginFrame( FocusedFrame( {}, true ), RuntimeInputKeyBindingView {}, router.Actions() );
     CHECK( router.Actions().mouse.leftPressed );
@@ -331,15 +342,15 @@ TEST_CASE( "Input router: inactive context advances memory and prevents ghost pr
 
     router.BeginFrame( FocusedFrame( { 'M' } ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, keyboard, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { 'M' } ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, launcher, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, launcher, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { 'M' } ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, launcher, output );
@@ -363,15 +374,15 @@ TEST_CASE( "Input router: UI refusal requires release and repress" )
 
     router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
     router.RoutePhase( view, InputActionPhase::AfterUi, 0u, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
     router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { VK_ESCAPE } ), view, output );
     router.RoutePhase( view, InputActionPhase::AfterUi, accepted, output );
@@ -404,7 +415,7 @@ TEST_CASE( "Input router: simultaneous actions cannot activate a sibling context
 }
 
 
-TEST_CASE( "Input router: quick-repeat timing is action-owned and resettable" )
+TEST_CASE( "Input router: quick-repeat timing is action-owned" )
 {
     SbDiagnosticStore diagnostics;
     InputRouter router { diagnostics };
@@ -415,8 +426,6 @@ TEST_CASE( "Input router: quick-repeat timing is action-owned and resettable" )
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.33, 0.32 ) );
     CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::ToggleEditor, 10.1, 0.32 ) );
 
-    router.Reset();
-    CHECK_FALSE( router.IsQuickRepeat( RuntimeInputAction::DismissOrExitUI, 10.1, 0.32 ) );
 }
 
 
@@ -432,15 +441,15 @@ TEST_CASE( "Input router: a skipped capture phase cannot replay a stale press" )
     InputActions output;
 
     router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
     router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { VK_F3 } ), view, output );
     router.RoutePhase( view, InputActionPhase::Capture, 0u, output );
@@ -549,7 +558,7 @@ TEST_CASE( "Input router: context exit releases an accepted held action" )
 
     router.BeginFrame( FocusedFrame( { 'M' } ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, launcher, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 }
 
 
@@ -633,18 +642,18 @@ TEST_CASE( "Input router: focus loss cancels once and refocus resynchronizes hel
 
     router.BeginFrame( UnfocusedFrame(), view, output );
     CHECK_FALSE( output.focusLost );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
 
     router.BeginFrame( FocusedFrame( { 'A' }, true, true ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
     CHECK( output.focusGained );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
     CHECK_FALSE( output.mouse.leftPressed );
     CHECK_FALSE( output.mouse.rightPressed );
 
     router.BeginFrame( FocusedFrame( {} ), view, output );
     router.RoutePhase( view, InputActionPhase::PreUi, active, output );
-    CHECK( output.Empty() );
+    CHECK( output.Count() == 0 );
     CHECK( output.mouse.leftReleased );
     CHECK( output.mouse.rightReleased );
 

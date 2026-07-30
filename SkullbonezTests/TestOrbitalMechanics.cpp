@@ -29,8 +29,6 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Orbital::ElementsFromState;
-using SkullbonezCore::Math::Orbital::HohmannDepartureDeltaV;
-using SkullbonezCore::Math::Orbital::HohmannTransferSeconds;
 using SkullbonezCore::Math::Orbital::LambertSolution;
 using SkullbonezCore::Math::Orbital::OrbitalElements;
 using SkullbonezCore::Math::Orbital::OrbitalStatus;
@@ -44,6 +42,29 @@ namespace
 constexpr float PI = 3.14159265358979323846f;
 constexpr float MU = 40000.0f;
 constexpr float EARTH_RADIUS = 80.0f;
+
+float HohmannTransferSeconds( float r1, float r2, float mu )
+{
+    if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
+    {
+        return 0.0f;
+    }
+    const float semiMajorAxis = 0.5f * ( r1 + r2 );
+    return PI * std::sqrt( semiMajorAxis * semiMajorAxis * semiMajorAxis / mu );
+}
+
+
+float HohmannDepartureDeltaV( float r1, float r2, float mu )
+{
+    if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
+    {
+        return 0.0f;
+    }
+    const float circularSpeed = std::sqrt( mu / r1 );
+    const float transferSpeed = circularSpeed * std::sqrt( 2.0f * r2 / ( r1 + r2 ) );
+    return transferSpeed - circularSpeed;
+}
+
 
 void CheckVectorNear( const Vector3& value, const Vector3& expected, float epsilon = 0.0005f )
 {

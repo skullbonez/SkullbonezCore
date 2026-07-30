@@ -80,19 +80,6 @@ SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavig
 }
 
 
-SceneLoadRequest LoadDemoScene( SceneSession& scene )
-{
-    const int demoIndex = scene.FindGeneratedDemo();
-
-    if ( demoIndex >= 0 )
-    {
-        return SceneLoadRequest::Load( demoIndex, true, true, false, true );
-    }
-
-    return SceneLoadRequest::Load( scene.Append( "" ), true, true, false, true );
-}
-
-
 int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
                                        int currentSceneBrowserIndex, bool isCinematicTabActive )
 {

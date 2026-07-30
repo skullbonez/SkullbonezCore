@@ -560,21 +560,9 @@ bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObj
 }
 
 
-const RenderInstanceRecord* RenderInstanceStore::Data() const
-{
-    return m_instances.empty() ? nullptr : m_instances.data();
-}
-
-
 int RenderInstanceStore::Count() const
 {
     return static_cast<int>( m_instances.size() );
-}
-
-
-bool RenderInstanceStore::Empty() const
-{
-    return m_instances.empty();
 }
 
 

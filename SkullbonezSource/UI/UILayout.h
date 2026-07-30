@@ -107,7 +107,6 @@ float SceneTabComboWidth( float contentW );
 void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y );
 
 UIRect MinimizedRect( int screenW, int screenH, float requestedW );
-float MinimizedWidthForTitle( const char* title, int screenW );
 float GravityStrengthFromWorld( float gravity );
 float WorldGravityFromStrength( float strength );
 int RemainingSceneObjectSlots( int modelCapacity, int otherCount );

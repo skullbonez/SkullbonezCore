@@ -30,6 +30,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestResultLoadFixtures.h"
 
 #include "../SkullbonezSource/Physics/ConvexHullShape.h"
 
@@ -48,6 +49,7 @@ SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullEdge;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullFace;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
 
@@ -126,7 +128,8 @@ bool WriteHullVersionFixture( unsigned int version )
 
 TEST_CASE( "ConvexHull: pyramid fixture loads baked identity and mass properties" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
+    ConvexHullShape hull;
+    REQUIRE( TryLoadConvexHull( diagnostics, kPyramidHullPath, hull ) );
 
     CHECK( std::string( hull.GetName() ) == "pyramid" );
     CHECK( hull.GetVertexCount() == 5 );
@@ -147,7 +150,8 @@ TEST_CASE( "ConvexHull: pyramid fixture loads baked identity and mass properties
 
 TEST_CASE( "ConvexHull: pyramid fixture exposes baked vertices and face spans" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
+    ConvexHullShape hull;
+    REQUIRE( TryLoadConvexHull( diagnostics, kPyramidHullPath, hull ) );
 
     CheckVectorNear( hull.GetVertex( 0 ), Vector3( -5.0f, -2.5f, -5.0f ) );
     CheckVectorNear( hull.GetVertex( 4 ), Vector3( 0.0f, 7.5f, 0.0f ) );
@@ -166,7 +170,8 @@ TEST_CASE( "ConvexHull: pyramid fixture exposes baked vertices and face spans" )
 
 TEST_CASE( "ConvexHull: pyramid fixture topology references live vertices and adjacent faces" )
 {
-    const ConvexHullShape hull = ConvexHullShape::LoadFromFile( diagnostics, kPyramidHullPath );
+    ConvexHullShape hull;
+    REQUIRE( TryLoadConvexHull( diagnostics, kPyramidHullPath, hull ) );
 
     for ( uint16_t faceIndex = 0; faceIndex < hull.GetFaceCount(); ++faceIndex )
     {

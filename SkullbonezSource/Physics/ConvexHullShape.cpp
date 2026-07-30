@@ -894,18 +894,6 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-ConvexHullShape ConvexHullShape::LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path )
-{
-    ConvexHullShape hull;
-    const SkullbonezCore::Core::SbResult result = TryLoadFromFile( diagnostics, path, hull );
-
-    if ( !result.Ok() )
-    {
-        SB_FATAL( HULL_LOAD_OWNER, "%s", result.ErrorMessage() );
-    }
-
-    return hull;
-}
 
 Matrix4 ConvexHullShape::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
@@ -923,21 +911,6 @@ float ConvexHullShape::GetDefaultMass() const
     return Physics::ClampPositiveMass( m_defaultMass );
 }
 
-float ConvexHullShape::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
-{
-
-    if ( m_position.y - m_boundingRadius >= fluidSurfaceHeight )
-    {
-        return 0.0f;
-    }
-
-    if ( m_position.y + m_boundingRadius <= fluidSurfaceHeight )
-    {
-        return 1.0f;
-    }
-
-    return 0.5f;
-}
 
 float ConvexHullShape::GetDragCoefficient() const
 {

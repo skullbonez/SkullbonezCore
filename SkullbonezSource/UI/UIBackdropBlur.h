@@ -52,7 +52,6 @@ class UIBackdropBlur
                bool enabled );
     void Invalidate( UIBackdropBlurInvalidationReason reason = UIBackdropBlurInvalidationReason::Unknown );
     void ResetResources();
-    UIBackdropBlurInvalidationReason LastInvalidationReason() const;
 
   private:
     int m_lastScreenW = 0;

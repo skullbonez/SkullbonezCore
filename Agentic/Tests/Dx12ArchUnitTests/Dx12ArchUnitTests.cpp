@@ -183,6 +183,24 @@ Dx12DescriptorAllocator MakeDescriptorAllocator()
     return allocator;
 }
 
+// Why: graph compilation and DX12 barrier emission are separate owners. Tests
+// adapt one compiled edge to the surviving single-transition boundary instead
+// of rebuilding the retired whole-graph executor.
+Dx12RenderGraphBarrierRecord ExecuteCompiledTransitionForTest( const RenderGraph& graph,
+                                                               const RenderGraphTransitionDesc& transition,
+                                                               const Dx12RenderGraphExecutionDesc& execution )
+{
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = execution.commandList;
+    desc.resource = transition.nativeResource.As<ID3D12Resource>();
+    desc.before = transition.before;
+    desc.after = transition.after;
+    desc.subresource = transition.subresource;
+
+    return ExecuteDx12RenderGraphSingleTransition( execution.sourcePrefix, graph.Passes()[transition.passIndex].name,
+                                                    graph.Resources()[transition.resource.index].name, desc );
+}
+
 Dx12CommandRecordingState MakeOpenCommandState()
 {
     Dx12CommandRecordingState state( diagnostics );
@@ -686,26 +704,6 @@ void TestDescriptorTransientRangeIsContiguous()
     EXPECT_EQ( frameOneStats.currentFrame, 1u );
 }
 
-void TestDescriptorTransientRangeCapacityProbeIsAtomic()
-{
-    Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
-
-    allocator.ResetFrame( 0 );
-    EXPECT_EQ( allocator.AllocateTransientRange( 7 ), 4u );
-
-    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 2 ) );
-
-    const Dx12DescriptorAllocatorStats afterFailedRange = allocator.GetStats();
-    EXPECT_EQ( afterFailedRange.transientUsedThisFrame, 7u );
-    EXPECT_EQ( afterFailedRange.transientPeakThisRun, 7u );
-
-    EXPECT_TRUE( !allocator.CanAllocateTransientRange( 0 ) );
-
-    const Dx12DescriptorAllocatorStats afterZeroRange = allocator.GetStats();
-    EXPECT_EQ( afterZeroRange.transientUsedThisFrame, 7u );
-    EXPECT_EQ( afterZeroRange.transientPeakThisRun, 7u );
-}
-
 void TestStaticDescriptorRowsReuseWithStableHighWater()
 {
     Dx12DescriptorAllocator allocator = MakeDescriptorAllocator();
@@ -823,12 +821,13 @@ void TestRenderGraphTracksSubresourceTransitionsIndependently()
     EXPECT_TRUE( compiled.transitions[2].before == RenderGraphResourceAccess::UnorderedAccess );
     EXPECT_TRUE( compiled.transitions[2].after == RenderGraphResourceAccess::PixelShaderResource );
 
-    Dx12RenderGraphExecutionDesc desc;
-    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
-    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 3 ) );
-    EXPECT_EQ( result.barriers[0].subresource, 1u );
-    EXPECT_EQ( result.barriers[1].subresource, 2u );
-    EXPECT_EQ( result.barriers[2].subresource, 1u );
+    Dx12RenderGraphExecutionDesc execution;
+    const Dx12RenderGraphBarrierRecord first = ExecuteCompiledTransitionForTest( graph, compiled.transitions[0], execution );
+    const Dx12RenderGraphBarrierRecord second = ExecuteCompiledTransitionForTest( graph, compiled.transitions[1], execution );
+    const Dx12RenderGraphBarrierRecord third = ExecuteCompiledTransitionForTest( graph, compiled.transitions[2], execution );
+    EXPECT_EQ( first.subresource, 1u );
+    EXPECT_EQ( second.subresource, 2u );
+    EXPECT_EQ( third.subresource, 1u );
 }
 
 void TestRenderGraphAllowsUniformSpecificThenAllSubresourceTransition()
@@ -987,7 +986,9 @@ void TestRenderGraphExecutesCallbacksInPassOrder()
     graph.AddWrite( secondPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
     graph.SetPassCallback<RecordRenderGraphCallback>( secondPass, trace, true, "second" );
 
-    const RenderGraphCallbackExecutionResult result = graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, 0u,
+                                static_cast<uint32_t>( graph.Passes().size() ) );
 
     EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 2 ) );
     EXPECT_EQ( result.declarationOnlyPassCount, static_cast<size_t>( 1 ) );
@@ -1095,7 +1096,9 @@ void TestRenderGraphDryRunValidatesCallbacksWithoutExecuting()
     graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
     graph.SetPassCallback<RecordRenderGraphCallback>( pass, trace, true, "dry-run" );
 
-    const RenderGraphCallbackExecutionResult result = graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun, 0u,
+                                static_cast<uint32_t>( graph.Passes().size() ) );
 
     EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 1 ) );
     EXPECT_EQ( result.dryRunValidatedPassCount, static_cast<size_t>( 1 ) );
@@ -1113,7 +1116,9 @@ void TestRenderGraphDisabledCallbackDoesNotExecute()
     graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
     graph.SetPassCallback<RecordRenderGraphCallback>( pass, trace, false, "disabled" );
 
-    const RenderGraphCallbackExecutionResult result = graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
+    const RenderGraphCallbackExecutionResult result =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, 0u,
+                                static_cast<uint32_t>( graph.Passes().size() ) );
 
     EXPECT_EQ( result.callbackPassCount, static_cast<size_t>( 1 ) );
     EXPECT_EQ( result.disabledCallbackPassCount, static_cast<size_t>( 1 ) );
@@ -1168,21 +1173,22 @@ void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
     desc.mode = Dx12RenderGraphExecutionMode::DryRun;
     desc.sourcePrefix = "GraphDryRun";
 
-    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+    const Dx12RenderGraphBarrierRecord draw =
+        ExecuteCompiledTransitionForTest( graph, compiled.transitions[0], desc );
+    const Dx12RenderGraphBarrierRecord present =
+        ExecuteCompiledTransitionForTest( graph, compiled.transitions[1], desc );
 
-    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 2 ) );
-    EXPECT_EQ( result.transitionBarrierCount, static_cast<size_t>( 2 ) );
-    EXPECT_EQ( result.emittedTransitionBarrierCount, static_cast<size_t>( 0 ) );
-    EXPECT_EQ( result.missingNativeResourceTransitionCount, static_cast<size_t>( 0 ) );
+    EXPECT_TRUE( draw.beforeState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_TRUE( draw.afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+    EXPECT_TRUE( !draw.emitted );
+    EXPECT_TRUE( draw.hasNativeResource );
+    EXPECT_EQ( draw.source, std::string( "GraphDryRun:Draw" ) );
 
-    EXPECT_TRUE( result.barriers[0].beforeState == D3D12_RESOURCE_STATE_PRESENT );
-    EXPECT_TRUE( result.barriers[0].afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
-    EXPECT_TRUE( !result.barriers[0].emitted );
-    EXPECT_EQ( result.barriers[0].source, std::string( "GraphDryRun:Draw" ) );
-
-    EXPECT_TRUE( result.barriers[1].beforeState == D3D12_RESOURCE_STATE_RENDER_TARGET );
-    EXPECT_TRUE( result.barriers[1].afterState == D3D12_RESOURCE_STATE_PRESENT );
-    EXPECT_EQ( result.barriers[1].source, std::string( "GraphDryRun:Present" ) );
+    EXPECT_TRUE( present.beforeState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+    EXPECT_TRUE( present.afterState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_TRUE( !present.emitted );
+    EXPECT_TRUE( present.hasNativeResource );
+    EXPECT_EQ( present.source, std::string( "GraphDryRun:Present" ) );
 }
 
 void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
@@ -1196,12 +1202,7 @@ void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
     graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
 
     const RenderGraphCompileResult compiled = graph.Compile();
-    Dx12RenderGraphExecutionDesc desc;
-    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
-
     EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 0 ) );
-    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 0 ) );
-    EXPECT_EQ( result.unknownStateTransitionCount, static_cast<size_t>( 0 ) );
 }
 
 void TestDx12RenderGraphExecutorIdentifiesUavAccess()
@@ -1217,13 +1218,12 @@ void TestDx12RenderGraphExecutorIdentifiesUavAccess()
 
     const RenderGraphCompileResult compiled = graph.Compile();
     Dx12RenderGraphExecutionDesc desc;
-    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteCompiledTransitionForTest( graph, compiled.transitions[0], desc );
 
-    EXPECT_EQ( result.barrierCount, static_cast<size_t>( 1 ) );
-    EXPECT_EQ( result.uavAccessTransitionCount, static_cast<size_t>( 1 ) );
-    EXPECT_TRUE( result.barriers[0].requiresUavOrderingReview );
-    EXPECT_TRUE( result.barriers[0].beforeState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
-    EXPECT_TRUE( result.barriers[0].afterState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
+    EXPECT_TRUE( record.requiresUavOrderingReview );
+    EXPECT_TRUE( record.beforeState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+    EXPECT_TRUE( record.afterState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
 }
 
 void TestDx12SingleTransitionRequiresCommandListForEmit()
@@ -1381,7 +1381,7 @@ bool RunFatalCase( const char* caseName )
         RenderGraphCallbackTrace trace;
         const uint32_t callbackPass = callbackGraph.AddPass( "MissingDeclarations" );
         callbackGraph.SetPassCallback<RecordRenderGraphCallback>( callbackPass, trace );
-        (void)callbackGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
+        (void)callbackGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun, 0u, 1u );
     }
     else
     {
@@ -1566,7 +1566,6 @@ const TestCase kTests[] = {
     { "Fault injection blocks first and subsequent submissions", TestFaultInjectionBlocksFirstAndSubsequentSubmissions },
     { "Unarmed fault injection allows submission accounting", TestUnarmedFaultInjectionAllowsSubmissionAccounting },
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
-    { "Descriptor transient range capacity probes are atomic", TestDescriptorTransientRangeCapacityProbeIsAtomic },
     { "Static descriptor rows reuse with stable high-water", TestStaticDescriptorRowsReuseWithStableHighWater },
     { "Texture handle generations reject reused-slot aliases", TestTextureHandleGenerationRejectsReusedSlotAlias },
     { "Render graph skips Unknown initial transitions", TestRenderGraphSkipsUnknownInitialTransition },

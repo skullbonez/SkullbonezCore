@@ -102,7 +102,6 @@ class TextureCollection
     SkullbonezCore::Core::SbResult EnsureTexture( uint32_t hash );
     SkullbonezCore::Core::SbResult SelectTexture( uint32_t hash );
     TextureHandleResult GetTextureHandle( uint32_t hash );
-    int NumFreeTextureSpaces() const;
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
     SkullbonezCore::Core::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );

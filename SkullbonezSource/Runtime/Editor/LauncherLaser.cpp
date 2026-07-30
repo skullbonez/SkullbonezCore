@@ -107,11 +107,6 @@ void LauncherLaser::ResetResources( Rendering::Dx12GeometryOwner* renderGeometry
     m_rasterStatePrepared = false;
 }
 
-void LauncherLaser::Clear()
-{
-    m_shots = {};
-    m_nextShot = 0;
-}
 
 void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                      Rendering::Dx12GeometryOwner& renderGeometry )

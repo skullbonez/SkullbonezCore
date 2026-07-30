@@ -13,10 +13,10 @@ Summary:
   reported row reviewable without turning the population into a count budget.
 
 Mental model:
-  This is a review inventory, not a linker. A row means no call with the same
-  final name and permitted arity exists in another first-party production file.
-  The row still names lexical uncertainty; MR0-style compiler-symbol evidence
-  remains appropriate before deleting an overload or callback seam.
+  This is a review inventory, not a linker. A row means no decorated-object or
+  unique source edge roots the definition through the current production relay
+  graph. The row still names lexical uncertainty; owner evidence remains
+  appropriate before deleting a virtual, configured, or callback seam.
 
 Glossary:
   External production caller: A call-shaped occurrence in a different
@@ -25,7 +25,8 @@ Glossary:
   Test-only: A definition reached by SkullbonezTests or Agentic/Tests but not
     by another production translation unit.
   Permitted arity: Every argument count from the required parameter count
-    through the declared parameter count when trailing defaults exist.
+    through the declared parameter count when trailing defaults exist, or every
+    count at or above the fixed prefix for a variadic operation.
   Current ruling: Owner judgement keyed by definition file and normalized
     signature; moving or changing the symbol invalidates it.
 
@@ -37,9 +38,15 @@ Invariants:
   - Comments, literals, and preprocessor directive text cannot manufacture
     definitions or calls. Calls in conditional bodies remain visible so
     Debug-only and platform-only seams are not reported as unreferenced.
-  - Debug/Profile objects own production and SKULLBONEZ_TESTS edges. Standalone
+  - Automation/Debug/Profile objects own production and SKULLBONEZ_TESTS edges.
+    Unique
+    cross-TU source calls supplement relocations erased by inlining, while
+    constructors, destructors, callbacks, and other non-reportable functions
+    relay roots without entering the reported population. Standalone
     Agentic/Tests projects contribute masked lexical test edges because their
-    objects live outside those two configuration roots.
+    objects live outside those three configuration roots.
+  - Compiler-generated adapter identities and emitted template specialization
+    sets may root one source definition; they never become separate ruling rows.
   - Overloads with different arities are evaluated independently.
   - Every current row needs an exact ruling, and every stale ruling fails strict
     mode. The row count is never an allowance, ceiling, or ratchet.
@@ -50,7 +57,7 @@ Related:
   - tools/cpp_source_scan.py
   - tools/inventory_wide_signatures.py
   - Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md
-  - Agentic/Plans/TODO/unreachable-symbol-remediation.md
+  - Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md
 """
 
 from __future__ import annotations
@@ -116,7 +123,9 @@ def _tracked_files(repo: Path, roots: Iterable[str]) -> list[Path]:
     return [
         repo / relative
         for relative in relative_paths
-        if relative and Path(relative).suffix.lower() in SOURCE_SUFFIXES
+        if relative
+        and Path(relative).suffix.lower() in SOURCE_SUFFIXES
+        and (repo / relative).is_file()
     ]
 
 
@@ -131,7 +140,7 @@ def _required_arity(candidate: Candidate) -> int:
     return sum(
         1
         for parameter in candidate.parameters
-        if strip_top_level_default(parameter) == parameter
+        if parameter != "..." and strip_top_level_default(parameter) == parameter
     )
 
 
@@ -152,8 +161,20 @@ def _declaration_required_arities(
     return required_arities
 
 
+def _anonymous_namespace_spans(masked: str) -> list[tuple[int, int]]:
+    brace_pairs = matching_pairs(masked, "{", "}")
+    spans: list[tuple[int, int]] = []
+    for match in re.finditer(r"\bnamespace\s*\{", masked):
+        opening = masked.find("{", match.start(), match.end())
+        closing = brace_pairs.get(opening)
+        if closing is not None:
+            spans.append((opening, closing))
+    return spans
+
+
 def _eligible_definitions(
     candidates_by_file: dict[Path, list[Candidate]],
+    masked_by_file: dict[Path, str],
 ) -> list[tuple[Path, Candidate]]:
     declarations = _declaration_required_arities(candidates_by_file)
 
@@ -161,16 +182,90 @@ def _eligible_definitions(
     for path, candidates in candidates_by_file.items():
         if path.suffix.lower() != ".cpp":
             continue
+        anonymous_spans = _anonymous_namespace_spans(masked_by_file[path])
         for candidate in candidates:
             if (
                 candidate.is_definition
                 and candidate.kind != "constructor"
                 and not candidate.simple_name.startswith("~")
                 and not candidate.simple_name.startswith("operator")
+                and not any(
+                    opening < candidate.opening_paren < closing
+                    for opening, closing in anonymous_spans
+                )
                 and _identity(candidate) in declarations
             ):
                 definitions.append((path, candidate))
     return definitions
+
+
+def _graph_definitions(
+    candidates_by_file: dict[Path, list[Candidate]],
+    masked_by_file: dict[Path, str],
+    repo: Path,
+) -> list[tuple[Path, Candidate]]:
+    definitions = [
+        (path, candidate)
+        for path, candidates in candidates_by_file.items()
+        if path.suffix.lower() == ".cpp"
+        for candidate in candidates
+        if candidate.is_definition
+    ]
+    for path, masked in masked_by_file.items():
+        if path.suffix.lower() == ".cpp":
+            definitions.extend(
+                (path, candidate)
+                for candidate in _lifecycle_candidates(path, repo, masked)
+            )
+    return definitions
+
+
+def _lifecycle_candidates(
+    path: Path,
+    repo: Path,
+    masked: str,
+) -> list[Candidate]:
+    """Supply out-of-class constructors/destructors as graph-only relays."""
+    paren_pairs = matching_pairs(masked, "(", ")")
+    brace_pairs = matching_pairs(masked, "{", "}")
+    pattern = re.compile(
+        r"\b(?P<scope>(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)::"
+        r"(?P<name>~?[A-Za-z_]\w*)\s*(?P<opening>\()"
+    )
+    candidates: list[Candidate] = []
+    for match in pattern.finditer(masked):
+        class_name = match.group("scope").split("::")[-1]
+        name = match.group("name")
+        if name.lstrip("~") != class_name:
+            continue
+        opening = match.start("opening")
+        closing = paren_pairs.get(opening)
+        if closing is None:
+            continue
+        parameters = tuple(
+            normalize_space(parameter)
+            for parameter in split_top_level(masked[opening + 1 : closing])
+        )
+        qualified_name = f"{match.group('scope')}::{name}"
+        candidate = Candidate(
+            file=str(path.relative_to(repo)).replace("\\", "/"),
+            line=masked.count("\n", 0, match.start("scope")) + 1,
+            qualified_name=qualified_name,
+            simple_name=name,
+            scope_hint=class_name,
+            kind="destructor" if name.startswith("~") else "constructor",
+            arity=len(parameters),
+            parameters=parameters,
+            signature=normalize_space(
+                f"{qualified_name}({masked[opening + 1 : closing]})"
+            ),
+            is_definition=True,
+            opening_paren=opening,
+            closing_paren=closing,
+        )
+        if _definition_body(masked, candidate, brace_pairs) is not None:
+            candidates.append(candidate)
+    return candidates
 
 
 def _definition_signature(masked: str, candidate: Candidate) -> str:
@@ -185,8 +280,14 @@ def _definition_signature(masked: str, candidate: Candidate) -> str:
     return normalize_space(f"{candidate.signature} {suffix}")
 
 
-def _permitted_arities(candidate: Candidate, required_arity: int) -> range:
-    return range(required_arity, candidate.arity + 1)
+def _arity_is_permitted(
+    candidate: Candidate,
+    required_arity: int,
+    call_arity: int,
+) -> bool:
+    if candidate.parameters and candidate.parameters[-1] == "...":
+        return call_arity >= required_arity
+    return call_arity in range(required_arity, candidate.arity + 1)
 
 
 def _call_occurrences(masked: str) -> list[tuple[int, str, str, int]]:
@@ -194,6 +295,26 @@ def _call_occurrences(masked: str) -> list[tuple[int, str, str, int]]:
     occurrences: list[tuple[int, str, str, int]] = []
     for opening, closing in sorted(matching_pairs(masked, "(", ")").items()):
         name_result = qualified_name_before(masked, opening)
+        if not name_result:
+            cursor = opening - 1
+            while cursor >= 0 and masked[cursor].isspace():
+                cursor -= 1
+            if cursor >= 0 and masked[cursor] == ">":
+                depth = 1
+                cursor -= 1
+                while cursor >= 0 and depth:
+                    if masked[cursor] == ">":
+                        depth += 1
+                    elif masked[cursor] == "<":
+                        depth -= 1
+                    cursor -= 1
+                if depth == 0:
+                    match = re.search(
+                        r"((?:~?[A-Za-z_]\w*::)*~?[A-Za-z_]\w*)\s*$",
+                        masked[: cursor + 1],
+                    )
+                    if match:
+                        name_result = (match.group(1), match.start(1))
         if not name_result:
             continue
         qualified_name, _ = name_result
@@ -210,8 +331,8 @@ def _call_matches(
     candidate: Candidate,
     required_arity: int,
 ) -> bool:
-    if candidate.simple_name != simple_name or arity not in _permitted_arities(
-        candidate, required_arity
+    if candidate.simple_name != simple_name or not _arity_is_permitted(
+        candidate, required_arity, arity
     ):
         return False
     if "::" in qualified_call:
@@ -287,8 +408,9 @@ def _coff_index(
 ) -> tuple[dict[str, set[Path]], dict[str, set[Path]], dict[str, str]]:
     resolved_roots = {root.resolve() for root in object_roots}
     configuration_names = {root.name.lower() for root in resolved_roots}
-    if len(resolved_roots) != 2 or configuration_names != {"debug", "profile"}:
-        raise OSError("reachability scan requires distinct Debug and Profile object roots")
+    required_configurations = {"automation", "debug", "profile"}
+    if len(resolved_roots) != 3 or configuration_names != required_configurations:
+        raise OSError("reachability scan requires distinct Automation, Debug, and Profile object roots")
     production_sources = {
         path.stem.lower(): path
         for path in source_paths
@@ -356,18 +478,31 @@ def _coff_index(
     return definitions, references, demangled
 
 
-def _demangled_arity(demangled: str, qualified_name: str) -> int | None:
-    marker = demangled.find(qualified_name)
-    if marker < 0:
-        return None
-    opening = demangled.find("(", marker + len(qualified_name))
-    if opening < 0:
-        return None
+@functools.lru_cache(maxsize=None)
+def _demangled_function_parts(
+    demangled: str,
+) -> tuple[str, tuple[str, ...], str] | None:
+    """Return the actual outer function prefix, parameters, and suffix."""
     pairs = matching_pairs(demangled, "(", ")")
-    closing = pairs.get(opening)
-    if closing is None:
-        return None
-    return len(split_top_level(demangled[opening + 1 : closing]))
+    angle_depth = 0
+    for index, character in enumerate(demangled):
+        if character == "<":
+            angle_depth += 1
+        elif character == ">" and angle_depth:
+            angle_depth -= 1
+        elif character == "(" and angle_depth == 0:
+            closing = pairs.get(index)
+            if closing is None:
+                return None
+            parameters = tuple(split_top_level(demangled[index + 1 : closing]))
+            if parameters == ("void",):
+                parameters = ()
+            return (
+                demangled[:index].rstrip(),
+                parameters,
+                demangled[closing + 1 :].strip(),
+            )
+    return None
 
 
 def _type_markers(parameter: str) -> set[str]:
@@ -387,31 +522,187 @@ def _type_markers(parameter: str) -> set[str]:
     }
 
 
+def _compiled_type_markers(type_text: str) -> set[str]:
+    """Return type words from demangled text, which carries no parameter name."""
+    ignored = {
+        "__cdecl",
+        "__ptr64",
+        "class",
+        "const",
+        "enum",
+        "private",
+        "protected",
+        "public",
+        "signed",
+        "static",
+        "struct",
+        "unsigned",
+        "volatile",
+    }
+    return {
+        word
+        for word in re.findall(r"[A-Za-z_]\w*", type_text)
+        if word not in ignored
+    }
+
+
 def _candidate_symbols(
     definition_path: Path,
     candidate: Candidate,
+    definition_signature: str,
     definitions: dict[str, set[Path]],
     demangled: dict[str, str],
     symbols_by_simple_name: dict[str, list[str]],
 ) -> tuple[str, ...]:
     object_stem = definition_path.stem.lower()
     candidates: list[tuple[int, str]] = []
-    for symbol in symbols_by_simple_name.get(candidate.simple_name, []):
+    source_suffix = definition_signature.rsplit(")", 1)[-1]
+    source_is_const = bool(re.search(r"\bconst\b", source_suffix))
+    source_name_offset = candidate.signature.find(f"{candidate.qualified_name}(")
+    source_return = (
+        candidate.signature[:source_name_offset]
+        if source_name_offset >= 0
+        else ""
+    )
+    source_return_markers = _type_markers(source_return)
+    for symbol in symbols_by_simple_name.get(
+        candidate.simple_name.lstrip("~"),
+        [],
+    ):
         defining_objects = definitions[symbol]
         if not any(path.stem.lower() == object_stem for path in defining_objects):
             continue
         text = demangled[symbol]
-        if _demangled_arity(text, candidate.qualified_name) != candidate.arity:
+        parts = _demangled_function_parts(text)
+        if parts is None:
             continue
-        score = sum(
-            len(_type_markers(parameter) & set(re.findall(r"[A-Za-z_]\w*", text)))
-            for parameter in candidate.parameters
+        function_prefix, parameters, function_suffix = parts
+        # Invariant: a compiler-generated wrapper that merely names a callback
+        # in a template argument is not the callback's emitted definition.
+        if not function_prefix.endswith(candidate.qualified_name):
+            continue
+        if len(parameters) != candidate.arity:
+            continue
+        if source_is_const != bool(re.search(r"\bconst\b", function_suffix)):
+            continue
+        if any(
+            ("&" in source or "*" in source)
+            and bool(re.search(r"\bconst\b", source))
+            != bool(re.search(r"\bconst\b", compiled))
+            for source, compiled in zip(candidate.parameters, parameters)
+        ):
+            continue
+        parameter_score = sum(
+            len(_type_markers(source) & _compiled_type_markers(compiled))
+            for source, compiled in zip(candidate.parameters, parameters)
         )
+        compiled_return = function_prefix[: -len(candidate.qualified_name)]
+        if (
+            ("&" in source_return or "*" in source_return)
+            and bool(re.search(r"\bconst\b", source_return))
+            != bool(re.search(r"\bconst\b", compiled_return))
+        ):
+            continue
+        return_score = len(
+            source_return_markers & _compiled_type_markers(compiled_return)
+        )
+        score = parameter_score * 2 + return_score
         candidates.append((score, symbol))
     if not candidates:
         return ()
     best_score = max(score for score, _ in candidates)
     return tuple(sorted(symbol for score, symbol in candidates if score == best_score))
+
+
+def _compiler_instantiation_mentions(
+    candidate: Candidate,
+    object_symbols: list[str],
+    demangled: dict[str, str],
+    direct_symbols: tuple[str, ...],
+) -> tuple[str, ...]:
+    marker = f"{candidate.qualified_name}("
+    mentions: list[str] = []
+    for symbol in object_symbols:
+        if symbol in direct_symbols:
+            continue
+        parts = _demangled_function_parts(demangled[symbol])
+        if parts is not None and parts[0].endswith(candidate.qualified_name):
+            continue
+        if marker in demangled[symbol]:
+            mentions.append(symbol)
+    return tuple(sorted(mentions))
+
+
+def _compiler_specialization_base(demangled: str) -> str | None:
+    """Return the source function name for one outer template specialization."""
+    parts = _demangled_function_parts(demangled)
+    if parts is None:
+        return None
+    prefix = parts[0].rstrip()
+    if not prefix.endswith(">"):
+        return None
+    closing = len(prefix) - 1
+    opening = next(
+        (
+            candidate_opening
+            for candidate_opening, candidate_closing in matching_pairs(
+                prefix, "<", ">"
+            ).items()
+            if candidate_closing == closing
+        ),
+        None,
+    )
+    if opening is None:
+        return None
+    match = re.search(
+        r"((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*$",
+        prefix[:opening],
+    )
+    return match.group(1).split("::")[-1] if match else None
+
+
+def _template_arguments_before(masked: str, call_opening: int) -> str | None:
+    cursor = call_opening - 1
+    while cursor >= 0 and masked[cursor].isspace():
+        cursor -= 1
+    if cursor < 0 or masked[cursor] != ">":
+        return None
+    depth = 1
+    closing = cursor
+    cursor -= 1
+    while cursor >= 0 and depth:
+        if masked[cursor] == ">":
+            depth += 1
+        elif masked[cursor] == "<":
+            depth -= 1
+        cursor -= 1
+    if depth:
+        return None
+    return masked[cursor + 2 : closing]
+
+
+def _candidate_specialization_symbols(
+    definition_path: Path,
+    candidate: Candidate,
+    definitions: dict[str, set[Path]],
+    demangled: dict[str, str],
+) -> tuple[str, ...]:
+    if not candidate.signature.startswith("template <"):
+        return ()
+    marker = f"{candidate.qualified_name}<"
+    object_stem = definition_path.stem.lower()
+    symbols: list[str] = []
+    for symbol, object_paths in definitions.items():
+        if not any(path.stem.lower() == object_stem for path in object_paths):
+            continue
+        parts = _demangled_function_parts(demangled[symbol])
+        if (
+            parts is not None
+            and marker in parts[0]
+            and len(parts[1]) == candidate.arity
+        ):
+            symbols.append(symbol)
+    return tuple(sorted(symbols))
 
 
 def scan_paths(
@@ -429,34 +720,57 @@ def scan_paths(
     for path in production_files:
         text = path.read_text(encoding="utf-8", errors="strict")
         masked = mask_cpp(text)
+        call_masked = mask_cpp(text, preserve_literal_argument=True)
         candidates, _ = scan_file(path, repo, text=text, masked=masked)
         candidates_by_file[path] = candidates
         masked_by_file[path] = masked
         declaration_opens = {candidate.opening_paren for candidate in candidates}
         production_occurrences[path] = [
             occurrence
-            for occurrence in _call_occurrences(masked)
+            for occurrence in _call_occurrences(call_masked)
             if occurrence[0] not in declaration_opens
         ]
     for path in test_files:
         text = path.read_text(encoding="utf-8", errors="strict")
         masked = mask_cpp(text)
+        call_masked = mask_cpp(text, preserve_literal_argument=True)
         candidates, _ = scan_file(path, repo, text=text, masked=masked)
         declaration_opens = {candidate.opening_paren for candidate in candidates}
         occurrences = [
             occurrence
-            for occurrence in _call_occurrences(masked)
+            for occurrence in _call_occurrences(call_masked)
             if occurrence[0] not in declaration_opens
         ]
         test_occurrences.extend(occurrences)
         if "Agentic" in path.parts:
             agentic_test_occurrences.extend(occurrences)
 
-    definitions = _eligible_definitions(candidates_by_file)
+    reportable_definitions = _eligible_definitions(
+        candidates_by_file,
+        masked_by_file,
+    )
+    definitions = _graph_definitions(candidates_by_file, masked_by_file, repo)
+    reportable_identity = {
+        (path, candidate.opening_paren)
+        for path, candidate in reportable_definitions
+    }
     declaration_required_arities = _declaration_required_arities(candidates_by_file)
     nodes = {index: item for index, item in enumerate(definitions)}
+    nodes_by_simple_name: dict[str, list[int]] = {}
+    nodes_by_path: dict[Path, list[int]] = {}
+    for index, (definition_path, candidate) in nodes.items():
+        nodes_by_simple_name.setdefault(candidate.simple_name, []).append(index)
+        nodes_by_path.setdefault(definition_path, []).append(index)
+    reportable_indices = {
+        index
+        for index, (path, candidate) in nodes.items()
+        if (path, candidate.opening_paren) in reportable_identity
+    }
     required_arities = {
-        index: declaration_required_arities[_identity(candidate)]
+        index: declaration_required_arities.get(
+            _identity(candidate),
+            _required_arity(candidate),
+        )
         for index, (_, candidate) in nodes.items()
     }
     external_seeds: set[int] = set()
@@ -465,6 +779,8 @@ def scan_paths(
     edges: dict[int, set[int]] = {index: set() for index in nodes}
     ambiguous_external = {index: 0 for index in nodes}
     compiler_symbols: dict[int, tuple[str, ...]] = {index: () for index in nodes}
+    compiler_mapping: dict[int, str] = {index: "missing" for index in nodes}
+    compiler_mentions: dict[int, tuple[str, ...]] = {index: () for index in nodes}
 
     coff_definitions: dict[str, set[Path]] = {}
     coff_references: dict[str, set[Path]] = {}
@@ -482,15 +798,46 @@ def scan_paths(
             name_match = re.search(r"([A-Za-z_]\w*)\s*$", text[:opening])
             if name_match:
                 symbols_by_simple_name.setdefault(name_match.group(1), []).append(symbol)
+        symbols_by_object_stem: dict[str, list[str]] = {}
+        for symbol, object_paths in coff_definitions.items():
+            for object_path in object_paths:
+                symbols_by_object_stem.setdefault(
+                    object_path.stem.lower(),
+                    [],
+                ).append(symbol)
         for index, (definition_path, candidate) in nodes.items():
+            definition_signature = _definition_signature(
+                masked_by_file[definition_path],
+                candidate,
+            )
             symbols = _candidate_symbols(
                 definition_path,
                 candidate,
+                definition_signature,
                 coff_definitions,
                 coff_demangled,
                 symbols_by_simple_name,
             )
+            if not symbols:
+                symbols = _candidate_specialization_symbols(
+                    definition_path,
+                    candidate,
+                    coff_definitions,
+                    coff_demangled,
+                )
+                if symbols:
+                    compiler_mapping[index] = "specialization-set"
             compiler_symbols[index] = symbols
+            if len(symbols) == 1:
+                compiler_mapping[index] = "exact"
+            elif len(symbols) > 1 and compiler_mapping[index] != "specialization-set":
+                compiler_mapping[index] = "ambiguous"
+            compiler_mentions[index] = _compiler_instantiation_mentions(
+                candidate,
+                symbols_by_object_stem.get(definition_path.stem.lower(), []),
+                coff_demangled,
+                symbols,
+            )
             if len(symbols) != 1:
                 continue
             symbol = symbols[0]
@@ -501,15 +848,94 @@ def scan_paths(
                 elif reference_path.stem.lower() != definition_path.stem.lower():
                     external_seeds.add(index)
 
+        symbol_owners: dict[str, set[int]] = {}
+        for owner_index, symbols in compiler_symbols.items():
+            for symbol in symbols:
+                symbol_owners.setdefault(symbol, set()).add(owner_index)
+
+        # Concept: a non-type function/member pointer can be compiled into an
+        # adapter without leaving an UNDEF relocation to the callback. The
+        # emitted identity proves an adapter-to-callback edge, not a root: an
+        # uncalled binder must leave its callback in the review inventory.
+        for callee_index, mentioned_symbols in compiler_mentions.items():
+            callee_path = nodes[callee_index][0]
+            callee = nodes[callee_index][1]
+            for symbol in mentioned_symbols:
+                owners = symbol_owners.get(symbol, set())
+                if owners:
+                    for owner_index in owners:
+                        edges[owner_index].add(callee_index)
+                        if nodes[owner_index][0] == callee_path:
+                            incoming_own_tu[callee_index] += 1
+                    continue
+
+                adapter_base = _compiler_specialization_base(
+                    coff_demangled[symbol]
+                )
+                object_stems = {
+                    path.stem.lower()
+                    for path in coff_definitions.get(symbol, set())
+                }
+                source_callers: set[int] = set()
+                if adapter_base:
+                    for caller_path, occurrences in production_occurrences.items():
+                        if caller_path.stem.lower() not in object_stems:
+                            continue
+                        brace_pairs = matching_pairs(
+                            masked_by_file[caller_path], "{", "}"
+                        )
+                        caller_bodies = [
+                            (
+                                owner_index,
+                                _definition_body(
+                                    masked_by_file[caller_path],
+                                    nodes[owner_index][1],
+                                    brace_pairs,
+                                ),
+                            )
+                            for owner_index in nodes_by_path.get(caller_path, [])
+                        ]
+                        for opening, _, simple_name, _ in occurrences:
+                            if simple_name != adapter_base:
+                                continue
+                            arguments = _template_arguments_before(
+                                masked_by_file[caller_path],
+                                opening,
+                            )
+                            if arguments is None or not re.search(
+                                rf"\b{re.escape(callee.simple_name.lstrip('~'))}\b",
+                                arguments,
+                            ):
+                                continue
+                            source_callers.update(
+                                owner_index
+                                for owner_index, body in caller_bodies
+                                if body is not None and body[0] < opening < body[1]
+                            )
+                if source_callers:
+                    for owner_index in source_callers:
+                        edges[owner_index].add(callee_index)
+                        if nodes[owner_index][0] == callee_path:
+                            incoming_own_tu[callee_index] += 1
+                    continue
+
+                # A compiler-generated adapter with no source node can root its
+                # callback only when another object actually references it.
+                for reference_path in coff_references.get(symbol, set()):
+                    normalized = str(reference_path).replace("\\", "/").lower()
+                    if "/skullbonez_tests/" in normalized:
+                        test_seeds.add(callee_index)
+                    elif reference_path.stem.lower() != callee_path.stem.lower():
+                        external_seeds.add(callee_index)
+
     # Concept: source scanning supplies same-TU edges. Cross-TU reachability
     # comes from decorated compiler symbols when object roots are available.
     for caller_path, occurrences in production_occurrences.items():
         caller_nodes: list[tuple[int, int, int]] = []
         if caller_path.suffix.lower() == ".cpp":
             brace_pairs = matching_pairs(masked_by_file[caller_path], "{", "}")
-            for index, (definition_path, candidate) in nodes.items():
-                if definition_path != caller_path:
-                    continue
+            for index in nodes_by_path.get(caller_path, []):
+                _, candidate = nodes[index]
                 body = _definition_body(masked_by_file[caller_path], candidate, brace_pairs)
                 if body is not None:
                     caller_nodes.append((index, body[0], body[1]))
@@ -517,7 +943,8 @@ def scan_paths(
         for opening, qualified_call, simple_name, arity in occurrences:
             matches = [
                 index
-                for index, (_, candidate) in nodes.items()
+                for index in nodes_by_simple_name.get(simple_name, [])
+                for _, candidate in (nodes[index],)
                 if _call_matches(
                     qualified_call,
                     simple_name,
@@ -550,17 +977,20 @@ def scan_paths(
                 if same_tu_matches:
                     continue
 
-            if not object_roots:
-                external_matches = [
-                    index
-                    for index in matches
-                    if nodes[index][0] != caller_path
-                ]
-                if len(external_matches) == 1:
-                    external_seeds.add(external_matches[0])
-                elif len(external_matches) > 1:
-                    for index in external_matches:
-                        ambiguous_external[index] += 1
+            # Concept: decorated references are authoritative when emitted, but
+            # inlining can erase a real cross-TU relocation. A unique lexical
+            # match supplies that source edge; overloaded or receiver-ambiguous
+            # calls remain explicitly unresolved.
+            external_matches = [
+                index
+                for index in matches
+                if nodes[index][0] != caller_path
+            ]
+            if len(external_matches) == 1:
+                external_seeds.add(external_matches[0])
+            elif len(external_matches) > 1:
+                for index in external_matches:
+                    ambiguous_external[index] += 1
 
     lexical_test_occurrences = (
         agentic_test_occurrences if object_roots else test_occurrences
@@ -568,7 +998,8 @@ def scan_paths(
     for _, qualified_call, simple_name, arity in lexical_test_occurrences:
         matches = [
             index
-            for index, (_, candidate) in nodes.items()
+            for index in nodes_by_simple_name.get(simple_name, [])
+            for _, candidate in (nodes[index],)
             if _call_matches(
                 qualified_call,
                 simple_name,
@@ -599,6 +1030,8 @@ def scan_paths(
 
     rows: list[ReachabilityRow] = []
     for index, (definition_path, candidate) in nodes.items():
+        if index not in reportable_indices:
+            continue
         if index in production_reached:
             continue
         tests = 1 if index in test_reached else 0
@@ -616,13 +1049,9 @@ def scan_paths(
                 test_calls=tests,
                 ambiguous_production_calls=ambiguous_external[index],
                 symbol_mapping=(
-                    "exact"
-                    if len(compiler_symbols[index]) == 1
-                    else "ambiguous"
-                    if compiler_symbols[index]
+                    compiler_mapping[index]
+                    if object_roots
                     else "source-only"
-                    if not object_roots
-                    else "missing"
                 ),
                 compiler_symbols=compiler_symbols[index],
                 classification=classification,
@@ -790,10 +1219,40 @@ int TestOnly(int value);
 int Over(int value);
 int Over(int left, int right);
 int Conditional(int value);
+int AutomationOnly(int value);
 int Live(int value);
 int WithDefault(int left, int right = 7);
 int DefaultRoot(int seed);
 int AgentOnly(int value);
+struct Accessor {
+    int value;
+int& State();
+    const int& State() const;
+};
+int& FreeState(Accessor& accessor);
+const int& FreeState(const Accessor& accessor);
+struct First {};
+struct Second {};
+int SameArity(First value);
+int SameArity(Second value);
+struct Lifecycle {
+    Lifecycle();
+    ~Lifecycle();
+    void ConstructorTarget();
+};
+int Callback(int value);
+template <int (*Function)(int)> __declspec(noinline) int Bind(int value) { return Function(value); }
+int BindCallback(int value);
+int DeadCallback(int value);
+template <int (*Function)(int)> __declspec(noinline) int DeadBind(int value) { return Function(value); }
+int DeadBindCallback(int value);
+int InternalCollision(int value);
+int LiteralRoot(const char* left, const char* right);
+int UseLiteralRoot();
+int VariadicRoot(const char* format, ...);
+int UseVariadicRoot();
+template <bool Enabled> int SpecializedRoot(int value);
+int UseSpecializedRoot();
 """,
         )
         _write_fixture(
@@ -805,10 +1264,39 @@ int TestOnly(int value) { return value; }
 int Over(int value) { return value; }
 int Over(int left, int right) { return left + right; }
 int Conditional(int value) { return value; }
+int AutomationOnly(int value) { return value; }
 int Live(int value) { return Internal(value); }
 int WithDefault(int left, int right) { return left + right; }
 int DefaultRoot(int seed) { return WithDefault(seed); }
 int AgentOnly(int value) { return value; }
+int& Accessor::State() { return value; }
+const int& Accessor::State() const { return value; }
+int& FreeState(Accessor& accessor) { return accessor.value; }
+const int& FreeState(const Accessor& accessor) { return accessor.value; }
+int SameArity(First value) { (void)value; return 1; }
+int SameArity(Second value) { (void)value; return 2; }
+Lifecycle::Lifecycle() { ConstructorTarget(); }
+Lifecycle::~Lifecycle() {}
+void Lifecycle::ConstructorTarget() {}
+int Callback(int value) { return value; }
+int BindCallback(int value) { return Bind<&Callback>(value); }
+int DeadCallback(int value) { return value; }
+int DeadBindCallback(int value) { return DeadBind<&DeadCallback>(value); }
+namespace {
+int InternalCollision(int value) { return value; }
+}
+int LiteralRoot(const char* left, const char* right) {
+    return (left && right) ? 1 : 0;
+}
+int UseLiteralRoot() { return LiteralRoot("left", "right"); }
+int VariadicRoot(const char* format, ...) { return format ? 1 : 0; }
+int UseVariadicRoot() { return VariadicRoot("%d %d", 1, 2); }
+template <bool Enabled> int SpecializedRoot(int value) {
+    return Enabled ? value : -value;
+}
+int UseSpecializedRoot() {
+    return SpecializedRoot<true>(1) + SpecializedRoot<false>(2);
+}
 """,
         )
         _write_fixture(
@@ -819,7 +1307,15 @@ int UseOverload() { return Over(1, 2); }
 #if defined(_DEBUG)
 int UseConditional() { return Conditional(3); }
 #endif
+#if defined(SKULLBONEZ_AUTOMATION_DIAGNOSTICS)
+int UseAutomationOnly() { return AutomationOnly(6); }
+#endif
 int UseLive() { return Live(4); }
+int UseLiteralCall() { return UseLiteralRoot(); }
+int UseVariadicCall() { return UseVariadicRoot(); }
+int UseLifecycle() { Lifecycle value = Lifecycle(); return 0; }
+int UseCallback() { return BindCallback(5); }
+int UseSpecializedCall() { return UseSpecializedRoot(); }
 """,
         )
         _write_fixture(
@@ -838,6 +1334,29 @@ int AgenticUse() { return AgentOnly(6); }
         )
         production = sorted(source.glob("*"))
         test_files = sorted(tests.glob("*")) + sorted(agentic_tests.glob("*"))
+        api_text = (source / "Api.cpp").read_text(encoding="utf-8")
+        api_masked = mask_cpp(api_text)
+        api_candidates, _ = scan_file(
+            source / "Api.cpp",
+            repo,
+            text=api_text,
+            masked=api_masked,
+        )
+        assert any(
+            candidate.qualified_name == "Lifecycle::Lifecycle"
+            for candidate in _lifecycle_candidates(
+                source / "Api.cpp",
+                repo,
+                api_masked,
+            )
+        )
+        caller_text = (source / "Caller.cpp").read_text(encoding="utf-8")
+        assert any(
+            occurrence[2] == "Lifecycle"
+            for occurrence in _call_occurrences(
+                mask_cpp(caller_text, preserve_literal_argument=True)
+            )
+        )
         source_rows = scan_paths(repo, production, test_files)
         default_source_row = next(row for row in source_rows if row.name == "WithDefault")
         assert default_source_row.required_arity == 1
@@ -847,6 +1366,7 @@ int AgenticUse() { return AgentOnly(6); }
         compiler = _find_cl()
         debug_objects = repo / "Debug"
         profile_objects = repo / "Profile"
+        automation_objects = repo / "Automation"
         _compile_fixture(compiler, source / "Api.cpp", debug_objects / "Api.obj")
         _compile_fixture(
             compiler,
@@ -856,6 +1376,13 @@ int AgenticUse() { return AgentOnly(6); }
         )
         _compile_fixture(compiler, source / "Api.cpp", profile_objects / "Api.obj")
         _compile_fixture(compiler, source / "Caller.cpp", profile_objects / "Caller.obj")
+        _compile_fixture(compiler, source / "Api.cpp", automation_objects / "Api.obj")
+        _compile_fixture(
+            compiler,
+            source / "Caller.cpp",
+            automation_objects / "Caller.obj",
+            ("SKULLBONEZ_AUTOMATION_DIAGNOSTICS",),
+        )
         _compile_fixture(
             compiler,
             tests / "TestApi.cpp",
@@ -866,12 +1393,16 @@ int AgenticUse() { return AgentOnly(6); }
             repo,
             production,
             test_files,
-            [debug_objects, profile_objects],
+            [automation_objects, debug_objects, profile_objects],
         )
         test_row = next(row for row in rows if row.name == "TestOnly")
         agentic_row = next(row for row in rows if row.name == "AgentOnly")
         overload_row = next(row for row in rows if row.name == "Over")
         default_row = next(row for row in rows if row.name == "WithDefault")
+        state_rows = [row for row in rows if row.name == "Accessor::State"]
+        free_state_rows = [row for row in rows if row.name == "FreeState"]
+        same_arity_rows = [row for row in rows if row.name == "SameArity"]
+        dead_callback_row = next(row for row in rows if row.name == "DeadCallback")
         assert test_row.classification == "test-only"
         assert test_row.symbol_mapping == "exact"
         assert agentic_row.classification == "test-only"
@@ -880,15 +1411,55 @@ int AgenticUse() { return AgentOnly(6); }
         assert default_row.required_arity == 1 and default_row.total_arity == 2
         assert default_row.classification == "own-tu-only"
         assert default_row.symbol_mapping == "exact"
+        assert len(state_rows) == 2
+        assert all(row.symbol_mapping == "exact" for row in state_rows)
+        assert len(free_state_rows) == 2
+        assert all(row.symbol_mapping == "exact" for row in free_state_rows)
+        assert len(same_arity_rows) == 2, [
+            (row.name, row.signature, row.symbol_mapping) for row in rows
+        ]
+        assert all(row.symbol_mapping == "exact" for row in same_arity_rows), [
+            (row.signature, row.symbol_mapping, row.compiler_symbols)
+            for row in same_arity_rows
+        ]
+        assert not any(row.name == "Callback" for row in rows), [
+            (
+                row.name,
+                row.classification,
+                row.symbol_mapping,
+                row.compiler_symbols,
+                row.own_tu_calls,
+            )
+            for row in rows
+            if "Callback" in row.name or row.name in {"Bind", "DeadBind"}
+        ]
+        assert dead_callback_row.classification == "own-tu-only"
+        assert dead_callback_row.symbol_mapping == "exact"
+        assert not any(row.name == "InternalCollision" for row in rows)
+        assert not any(row.name == "LiteralRoot" for row in rows)
+        assert not any(row.name == "VariadicRoot" for row in rows)
+        assert not any(row.name == "SpecializedRoot" for row in rows)
+        assert not any(
+            row.name == "Lifecycle::ConstructorTarget" for row in rows
+        ), [
+            (
+                row.name,
+                row.classification,
+                row.symbol_mapping,
+                row.compiler_symbols,
+            )
+            for row in rows
+        ]
         assert not any(row.name == "Internal" for row in rows)
         assert not any(row.name == "Conditional" for row in rows)
+        assert not any(row.name == "AutomationOnly" for row in rows)
         assert not any(row.name == "Live" for row in rows)
         assert not any(row.total_arity == 2 and row.name == "Over" for row in rows)
 
         try:
             scan_paths(repo, production, test_files, [debug_objects])
         except OSError as error:
-            assert "requires distinct Debug and Profile" in str(error)
+            assert "requires distinct Automation, Debug, and Profile" in str(error)
         else:
             raise AssertionError("single-configuration COFF scan must fail closed")
 
@@ -897,10 +1468,10 @@ int AgenticUse() { return AgentOnly(6); }
                 repo,
                 production,
                 test_files,
-                [debug_objects, debug_objects],
+                [automation_objects, debug_objects, debug_objects],
             )
         except OSError as error:
-            assert "requires distinct Debug and Profile" in str(error)
+            assert "requires distinct Automation, Debug, and Profile" in str(error)
         else:
             raise AssertionError("duplicate configuration roots must fail closed")
 
@@ -908,7 +1479,7 @@ int AgenticUse() { return AgentOnly(6); }
         api_stat = api_path.stat()
         newest_object = max(
             path.stat().st_mtime_ns
-            for root in (debug_objects, profile_objects)
+            for root in (automation_objects, debug_objects, profile_objects)
             for path in root.rglob("*.obj")
         )
         os.utime(
@@ -920,7 +1491,7 @@ int AgenticUse() { return AgentOnly(6); }
                 repo,
                 production,
                 test_files,
-                [debug_objects, profile_objects],
+                [automation_objects, debug_objects, profile_objects],
             )
         except OSError as error:
             assert "stale current-source objects" in str(error)
@@ -1014,7 +1585,7 @@ def main() -> int:
         "--object-root",
         action="append",
         type=Path,
-        help="Compiler-object root; defaults to Debug and Profile under the repository",
+        help="Compiler-object root; defaults to Automation, Debug, and Profile under the repository",
     )
     parser.add_argument("--format", choices=("text", "json"), default="text")
     parser.add_argument("--strict", action="store_true")
@@ -1026,7 +1597,7 @@ def main() -> int:
 
     repo = args.repo.resolve()
     ruling_path = args.rulings if args.rulings.is_absolute() else repo / args.rulings
-    object_roots = args.object_root or [Path("Debug"), Path("Profile")]
+    object_roots = args.object_root or [Path("Automation"), Path("Debug"), Path("Profile")]
     object_roots = [path if path.is_absolute() else repo / path for path in object_roots]
     try:
         rows = scan_repository(repo, object_roots)

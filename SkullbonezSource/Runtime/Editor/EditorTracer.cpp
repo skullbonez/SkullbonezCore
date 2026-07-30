@@ -1174,17 +1174,6 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 }
 
 
-void EditorTracer::AddReplayFutureTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                                const CollisionShapeReference& shape, int depth )
-{
-    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
-    const float r = std::clamp( 0.98f - depthFade * 0.55f, 0.52f, 1.0f );
-    const float g = std::clamp( 0.72f - depthFade * 0.22f, 0.42f, 0.82f );
-    const float b = std::clamp( 0.22f - depthFade * 0.12f, 0.10f, 0.32f );
-    EmitShapeOutline( position, orientation, shape, r, g, b );
-}
-
-
 void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                const CollisionShapeReference& shape )
 {

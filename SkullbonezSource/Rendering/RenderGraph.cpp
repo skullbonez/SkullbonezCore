@@ -868,12 +868,6 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 }
 
 
-RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const
-{
-    return ExecuteCallbacks( mode, 0u, static_cast<uint32_t>( m_passes.size() ) );
-}
-
-
 RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass,
                                                                   uint32_t passCount ) const
 {

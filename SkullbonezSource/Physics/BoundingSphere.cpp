@@ -224,47 +224,6 @@ float BoundingSphere::GetVolume() const
 }
 
 
-float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
-{
-
-    // Buoyancy needs "how much of this sphere is under the water line?" Full
-    // above/below cases are simple; the middle case is the spherical-cap formula
-    // for a ball sliced by a flat plane.
-    // Compare the sphere's bottom (center.y - r) and top (center.y + r) against the fluid surface.
-
-    if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
-    {
-
-        // not touching fluid
-        return 0.0f;
-    }
-    else if ( m_position.y + m_radius <= m_fluidSurfaceHeight )
-    {
-
-        // totally submerged in fluid
-        return 1.0f;
-    }
-    else
-    {
-
-        /*
-            Partially submerged: compute the volume of a spherical cap.
-
-            A "spherical cap" is the dome-shaped region of a sphere below a cutting plane.
-            If y = depth of the cap (distance from the bottom of the sphere to the waterline):
-
-                V_cap = π/3 * (3r - y) * y²   (standard formula for spherical cap volume)
-
-            The submerged percentage is V_cap / V_sphere.
-
-            Formula from: http://vps.arachnoid.com/calculus/volume1.html
-        */
-        float yValue = m_fluidSurfaceHeight - ( m_position.y - m_radius );
-        return ( ( ( ONE_OVER_THREE * _PI * ( ( 3.0f * m_radius ) - yValue ) * yValue * yValue ) ) / GetVolume() );
-    }
-}
-
-
 float BoundingSphere::GetDragCoefficient() const
 {
     return m_dragCoefficient;

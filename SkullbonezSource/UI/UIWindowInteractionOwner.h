@@ -129,7 +129,6 @@ class UIWindowInteractionOwner
     void SetVisible( bool visible, double now );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now );
-    void ToggleMaximizeMinimize( int screenW, int screenH, double now );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     void CancelInputCapture();

@@ -262,12 +262,6 @@ void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
 }
 
 
-const char* ShaderDX12::SourcePath() const
-{
-    return m_sourcePath.c_str();
-}
-
-
 bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName )
 {
 
@@ -954,12 +948,6 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
 
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
-}
-
-
-void ShaderDX12::SetVec3( const char* name, const Vector3& v ) const
-{
-    SetVec3( name, v.x, v.y, v.z );
 }
 
 

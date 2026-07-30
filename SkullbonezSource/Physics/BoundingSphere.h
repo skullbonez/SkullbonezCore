@@ -99,8 +99,8 @@ class BoundingSphere
                                             const Transformation::Matrix4& rotation )
         const;                                            // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
     float GetVolume() const;                              // V = (4/3) * π * r³
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight )
-        const;                                            // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
+
+    // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
     float GetDragCoefficient() const;                     // C_d ≈ 0.47  (smooth sphere)
     float GetProjectedSurfaceArea() const;                // A = π * r²  (circular cross-section)
     float GetRadius() const;                              // Collision radius in meters.

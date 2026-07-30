@@ -218,7 +218,6 @@ class SceneController : public SceneSession
     void SubmitSaveCurrentDefaults();
     SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
     SceneRequestBatch TakePendingRequests();
-    std::size_t PendingRequestCount() const;
 
   private:
     friend class SceneLoadTransaction;

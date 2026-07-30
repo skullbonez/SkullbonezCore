@@ -36,7 +36,6 @@ TEST_CASE( "Frustum: perspective sphere classifications are conservative" )
     CHECK_FALSE( frustum.IntersectsSphere( Vector3( 0.0f, 0.0f, 2.0f ), 0.5f ) );
     CHECK_FALSE( frustum.IntersectsSphere( Vector3( 0.0f, 0.0f, -25.0f ), 0.5f ) );
 }
-
 TEST_CASE( "Frustum: plane straddle and epsilon remain visible" )
 {
     const Matrix4 projection = Matrix4::PerspectiveZeroToOne( 90.0f, 1.0f, 1.0f, 20.0f );
@@ -86,20 +85,4 @@ TEST_CASE( "Frustum: a point exactly on a normalized plane remains contained" )
     const float plane[4] = { 0.0f, 1.0f, 0.0f, -2.0f };
 
     CHECK( Frustum::IntersectsHalfSpace( Vector3( 4.0f, 2.0f, -3.0f ), 0.0f, plane, 0.0f ) );
-}
-
-TEST_CASE( "Frustum: degenerate planes remain permissive instead of culling" )
-{
-    const float zeros[16] = {};
-    const Matrix4 zeroMatrix( zeros );
-    const Frustum frustum = Frustum::FromViewProjection( zeroMatrix, zeroMatrix );
-    const float zeroPlane[4] = {};
-
-    CHECK( frustum.IntersectsSphere( Vector3( 1000.0f, -2000.0f, 3000.0f ), 0.0f ) );
-    CHECK( Frustum::IntersectsHalfSpace( Vector3( 1000.0f, -2000.0f, 3000.0f ), 0.0f, zeroPlane ) );
-    for ( int index = 0; index < Frustum::PLANE_COUNT; ++index )
-    {
-        CHECK( frustum.Plane( index ).normal == Vector3( 0.0f, 0.0f, 0.0f ) );
-        CHECK( frustum.Plane( index ).distance == doctest::Approx( 1.0f ) );
-    }
 }

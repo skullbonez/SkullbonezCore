@@ -85,10 +85,6 @@ void InGameUI::SetMinimized( bool minimized, double now )
 {
     m_windowInteraction.SetMinimized( minimized, now );
 }
-void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
-{
-    m_windowInteraction.ToggleMaximizeMinimize( screenW, screenH, now );
-}
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
     m_windowInteraction.SetActiveTab( tab );
@@ -149,17 +145,9 @@ void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
     m_windowInteraction.SetPerformanceHistogramEnabled( enabled );
 }
-bool InGameUI::IsPerformanceHistogramEnabled() const
-{
-    return m_windowInteraction.IsPerformanceHistogramEnabled();
-}
 void InGameUI::TogglePerformanceHistogramEnabled()
 {
     m_windowInteraction.TogglePerformanceHistogramEnabled();
-}
-void InGameUI::SetMemoryOverlayEnabled( bool enabled )
-{
-    m_windowInteraction.SetMemoryOverlayEnabled( enabled );
 }
 bool InGameUI::IsMemoryOverlayEnabled() const
 {

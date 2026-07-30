@@ -279,10 +279,3 @@ Rendering::PrimitiveBatchRenderer& RenderResourceLifecycle::PrimitiveBatches()
     assert( m_primitiveBatches.has_value() );
     return *m_primitiveBatches;
 }
-
-
-const Rendering::PrimitiveBatchRenderer& RenderResourceLifecycle::PrimitiveBatches() const
-{
-    assert( m_primitiveBatches.has_value() );
-    return *m_primitiveBatches;
-}

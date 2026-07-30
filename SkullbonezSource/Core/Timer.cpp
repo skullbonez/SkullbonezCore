@@ -132,31 +132,3 @@ double Timer::GetCurrentTimeInSeconds()
 
     return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
 }
-
-
-bool Timer::IncrementFrameCount()
-{
-
-    if ( !m_frameCountCurrentSecond )
-    {
-        m_frameTimer = GetCurrentTimeInSeconds();
-    }
-
-    ++m_frameCountCurrentSecond;
-
-    return ( GetCurrentTimeInSeconds() - m_frameTimer > 1 );
-}
-
-
-void Timer::StoreFpsAndResetFrameCounter()
-{
-    m_currentFPSValue = m_frameCountCurrentSecond;
-
-    m_frameCountCurrentSecond = 0;
-}
-
-
-int Timer::GetCurrentFPS()
-{
-    return m_currentFPSValue;
-}

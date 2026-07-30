@@ -384,22 +384,6 @@ void CpuEnd()
 #endif
 }
 
-void CpuMarker( const char* name, uint32_t hash )
-{
-
-    if ( !IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    const char* markerName = name ? name : "(null)";
-    PIXSetMarker( ColorForMarker( markerName, hash ), "%s", markerName );
-#else
-    (void)name;
-    (void)hash;
-#endif
-}
 
 } // namespace PlatformProfiler
 } // namespace Core

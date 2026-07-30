@@ -222,12 +222,6 @@ SceneRequestBatch SceneController::TakePendingRequests()
 }
 
 
-std::size_t SceneController::PendingRequestCount() const
-{
-    return m_requests.Size();
-}
-
-
 SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
                                                        bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                                        double elapsedSeconds )

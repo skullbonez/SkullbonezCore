@@ -216,21 +216,6 @@ void TrackedMutex::lock()
 }
 
 
-bool TrackedMutex::try_lock()
-{
-
-    if ( !m_inner.try_lock() )
-    {
-        return false;
-    }
-
-#ifdef _DEBUG
-    m_validator->RecordAcquisition( m_id );
-#endif
-    return true;
-}
-
-
 void TrackedMutex::unlock()
 {
 #ifdef _DEBUG

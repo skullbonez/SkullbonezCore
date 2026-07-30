@@ -254,8 +254,6 @@ class PhysicsSleepController
                          std::span<const PointJointConstraint> pointJointConstraints,
                          PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
                          const PhysicsSleepStepPolicy& sleepPolicy );
-    bool IsPointJointPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
-                           int bodyA, int bodyB ) const;
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );

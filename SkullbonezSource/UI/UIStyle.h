@@ -95,10 +95,8 @@ struct UIControlStyle
 
 const UIPalette& Palette();
 const UIRadii& Radii();
-const UITextStyle& Text();
 const UIControlStyle& Control();
 const UIColor& Accent();
-const UIColor& AccentCyan();
 const FooterToggleStyle& FooterToggle();
 
 } // namespace Style

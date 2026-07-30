@@ -270,6 +270,7 @@ void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDia
 
 namespace DemoDirectorPlayback
 {
+
 bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path )
 {
     DemoShotList loadedShotList;
@@ -294,6 +295,7 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
 
     return true;
 }
+
 
 bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
@@ -394,6 +396,7 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
     return true;
 }
 
+
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 {
     DemoDirectorPlaybackState& director = camera.director;
@@ -415,6 +418,7 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 
     return true;
 }
+
 
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras )
 {

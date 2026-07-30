@@ -51,10 +51,6 @@ void SceneEntityCreateDesc::SetName( const char* name )
     CopyBounded( displayName, sizeof( displayName ), name );
 }
 
-const char* SceneEntityCreateDesc::GetName() const
-{
-    return displayName;
-}
 
 void SceneEntityCreateDesc::SetRenderTint( float tintR, float tintG, float tintB, float colorOverride )
 {
@@ -66,10 +62,6 @@ void SceneEntityCreateDesc::SetRenderMaterial( const Rendering::RenderMaterial& 
     renderMaterial = material;
 }
 
-const Rendering::RenderMaterial& SceneEntityCreateDesc::GetRenderMaterial() const
-{
-    return renderMaterial;
-}
 
 void SceneEntityCreateDesc::SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId, const char* libraryToken,
                                                  const char* assetName, const char* instanceName, const char* partName,
@@ -400,35 +392,9 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneEntityStore::GroupRootObjectI
 }
 
 
-int SceneEntityStore::GroupPartIndexAt( int modelIndex ) const
-{
-    return BehaviorGroupAt( modelIndex ).partIndex;
-}
-
-
 bool SceneEntityStore::IsSimpleRagdollPart( int modelIndex ) const
 {
     return GroupKindAt( modelIndex ) == SceneBehaviorGroupKind::SimpleRagdoll;
-}
-
-
-bool SceneEntityStore::IsSimpleRagdollTorso( int modelIndex ) const
-{
-    return IsSimpleRagdollPart( modelIndex ) && GroupPartIndexAt( modelIndex ) == 0;
-}
-
-
-int SceneEntityStore::RagdollRootModelIndexForPart( int modelIndex ) const
-{
-    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
-
-    if ( group.kind != SceneBehaviorGroupKind::SimpleRagdoll )
-    {
-        return modelIndex;
-    }
-
-    const int rootIndex = ResolveBehaviorGroupRootModelIndex( group );
-    return IsSimpleRagdollPart( rootIndex ) ? rootIndex : modelIndex;
 }
 
 

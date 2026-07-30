@@ -51,33 +51,34 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                           // Initializes to identity orientation.
-    Quaternion( float fX, float fY, float fZ, float fW );   // Explicit component construction for deserialization/math helpers.
+    Quaternion();                                         // Initializes to identity orientation.
+    Quaternion( float fX, float fY, float fZ, float fW ); // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
-    void Identity();                                        // Resets orientation to the no-rotation value.
-    void Normalise();                                       // Removes floating-point drift before conversion to matrices or solver rows.
-    void RotateAboutXYZ( const Vector::Vector3& vRadians ); // Treats xyz radians as one angular-displacement vector.
+    void Identity();                                      // Resets orientation to the no-rotation value.
+    void Normalise();                                     // Removes floating-point drift before conversion to matrices or solver rows.
+
+    // Treats xyz radians as one angular-displacement vector.
     void
     RotateAboutAxis( const Vector::Vector3& axis,
-                     float angle );                         // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
+                     float angle );                       // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
 
     // Returns the active-rotation matrix for this Hamilton quaternion.
     Transformation::RotationMatrix GetOrientationMatrix() const;
-    void RotateAboutXYZ( float xRadians, float yRadians,
-                         float zRadians );                  // Rotate by angular-displacement components without Euler decomposition
+
+    // Rotate by angular-displacement components without Euler decomposition
 
     // Standard Hamilton order: lhs * rhs applies rhs first, then lhs.
     Quaternion operator*( const Quaternion& q ) const;
-    Quaternion& operator*=( const Quaternion& q );          // In-place rotation composition; caller normalizes if drift matters.
+    Quaternion& operator*=( const Quaternion& q );        // In-place rotation composition; caller normalizes if drift matters.
     void GetComponents( float& x, float& y, float& z,
-                        float& w ) const;                   // Exposes raw components for deterministic serialization.
+                        float& w ) const;                 // Exposes raw components for deterministic serialization.
 
   private:
-    float m_x, m_y, m_z, m_w;                               // Stored as vector part xyz plus scalar w.
+    float m_x, m_y, m_z, m_w;                             // Stored as vector part xyz plus scalar w.
 
-    Quaternion GetQtnRotatedAboutX( float fRadians );       // Builds an X-axis delta rotation in radians.
-    Quaternion GetQtnRotatedAboutY( float fRadians );       // Builds a Y-axis delta rotation in radians.
-    Quaternion GetQtnRotatedAboutZ( float fRadians );       // Builds a Z-axis delta rotation in radians.
+    // Builds an X-axis delta rotation in radians.
+    // Builds a Y-axis delta rotation in radians.
+    // Builds a Z-axis delta rotation in radians.
 };
 
 // One program-wide no-rotation value shared by every including translation unit.

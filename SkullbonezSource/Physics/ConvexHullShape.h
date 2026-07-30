@@ -99,12 +99,10 @@ class ConvexHullShape
     // diagnostics instead of escaping through runtime code.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const char* path, ConvexHullShape& outHull );
-    static ConvexHullShape LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetDefaultMass() const;
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;
     float GetProjectedSurfaceArea() const;
     float GetBoundingRadius() const;

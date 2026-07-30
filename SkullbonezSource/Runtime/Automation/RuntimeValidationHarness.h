@@ -148,7 +148,6 @@ class RuntimeValidationHarness
         return m_graphicsStress;
     }
     SceneAutomationGateTracker& SceneGates();
-    const SceneAutomationGateTracker& SceneGates() const;
 
   private:
     void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );

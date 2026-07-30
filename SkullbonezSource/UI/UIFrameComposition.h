@@ -231,9 +231,6 @@ void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, f
 void DrawComboHitboxes( const UIDrawContext& draw, const UIComboBox& combo, int optionCount, float r, float g, float b );
 void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tabCount );
 int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const InGameUIFrameData& data );
-void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth );
-void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, const Style::UIColor& color,
-                     const char* value, float maxWidth );
 int RenderSliderIndexFromActiveSlider( int activeSlider );
 float RenderSliderY( int index, float baseY );
 int RenderContentHeight();

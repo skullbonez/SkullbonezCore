@@ -467,7 +467,6 @@ class FullscreenQuadPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
-    uint32_t QuadVB() const;
 
   private:
     FullscreenPassResources& m_resources;
@@ -650,7 +649,6 @@ class ObjectPass
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
-    void ReleaseGpuResources();
     void Render( const ObjectPassInputs& inputs );
 
   private:
@@ -736,7 +734,6 @@ class DebugOverlayPass
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
-    void ReleaseGpuResources();
     bool Render( const DebugOverlayPassInputs& inputs );
 
   private:

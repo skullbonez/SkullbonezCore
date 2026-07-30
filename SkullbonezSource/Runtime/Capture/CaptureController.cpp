@@ -66,12 +66,6 @@ void CaptureController::DisableAutomationExit()
 }
 
 
-bool CaptureController::IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const
-{
-    return CaptureSystem::IsScreenshotDue( m_screenshot, isSceneMode, currentFrame, elapsedMs );
-}
-
-
 bool CaptureController::RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const
 {
     return CaptureSystem::RequiresDeterministicPresentation( m_screenshot, isSceneMode, currentFrame, elapsedMs );
@@ -203,11 +197,6 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
 }
 
 
-SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
-                                                                     const char* path )
-{
-    return CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
-}
 #endif
 } // namespace Runtime
 } // namespace SkullbonezCore

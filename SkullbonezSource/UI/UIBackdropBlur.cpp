@@ -66,12 +66,6 @@ void UIBackdropBlur::ResetResources()
 }
 
 
-UIBackdropBlurInvalidationReason UIBackdropBlur::LastInvalidationReason() const
-{
-    return m_lastInvalidationReason;
-}
-
-
 void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int screenW, int screenH, int currentFrame,
                            double now, bool enabled )
 {

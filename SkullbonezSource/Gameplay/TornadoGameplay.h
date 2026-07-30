@@ -94,8 +94,6 @@ class TornadoGameplay
 
     const std::vector<float>& CaptureSeconds() const;
     const std::vector<float>& EjectCooldownSeconds() const;
-    void CaptureReplayState( TornadoGameplayReplayState& outState ) const;
-    void RestoreReplayState( const TornadoGameplayReplayState& state );
 
     const TornadoVisualSettings& VisualSettings() const;
     void SetVisualSettings( const TornadoVisualSettings& settings );

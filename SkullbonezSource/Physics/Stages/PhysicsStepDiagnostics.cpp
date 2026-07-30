@@ -114,10 +114,6 @@ void PhysicsStepDiagnostics::RecordPipelineStage( const PhysicsPipelineRecord& r
     }
 }
 
-bool PhysicsStepDiagnostics::CanRecordPipelineStage() const
-{
-    return m_physicsPipelineTrace.size() < PHYSICS_MAX_PIPELINE_TRACE_RECORDS;
-}
 
 int PhysicsStepDiagnostics::RemainingPipelineRecordCapacity() const
 {
@@ -144,16 +140,6 @@ bool PhysicsStepDiagnostics::ShouldEmitStepDiagnostics( bool diagnosticsSuppress
 {
 #ifdef _DEBUG
     return !diagnosticsSuppressed && ( m_sink.IsRegressionLogEnabled() || m_sink.IsFrameLogEnabled() );
-#else
-    (void)diagnosticsSuppressed;
-    return false;
-#endif
-}
-
-bool PhysicsStepDiagnostics::ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const
-{
-#ifdef _DEBUG
-    return !diagnosticsSuppressed && m_sink.IsCollisionTimeLogEnabled();
 #else
     (void)diagnosticsSuppressed;
     return false;

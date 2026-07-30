@@ -142,40 +142,27 @@ class AssetSystem
     explicit AssetSystem( std::string dataRoot = DATA_ROOT );
 
     void RegisterBuiltInSourceAssets( const SkullbonezCore::Core::EngineConfig& config );
-    const std::string& GetDataRoot() const;
     std::string ResolvePath( const char* relativePath ) const;
 
     const SourceAssetRecord& RegisterSourceAsset( AssetKind kind, const char* logicalName, const char* relativePath );
     std::string RegisterSourceAssetPath( AssetKind kind, const char* logicalName, const char* relativePath );
-    const SourceAssetRecord* FindSourceAsset( const char* logicalName ) const;
-    const SourceAssetRecord* FindSourceAssetById( AssetId id ) const;
 
     const TextureSourceAsset& RegisterTextureSourceAsset( const char* logicalName, const char* relativePath,
                                                           uint32_t legacyHash, bool generateMips = true,
                                                           bool linearFilter = true, int channelsHint = 3 );
-    const TextureSourceAsset* FindTextureSourceAsset( const char* logicalName ) const;
     const TextureSourceAsset* FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const;
-    const TextureSourceAsset* FindTextureSourceAssetById( AssetId id ) const;
     const std::vector<TextureSourceAsset>& GetTextureSourceAssets() const;
 
     const ShaderSourceAsset& RegisterShaderSourceAsset( const char* logicalName, const char* baseName,
                                                         ShaderProgramKind kind = ShaderProgramKind::Unknown,
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
-    const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
     std::unique_ptr<Rendering::ShaderDX12> CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
                                                          const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
     const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;
-    const AssetLibrarySourceAsset* FindAssetLibrarySourceAssetById( AssetId id ) const;
-    const std::vector<AssetLibrarySourceAsset>& GetAssetLibrarySourceAssets() const;
 
-    void Clear();
-    size_t GetSourceAssetCount() const;
-    size_t GetTextureSourceAssetCount() const;
-    size_t GetShaderSourceAssetCount() const;
-    size_t GetAssetLibrarySourceAssetCount() const;
 
   private:
     std::string m_dataRoot;
@@ -187,6 +174,5 @@ class AssetSystem
     uint32_t m_nextGeneration = 1;
 };
 
-const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

@@ -2916,12 +2916,6 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySol
 }
 } // namespace
 
-bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
-                                                         const ReplaySolverRecorder& solverRecorder, const char* path,
-                                                         ReplayV2SaveResult* result )
-{
-    return SavePresentationWithTracks( recorder, solverRecorder, nullptr, {}, {}, path, result );
-}
 
 bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                          const ReplaySolverRecorder& solverRecorder,

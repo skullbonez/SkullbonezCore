@@ -141,7 +141,6 @@ struct Dx12RenderGraphUavBarrierRecord
 };
 
 bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState );
-std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state );
 Dx12RenderGraphSingleTransitionResult
 EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc );
 Dx12RenderGraphBarrierRecord ExecuteDx12RenderGraphSingleTransition( const char* sourcePrefix, const char* passName,
@@ -152,9 +151,6 @@ Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* so
                                                                   const char* resourceName,
                                                                   const Dx12RenderGraphUavBarrierDesc& desc );
 
-Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,
-                                                                  const RenderGraphCompileResult& compiled,
-                                                                  const Dx12RenderGraphExecutionDesc& desc );
 
 } // namespace Rendering
 } // namespace SkullbonezCore

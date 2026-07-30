@@ -818,10 +818,6 @@ ID3D12GraphicsCommandList* Dx12FrameOwner::CommandList() const
 {
     return m_device.CommandList();
 }
-void Dx12FrameOwner::ActivateShader( ShaderDX12* shader )
-{
-    m_pipeline.SetActiveShader( shader );
-}
 
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::CommitClose( HRESULT result, const char* operation )

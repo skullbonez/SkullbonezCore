@@ -251,8 +251,6 @@ class RuntimeInteractionController
   public:
     RuntimeWorkspace Workspace() const;
     WorldInteractionOwner Owner() const;
-    CameraLookState CameraLook() const;
-    PhysicsAdvanceState PhysicsAdvance() const;
     const RuntimeInteractionGesture& Gesture() const;
     RuntimePointerCaptureOwner PointerCapture() const;
 
@@ -267,7 +265,6 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
     RuntimeInteractionTransition EnterCameraMode( RunCameraMode mode );
-    RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason );
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
                                                                       InteractionExitReason reason );

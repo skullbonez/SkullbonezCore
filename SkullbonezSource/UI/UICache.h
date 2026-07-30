@@ -74,7 +74,6 @@ class UICacheState
 
     UIDrawList& MutableDrawList();
     const UIDrawList& DrawList() const;
-    uint32_t DirtyFlags() const;
     float ReplayOffsetX( const UICacheFrameKey& key ) const;
     float ReplayOffsetY( const UICacheFrameKey& key ) const;
 

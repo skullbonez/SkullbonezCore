@@ -123,7 +123,6 @@ class Dx12Diagnostics
     void PopDrawCallTraceScope( uint32_t hash );
     void PlatformProfilerGpuBegin( const char* name, uint32_t hash );
     void PlatformProfilerGpuEnd();
-    void PlatformProfilerGpuMarker( const char* name, uint32_t hash );
 
     void ConfigureFaultInjection( Dx12DiagnosticsFrame& frame );
     void ReportArchitectureStats( const char* reason, const Dx12DescriptorHeaps& descriptors,

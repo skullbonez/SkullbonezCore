@@ -228,8 +228,6 @@ class PhysicsEngine
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     uint64_t CollectSceneSizedStoreMemoryBytes() const;
-    bool ShouldEmitStepDiagnostics() const;
-    bool ShouldEmitCollisionTimeDiagnostics() const;
 
     // Registers scene-lifetime presentation names at a cold topology boundary.
     // The diagnostics sink copies only the pointer table into fixed storage.
@@ -261,15 +259,11 @@ class PhysicsEngine
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
 
   private:
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
-#ifdef _DEBUG
-    void ValidatePhysicsStoreMappings( int modelCount ) const;
-#endif
 
     // Lifetime: this fixed-size owner allocation is created and destroyed with
     // PhysicsEngine. PhysicsWorld owns its hot stage storage; the indirection is

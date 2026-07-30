@@ -68,12 +68,6 @@ const UIRadii& Radii()
 }
 
 
-const UITextStyle& Text()
-{
-    return kText;
-}
-
-
 const UIControlStyle& Control()
 {
     return kControl;
@@ -81,12 +75,6 @@ const UIControlStyle& Control()
 
 
 const UIColor& Accent()
-{
-    return kPalette.accent;
-}
-
-
-const UIColor& AccentCyan()
 {
     return kPalette.accent;
 }

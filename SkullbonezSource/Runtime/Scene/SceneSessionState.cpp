@@ -250,10 +250,6 @@ int SceneSession::NextIndex() const
     return m_state.currentSceneIndex + 1;
 }
 
-const std::vector<std::string>& SceneSession::Queue() const
-{
-    return m_queue;
-}
 
 void SceneSession::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
 {

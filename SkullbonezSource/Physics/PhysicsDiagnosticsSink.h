@@ -108,7 +108,6 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool IsCollisionTimeLogEnabled() const;
     bool IsRegressionLogEnabled() const;
     void EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame );
     void IncrementCollisionTimeFrameIfEnabled();

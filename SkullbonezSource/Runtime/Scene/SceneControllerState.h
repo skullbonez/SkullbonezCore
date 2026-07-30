@@ -55,7 +55,6 @@ struct SceneLoadNavigationState
 // scene queue. The UI model remains a passive presentation value.
 SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int index,
                                             SceneSession& scene );
-SceneLoadRequest LoadDemoScene( SceneSession& scene );
 int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
                                        int currentSceneBrowserIndex, bool isCinematicTabActive );
 SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,

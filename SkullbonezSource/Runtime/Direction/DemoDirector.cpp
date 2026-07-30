@@ -4,27 +4,25 @@ Purpose:
   Loads and saves Demo Director `.shot.json` files.
 
 Summary:
-  The director parser is a cold authoring boundary. It converts human-authored
-  JSON into fixed-capacity runtime records, logs the first invalid field it
-  finds, and leaves playback state untouched on failure.
+  The director parser is a cold authoring boundary. It validates human-authored
+  JSON into a temporary fixed-capacity record before publishing it, while the
+  writer preserves the same stable schema.
 
 Glossary:
   Authoring boundary: File I/O path used before or between demo takes, not a
     per-frame simulation loop.
-  Round-trip: Loading a shot list, saving it, and loading the saved copy with
-    the same phase data.
   Lane R: Repository error-handling lane for recoverable runtime/file input:
     return bool status and log a path-rich reason instead of throwing.
 
 Invariants:
   - Failed loads never modify the caller's existing shot list.
   - JSON phase count is capped by DemoShotList::MAX_PHASES.
-  - Saved files use the same schema accepted by the loader.
+  - Phase count must fit DemoShotList::MAX_PHASES before any file is opened.
+  - Saved files use the same versioned field names accepted by the loader.
 
 Related:
   - SkullbonezSource/Runtime/Direction/DemoDirector.h
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h
-  - SkullbonezTests/TestDemoDirector.cpp
 */
 #include "DemoDirector.h"
 #include "../Tools/RuntimeFileWriter.h"
@@ -57,47 +55,9 @@ void LogShotListError( const char* path, const std::string& detail )
     printf( "[demo-director] %s: %s\n", path && path[0] ? path : "<null-path>", detail.c_str() );
 }
 
-std::string JsonTypeName( const Json& value )
-{
-
-    if ( value.is_null() )
-    {
-        return "null";
-    }
-
-    if ( value.is_boolean() )
-    {
-        return "bool";
-    }
-
-    if ( value.is_number() )
-    {
-        return "number";
-    }
-
-    if ( value.is_string() )
-    {
-        return "string";
-    }
-
-    if ( value.is_array() )
-    {
-        return "array";
-    }
-
-    if ( value.is_object() )
-    {
-        return "object";
-    }
-
-    return "value";
-}
-
 bool FailField( const char* path, const std::string& context, const std::string& detail )
 {
-    std::ostringstream message;
-    message << context << ": " << detail;
-    LogShotListError( path, message.str() );
+    LogShotListError( path, context + ": " + detail );
     return false;
 }
 
@@ -107,40 +67,12 @@ const Json* FindMember( const Json& object, const char* key )
     return it == object.end() ? nullptr : &*it;
 }
 
-bool RequireObject( const Json& value, const char* path, const std::string& context )
-{
-
-    if ( value.is_object() )
-    {
-        return true;
-    }
-
-    std::ostringstream detail;
-    detail << "must be an object, got " << JsonTypeName( value );
-    return FailField( path, context, detail.str() );
-}
-
-bool RequireArray( const Json& value, const char* path, const std::string& context )
-{
-
-    if ( value.is_array() )
-    {
-        return true;
-    }
-
-    std::ostringstream detail;
-    detail << "must be an array, got " << JsonTypeName( value );
-    return FailField( path, context, detail.str() );
-}
-
 bool ReadStringValue( const Json& value, const char* path, const std::string& context, std::string& out )
 {
 
     if ( !value.is_string() )
     {
-        std::ostringstream detail;
-        detail << "must be a string, got " << JsonTypeName( value );
-        return FailField( path, context, detail.str() );
+        return FailField( path, context, "must be a string" );
     }
 
     out = value.get<std::string>();
@@ -152,31 +84,11 @@ bool ReadFloatValue( const Json& value, const char* path, const std::string& con
 
     if ( !value.is_number() )
     {
-        std::ostringstream detail;
-        detail << "must be a number, got " << JsonTypeName( value );
-        return FailField( path, context, detail.str() );
+        return FailField( path, context, "must be a number" );
     }
 
     out = value.get<float>();
     return true;
-}
-
-bool ReadBoolValue( const Json& value, const char* path, const std::string& context, bool& out )
-{
-
-    if ( value.is_boolean() )
-    {
-        out = value.get<bool>();
-        return true;
-    }
-
-    if ( value.is_number_integer() )
-    {
-        out = value.get<int>() != 0;
-        return true;
-    }
-
-    return FailField( path, context, "must be a bool" );
 }
 
 bool CopyTextField( char* destination, std::size_t destinationSize, const std::string& value, const char* path,
@@ -194,34 +106,12 @@ bool CopyTextField( char* destination, std::size_t destinationSize, const std::s
     return true;
 }
 
-bool ReadOptionalFloatMember( const Json& object, const char* key, const char* path, const std::string& context,
-                              float& inOutValue )
-{
-
-    if ( const Json* member = FindMember( object, key ) )
-    {
-        return ReadFloatValue( *member, path, context + "." + key, inOutValue );
-    }
-
-    return true;
-}
-
-Json Vec3Json( const Vector3& value )
-{
-    return Json::array( { value.x, value.y, value.z } );
-}
-
 bool ReadVec3Value( const Json& value, const char* path, const std::string& context, Vector3& out )
 {
 
-    if ( !RequireArray( value, path, context ) )
+    if ( !value.is_array() || value.size() != 3u )
     {
-        return false;
-    }
-
-    if ( value.size() != 3u )
-    {
-        return FailField( path, context, "must have exactly 3 numbers" );
+        return FailField( path, context, "must be an array of exactly 3 numbers" );
     }
 
     return ReadFloatValue( value[0], path, context + "[0]", out.x ) &&
@@ -233,37 +123,32 @@ bool ReadRequiredStringMember( const Json& object, const char* key, const char* 
                                std::string& out )
 {
     const Json* member = FindMember( object, key );
-
-    if ( !member )
-    {
-        return FailField( path, context, std::string( "missing '" ) + key + "'" );
-    }
-
-    return ReadStringValue( *member, path, context + "." + key, out );
+    return member ? ReadStringValue( *member, path, context + "." + key, out )
+                  : FailField( path, context, std::string( "missing '" ) + key + "'" );
 }
 
 bool ReadRequiredVec3Member( const Json& object, const char* key, const char* path, const std::string& context,
                              Vector3& out )
 {
     const Json* member = FindMember( object, key );
+    return member ? ReadVec3Value( *member, path, context + "." + key, out )
+                  : FailField( path, context, std::string( "missing '" ) + key + "'" );
+}
 
-    if ( !member )
-    {
-        return FailField( path, context, std::string( "missing '" ) + key + "'" );
-    }
-
-    return ReadVec3Value( *member, path, context + "." + key, out );
+bool ReadOptionalFloatMember( const Json& object, const char* key, const char* path, const std::string& context,
+                              float& inOutValue )
+{
+    const Json* member = FindMember( object, key );
+    return !member || ReadFloatValue( *member, path, context + "." + key, inOutValue );
 }
 
 bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPhase )
 {
-    std::ostringstream contextStream;
-    contextStream << "phases[" << index << "]";
-    const std::string context = contextStream.str();
+    const std::string context = "phases[" + std::to_string( index ) + "]";
 
-    if ( !RequireObject( value, path, context ) )
+    if ( !value.is_object() )
     {
-        return false;
+        return FailField( path, context, "must be an object" );
     }
 
     std::string name;
@@ -276,13 +161,12 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
 
     const Json* camera = FindMember( value, "camera" );
 
-    if ( !camera )
+    if ( !camera || !camera->is_object() )
     {
-        return FailField( path, context, "missing 'camera'" );
+        return FailField( path, context, "missing object 'camera'" );
     }
 
-    if ( !RequireObject( *camera, path, context + ".camera" ) ||
-         !ReadRequiredVec3Member( *camera, "position", path, context + ".camera", outPhase.camera.eye ) ||
+    if ( !ReadRequiredVec3Member( *camera, "position", path, context + ".camera", outPhase.camera.eye ) ||
          !ReadRequiredVec3Member( *camera, "view", path, context + ".camera", outPhase.camera.view ) ||
          !ReadRequiredVec3Member( *camera, "up", path, context + ".camera", outPhase.camera.up ) )
     {
@@ -304,12 +188,8 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
     {
         std::string advanceText;
 
-        if ( !ReadStringValue( *advance, path, context + ".advance", advanceText ) )
-        {
-            return false;
-        }
-
-        if ( !TryParsePhaseAdvance( advanceText.c_str(), outPhase.advance ) )
+        if ( !ReadStringValue( *advance, path, context + ".advance", advanceText ) ||
+             !TryParsePhaseAdvance( advanceText.c_str(), outPhase.advance ) )
         {
             return FailField( path, context + ".advance", "unknown advance rule" );
         }
@@ -324,65 +204,30 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
 bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
 {
 
-    if ( !RequireObject( root, path, "document root" ) )
+    if ( !root.is_object() )
     {
-        return false;
+        return FailField( path, "document root", "must be an object" );
     }
 
     std::string format;
 
-    if ( !ReadRequiredStringMember( root, "format", path, "document root", format ) )
-    {
-        return false;
-    }
-
-    if ( format != kShotListFormat )
+    if ( !ReadRequiredStringMember( root, "format", path, "document root", format ) || format != kShotListFormat )
     {
         return FailField( path, "format", "expected 'skullbonez.shot.json'" );
     }
 
-    const Json* versionMember = FindMember( root, "version" );
+    const Json* version = FindMember( root, "version" );
 
-    if ( !versionMember )
+    if ( !version || !version->is_number_integer() || version->get<int>() != kShotListVersion )
     {
-        return FailField( path, "version", "missing version" );
-    }
-
-    float version = 0.0f;
-
-    if ( !ReadFloatValue( *versionMember, path, "version", version ) )
-    {
-        return false;
-    }
-
-    if ( version != static_cast<float>( kShotListVersion ) )
-    {
-        return FailField( path, "version", "expected 1" );
-    }
-
-    // Invariant: fill a temporary record first so a failed load leaves the
-    // caller's currently active shot list untouched.
-    DemoShotList parsed;
-
-    if ( const Json* loop = FindMember( root, "loop" ) )
-    {
-
-        if ( !ReadBoolValue( *loop, path, "loop", parsed.loop ) )
-        {
-            return false;
-        }
+        return FailField( path, "version", "expected integer 1" );
     }
 
     const Json* phases = FindMember( root, "phases" );
 
-    if ( !phases )
+    if ( !phases || !phases->is_array() )
     {
-        return FailField( path, "document root", "missing 'phases'" );
-    }
-
-    if ( !RequireArray( *phases, path, "phases" ) )
-    {
-        return false;
+        return FailField( path, "phases", "must be an array" );
     }
 
     if ( phases->size() > static_cast<std::size_t>( DemoShotList::MAX_PHASES ) )
@@ -390,20 +235,45 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
         return FailField( path, "phases", "too many phases for fixed shot-list storage" );
     }
 
-    for ( std::size_t i = 0; i < phases->size(); ++i )
-    {
-        const int phaseIndex = static_cast<int>( i );
+    // Invariant: publish only after every field is valid so a bad authoring
+    // document cannot partly overwrite the active Director sequence.
+    DemoShotList parsed;
 
-        if ( !ReadPhase( ( *phases )[i], path, phaseIndex, parsed.phases[static_cast<std::size_t>( phaseIndex )] ) )
+    if ( const Json* loop = FindMember( root, "loop" ) )
+    {
+
+        if ( loop->is_boolean() )
+        {
+            parsed.loop = loop->get<bool>();
+        }
+        else if ( loop->is_number_integer() )
+        {
+            parsed.loop = loop->get<int>() != 0;
+        }
+        else
+        {
+            return FailField( path, "loop", "must be a bool" );
+        }
+    }
+
+    for ( std::size_t index = 0; index < phases->size(); ++index )
+    {
+
+        if ( !ReadPhase( ( *phases )[index], path, static_cast<int>( index ), parsed.phases[index] ) )
         {
             return false;
         }
 
-        parsed.phaseCount = phaseIndex + 1;
+        parsed.phaseCount = static_cast<int>( index ) + 1;
     }
 
     outShotList = parsed;
     return true;
+}
+
+Json Vec3Json( const Vector3& value )
+{
+    return Json::array( { value.x, value.y, value.z } );
 }
 
 Json PhaseJson( const DemoPhase& phase )
@@ -443,6 +313,7 @@ const char* PhaseAdvanceName( PhaseAdvance advance )
     return "Manual";
 }
 
+
 bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
 {
 
@@ -473,6 +344,7 @@ bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
     return false;
 }
 
+
 bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 {
 
@@ -500,6 +372,7 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 
     return ReadRoot( root, path, outShotList );
 }
+
 
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
 {

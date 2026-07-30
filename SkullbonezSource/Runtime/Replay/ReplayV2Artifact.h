@@ -120,8 +120,6 @@ class ReplayV2Artifact
     // Saves presentation data plus sparse solver hashes/checkpoints so restore
     // validation can compare source frames against the saved artifact.
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,
-                                                  const char* path, ReplayV2SaveResult* result = nullptr );
-    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,
                                                   const ReplayEventRecorder& eventRecorder, const char* path,
                                                   ReplayV2SaveResult* result = nullptr );
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,

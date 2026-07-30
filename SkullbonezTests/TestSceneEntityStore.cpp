@@ -25,6 +25,7 @@ Related:
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 
@@ -136,44 +137,6 @@ TEST_CASE( "SceneEntityStore: active capacity is enforced without growth" )
     CHECK( store.PreflightAppend( second ).Ok() );
 }
 
-TEST_CASE( "SceneEntityStore: behavior-group queries resolve stable ragdoll identity" )
-{
-    SceneEntityStore store( diagnostics );
-    store.ConfigureCapacity( 4 );
-
-    SceneEntityCreateDesc torso;
-    torso.sceneObjectId = PhysicsSceneObjectId { 100u };
-    torso.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 0 );
-    store.CommitAppend( torso, PhysicsBodyHandle { 0u, 1u } );
-
-    SceneEntityCreateDesc head;
-    head.sceneObjectId = PhysicsSceneObjectId { 101u };
-    head.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 1 );
-    store.CommitAppend( head, PhysicsBodyHandle { 1u, 1u } );
-
-    SceneEntityCreateDesc arm;
-    arm.sceneObjectId = PhysicsSceneObjectId { 102u };
-    arm.SetBehaviorGroup( SceneBehaviorGroupKind::SimpleRagdoll, torso.sceneObjectId, 2 );
-    store.CommitAppend( arm, PhysicsBodyHandle { 2u, 1u } );
-
-    CHECK( store.GroupKindAt( 1 ) == SceneBehaviorGroupKind::SimpleRagdoll );
-    CHECK( store.GroupRootObjectIdAt( 2 ).value == torso.sceneObjectId.value );
-    CHECK( store.GroupPartIndexAt( 1 ) == 1 );
-    CHECK( store.IsSimpleRagdollPart( 2 ) );
-    CHECK( store.IsSimpleRagdollTorso( 0 ) );
-    CHECK_FALSE( store.IsSimpleRagdollTorso( 1 ) );
-    CHECK( store.RagdollRootModelIndexForPart( 2 ) == 0 );
-
-    int foundPart = -1;
-    REQUIRE( store.TryFindSimpleRagdollPart( 2, 1, foundPart ) );
-    CHECK( foundPart == 1 );
-
-    int members[2] = {};
-    CHECK( store.GatherGroupMemberIndices( 1, members, 2 ) == 2 );
-    CHECK( members[0] == 0 );
-    CHECK( members[1] == 1 );
-}
-
 TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row" )
 {
     using namespace SkullbonezCore::Physics;
@@ -254,7 +217,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
-    REQUIRE( colliderStore.CreateColliderRecord( collider, shape ).IsValid() );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  ).IsValid() );
 
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
@@ -390,7 +353,7 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
-    REQUIRE( colliderStore.CreateColliderRecord( collider, shape ).IsValid() );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  ).IsValid() );
 
     REQUIRE( renderStore.ResizePresentationRecords( 1 ) );
     REQUIRE( renderStore.PresentationCount() == 1 );

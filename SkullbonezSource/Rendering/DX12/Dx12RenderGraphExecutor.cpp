@@ -138,44 +138,6 @@ bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, 
 }
 
 
-std::string Dx12ResourceStateToString( D3D12_RESOURCE_STATES state )
-{
-
-    if ( state == D3D12_RESOURCE_STATE_COMMON )
-    {
-        return "COMMON";
-    }
-
-    std::ostringstream out;
-    bool wroteAny = false;
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
-                         "VERTEX_AND_CONSTANT_BUFFER" );
-
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDEX_BUFFER, "INDEX_BUFFER" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RENDER_TARGET, "RENDER_TARGET" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, "UNORDERED_ACCESS" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_WRITE, "DEPTH_WRITE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_READ, "DEPTH_READ" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, "NON_PIXEL_SHADER_RESOURCE" );
-
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, "PIXEL_SHADER_RESOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_STREAM_OUT, "STREAM_OUT" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, "INDIRECT_ARGUMENT" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_DEST, "COPY_DEST" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_SOURCE, "COPY_SOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_DEST, "RESOLVE_DEST" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_SOURCE, "RESOLVE_SOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PRESENT, "PRESENT" );
-
-    if ( !wroteAny )
-    {
-        out << "UNKNOWN(" << static_cast<unsigned int>( state ) << ")";
-    }
-
-    return out.str();
-}
-
-
 Dx12RenderGraphSingleTransitionResult EmitDx12RenderGraphTransitionBarrier( const Dx12RenderGraphSingleTransitionDesc& desc )
 {
     Dx12RenderGraphSingleTransitionResult result;
@@ -273,76 +235,6 @@ Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* so
     return record;
 }
 
-
-Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,
-                                                                  const RenderGraphCompileResult& compiled,
-                                                                  const Dx12RenderGraphExecutionDesc& desc )
-{
-    Dx12RenderGraphExecutionResult result;
-
-    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
-    {
-        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
-        const RenderGraphPassDesc& pass = graph.Passes()[transition.passIndex];
-
-        Dx12RenderGraphSingleTransitionDesc singleDesc;
-        singleDesc.commandList = desc.commandList;
-        singleDesc.resource = transition.nativeResource.As<ID3D12Resource>();
-        singleDesc.before = transition.before;
-        singleDesc.after = transition.after;
-        singleDesc.subresource = static_cast<UINT>( transition.subresource );
-
-        Dx12RenderGraphBarrierRecord record = MakeSingleTransitionRecord( desc.sourcePrefix, pass.name, resource.name,
-                                                                          singleDesc );
-
-        if ( record.requiresUavOrderingReview )
-        {
-            ++result.uavAccessTransitionCount;
-        }
-
-        if ( !record.hasConcreteStates )
-        {
-            ++result.unknownStateTransitionCount;
-            result.AddBarrier( record );
-            continue;
-        }
-
-        if ( record.beforeState == record.afterState )
-        {
-            ++result.skippedSameStateCount;
-            result.AddBarrier( record );
-            continue;
-        }
-
-        if ( !record.hasNativeResource )
-        {
-            ++result.missingNativeResourceTransitionCount;
-            result.AddBarrier( record );
-            continue;
-        }
-
-        ++result.transitionBarrierCount;
-
-        if ( desc.mode == Dx12RenderGraphExecutionMode::EmitBarriers )
-        {
-            record = ExecuteDx12RenderGraphSingleTransition( desc.sourcePrefix, pass.name, resource.name, singleDesc );
-
-            if ( record.emitted )
-            {
-                ++result.emittedTransitionBarrierCount;
-            }
-
-            if ( record.missingCommandList )
-            {
-                ++result.missingCommandListEmissionCount;
-            }
-        }
-
-        result.AddBarrier( record );
-    }
-
-    return result;
-}
 
 } // namespace Rendering
 } // namespace SkullbonezCore

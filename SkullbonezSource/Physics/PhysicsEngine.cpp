@@ -881,37 +881,6 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-#ifdef _DEBUG
-void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
-{
-    assert( m_bodyStore.Count() == modelCount );
-    assert( m_colliderStore.Count() == modelCount );
-    assert( m_buoyancySystem.Count() == modelCount );
-
-    const auto bodies = m_bodyStore.Records();
-    const auto colliders = m_colliderStore.Records();
-
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t index = static_cast<std::size_t>( i );
-        const PhysicsBodyRecord& body = bodies[index];
-        const ColliderRecord& collider = colliders[index];
-        const PhysicsBodyHandle bodyHandle = m_bodyStore.HandleForModelIndex( i );
-        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForBodyHandle( bodyHandle );
-
-        assert( bodyHandle.IsValid() );
-        assert( colliderHandle.IsValid() );
-        assert( body.handle == bodyHandle );
-        assert( collider.handle == colliderHandle );
-        assert( collider.body == bodyHandle );
-        assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
-        assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
-        assert( body.sceneObjectId == collider.sceneObjectId );
-    }
-}
-#endif
-
-
 void PhysicsEngine::Step( float fChangeInTime, const PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
@@ -1377,18 +1346,6 @@ uint64_t PhysicsEngine::CollectSceneSizedStoreMemoryBytes() const
 }
 
 
-bool PhysicsEngine::ShouldEmitStepDiagnostics() const
-{
-    return m_world->ShouldEmitStepDiagnostics();
-}
-
-
-bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
-{
-    return m_world->ShouldEmitCollisionTimeDiagnostics();
-}
-
-
 void PhysicsEngine::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
 {
     m_world->SetDiagnosticNames( diagnosticNames );
@@ -1524,8 +1481,4 @@ void PhysicsEngine::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-bool PhysicsEngine::SetDiagnosticsSuppressed( bool suppressed )
-{
-    return m_world->SetDiagnosticsSuppressed( suppressed );
-}
 #endif

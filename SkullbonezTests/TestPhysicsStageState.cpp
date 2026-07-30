@@ -38,6 +38,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Core/Config.h"
@@ -350,7 +351,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, sphere  );
     }
 
     PhysicsSleepController controller;
@@ -412,7 +413,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     collider.body = handle;
     collider.sceneObjectId = MakePhysicsSceneObjectId( 91u );
     collider.boundingRadius = 1.0f;
-    colliders.CreateColliderRecord( collider, sphere );
+    SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, sphere  );
     PhysicsSleepController controller;
     ReserveTestSleepCapacity( controller );
     controller.MirrorFlagsFrom( bodies, 1 );
@@ -453,7 +454,7 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, sphere  );
     }
 
     PhysicsSleepController controller;
@@ -572,7 +573,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, sphere  );
         if ( ( bodyIndex & 1 ) != 0 )
         {
             candidatePairs.emplace_back( bodyIndex - 1, bodyIndex );

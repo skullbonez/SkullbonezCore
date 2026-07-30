@@ -1905,21 +1905,6 @@ void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, co
 }
 
 
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Vector3& terrainPoint,
-                                       const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
-{
-    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
-    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
-
-    for ( int partIndex = 0; partIndex < house.partCount; ++partIndex )
-    {
-        ExpandEditorHousePartWorldBounds( house.parts[partIndex], terrainPoint, orientation, outMin, outMax );
-    }
-
-    return outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
-}
-
-
 float EditorTreeVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, int objectType )
 {
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( objectType );

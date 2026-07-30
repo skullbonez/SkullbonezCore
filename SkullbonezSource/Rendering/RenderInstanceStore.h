@@ -197,9 +197,7 @@ class RenderInstanceStore
     bool TryGetPresentationPose( int modelIndex, float presentationAlpha, Math::Vector::Vector3& outPosition,
                                  Math::Orientation::Quaternion& outOrientation ) const;
 
-    const RenderInstanceRecord* Data() const;
     int Count() const;
-    bool Empty() const;
     RenderInstanceHandle HandleForModelIndex( int modelIndex ) const;
     int ModelIndexForHandle( RenderInstanceHandle handle ) const;
     bool Contains( RenderInstanceHandle handle ) const;

@@ -877,24 +877,6 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
 }
 
 
-void Text2d::Render2dText( TextBatch& batch, float xPosition, float yPosition, float fSize, const char* cRawText, ... )
-{
-
-    if ( !cRawText || !Text2d::pTextShader )
-    {
-        return;
-    }
-
-    char textBuffer[512] = {};
-    va_list args;
-    va_start( args, cRawText );
-    vsprintf_s( textBuffer, sizeof( textBuffer ), cRawText, args );
-    va_end( args );
-
-    RenderTextInternal( batch, xPosition, yPosition, fSize, 1.0f, 1.0f, 1.0f, textBuffer );
-}
-
-
 void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float fSize, float r, float g, float b,
                                 const char* cRawText, ... )
 {

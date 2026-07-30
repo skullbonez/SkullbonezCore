@@ -45,6 +45,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
@@ -218,7 +219,7 @@ struct SolverFixture
         collider.boundingRadius = radius;
         collider.restitution = restitution;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider, shape );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -255,7 +256,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider, shape );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );

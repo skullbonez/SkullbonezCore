@@ -1201,16 +1201,6 @@ bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 }
 
 
-bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
-{
-#ifdef _DEBUG
-    return m_stepDiagnostics.ShouldEmitCollisionTimeDiagnostics( m_diagnosticsSuppressed );
-#else
-    return false;
-#endif
-}
-
-
 void PhysicsWorld::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
 {
     m_stepDiagnostics.SetDiagnosticNames( diagnosticNames );
@@ -1256,14 +1246,6 @@ void PhysicsWorld::SetPhysicsDiagnosticsPath( const char* path )
 void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
-}
-
-
-bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
-{
-    const bool previous = m_diagnosticsSuppressed;
-    m_diagnosticsSuppressed = suppressed;
-    return previous;
 }
 
 

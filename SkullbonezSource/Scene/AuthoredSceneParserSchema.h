@@ -1254,8 +1254,6 @@ class AuthoredSceneParser
     AuthoredSceneParser( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const Assets::AssetSystem* assets );
     SkullbonezCore::Core::SbResult TryLoadScene( const char* path, AuthoredScene& outScene );
     SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, AuthoredScene& outScene );
-    AuthoredScene LoadScene( const char* path );
-    AuthoredScene LoadStyle( const char* path );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

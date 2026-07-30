@@ -424,15 +424,6 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore, const Coll
 }
 
 
-bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, int modelIndex,
-                                   const PhysicsBodyRecord*& outBody, const ColliderRecord*& outCollider )
-{
-    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
-    return TryResolveEditorBodyCollider( bodyStore, colliderStore, bodyHandle,
-                                         colliderStore.HandleForBodyHandle( bodyHandle ), modelIndex, outBody, outCollider );
-}
-
-
 bool TryGetEditorSelectionFrame( const SceneWorld& world, PhysicsBodyHandle selectedBodyHandle,
                                  PhysicsColliderHandle selectedColliderHandle, int selectedIndex, Vector3& outOrigin,
                                  float& outRadius )

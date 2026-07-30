@@ -373,9 +373,7 @@ class PhysicsBodyStore
     void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
                                         PhysicsBodyIndexList& outReleasedBodyIndices );
 
-    const PhysicsBodyRecord* Data() const;
     int Count() const;
-    bool Empty() const;
     PhysicsBodyHandle HandleForModelIndex( int modelIndex ) const;
 
     // Resolves stable scene identity to the live body handle. modelIndexHint
@@ -407,7 +405,6 @@ class PhysicsBodyStore
     // Handle-keyed commands are the store-owned public path. Solver helpers that
     // already walk dense rows mutate PhysicsBodyRecord directly instead of
     // paying a row-index-to-handle round trip.
-    bool WakeBody( PhysicsBodyHandle body );
     bool SeedBodyAsleep( PhysicsBodyHandle body );
 
     // Edits live velocity through the handle-owned body record. The command is
@@ -417,9 +414,6 @@ class PhysicsBodyStore
                           const Math::Vector::Vector3& angularVelocity );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
-    bool ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
-    bool ConsumePendingBodyImpulse( int modelIndex );
 
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has

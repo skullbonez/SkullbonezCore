@@ -66,7 +66,6 @@ const char* DecorateMarkerName( const char* name, const char* suffix, char* buff
 
 void CpuBegin( const char* name, uint32_t hash );
 void CpuEnd();
-void CpuMarker( const char* name, uint32_t hash );
 
 } // namespace PlatformProfiler
 } // namespace Core

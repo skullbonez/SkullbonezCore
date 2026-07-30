@@ -1797,21 +1797,9 @@ void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRele
 }
 
 
-const PhysicsBodyRecord* PhysicsBodyStore::Data() const
-{
-    return m_bodies.empty() ? nullptr : m_bodies.data();
-}
-
-
 int PhysicsBodyStore::Count() const
 {
     return static_cast<int>( m_bodies.size() );
-}
-
-
-bool PhysicsBodyStore::Empty() const
-{
-    return m_bodies.empty();
 }
 
 
@@ -2071,20 +2059,6 @@ const PhysicsBodyRecord* PhysicsBodyStore::RecordForModelIndex( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
-{
-    const int modelIndex = ModelIndexForHandle( body );
-
-    if ( modelIndex < 0 || m_fixed[static_cast<std::size_t>( modelIndex )] != 0u )
-    {
-        return false;
-    }
-
-    m_awake[static_cast<std::size_t>( modelIndex )] = 1u;
-    return true;
-}
-
-
 bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
 {
     const int modelIndex = ModelIndexForHandle( body );
@@ -2144,52 +2118,10 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vect
 }
 
 
-bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse,
-                                         const Vector3& localApplicationPoint )
-{
-    const bool pending = SetPendingBodyImpulse( body, impulse, localApplicationPoint );
-    WakeBody( body );
-    return pending;
-}
-
-
 // Concept: pending impulses are one-shot velocity edits owned by hot arrays.
 //
 // Runtime force integration consumes them through this store hook so impulse
 // math stays in one cache-local body path.
-bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
-{
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-
-    if ( !record )
-    {
-        return false;
-    }
-
-    if ( !record->hasPendingImpulse )
-    {
-        return false;
-    }
-
-    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
-    PhysicsBodyHotState hot;
-    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
-
-    hot.angularVelocity = Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex],
-                                   m_angularVelocityZ[bodyIndex] );
-
-    ApplyPendingImpulse( *record, hot );
-
-    // Why: an impulse can only change velocity. Writing the entire 20-field row
-    // here needlessly pollutes the scalar hot path and obscures that invariant.
-    m_linearVelocityX[bodyIndex] = hot.linearVelocity.x;
-    m_linearVelocityY[bodyIndex] = hot.linearVelocity.y;
-    m_linearVelocityZ[bodyIndex] = hot.linearVelocity.z;
-    m_angularVelocityX[bodyIndex] = hot.angularVelocity.x;
-    m_angularVelocityY[bodyIndex] = hot.angularVelocity.y;
-    m_angularVelocityZ[bodyIndex] = hot.angularVelocity.z;
-    return true;
-}
 
 
 bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler, const ColliderStore& colliderStore,

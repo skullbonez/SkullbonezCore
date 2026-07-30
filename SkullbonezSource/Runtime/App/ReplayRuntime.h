@@ -289,26 +289,6 @@ class ReplayRuntime
     void CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents,
                               RuntimeTools& runtimeTools );
     void CancelRenderFrame( RuntimeTools& runtimeTools );
-    ReplayVisualPacket
-    BuildVisualProjectionForValidation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                        const Physics::PhysicsBodyStore& bodyStore, RuntimeTools& runtimeTools,
-                                        const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp,
-                                        uint64_t replayReserveGrowthEvents );
-
-    // Validation-only terminal transition: the sole engine process may decode
-    // its frozen RVPD state and rebuild CPU presentation values after the last
-    // rendered frame, but it can never schedule another prediction generation.
-    void EnterOfflinePredictionVerification();
-
-    // Cold artifact verification operations intentionally expose no mutable
-    // prediction or presentation owner state to the probe translation unit.
-    bool LoadPredictionArchiveForVerification( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );
-
-    // Cold validation command that serializes the owner-coherent path and
-    // prediction pair without publishing their private storage.
-    bool BuildPredictionArchiveForValidation( std::vector<uint8_t>& outBytes ) const;
-    void ResetPredictionPresentationVerification();
 
     // Publishes reveal, trajectory, and marker caches for callers that project
     // restored prediction values without running the normal frame scheduler.

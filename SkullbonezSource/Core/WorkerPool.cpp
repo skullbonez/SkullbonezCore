@@ -321,18 +321,6 @@ int WorkerPool::GetThreadCount() const
 }
 
 
-int WorkerPool::GetMinParallelItems() const
-{
-    return m_minParallelItems;
-}
-
-
-bool WorkerPool::IsInitialised() const
-{
-    return GetThreadCount() > 0;
-}
-
-
 bool WorkerPool::ShouldRunInline( int itemCount, int minParallelItems ) const
 {
     const int threshold = minParallelItems > 0 ? minParallelItems : m_minParallelItems;

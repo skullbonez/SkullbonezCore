@@ -129,7 +129,6 @@ class SceneSession
     int QueueSize() const;
     int CurrentIndex() const;
     int NextIndex() const;
-    const std::vector<std::string>& Queue() const;
 
     void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );

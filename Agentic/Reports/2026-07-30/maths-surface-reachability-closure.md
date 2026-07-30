@@ -98,12 +98,10 @@ The corrected final census is:
 | Missing | 15 |
 | **Total** | **407** |
 
-All 407 rows have exact current `repair-plan` rulings in
-`tools/reachability_rulings.json`; strict mode reports zero diagnostics. They
-are not retained by allowance. The four-phase
-`Agentic/Plans/TODO/unreachable-symbol-remediation.md` plan is registered in
-MASTER and owns row-by-row adjudication after the four original Claim Integrity
-plans settle the source tree.
+At this closure point all 407 rows had exact `repair-plan` rulings and strict
+mode reported zero diagnostics; none was retained by allowance. The completed
+four-phase row-by-row adjudication is recorded in
+`Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md`.
 
 ## Independent Review
 

@@ -277,20 +277,6 @@ void CameraCollection::SetPrimaryPosition( const Vector3& vPos )
 }
 
 
-void CameraCollection::SetPrimaryUp( const Vector3& vUp )
-{
-    m_cameraArray[m_selectedCamera].m_upVector = vUp;
-
-    if ( !m_cameraArray[m_selectedCamera].m_upVector.TryNormalise() )
-    {
-
-        // Fallback: external/editor camera input with no up direction uses the
-        // world-up basis shared by default cameras.
-        m_cameraArray[m_selectedCamera].m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
-    }
-}
-
-
 void CameraCollection::SetPrimaryPose( const Vector3& position, const Vector3& view, const Vector3& up )
 {
     m_cameraArray[m_selectedCamera].SetAll( position, view, up );
@@ -318,7 +304,7 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
 
         // Why: replay inspection can switch ownership to the free camera while
         // keeping the same visible pose. Treat that as a completed transition so
-        // IsCameraTweening does not stay true for a no-op move.
+        // the retained tween state does not stay active for a no-op move.
         m_isTweening = false;
         m_tweenProgress = 0.0f;
         ResetRelativity();
@@ -350,27 +336,9 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuan
 }
 
 
-const Vector3& CameraCollection::GetPrimaryMovementBuffer()
-{
-    return m_cameraArray[m_selectedCamera].m_movementBuffer;
-}
-
-
-bool CameraCollection::IsPrimaryLocked()
-{
-    return m_cameraArray[m_selectedCamera].m_isLockedMode;
-}
-
-
 const Vector3& CameraCollection::GetCameraTranslation() const
 {
     return ( m_cameraArray[m_selectedCamera].m_position );
-}
-
-
-const Vector3& CameraCollection::GetCameraTranslation( uint32_t hash )
-{
-    return ( m_cameraArray[FindIndex( hash )].m_position );
 }
 
 
@@ -395,40 +363,6 @@ const Vector3& CameraCollection::GetRenderCameraUp() const
 void CameraCollection::CancelTween()
 {
     m_isTweening = false;
-}
-
-
-void CameraCollection::RelativeUpdate( uint32_t hash, float yMin, float yMax )
-{
-    int cameraIndex = FindIndex( hash );
-
-    if ( m_selectedCamera == cameraIndex )
-    {
-        return;
-    }
-
-    // use vector addition to apply the updates to the specified camera
-    m_cameraArray[cameraIndex].ApplyDelta( GetCameraDelta(), m_movementSettings );
-
-    // cap the y m_position of the camera to specified value if required
-
-    if ( m_cameraArray[cameraIndex].m_position.y < yMin )
-    {
-        m_cameraArray[cameraIndex].m_position.y = yMin;
-    }
-    else if ( m_cameraArray[cameraIndex].m_position.y > yMax )
-    {
-        m_cameraArray[cameraIndex].m_position.y = yMax;
-    }
-}
-
-
-Camera CameraCollection::GetCameraDelta()
-{
-
-    // Non-primary cameras receive the selected camera's accumulated delta when
-    // they next become relative followers.
-    return ( m_cameraArray[m_selectedCamera] - m_primaryStore );
 }
 
 
@@ -518,13 +452,6 @@ void CameraCollection::SetCamera()
 }
 
 
-void CameraCollection::OverrideRenderCameraForFrame( const Vector3& position, const Vector3& view, const Vector3& up )
-{
-    m_renderCamera.SetAll( position, view, up );
-    SetViewMatrix( m_renderCamera );
-}
-
-
 void CameraCollection::SetViewMatrix( const Camera& cCameraData )
 {
     m_renderCamera = cCameraData;
@@ -552,12 +479,6 @@ int CameraCollection::FindIndex( uint32_t hash )
 bool CameraCollection::IsCameraSelected( uint32_t hash )
 {
     return ( FindIndex( hash ) == m_selectedCamera );
-}
-
-
-bool CameraCollection::IsCameraTweening()
-{
-    return m_isTweening;
 }
 
 

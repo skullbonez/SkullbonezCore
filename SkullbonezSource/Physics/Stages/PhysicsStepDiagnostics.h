@@ -66,13 +66,11 @@ class PhysicsStepDiagnostics
     void EndCollisionVisualFrame();
     void MarkCollisionVisualContact( int index );
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
-    bool CanRecordPipelineStage() const;
     int RemainingPipelineRecordCapacity() const;
     void EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime,
                             float availableTime );
 
     bool ShouldEmitStepDiagnostics( bool diagnosticsSuppressed ) const;
-    bool ShouldEmitCollisionTimeDiagnostics( bool diagnosticsSuppressed ) const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
     void EmitStepDiagnostics( bool diagnosticsSuppressed, const PhysicsDiagnosticsView& diagnosticsView,
                               const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,

@@ -690,7 +690,6 @@ class RenderGraph
 
     // Executes callback-owned passes in declaration order. The range overload
     // is the production path for newly appended one-shot callback payloads.
-    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
     RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass,
                                                          uint32_t passCount ) const;
 

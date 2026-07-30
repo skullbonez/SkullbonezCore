@@ -66,9 +66,10 @@ class Timer
     double GetElapsedTime();             // Seconds between the last StartTimer and StopTimer calls.
     double GetTimeSinceLastStart();      // Seconds since the active interval started.
     double GetTotalTime();               // Seconds since this Timer successfully initialized.
-    bool IncrementFrameCount();          // Advances FPS bucket; true means a full second elapsed.
-    void StoreFpsAndResetFrameCounter(); // Publishes the finished FPS bucket and starts a new one.
-    int GetCurrentFPS();                 // Last published frames-per-second value.
+
+    // Advances FPS bucket; true means a full second elapsed.
+    // Publishes the finished FPS bucket and starts a new one.
+    // Last published frames-per-second value.
 };
 } // namespace Environment
 } // namespace SkullbonezCore

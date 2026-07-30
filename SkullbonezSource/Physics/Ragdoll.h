@@ -149,7 +149,6 @@ class Ragdoll
         return true;
     }
 
-    static float DefaultEditorScale();
     static float ClampScale( float scale );
     static float SurfaceEpsilon();
     static const RagdollPartDesc* SimpleParts();

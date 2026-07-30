@@ -321,10 +321,6 @@ RunRayCastTestState& RuntimeTools::RayCastTest()
     return m_rayCastTest;
 }
 
-const RunRayCastTestState& RuntimeTools::RayCastTest() const
-{
-    return m_rayCastTest;
-}
 
 bool RuntimeTools::ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands )
 {
@@ -884,20 +880,18 @@ LauncherLaser& RuntimeTools::Laser()
     return m_laser;
 }
 
+
 const LauncherLaser& RuntimeTools::Laser() const
 {
     return m_laser;
 }
+
 
 RunMousePickupState& RuntimeTools::MousePickup()
 {
     return m_mousePickup;
 }
 
-const RunMousePickupState& RuntimeTools::MousePickup() const
-{
-    return m_mousePickup;
-}
 
 RunEditorPlacementState& RuntimeTools::Editor()
 {
@@ -910,11 +904,6 @@ const RunEditorPlacementState& RuntimeTools::Editor() const
 }
 
 EditorTracer& RuntimeTools::Tracer()
-{
-    return m_editorTracer;
-}
-
-const EditorTracer& RuntimeTools::Tracer() const
 {
     return m_editorTracer;
 }

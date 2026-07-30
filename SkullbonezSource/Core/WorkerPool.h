@@ -100,8 +100,6 @@ class WorkerPool
                                  int outCapacity ) const;
 
     int GetThreadCount() const;
-    int GetMinParallelItems() const;
-    bool IsInitialised() const;
 
     static int MaxThreadCount();
     static int ResolveThreadCount( int requestedThreadCount );

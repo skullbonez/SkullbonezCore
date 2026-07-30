@@ -122,14 +122,9 @@ class ColliderStore
 
     void Clear();
     bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
-    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
-                                                const Math::CollisionDetection::CollisionShape& shape );
 
     // Creates hot and cold rows in one topology transaction. Callers that own
     // authored material text must use this overload so row indices cannot drift.
-    PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
-                                                const Math::CollisionDetection::CollisionShape& shape,
-                                                const ColliderAuthoringRecord& initialAuthoringRecord );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord,
                                                 const Math::CollisionDetection::CollisionShape& shape,
                                                 const ColliderAuthoringRecord& initialAuthoringRecord,
@@ -138,18 +133,11 @@ class ColliderStore
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the PhysicsEngine
     // owner boundary.
-    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
-                                const Math::CollisionDetection::CollisionShape& shape );
 
     // Replaces hot and cold authored facts together while retaining handle identity.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
                                 const Math::CollisionDetection::CollisionShape& shape,
-                                const ColliderAuthoringRecord& authoringRecord );
-    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
-                                const Math::CollisionDetection::CollisionShape& shape,
                                 const ColliderAuthoringRecord& authoringRecord, const HullShapeIdentity& hullIdentity );
-    bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record,
-                                    const Math::CollisionDetection::CollisionShape& shape );
 
     // Runtime config updates material scalars in-place instead of rebuilding
     // shape records from scene authoring payloads.
@@ -157,9 +145,7 @@ class ColliderStore
     bool DestroyColliderRecord( PhysicsColliderHandle handle );
     bool TrimToCount( int colliderCount );
 
-    const ColliderRecord* Data() const;
     int Count() const;
-    bool Empty() const;
     PhysicsColliderHandle HandleForModelIndex( int modelIndex ) const;
 
     // Resolves collider identity through physics-owned body identity. The scan is
@@ -177,7 +163,6 @@ class ColliderStore
     // Lifetime: these spans borrow the store's live dense prefix and expire on
     // scene mutation, compaction, or store destruction.
     std::span<const ColliderRecord> Records() const;
-    std::span<ColliderRecord> MutableRecords();
     std::size_t RecordCapacity() const;
     std::size_t AuthoringRecordCapacity() const;
     std::size_t SphereShapeCount() const;
@@ -187,7 +172,6 @@ class ColliderStore
     std::size_t HullShapeCount() const;
     std::size_t HullShapeCapacity() const;
     uint64_t CollectRuntimeCapacityMemoryBytes() const;
-    ColliderRecord* MutableRecordForHandle( PhysicsColliderHandle handle );
     const ColliderRecord* RecordForHandle( PhysicsColliderHandle handle ) const;
 
     // Lifetime: returned cold rows expire on store mutation or compaction, just

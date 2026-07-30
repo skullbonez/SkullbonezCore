@@ -346,34 +346,6 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
     add( ReplayCauseWindowControl::Panel, RuntimeUiControlKind::Panel, ReplayCauseWindowRect( state ) );
 }
 
-UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
-{
-    const UI::UIRect scrubber = ReplayScrubberPanelRect( screenW, screenH );
-    const float width = (std::min)( REPLAY_CAUSE_TREE_PANEL_WIDTH,
-                                    (std::max)( 220.0f,
-                                                static_cast<float>( screenW ) - REPLAY_CAUSE_TREE_PANEL_MARGIN * 2.0f ) );
-
-    const float x = (std::max)( REPLAY_CAUSE_TREE_PANEL_MARGIN,
-                                static_cast<float>( screenW ) - width - REPLAY_CAUSE_TREE_PANEL_MARGIN );
-
-    const float y = REPLAY_CAUSE_TREE_PANEL_TOP;
-    const float maxHeight = (std::max)( 120.0f, scrubber.y - y - REPLAY_CAUSE_TREE_PANEL_MARGIN );
-    const float height = (std::min)( 420.0f, maxHeight );
-    return { x, y, width, height };
-}
-
-UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow )
-{
-    return { panel.x + 10.0f,
-             panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT + static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
-             panel.w - 20.0f, REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
-}
-
-int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
-{
-    return (std::max)( 0, static_cast<int>( ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) /
-                                            REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
-}
 
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
 {

@@ -884,10 +884,3 @@ void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, cons
 
     m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
 }
-
-bool PhysicsSleepController::IsPointJointPair( const PhysicsBodyStore& bodyStore,
-                                               std::span<const PointJointConstraint> pointJointConstraints, int bodyA,
-                                               int bodyB ) const
-{
-    return IsPointJointBodyPair( bodyStore, pointJointConstraints, bodyA, bodyB );
-}

@@ -215,7 +215,6 @@ class PhysicsWorld
     // table and runtime owns the CSV writer, so fixed steps do not borrow model
     // or logging globals.
     bool ShouldEmitStepDiagnostics() const;
-    bool ShouldEmitCollisionTimeDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
     void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float fChangeInTime,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
@@ -267,7 +266,6 @@ class PhysicsWorld
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
 };
 

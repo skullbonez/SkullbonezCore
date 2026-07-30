@@ -361,7 +361,6 @@ class Dx12TextureOwner
     size_t RegistryCapacity() const;
     UINT ResolveSrv( uint32_t handle ) const;
     ID3D12Resource* ResolveResource( uint32_t handle ) const;
-    uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
     TextureEntryDX12* ResolveEntry( uint32_t handle );
@@ -691,7 +690,6 @@ class Dx12RaytracingOwner
     void ProbeCapability( ID3D12Device* device );
     bool Supported() const;
     bool Initialized() const;
-    const SkullbonezCore::Core::SbResult& FeatureResult() const;
 
     Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device, ID3D12GraphicsCommandList* commandList,
                                            Dx12DescriptorHeaps& descriptors, int renderWidth, int renderHeight,

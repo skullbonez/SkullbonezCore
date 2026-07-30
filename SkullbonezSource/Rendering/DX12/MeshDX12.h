@@ -108,7 +108,6 @@ class MeshDX12
     {
         return m_format;
     }
-    void ResetResources();
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

@@ -579,13 +579,6 @@ class EditorTracer
     void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
                                  float b );
 
-    // Draws the downstream replay collision marker from the exact collider
-    // shape at the predicted contact frame. Callers pass explicit pose/shape so
-    // future-node overlays never fall back to broadphase radius rings.
-    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& position,
-                                      const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShapeReference& shape, int depth );
-
     // Draws the yellow causal-entry outline: a predicted body's in-place pose
     // at the prediction start (perfect formation for a wall brick). Pose comes
     // from prediction samples, never from live model state.
@@ -644,7 +637,6 @@ class RuntimeTools
     }
 
     RunRayCastTestState& RayCastTest();
-    const RunRayCastTestState& RayCastTest() const;
     bool ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands );
     RayCastLauncherTuningUICommandResult ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands& commands );
     void ClearRayCastTestLines();
@@ -687,7 +679,6 @@ class RuntimeTools
     const LauncherLaser& Laser() const;
 
     RunMousePickupState& MousePickup();
-    const RunMousePickupState& MousePickup() const;
 
     // Called only after editor routing declines the pointer and composition
     // proves manipulator mode is the active world owner. All borrows expire
@@ -750,7 +741,6 @@ class RuntimeTools
                                 RuntimeInteractionController& interaction );
 
     EditorTracer& Tracer();
-    const EditorTracer& Tracer() const;
 
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.

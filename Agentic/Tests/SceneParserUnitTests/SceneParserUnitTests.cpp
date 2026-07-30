@@ -161,6 +161,51 @@ struct TestCase
     void ( *run )() = nullptr;
 };
 
+
+// Why: production parsing is result-bearing. Successful-fixture tests keep a
+// compact setup path while still failing through the canonical Try API.
+AuthoredScene LoadSceneOrFail( const char* path )
+{
+    AuthoredScene scene;
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, scene );
+
+    if ( !result.Ok() )
+    {
+        Fail( __FILE__, __LINE__, result.ErrorMessage() );
+    }
+
+    return scene;
+}
+
+
+AuthoredScene LoadSceneOrFail( const char* path, const SkullbonezCore::Assets::AssetSystem& assets )
+{
+    AuthoredScene scene;
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadFromFile( diagnostics, path, assets, scene );
+
+    if ( !result.Ok() )
+    {
+        Fail( __FILE__, __LINE__, result.ErrorMessage() );
+    }
+
+    return scene;
+}
+
+
+AuthoredScene LoadStyleOrFail( const char* path )
+{
+    AuthoredScene scene;
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadStyleFromFile( diagnostics, path, scene );
+
+    if ( !result.Ok() )
+    {
+        Fail( __FILE__, __LINE__, result.ErrorMessage() );
+    }
+
+    return scene;
+}
+
+
 void ExpectMaterialKind( const SceneObjectMaterialOverride& material, RenderMaterialKind expected )
 {
     EXPECT_INT_EQ( static_cast<int>( material.material.kind ), static_cast<int>( expected ) );
@@ -198,8 +243,7 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 
 void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 {
-    AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics,
-                                                       "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    AuthoredScene scene = LoadSceneOrFail( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
 
     const int originalCameraCount = scene.GetCameraCount();
     const int originalBallCount = scene.GetBallCount();
@@ -220,9 +264,7 @@ void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 
 void TestStyleMaterialAuthoringContract()
 {
-    const AuthoredScene
-        scene = AuthoredScene::LoadStyleFromFile( diagnostics,
-                                                  "SkullbonezData/styles/material_authoring_contract.style.json" );
+    const AuthoredScene scene = LoadStyleOrFail( "SkullbonezData/styles/material_authoring_contract.style.json" );
 
     EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
@@ -275,8 +317,7 @@ void TestStyleMaterialAuthoringContract()
 
 void AuthoredSceneCanLoadMaterialAuthoringSample()
 {
-    const AuthoredScene
-        scene = AuthoredScene::LoadFromFile( diagnostics, "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    const AuthoredScene scene = LoadSceneOrFail( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
     EXPECT_INT_EQ( scene.GetCameraCount(), 1 );
     EXPECT_INT_EQ( scene.GetBallCount(), 1 );
     EXPECT_TRUE( !scene.IsPhysicsEnabled() );
@@ -381,7 +422,7 @@ void TestAssetInstanceProvenanceAndTransformComposition()
         registeredPaddingLibraryId = assets.RegisterAssetLibrarySourceAsset( "assetlib.padding", paddingLibraryPath ).id;
     const SkullbonezCore::Assets::AssetLibrarySourceAsset&
         registeredLibrary = assets.RegisterAssetLibrarySourceAsset( "assetlib.contract", assetLibraryPath );
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, scenePath, assets );
+    const AuthoredScene scene = LoadSceneOrFail( scenePath, assets );
     EXPECT_INT_EQ( scene.GetAssetLibraryCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetInstanceCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetPartCount(), 6 );
@@ -612,7 +653,7 @@ void AuthoredSceneObjectIdsAreSchemaVersionedAndStable()
   ],
   "assetInstances":[{"asset":"mixed","name":"asset","position":[4,0,0]}]
 })" );
-    const AuthoredScene upgraded = AuthoredScene::LoadFromFile( diagnostics, scenePath );
+    const AuthoredScene upgraded = LoadSceneOrFail( scenePath );
     EXPECT_UINT_EQ( upgraded.GetSchemaVersion(), 1u );
     EXPECT_UINT_EQ( upgraded.GetBall( 0 ).sceneObjectId.value, 1u );
     EXPECT_UINT_EQ( upgraded.GetBallState( 0 ).sceneObjectId.value, 2u );
@@ -636,7 +677,7 @@ void AuthoredSceneObjectIdsAreSchemaVersionedAndStable()
     "parts":[{"name":"box_part","sceneObjectId":300},{"name":"sphere_part","sceneObjectId":42}]
   }]
 })" );
-    const AuthoredScene explicitIds = AuthoredScene::LoadFromFile( diagnostics, scenePath );
+    const AuthoredScene explicitIds = LoadSceneOrFail( scenePath );
     EXPECT_UINT_EQ( explicitIds.GetSchemaVersion(), 2u );
     EXPECT_UINT_EQ( explicitIds.GetBox( 0 ).sceneObjectId.value, 900u );
     EXPECT_UINT_EQ( explicitIds.GetBall( 0 ).sceneObjectId.value, 7u );

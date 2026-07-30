@@ -139,13 +139,11 @@ class ShaderDX12
     bool CanAdoptReload( const ShaderDX12& candidate ) const;
     bool PrepareReload( ShaderDX12ReloadPayload& payload ) const;
     void AdoptReload( ShaderDX12ReloadPayload& payload );
-    const char* SourcePath() const;
 
     void Use() const;
     void SetInt( const char* name, int value ) const;
     void SetFloat( const char* name, float value ) const;
     void SetVec3( const char* name, float x, float y, float z ) const;
-    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const;
     void SetVec4( const char* name, float x, float y, float z, float w ) const;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const;
     bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const;

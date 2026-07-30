@@ -673,31 +673,6 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadStyle( const char* pa
     return TryLoadDocument( path, true, outScene );
 }
 
-AuthoredScene AuthoredSceneParser::LoadScene( const char* path )
-{
-    AuthoredScene scene;
-    const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
-
-    if ( !result.Ok() )
-    {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
-    }
-
-    return scene;
-}
-
-AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
-{
-    AuthoredScene scene;
-    const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
-
-    if ( !result.Ok() )
-    {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
-    }
-
-    return scene;
-}
 
 SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly,
                                                                      AuthoredScene& outScene )
@@ -742,18 +717,6 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-
-AuthoredScene LoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
-                                             const Assets::AssetSystem* assets )
-{
-    return AuthoredSceneParser( resultDiagnostics, assets ).LoadScene( path );
-}
-
-AuthoredScene LoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
-                                          const Assets::AssetSystem* assets )
-{
-    return AuthoredSceneParser( resultDiagnostics, assets ).LoadStyle( path );
-}
 
 SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                                  const char* path, const Assets::AssetSystem* assets,

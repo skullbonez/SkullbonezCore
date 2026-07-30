@@ -187,14 +187,3 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
     m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshDeclaredRaster", m_vertexCount, 1 } );
     commandList->DrawInstanced( static_cast<UINT>( m_vertexCount ), 1, 0, 0 );
 }
-
-
-void MeshDX12::ResetResources()
-{
-
-    if ( m_vertexBuffer )
-    {
-        m_vertexBuffer->Release();
-        m_vertexBuffer = nullptr;
-    }
-}

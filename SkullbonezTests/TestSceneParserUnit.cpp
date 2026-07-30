@@ -4,9 +4,9 @@
 //   Lock the smallest authored-scene parse path and recoverable load-error contract.
 //
 // Summary:
-//   AuthoredScene::LoadFromFile is a data-boundary parser. It turns committed scene
-//   JSON into immutable setup records. Runtime callers use the Lane R TryLoad
-//   path so malformed files return owner/message diagnostics without escaping.
+//   AuthoredScene::TryLoadFromFile is a data-boundary parser. It turns committed
+//   scene JSON into immutable setup records while malformed files return
+//   owner/message diagnostics without escaping.
 //
 // Glossary:
 //   Authored scene: A committed `.scene.json` file used by runtime validation.
@@ -29,6 +29,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestResultLoadFixtures.h"
 
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
@@ -42,6 +43,7 @@
 
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::AuthoredScene;
+using SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene;
 using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
 using SkullbonezCore::Runtime::SceneObjectMaterialOverride;
@@ -116,7 +118,8 @@ std::string BuildVersionedQuaternionScene( uint32_t version )
 
 TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected records" )
 {
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, kSmallestCommittedScenePath );
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, kSmallestCommittedScenePath, scene ) );
     AuthoredScene tryScene;
     const SkullbonezCore::Core::SbResult tryLoad = AuthoredScene::TryLoadFromFile( diagnostics, kSmallestCommittedScenePath,
                                                                                    tryScene );
@@ -146,7 +149,8 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
 
 TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 {
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, kSolarSystemScenePath );
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSystemScenePath, scene ) );
     REQUIRE( scene.GetCameraCount() == 1 );
     const SceneCamera& camera = scene.GetCamera( 0 );
     CHECK( camera.m_position.x == doctest::Approx( 0.0f ) );
@@ -203,7 +207,8 @@ TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
 
 TEST_CASE( "AuthoredSceneParser: Mars slingshot scene contains the complete major-moon system on XY" )
 {
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, kSolarSlingshotScenePath );
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, kSolarSlingshotScenePath, scene ) );
     const char* expectedNames[] = {
         "sun",     "mercury",   "venus",   "earth",  "mars",    "jupiter", "saturn",   "uranus",
         "neptune", "moon",      "phobos",  "deimos", "io",      "europa",  "ganymede", "callisto",
@@ -258,7 +263,8 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
     {
         const TemporaryMalformedSceneFile legacy( "unit_scene_parser_legacy_quaternion.scene.json",
                                                   BuildVersionedQuaternionScene( 2 ) );
-        const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, legacy.path );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, legacy.path, scene ) );
         REQUIRE( scene.GetBallStateCount() == 1 );
         const auto& body = scene.GetBallState( 0 );
         CHECK( body.orientX == doctest::Approx( -0.25f ) );
@@ -271,7 +277,8 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
     {
         const TemporaryMalformedSceneFile current( "unit_scene_parser_current_quaternion.scene.json",
                                                    BuildVersionedQuaternionScene( 3 ) );
-        const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics, current.path );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, current.path, scene ) );
         REQUIRE( scene.GetBallStateCount() == 1 );
         const auto& body = scene.GetBallState( 0 );
         CHECK( body.orientX == doctest::Approx( 0.25f ) );
@@ -293,8 +300,8 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
 
 TEST_CASE( "AuthoredSceneParser: legacy releasable trees resolve stable root ids" )
 {
-    const AuthoredScene scene = AuthoredScene::LoadFromFile( diagnostics,
-                                                             "SkullbonezData/scenes/nature_hull_assets.scene.json" );
+    AuthoredScene scene;
+    REQUIRE( TryLoadAuthoredScene( diagnostics, "SkullbonezData/scenes/nature_hull_assets.scene.json", scene ) );
 
     int groupedHullCount = 0;
 

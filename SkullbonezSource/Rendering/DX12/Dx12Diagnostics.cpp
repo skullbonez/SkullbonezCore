@@ -243,36 +243,6 @@ void Dx12Diagnostics::PlatformProfilerGpuEnd()
     }
 }
 
-void Dx12Diagnostics::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
-{
-
-    if ( !m_frame || !m_device || !SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-
-    if ( !m_device->CommandList() || !m_frame->EnsureOpen().Ok() )
-    {
-        return;
-    }
-
-    char markerNameBuffer[SkullbonezCore::Core::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
-    const char* markerName = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled()
-                                 ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName( name, "_GPU",
-                                                                                               markerNameBuffer,
-                                                                                               sizeof( markerNameBuffer ) )
-                                 : name;
-
-    PIXSetMarker( m_device->CommandList(), SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ), "%s",
-                  markerName );
-
-#else
-    (void)name;
-    (void)hash;
-#endif
-}
 
 SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Device* device, ID3D12CommandQueue* queue )
 {

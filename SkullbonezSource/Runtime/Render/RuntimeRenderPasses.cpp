@@ -410,12 +410,6 @@ void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* rend
 }
 
 
-uint32_t FullscreenQuadPass::QuadVB() const
-{
-    return m_resources.quadVB;
-}
-
-
 void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
 
@@ -1241,13 +1235,6 @@ void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ 
 }
 
 
-void ObjectPass::ReleaseGpuResources()
-{
-
-    // Nothing to release until body shaders/materials move behind this pass.
-}
-
-
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
 
@@ -1506,13 +1493,6 @@ void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resour
 
     // Debug visualizers own their transient geometry; this pass owns late-frame
     // ordering so diagnostics draw over production geometry.
-}
-
-
-void DebugOverlayPass::ReleaseGpuResources()
-{
-
-    // Current debug visualizers release with their owning systems.
 }
 
 

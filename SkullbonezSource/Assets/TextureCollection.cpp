@@ -163,23 +163,6 @@ void TextureCollection::DeleteTexture( uint32_t hash )
 }
 
 
-int TextureCollection::NumFreeTextureSpaces() const
-{
-    int freeCount = 0;
-
-    for ( const GpuTextureRecord& texture : m_textures )
-    {
-
-        if ( !texture.IsResident() )
-        {
-            ++freeCount;
-        }
-    }
-
-    return freeCount;
-}
-
-
 SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
 {
     const SkullbonezCore::Core::SbResult ensureResult = EnsureTexture( hash );

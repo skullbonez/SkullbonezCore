@@ -112,7 +112,6 @@ class LauncherLaser
     // Lifetime: pass a live geometry owner from the backend-release phase to
     // destroy GPU handles; nullptr means clear CPU-side state only.
     void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
-    void Clear();
     void Fire( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                const Math::Vector::Vector3& cameraUp, float distance, bool hit );
     void Update( float dt );

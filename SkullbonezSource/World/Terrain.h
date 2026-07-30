@@ -171,8 +171,8 @@ class Terrain
     bool IsInBounds( float xPosition, float zPosition );                                              // World X/Z coordinates inside the terrain collision domain.
     float GetTerrainHeightAt( float xPosition, float zPosition,
                               bool isFluidMin = false );                                              // Height sample; isFluidMin asks water tests for the lowest terrain support.
-    Math::Vector::Vector3 GetTerrainNormalAt( float xPosition,
-                                              float zPosition );                                      // Surface normal used by contact rows and slope alignment.
+
+    // Surface normal used by contact rows and slope alignment.
     void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight,
                                       Math::Vector::Vector3& outNormal );                             // Combined lookup: one cached-cell query instead of two.
     void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight,

@@ -190,10 +190,6 @@ class InputKeySnapshot
     // Win32 virtual key with value n; no hardware is polled by this type.
     static InputKeySnapshot FromWords( const std::array<uint64_t, WORD_COUNT>& words );
 
-    // Convenience for tests and automation capture. Invalid virtual-key values
-    // are ignored, and the caller-owned array is not retained.
-    static InputKeySnapshot FromDownKeys( const int* virtualKeys, std::size_t keyCount );
-
     bool IsDown( int virtualKey ) const;
     const std::array<uint64_t, WORD_COUNT>& Words() const;
 
@@ -326,12 +322,10 @@ class InputActions
 
     void Reset();
     std::size_t Count() const;
-    bool Empty() const;
     bool Overflowed() const;
 
     // Precondition: index is less than Count().
     const InputActionEvent& operator[]( std::size_t index ) const;
-    const InputActionEvent* Data() const;
 
     RuntimeMouseEdges mouse;
     bool focusLost = false;
@@ -353,9 +347,7 @@ class InputRouter
     explicit InputRouter( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
     RuntimeInputContext& RuntimeContext();
-    const RuntimeInputContext& RuntimeContext() const;
     InputActions& Actions();
-    const InputActions& Actions() const;
 
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
@@ -369,7 +361,6 @@ class InputRouter
     void RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPhase phase, RuntimeInputContextMask activeContexts,
                      InputActions& output );
 
-    void Reset();
     bool AppFocused() const;
     const DeviceInputFrame& DeviceFrame() const;
     void PublishUiSnapshot( const UiInputHitSnapshot& snapshot );
@@ -480,6 +471,7 @@ class InputRouter
     static constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>( RuntimeInputAction::Count );
     static constexpr std::size_t PHASE_COUNT = 3;
 
+    void Reset();
     static bool IsActionValid( RuntimeInputAction action );
     static bool IsPhaseValid( InputActionPhase phase );
     static std::size_t ActionIndex( RuntimeInputAction action );

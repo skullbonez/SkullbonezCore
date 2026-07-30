@@ -223,25 +223,6 @@ void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
 }
 
 
-void UIWindowInteractionOwner::ToggleMaximizeMinimize( int screenW, int screenH, double now )
-{
-
-    if ( !m_window.isVisible )
-    {
-        SetVisible( true, now );
-        return;
-    }
-
-    if ( m_window.isMinimized )
-    {
-        SetMinimized( false, now );
-        return;
-    }
-
-    SetMaximized( !m_window.isMaximized, screenW, screenH, now );
-}
-
-
 void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
 {
     const int tabIndex = static_cast<int>( tab );

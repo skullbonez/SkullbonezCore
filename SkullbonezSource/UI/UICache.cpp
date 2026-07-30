@@ -137,12 +137,6 @@ const UIDrawList& UICacheState::DrawList() const
 }
 
 
-uint32_t UICacheState::DirtyFlags() const
-{
-    return m_dirtyFlags;
-}
-
-
 float UICacheState::ReplayOffsetX( const UICacheFrameKey& key ) const
 {
     return key.windowBounds.x - m_lastKey.windowBounds.x;

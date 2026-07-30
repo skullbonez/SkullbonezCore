@@ -56,6 +56,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
@@ -1350,8 +1351,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
 
 TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches live and depends on Earth gravity" )
 {
-    const SkullbonezCore::Runtime::AuthoredScene scene = SkullbonezCore::Runtime::AuthoredScene::
-        LoadFromFile( resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json" );
+    SkullbonezCore::Runtime::AuthoredScene scene;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene(
+        resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json", scene ) );
 
     DeterminismTerrainFixture liveFixture( kDeepSpaceTerrainBaseY );
     DeterminismTerrainFixture forecastFixture( kDeepSpaceTerrainBaseY );

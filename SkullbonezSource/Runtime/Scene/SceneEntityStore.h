@@ -80,10 +80,8 @@ struct SceneEntityCreateDesc
 
     SceneEntityCreateDesc();
     void SetName( const char* name );
-    const char* GetName() const;
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );
     void SetRenderMaterial( const Rendering::RenderMaterial& material );
-    const Rendering::RenderMaterial& GetRenderMaterial() const;
     void SetAssetAffiliation( Physics::PhysicsSceneObjectId rootObjectId, const char* libraryToken, const char* assetName,
                               const char* instanceName, const char* partName, uint32_t partIndex );
     void SetBehaviorGroup( SceneBehaviorGroupKind kind, Physics::PhysicsSceneObjectId rootObjectId, int partIndex );
@@ -136,10 +134,7 @@ class SceneEntityStore
     int ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const;
     SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
     Physics::PhysicsSceneObjectId GroupRootObjectIdAt( int modelIndex ) const;
-    int GroupPartIndexAt( int modelIndex ) const;
     bool IsSimpleRagdollPart( int modelIndex ) const;
-    bool IsSimpleRagdollTorso( int modelIndex ) const;
-    int RagdollRootModelIndexForPart( int modelIndex ) const;
     bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
 
     // Writes at most maxIndices dense rows and returns the number written. A

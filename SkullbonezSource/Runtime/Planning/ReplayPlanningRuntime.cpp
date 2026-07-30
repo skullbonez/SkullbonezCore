@@ -235,15 +235,6 @@ bool ReplayPlanningRuntime::HasInterceptTarget() const noexcept
     return m_interceptReadout.HasTarget();
 }
 
-Physics::PhysicsSceneObjectId ReplayPlanningRuntime::InterceptTargetId() const noexcept
-{
-    return m_interceptReadout.TargetId();
-}
-
-Physics::ModelRowHint ReplayPlanningRuntime::InterceptTargetModelRow() const noexcept
-{
-    return m_interceptReadout.TargetModelRow();
-}
 
 bool ReplayPlanningRuntime::TickPointerSurface( bool uiBlocksMouse, int screenWidth, InputRouter& inputRouter )
 {

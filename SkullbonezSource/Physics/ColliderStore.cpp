@@ -593,19 +593,6 @@ void ColliderStore::ReplaceShape( int recordIndex, const CollisionShape& shape, 
 }
 
 
-PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape )
-{
-    return CreateColliderRecord( initialRecord, shape, ColliderAuthoringRecord {}, HullShapeIdentity {} );
-}
-
-
-PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape,
-                                                           const ColliderAuthoringRecord& initialAuthoringRecord )
-{
-    return CreateColliderRecord( initialRecord, shape, initialAuthoringRecord, HullShapeIdentity {} );
-}
-
-
 PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord, const CollisionShape& shape,
                                                            const ColliderAuthoringRecord& initialAuthoringRecord,
                                                            const HullShapeIdentity& hullIdentity )
@@ -651,28 +638,6 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
     m_authoringRecords.push_back( initialAuthoringRecord );
     m_modelColliderHandles.push_back( handle );
     return handle;
-}
-
-
-bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
-                                           const CollisionShape& shape )
-{
-
-    if ( !Contains( handle ) )
-    {
-        return false;
-    }
-
-    const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
-    return UpdateRecordForHandle( handle, record, shape, m_authoringRecords[static_cast<std::size_t>( recordIndex )],
-                                  HullShapeIdentity {} );
-}
-
-
-bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record,
-                                           const CollisionShape& shape, const ColliderAuthoringRecord& authoringRecord )
-{
-    return UpdateRecordForHandle( handle, record, shape, authoringRecord, HullShapeIdentity {} );
 }
 
 
@@ -734,18 +699,6 @@ void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
     {
         sphere.SetDragCoefficient( material.sphereDragCoefficient );
     }
-}
-
-
-bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record, const CollisionShape& shape )
-{
-
-    if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
-    {
-        return false;
-    }
-
-    return UpdateRecordForHandle( m_modelColliderHandles[static_cast<std::size_t>( modelIndex )], record, shape );
 }
 
 
@@ -821,21 +774,9 @@ bool ColliderStore::TrimToCount( int colliderCount )
 }
 
 
-const ColliderRecord* ColliderStore::Data() const
-{
-    return m_colliders.empty() ? nullptr : m_colliders.data();
-}
-
-
 int ColliderStore::Count() const
 {
     return static_cast<int>( m_colliders.size() );
-}
-
-
-bool ColliderStore::Empty() const
-{
-    return m_colliders.empty();
 }
 
 
@@ -932,12 +873,6 @@ std::span<const ColliderRecord> ColliderStore::Records() const
 }
 
 
-std::span<ColliderRecord> ColliderStore::MutableRecords()
-{
-    return { m_colliders.data(), m_colliders.size() };
-}
-
-
 std::size_t ColliderStore::RecordCapacity() const
 {
     return m_colliders.capacity();
@@ -1000,18 +935,6 @@ uint64_t ColliderStore::CollectRuntimeCapacityMemoryBytes() const
     bytes += m_hullShapes.committed_bytes();
     bytes += m_hullIdentities.committed_bytes();
     return bytes;
-}
-
-
-ColliderRecord* ColliderStore::MutableRecordForHandle( PhysicsColliderHandle handle )
-{
-
-    if ( !Contains( handle ) )
-    {
-        return nullptr;
-    }
-
-    return &m_colliders[static_cast<std::size_t>( m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
 }
 
 

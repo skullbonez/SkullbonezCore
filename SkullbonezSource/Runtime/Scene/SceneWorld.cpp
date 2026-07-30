@@ -799,35 +799,6 @@ void SceneWorld::PrepareRenderInstances( float presentationAlpha )
 }
 
 
-bool SceneWorld::TryGetModelPosition( int index, Vector3& outPosition ) const
-{
-
-    if ( index < 0 || index >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    // Why: object-follow cameras should read the same store-owned pose that
-    // physics, diagnostics, replay capture, and render snapshots consume. A
-    // missing model slot is a recoverable legacy-camera request, so callers
-    // keep their previous target instead of aborting the frame.
-    const PhysicsBodyStore& bodyStore = BodyStore();
-    const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
-
-    if ( !record )
-    {
-
-        // Invariant: a live scene model must have a physics body row at the
-        // same slot. Missing rows are topology drift, not recoverable camera
-        // input, because rendering/replay snapshots would read divergent state.
-        SB_FATAL( "Scene/SceneWorld", "No physics body exists at the specified index.  (SceneWorld::TryGetModelPosition)" );
-    }
-
-    outPosition = PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( index ) );
-    return true;
-}
-
-
 bool SceneWorld::TryGetPresentationPose( int index, float presentationAlpha, Vector3& outPosition,
                                          Quaternion& outOrientation ) const
 {
@@ -874,18 +845,6 @@ bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
     }
 
     return m_renderInstanceStore.ResizePresentationRecords( modelCount );
-}
-
-
-void SceneWorld::CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const
-{
-    m_physics.CaptureReplaySolverSnapshot( outSnapshot, MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
-}
-
-
-bool SceneWorld::RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot )
-{
-    return m_physics.RestoreReplaySolverSnapshot( snapshot, MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 
@@ -1100,45 +1059,6 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
         assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
     }
 #endif
-}
-
-
-bool SceneWorld::ReleaseAttachedFixedTreeParts( int sourceIndex, float releaseImpulseStrength,
-                                                const Vector3& seedLinearVelocity, const Vector3& seedAngularVelocity )
-{
-
-    if ( sourceIndex < 0 || sourceIndex >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    // Owner: SceneWorld runtime-tool edge.
-    // Reason: launcher hits still arrive as model indices, but fixed-state,
-    // release policy, and same-tree propagation now belong to PhysicsBodyStore.
-    // Deletion condition: runtime picking and scene identity use stable entity
-    // ids or body handles directly.
-    // Review evidence: this command resolves the row once, then mutates only
-    // PhysicsEngine-owned body handles; it never writes entity metadata back.
-
-    if ( !RepairPhysicsBodyAndColliderTopology() )
-    {
-        return false;
-    }
-
-    const PhysicsBodyHandle sourceBody = BodyStore().HandleForModelIndex( sourceIndex );
-
-    if ( !sourceBody.IsValid() )
-    {
-        return false;
-    }
-
-    if ( !m_physics.ReleaseFixedBodyAndAttachedTreeParts( sourceBody, releaseImpulseStrength, seedLinearVelocity,
-                                                          seedAngularVelocity ) )
-    {
-        return false;
-    }
-
-    return true;
 }
 
 

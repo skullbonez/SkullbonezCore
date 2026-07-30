@@ -73,8 +73,6 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSecon
 std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vector::Vector3> outPoints );
 OrbitalStatus SolveLambert( const Vector::Vector3& r1, const Vector::Vector3& r2, float timeOfFlight, float mu,
                             bool prograde, LambertSolution& out );
-float HohmannTransferSeconds( float r1, float r2, float mu );
-float HohmannDepartureDeltaV( float r1, float r2, float mu );
 } // namespace Orbital
 } // namespace Math
 } // namespace SkullbonezCore

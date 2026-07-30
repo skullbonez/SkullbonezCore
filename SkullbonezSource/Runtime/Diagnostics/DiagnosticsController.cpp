@@ -38,12 +38,6 @@ RunPerfLogState& DiagnosticsController::PerfLog()
 }
 
 
-const RunPerfLogState& DiagnosticsController::PerfLog() const
-{
-    return m_perfLog;
-}
-
-
 void DiagnosticsController::ClosePerfLog()
 {
     RuntimeDiagnostics::ClosePerfLog( m_perfLog );
@@ -53,12 +47,6 @@ void DiagnosticsController::ClosePerfLog()
 void DiagnosticsController::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
 {
     RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( m_perfLog, pass, checkpoint );
-}
-
-
-void DiagnosticsController::LogPerfMemory( int pass, const char* checkpoint )
-{
-    RuntimeDiagnostics::LogPerfMemory( m_perfLog, pass, checkpoint );
 }
 
 
@@ -105,16 +93,6 @@ RunPhysicsDiagnosticsState& DiagnosticsController::PhysicsDiagnostics()
 }
 
 
-const RunPhysicsDiagnosticsState& DiagnosticsController::PhysicsDiagnostics() const
-{
-    return m_physicsDiagnostics;
-}
-
-
-bool DiagnosticsController::PhysicsDiagnosticsEnabled() const
-{
-    return m_physicsDiagnostics.isEnabled;
-}
 #endif
 } // namespace Runtime
 } // namespace SkullbonezCore

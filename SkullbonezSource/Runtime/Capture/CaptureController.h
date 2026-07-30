@@ -65,7 +65,6 @@ class CaptureController
 
     void ResetScreenshot();
     void DisableAutomationExit();
-    bool IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const;
     bool RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const;
     RuntimeCaptureResult TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame, double elapsedMs,
                                           const char* currentScenePath, Rendering::Dx12BackbufferCapture& backend );
@@ -80,7 +79,6 @@ class CaptureController
     std::size_t PendingScreenshotCount() const;
 
     SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::Dx12BackbufferCapture& backend, const char* path );
-    SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
 
   private:
     SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;

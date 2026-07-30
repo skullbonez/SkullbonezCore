@@ -51,7 +51,8 @@ class RotationMatrix
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
                     float f33 );                                         // Explicit row-major component construction.
     ~RotationMatrix() = default;
-    void Identity();                                                     // Resets to no-rotation matrix.
+
+    // Resets to no-rotation matrix.
     Vector::Vector3 operator*( const Vector::Vector3& v ) const;         // Applies this rotation to v.
     Vector::Vector3 operator*=( const Vector::Vector3& v ) const;        // Legacy spelling for applying this rotation to v.
     Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)

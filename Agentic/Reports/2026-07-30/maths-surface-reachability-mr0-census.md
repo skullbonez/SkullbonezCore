@@ -55,7 +55,6 @@ review found that declaration defaults were not joined into permitted arity;
 the corrected scan also incorporates standalone `Agentic/Tests` lexical edges.
 It reports 407 rows (299 no-reference, 60 test-only, 41 own-TU-only, and 7
 own-TU-and-test-only) and supersedes this initial population for MR3 routing.
-MR3 routes
-each one to
-`Agentic/Plans/TODO/unreachable-symbol-remediation.md`; none receives a blanket
-retain ruling.
+MR3 routed each one to the completed follow-up recorded in
+`Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md`; none
+received a blanket retain ruling.

@@ -1070,8 +1070,8 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
         prediction.build.dirty = false;
         prediction.build.pendingLatestRestart = false;
 
-        // Invariant: EnterOfflinePredictionVerification already joined and
-        // retired the worker. Cancelling here would invalidate the restored
+        // Invariant: ReplayPrediction::EnterOfflineVerification already joined
+        // and retired the worker. Cancelling here would invalidate the restored
         // complete/build and trajectory state before the CPU projection reads
         // it, producing a different packet without starting new simulation.
         return ReplayPredictionFrameSourceAction::Stop;

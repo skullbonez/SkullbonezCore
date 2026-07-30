@@ -1146,9 +1146,7 @@ TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic co
         REQUIRE( output != nullptr );
 
         CHECK( RunWorkerSystemSelfTest( pool, output ) );
-        CHECK( pool.IsInitialised() == ( threadCount > 0 ) );
         CHECK( pool.GetThreadCount() == WorkerPool::ResolveThreadCount( threadCount ) );
-        CHECK( pool.GetMinParallelItems() == 32 );
         pool.Shutdown();
         std::fclose( output );
     }

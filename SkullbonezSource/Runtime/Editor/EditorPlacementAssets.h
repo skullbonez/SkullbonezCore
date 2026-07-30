@@ -170,9 +170,6 @@ bool TryComputeEditorTreeWorldBounds( Core::SbDiagnosticStore& diagnostics, cons
                                       const Math::Vector::Vector3& terrainPoint,
                                       const Math::Transformation::RotationMatrix& orientation, Math::Vector::Vector3& outMin,
                                       Math::Vector::Vector3& outMax );
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Math::Vector::Vector3& terrainPoint,
-                                       const Math::Transformation::RotationMatrix& orientation,
-                                       Math::Vector::Vector3& outMin, Math::Vector::Vector3& outMax );
 float EditorTreeVerticalSize( Core::SbDiagnosticStore& diagnostics, int objectType );
 float EditorHouseVerticalSize( int objectType );
 

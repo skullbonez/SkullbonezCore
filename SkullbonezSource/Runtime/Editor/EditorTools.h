@@ -210,9 +210,6 @@ bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, c
                                    Physics::PhysicsBodyHandle bodyHandle, Physics::PhysicsColliderHandle colliderHandle,
                                    int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
-                                   int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
-                                   const Physics::ColliderRecord*& outCollider );
 bool TryGetEditorSelectionFrame( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,
                                  Physics::PhysicsColliderHandle selectedColliderHandle, int selectedIndex,
                                  Math::Vector::Vector3& outOrigin, float& outRadius );

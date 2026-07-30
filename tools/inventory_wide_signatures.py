@@ -108,7 +108,11 @@ def tracked_source_files(repo: Path) -> list[Path]:
         capture_output=True,
     )
     paths = result.stdout.decode("utf-8", errors="strict").split("\0")
-    return [repo / path for path in paths if path and Path(path).suffix.lower() in SOURCE_SUFFIXES]
+    return [
+        repo / path
+        for path in paths
+        if path and Path(path).suffix.lower() in SOURCE_SUFFIXES and (repo / path).is_file()
+    ]
 
 
 def _blank_range(chars: list[str], start: int, end: int) -> None:
@@ -117,8 +121,12 @@ def _blank_range(chars: list[str], start: int, end: int) -> None:
             chars[index] = " "
 
 
-def mask_cpp(text: str) -> str:
-    """Blank non-code regions while preserving offsets and line breaks."""
+def mask_cpp(text: str, preserve_literal_argument: bool = False) -> str:
+    """Blank non-code regions while preserving offsets and line breaks.
+
+    A caller that counts call arity may retain one neutral token per literal;
+    literal contents stay blank, so commas and parentheses remain inert.
+    """
     chars = list(text)
     length = len(text)
     index = 0
@@ -166,6 +174,8 @@ def mask_cpp(text: str) -> str:
             end = text.find(close_marker, index + raw_match.end())
             end = length if end < 0 else end + len(close_marker)
             _blank_range(chars, index, end)
+            if preserve_literal_argument:
+                chars[index] = "0"
             index = end
             continue
 
@@ -182,6 +192,8 @@ def mask_cpp(text: str) -> str:
                     break
                 end += 1
             _blank_range(chars, index, min(end, length))
+            if preserve_literal_argument:
+                chars[index] = "0"
             index = min(end, length)
             continue
 

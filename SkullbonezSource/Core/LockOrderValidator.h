@@ -71,7 +71,6 @@ class TrackedMutex
     TrackedMutex( const char* name, LockOrderValidator& validator );
 
     void lock();
-    bool try_lock();
     void unlock();
 
   private:

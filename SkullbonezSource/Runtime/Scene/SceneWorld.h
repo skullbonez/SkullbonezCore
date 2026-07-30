@@ -132,7 +132,6 @@ class SceneWorld
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
 
-    bool TryGetModelPosition( int index, Math::Vector::Vector3& outPosition ) const;
     bool TryGetPresentationPose( int index, float presentationAlpha, Math::Vector::Vector3& outPosition,
                                  Math::Orientation::Quaternion& outOrientation ) const;
     int SceneEntityCount() const;
@@ -152,14 +151,6 @@ class SceneWorld
     // passes consume RenderInstances() after PrepareRenderInstances().
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     double GetSceneKineticEnergy();
-
-    // Runtime-tool edge: resolve a picked row once, then perform release and
-    // same-tree propagation through PhysicsEngine-owned handles.
-    bool ReleaseAttachedFixedTreeParts( int sourceIndex, float releaseImpulseStrength,
-                                        const Math::Vector::Vector3& seedLinearVelocity,
-                                        const Math::Vector::Vector3& seedAngularVelocity );
-    void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
-    bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
 
     // Explicit cold boundary used before tools borrow aligned physics rows and
     // paired body/collider handles. Hot passes never trigger topology repair.

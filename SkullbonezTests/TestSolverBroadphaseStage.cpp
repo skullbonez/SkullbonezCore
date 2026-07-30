@@ -30,6 +30,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 
@@ -73,7 +74,7 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
     ColliderRecord collider;
     collider.boundingRadius = radius;
     const CollisionShape shape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
-    (void)colliderStore.CreateColliderRecord( collider, shape );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
 }
 
 TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )

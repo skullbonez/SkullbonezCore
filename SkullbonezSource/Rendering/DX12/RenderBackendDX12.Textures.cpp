@@ -960,23 +960,6 @@ ID3D12Resource* Dx12TextureOwner::ResolveResource( uint32_t handle ) const
 }
 
 
-uint32_t Dx12TextureOwner::FindHandleForSrv( UINT srvIndex ) const
-{
-    const auto& entries = m_registry.Entries();
-
-    for ( size_t index = 0; index < entries.size(); ++index )
-    {
-
-        if ( entries[index].srvIndex == srvIndex )
-        {
-            return Dx12TextureHandleCodec::Encode( index, entries[index].generation );
-        }
-    }
-
-    return 0;
-}
-
-
 const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
 {
     const TextureEntryDX12* entry = m_registry.Resolve( handle );

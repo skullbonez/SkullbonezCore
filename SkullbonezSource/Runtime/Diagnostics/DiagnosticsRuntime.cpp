@@ -574,24 +574,6 @@ CaptureController& DiagnosticsRuntime::Capture()
 }
 
 
-const CaptureController& DiagnosticsRuntime::Capture() const
-{
-    return m_capture;
-}
-
-
-DiagnosticsController& DiagnosticsRuntime::Diagnostics()
-{
-    return m_diagnostics;
-}
-
-
-const DiagnosticsController& DiagnosticsRuntime::Diagnostics() const
-{
-    return m_diagnostics;
-}
-
-
 void DiagnosticsRuntime::BindProfiler( SkullbonezCore::Core::Profiler* profiler )
 {
     m_diagnostics.BindProfiler( profiler );
@@ -599,12 +581,6 @@ void DiagnosticsRuntime::BindProfiler( SkullbonezCore::Core::Profiler* profiler 
 
 
 RunPerfLogState& DiagnosticsRuntime::PerfLog()
-{
-    return m_diagnostics.PerfLog();
-}
-
-
-const RunPerfLogState& DiagnosticsRuntime::PerfLog() const
 {
     return m_diagnostics.PerfLog();
 }
@@ -619,12 +595,6 @@ void DiagnosticsRuntime::ClosePerfLog()
 void DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
 {
     m_diagnostics.ClosePerfLogWithMemoryCheckpoint( pass, checkpoint );
-}
-
-
-void DiagnosticsRuntime::LogPerfMemory( int pass, const char* checkpoint )
-{
-    m_diagnostics.LogPerfMemory( pass, checkpoint );
 }
 
 
@@ -785,12 +755,6 @@ void DiagnosticsRuntime::SetMainMemoryDumpPath( const char* path )
     }
 
     strncpy_s( m_mainMemoryDumpPath, sizeof( m_mainMemoryDumpPath ), path, _TRUNCATE );
-}
-
-
-const char* DiagnosticsRuntime::MainMemoryDumpPath() const
-{
-    return m_mainMemoryDumpPath;
 }
 
 
@@ -958,18 +922,6 @@ RunPhysicsDiagnosticsState& DiagnosticsRuntime::PhysicsDiagnostics()
 }
 
 
-const RunPhysicsDiagnosticsState& DiagnosticsRuntime::PhysicsDiagnostics() const
-{
-    return m_diagnostics.PhysicsDiagnostics();
-}
-
-
-bool DiagnosticsRuntime::PhysicsDiagnosticsEnabled() const
-{
-    return m_diagnostics.PhysicsDiagnosticsEnabled();
-}
-
-
 void DiagnosticsRuntime::SetPhysicsRegressionLogOverride( const char* path )
 {
     RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnostics.PerfLog(), path );
@@ -1073,9 +1025,5 @@ DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()
 }
 
 
-const DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress() const
-{
-    return m_uiStress;
-}
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -817,31 +817,6 @@ TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
     CHECK_FALSE( SceneLoadRequest::Load( -1, true, true, true ).accepted );
 }
 
-TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
-{
-    SkullbonezCore::UI::SceneNavigationModel navigation;
-    navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
-    SceneSession scene( std::vector<std::string> { "SkullbonezData/scenes/alpha.scene.json" } );
-    scene.BeginLoad( 0 );
-
-    const SceneLoadRequest current = LoadSceneFromBrowserIndex( navigation, 0, scene );
-    CHECK( current.accepted );
-    CHECK_FALSE( current.HasLoad() );
-    CHECK( current.enterInteractiveSceneRun );
-
-    const SceneLoadRequest appended = LoadSceneFromBrowserIndex( navigation, 1, scene );
-    CHECK( appended.HasLoad() );
-    CHECK( appended.index == 1 );
-    CHECK( scene.PathAt( 1 ) == "SkullbonezData/scenes/beta.scene.json" );
-    CHECK_FALSE( LoadSceneFromBrowserIndex( navigation, -1, scene ).accepted );
-
-    const SceneLoadRequest demo = LoadDemoScene( scene );
-    CHECK( demo.HasLoad() );
-    CHECK( demo.index == 2 );
-    CHECK( scene.PathAt( 2 ).empty() );
-    CHECK( LoadDemoScene( scene ).index == 2 );
-}
-
 TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
 {
     SkullbonezCore::UI::SceneNavigationModel navigation;
@@ -910,39 +885,6 @@ TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
     const SkullbonezCore::Core::SbResult tooLong = capture.QueueScreenshot( oversized );
     CHECK_FALSE( tooLong.Ok() );
     CHECK( capture.PendingScreenshotCount() == 1 );
-}
-
-TEST_CASE( "CaptureController predicts scene captures before rendering" )
-{
-    CaptureController capture( diagnostics );
-    RunScreenshotState& screenshot = capture.Screenshot();
-    strcpy_s( screenshot.screenshotPath, "Profile/capture_pin.bmp" );
-    screenshot.screenshotFrame = 10;
-
-    int currentFrame = 8;
-    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, 0.0 ) );
-    CHECK( capture.RequiresDeterministicPresentation( true, currentFrame, 0.0 ) );
-    currentFrame = 9;
-    CHECK( capture.IsScreenshotDue( true, currentFrame, 0.0 ) );
-
-    // A millisecond threshold can cross while the frame is rendering. The
-    // deterministic decision therefore pins the pending one-shot before due.
-    screenshot.screenshotFrame = -1;
-    screenshot.screenshotMs = 100;
-    double elapsedMs = 99.0;
-    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
-    CHECK( capture.RequiresDeterministicPresentation( true, currentFrame, elapsedMs ) );
-    elapsedMs = 101.0;
-    CHECK( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
-
-    screenshot.screenshotMs = -1;
-    screenshot.screenshotPath[0] = '\0';
-    screenshot.screenshotInterval = 3;
-    strcpy_s( screenshot.screenshotDir, "TestOutput/capture_pin" );
-    currentFrame = 1;
-    CHECK_FALSE( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
-    currentFrame = 2;
-    CHECK( capture.IsScreenshotDue( true, currentFrame, elapsedMs ) );
 }
 
 TEST_CASE( "CaptureController owns a fixed request budget" )
@@ -1930,12 +1872,6 @@ TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
     CHECK( recovered.recoveredDefaults );
     CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
 
-    ImGuiEditorPanelId panel = ImGuiEditorPanelId::Count;
-    CHECK( TryParseImGuiEditorPanel( "Replay", panel ) );
-    CHECK( panel == ImGuiEditorPanelId::Replay );
-    CHECK( TryParseImGuiEditorPanel( "Diag###SkoreDiagnostics", panel ) );
-    CHECK( panel == ImGuiEditorPanelId::Diagnostics );
-    CHECK_FALSE( TryParseImGuiEditorPanel( "Stale Panel", panel ) );
 }
 
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )

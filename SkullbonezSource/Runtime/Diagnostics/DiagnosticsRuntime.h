@@ -84,21 +84,16 @@ class DiagnosticsRuntime
     explicit DiagnosticsRuntime( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) noexcept;
 
     CaptureController& Capture();
-    const CaptureController& Capture() const;
 
-    DiagnosticsController& Diagnostics();
-    const DiagnosticsController& Diagnostics() const;
 
     // Startup binding that keeps perf CSV and frame-time diagnostics off the
     // global profiler accessor after initialization.
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
 
     RunPerfLogState& PerfLog();
-    const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
     void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
-    void LogPerfMemory( int pass, const char* checkpoint );
     void ResetPerfLogForSceneLoad();
     void ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
@@ -116,7 +111,6 @@ class DiagnosticsRuntime
                             bool force, bool includePrivateWorkingSet = true );
     const SkullbonezCore::Core::MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
-    const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
@@ -124,8 +118,6 @@ class DiagnosticsRuntime
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
-    const RunPhysicsDiagnosticsState& PhysicsDiagnostics() const;
-    bool PhysicsDiagnosticsEnabled() const;
 
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
@@ -157,7 +149,6 @@ class DiagnosticsRuntime
     };
 
     UIStressState& UIStress();
-    const UIStressState& UIStress() const;
 
   private:
     CaptureController m_capture;                             // Screenshot trigger and capture automation

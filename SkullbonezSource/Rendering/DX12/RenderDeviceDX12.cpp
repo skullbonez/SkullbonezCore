@@ -298,15 +298,6 @@ UINT64 Dx12FenceTimeline::CompletedValue() const
 }
 
 
-Dx12FenceTimelineStats Dx12FenceTimeline::GetStats() const
-{
-    Dx12FenceTimelineStats stats;
-    stats.lastSignaledValue = m_lastSignaledValue;
-    stats.completedValue = CompletedValue();
-    return stats;
-}
-
-
 void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName )
 {
 
@@ -635,13 +626,6 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
     m_nextTransientInFrame += count;
     m_transientPeakThisRun = (std::max)( m_transientPeakThisRun, m_nextTransientInFrame );
     return index;
-}
-
-
-bool Dx12DescriptorAllocator::CanAllocateTransientRange( UINT count ) const
-{
-    return count > 0 && m_frameCount > 0 && m_currentFrame < m_frameCount && count <= m_transientCapacityPerFrame &&
-           m_nextTransientInFrame <= m_transientCapacityPerFrame - count;
 }
 
 

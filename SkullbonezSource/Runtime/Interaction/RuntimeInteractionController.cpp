@@ -113,18 +113,6 @@ WorldInteractionOwner RuntimeInteractionController::Owner() const
 }
 
 
-CameraLookState RuntimeInteractionController::CameraLook() const
-{
-    return m_cameraLook;
-}
-
-
-PhysicsAdvanceState RuntimeInteractionController::PhysicsAdvance() const
-{
-    return m_physicsAdvance;
-}
-
-
 const RuntimeInteractionGesture& RuntimeInteractionController::Gesture() const
 {
     return m_gesture;
@@ -201,12 +189,6 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunC
     return EnterLive();
 }
 
-
-RuntimeInteractionTransition RuntimeInteractionController::SetWorldInteractionOwner( WorldInteractionOwner owner,
-                                                                                     InteractionExitReason reason )
-{
-    return TransitionTo( m_workspace, owner, reason );
-}
 
 RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
 {

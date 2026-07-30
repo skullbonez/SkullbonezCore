@@ -185,12 +185,6 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-bool PhysicsDiagnosticsSink::IsCollisionTimeLogEnabled() const
-{
-    return m_physicsCollisionTimeLogPath[0] != '\0';
-}
-
-
 bool PhysicsDiagnosticsSink::IsRegressionLogEnabled() const
 {
     return m_physicsRegressionLogPath[0] != '\0';

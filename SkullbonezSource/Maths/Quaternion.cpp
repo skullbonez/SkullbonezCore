@@ -76,30 +76,6 @@ void Quaternion::Normalise()
 }
 
 
-void Quaternion::RotateAboutXYZ( float xRadians, float yRadians, float zRadians )
-{
-
-    // Treat XYZ inputs as one angular-displacement vector and integrate
-    // with a single axis-angle update to avoid Euler-order coupling.
-    float angleSq = xRadians * xRadians + yRadians * yRadians + zRadians * zRadians;
-
-    if ( angleSq <= TOLERANCE * TOLERANCE )
-    {
-        return;
-    }
-
-    float angle = sqrtf( angleSq );
-    float invAngle = 1.0f / angle;
-    RotateAboutAxis( Vector3( xRadians * invAngle, yRadians * invAngle, zRadians * invAngle ), angle );
-}
-
-
-void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
-{
-    RotateAboutXYZ( vRadians.x, vRadians.y, vRadians.z );
-}
-
-
 void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 {
 
@@ -156,28 +132,4 @@ void Quaternion::GetComponents( float& x, float& y, float& z, float& w ) const
     y = m_y;
     z = m_z;
     w = m_w;
-}
-
-
-Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
-{
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( sinf( radiansDiv2 ), 0.0f, 0.0f, cosf( radiansDiv2 ) );
-}
-
-
-Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
-{
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( 0.0f, sinf( radiansDiv2 ), 0.0f, cosf( radiansDiv2 ) );
-}
-
-
-Quaternion Quaternion::GetQtnRotatedAboutZ( float fRadians )
-{
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( 0.0f, 0.0f, sinf( radiansDiv2 ), cosf( radiansDiv2 ) );
 }

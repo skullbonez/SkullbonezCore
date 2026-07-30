@@ -274,12 +274,6 @@ int PointJointConstraint::BodyBIndex( const PhysicsBodyStore& bodyStore ) const
 }
 
 
-float Ragdoll::DefaultEditorScale()
-{
-    return RAGDOLL_DEFAULT_SCALE;
-}
-
-
 float Ragdoll::ClampScale( float scale )
 {
 

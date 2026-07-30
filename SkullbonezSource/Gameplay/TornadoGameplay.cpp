@@ -237,20 +237,6 @@ const std::vector<float>& TornadoGameplay::EjectCooldownSeconds() const
     return m_ejectCooldownSeconds;
 }
 
-void TornadoGameplay::CaptureReplayState( TornadoGameplayReplayState& outState ) const
-{
-    outState.field = m_field.GetConfig();
-    outState.system = m_system.GetConfig();
-    outState.systemElapsedSeconds = m_system.GetElapsedSeconds();
-    outState.captureSeconds = m_captureSeconds;
-    outState.ejectCooldownSeconds = m_ejectCooldownSeconds;
-}
-
-void TornadoGameplay::RestoreReplayState( const TornadoGameplayReplayState& state )
-{
-    SetReplayState( state.captureSeconds, state.ejectCooldownSeconds, state.field, state.system,
-                    state.systemElapsedSeconds );
-}
 
 std::span<const float> TornadoGameplay::BuildDebugLineVertices()
 {

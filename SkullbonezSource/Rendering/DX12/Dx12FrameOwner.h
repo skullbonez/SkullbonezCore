@@ -589,7 +589,6 @@ class Dx12FrameOwner
     void EndProfilerEvent();
     ID3D12Device* Device() const;
     ID3D12GraphicsCommandList* CommandList() const;
-    void ActivateShader( ShaderDX12* shader );
 
     // Frame/output commands remain on the owner that already governs the
     // recording epoch and active pipeline target.

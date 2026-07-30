@@ -545,6 +545,10 @@ ledger from 0/10 to 0/14. Maths Surface Reachability then closed MR0-MR3 and
 left the ledger under rule 4, returning the active/future total to 0/10.
 Inverse-Trig Domain Guards closed TD0-TD3 and left the ledger under rule 4,
 reducing the active/future total to 0/6.
+Retirement Diagnostic Honesty closed DH0-DH1 and left the ledger under rule 4,
+reducing the active/future total to 0/4. Unreachable Symbol Remediation then
+closed UR0-UR3 and left the ledger under rule 4. The Claim Integrity Campaign
+is complete and its active/future ledger is empty (0%).
 All 1,640 compile rows have inherited list metadata, the 61 shared sources have
 exact owner rulings for their intentional test/engine differences, production
 JSON semantics reach the test binary, and every mapped gate is clear. Closure
@@ -1145,14 +1149,13 @@ The owner retired merge queues and any GitHub ownership change, exact-commit
 hosted CPU run 30505659321 passed, and graphics-card validation remains
 local-only.
 
-The Claim Integrity Campaign (2026-07-30) is the active queue at 0/4 (0%).
-Build configuration parity and Maths surface reachability closed BP0-BP5 and
-MR0-MR3, then left the ledger under rule 4. Inverse-Trig Domain Guards closed
-TD0-TD3 and also left the ledger. Retirement Diagnostic Honesty closed DH0-DH1
-and left the ledger. Plan 5 is the remaining queue under the dependency barriers
-recorded in the campaign section. No plan in this campaign carries a
-bounded-divergence allowance; all five registered plans are strictly byte-exact
-for physics.
+The Claim Integrity Campaign (2026-07-30) is complete. Build Configuration
+Parity, Maths Surface Reachability, Inverse-Trig Domain Guards, Retirement
+Diagnostic Honesty, and Unreachable Symbol Remediation all closed and left the
+live ledger under rule 4. The final remediation deleted 181 unreachable
+functions, retained 79 exact ruled seams, and expanded compiled reachability to
+the mandatory Automation/Debug/Profile object graph. No plan in this campaign
+used bounded divergence; final Physics remained byte-exact.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2790,7 +2793,7 @@ Dependency barriers:
 | 2 | [maths-surface-reachability](../Reports/2026-07-30/maths-surface-reachability-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; eight dead definitions removed, 407 exact follow-up rulings registered, review clear, coverage and all final gates pass |
 | 3 | [inverse-trig-domain-guards](../Reports/2026-07-30/inverse-trig-domain-guards-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; one shared clamp policy, explicit Camera and antiparallel fallbacks, focused finite-output tests, byte-exact Physics, clear review, and all final gates complete |
 | 4 | [retirement-diagnostic-honesty](../Reports/2026-07-30/retirement-diagnostic-honesty-closure.md) | Complete | 2/2 | Closed 2026-07-30 and removed from the live ledger under rule 4; truthful bounded retirement accounting, corrected readback diagnostics, fatal probes, clean DX12 baselines, one-minute graphics stress, clear review, and all final gates complete |
-| 5 | [unreachable-symbol-remediation](TODO/unreachable-symbol-remediation.md) | Not started | 0/4 | Starts after plans 1-4; UR0 reproduces and partitions every current exact reachability row before any repository-wide deletion |
+| 5 | [unreachable-symbol-remediation](../Reports/2026-07-30/unreachable-symbol-remediation-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; 181 unreachable functions removed, 79 exact retain rulings remain, Automation/Debug/Profile reachability is mandatory, review is clear, and every final gate passes byte-exact Physics |
 
 ### Governance Gap This Campaign Closes
 

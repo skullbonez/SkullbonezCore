@@ -43,11 +43,9 @@ class DiagnosticsController
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
 
     RunPerfLogState& PerfLog();
-    const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
     void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
-    void LogPerfMemory( int pass, const char* checkpoint );
     void ResetPerfLogForSceneLoad();
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
@@ -61,8 +59,6 @@ class DiagnosticsController
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
-    const RunPhysicsDiagnosticsState& PhysicsDiagnostics() const;
-    bool PhysicsDiagnosticsEnabled() const;
 #endif
 
   private:

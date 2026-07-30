@@ -451,14 +451,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ,
 }
 
 
-void Camera::ApplyDelta( const Camera& delta, const CameraMovementSettings& settings )
-{
-    PrepareTranslation();
-    *this += delta;
-    FinishTranslation( settings );
-}
-
-
 float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings )
 {
     Vector3 vNegatedView = -GetViewVectorNormalised();
