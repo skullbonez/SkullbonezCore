@@ -529,6 +529,15 @@ graphics-card validation is local-only. Exact-commit hosted run 30505659321
 passed the final workflow shape. Evidence is in
 `../Reports/2026-07-30/validation-gate-integrity-closure.md`.
 
+The denominator grew 0 → 16 on 2026-07-30 when the owner registered the
+four-plan Claim Integrity Campaign from a source-and-tests-only engine review at
+tip `91a8403d`, conducted without reading `Agentic/` or commit history:
+build-configuration parity (6 tasks, BP0-BP5), maths surface reachability
+(4 tasks, MR0-MR3), inverse-trig domain guards (4 tasks, TD0-TD3), and
+retirement diagnostic honesty (2 tasks, DH0-DH1). Execution order is 1→4 as
+listed; the ordering rationale, dependency barriers, and per-plan gates live in
+the campaign section below.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1121,7 +1130,15 @@ is empty (0%).
 Validation-gate integrity is also complete at 6/6 and excluded under rule 4.
 The owner retired merge queues and any GitHub ownership change, exact-commit
 hosted CPU run 30505659321 passed, and graphics-card validation remains
-local-only. No active or future MASTER action remains.
+local-only.
+
+The Claim Integrity Campaign (2026-07-30) is the active queue at 0/16 (0%).
+Start with plan 1 `build-configuration-parity`: it holds the campaign's only
+correctness divergence between the test binary and the shipping binary, and its
+BP4 inventory also covers the finding class behind BP3. Plans 2-4 follow in
+order under the dependency barriers recorded in the campaign section. No plan in
+this campaign carries a bounded-divergence allowance; all four are strictly
+byte-exact for physics.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2678,6 +2695,99 @@ This plan is tracked as **plan 8 of the Fresh-Read Engine Review Campaign**
 above; it does not carry a second ledger row. Its start condition, ordering
 consequences, and the `stash@{0}` recovery note live there. The owner directions
 and superseded ruling above remain the authority for how it is executed.
+
+## Claim Integrity Campaign (2026-07-30)
+
+Source: source-and-tests-only engine review at tip `91a8403d` on 2026-07-30,
+deliberately conducted without reading `Agentic/`, plan files, reports, or
+commit history, so the findings reflect what a new reader sees in the code
+alone. Evidence is dated 2026-07-30 and recorded in each plan; no historical
+measurement is reused.
+
+**Campaign thesis.** Every finding is the same shape: an artifact states a
+property the built code does not deliver. `SKULLBONEZ_CORE.vcxproj` declares a
+JSON abort policy the test binary does not receive.
+`Core/FloatingPointContract.h` states "every project, every configuration" while
+seven translation units override it away. `Maths/GeometricMath.h` publishes three
+functions nothing calls. `Runtime/Camera/Camera.cpp:462` says pitch caps cannot
+flip through the up axis, and a NaN makes them.
+`Rendering/DX12/Dx12DeferredReleaseOwner.cpp:41` prints a high-water value the
+type never records. Each plan proves one stated claim is actually delivered, or
+corrects the claim.
+
+The review's positive findings are recorded here so later work does not regress
+them: the force-included FP-contraction contract and `/fp:precise`, the
+worker-count-invariant byte-exact determinism suite, `PhysicsFixedList`'s
+placement-new/`std::launder`/`move_if_noexcept` lifetime handling and its English
+capacity-reason strings, the fence-proven DX12 retirement quarantine, the
+`PERSISTENT_CONTACT_BODY_MASK` static assertion tying the solver key to
+`MAX_SCENE_OBJECTS`, and the Catto page-and-equation citation discipline with
+explicit `ENGINE-SPECIFIC` deviation markers. All are load-bearing and must
+survive every plan in this campaign.
+
+**Structural finding recorded, not scheduled.** The review also measured Runtime
+at 119,342 of 230,923 first-party source lines — 52% of the engine, against
+30,503 Physics and 31,754 Rendering. Excluding Replay, Prediction, and Planning
+still leaves roughly 86,000 lines. `Run.h` is genuinely clean at 304 lines with
+no state bag, so the god object was really dismantled; the observation is that
+the dependency rules police direction and nothing polices mass, and the Runtime
+allow-table admits App to all 20 packages. That is a design question for an owner,
+not a defect with a mechanical repair, and it is deliberately **not** registered
+as a plan here. It is recorded so the next review does not re-derive it.
+
+Binding owner directions:
+
+- No plan in this campaign carries a bounded-divergence allowance. All four are
+  strictly byte-exact for physics. A differing physics byte means the change
+  altered evaluation rather than configuration or domain guarding, and the task
+  is reverted rather than baselined.
+- `inverse-trig-domain-guards` inverts the usual reading of a byte difference.
+  A clamp that never fires is byte-exact by construction, so a CSV difference
+  there proves the clamp *is* firing in a baseline scene — a live out-of-domain
+  value in accepted artifacts. That is a defect discovery to escalate, never a
+  baselining opportunity.
+- Plans 1 and 2 each add a repeatable inventory, bringing the total from four to
+  six. Like the existing four, no threshold in either is an allowance, budget, or
+  ratchet, and a ruling records a judgement rather than managing a number.
+- Owner ruling for plan 2: delete the unreachable `GeometricMath` surface rather
+  than harden it. Hardening would retain a public maths API with no runtime
+  caller. MR0 may escalate a specific symbol back only on evidence that a live
+  caller was intended and lost its edge in a refactor.
+
+Dependency barriers:
+
+- Plan 1 BP1 before plan 2 MR1 — BP1 changes which engine TUs the test binary
+  compiles, so MR1's coverage-floor recheck must measure the post-BP1 tree.
+- Plan 2 MR1 before plan 3 TD1 — MR1 deletes
+  `GeometricMath::GetHeightFromPlane`, which holds one of the open inverse-trig
+  sites. Running TD1 first would harden code that is about to be removed.
+- Plan 4 has no barrier in either direction and is sequenced last only because it
+  is the smallest and lowest-risk.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [build-configuration-parity](TODO/build-configuration-parity.md) | Not started | 0/6 | Ready now. BP0 censuses per-file build settings across all five projects and classifies every external-JSON accessor in the four shared TUs |
+| 2 | [maths-surface-reachability](TODO/maths-surface-reachability.md) | Not started | 0/4 | Starts after plan 1 BP1. MR0 confirms reachability with a type-aware Debug-and-Profile census before any deletion |
+| 3 | [inverse-trig-domain-guards](TODO/inverse-trig-domain-guards.md) | Not started | 0/4 | Starts after plan 2 MR1. TD0 re-confirms the eight-site census against the post-deletion tree; TD1 unifies the three existing clamp spellings |
+| 4 | [retirement-diagnostic-honesty](TODO/retirement-diagnostic-honesty.md) | Not started | 0/2 | No barrier; may run any time after plan 1. DH0 adds real high-water accounting to the DX12 retirement quarantine |
+
+### Governance Gap This Campaign Closes
+
+The four findings share a cause worth naming, because it predicts where the next
+one appears. Everything mechanically enforced in this repository is at 100%:
+all 573 first-party `SkullbonezSource` `.cpp`/`.h`/`.hpp`/`.inl` files carry a
+learning header, and that source has zero `throw`, zero `catch`, zero `goto`,
+zero `TODO`/`FIXME`/`HACK`, and one `const_cast`. Everything enforced only by review sits at whatever the last
+reviewer happened to look at — and all four findings are review-only.
+
+Plans 1 and 2 convert two of those review-only rules into inventories:
+`check_build_config_consistency.py` reports files compiled under divergent
+settings, and `inventory_unreachable_symbols.py` reports symbols with no
+non-test caller. Both follow the established unruled-fails/ruled-passes contract
+and neither introduces a threshold. Plans 3 and 4 stay review-enforced because
+their subject matter has no honest mechanical proxy; a regex that flags every
+`acosf` without an adjacent `clamp` would fire on the four correctly guarded
+sites and miss a guard placed three lines earlier.
 
 ## Features
 
