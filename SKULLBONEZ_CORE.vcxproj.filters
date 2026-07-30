@@ -450,6 +450,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorGizmoTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
@@ -911,6 +914,9 @@
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h">
+      <Filter>Header Files\Runtime\Editor</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.h">
       <Filter>Header Files\Runtime\Editor</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h">

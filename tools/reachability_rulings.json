@@ -402,8 +402,8 @@
                         "signature":  "Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3\u0026 N, float scale )",
                         "owner":  "Maths :: Matrix4::ShadowFromNormal",
                         "disposition":  "repair-plan",
-                        "reason":  "Matrix4::ShadowFromNormal has no Debug/Profile production or test reference; UR0-UR2 own proof of indirect reachability or deletion.",
-                        "evidence":  "2026-07-30 Debug/Profile COFF plus Agentic/Tests census: classification=no-reference; mapping=exact; own_tu_calls=0; test_reached=0; ambiguous_production_calls=0; required_arity=5/5; symbols=?ShadowFromNormal@Matrix4@Transformation@Math@SkullbonezCore@@SA?AV1234@MMMAEBVVector3@Vector@34@M@Z",
+                        "reason":  "Matrix4::ShadowFromNormal is reached only by the inverted-normal regression test and has no Debug/Profile production reference outside its own translation unit; UR0-UR2 own proof of indirect production reachability or deletion while preserving equivalent guard coverage.",
+                        "evidence":  "2026-07-30 Debug/Profile COFF plus Agentic/Tests census: classification=test-only; mapping=exact; own_tu_calls=0; test_reached=1; ambiguous_production_calls=0; required_arity=5/5; symbols=?ShadowFromNormal@Matrix4@Transformation@Math@SkullbonezCore@@SA?AV1234@MMMAEBVVector3@Vector@34@M@Z",
                         "plan":  "Agentic/Plans/TODO/unreachable-symbol-remediation.md"
                     },
                     {

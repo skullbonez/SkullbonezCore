@@ -13,6 +13,8 @@ Glossary:
     the view direction.
   Basis fallback: Stable world axis used when authored eye/view/up data cannot
     form a direction.
+  Pitch cap: Angular limit that keeps the view direction from crossing either
+    pole of the camera up axis.
 
 Invariants:
   - m_view is a look-at target, not a direction vector; movement updates both
@@ -21,6 +23,8 @@ Invariants:
     need to preserve the current zoom.
   - Degenerate authored poses use deterministic forward/right fallbacks and
     never terminate inside vector math.
+  - Pitch-cap dot products are clamped to the inverse-cosine unit domain before
+    comparisons, so a rounded pole cannot disable the cap through NaN.
 
 Related:
   - SkullbonezSource/Runtime/Camera/Camera.h
@@ -458,11 +462,23 @@ void Camera::ApplyDelta( const Camera& delta, const CameraMovementSettings& sett
 float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings )
 {
     Vector3 vNegatedView = -GetViewVectorNormalised();
+    Vector3 effectiveUp = m_upVector;
 
-    // Compare against both poles so pitch caps cannot flip through the up axis.
-    float currentUpAngle = acosf( Dot( vNegatedView, m_upVector ) );
+    if ( !effectiveUp.TryNormalise() )
+    {
 
-    float currentDownAngle = acosf( Dot( vNegatedView, -m_upVector ) );
+        // A missing authored up basis uses world Y for pitch policy while
+        // GetRightVector supplies world X as the matching rotation axis.
+        effectiveUp = Vector3( 0.0f, 1.0f, 0.0f );
+    }
+
+    // Hazard: normalized float dots can round beyond either unit-domain pole.
+    // Unclamped acosf returns NaN, every cap comparison becomes false, and the
+    // raw request crosses the singularity this function exists to prevent.
+    const float upDot = Math::ClampUnit( Dot( vNegatedView, effectiveUp ) );
+    const float downDot = Math::ClampUnit( Dot( vNegatedView, -effectiveUp ) );
+    float currentUpAngle = acosf( upDot );
+    float currentDownAngle = acosf( downDot );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
 

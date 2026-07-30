@@ -218,6 +218,7 @@
     <ClCompile Include="SkullbonezTests\TestOrbitalMechanics.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezTests\TestEditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
@@ -277,6 +278,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />

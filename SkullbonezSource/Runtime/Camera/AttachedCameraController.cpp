@@ -850,7 +850,7 @@ void AttachedCameraController::CaptureOrbit( AttachedCameraState& state, const A
     }
 
     const float pitchDistance = (std::max)( distance, 0.001f );
-    const float normalizedY = std::clamp( offset.y / pitchDistance, -1.0f, 1.0f );
+    const float normalizedY = SkullbonezCore::Math::ClampUnit( offset.y / pitchDistance );
     state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, distance );
     state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
     state.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );

@@ -228,7 +228,9 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJoi
         torsoUp.Normalise();
         headUp.Normalise();
 
-        const float dot = std::clamp( Dot( headUp, torsoUp ), -1.0f, 1.0f );
+        // Invariant: this shared spelling preserves the former std::clamp
+        // bounds exactly; ordinary solver inputs must remain byte-identical.
+        const float dot = SkullbonezCore::Math::ClampUnit( Dot( headUp, torsoUp ) );
 
         if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
         {

@@ -10,6 +10,8 @@ Summary:
 
 Glossary:
   Active rotation: Rotation that moves a vector in a fixed world basis.
+  Antiparallel normal: Direction exactly opposite world up; its cross product
+    with world up is zero even though the required half-turn is well-defined.
   Clip-space depth: Projected depth range consumed by the graphics pipeline;
     DX12 callers use zero through one.
 
@@ -19,6 +21,8 @@ Invariants:
     in [0,1].
   - LookAt rejects a coincident eye/target and replaces a zero or parallel up
     vector with a deterministic orthogonal basis.
+  - ShadowFromNormal uses world X for an antiparallel normal so both Debug and
+    fused shipping paths remain finite.
 
 Related:
   - SkullbonezSource/Maths/Matrix4.h
@@ -387,16 +391,24 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
     // COST: 1 sqrtf + ~20 FP ops.  Old path: acosf + 2× (cosf+sinf) + 3× Matrix4 multiply.
     //
     // The Debug path below performs each step individually for debugger visibility;
-    // it produces numerically identical results.
+    // it is numerically equivalent within float tolerance. Its trig path can
+    // retain tiny sin(pi) residuals where the fused path writes exact zeros.
 #ifdef _DEBUG
 
     // Debug: step-by-step — shows the mathematical composition being fused.
     // The acosf→degrees→RotateAxis round-trip recovers cosf/sinf from the angle we
     // derived from acosf — the exact waste the release path eliminates.
     Matrix4 model = Translate( tx, ty, tz );
-    const float cosA = N.y;
+    const float cosA = SkullbonezCore::Math::ClampUnit( N.y );
 
-    if ( cosA < 0.9999f )
+    if ( cosA <= -0.9999f )
+    {
+
+        // A fully inverted normal has no unique horizontal rotation axis.
+        // World X is deterministic and produces the required antiparallel up.
+        model = model * RotateAxis( 180.0f, 1.0f, 0.0f, 0.0f );
+    }
+    else if ( cosA < 0.9999f )
     {
         float axisX = N.z;
         float axisZ = -N.x;
@@ -411,7 +423,7 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
 #else
 
     // c = cosA = N·up = N.y (dot product of two unit vectors, one of which is (0,1,0))
-    const float c = N.y;
+    const float c = SkullbonezCore::Math::ClampUnit( N.y );
     float res[16];
 
     if ( c >= 0.9999f )
@@ -430,6 +442,24 @@ Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& 
         res[8] = 0.0f;
         res[9] = 0.0f;
         res[10] = scale;
+        res[11] = 0.0f;
+    }
+    else if ( c <= -0.9999f )
+    {
+
+        // Antiparallel world-up has infinitely many valid horizontal axes.
+        // Choose world X so a zero cross-product never reaches the divisions below.
+        res[0] = scale;
+        res[1] = 0.0f;
+        res[2] = 0.0f;
+        res[3] = 0.0f;
+        res[4] = 0.0f;
+        res[5] = -scale;
+        res[6] = 0.0f;
+        res[7] = 0.0f;
+        res[8] = 0.0f;
+        res[9] = 0.0f;
+        res[10] = -scale;
         res[11] = 0.0f;
     }
     else

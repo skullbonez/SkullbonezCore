@@ -145,6 +145,24 @@ TEST_CASE( "Matrix4: quaternion and axis-angle conversions agree within the rota
     CheckIdentity( fromQuaternion.Inverse() * fromQuaternion, kRotationEpsilon );
 }
 
+TEST_CASE( "Matrix4: fully inverted shadow normal produces a finite deterministic transform" )
+{
+    const Matrix4 inverted =
+        Matrix4::ShadowFromNormal( 3.0f, -2.0f, 5.0f, Vector3( 0.0f, -1.0f, 0.0f ), 2.0f );
+    const float expected[16] = {
+        2.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, -2.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, -2.0f, 0.0f,
+        3.0f, -2.0f, 5.0f, 1.0f
+    };
+
+    for ( float value : inverted.m )
+    {
+        CHECK( std::isfinite( value ) );
+    }
+    CheckMatrixNear( inverted, expected, 0.00001f );
+}
+
 
 TEST_CASE( "Matrix4: legacy and DX12 projection helpers pin their depth identities" )
 {

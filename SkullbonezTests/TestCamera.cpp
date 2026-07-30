@@ -30,10 +30,13 @@
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Runtime/Camera/CameraCollection.h"
 
+#include <cmath>
+
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Environment::Camera;
 using SkullbonezCore::Environment::CameraCollection;
+using SkullbonezCore::Environment::CameraMovementSettings;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -65,6 +68,55 @@ TEST_CASE( "Camera: parallel view and up axes move right along world plus X" )
                        0xCA03u );
     cameras.MovePrimary( Camera::TravelDirection::Right, 3.0f );
     CHECK( cameras.GetPrimaryMovementBuffer() == Vector3( 3.0f, 0.0f, 0.0f ) );
+}
+
+TEST_CASE( "Camera: rounded pole dot remains finite and engages the pitch cap" )
+{
+    CameraCollection cameras;
+    const Vector3 pole( -398.8823547363281f, -559.8487548828125f, -648.941162109375f );
+    CameraMovementSettings settings;
+    settings.cameraCollisionThreshold = 0.01f;
+    cameras.ApplyMovementSettings( settings );
+    cameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR, -pole, pole, 0xCA07u );
+
+    // Hazard: after independent float normalization, this pole's self-dot is
+    // 1.000000119f. Without ClampUnit, acosf returns NaN and the cap returns
+    // the raw 0.25-radian request.
+    cameras.RotatePrimary( 0.0f, 0.25f );
+
+    const Vector3& view = cameras.GetCameraView();
+    CHECK( std::isfinite( view.x ) );
+    CHECK( std::isfinite( view.y ) );
+    CHECK( std::isfinite( view.z ) );
+
+    Vector3 cappedPole = -view;
+    Vector3 normalizedUp = pole;
+    REQUIRE( cappedPole.TryNormalise() );
+    REQUIRE( normalizedUp.TryNormalise() );
+    CHECK( SkullbonezCore::Math::Vector::Dot( cappedPole, normalizedUp ) > 0.999f );
+}
+
+TEST_CASE( "Camera: zero authored up uses the deterministic world basis for pitch caps" )
+{
+    CameraCollection cameras;
+    CameraMovementSettings settings;
+    settings.cameraCollisionThreshold = 0.01f;
+    cameras.ApplyMovementSettings( settings );
+    cameras.AddCamera( SkullbonezCore::Math::Vector::ZERO_VECTOR,
+                       Vector3( 0.0f, -1.0f, 0.0f ),
+                       SkullbonezCore::Math::Vector::ZERO_VECTOR,
+                       0xCA08u );
+
+    cameras.RotatePrimary( 0.0f, 0.25f );
+
+    const Vector3& view = cameras.GetCameraView();
+    CHECK( std::isfinite( view.x ) );
+    CHECK( std::isfinite( view.y ) );
+    CHECK( std::isfinite( view.z ) );
+
+    Vector3 cappedPole = -view;
+    REQUIRE( cappedPole.TryNormalise() );
+    CHECK( cappedPole.y > 0.999f );
 }
 
 TEST_CASE( "CameraCollection: SetPrimaryUp repairs zero input to world up" )

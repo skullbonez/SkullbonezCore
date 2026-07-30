@@ -543,6 +543,8 @@ ledger under rule 4. Maths Surface Reachability MR2 then registered the
 four-phase Unreachable Symbol Remediation follow-up, growing the remaining
 ledger from 0/10 to 0/14. Maths Surface Reachability then closed MR0-MR3 and
 left the ledger under rule 4, returning the active/future total to 0/10.
+Inverse-Trig Domain Guards closed TD0-TD3 and left the ledger under rule 4,
+reducing the active/future total to 0/6.
 All 1,640 compile rows have inherited list metadata, the 61 shared sources have
 exact owner rulings for their intentional test/engine differences, production
 JSON semantics reach the test binary, and every mapped gate is clear. Closure
@@ -1143,13 +1145,13 @@ The owner retired merge queues and any GitHub ownership change, exact-commit
 hosted CPU run 30505659321 passed, and graphics-card validation remains
 local-only.
 
-The Claim Integrity Campaign (2026-07-30) is the active queue at 0/10 (0%).
+The Claim Integrity Campaign (2026-07-30) is the active queue at 0/6 (0%).
 Build configuration parity and Maths surface reachability closed BP0-BP5 and
-MR0-MR3, then left the ledger under rule 4. Plan 3
-`inverse-trig-domain-guards` is next; plans 4-5 follow in order under the
-dependency barriers recorded in the campaign section. No plan in this campaign
-carries a bounded-divergence allowance; all five registered plans are strictly
-byte-exact for physics.
+MR0-MR3, then left the ledger under rule 4. Inverse-Trig Domain Guards closed
+TD0-TD3 and also left the ledger. Plans 4-5 remain in order under the dependency
+barriers recorded in the campaign section. No plan in this campaign carries a
+bounded-divergence allowance; all five registered plans are strictly byte-exact
+for physics.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2785,7 +2787,7 @@ Dependency barriers:
 |---:|---|---|---:|---|
 | 1 | [build-configuration-parity](../Reports/2026-07-30/build-configuration-parity-closure.md) | Complete | 6/6 | Closed 2026-07-30 and removed from the live ledger under rule 4; production JSON semantics, inherited forced includes, exact rulings, clear review, and all final gates complete |
 | 2 | [maths-surface-reachability](../Reports/2026-07-30/maths-surface-reachability-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; eight dead definitions removed, 407 exact follow-up rulings registered, review clear, coverage and all final gates pass |
-| 3 | [inverse-trig-domain-guards](TODO/inverse-trig-domain-guards.md) | Not started | 0/4 | Starts after plan 2 MR1. TD0 re-confirms the eight-site census against the post-deletion tree; TD1 unifies the three existing clamp spellings |
+| 3 | [inverse-trig-domain-guards](../Reports/2026-07-30/inverse-trig-domain-guards-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; one shared clamp policy, explicit Camera and antiparallel fallbacks, focused finite-output tests, byte-exact Physics, clear review, and all final gates complete |
 | 4 | [retirement-diagnostic-honesty](TODO/retirement-diagnostic-honesty.md) | Not started | 0/2 | No barrier; may run any time after plan 1. DH0 adds real high-water accounting to the DX12 retirement quarantine |
 | 5 | [unreachable-symbol-remediation](TODO/unreachable-symbol-remediation.md) | Not started | 0/4 | Starts after plans 1-4; UR0 reproduces and partitions every current exact reachability row before any repository-wide deletion |
 

@@ -68,11 +68,6 @@ bool IsFinite( const Vector3& value )
     return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z );
 }
 
-float ClampUnit( float value )
-{
-    return std::clamp( value, -1.0f, 1.0f );
-}
-
 float WrapRadians( float value )
 {
     value = std::fmod( value, TWO_PI );

@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "EditorPlacementAssets.h"
+#include "EditorTerrainOrientation.h"
 #include "EditorTools.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../UI/UITabEditor.h"
@@ -1738,41 +1739,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
         return IDENTITY_QUATERNION;
     }
 
-    const float normalMag = VectorMag( terrainNormal );
-
-    if ( normalMag <= TOLERANCE )
-    {
-        return IDENTITY_QUATERNION;
-    }
-
-    terrainNormal /= normalMag;
-
-    const Vector3 up( 0.0f, 1.0f, 0.0f );
-    const float dot = std::clamp( Dot( up, terrainNormal ), -1.0f, 1.0f );
-    Quaternion orientation = IDENTITY_QUATERNION;
-
-    if ( dot > 0.9995f )
-    {
-        return orientation;
-    }
-
-    if ( dot < -0.9995f )
-    {
-        orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), _PI );
-        return orientation;
-    }
-
-    Vector3 axis = CrossProduct( up, terrainNormal );
-    const float axisMag = VectorMag( axis );
-
-    if ( axisMag <= TOLERANCE )
-    {
-        return orientation;
-    }
-
-    axis /= axisMag;
-    orientation.RotateAboutAxis( axis, acosf( dot ) );
-    return orientation;
+    return EditorTerrainOrientationFromNormal( terrainNormal );
 }
 
 
