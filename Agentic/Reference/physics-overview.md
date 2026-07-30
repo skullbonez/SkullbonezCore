@@ -167,6 +167,12 @@ loading raw NDJSON or CSV artifacts into the model:
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 ```
 
+The `solver` query also reads the contact stage's fixed-capacity convergence
+trace. Its first 64 iteration summaries expose the exact stopping metric,
+normal/tangent contributions, changed-row counts, and the largest contributing
+terrain or object row with that row's own normal/tangent split, without
+retaining the unbounded row-by-row stream.
+
 ## Useful Code Areas
 
 | Area | Files |

@@ -48,6 +48,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -948,8 +949,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     PROFILE_END( m_profiler, "Frame/Physics/Terrain/Detect" );
     PROFILE_END( m_profiler, "Frame/Physics/Terrain" );
 
-    const PersistentContactSolverStepPolicy contactPolicy = PhysicsContactSolverStage::ResolveStepPolicy( settings,
-                                                                                                          worldForces );
+    PersistentContactSolverStepPolicy contactPolicy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
+
+    // Invariant: only a world with an active, unsuppressed diagnostics sink
+    // pays for row attribution. Replay prediction's private PhysicsEngine has
+    // no sink, so its fixed amortization budget remains simulation-only.
+    contactPolicy.collectConvergenceDiagnostics = ShouldEmitStepDiagnostics();
 
     m_contactSolverStage.Solve( bodyStore, colliderStore, contactPolicy, candidatePairs, sleepStates,
                                 m_sleepController.MutableSupportEdgesForContactSolver(), m_terrain.GetContactManifolds(),
@@ -1269,6 +1274,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
 {
     return PhysicsDiagnosticsView { m_contactSolverStage.GetPersistentContacts(),
                                     m_contactSolverStage.GetStats(),
+                                    m_contactSolverStage.GetConvergenceTrace(),
                                     m_sleepController.GetSleepIslandParents(),
                                     m_sleepController.GetSleepSupportedVector(),
                                     m_sleepController.GetSleepInhibitedVector(),

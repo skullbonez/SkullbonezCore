@@ -13,16 +13,21 @@ Glossary:
   Pipeline capacity: Remaining bounded diagnostics records for this fixed tick.
   Fixed-tree release: Solver event asking owner-side fixed support to wake.
   Replay transfer: Explicit copy between solver ownership and snapshot values.
+  Convergence trace: Bounded live-solve iteration summaries excluded from
+    replay capture and restore.
 
 Invariants:
   - Consequence queues are cleared but never re-reserved in Solve.
   - Capacity exhaustion is a Lane F fatal invariant violation.
   - Cache erasure preserves the original packed-key body matching expressions.
+  - Replay restore clears convergence diagnostics rather than presenting stale
+    live-solve attribution as restored solver state.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 */
 #include "PhysicsContactSolverStage.h"
 
@@ -149,6 +154,7 @@ void PhysicsContactSolverStage::Clear()
     m_persistentContacts.clear();
     m_persistentContactCache.clear();
     m_persistentContactSolverStats = PersistentContactSolverStats();
+    m_persistentContactConvergenceTrace.Clear();
     m_persistentContactCounts.clear();
     m_persistentRestingContactCounts.clear();
     m_solveTransaction.Clear();
@@ -302,6 +308,7 @@ void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot&
 #define RESTORE_REPLAY_SOLVER_STAT_FIELD( field ) m_persistentContactSolverStats.field = snapshot.solverStats.field;
     SB_REPLAY_SOLVER_STATS_FIELDS( RESTORE_REPLAY_SOLVER_STAT_FIELD )
 #undef RESTORE_REPLAY_SOLVER_STAT_FIELD
+    m_persistentContactConvergenceTrace.Clear();
     m_solveTransaction.Clear();
 }
 
@@ -318,6 +325,11 @@ std::span<const PersistentContactCacheEntry> PhysicsContactSolverStage::GetPersi
 const PersistentContactSolverStats& PhysicsContactSolverStage::GetStats() const
 {
     return m_persistentContactSolverStats;
+}
+
+const PersistentContactConvergenceTrace& PhysicsContactSolverStage::GetConvergenceTrace() const
+{
+    return m_persistentContactConvergenceTrace;
 }
 
 std::span<const uint16_t> PhysicsContactSolverStage::GetPersistentContactCounts() const

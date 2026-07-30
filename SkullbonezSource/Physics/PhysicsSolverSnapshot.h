@@ -24,8 +24,9 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - ReplayRecorder.h (Runtime retention consumer)
-  - ReplayPrediction.cpp (Runtime prediction consumer)
+  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
 */
 #pragma once
 
@@ -83,7 +84,7 @@ struct PhysicsSolverPersistentContactSample
     bool inhibitsSleep = false;
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
-    float terrainWarmStart = 0.0f;
+    float terrainWarmStart = 0.0f; // Row estimate; historical name/order preserve Replay v2 conversion.
 };
 
 struct PhysicsSolverStatsSample

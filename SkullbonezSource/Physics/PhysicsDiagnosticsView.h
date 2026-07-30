@@ -13,6 +13,8 @@ Glossary:
   Persistent contact: Solver row retained across fixed ticks for warm starting.
   Diagnostics view: Synchronous spans and references into one PhysicsEngine.
   Candidate pair: Broadphase-selected body pair awaiting narrowphase testing.
+  Convergence trace: Bounded per-iteration attribution for the solver's
+    squared-impulse stopping metric.
 
 Invariants:
   - Every span and reference remains owned by the publishing PhysicsEngine and
@@ -20,14 +22,19 @@ Invariants:
   - Field order and units are validation-sensitive because tests and SkullScope
     consume these records directly.
   - This value boundary contains no PhysicsWorld or stage ownership.
+  - Convergence samples are live diagnostics only and never enter replay state.
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Physics/PhysicsWorld.h
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 */
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
@@ -78,6 +85,11 @@ struct PersistentContact
     bool inhibitsSleep = false;
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
+
+    // First-touch terrain impulse derived from row effective mass, signed
+    // gravity, and total body contact rows. Cache hits never use this estimate.
+    // The historical member name remains because Replay v2 conversion and
+    // hashing project this diagnostics record directly.
     float terrainWarmStart = 0.0f;
 
     // Captured before impulses so diagnostics can reject force-transfer rows
@@ -100,10 +112,75 @@ struct PersistentContactSolverStats
     float positionCorrectionMax = 0.0f;
 };
 
+struct PersistentContactIterationDiagnostics
+{
+    int iteration = 0;
+    int normalChangedRowCount = 0;
+    int tangentChangedRowCount = 0;
+    int maxRowBodyA = -1;
+    int maxRowBodyB = -1;
+    uint32_t maxRowFeatureId = 0u;
+    float stoppingImpulseDeltaSq = 0.0f;
+    float normalImpulseDeltaSq = 0.0f;
+    float tangentImpulseDeltaSq = 0.0f;
+    float maxRowImpulseDeltaSq = 0.0f;
+    float maxRowNormalImpulseDeltaSq = 0.0f;
+    float maxRowTangentImpulseDeltaSq = 0.0f;
+    bool maxRowIsTerrain = false;
+};
+
+// Invariant:
+// - The trace retains the first 64 PGS iterations in execution order and
+//   counts every later iteration as dropped. It never allocates, affects the
+//   stopping decision, or enters replay state.
+// - Each sample exposes the exact broad stopping metric plus independent
+//   normal/tangent attribution and the largest contributing row. This lets
+//   diagnostics distinguish honest non-convergence from an over-broad metric.
+class PersistentContactConvergenceTrace
+{
+  public:
+    static constexpr std::size_t CAPACITY = 64u;
+
+    void Clear() noexcept
+    {
+        m_sampleCount = 0u;
+        m_droppedIterationCount = 0u;
+    }
+
+    void Append( const PersistentContactIterationDiagnostics& sample ) noexcept
+    {
+
+        if ( m_sampleCount < m_samples.size() )
+        {
+            m_samples[m_sampleCount] = sample;
+            ++m_sampleCount;
+            return;
+        }
+
+        ++m_droppedIterationCount;
+    }
+
+    std::span<const PersistentContactIterationDiagnostics> Samples() const noexcept
+    {
+        return std::span<const PersistentContactIterationDiagnostics>( m_samples.data(), m_sampleCount );
+    }
+
+    std::size_t DroppedIterationCount() const noexcept
+    {
+        return m_droppedIterationCount;
+    }
+
+  private:
+    std::array<PersistentContactIterationDiagnostics, CAPACITY> m_samples {};
+    std::size_t m_sampleCount = 0u;
+    std::size_t m_droppedIterationCount = 0u;
+};
+
 struct PhysicsDiagnosticsView
 {
     std::span<const PersistentContact> persistentContacts;
     const PersistentContactSolverStats& persistentContactSolverStats;
+    const PersistentContactConvergenceTrace& persistentContactConvergenceTrace;
     std::span<const int> sleepIslandParent;
     std::span<const uint8_t> sleepSupportedThisFrame;
     std::span<const uint8_t> sleepInhibitedThisFrame;

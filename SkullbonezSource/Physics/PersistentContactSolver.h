@@ -14,8 +14,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
-  Step policy: Normalized scalar limits borrowed by every contact row in one
-    solver invocation.
+  Step policy: Normalized limits and force values borrowed by every contact
+    row in one solver invocation.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -27,6 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -69,9 +70,17 @@ struct PersistentContactSolverStepPolicy
     float nonNegativeSleepLinearSpeed = 0.0f;    // Normalized values used by the quiet-body gate.
     float nonNegativeSleepAngularSpeed = 0.0f;
     float gravityMagnitude = 0.0f;
+
+    // Signed live world force used when a terrain row has no cached impulse.
+    Math::Vector::Vector3 gravityAcceleration = Math::Vector::ZERO_VECTOR;
     float contactEpsilon = 0.0f;
     int iterations = 1;
     bool elasticCollisions = false;
+
+    // Why: convergence attribution is observational work for an active
+    // diagnostics sink. Private Replay prediction engines have no sink and
+    // must not spend their amortized simulation budget collecting live trace.
+    bool collectConvergenceDiagnostics = false;
 };
 
 struct PersistentContactCacheEntry

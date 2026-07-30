@@ -1,6 +1,7 @@
 # Validation CI V3 Evidence — 2026-07-10
 
-Plan: `Agentic/Plans/TODO/validation-gate-integrity.md` V3
+Closure: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`
+records V3 completion.
 
 Owner: repository validation
 
@@ -8,38 +9,29 @@ Branch: `engine-cleanup-10th-july`
 
 ## Result
 
-Three capability-honest workflows are active on the default branch. The two V3
-workflows are:
+Two capability-honest hosted workflows remain active on the default branch:
 
 - `.github/workflows/mandatory-cpu-validation.yml` runs the mandatory hosted
   lane on `windows-latest`: `validate_fast --preflight-only` followed by the
   complete CPU test umbrella. Its stable check name is
   `Mandatory CPU lane (Windows hosted)`. It makes no renderer, GPU, or
-  DX12-runtime claim. It covers pull requests, merge-queue `merge_group`
-  checks, and manual dispatch.
-- `.github/workflows/dx12-runtime-validation.yml` runs
-  `tools\validate_full.bat` only on a runner matching all four labels:
-  `self-hosted`, `Windows`, `x64`, and `dx12`. Its stable check name is
-  `Runtime validation (self-hosted DX12)`. Because this repository is public,
-  it has no pull-request trigger; it covers trusted pushes to `main` and
-  privileged manual dispatch only.
+  DX12-runtime claim. It covers pull requests and manual dispatch.
+- `.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
+  manual hosted diagnostics lane.
 
-Both workflows have read-only repository permissions, use immutable commit pins
-for the official checkout and artifact actions, capture their batch exit code
-without losing it through PowerShell logging, and bound execution/artifact
-retention.
+Owner ruling (2026-07-30): anything needing a graphics card is local-only
+validation. The experimental `.github/workflows/dx12-runtime-validation.yml`,
+self-hosted runner, enable variable, scheduled task, and dedicated local
+installations were removed. No persistent or ephemeral GitHub GPU lane may
+replace them. The historical design and run evidence below are retained only
+to make the rejected experiment auditable.
 
-`.github/workflows/native-diagnostics.yml` supplies the separate V4 weekly/
-manual hosted diagnostics lane. It does not change the V3 CPU/runtime security
-boundary.
+## Hosted CPU Lane
 
-## Hosted CPU And Merge-Queue Lane
-
-The hosted workflow runs on pull requests, merge-queue `merge_group` events,
-and manual dispatch. Checkout uses `fetch-depth: 0` so the exact event base is
-available locally. The lane exports `SKORE_SIZE_DIFF_BASE` from the pull
-request base SHA or merge-group base SHA before one fail-fast PowerShell loop
-runs these children in order:
+The hosted workflow runs on pull requests and manual dispatch. Checkout uses
+`fetch-depth: 0` so the exact pull-request base is available locally. The lane
+exports `SKORE_SIZE_DIFF_BASE` from the pull-request base SHA before one
+fail-fast PowerShell loop runs these children in order:
 
 1. `tools\validate_fast.bat --preflight-only` owns formatting, production
    project/filter metadata, staged-size policy, and its Profile preflight build
@@ -59,11 +51,11 @@ before the context step creates the artifact directory, or while the artifact
 action itself is unavailable. The GitHub Actions log remains the evidence for
 those earlier failures.
 
-Pull-request and merge-group runs therefore ask staged-size policy to inspect
-the exact changed HEAD blobs relative to the event's base commit. Manual
-dispatch has neither event field, so `SKORE_SIZE_DIFF_BASE` is empty and the
-checker falls back to local-index mode. Because checkout is clean, a manual run
-is **not** changed-file size evidence and must not be cited as such.
+Pull-request runs therefore ask staged-size policy to inspect the exact changed
+HEAD blobs relative to the event's base commit. Manual dispatch has no
+pull-request field, so `SKORE_SIZE_DIFF_BASE` is empty and the checker falls
+back to local-index mode. Because checkout is clean, a manual run is **not**
+changed-file size evidence and must not be cited as such.
 
 Independent review found that filtering only added/modified Git statuses could
 miss a rename from an allowlisted data directory into an ordinary path. Both
@@ -79,7 +71,10 @@ doctest runner from executing before the umbrella, so the doctest,
 interaction-policy, scene-parser, and device-free DX12 architecture targets
 each run exactly once.
 
-## Self-Hosted Runtime Lane
+## Superseded Self-Hosted Runtime Lane (Historical)
+
+This section describes the rejected experiment and is not an active repository
+contract. The owner subsequently ruled all graphics-card validation local-only.
 
 The runtime workflow is intentionally absent from pull requests. It responds
 only to a reviewed commit pushed to `main` or a privileged maintainer's manual
@@ -130,7 +125,10 @@ These Node 24 action releases require a self-hosted Actions runner at version
 owner must keep its agent current. The runtime steps also require PowerShell
 7.2 or newer (`pwsh`).
 
-## Local Static Validation
+## Historical Local Static Validation
+
+This section records the pre-retirement workflow shape. The final
+pull-request/manual-only validation is recorded in the closure section below.
 
 No repository validation or engine launch is appropriate for workflow-only
 configuration. The downloaded `actionlint` v1.7.12 Windows binary matched its
@@ -226,28 +224,37 @@ repository-variable state, and trusted runtime evidence can be recorded below.
 
 ## External Activation Checklist
 
+The self-hosted/GPU rows below are historical execution evidence, not current
+requirements. The owner ruling above retires that entire GitHub GPU path.
+
 - [x] Push the workflow files and observe one successful pull-request run of
   `Mandatory CPU lane (Windows hosted)`. Evidence: run 29148955729 completed
   successfully on 2026-07-11.
 - [ ] Exercise the merge queue and prove the same CPU check runs for a
   `merge_group` event rather than remaining permanently expected. Confirm the
   log names that event's `base_sha` for changed-file size inspection.
-- [ ] Add that exact CPU job name to the protected branch's required checks.
-- [ ] Register exactly one dedicated Windows x64 Actions runner with the custom
+- [x] Add that exact CPU job name to the protected branch's required checks.
+  Evidence: `main` strictly requires `Mandatory CPU lane (Windows hosted)`,
+  bound to GitHub Actions app ID 15368, with administrators included.
+- [x] Register exactly one dedicated Windows x64 Actions runner with the custom
   `dx12` label; ensure the effective labels are `self-hosted`, `Windows`,
-  `x64`, and `dx12`. Do not assign that complete label set to a second runner.
-- [ ] Install Visual Studio C++/LLVM tools, Windows SDK/debug layer, Git,
+  `X64`, and `dx12`. Runner `skullbonez-dx12-sesch-rtx3080` is the sole
+  registered self-hosted runner and was online/idle at the final audit.
+- [x] Install Visual Studio C++/LLVM tools, Windows SDK/debug layer, Git,
   Python, and Pillow as described by `FIRST_TIME_SETUP.md`; additionally
   install PowerShell 7.2 or newer and update the Actions runner to at least
-  `2.327.1`.
-- [ ] Confirm the runner service account can access the physical DX12 adapter
-  and write the repository's build/validation directories.
-- [ ] Set repository variable `SKULLBONEZ_DX12_CI_ENABLED=true` only after the
-  runner is registered.
-- [ ] Prove several trusted `main` push/manual runs, including zero InfoQueue
+  `2.327.1`. The runner is 2.336.0 and uses PowerShell 7.6.4.
+- [x] Confirm the runner service account can access the physical DX12 adapter
+  and write the repository's build/validation directories. Trusted run
+  30472584471 exercised the NVIDIA GeForce RTX 3080, wrote all evidence, and
+  completed the full gate.
+- [x] Set repository variable `SKULLBONEZ_DX12_CI_ENABLED=true` only after the
+  runner is registered. API readback confirms `true`.
+- [x] Prove several trusted `main` push/manual runs, including zero InfoQueue
   errors, matching screenshot baselines, and byte-exact physics output. Manual
-  dispatch must select only a maintainer-reviewed ref.
-- [ ] Keep `Runtime validation (self-hosted DX12)` post-merge/informational. Do
+  dispatch must select only a maintainer-reviewed ref. Runs 30472584471,
+  30473669720, and 30473675109 all passed at reviewed exact SHA `f4c0b33e`.
+- [x] Keep `Runtime validation (self-hosted DX12)` post-merge/informational. Do
   not add this persistent-runner job to pull-request required checks.
 - [ ] If merge-blocking GPU evidence is required, replace this lane with a
   truly ephemeral/disposable isolated GPU runner, security-review it against
@@ -280,3 +287,124 @@ The final MASTER execution pass rechecked GitHub after all local plans closed:
 V3 remains blocked at 5/6. Completion requires an administrator to enable and
 exercise the merge queue, protect `main` with `Mandatory CPU lane (Windows
 hosted)`, and provision the trusted or ephemeral DX12 runner described above.
+
+## Live Activation Audit — 2026-07-30
+
+The owner approved the formatter repair and required GitHub administration.
+The implementation and all viable activation work are now complete:
+
+- `.github/workflows/mandatory-cpu-validation.yml` installs exact official
+  LLVM 21.1.8 through Chocolatey, verifies that version and repository style
+  parsing, exports its explicit `clang-format.exe` path, and records the tool
+  identity. Manual hosted run
+  [30469139071](https://github.com/skullbonez/SkullbonezCore/actions/runs/30469139071)
+  passed at exact SHA `1faac75e750c045ceaf50addbc4a9ca3d34f772b`:
+  preflight passed and all 465 cases / 2,423,885 assertions plus the complete
+  CPU umbrella passed.
+- `main` branch protection is active, strict, and enforced for administrators.
+  Its sole required check is `Mandatory CPU lane (Windows hosted)`, bound to
+  GitHub Actions app ID 15368. Force pushes and deletions are disabled.
+- Exactly one repository runner is registered:
+  `skullbonez-dx12-sesch-rtx3080` (runner 2.336.0), with effective labels
+  `self-hosted`, `Windows`, `X64`, and `dx12`. It uses PowerShell 7.6.4 and an
+  NVIDIA GeForce RTX 3080. Because this shell is non-administrative, the runner
+  is launched by the user-level at-logon scheduled task
+  `SkullbonezCore-GitHub-DX12-Runner`, not a Windows service; it is therefore
+  intentionally unavailable before that user logs in.
+- The runner package SHA-256 is
+  `d59123a43003e357b0805b5d0f611d0bd2f65ab67d51bd070dd4e7a0f685c162`.
+  The PowerShell package SHA-256 is
+  `80832551c52809301e6071c8bac977beb5a2f1ec953eb4db9f94deb953333793`.
+  Repository variable `SKULLBONEZ_DX12_CI_ENABLED` reads back as `true`.
+- `.github/workflows/dx12-runtime-validation.yml` now checks out recursive
+  submodules, repairing the absent Tracy/imgui `Related:` evidence observed in
+  the first live attempt. Three trusted manual runs—
+  [30472584471](https://github.com/skullbonez/SkullbonezCore/actions/runs/30472584471),
+  [30473669720](https://github.com/skullbonez/SkullbonezCore/actions/runs/30473669720),
+  and
+  [30473675109](https://github.com/skullbonez/SkullbonezCore/actions/runs/30473675109)—passed
+  at exact SHA `f4c0b33e11c4e7cf5e1dc702f7d1b45929cc437f`:
+  all CPU tests passed, DX12 reported zero InfoQueue validation errors,
+  screenshots matched, `physics_regression_varied.csv` was byte-exact across
+  two output runs and one baseline, deep Physics and performance passed, and
+  `VALIDATE_FULL: DEFAULT GATE PASSED`. Artifact
+  [dx12-runtime-30472584471-1](https://github.com/skullbonez/SkullbonezCore/actions/runs/30472584471/artifacts/8732551823)
+  has SHA-256
+  `bc1473ca9c262b83c7670a8af3a27310bc31573e1095111668b8f398f411e1fa`.
+- The persistent DX12 workflow remains trusted-only: `main` push and manual
+  dispatch, never `pull_request`, and it is not a required check. An ephemeral
+  isolated GPU worker remains a conditional future requirement only if GPU
+  evidence is later made merge-blocking.
+
+The final merge-queue administration is not available on this repository.
+`SkullbonezCore` is public but owned by the personal account `skullbonez`.
+GitHub documents merge queues as available only for organization-owned public
+repositories (or qualifying organization-owned private repositories). A
+dedicated active `Main merge queue` ruleset POST therefore returned HTTP 422
+`Invalid rule 'merge_queue'`; no partial ruleset was created, the existing
+disabled `Block Delete & Force Push` ruleset was untouched, and the repository
+still reports zero `merge_group` runs.
+
+V3 remains blocked at 5/6 solely on the real `merge_group` proof. The exact
+unblock is: create or join an eligible organization that can receive the
+repository, transfer it there (or wait for GitHub to expand feature
+availability), enable the merge queue on `main`, then explicitly authorize
+creation and enqueue of a proof pull request. The authenticated owner currently
+reports zero organization memberships, so there is no existing transfer
+destination to select. Creating an organization, transferring the repository,
+and creating or merging that PR remain outside current authority.
+
+## Owner-Directed GPU Rollback — 2026-07-30
+
+The owner ruled that there will be no DX12 validation on GitHub and that
+anything requiring a graphics card is local-only validation. The rollback
+removed every active component of the rejected experiment:
+
+- disabled GitHub workflow ID 311199536 and deleted tracked
+  `.github/workflows/dx12-runtime-validation.yml`;
+- deleted repository variable `SKULLBONEZ_DX12_CI_ENABLED`;
+- unregistered runner ID 22, `skullbonez-dx12-sesch-rtx3080`;
+- stopped its one listener process and removed scheduled task
+  `SkullbonezCore-GitHub-DX12-Runner`;
+- moved the dedicated runner directory and PowerShell 7.6.4 installation to
+  the Windows Recycle Bin.
+
+The hosted CPU workflow, its strict `main` branch protection, and the
+device-free DX12 architecture tests remain. Real renderer, InfoQueue,
+screenshot, graphics-stress, and other GPU-dependent gates run locally only.
+Historical workflow runs and artifacts remain finite-retention audit evidence;
+they do not authorize or reactivate a GitHub GPU lane.
+
+## Owner-Directed Merge-Queue Retirement — 2026-07-30
+
+The owner will not change the GitHub repository or its ownership for merge
+queues and directed that the entire idea be removed. The final V3 contract is:
+
+- hosted CPU CI runs on `pull_request` and `workflow_dispatch` only;
+- `main` strictly requires `Mandatory CPU lane (Windows hosted)`;
+- `SKORE_SIZE_DIFF_BASE` uses only `pull_request.base.sha`;
+- no `merge_group` trigger, merge-queue requirement, organization transfer, or
+  proof PR remains;
+- all graphics-card validation is local-only.
+
+The historical merge-queue investigation above remains audit evidence, not an
+active requirement.
+
+## Final V3 Closure — 2026-07-30
+
+V3 is complete at 6/6. GitHub Actions run
+[30505659321](https://github.com/skullbonez/SkullbonezCore/actions/runs/30505659321)
+passed on exact commit
+`47a95da000234023d5255431eeea122da70a96a8`. The log records the pinned LLVM
+tooling, `VALIDATE_FAST: PREFLIGHT PASSED`, 465/465 doctest cases,
+2,423,885/2,423,885 assertions, `VALIDATE_COVERAGE: ALL PASSED`, and
+`VALIDATE_ALL_CPU_TESTS: ALL PASSED`.
+
+The manual run proves the final pull-request/manual-only workflow and hosted
+CPU lane on the retirement commit. It is not changed-file-size evidence because
+manual dispatch has no pull-request base SHA. `main` remains in strict mode and
+requires `Mandatory CPU lane (Windows hosted)`. The closing external audit
+found zero self-hosted runners and zero repository Actions variables.
+
+Permanent closure evidence is in
+`2026-07-30/validation-gate-integrity-closure.md`.

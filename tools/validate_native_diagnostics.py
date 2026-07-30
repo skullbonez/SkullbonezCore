@@ -28,7 +28,7 @@ Invariants:
 
 Related:
   - tools/native_diagnostics_suppressions.json
-  - Agentic/Plans/TODO/validation-gate-integrity.md
+  - Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md
   - Agentic/Reference/comment-style-guide.md
 """
 

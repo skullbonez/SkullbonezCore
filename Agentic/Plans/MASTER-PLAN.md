@@ -514,11 +514,25 @@ dimensions. All mapped gates, the 41/41 comment audit, and independent review
 are clear. The active/future ledger is now 0/7 (0%). Evidence is in
 `../Reports/2026-07-29/quaternion-convention-normalization-closure.md`.
 
+Persistent contact convergence early-out closed CE0-CE3 on 2026-07-30 and
+left the live ledger under rule 4. The owner approved retaining the current
+stopping criterion because the bounded per-iteration trace and controlled
+object-only chain prove honest row-level non-convergence. No behavior,
+threshold, iteration count, allocation policy, baseline, or golden changed.
+The active/future ledger is empty (0%). Evidence is in
+`../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
+
+Validation-gate integrity closed V0-V5 at 6/6 on 2026-07-30 and left the live
+ledger under rule 4. The owner retired merge queues and any repository-
+ownership change. Hosted CPU validation remains required on pull requests;
+graphics-card validation is local-only. Exact-commit hosted run 30505659321
+passed the final workflow shape. Evidence is in
+`../Reports/2026-07-30/validation-gate-integrity-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
-excluded under commit-contract rule 4. The externally blocked validation lane
-remains deliberately excluded. Scene-controller ownership closed at 7/7 and
-monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the live ledger
-under rule 4. Their closure evidence is in
+excluded under commit-contract rule 4. Scene-controller ownership closed at
+7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
+live ledger under rule 4. Their closure evidence is in
 `../Reports/2026-07-17/scene-controller-ownership-closure.md` and
 `../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. Code-level red-flags
 C0-C6 closed on 2026-07-18 and also left the live ledger under rule 4. Its
@@ -1097,17 +1111,24 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-The Fresh-Read Engine Review Campaign (2026-07-29) is the active queue at 3/7
-(43%). Plans 1-7 are complete and excluded under rule 4. Execute plan 8
-`box-vibration-and-warm-start-integrity`, continuing with BV3's staged terrain
-warm-start seed retirement.
+The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
+`persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
+approved retain decision: the dense wall's 12-iteration cap reflects honest
+row-level non-convergence, so the current stopping criterion remains unchanged.
+All nine plans are complete and excluded under rule 4; the active/future ledger
+is empty (0%).
+
+Validation-gate integrity is also complete at 6/6 and excluded under rule 4.
+The owner retired merge queues and any GitHub ownership change, exact-commit
+hosted CPU run 30505659321 passed, and graphics-card validation remains
+local-only. No active or future MASTER action remains.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
-QN4 hands-on visual acceptance checkbox. Plan 8 remains permitted to move a
-baseline under its explicit bounded-divergence allowance:
-`box-vibration-and-warm-start-integrity` carries an explicit bounded-divergence
-allowance for a visible owner-reported defect. The required pre-plan-1 recovery
-is complete: the contact-identity regression test is pushed at
+QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
+bounded-divergence allowance once and closed with the final four-artifact
+transition recorded in its closure report. Plan 9 inherits no divergence
+authority. The required pre-plan-1 recovery is complete: the contact-identity
+regression test is pushed at
 `origin/codex/contact-identity-regression-29th-jul-26` commit `27906417`, the
 stale source/baseline hunks were not imported, and the original stash was
 dropped.
@@ -1606,13 +1627,11 @@ The PhysicsWorld campaign completed P0-P10 in strict order at 11/11 with zero
 baseline refresh, a clear independent ownership review, and passing
 full/performance/allocation gates. The 2026-07-15 round-5 lane is complete at
 10/10 and all six round-4 plans are complete at 22/22, all on
-`15th-of-July-Night-Runner`. Validation-gate V3 remains externally blocked
-and deliberately excluded from this ledger. The previous replay critical path
-completed on `nightrunner-14th-july`.
+`15th-of-July-Night-Runner`. Validation-gate integrity is complete at 6/6,
+excluded under rule 4, and recorded in
+`Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. The previous
+replay critical path completed on `nightrunner-14th-july`.
 
-0. **Validation-gate V3 — blocked external lane.** Repository implementation is
-   complete. Remaining work requires a real `merge_group` proof, required CPU
-   branch protection, and trusted/ephemeral DX12 runner administration.
 1. **Replay visual-fidelity mega probe — complete on
    `nightrunner-13th-july`.** The permanent frame-indexed 200-box golden,
    single-generation causal, and durable offline equality gate generates and
@@ -1703,10 +1722,9 @@ completed on `nightrunner-14th-july`.
 
 | Plan | State | Verified phase count | Next blocking action |
 |---|---|---:|---|
-| [validation-gate-integrity](TODO/validation-gate-integrity.md) | Blocked | 5/6 | V3 needs merge-group proof, required branch protection, and trusted/ephemeral DX12 runner administration |
-| [replay-visual-fidelity-mega-probe](TODO/replay-visual-fidelity-mega-probe.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
-| [replay-monolith-decomposition](TODO/replay-monolith-decomposition.md) | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
-| [future-path-vector-splines](TODO/future-path-vector-splines.md) | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
+| [replay-visual-fidelity-mega-probe](../Reports/2026-07-14/replay-visual-fidelity-mega-probe-closure.md) | Complete | 7/7 | One engine, one prediction, 2,401 exact ticks, 187 grounded sleepers, durable CPU-only reconstruction, and adversarial closure approved |
+| replay-monolith-decomposition | Complete on `nightrunner-14th-july` | 9/9 | Retain as closure evidence while the active/future portfolio continues with the spline plan |
+| future-path-vector-splines | Complete on `nightrunner-14th-july` | 7/7 | Owner-approved golden reconciled; one-process 2,401-tick oracle and all final gates passed |
 
 ## Planned Architecture Work (2026-07-11 gap review)
 
@@ -2598,7 +2616,8 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](TODO/box-vibration-and-warm-start-integrity.md) | In progress | 3/7 | BV2 complete: current-tip SAT axis-type hysteresis cuts wall face/edge churn 92.77%, preserves strict same-family selection, keeps the controlled metric at zero flips/one iteration, and leaves cumulative baseline regeneration deferred; continue BV3 |
+| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
+| 9 | [persistent-contact-convergence-early-out](../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; owner-approved retain decision preserves the honest row-level stopping criterion, exact diagnostics, deterministic repeats, and final-source validation |
 
 ### Plan 8 Ordering Consequences
 

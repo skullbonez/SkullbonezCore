@@ -32,7 +32,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.h
-  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv2.md
+  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -94,7 +94,7 @@ float SatChallengerMargin( int challengerAxisType, int winningAxisType, float co
     // Why: current-tip wall A/B measurements found that a 10% band still left
     // materially more face/edge churn, while 5% failed the controlled rocking
     // crossover. The 25% band is the measured stabilization point recorded in
-    // the BV2 report linked by this file's Related section.
+    // the campaign closure report linked by this file's Related section.
     constexpr float minimumAxisTypeMargin = 1.0e-4f;
     constexpr float contactBandFraction = 0.25f;
     return challengerAxisType == winningAxisType ? 0.0f
