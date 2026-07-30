@@ -2,7 +2,8 @@
 
 Date: 2026-07-23
 Branch: `nightrunner-23rd-JUL-26`
-Plan: `Agentic/Plans/TODO/source-blemish-remediation.md`
+Plan: `source-blemish-remediation`, completed and deleted from
+`Agentic/Plans/TODO/` under inventory rule 4
 Status: COMPLETE — 6/6 phases
 
 ## Outcome

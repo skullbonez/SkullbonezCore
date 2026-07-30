@@ -130,10 +130,11 @@ comparisons accepted, and a byte-exact 44,401-line physics CSV.
 
 ## Comment Audit
 
-The source-of-truth checklist is
-`Agentic/Plans/TODO/wide-signature-parameter-bag-remediation.md`. It reconciles
-exactly to the campaign diff from `b827f276`: 55/55 changed source-bearing
-files checked, zero missing, zero extra, and zero deferred.
+The completed source-of-truth checklist was deleted from
+`Agentic/Plans/TODO/` under inventory rule 4. Git history retains that
+checklist. At closure it reconciled exactly to the campaign diff from
+`b827f276`: 55/55 changed source-bearing files checked, zero missing, zero
+extra, and zero deferred.
 
 ## Independent Review
 
