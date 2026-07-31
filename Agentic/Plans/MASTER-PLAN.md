@@ -729,6 +729,16 @@ Contract Closure follow-up, growing the denominator 16 -> 21; the active/future
 ledger is therefore 15/21 (71%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`.
 
+Angular Impulse Frame Correctness AI4's owner packet is ready on 2026-08-01,
+but AI4 remains incomplete pending explicit owner sign-off. Unit, core Physics,
+deep Physics, performance, DX12 screenshot, Replay visual/causal, strict
+ownership-inventory, and full-composition evidence support AI0's zero-byte
+prediction without changing a committed baseline. The packet discloses the
+known CRLF/LF Replay-manifest provenance limitation and the shared-helper test-
+isolation caveat; independent review found no blocker. The active/future ledger
+therefore remains 15/21 (71%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the

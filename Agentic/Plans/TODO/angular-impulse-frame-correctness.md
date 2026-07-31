@@ -211,6 +211,9 @@ proof, and a complete zero-delta artifact comparison.
   gates against the unchanged committed baselines and close without refreshing
   them. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
+  The pre-signoff packet is ready with a no-blocker independent review, complete
+  zero-delta evidence, and explicit Replay-provenance and shared-helper test-
+  isolation caveats. AI4 remains unchecked until the owner accepts it.
 
 ## Acceptance
 

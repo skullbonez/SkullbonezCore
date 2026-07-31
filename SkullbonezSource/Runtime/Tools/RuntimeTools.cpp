@@ -758,8 +758,8 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics, int model
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    const Math::Vector::Vector3 worldApplicationOffset =
-        hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( modelHitIndex ) );
+    const Math::Vector::Vector3 worldApplicationOffset = hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(),
+                                                                                                  static_cast<std::size_t>( modelHitIndex ) );
 
     const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
