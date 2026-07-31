@@ -1,7 +1,7 @@
 # Angular Impulse Frame Correctness
 
 Date: 2026-07-31
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Physics angular impulse response, mutual-gravity reduction, physics baselines
 Owner: Physics
 Priority: High
@@ -177,7 +177,7 @@ proof, and a complete zero-delta artifact comparison.
   its generated SHA-256 remains
   `0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984`.
 
-- [ ] **AI3 — Sweep for other conventions that baselines would lock in.**
+- [x] **AI3 — Sweep for other conventions that baselines would lock in.**
   Investigation and reporting only; register follow-up plans rather than
   changing behavior. Look for the same shape elsewhere: frame mixing between
   local and world quantities, a convention documented in one direction and
@@ -189,6 +189,14 @@ proof, and a complete zero-delta artifact comparison.
   `rotationalInertia` directly. State for each whether a byte-exact baseline
   would hide it. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`.
+  Completed as an investigation-only sweep. No incorrect direct
+  `rotationalInertia` division remains after AI2, and the separate Ragdoll
+  conversion is currently frame-correct. The audit registered
+  `Agentic/Plans/TODO/vector-frame-contract-closure.md` for the anisotropic
+  angular-drag clamp mix, the ambiguous authored impulse-offset schema and its
+  `ragdoll_playground` outlier, `VectorReflect`'s axis-versus-plane convention,
+  and explicit `PhysicsApi.h` frame documentation. No behavior or artifact
+  changed in AI3.
 
 - [ ] **AI4 — Owner verification and zero-delta acceptance.** Present the
   complete artifact comparison against AI0's prediction and prove every
