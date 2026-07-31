@@ -1,7 +1,7 @@
 # Vector Frame Contract Closure
 
 Date: 2026-08-01
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Physics force integration, public Physics descriptors, Scene authoring, Maths vector semantics
 Owner: Physics, Scene, Maths
 Priority: High
@@ -77,12 +77,14 @@ all unaffected committed artifacts exact.
   Evidence:
   `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md`.
 
-- [ ] **VF3 — Adjudicate `VectorReflect`.** With its zero-production-caller
+- [x] **VF3 — Adjudicate `VectorReflect`.** With its zero-production-caller
   census in hand, choose one honest surface: delete the test-only helper, rename
   it as normal-axis mirroring, or implement conventional incident reflection
   across the surface plane. The selected name, formula, and unit cases must
   agree for oblique and normal incidence; do not preserve ambiguity solely to
   keep the current unit expectation green.
+  Evidence:
+  `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf3-vector-reflect.md`.
 
 - [ ] **VF4 — Validate and close.** Run focused tests plus `validate_tests`,
   `validate_fast`, `validate_physics`, `validate_physics_deep`,

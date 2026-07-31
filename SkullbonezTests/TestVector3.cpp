@@ -17,6 +17,8 @@
 //     extraction and future standalone physics builds.
 //   - Defaulted copies retain all three components independently of the source.
 //   - Try operations leave their input and output values untouched on failure.
+//   - Surface-plane reflection preserves tangent components and reverses the
+//     component parallel to a normalized surface normal.
 //
 // Related:
 //   - SkullbonezSource/Maths/Vector3.h
@@ -192,14 +194,18 @@ TEST_CASE( "Vector3: tolerance boundaries are strict and Simplify uses the same 
 }
 
 
-TEST_CASE( "Vector3: reflection preserves the normal component and reverses the tangent" )
+TEST_CASE( "Vector3: surface-plane reflection preserves tangent and reverses normal components" )
 {
     using SkullbonezCore::Math::Vector::VectorReflect;
 
     const Vector3 normal( 0.0f, 1.0f, 0.0f );
-    const Vector3 incident( 3.0f, -4.0f, 5.0f );
+    const Vector3 obliqueIncident( 3.0f, -4.0f, 5.0f );
+    const Vector3 normalIncident( 0.0f, -4.0f, 0.0f );
 
-    const Vector3 reflected = VectorReflect( incident, normal );
-    CHECK( Dot( reflected, normal ) == doctest::Approx( Dot( incident, normal ) ) );
-    CheckVectorNear( reflected, Vector3( -3.0f, -4.0f, -5.0f ) );
+    const Vector3 obliqueReflected = VectorReflect( obliqueIncident, normal );
+    CHECK( Dot( obliqueReflected, normal ) == doctest::Approx( -Dot( obliqueIncident, normal ) ) );
+    CheckVectorNear( obliqueReflected, Vector3( 3.0f, 4.0f, 5.0f ) );
+
+    const Vector3 normalReflected = VectorReflect( normalIncident, normal );
+    CheckVectorNear( normalReflected, Vector3( 0.0f, 4.0f, 0.0f ) );
 }
