@@ -1,7 +1,7 @@
 # Engine Glossary Consolidation
 
 Date: 2026-07-31
-Status: TODO — 0/4 phases complete
+Status: IN PROGRESS — 1/4 phases complete
 Impact area: Comment standard, shared engine vocabulary, per-file learning headers
 Owner: Documentation standard
 Priority: Medium
@@ -88,7 +88,7 @@ not decide them.
 
 ## Phases
 
-- [ ] **GC0 — Inventory shared versus local vocabulary and build the file
+- [x] **GC0 — Inventory shared versus local vocabulary and build the file
   checklist.** Produce the complete term → defining-files inventory across every
   tracked `.cpp`/`.h`/`.hpp`/`.inl`/`.hlsl` file. Classify each multi-file term
   as shared vocabulary, or as a term that is legitimately local in each site and
@@ -99,6 +99,11 @@ not decide them.
   under `Agentic/Plans/` from `git ls-files`, not `rg`, with one checkbox per
   tracked source-bearing file in scope. Evidence:
   `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md`.
+  Completed with the corrected 575-file source scope: the provisional 576
+  included `SkullbonezSource/AGENTS.md`. The complete inventory contains 2,172
+  definitions for 1,285 terms: 321 shared, 964 local, and 264 shared terms with
+  wording drift. The 575-row checklist is
+  `Agentic/Plans/engine-glossary-consolidation-comment-checklist.md`.
 
 - [ ] **GC1 — Author the shared glossary and update the standard.** Write
   `Agentic/Reference/engine-glossary.md` with one adjudicated definition per
