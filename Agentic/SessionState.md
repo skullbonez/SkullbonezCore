@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-30
+Date: 2026-07-31
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,13 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Claim Integrity Campaign complete; no active/future implementation plan remains. |
-| Active/future progress | Empty ledger (0%). All five Claim Integrity plans closed and left the ledger under rule 4. |
+| Current objective | Complete the Gate Blind Spot Campaign in binding order; Solver Diagnostic Hot-Path Cost HP1 is next. |
+| Active/future progress | 1/16 (6%). Solver Diagnostic Hot-Path Cost is 1/4; Runtime Contract Hygiene 0/3; Engine Glossary Consolidation 0/4; Angular Impulse Frame Correctness 0/5. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
 | Retirement diagnostic honesty closure | DH0-DH1 are complete. The DX12 retirement owner now retains a monotonic peak and one coherent release/fence snapshot, rejects diagnostic reset while rows remain live, and reports owner/phase/current/peak facts at exhaustion. The readback audit removed its structurally tautological high-water. Focused coverage passes 2 cases / 44 assertions; the complete suite passes 471 cases / 2,423,979 assertions. DX12 validation reports zero errors and clean captures, graphics stress exits 0 after 61.093 seconds, full validation and 44,401-line byte-exact Physics pass, comment audit is 5/5, and final review is clear. Evidence: `Agentic/Reports/2026-07-30/retirement-diagnostic-honesty-closure.md`. |
 | Unreachable symbol remediation closure | UR0-UR3 are complete. The mandatory Automation/Debug/Profile compiler graph corrects the provisional 407 rows to 246 adjudicated rows; 181 unreachable ordinary functions are removed and 79 exact retain-owner rulings remain with zero diagnostics. Automation-only Director, editor, terrain, and launcher APIs were restored after the full gate proved their roots. Fast, coverage, all six CPU lanes, Automation smoke, full validation, and 44,401-line byte-exact Physics pass; comment checklist is 172/172 with zero deferred and final review is clear. Evidence: `Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md`. |
+| Solver diagnostic hot-path cost HP0 | The complete producer/consumer census finds all 16 pipeline stages live in Debug/Profile/Release, corrects the provisional record size from 44 to 56 bytes, and proves full ordered records remain required by solver Replay snapshots/hash/artifacts, prediction, SkullScope, and the pipeline overlay. A bounded two-run `perf_1000` trace retained 296,714 records per 180-frame run with zero saturation and 866 pipeline-only `sqrtf` calls; the complete two-pass Profile scene measured `SolveRows` at 0.120002 ms mean. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
@@ -86,10 +87,16 @@ plan inventory.
 
 ## Live Queue
 
+The Gate Blind Spot Campaign is active at 1/16 (6%). Solver Diagnostic
+Hot-Path Cost HP0 is complete; HP1 is binding next and must separate saturated
+counting from full record retention without moving a replay hash. Runtime
+Contract Hygiene remains 0/3, Engine Glossary Consolidation remains 0/4, and
+Angular Impulse Frame Correctness remains 0/5 with its owner gate at AI4.
+
 The Claim Integrity Campaign is complete. Build Configuration Parity, Maths
 Surface Reachability, Inverse-Trig Domain Guards, Retirement Diagnostic
 Honesty, and Unreachable Symbol Remediation all closed and left the live ledger
-under rule 4. The active/future ledger is empty (0%).
+under rule 4.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -794,20 +801,21 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The Claim Integrity Campaign is complete and excluded under rule 4. Unreachable
-Symbol Remediation closed last with 181 removals, 79 exact retain rulings,
-mandatory Automation/Debug/Profile reachability, clear independent review, and
-all mapped gates passing without baseline movement.
+The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
+Blind Spot Campaign is active at **1/16 (6%)**. Solver Diagnostic Hot-Path Cost
+HP0 completed the producer/consumer and current-cost census. HP1 is binding:
+introduce one Physics-owned count-versus-record mode with identical 4,096-row
+saturation and focused equality/full-record coverage.
 
 The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
 source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
-agree the active/future ledger is now **0/16 (0%)**. Run the four plans in
+agree the active/future ledger is now **1/16 (6%)**. Run the four plans in
 order:
 
-1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (0/4, HP0-HP3) — the
-   pipeline trace runs in the innermost PGS loop in every configuration to
-   produce a `uint16_t` count. Keep the count byte-exact everywhere and delete
-   only the payload work; a moved replay hash means the task is wrong.
+1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (1/4, HP0-HP3) — HP0
+   confirms all 16 stage producers and the count/full-record consumer split.
+   HP1 must keep the count byte-exact everywhere and retain complete records
+   for active consumers; a moved replay hash means the task is wrong.
 2. `Plans/TODO/runtime-contract-hygiene.md` (0/3, CH0-CH2) — a frame phase that
    returns Lane R failure without latching it exits `0`; orphan `Quaternion.h`
    comments; the last `throw` in engine source.

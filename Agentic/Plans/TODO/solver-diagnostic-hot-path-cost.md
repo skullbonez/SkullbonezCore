@@ -1,7 +1,7 @@
 # Solver Diagnostic Hot-Path Cost
 
 Date: 2026-07-31
-Status: TODO — 0/4 phases complete
+Status: IN PROGRESS — 1/4 phases complete
 Impact area: Physics contact solver, step diagnostics, replay sample identity
 Owner: Physics
 Priority: High
@@ -76,7 +76,7 @@ Profile replay hashes if later extended.
 
 ## Phases
 
-- [ ] **HP0 — Census producers, consumers, and per-configuration reachability.**
+- [x] **HP0 — Census producers, consumers, and per-configuration reachability.**
   Enumerate every pipeline-trace producer and every `ReadPipelineTrace` /
   `GetPhysicsPipelineTrace` consumer
   (`Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp:186`,
@@ -91,6 +91,16 @@ Profile replay hashes if later extended.
   `pipelineRecordCount` → sample-hash edge and that Profile is the
   replay-hash-producing configuration. Evidence:
   `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`.
+  Complete 2026-07-31: all 16 stage producers are configuration-independent;
+  full records are required by solver Replay snapshots/hash/artifacts,
+  prediction, SkullScope, and the pipeline overlay, while presentation Replay
+  needs only the saturated count. The current record is 56 bytes (correcting
+  the provisional 44-byte statement). A bounded two-run `perf_1000` SkullScope
+  witness retained 296,714 records per 180-frame run, averaged 1,648.411111
+  records per step, hit zero 4,096-row saturations, and executed 866
+  pipeline-only `sqrtf` calls. The complete two-pass Profile scene measured
+  `SolveRows` at 0.120002 ms mean and the inclusive persistent-contact scope at
+  0.272922 ms mean.
 
 - [ ] **HP1 — Separate counting from recording with exact count preservation.**
   Introduce one trace recorder owner that either retains full records or counts
