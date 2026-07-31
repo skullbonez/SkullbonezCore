@@ -690,6 +690,16 @@ receive their pending impulse at identity, and the launcher interaction targets
 a sphere. The active/future ledger is therefore 12/16 (75%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai0-census.md`.
 
+Angular Impulse Frame Correctness AI1 completed on 2026-07-31. Mutual-gravity
+workers now emit dense canonical prefixes into disjoint slices; the main thread
+compacts them in chunk order and reduces only the active linear list. The
+40-body fixture creates cross-chunk receiver gaps and remains bit-exact at zero,
+one, and four workers; the unchanged 520-body fallback also passes. Across 660
+samples of the same 200-body Profile scene, Reduce mean improved from 0.093166
+ms to 0.079943 ms and median from 0.0924 ms to 0.0780 ms. The active/future
+ledger is therefore 13/16 (81%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1272,10 +1282,10 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 12/16 (75%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 13/16 (81%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
-angular impulse frame correctness (1/5).
+angular impulse frame correctness (2/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
 decision. Plan 4 is sequenced last on owner instruction because it is the only
@@ -3065,7 +3075,7 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | In progress | 1/5 | AI0 fixes the frame ruling and zero-byte artifact oracle; AI1 is next; **stops at AI4 for owner sign-off with no baseline regeneration authorized** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | In progress | 2/5 | AI0 fixes the frame ruling and zero-byte artifact oracle; AI1 lands the byte-exact compact gravity reduce; AI2 is next; **stops at AI4 for owner sign-off with no baseline regeneration authorized** |
 
 ### Governance Gap This Campaign Closes
 

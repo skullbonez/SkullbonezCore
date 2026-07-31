@@ -1,7 +1,7 @@
 # Angular Impulse Frame Correctness
 
 Date: 2026-07-31
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Physics angular impulse response, mutual-gravity reduction, physics baselines
 Owner: Physics
 Priority: High
@@ -137,7 +137,7 @@ proof, and a complete zero-delta artifact comparison.
   anisotropic boxes start at identity, and the launcher fixture targets a
   sphere.
 
-- [ ] **AI1 — Byte-exact mutual-gravity reduce.** Emit a compacted canonical
+- [x] **AI1 — Byte-exact mutual-gravity reduce.** Emit a compacted canonical
   pair list from the parallel build pass and make the serial reduce a linear
   walk over it, preserving the exact triangular accumulation order and the exact
   float operation sequence. Address the per-step full-capacity `assign` clear;
@@ -148,6 +148,14 @@ proof, and a complete zero-delta artifact comparison.
   here means the refactor changed evaluation and the task is reverted, not
   baselined.** Record before/after Profile timings for the reduce. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
+  Completed with per-chunk dense pair prefixes, ascending overlap-safe
+  compaction, and one linear active-pair reduction. Packed body/receiver values
+  avoid rereading cold and hot state during reduction, while each body's float
+  additions retain their original order. The 40-body worker fixture now creates
+  sparse gaps across chunk boundaries and remains exact at zero, one, and four
+  workers; the 520-body fallback remains unchanged. Across 660 Profile samples
+  from the same 200-body scene, mean Reduce time improved from 0.093166 ms to
+  0.079943 ms and median from 0.0924 ms to 0.0780 ms.
 
 - [ ] **AI2 — Correct the pending-impulse angular path.** Route
   `ApplyPendingImpulse` through the same world-inertia conversion used by
