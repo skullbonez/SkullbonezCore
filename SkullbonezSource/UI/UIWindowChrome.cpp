@@ -4,8 +4,8 @@ Purpose:
   Implements UI WindowChrome widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIWindowChrome.cpp implements UI WindowChrome widgets, layout, drawing, or
-  UI state for the in-engine controls.
+  Owns window placement, clamping,
+  maximize/minimize animation, title controls, and frame drawing.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

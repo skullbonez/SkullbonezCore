@@ -4,8 +4,8 @@ Purpose:
   Implements UI State widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIState.h implements UI State widgets, layout, drawing, or UI state for the
-  in-engine controls.
+  Separates persistent window placement from
+  frame-local input capture, dragging, and resize state.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

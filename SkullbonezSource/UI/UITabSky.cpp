@@ -4,8 +4,8 @@ Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
 Summary:
-  UITabSky.cpp owns the Sky tab widgets, layout, and input handling for
-  in-engine sky tuning.
+  Owns the Sky tab widgets, layout, and
+  input handling for in-engine sky tuning.
 
 Glossary:
   Cinematic command: Intent returned for the run loop to apply to render config.

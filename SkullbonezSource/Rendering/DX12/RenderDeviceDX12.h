@@ -5,9 +5,9 @@ Purpose:
   allocators, and frame pacing.
 
 Summary:
-  RenderDeviceDX12.h owns the device and presentation epoch: native device
-  objects, published extent/generation, VSync/tearing policy, main depth
-  surface, fences, command allocators, and frame pacing.
+  Owns the device and presentation epoch: native device
+  objects, published extent/generation, VSync/tearing policy,
+  main depth surface, fences, command allocators, and frame pacing.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

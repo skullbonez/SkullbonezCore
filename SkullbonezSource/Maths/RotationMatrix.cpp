@@ -4,8 +4,8 @@ Purpose:
   Implements rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  RotationMatrix.cpp implements rotation matrix helpers used by transforms and
-  collision code.
+  Implements rotation matrix helpers
+  used by transforms and collision code.
 
 Invariants:
   - RotationMatrix represents an orthogonal 3x3 rotation basis; TransposeMultiply

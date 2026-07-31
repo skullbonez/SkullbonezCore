@@ -4,8 +4,8 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Summary:
-  AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
-  and render code.
+  Loads, owns, and resolves reusable
+  runtime assets for scenes and render code.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as

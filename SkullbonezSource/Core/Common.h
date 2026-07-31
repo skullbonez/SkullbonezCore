@@ -4,8 +4,8 @@ Purpose:
   Defines shared constants, enums, and small cross-subsystem engine types.
 
 Summary:
-  Common.h is the platform-free standard-library prelude retained by older
-  engine headers. Domain constants, platform APIs, and configuration policy
+  Provides the platform-free standard-library prelude retained by older
+  headers. Domain constants, platform APIs, and configuration policy
   come from their concrete owners rather than arriving transitively here.
 
 Glossary:

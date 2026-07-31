@@ -4,8 +4,8 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  CollisionVisualizer.h builds debug drawing for collision shapes and contact
-  diagnostics.
+  Builds debug drawing for
+  collision shapes and contact diagnostics.
 
 Glossary:
   Sleep group: Connected set of bodies that can stop simulating together once

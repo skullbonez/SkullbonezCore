@@ -4,8 +4,8 @@ Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
 Summary:
-  EditorInteractionTools.cpp owns runtime editor placement, selection, gizmos, and
-  overlay tracing.
+  Owns runtime editor placement,
+  selection, gizmos, and overlay tracing.
 
 Glossary:
   Placement preflight: Capacity and asset-availability check shared by the

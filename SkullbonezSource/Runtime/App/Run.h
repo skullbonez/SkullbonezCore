@@ -4,7 +4,7 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Run.h coordinates the main game loop and high-level runtime lifecycle.
+  Coordinates the main game loop and high-level runtime lifecycle.
 
 Mental model:
   Run is the process composition root and frame sequencer. Its ordered

@@ -4,8 +4,8 @@ Purpose:
   Converts prepared render-instance records into backend draw calls.
 
 Summary:
-  RenderInstanceRenderer.h converts prepared render-instance records into backend
-  draw calls.
+  Converts prepared render-instance
+  records into backend draw calls.
 
 Invariants:
   - Methods consume prepared render/collider stores; they do not own scene

@@ -4,7 +4,7 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Run.cpp coordinates the main game loop and high-level runtime lifecycle.
+  Coordinates the main game loop and high-level runtime lifecycle.
 
 Glossary:
   Process-end capacity table: Final active-scene store rows emitted before

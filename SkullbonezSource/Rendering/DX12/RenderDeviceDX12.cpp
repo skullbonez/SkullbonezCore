@@ -5,9 +5,9 @@ Purpose:
   allocators, and frame pacing.
 
 Summary:
-  RenderDeviceDX12.cpp owns the device and presentation epoch: native device
-  objects, published extent/generation, VSync/tearing policy, main depth
-  surface, fences, command allocators, and frame pacing.
+  Owns the device and presentation epoch: native device
+  objects, published extent/generation, VSync/tearing policy,
+  main depth surface, fences, command allocators, and frame pacing.
 
 Glossary:
   Shader-visible descriptor heap: Descriptor table the GPU can index from bound

@@ -4,8 +4,8 @@ Purpose:
   Implements the engine matrix type and common transform operations.
 
 Summary:
-  Matrix4.cpp implements the engine matrix type and common transform
-  operations.
+  Implements the engine matrix type
+  and common transform operations.
 
 Glossary:
   Clip-space depth: Projected depth range consumed by the graphics pipeline;

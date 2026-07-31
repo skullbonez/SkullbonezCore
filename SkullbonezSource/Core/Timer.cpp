@@ -4,7 +4,7 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Timer.cpp measures elapsed time for frame pacing and simulation updates.
+  Measures elapsed time for frame pacing and simulation updates.
 
 Invariants:
   - Timer startup returns a Lane R result when high-resolution counters are

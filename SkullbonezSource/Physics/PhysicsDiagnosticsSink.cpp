@@ -4,8 +4,8 @@ Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
 Summary:
-  PhysicsDiagnosticsSink.cpp streams bounded physics diagnostics to SkullScope
-  trace files.
+  Streams bounded physics
+  diagnostics to SkullScope trace files.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

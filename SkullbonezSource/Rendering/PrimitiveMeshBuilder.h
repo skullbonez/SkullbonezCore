@@ -4,8 +4,8 @@ Purpose:
   Builds simple procedural meshes used by debug rendering and generated scenes.
 
 Summary:
-  PrimitiveMeshBuilder.h builds simple procedural meshes used by debug
-  rendering and generated scenes.
+  Builds simple procedural meshes used by
+  debug rendering and generated scenes.
 
 Invariants:
   - Primitive coordinates, winding, normals, and UVs are shared geometry

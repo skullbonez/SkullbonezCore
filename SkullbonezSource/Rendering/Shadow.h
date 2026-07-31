@@ -4,8 +4,8 @@ Purpose:
   Defines shadow-map frame data shared by renderers and scene objects.
 
 Summary:
-  Shadow.h defines shadow-map frame data shared by renderers and scene
-  objects.
+  Defines shadow-map frame data
+  shared by renderers and scene objects.
 
 Glossary:
   Caster value: Prepared model transform plus conservative world-space radius

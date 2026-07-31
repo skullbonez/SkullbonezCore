@@ -4,8 +4,8 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  FramebufferDX12.cpp implements off-screen framebuffer resources and
-  descriptor views for the DX12 renderer.
+  Implements off-screen framebuffer resources
+  and descriptor views for the DX12 renderer.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

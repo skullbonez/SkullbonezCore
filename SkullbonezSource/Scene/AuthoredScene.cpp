@@ -4,8 +4,8 @@ Purpose:
   Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  AuthoredScene.cpp stores parsed authored-scene JSON and applies it to runtime scene
-  state.
+  Stores parsed authored-scene JSON
+  and applies it to runtime scene state.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,

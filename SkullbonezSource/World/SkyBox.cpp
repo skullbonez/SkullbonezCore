@@ -4,8 +4,8 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Summary:
-  SkyBox.cpp builds and renders the skybox or sky backdrop for scene
-  rendering.
+  Builds and renders the skybox or
+  sky backdrop for scene rendering.
 
 Invariants:
   - SkyBox owns renderer-facing face meshes and shader resources for the active

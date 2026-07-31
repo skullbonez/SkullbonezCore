@@ -4,8 +4,8 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  PlatformProfiler.cpp bridges engine profiler markers to platform tools such
-  as PIX when available.
+  Bridges engine profiler markers to
+  platform tools such as PIX when available.
 
 Invariants:
   - Platform profiler calls must be optional; engine profiling remains valid

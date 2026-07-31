@@ -4,8 +4,8 @@ Purpose:
   Implements quaternion orientation math for rigid bodies and cameras.
 
 Summary:
-  Quaternion.cpp implements quaternion orientation math for rigid bodies and
-  cameras.
+  Implements quaternion orientation
+  math for rigid bodies and cameras.
 
 Glossary:
   World-axis delta: Incremental rotation expressed around a world-space axis

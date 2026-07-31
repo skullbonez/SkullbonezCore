@@ -4,8 +4,8 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  CollisionVisualizer.cpp builds debug drawing for collision shapes and
-  contact diagnostics.
+  Builds debug drawing for
+  collision shapes and contact diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

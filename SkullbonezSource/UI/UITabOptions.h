@@ -4,8 +4,8 @@ Purpose:
   Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabOptions.h implements UI TabOptions widgets, layout, drawing, or UI
-  state for the in-engine controls.
+  Previews and commits runtime option
+  toggles, time scale, and model-count controls.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

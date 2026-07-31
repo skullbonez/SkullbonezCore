@@ -4,8 +4,8 @@ Purpose:
   Implements UI Cache widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UICache.cpp implements UI Cache widgets, layout, drawing, or UI state for
-  the in-engine controls.
+  Replays retained draw commands only when style,
+  content, size, and animation inputs still match.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

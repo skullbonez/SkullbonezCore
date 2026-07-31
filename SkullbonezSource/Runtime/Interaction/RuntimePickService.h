@@ -4,8 +4,8 @@ Purpose:
   Defines explicit runtime picking requests for editor, tool, and replay input.
 
 Summary:
-  RuntimePickService.h defines explicit runtime picking requests for editor,
-  tool, and replay input.
+  Defines explicit runtime picking
+  requests for editor, tool, and replay input.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does

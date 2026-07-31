@@ -4,8 +4,8 @@ Purpose:
   Implements UI Button widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIButton.h implements UI Button widgets, layout, drawing, or UI state for
-  the in-engine controls.
+  Keeps button hit testing and
+  label/background drawing on one shared bounds rectangle.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

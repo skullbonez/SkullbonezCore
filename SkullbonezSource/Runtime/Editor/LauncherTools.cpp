@@ -4,8 +4,8 @@ Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
 Summary:
-  LauncherTools.cpp owns launcher-mode raycast, projectile, laser, and repro
-  snapshot behavior.
+  Owns launcher-mode raycast,
+  projectile, laser, and repro snapshot behavior.
 
 Glossary:
   Repro snapshot: Debug-only text dump of the object under the launcher

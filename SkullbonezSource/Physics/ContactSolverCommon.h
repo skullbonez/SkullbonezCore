@@ -4,8 +4,8 @@ Purpose:
   Shares contact-row math helpers and data structures across physics solver code.
 
 Summary:
-  ContactSolverCommon.h shares contact-row math helpers and data structures
-  across physics solver code.
+  Shares contact-row math helpers and data
+  structures across physics solver code.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

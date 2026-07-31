@@ -4,8 +4,8 @@ Purpose:
   Implements UI TabProfiler widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabProfiler.h implements UI TabProfiler widgets, layout, drawing, or UI
-  state for the in-engine controls.
+  Retains bounded profiler snapshots, expansion state,
+  worker controls, timeline, and histogram interaction.
 
 Glossary:
   Profiler frame snapshot: Fixed per-frame values consumed by the profiler tab;

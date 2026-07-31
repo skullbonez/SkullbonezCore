@@ -4,7 +4,7 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Summary:
-  Log.cpp writes debug-only runtime, crash, and diagnostics logs.
+  Writes debug-only runtime, crash, and diagnostics logs.
 
 Invariants:
   - Debug logs are opened in binary mode so newline bytes stay byte-exact for

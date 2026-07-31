@@ -4,7 +4,7 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Summary:
-  Log.h writes debug-only runtime, crash, and diagnostics logs.
+  Writes debug-only runtime, crash, and diagnostics logs.
 
 Glossary:
   Engine log: Process-wide debug/test owner that lazily opens and retains

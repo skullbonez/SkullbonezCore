@@ -4,8 +4,8 @@ Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Summary:
-  Profiler.h records hierarchical CPU/GPU timing markers for runtime
-  diagnostics.
+  Records hierarchical CPU/GPU
+  timing markers for runtime diagnostics.
 
 Glossary:
   QPC (QueryPerformanceCounter): Windows high-resolution CPU timer used for

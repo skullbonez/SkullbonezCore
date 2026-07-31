@@ -4,7 +4,7 @@ Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
 Summary:
-  Input.h collects keyboard and mouse state for the run loop and UI.
+  Collects keyboard and mouse state for the run loop and UI.
 
 Glossary:
   HRAWINPUT: Win32 handle for one raw-input packet received through WM_INPUT.

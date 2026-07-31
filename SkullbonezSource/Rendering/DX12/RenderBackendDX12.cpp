@@ -4,10 +4,10 @@ Purpose:
   Implements production DX12 device orchestration and backend-facing resource work.
 
 Summary:
-  RenderBackendDX12.cpp composes the concrete DX12 owners, controls device and
-  swap-chain lifecycle, and delegates backend-facing resource operations.
-  Frame epoch, deferred retirement, descriptor heaps, capture, and graph
-  transient state live in dedicated concrete owners.
+  Composes the concrete DX12 owners, controls device and
+  swap-chain lifecycle, and delegates backend-facing resource
+  operations. Frame epoch, deferred retirement, descriptor heaps,
+  capture, and graph transient state live in dedicated concrete owners.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

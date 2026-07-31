@@ -5,8 +5,8 @@ Purpose:
   lifetime plans for the renderer.
 
 Summary:
-  RenderGraph.h records render pass/resource intent, callback ordering, and
-  transient texture lifetime plans for the renderer.
+  Records render pass/resource intent, callback ordering,
+  and transient texture lifetime plans for the renderer.
 
 Invariants:
   - Render graph handles are graph-local ids, not CPU pointers or GPU descriptor

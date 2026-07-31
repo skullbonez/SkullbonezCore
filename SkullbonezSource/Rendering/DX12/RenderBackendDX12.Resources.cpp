@@ -4,8 +4,8 @@ Purpose:
   Creates, transitions, and names DX12 resources.
 
 Summary:
-  RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
-  resources used by the renderer. The concrete shader-development owner now
+  Creates, transitions, and names DX12 resources used by the
+  renderer. The concrete shader-development owner now
   contains its cold bake, drain, stage, and publication transaction.
 
 Invariants:

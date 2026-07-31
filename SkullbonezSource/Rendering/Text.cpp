@@ -4,7 +4,7 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Text.cpp builds and draws bitmap/SDF text for HUD and diagnostics.
+  Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Invariants:
   - Text and quad batches use fixed vertex layouts that must match their

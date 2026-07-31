@@ -4,8 +4,8 @@ Purpose:
   Implements UI TabControls widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabControls.h implements UI TabControls widgets, layout, drawing, or UI
-  state for the in-engine controls.
+  Previews and commits scene-population,
+  seed, and fluid sliders as typed UI commands.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

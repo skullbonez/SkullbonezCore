@@ -4,8 +4,8 @@ Purpose:
   Defines small geometry structs used by math, collision, and rendering code.
 
 Summary:
-  GeometricStructures.h defines small geometry structs used by math,
-  collision, and rendering code.
+  Defines small geometry structs used by
+  math, collision, and rendering code.
 
 Invariants:
   - Small geometry structs are plain data contracts shared by math, physics,

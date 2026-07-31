@@ -4,8 +4,8 @@ Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
 Summary:
-  RunFrame.cpp runs one frame of input, simulation, rendering, profiling, and
-  presentation.
+  Runs one frame of input, simulation,
+  rendering, profiling, and presentation.
 
 Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches

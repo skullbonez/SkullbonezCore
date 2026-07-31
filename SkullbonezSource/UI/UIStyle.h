@@ -4,8 +4,8 @@ Purpose:
   Implements UI Style widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIStyle.h implements UI Style widgets, layout, drawing, or UI state for the
-  in-engine controls.
+  Owns immutable palette, radii, typography,
+  control, accent, and footer-toggle values.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

@@ -4,8 +4,8 @@ Purpose:
   Builds the DX12 raytracing shader binding table that maps ray records to shaders.
 
 Summary:
-  SBTDX12.h builds the DX12 raytracing shader binding table that maps ray
-  records to shaders.
+  Builds the DX12 raytracing shader binding
+  table that maps ray records to shaders.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

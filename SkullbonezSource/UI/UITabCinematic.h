@@ -4,9 +4,9 @@ Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
 Summary:
-  UITabCinematic.h owns the Cinematic tab widgets, layout, and input handling
-
-  for the in-engine controls.
+  Owns the Cinematic tab
+  widgets, layout, and input
+  handling for the in-engine controls.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

@@ -4,8 +4,8 @@ Purpose:
   Implements UI TabPhysics widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabPhysics.h implements UI TabPhysics widgets, layout, drawing, or UI
-  state for the in-engine controls.
+  Maps physics toggles and parameter sliders to
+  typed one-frame commands with preview/commit state.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

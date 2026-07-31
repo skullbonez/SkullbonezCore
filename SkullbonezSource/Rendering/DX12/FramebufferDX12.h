@@ -4,8 +4,8 @@ Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  FramebufferDX12.h declares off-screen framebuffer resources and their views.
-  It borrows one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
+  Declares off-screen framebuffer resources and their views. It borrows
+  one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
   framebuffer cannot retain allocator aliases with independent lifetimes.
 
 Invariants:

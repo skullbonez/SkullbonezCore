@@ -4,8 +4,8 @@ Purpose:
   Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  AuthoredScene.h stores parsed authored-scene JSON and applies it to runtime scene
-  state.
+  Stores parsed authored-scene JSON
+  and applies it to runtime scene state.
 
 Glossary:
   Asset provenance: Cold scene-file records that retain which library, asset,

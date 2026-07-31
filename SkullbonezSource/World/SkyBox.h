@@ -4,7 +4,7 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Summary:
-  SkyBox.h builds and renders the skybox or sky backdrop for scene rendering.
+  Builds and renders the skybox or sky backdrop for scene rendering.
 
 Glossary:
   Face mesh: One quad for a side of the cube; each face binds a different sky

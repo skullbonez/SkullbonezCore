@@ -4,8 +4,8 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  BoundingBox.h defines oriented-box collision geometry and its
-  broadphase/render helper math.
+  Defines oriented-box collision geometry
+  and its broadphase/render helper math.
 
 Glossary:
   Half-extents: Positive distance from the box center to one face along each

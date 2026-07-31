@@ -4,7 +4,7 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Summary:
-  Window.h creates and owns the Win32 window and message pump integration.
+  Creates and owns the Win32 window and message pump integration.
 
 Glossary:
   Resize frame owner: Borrowed concrete owner used only to resize swap-chain and

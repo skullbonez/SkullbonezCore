@@ -4,9 +4,9 @@ Purpose:
   Implements UI CheckBox widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UICheckBox.cpp implements UI CheckBox widgets, layout, drawing, or UI state
-
-  for the in-engine controls.
+  Keeps toggle hit testing and
+  checked-state drawing on
+  one shared bounds rectangle.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

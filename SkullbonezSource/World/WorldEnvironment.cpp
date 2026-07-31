@@ -4,8 +4,8 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Summary:
-  WorldEnvironment.cpp stores world forces, fluid parameters, and water
-  rendering resources.
+  Stores world forces, fluid
+  parameters, and water rendering resources.
 
 Glossary:
   Center of buoyancy: World-space average location of displaced water. Its

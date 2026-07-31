@@ -4,8 +4,8 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  TextureCollection.cpp loads texture files and hands renderer-neutral texture
-  ids to draw code.
+  Loads texture files and hands
+  renderer-neutral texture ids to draw code.
 
 Glossary:
   Legacy hash: 32-bit texture key kept for old render callers while asset ids

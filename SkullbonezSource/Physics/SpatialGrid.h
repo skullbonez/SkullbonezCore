@@ -4,8 +4,8 @@ Purpose:
   Partitions space into broadphase cells so physics can test nearby objects cheaply.
 
 Summary:
-  SpatialGrid.h partitions space into broadphase cells so physics can test
-  nearby objects cheaply.
+  Partitions space into broadphase cells so
+  physics can test nearby objects cheaply.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

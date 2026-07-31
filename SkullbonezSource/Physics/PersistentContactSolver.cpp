@@ -4,11 +4,11 @@ Purpose:
   Solves object/object and object/terrain persistent contact rows.
 
 Summary:
-  PersistentContactSolver.cpp solves object/object and object/terrain
-  persistent contact rows. The guarded transaction implements phase
-  transitions, solver-body arithmetic, and every construction, solve,
-  publication, correction, and cache phase. Solve is now the thin ordered
-  entry/exit sequencer.
+  Solves object/object and object/terrain persistent
+  contact rows. The guarded transaction implements phase
+  transitions, solver-body arithmetic, and every
+  construction, solve, publication, correction, and cache
+  phase. Solve is now the thin ordered entry/exit sequencer.
 
 Glossary:
   Warm starting: Initializing a row from its previous solved impulse. A terrain

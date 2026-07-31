@@ -4,8 +4,8 @@ Purpose:
   Declares quaternion orientation math for rigid bodies and cameras.
 
 Summary:
-  Quaternion.h declares quaternion orientation math for rigid bodies and
-  cameras.
+  Declares quaternion orientation
+  math for rigid bodies and cameras.
 
 Glossary:
   Quaternion: Four-component rotation representation that avoids gimbal lock

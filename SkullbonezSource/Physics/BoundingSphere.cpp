@@ -4,8 +4,8 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Summary:
-  BoundingSphere.cpp defines sphere collision geometry, swept tests, volume
-  facts, and render transforms.
+  Defines sphere collision geometry, swept
+  tests, volume facts, and render transforms.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

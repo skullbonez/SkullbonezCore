@@ -4,7 +4,7 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Text.h builds and draws bitmap/SDF text for HUD and diagnostics.
+  Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Glossary:
   VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.

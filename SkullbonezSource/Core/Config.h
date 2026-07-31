@@ -4,8 +4,8 @@ Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
 Summary:
-  Config.h loads, stores, and exposes engine configuration values from files
-  and command-line overrides.
+  Loads, stores, and exposes engine configuration
+  values from files and command-line overrides.
 
 Glossary:
   Domain config: Narrow value structure whose fields share one concrete runtime

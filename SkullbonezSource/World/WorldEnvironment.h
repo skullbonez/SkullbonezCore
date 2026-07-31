@@ -4,8 +4,8 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Summary:
-  WorldEnvironment.h stores world forces, fluid parameters, and water
-  rendering resources.
+  Stores world forces, fluid
+  parameters, and water rendering resources.
 
 Glossary:
   Water render style: Values that feed water shader uniforms, including ordinary

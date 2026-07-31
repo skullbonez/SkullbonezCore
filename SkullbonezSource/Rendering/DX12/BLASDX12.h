@@ -4,8 +4,8 @@ Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
 Summary:
-  BLASDX12.h builds and owns DX12 raytracing bottom-level acceleration
-  structures for mesh geometry.
+  Builds and owns DX12 raytracing bottom-level
+  acceleration structures for mesh geometry.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

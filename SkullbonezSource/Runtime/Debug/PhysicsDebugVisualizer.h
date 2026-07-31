@@ -4,8 +4,8 @@ Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Summary:
-  PhysicsDebugVisualizer.h draws physics contacts, axes, sleep state, and
-  pipeline diagnostics.
+  Draws physics contacts, axes,
+  sleep state, and pipeline diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

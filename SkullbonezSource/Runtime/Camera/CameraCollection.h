@@ -4,7 +4,7 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  CameraCollection.h owns scene cameras and camera cycling state.
+  Owns scene cameras and camera cycling state.
 
 Glossary:
   Primary camera: Camera slot controlled directly by player/debug input.

@@ -4,8 +4,8 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  BoundingBox.cpp defines oriented-box collision geometry and its
-  broadphase/render helper math.
+  Defines oriented-box collision geometry
+  and its broadphase/render helper math.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

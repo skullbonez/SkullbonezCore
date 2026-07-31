@@ -4,7 +4,7 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Timer.h measures elapsed time for frame pacing and simulation updates.
+  Measures elapsed time for frame pacing and simulation updates.
 
 Glossary:
   High-resolution counter: Windows performance counter used for sub-frame time

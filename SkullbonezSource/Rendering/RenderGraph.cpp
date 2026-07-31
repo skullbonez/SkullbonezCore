@@ -5,8 +5,8 @@ Purpose:
   lifetime plans.
 
 Summary:
-  RenderGraph.cpp records render pass/resource intent, callback execution, and
-  transient texture lifetime plans.
+  Records render pass/resource intent, callback
+  execution, and transient texture lifetime plans.
 
 Invariants:
   - The graph records pass/resource intent, transient lifetime diagnostics, and

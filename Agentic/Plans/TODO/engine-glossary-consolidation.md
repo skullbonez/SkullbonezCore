@@ -1,7 +1,7 @@
 # Engine Glossary Consolidation
 
 Date: 2026-07-31
-Status: IN PROGRESS — 3/4 phases complete
+Status: COMPLETE — 4/4 phases complete
 Impact area: Comment standard, shared engine vocabulary, per-file learning headers
 Owner: Documentation standard
 Priority: Medium
@@ -150,7 +150,7 @@ not decide them.
   GC3. Automation refresh, the complete 457-case / 2,424,712-assertion fast
   gate, direct inventory proofs, comment audit, and independent review pass.
 
-- [ ] **GC3 — Repair tautological summaries and reconcile.** Adjudicate the
+- [x] **GC3 — Repair tautological summaries and reconcile.** Adjudicate the
   complete post-GC2 set of 117 basename-led summary candidates, which supersedes
   the provisional 73-file scan. Rewrite every actual filename restatement to
   state what the file owns or decides, and explicitly record why any retained
@@ -162,6 +162,14 @@ not decide them.
   Rerun `tools/inventory_glossary_terms.py` and confirm no unruled multi-file
   term remains. Evidence:
   `Agentic/Reports/2026-07-31/engine-glossary-consolidation-closure.md`.
+  Completed with all 117 candidates adjudicated: 83 informative clauses lose
+  only their redundant filename subject, while 34 templated UI headers gain
+  concrete ownership summaries. Zero basename-led summaries remain across the
+  575-file inventory. Every changed source suffix remains byte-identical, the
+  checklist is 575/575 checked with zero deferred, and the strict glossary
+  inventory remains 964/964 local with zero diagnostics. Automation refresh,
+  the complete 457-case / 2,424,712-assertion fast gate, post-gate direct
+  glossary proofs, a 575/575 comment audit, and independent closure review pass.
 
 ## Acceptance
 

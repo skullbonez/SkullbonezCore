@@ -4,8 +4,8 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Summary:
-  Terrain.h stores terrain mesh, height queries, and terrain rendering
-  resources.
+  Stores terrain mesh, height
+  queries, and terrain rendering resources.
 
 Glossary:
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the

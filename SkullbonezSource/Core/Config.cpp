@@ -4,8 +4,8 @@ Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
 Summary:
-  Config.cpp loads, stores, and exposes engine configuration values from files
-  and command-line overrides.
+  Loads, stores, and exposes engine configuration
+  values from files and command-line overrides.
 
 Glossary:
   - ConfigSetting: One typed key-to-field registry row, including the accepted

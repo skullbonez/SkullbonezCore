@@ -4,8 +4,8 @@ Purpose:
   Draws the physics broadphase grid as an explanatory debug overlay.
 
 Summary:
-  BroadphaseVisualizer.cpp draws the physics broadphase grid as an explanatory
-  debug overlay.
+  Draws the physics broadphase grid
+  as an explanatory debug overlay.
 
 Glossary:
   Debug line command: Frame-scoped renderer command that draws colored line

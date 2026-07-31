@@ -4,8 +4,8 @@ Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
 Summary:
-  ObjectContactManifold.cpp builds precise object/object contact manifolds for
-  the persistent solver.
+  Builds precise object/object contact
+  manifolds for the persistent solver.
 
 Glossary:
   Collider shape reference: Typed non-owning view into ColliderStore's per-kind

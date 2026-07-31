@@ -4,9 +4,9 @@ Purpose:
   Sequences the fixed physics step and lifecycle of concrete stage owners.
 
 Summary:
-  PhysicsWorld.cpp is the composition and sequencing surface for the extracted
-  force, broadphase, narrowphase, terrain, contact, sleep, and diagnostics
-  owners. It retains only cross-stage clocks and top-level sibling lanes.
+  Composes and sequences the extracted force, broadphase, narrowphase,
+  terrain, contact, sleep, and diagnostics owners. It retains only
+  cross-stage clocks and top-level sibling lanes.
 
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate

@@ -4,8 +4,8 @@ Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
 Summary:
-  ObjectContactManifold.h builds precise object/object contact manifolds for
-  the persistent solver.
+  Builds precise object/object contact
+  manifolds for the persistent solver.
 
 Glossary:
   Baumgarte bias: Positional correction term that turns penetration depth into

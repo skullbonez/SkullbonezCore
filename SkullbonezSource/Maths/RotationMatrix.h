@@ -4,8 +4,8 @@ Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  RotationMatrix.h declares rotation matrix helpers used by transforms and
-  collision code.
+  Declares rotation matrix helpers
+  used by transforms and collision code.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as

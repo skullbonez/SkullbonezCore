@@ -4,8 +4,8 @@ Purpose:
   Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UILayout.h implements UI Layout widgets, layout, drawing, or UI state for
-  the in-engine controls.
+  Centralizes deterministic geometry and value
+  conversions shared by composition and hit testing.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

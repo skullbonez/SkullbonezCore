@@ -4,7 +4,7 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  CameraCollection.cpp owns scene cameras and camera cycling state.
+  Owns scene cameras and camera cycling state.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must

@@ -4,7 +4,7 @@ Purpose:
   Declares the engine matrix type and common transform operations.
 
 Summary:
-  Matrix4.h declares the engine matrix type and common transform operations.
+  Declares the engine matrix type and common transform operations.
 
 Glossary:
   Clip space: Coordinate range produced by projection matrices before viewport

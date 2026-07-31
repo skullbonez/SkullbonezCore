@@ -4,8 +4,8 @@ Purpose:
   Implements UI DrawWidgets widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIDrawWidgets.h implements UI DrawWidgets widgets, layout, drawing, or UI
-  state for the in-engine controls.
+  Provides stateless drawing primitives for title
+  controls, toggles, labels, and footer diagnostics.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

@@ -4,8 +4,8 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  PlatformProfiler.h bridges engine profiler markers to platform tools such as
-  PIX when available.
+  Bridges engine profiler markers to
+  platform tools such as PIX when available.
 
 Glossary:
   Marker domain: Stable engine category used to group profiler ranges without

@@ -4,7 +4,7 @@ Purpose:
   Implements primitive GPU resource creation and bounded batch submission.
 
 Summary:
-  PrimitiveBatchRenderer.cpp owns visible and shadow-depth submission for the
+  Owns visible and shadow-depth submission for the
   built-in primitive meshes emitted by PrimitiveMeshBuilder.h.
 
 Glossary:

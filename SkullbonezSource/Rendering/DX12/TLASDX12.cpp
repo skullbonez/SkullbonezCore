@@ -4,8 +4,8 @@ Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
 Summary:
-  TLASDX12.cpp builds and owns the DX12 raytracing top-level scene
-  acceleration structure.
+  Builds and owns the DX12 raytracing
+  top-level scene acceleration structure.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

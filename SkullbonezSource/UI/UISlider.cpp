@@ -4,8 +4,8 @@ Purpose:
   Implements UI Slider widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UISlider.cpp implements UI Slider widgets, layout, drawing, or UI state for
-  the in-engine controls.
+  Maps mouse positions to quantized values and
+  renders the same track used for interaction.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

@@ -4,8 +4,8 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Summary:
-  PhysicsWorld.h owns per-scene physics working state shared by broadphase,
-  solver, and diagnostics.
+  Owns per-scene physics working state
+  shared by broadphase, solver, and diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

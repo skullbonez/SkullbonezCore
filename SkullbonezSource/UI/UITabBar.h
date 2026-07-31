@@ -4,8 +4,8 @@ Purpose:
   Implements UI TabBar widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabBar.h implements UI TabBar widgets, layout, drawing, or UI state for
-  the in-engine controls.
+  Maps tab bounds to a selected index and
+  draws active labels from the same geometry.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

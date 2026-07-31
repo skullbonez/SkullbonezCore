@@ -18,10 +18,10 @@ Deferred files stay unchecked and require an inline reason.
 ## SkullbonezSource/Assets
 
 - [x] `SkullbonezSource/Assets/AssetKeys.h`
-- [ ] `SkullbonezSource/Assets/AssetSystem.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Assets/AssetSystem.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Assets/TextureCollection.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Assets/TextureCollection.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Assets/AssetSystem.cpp`
+- [x] `SkullbonezSource/Assets/AssetSystem.h`
+- [x] `SkullbonezSource/Assets/TextureCollection.cpp`
+- [x] `SkullbonezSource/Assets/TextureCollection.h`
 
 ## SkullbonezSource/Core/Allocation
 
@@ -38,30 +38,30 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Core/AmortizedTask.cpp`
 - [x] `SkullbonezSource/Core/AmortizedTask.h`
 - [x] `SkullbonezSource/Core/ByteView.h`
-- [ ] `SkullbonezSource/Core/Common.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Core/Config.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Core/Config.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/Common.h`
+- [x] `SkullbonezSource/Core/Config.cpp`
+- [x] `SkullbonezSource/Core/Config.h`
 - [x] `SkullbonezSource/Core/FatalError.cpp`
 - [x] `SkullbonezSource/Core/FatalError.h`
 - [x] `SkullbonezSource/Core/Fence.h`
 - [x] `SkullbonezSource/Core/FloatingPointContract.h`
 - [x] `SkullbonezSource/Core/LockOrderValidator.cpp`
 - [x] `SkullbonezSource/Core/LockOrderValidator.h`
-- [ ] `SkullbonezSource/Core/Log.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Core/Log.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/Log.cpp`
+- [x] `SkullbonezSource/Core/Log.h`
 - [x] `SkullbonezSource/Core/MainMemoryStats.h`
-- [ ] `SkullbonezSource/Core/PlatformProfiler.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Core/PlatformProfiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/PlatformProfiler.cpp`
+- [x] `SkullbonezSource/Core/PlatformProfiler.h`
 - [x] `SkullbonezSource/Core/PlatformWin32.h`
 - [x] `SkullbonezSource/Core/Profiler.cpp`
-- [ ] `SkullbonezSource/Core/Profiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/Profiler.h`
 - [x] `SkullbonezSource/Core/SbDiagnosticStore.h`
 - [x] `SkullbonezSource/Core/SbResult.cpp`
 - [x] `SkullbonezSource/Core/SbResult.h`
 - [x] `SkullbonezSource/Core/SceneCapacity.h`
 - [x] `SkullbonezSource/Core/StringHash.h`
-- [ ] `SkullbonezSource/Core/Timer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Core/Timer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/Timer.cpp`
+- [x] `SkullbonezSource/Core/Timer.h`
 - [x] `SkullbonezSource/Core/TracyClientOwner.cpp`
 - [x] `SkullbonezSource/Core/TracyClientOwner.h`
 - [x] `SkullbonezSource/Core/WindowConstants.h`
@@ -81,32 +81,32 @@ Deferred files stay unchecked and require an inline reason.
 
 - [x] `SkullbonezSource/Maths/Frustum.cpp`
 - [x] `SkullbonezSource/Maths/Frustum.h`
-- [ ] `SkullbonezSource/Maths/GeometricMath.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/GeometricMath.cpp`
 - [x] `SkullbonezSource/Maths/GeometricMath.h`
-- [ ] `SkullbonezSource/Maths/GeometricStructures.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/GeometricStructures.h`
 - [x] `SkullbonezSource/Maths/MathsCommon.h`
-- [ ] `SkullbonezSource/Maths/Matrix4.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Maths/Matrix4.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/Matrix4.cpp`
+- [x] `SkullbonezSource/Maths/Matrix4.h`
 - [x] `SkullbonezSource/Maths/OrbitalMechanics.cpp`
 - [x] `SkullbonezSource/Maths/OrbitalMechanics.h`
-- [ ] `SkullbonezSource/Maths/Quaternion.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Maths/Quaternion.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Maths/RotationMatrix.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Maths/RotationMatrix.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/Quaternion.cpp`
+- [x] `SkullbonezSource/Maths/Quaternion.h`
+- [x] `SkullbonezSource/Maths/RotationMatrix.cpp`
+- [x] `SkullbonezSource/Maths/RotationMatrix.h`
 - [x] `SkullbonezSource/Maths/Vector3.h`
 
 ## SkullbonezSource/Physics
 
-- [ ] `SkullbonezSource/Physics/BoundingBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/BoundingBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/BoundingSphere.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/BoundingSphere.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/BoundingBox.cpp`
+- [x] `SkullbonezSource/Physics/BoundingBox.h`
+- [x] `SkullbonezSource/Physics/BoundingSphere.cpp`
+- [x] `SkullbonezSource/Physics/BoundingSphere.h`
 - [x] `SkullbonezSource/Physics/BuoyancySystem.cpp`
 - [x] `SkullbonezSource/Physics/BuoyancySystem.h`
 - [x] `SkullbonezSource/Physics/ColliderStore.cpp`
 - [x] `SkullbonezSource/Physics/ColliderStore.h`
 - [x] `SkullbonezSource/Physics/CollisionShape.h`
-- [ ] `SkullbonezSource/Physics/ContactSolverCommon.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/ContactSolverCommon.h`
 - [x] `SkullbonezSource/Physics/ConvexHullShape.cpp`
 - [x] `SkullbonezSource/Physics/ConvexHullShape.h`
 
@@ -118,9 +118,9 @@ Deferred files stay unchecked and require an inline reason.
 ## SkullbonezSource/Physics
 
 - [x] `SkullbonezSource/Physics/DisjointSet.h`
-- [ ] `SkullbonezSource/Physics/ObjectContactManifold.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/ObjectContactManifold.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/PersistentContactSolver.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/ObjectContactManifold.cpp`
+- [x] `SkullbonezSource/Physics/ObjectContactManifold.h`
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
 - [x] `SkullbonezSource/Physics/PersistentContactSolver.h`
 - [x] `SkullbonezSource/Physics/PhysicsApi.h`
 - [x] `SkullbonezSource/Physics/PhysicsBodyStore.cpp`
@@ -128,7 +128,7 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Physics/PhysicsBroadphaseDebugView.h`
 - [x] `SkullbonezSource/Physics/PhysicsDebugData.h`
 - [x] `SkullbonezSource/Physics/PhysicsDiagnosticsModel.h`
-- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.h`
 - [x] `SkullbonezSource/Physics/PhysicsDiagnosticsView.h`
 - [x] `SkullbonezSource/Physics/PhysicsEngine.cpp`
@@ -146,16 +146,16 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Physics/PhysicsTerrainView.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsTerrainView.h`
 - [x] `SkullbonezSource/Physics/PhysicsTimestep.h`
-- [ ] `SkullbonezSource/Physics/PhysicsWorld.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/PhysicsWorld.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsWorld.h`
 - [x] `SkullbonezSource/Physics/PhysicsWorldForces.h`
 - [x] `SkullbonezSource/Physics/Ragdoll.cpp`
 - [x] `SkullbonezSource/Physics/Ragdoll.h`
-- [ ] `SkullbonezSource/Physics/SleepIslandSystem.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Physics/SleepIslandSystem.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/SleepIslandSystem.cpp`
+- [x] `SkullbonezSource/Physics/SleepIslandSystem.h`
 - [x] `SkullbonezSource/Physics/SolverBroadphaseStage.h`
 - [x] `SkullbonezSource/Physics/SpatialGrid.cpp`
-- [ ] `SkullbonezSource/Physics/SpatialGrid.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/SpatialGrid.h`
 
 ## SkullbonezSource/Physics/Stages
 
@@ -192,8 +192,8 @@ Deferred files stay unchecked and require an inline reason.
 
 ## SkullbonezSource/Rendering/DX12
 
-- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/BLASDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp`
@@ -215,44 +215,44 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h`
 - [x] `SkullbonezSource/Rendering/DX12/Dx12TextureRegistry.h`
-- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/MeshDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/SBTDX12.h`
 - [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.h`
 - [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp`
 - [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/TLASDX12.h`
 
 ## SkullbonezSource/Rendering
 
-- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp`
 - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h`
-- [ ] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h`
 - [x] `SkullbonezSource/Rendering/RenderCommandTypes.h`
 - [x] `SkullbonezSource/Rendering/RenderDiagnosticsTypes.h`
 - [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp`
 - [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.h`
-- [ ] `SkullbonezSource/Rendering/RenderGraph.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/RenderGraph.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/RenderGraph.cpp`
+- [x] `SkullbonezSource/Rendering/RenderGraph.h`
 - [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp`
 - [x] `SkullbonezSource/Rendering/RenderInstanceStore.h`
 - [x] `SkullbonezSource/Rendering/RenderMaterial.h`
@@ -264,16 +264,16 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Rendering/RenderSceneSnapshot.h`
 - [x] `SkullbonezSource/Rendering/ShaderContracts.h`
 - [x] `SkullbonezSource/Rendering/ShaderReflectionContracts.h`
-- [ ] `SkullbonezSource/Rendering/Shadow.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/Text.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Rendering/Text.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/Shadow.h`
+- [x] `SkullbonezSource/Rendering/Text.cpp`
+- [x] `SkullbonezSource/Rendering/Text.h`
 - [x] `SkullbonezSource/Rendering/WorldRenderExtension.h`
 
 ## SkullbonezSource/Runtime/App
 
 - [x] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp`
 - [x] `SkullbonezSource/Runtime/App/ApplicationExitState.h`
-- [ ] `SkullbonezSource/Runtime/App/Init.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/App/Init.cpp`
 - [x] `SkullbonezSource/Runtime/App/InputFrame.cpp`
 - [x] `SkullbonezSource/Runtime/App/InputFrame.h`
 - [x] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp`
@@ -286,16 +286,16 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Runtime/App/ReplayValidation.cpp`
 - [x] `SkullbonezSource/Runtime/App/ReplayValidation.Internal.h`
 - [x] `SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp`
-- [ ] `SkullbonezSource/Runtime/App/Run.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Runtime/App/Run.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/App/Run.cpp`
+- [x] `SkullbonezSource/Runtime/App/Run.h`
+- [x] `SkullbonezSource/Runtime/App/RunFrame.cpp`
 - [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.h`
 - [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h`
 - [x] `SkullbonezSource/Runtime/App/RunRender.cpp`
 - [x] `SkullbonezSource/Runtime/App/RunStartupState.h`
 - [x] `SkullbonezSource/Runtime/App/RunTimerState.h`
 - [x] `SkullbonezSource/Runtime/App/Window.cpp`
-- [ ] `SkullbonezSource/Runtime/App/Window.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/App/Window.h`
 
 ## SkullbonezSource/Runtime/Automation
 
@@ -312,10 +312,10 @@ Deferred files stay unchecked and require an inline reason.
 
 - [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp`
 - [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.h`
-- [ ] `SkullbonezSource/Runtime/Camera/Camera.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Camera/Camera.cpp`
 - [x] `SkullbonezSource/Runtime/Camera/Camera.h`
-- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Camera/CameraCollection.cpp`
+- [x] `SkullbonezSource/Runtime/Camera/CameraCollection.h`
 - [x] `SkullbonezSource/Runtime/Camera/CameraControlState.cpp`
 - [x] `SkullbonezSource/Runtime/Camera/CameraControlState.h`
 - [x] `SkullbonezSource/Runtime/Camera/RuntimeCameraMode.h`
@@ -332,12 +332,12 @@ Deferred files stay unchecked and require an inline reason.
 
 ## SkullbonezSource/Runtime/Debug
 
-- [ ] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp`
 - [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h`
-- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp`
+- [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h`
 - [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp`
-- [ ] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h`
 
 ## SkullbonezSource/Runtime/DevelopmentTools
 
@@ -380,7 +380,7 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorHullAssets.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.h`
@@ -393,13 +393,13 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/LauncherLaser.h`
-- [ ] `SkullbonezSource/Runtime/Editor/LauncherTools.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Editor/LauncherTools.cpp`
 - [x] `SkullbonezSource/Runtime/Editor/MousePickupTools.cpp`
 
 ## SkullbonezSource/Runtime/Input
 
 - [x] `SkullbonezSource/Runtime/Input/Input.cpp`
-- [ ] `SkullbonezSource/Runtime/Input/Input.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Input/Input.h`
 - [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.cpp`
 - [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.h`
 - [x] `SkullbonezSource/Runtime/Input/InputController.cpp`
@@ -418,7 +418,7 @@ Deferred files stay unchecked and require an inline reason.
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.cpp`
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.h`
 - [x] `SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickService.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimePickService.h`
 
 ## SkullbonezSource/Runtime/Planning
 
@@ -606,8 +606,8 @@ Deferred files stay unchecked and require an inline reason.
 
 ## SkullbonezSource/Scene
 
-- [ ] `SkullbonezSource/Scene/AuthoredScene.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/Scene/AuthoredScene.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Scene/AuthoredScene.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredScene.h`
 - [x] `SkullbonezSource/Scene/AuthoredSceneParser.cpp`
 - [x] `SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp`
 - [x] `SkullbonezSource/Scene/AuthoredSceneParserBodies.cpp`
@@ -622,81 +622,81 @@ Deferred files stay unchecked and require an inline reason.
 
 - [x] `SkullbonezSource/UI/OperatorEditorExchange.cpp`
 - [x] `SkullbonezSource/UI/OperatorEditorExchange.h`
-- [ ] `SkullbonezSource/UI/UI.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UI.cpp`
 - [x] `SkullbonezSource/UI/UI.h`
 - [x] `SkullbonezSource/UI/UIBackdropBlur.cpp`
 - [x] `SkullbonezSource/UI/UIBackdropBlur.h`
-- [ ] `SkullbonezSource/UI/UIButton.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIButton.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UICache.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UICache.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UICheckBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UICheckBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIComboBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIComboBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIButton.cpp`
+- [x] `SkullbonezSource/UI/UIButton.h`
+- [x] `SkullbonezSource/UI/UICache.cpp`
+- [x] `SkullbonezSource/UI/UICache.h`
+- [x] `SkullbonezSource/UI/UICheckBox.cpp`
+- [x] `SkullbonezSource/UI/UICheckBox.h`
+- [x] `SkullbonezSource/UI/UIComboBox.cpp`
+- [x] `SkullbonezSource/UI/UIComboBox.h`
 - [x] `SkullbonezSource/UI/UICommands.h`
 - [x] `SkullbonezSource/UI/UIDraw.cpp`
 - [x] `SkullbonezSource/UI/UIDraw.h`
 - [x] `SkullbonezSource/UI/UIDrawList.cpp`
 - [x] `SkullbonezSource/UI/UIDrawList.h`
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIDrawWidgets.cpp`
+- [x] `SkullbonezSource/UI/UIDrawWidgets.h`
 - [x] `SkullbonezSource/UI/UIEditorMiniPalette.cpp`
 - [x] `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp`
 - [x] `SkullbonezSource/UI/UIFontMetrics.cpp`
 - [x] `SkullbonezSource/UI/UIFontMetrics.h`
 - [x] `SkullbonezSource/UI/UIFrameComposition.cpp`
 - [x] `SkullbonezSource/UI/UIFrameComposition.h`
-- [ ] `SkullbonezSource/UI/UIIconButton.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIIconButton.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIIconButton.cpp`
+- [x] `SkullbonezSource/UI/UIIconButton.h`
 - [x] `SkullbonezSource/UI/UIInput.cpp`
 - [x] `SkullbonezSource/UI/UIInput.h`
-- [ ] `SkullbonezSource/UI/UILayout.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UILayout.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UILayout.cpp`
+- [x] `SkullbonezSource/UI/UILayout.h`
 - [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp`
 - [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.h`
 - [x] `SkullbonezSource/UI/UIRenderAuthoringCatalog.h`
 - [x] `SkullbonezSource/UI/UIRenderDiagnostics.h`
 - [x] `SkullbonezSource/UI/UISceneNavigationModel.h`
-- [ ] `SkullbonezSource/UI/UIScrollBar.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIScrollBar.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UISlider.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UISlider.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIState.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIStyle.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIStyle.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabBar.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabBar.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabCinematic.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabCinematic.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabControls.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabControls.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIScrollBar.cpp`
+- [x] `SkullbonezSource/UI/UIScrollBar.h`
+- [x] `SkullbonezSource/UI/UISlider.cpp`
+- [x] `SkullbonezSource/UI/UISlider.h`
+- [x] `SkullbonezSource/UI/UIState.h`
+- [x] `SkullbonezSource/UI/UIStyle.cpp`
+- [x] `SkullbonezSource/UI/UIStyle.h`
+- [x] `SkullbonezSource/UI/UITabBar.cpp`
+- [x] `SkullbonezSource/UI/UITabBar.h`
+- [x] `SkullbonezSource/UI/UITabCinematic.cpp`
+- [x] `SkullbonezSource/UI/UITabCinematic.h`
+- [x] `SkullbonezSource/UI/UITabControls.cpp`
+- [x] `SkullbonezSource/UI/UITabControls.h`
 - [x] `SkullbonezSource/UI/UITabEditor.cpp`
 - [x] `SkullbonezSource/UI/UITabEditor.h`
 - [x] `SkullbonezSource/UI/UITabMemory.cpp`
 - [x] `SkullbonezSource/UI/UITabMemory.h`
-- [ ] `SkullbonezSource/UI/UITabOptions.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabOptions.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabPhysics.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabPhysics.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabOptions.cpp`
+- [x] `SkullbonezSource/UI/UITabOptions.h`
+- [x] `SkullbonezSource/UI/UITabPhysics.cpp`
+- [x] `SkullbonezSource/UI/UITabPhysics.h`
 - [x] `SkullbonezSource/UI/UITabProfiler.cpp`
-- [ ] `SkullbonezSource/UI/UITabProfiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabProfiler.h`
 - [x] `SkullbonezSource/UI/UITabProfilerHistogram.cpp`
-- [ ] `SkullbonezSource/UI/UITabScene.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabScene.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UITabSky.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabScene.cpp`
+- [x] `SkullbonezSource/UI/UITabScene.h`
+- [x] `SkullbonezSource/UI/UITabSky.cpp`
 - [x] `SkullbonezSource/UI/UITabSky.h`
-- [ ] `SkullbonezSource/UI/UIWindowChrome.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/UI/UIWindowChrome.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIWindowChrome.cpp`
+- [x] `SkullbonezSource/UI/UIWindowChrome.h`
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
 
 ## SkullbonezSource/World
 
 - [x] `SkullbonezSource/World/FluidSurfaceAdjustment.h`
-- [ ] `SkullbonezSource/World/SkyBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/World/SkyBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/World/SkyBox.cpp`
+- [x] `SkullbonezSource/World/SkyBox.h`
 - [x] `SkullbonezSource/World/Terrain.cpp`
-- [ ] `SkullbonezSource/World/Terrain.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/World/WorldEnvironment.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
-- [ ] `SkullbonezSource/World/WorldEnvironment.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/World/Terrain.h`
+- [x] `SkullbonezSource/World/WorldEnvironment.cpp`
+- [x] `SkullbonezSource/World/WorldEnvironment.h`

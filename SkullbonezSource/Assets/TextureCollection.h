@@ -4,8 +4,8 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  TextureCollection.h loads texture files and hands renderer-neutral texture
-  ids to draw code.
+  Loads texture files and hands
+  renderer-neutral texture ids to draw code.
 
 Invariants:
   - m_textures is fixed to SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT; hash lookup must resolve to one

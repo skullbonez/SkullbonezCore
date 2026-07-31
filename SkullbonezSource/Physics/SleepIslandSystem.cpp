@@ -4,8 +4,8 @@ Purpose:
   Groups supported bodies into sleep islands and decides when islands may sleep.
 
 Summary:
-  SleepIslandSystem.cpp groups supported bodies into sleep islands and decides
-  when islands may sleep.
+  Groups supported bodies into sleep
+  islands and decides when islands may sleep.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

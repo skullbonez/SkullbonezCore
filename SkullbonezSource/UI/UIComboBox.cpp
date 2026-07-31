@@ -4,9 +4,9 @@ Purpose:
   Implements UI ComboBox widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIComboBox.cpp implements UI ComboBox widgets, layout, drawing, or UI state
-
-  for the in-engine controls.
+  Owns dropdown state and derives
+  field, option hit testing, and
+  drawing from one bounds model.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

@@ -4,9 +4,9 @@ Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabScene.cpp implements UI TabScene widgets, layout, drawing, or UI state
-
-  for the in-engine controls.
+  Owns filtered scene selection,
+  scene commands, and
+  time-scale preview/commit interaction.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility

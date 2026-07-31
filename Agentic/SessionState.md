@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Complete the Gate Blind Spot Campaign in binding order; Engine Glossary Consolidation GC3 is next. |
-| Active/future progress | 10/16 (63%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 3/3; Engine Glossary Consolidation 3/4; Angular Impulse Frame Correctness 0/5. |
+| Current objective | Complete the Gate Blind Spot Campaign in binding order; Angular Impulse Frame Correctness AI0 is next. |
+| Active/future progress | 11/16 (69%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 3/3; Engine Glossary Consolidation 4/4; Angular Impulse Frame Correctness 0/5. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -29,6 +29,7 @@ plan inventory.
 | Engine glossary consolidation GC0 | The corrected tracked source scope is 575 files; the provisional 576 included `SkullbonezSource/AGENTS.md`. The complete term-to-file census records 2,172 definitions / 1,285 terms: 321 shared, 964 local, 264 drifted shared, and 57 exact shared. All repeated terms are classified shared, including explicit `Model row hint` and `Published prefix` rulings. The source-of-truth checklist contains 575 unique unchecked rows. This phase is documentation-only. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md`. |
 | Engine glossary consolidation GC1 | The shared glossary reproduces all 321 GC0 owner adjudications exactly. The new repeatable inventory reproduces the 575-file / 2,172-definition / 1,285-term census, reports 321 multi-file terms and 264 wording drifts, and matches 321 exact current migration rulings with zero diagnostics. Comment/audit/reviewer rules and `validate_fast` now enforce the split. Direct checks, the complete 457-case / 2,424,712-assertion gate, a 2/2 tool comment audit, and independent re-review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md`. |
 | Engine glossary consolidation GC2 | All 1,208 source sites for the 321 shared terms are removed; all 964 local term/file pairs remain exact; and all 447 affected files cite the canonical glossary. The complete scan removes 107 filler instances, correcting the provisional 77. Strict inventory reports 964 unique local definitions with zero shared terms, drift, rulings, or diagnostics. Every non-comment source suffix is byte-identical; the 575-row checklist is 458 checked and 117 explicitly deferred to GC3. Automation refresh, 457 cases / 2,424,712 assertions, direct inventories, and independent review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc2-pass.md`. |
+| Engine glossary consolidation closure | GC0-GC3 are complete. All 117 conservative basename-led candidates are adjudicated: 83 informative clauses retain their ownership content without the filename subject and 34 templated UI headers state concrete responsibilities. Zero basename-led summaries remain across 575 files; the checklist is 575/575 with zero deferred; all 117 source suffixes are unchanged; strict inventories, Automation refresh, 457 cases / 2,424,712 assertions, post-gate direct proofs, and independent closure review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-closure.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
@@ -96,13 +97,13 @@ plan inventory.
 
 ## Live Queue
 
-The Gate Blind Spot Campaign is active at 10/16 (63%). Solver Diagnostic
+The Gate Blind Spot Campaign is active at 11/16 (69%). Solver Diagnostic
 Hot-Path Cost HP0-HP3 are complete with exact artifacts and a recorded Profile
 win without refreshing a golden. Runtime Contract Hygiene CH0-CH2 are complete
 with its exit, Quaternion, and zero-throw contracts closed. Engine Glossary
-Consolidation is 3/4 with shared definitions and filler removed from source;
-GC3 is binding next, and
-Angular Impulse Frame Correctness remains 0/5 with its owner gate at AI4.
+Consolidation is complete at 4/4 with the 575-file checklist closed and zero
+basename-led summaries. Angular Impulse Frame Correctness remains 0/5; AI0 is
+binding next and its owner gate remains at AI4.
 
 The Claim Integrity Campaign is complete. Build Configuration Parity, Maths
 Surface Reachability, Inverse-Trig Domain Guards, Retirement Diagnostic
@@ -813,7 +814,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
-Blind Spot Campaign is active at **10/16 (63%)**. Solver Diagnostic Hot-Path Cost
+Blind Spot Campaign is active at **11/16 (69%)**. Solver Diagnostic Hot-Path Cost
 HP0-HP3 are complete: count-only execution avoids payload construction,
 trace-only vector loads, the diagnostic `sqrtf`, and row-local capacity
 compares; Physics, Replay, overlay/SkullScope, and allocation evidence remain
@@ -821,14 +822,13 @@ exact; the same Profile workload records a 40.90% mean `SolveRows` reduction.
 Runtime Contract Hygiene CH0-CH2 are complete with status-free frame boundaries,
 a truthful Quaternion contract, zero engine throw expressions, byte-exact
 Physics, and passing focused/full evidence. Engine Glossary Consolidation GC0-
-GC2 record the complete 575-file checklist and 1,285-term inventory, establish
-the 321-term canonical glossary, remove all 1,208 shared source definitions and
-107 filler instances, and reconcile the checklist to 458 checked / 117
-explicitly deferred; GC3 is binding next.
+GC3 establish the 321-term canonical glossary, remove all 1,208 shared source
+definitions and 107 filler instances, replace all 117 basename-led summaries,
+and close the checklist at 575/575 with zero deferred.
 
 The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
 source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
-agree the active/future ledger is now **10/16 (63%)**. Run the four plans in
+agree the active/future ledger is now **11/16 (69%)**. Run the four plans in
 order:
 
 1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (4/4, HP0-HP3) — complete;
@@ -838,15 +838,13 @@ order:
    removed droppable frame failure statuses, CH1 repaired the `Quaternion.h`
    surface and normalized-axis precondition, and CH2 removed the last engine
    throw expression under a compile-time relocation contract.
-3. `Plans/TODO/engine-glossary-consolidation.md` (3/4, GC0-GC3) — GC0-GC2
-   correct the scope to 575 source-bearing files, record 321 shared / 964 local
-   terms plus the 575-row checklist, establish the 321-term canonical glossary,
-   land the strict exact-current gate, remove shared definitions and filler, and
-   leave 117 basename-led summary candidates explicitly deferred. Owner retains
-   `Summary:`; GC3 adjudication and final 575-row checklist closure are binding
-   next.
+3. `Plans/TODO/engine-glossary-consolidation.md` (4/4, GC0-GC3) — complete;
+   321 shared definitions are canonical, 964 local definitions remain in their
+   owning files, all 117 basename-led summaries are repaired, and the 575-row
+   checklist is closed with strict inventory and independent review evidence.
 4. `Plans/TODO/angular-impulse-frame-correctness.md` (0/5, AI0-AI4) — **the only
-   plan that stops for the owner.** `ApplyPendingImpulse` divides a world torque
+   remaining plan and the only plan that stops for the owner.** AI0 is next.
+   `ApplyPendingImpulse` divides a world torque
    by body-frame inertia while `ApplyWorldImpulse` and the contact solver both
    handle it correctly. AI4 halts for explicit sign-off before regenerating any
    baseline. Do not reorder AI0/AI1/AI2: AI0's predicted delta and AI1's

@@ -4,8 +4,8 @@ Purpose:
   Implements plane construction and ray-plane intersection time.
 
 Summary:
-  GeometricMath.cpp owns the triangle-normal helper used to construct planes
-  and the production ray-plane intersection calculation. Unreachable legacy
+  Owns the triangle-normal helper used to construct planes and the
+  production ray-plane intersection calculation. Unreachable legacy
   height, point, and barycentric operations are intentionally absent.
 
 Invariants:

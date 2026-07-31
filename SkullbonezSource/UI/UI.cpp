@@ -4,10 +4,10 @@ Purpose:
   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
 Summary:
-  UI.cpp records the current typed widget view into one complete ordered frame
-  and delegates persistent window/input state to UIWindowInteractionOwner.
-  Public wrappers preserve existing call sites while authority lives in the
-  concrete interaction owner.
+  Records the current typed widget view into one complete
+  ordered frame and delegates persistent window/input state to
+  UIWindowInteractionOwner. Public wrappers preserve existing call
+  sites while authority lives in the concrete interaction owner.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

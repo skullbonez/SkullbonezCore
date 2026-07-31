@@ -4,9 +4,9 @@ Purpose:
   Implements UI ScrollBar widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIScrollBar.h implements UI ScrollBar widgets, layout, drawing, or UI state
-
-  for the in-engine controls.
+  Projects content height and
+  scroll offset into one
+  clipped viewport track and thumb.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

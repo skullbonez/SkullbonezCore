@@ -5,7 +5,7 @@ Purpose:
   command-line, launch, probe, and crash-reporting concerns.
 
 Summary:
-  Init.cpp establishes the Windows process environment, delegates early-exit
+  Establishes the Windows process environment, delegates early-exit
   startup work, constructs the window and DX12 backend, and starts the run loop.
 
 Glossary:
