@@ -1132,6 +1132,11 @@ void PhysicsEngine::EndCollisionVisualFrame()
     m_world->EndCollisionVisualFrame();
 }
 
+void PhysicsEngine::SetPipelineTraceFullRecordConsumerActive( bool active )
+{
+    m_world->SetPipelineTraceFullRecordConsumerActive( active );
+}
+
 
 void PhysicsEngine::ClearPointJointConstraints()
 {
@@ -1441,6 +1446,11 @@ std::span<const PhysicsDebugContact> PhysicsEngine::ReadDebugContacts( const Phy
 std::span<const PhysicsPipelineRecord> PhysicsEngine::ReadPipelineTrace( const PhysicsEngine& engine )
 {
     return engine.m_world->GetPhysicsPipelineTrace();
+}
+
+uint32_t PhysicsEngine::ReadPipelineRecordCount( const PhysicsEngine& engine )
+{
+    return engine.m_world->GetPhysicsPipelineRecordCount();
 }
 
 

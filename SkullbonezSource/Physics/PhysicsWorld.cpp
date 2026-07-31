@@ -986,7 +986,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     m_sleepController.RunIslandStage( bodyStore, colliderStore, worldForces, buoyancyFacts, m_timeRemaining,
                                       m_contactSolverStage.GetPersistentContacts(),
                                       m_contactSolverStage.GetPersistentRestingContactCounts(), m_pointJointConstraints,
-                                      m_stepDiagnostics.MutablePipelineTrace(), sleepPolicy );
+                                      m_stepDiagnostics.MutablePipelineTraceRecorder(), sleepPolicy );
 
     PROFILE_END( m_profiler, "Frame/Physics/Integrate" );
 
@@ -1026,6 +1026,11 @@ void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
 void PhysicsWorld::EndCollisionVisualFrame()
 {
     m_stepDiagnostics.EndCollisionVisualFrame();
+}
+
+void PhysicsWorld::SetPipelineTraceFullRecordConsumerActive( bool active )
+{
+    m_stepDiagnostics.SetPipelineTraceFullRecordConsumerActive( active );
 }
 
 
@@ -1362,4 +1367,9 @@ std::span<const PhysicsDebugContact> PhysicsWorld::GetPhysicsDebugContacts() con
 std::span<const PhysicsPipelineRecord> PhysicsWorld::GetPhysicsPipelineTrace() const
 {
     return m_stepDiagnostics.GetPipelineTrace();
+}
+
+uint32_t PhysicsWorld::GetPhysicsPipelineRecordCount() const
+{
+    return m_stepDiagnostics.GetPipelineRecordCount();
 }

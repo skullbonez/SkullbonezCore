@@ -62,6 +62,7 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+class PhysicsPipelineTraceRecorder;
 struct PersistentContact;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
@@ -198,8 +199,7 @@ class PhysicsSleepController
                                    std::span<const PersistentContact> persistentContacts, int index );
     void ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                            const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
-                           std::span<float> timeRemaining,
-                           PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
+                           std::span<float> timeRemaining, PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                            const PhysicsSleepStepPolicy& sleepPolicy, class DisjointSet& sleepIslands );
     void RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount );
     void AddAwakeBodyIndex( int index );
@@ -252,8 +252,7 @@ class PhysicsSleepController
                          std::span<float> timeRemaining, std::span<const PersistentContact> persistentContacts,
                          std::span<const uint16_t> persistentRestingContactCounts,
                          std::span<const PointJointConstraint> pointJointConstraints,
-                         PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
-                         const PhysicsSleepStepPolicy& sleepPolicy );
+                         PhysicsPipelineTraceRecorder& physicsPipelineTrace, const PhysicsSleepStepPolicy& sleepPolicy );
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );

@@ -2014,7 +2014,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
                                      m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
 
     const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
     const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
@@ -2763,7 +2763,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                      m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
     physics.CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot.physics,
                                          Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 

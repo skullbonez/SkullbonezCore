@@ -207,6 +207,10 @@ class PhysicsEngine
     bool IsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
+
+    // Counting remains active for Replay identity. Runtime calls this before a
+    // step to retain payload rows only when a full-record consumer is live.
+    void SetPipelineTraceFullRecordConsumerActive( bool active );
     void ClearPointJointConstraints();
 
     // Creates a point joint from physics body handles and rejects stale or
@@ -250,6 +254,7 @@ class PhysicsEngine
     static std::span<const uint8_t> ReadSleepSupportedStates( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepInhibitedStates( const PhysicsEngine& engine );
     static std::span<const PhysicsDebugContact> ReadDebugContacts( const PhysicsEngine& engine );
+    static uint32_t ReadPipelineRecordCount( const PhysicsEngine& engine );
     static std::span<const PhysicsPipelineRecord> ReadPipelineTrace( const PhysicsEngine& engine );
     static const PhysicsBodyRowList<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
     static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );

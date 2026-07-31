@@ -36,6 +36,7 @@ Related:
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"
+#include "PhysicsStepDiagnostics.h"
 
 #include <algorithm>
 
@@ -72,13 +73,9 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const Po
     return false;
 }
 
-void RecordPipelineStage( PhysicsPipelineRowList<PhysicsPipelineRecord>& trace, const PhysicsPipelineRecord& record )
+void RecordPipelineStage( PhysicsPipelineTraceRecorder& trace, const PhysicsPipelineRecord& record )
 {
-
-    if ( trace.size() < PHYSICS_MAX_PIPELINE_TRACE_RECORDS )
-    {
-        trace.push_back( record );
-    }
+    trace.Record( record );
 }
 } // namespace
 
@@ -540,7 +537,7 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
                                              std::span<const PersistentContact> persistentContacts,
                                              std::span<const uint16_t> persistentRestingContactCounts,
                                              std::span<const PointJointConstraint> pointJointConstraints,
-                                             PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
+                                             PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                              const PhysicsSleepStepPolicy& sleepPolicy )
 {
 
@@ -772,7 +769,7 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
 void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                const PhysicsWorldForces& worldForces,
                                                std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                               PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
+                                               PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                                const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
 {
 

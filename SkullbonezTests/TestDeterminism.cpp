@@ -918,7 +918,8 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
     sample.world.scenePhysicsEnabled = true;
     sample.world.sceneTextEnabled = true;
     sample.contactCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
-    sample.pipelineRecordCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
+    sample.pipelineRecordCount = static_cast<uint16_t>(
+        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineRecordCount( engine ) );
     engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
                                         MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 

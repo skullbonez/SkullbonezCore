@@ -569,9 +569,18 @@ Solver Diagnostic Hot-Path Cost HP0 completed on 2026-07-31. The census found
 all 16 pipeline stages produced in every configuration, corrected the
 provisional record size from 44 to 56 bytes, proved that solver Replay
 snapshots/hash/artifacts and prediction consume complete ordered records, and
-measured the current `perf_1000` count and Profile timing. The active/future
-ledger is therefore 1/16 (6%). Evidence is in
+measured the current `perf_1000` count and Profile timing. Evidence is in
 `../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`.
+
+Solver Diagnostic Hot-Path Cost HP1 completed on 2026-07-31. One Physics-owned
+recorder now preserves exact 4,096-event saturation in count-only and
+full-record modes; Replay capture, pipeline presentation, Debug SkullScope, and
+default direct/prediction engines retain ordered payloads. The original
+allocation-owner identity and backing remain unchanged. Focused mode coverage,
+455 unit cases / 2,423,400 assertions, fast validation, ownership inventories,
+and reachability pass. The active/future ledger is therefore 2/16 (13%).
+Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp1-recorder.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1155,7 +1164,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 1/16 (6%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 2/16 (13%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (1/4),
 runtime contract hygiene (0/3), engine glossary consolidation (0/4), then
 angular impulse frame correctness (0/5).
@@ -2944,7 +2953,7 @@ Dependency barriers:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | In progress | 1/4 | HP0 complete; implement HP1 count-versus-record ownership with exact 4,096-row saturation |
+| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | In progress | 2/4 | HP0-HP1 complete; HP2 must eliminate payload construction on the count-only path |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | TODO | 0/3 | Ready; no barrier in either direction |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Ready; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |

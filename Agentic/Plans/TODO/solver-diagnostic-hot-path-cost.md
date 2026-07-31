@@ -1,7 +1,7 @@
 # Solver Diagnostic Hot-Path Cost
 
 Date: 2026-07-31
-Status: IN PROGRESS — 1/4 phases complete
+Status: IN PROGRESS — 2/4 phases complete
 Impact area: Physics contact solver, step diagnostics, replay sample identity
 Owner: Physics
 Priority: High
@@ -102,7 +102,7 @@ Profile replay hashes if later extended.
   `SolveRows` at 0.120002 ms mean and the inclusive persistent-contact scope at
   0.272922 ms mean.
 
-- [ ] **HP1 — Separate counting from recording with exact count preservation.**
+- [x] **HP1 — Separate counting from recording with exact count preservation.**
   Introduce one trace recorder owner that either retains full records or counts
   only, with byte-identical saturation behavior in both modes across every
   producer found in HP0. `pipelineRecordCount` must be unchanged in Debug,
@@ -110,6 +110,14 @@ Profile replay hashes if later extended.
   equality between the two modes, including at and beyond the 4096 ceiling, and
   that an active consumer still receives complete records. Evidence:
   `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp1-recorder.md`.
+  Complete 2026-07-31: `PhysicsPipelineTraceRecorder` owns one saturated
+  4,096-event count plus optional ordered payload retention. Ordinary Runtime
+  selects count-only mode; Replay capture, the pipeline overlay, Debug
+  SkullScope, and default direct/prediction engines retain full rows. Focused
+  Profile/Debug saturation and field-faithfulness coverage passes, the original
+  allocation-owner identity and 229,376-byte reservation remain unchanged, and
+  `validate_fast` passes 455 cases / 2,423,400 assertions with clean ownership
+  and reachability inventories.
 
 - [ ] **HP2 — Eliminate payload construction on the counting path.** On the
   counting path there must be no `PhysicsBodyPosition` load, no `sqrtf`, no

@@ -229,6 +229,7 @@ class PhysicsWorld
     bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+    void SetPipelineTraceFullRecordConsumerActive( bool active );
 
     // Cold authored mutation boundary: dense-row identity or fixed/sleep
     // classification may have changed before the next fixed step.
@@ -259,6 +260,7 @@ class PhysicsWorld
     std::span<const uint8_t> GetSleepSupportedStates() const;
     std::span<const uint8_t> GetSleepInhibitedStates() const;
     std::span<const PhysicsDebugContact> GetPhysicsDebugContacts() const;
+    uint32_t GetPhysicsPipelineRecordCount() const;
     std::span<const PhysicsPipelineRecord> GetPhysicsPipelineTrace() const;
 
 #ifdef _DEBUG

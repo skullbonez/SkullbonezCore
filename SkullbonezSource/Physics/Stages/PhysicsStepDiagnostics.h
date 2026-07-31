@@ -10,7 +10,10 @@ Summary:
   registration but retains no diagnostic storage or mutation authority.
 
 Glossary:
-  Pipeline trace: Bounded ordered records describing fixed-step decisions.
+  Pipeline trace: Saturated event count plus optional ordered payload records
+    describing fixed-step decisions.
+  Full-record consumer: Replay, SkullScope, or pipeline presentation path that
+    needs payload fields rather than only the saturated count.
   Collision visual: Per-model byte marking contact for the debug overlay.
   Step emission: Debug-only CSV and SkullScope output after solver completion.
   Name registration: Cold replacement of the fixed diagnostics presentation
@@ -18,6 +21,8 @@ Glossary:
 
 Invariants:
   - Trace and visual mutation occurs at the same sequencer call positions.
+  - Count-only and full-record modes saturate at the same fixed ceiling.
+  - Full-record mode preserves one payload row per counted event in order.
   - Debug-only output remains behind the original _DEBUG boundaries.
   - Fixed steps consume the registered name table without rebuilding it.
   - Replay copies owned rows through explicit capture and restore APIs.
@@ -45,6 +50,44 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct PhysicsDiagnosticsView;
 
+// Concept: one bounded recorder owns both the logical pipeline-event count and
+// the optional payload rows retained for an active diagnostic consumer.
+//
+// Invariant: Count() saturates at PHYSICS_MAX_PIPELINE_TRACE_RECORDS in both
+// modes. When full records are enabled, Records().size() equals Count() and
+// preserves producer order; count-only mode retains no payload rows.
+class PhysicsPipelineTraceRecorder
+{
+  private:
+    PhysicsPipelineRowList<PhysicsPipelineRecord> m_records { "PhysicsStepDiagnostics.physicsPipelineTrace",
+                                                              PhysicsCapacityReason::PipelineRecords };
+    uint32_t m_recordCount = 0u;
+    bool m_retainFullRecords = true;
+
+  public:
+    void Reserve();
+    void Clear()
+    {
+        m_records.clear();
+        m_recordCount = 0u;
+    }
+    void BeginStep( bool retainFullRecords )
+    {
+        Clear();
+        m_retainFullRecords = retainFullRecords;
+    }
+    void Record( const PhysicsPipelineRecord& record );
+    void RestoreFullRecords( std::span<const PhysicsPipelineRecord> records );
+    bool CanRecord() const;
+    uint32_t Count() const;
+    int RemainingRecordCapacity() const;
+    std::span<const PhysicsPipelineRecord> Records() const;
+    uint64_t CollectDynamicMemoryBytes() const
+    {
+        return static_cast<uint64_t>( m_records.capacity() ) * static_cast<uint64_t>( sizeof( PhysicsPipelineRecord ) );
+    }
+};
+
 class PhysicsStepDiagnostics
 {
   private:
@@ -53,8 +96,8 @@ class PhysicsStepDiagnostics
     bool m_collisionVisualFrameActive = false;
     PhysicsContactRowList<PhysicsDebugContact> m_physicsDebugContacts { "PhysicsStepDiagnostics.physicsDebugContacts",
                                                                         PhysicsCapacityReason::PersistentContacts };
-    PhysicsPipelineRowList<PhysicsPipelineRecord> m_physicsPipelineTrace { "PhysicsStepDiagnostics.physicsPipelineTrace",
-                                                                           PhysicsCapacityReason::PipelineRecords };
+    PhysicsPipelineTraceRecorder m_pipelineTrace;
+    bool m_pipelineTraceFullRecordConsumerActive = true;
     PhysicsDiagnosticsSink m_sink;
 
   public:
@@ -65,6 +108,10 @@ class PhysicsStepDiagnostics
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void MarkCollisionVisualContact( int index );
+
+    // Selects the next fixed step's payload policy. Counting never turns off;
+    // Replay, pipeline presentation, and Debug SkullScope request full rows.
+    void SetPipelineTraceFullRecordConsumerActive( bool active );
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
     int RemainingPipelineRecordCapacity() const;
     void EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime,
@@ -91,7 +138,8 @@ class PhysicsStepDiagnostics
     // producing stage and remain capacity-governed by this diagnostics owner.
     PhysicsContactRowList<PhysicsDebugContact>& MutableDebugContacts();
     std::span<const PhysicsDebugContact> GetDebugContacts() const;
-    PhysicsPipelineRowList<PhysicsPipelineRecord>& MutablePipelineTrace();
+    PhysicsPipelineTraceRecorder& MutablePipelineTraceRecorder();
+    uint32_t GetPipelineRecordCount() const;
     std::span<const PhysicsPipelineRecord> GetPipelineTrace() const;
     uint64_t CollectDynamicMemoryBytes() const;
     uint64_t CollectDebugMemoryBytes() const;

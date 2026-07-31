@@ -703,6 +703,11 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.RuntimeSnapshot();
     const bool stepRequested = proceedPolicy.stepRequested;
     const bool replayCapture = replayInput.captureEnabled;
+    const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
+
+    // Why: the saturated Replay count remains live every step, but payload rows
+    // are observational work needed only by capture or pipeline presentation.
+    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive( replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
