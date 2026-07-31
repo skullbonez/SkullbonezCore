@@ -13,34 +13,12 @@ Mental model:
   gesture is active; tools retain only the start values needed to apply it.
 
 Glossary:
-  Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
-    placeable recipe comes from an asset library.
   Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
     data that persists between frames.
-  Replay visual sample: Compact snapshot of tool visuals restored while replay
-    scrubbing so debug feedback follows recorded frames.
-  Replay target marker: Debug overlay outline/ring drawn around a replay body
-    from live body/collider store values.
-  Replay ribbon: Screen-space-width overlay stroke generated from replay path
-    segments, with an analytic edge and optional selected-path halo.
-  Retained ribbon chunk: Fixed compact segment slice appended by prediction;
-    its physical handle is stable while packet commands sort it canonically.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
-  Body store: Physics-owned dense body rows borrowed by tool hit tests and
-    command paths without reading mirrored legacy object record body state.
-  Collider store: Physics-owned dense collider rows borrowed for shape-derived
-    hit-test bounds.
-  Physics body handle: Generational id for a live simulation body row; runtime
-    tools store it when they need to issue physics commands.
-  Model row hint: Cached dense model-order row paired with stable body/collider
-    handles; resolve it before use because collection edits can move rows.
-  Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
-    the oldest slots.
   Launcher tuning command: One-frame Physics-tab packet that edits launcher
     raycast visualization, impulse strength, or projectile speed.
-  Lifecycle generation: Scene-load identity used to invalidate transient tool
-    gestures, history, and ray lines exactly once after clearing.
 
 Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
@@ -59,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

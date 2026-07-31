@@ -11,7 +11,6 @@ Summary:
 Glossary:
   Presentation selection: One coherent set of selected, latest, and current
     timeline borrows for a frame.
-  HUD (Heads-Up Display): Scalar replay diagnostics shown by the late UI pass.
 
 Invariants:
   - Packets contain no mutable replay owner or scheduling operation.
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - ReplayRuntime.h publishes these packets.
   - ReplayPresentation.h owns the mutable state that produces them.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

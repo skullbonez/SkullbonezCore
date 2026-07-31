@@ -9,7 +9,6 @@ Summary:
   the file boundary only keeps each stage implementation reviewable.
 
 Glossary:
-  Pair island: Candidate pairs connected through shared body indices.
   Pair-order slot: Stable event index matching the broadphase candidate order.
   Bounded dispatch: Worker scheduling whose storage was reserved before play.
 
@@ -24,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsNarrowphaseStage.h"
 

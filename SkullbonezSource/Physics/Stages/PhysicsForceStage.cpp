@@ -14,7 +14,6 @@ Glossary:
   Pair-build worker: Worker that computes disjoint pair slots without reducing.
   Reduction: Model-order addition/subtraction of retained pair forces.
   Receive predicate: Dynamic, positive-inverse-mass, awake body eligibility.
-  Awake slot: Work index mapped through the borrowed ascending body-index list.
 
 Invariants:
   - Float expressions and loop order are unchanged from the P2 implementation.
@@ -27,6 +26,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.h
   - SkullbonezSource/Physics/PhysicsWorldForces.h
   - SkullbonezTests/TestDeterminism.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsForceStage.h"
 

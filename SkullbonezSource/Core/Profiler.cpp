@@ -10,10 +10,7 @@ Summary:
   of this infrastructure package.
 
 Glossary:
-  Marker epoch: Generation number advanced whenever marker identities reset.
   Render record: Core timing span that brackets renderer-owned GPU work.
-  Warmup frame: Completed frame excluded while measurements settle.
-  Lane F: Fatal invariant path for corrupt marker identity or nesting.
 
 Invariants:
   - Marker identity is the full path plus hash; collisions are Lane F failures.
@@ -25,6 +22,7 @@ Related:
   - SkullbonezSource/Core/PlatformProfiler.h
   - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Profiler.h"
 #include "FatalError.h"

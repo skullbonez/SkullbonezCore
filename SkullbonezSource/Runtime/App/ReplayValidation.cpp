@@ -10,12 +10,8 @@ Summary:
   ReplayValidation.Probes.cpp and call these same product operations.
 
 Glossary:
-  Replay probe: CLI/debug validation path that proves scrub, save/load, or
-    solver restore behavior without throwing exceptions.
   V2 target restore: Hash-gated replay restore that starts from a saved solver
     checkpoint and replays saved timeline events to a target frame.
-  Event cursor: Monotonic sequence marker stored on checkpoints so restore can
-    resume timeline events without replaying old side effects.
   Contact presentation output: Bounded solver event rows applied to the render
     store after each restored physics step.
 
@@ -32,6 +28,7 @@ Related:
   - SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayOverlayLayout.h"

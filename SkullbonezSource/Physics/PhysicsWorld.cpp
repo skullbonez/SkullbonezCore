@@ -11,29 +11,10 @@ Summary:
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
-  CCD (Continuous Collision Detection): Swept collision test that asks whether
-  objects hit during a tick, not only where they end the tick.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact row: Persistent solver constraint row that applies one contact's
-    normal and friction impulses.
-  Point joint: Constraint that keeps two local anchor points close together
-    without yet modelling a full hinge, cone, or motor.
-  Sleep island: Connected body group that may deactivate only as a unit.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
   X-macro field list: Preprocessor list invoked by several tiny visitors so
     replay capture and restore use the same ordered state inventory.
   PhysicsEngine: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
-  Lane F: Fatal invariant lane for should-never-happen engine state.
-  Mutual-gravity pair scratch: Triangular array with one force value for every
-    `(i,j)` body pair, populated in parallel and replayed in serial model order.
-  Awake index list: Ascending dense body rows owned by the sleep controller and
-    borrowed by work-producing stages for one sequenced fixed-step interval.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -53,6 +34,7 @@ Related:
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsWorld.h"
 #include "../Core/Common.h"

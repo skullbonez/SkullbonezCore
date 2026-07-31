@@ -12,8 +12,6 @@ Glossary:
   Path target: Stable replay body selected for visualization.
   Path color mode: Value-only rule that recolors published trajectory segments
     at draw time without changing replay capture or prediction storage.
-  HUD (Heads-Up Display): Value-only replay diagnostics sampled once for the
-    late UI/text pass.
 
 Invariants:
   - Physics::PhysicsSceneObjectId is identity; ModelRowHint is only a dense-row hint.
@@ -23,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

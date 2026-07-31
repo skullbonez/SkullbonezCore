@@ -12,23 +12,13 @@ Summary:
   operations.
 
 Glossary:
-  HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
   Runtime mode badge: Compact top-right label that names the current camera/input
     workspace, such as Inspect or Manipulator.
   Scene pause badge: Compact top-right scene-flow indicator for frame progress,
     completion, and the cross-scene pause lock.
   Text-only mode: Validation mode that skips world rendering and renders glyphs
     on a solid background to isolate text output.
-  Retained draw stream: Fixed-capacity UI command/text storage reused by this
-    pass instead of growing or consuming large nested stack frames.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
-  Capacity snapshot: Fixed value rows copied from the allocator registry only
-
-    while the Memory tab is visible.
-  Shared editor view: Domain-grouped values copied once and consumed by both
-    operator front ends during the same presentation frame.
-  Profiler connection snapshot: Three fixed booleans copied from the Tracy
-    owner without a process scan, socket probe, string construction, or growth.
 
 Invariants:
   - Font resources are created once through EnsureGpuResources and released
@@ -44,6 +34,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/UI/UI.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"
 #include "RuntimeRenderFrameValues.h"

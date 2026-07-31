@@ -9,7 +9,6 @@ Summary:
   normalized action, and context bits that later dispatch code interprets.
 
 Glossary:
-  Virtual key: Win32 integer key code read from the immutable device snapshot.
   Dispatch pass: Part of TakeInput that consumes a subset of binding rows, such
     as pre-UI keyboard, capture hotkeys, or post-UI reset handling.
   Debug-only binding: Row whose action is compiled or executed only for debug
@@ -24,6 +23,7 @@ Related:
   - InputController.Bindings.h exposes the table view.
   - InputRouter.Interactions.cpp consumes the table and applies side effects.
   - SkullbonezTests/TestRuntimeInputBindings.cpp locks key/context mappings.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputController.Bindings.h"
 

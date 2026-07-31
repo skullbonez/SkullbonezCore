@@ -8,12 +8,6 @@ Summary:
   snapshot so render graph diagnostics and future pass scheduling do not reach
   back through live runtime state.
 
-Glossary:
-  Snapshot: Value copy of frame facts, safe to read after the runtime pass code
-  has moved on.
-  DXR (DirectX Raytracing): DX12 raytracing path used for water reflections.
-  HDR (High Dynamic Range): Floating-point scene target used before tonemap.
-
 Invariants:
   - This struct stores values only. Do not add borrowed pointers to runtime,
     model collection, pass resources, or backend objects.
@@ -24,6 +18,7 @@ Related:
   - SkullbonezSource/Rendering/RenderPipeline.h
   - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

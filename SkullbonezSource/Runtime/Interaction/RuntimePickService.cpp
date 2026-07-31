@@ -11,10 +11,6 @@ Summary:
 
 Glossary:
   Pick ray: World-space ray projected from the current screen-space pointer.
-  Pick purpose: Tool-specific policy for interpreting candidate hits.
-  Physics body handle: Generational id for the body-store row selected by the
-    pick ray.
-  RayT: Distance along the pick ray to the candidate hit.
 
 Invariants:
   - The service never stores physics-store references; results are frame-local
@@ -26,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimePickService.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimePickService.h"
 

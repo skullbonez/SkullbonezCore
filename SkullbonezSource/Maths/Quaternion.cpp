@@ -5,11 +5,9 @@ Purpose:
 
 Summary:
   Quaternion.cpp implements quaternion orientation math for rigid bodies and
-  cameras. As an implementation unit, keep edits anchored on units, basis
-  conventions, and numerical assumptions and on the glossary/invariants below.
+  cameras.
 
 Glossary:
-  Active rotation: Rotation that moves a vector in a fixed world basis.
   World-axis delta: Incremental rotation expressed around a world-space axis
     and composed before the current orientation.
 
@@ -24,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/Quaternion.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Quaternion.h"
 

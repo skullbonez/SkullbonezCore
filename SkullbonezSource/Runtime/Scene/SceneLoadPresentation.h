@@ -9,12 +9,6 @@ Summary:
   applying diagnostics-owned fields; the UI owner consumes that value after the
   scene transaction returns.
 
-Glossary:
-  UI options: Optional `ui` block parsed from a `.scene.json` file.
-  Automation scene: Scene with screenshot/perf/exit behavior that should keep
-    the UI hidden unless explicitly authored otherwise.
-  UI stress: Deterministic diagnostics input churn driven by scene data.
-
 Invariants:
   - `preserveUIState` prevents authored scene UI from overriding live operator
     window/tab state during resets.
@@ -25,6 +19,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/AuthoredScene.h
   - SkullbonezSource/UI/UI.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

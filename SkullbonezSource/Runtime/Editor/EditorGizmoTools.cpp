@@ -9,7 +9,6 @@ Summary:
   rules for translation, rotation, scale, and grouped ragdoll transforms.
 
 Glossary:
-  Gizmo: World-space axes and rotation rings used to transform selected bodies.
   Drag group: Ragdoll parts that move together when a grouped body is selected.
   Hot axis: Axis currently under the mouse ray and eligible for capture.
 
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorTools.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"

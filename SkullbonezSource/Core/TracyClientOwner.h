@@ -12,8 +12,6 @@ Summary:
 Glossary:
   Manual lifetime: Tracy mode where the engine explicitly starts and stops the
     client instead of relying on static initialization and destruction.
-  Submitted-frame mark: One Tracy frame boundary emitted only after DX12
-    Present succeeds.
   Composite main lane: The current engine thread that owns main-loop, render,
     replay/prediction coordination, and cold IO work.
   Standard capture: Explicit SKORE_TRACY_MODE=standard selection, or the ImGui
@@ -37,6 +35,7 @@ Related:
   - SkullbonezSource/Core/TracyClientOwner.cpp
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - ThirdPtySource/tracy/manual/tracy.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

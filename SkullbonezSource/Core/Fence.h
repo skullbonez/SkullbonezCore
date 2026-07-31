@@ -8,8 +8,6 @@ Summary:
   finish; the caller can Wait() efficiently until the count reaches zero.
 
 Glossary:
-  Fence: Synchronization primitive that lets one thread wait until a set of
-  worker jobs has signaled completion.
   Signal: Completion notification from one worker job.
   Wait: Blocking call that sleeps until the fence has no remaining signals.
 
@@ -21,6 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #pragma once

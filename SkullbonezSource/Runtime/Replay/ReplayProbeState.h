@@ -15,8 +15,6 @@ Glossary:
   into the live scene.
   Save probe: Debug launch path that writes a replay artifact after enough
   timeline coverage exists.
-  Probe failure: CLI-visible diagnostic result that should make validation
-  return nonzero without routing through the fatal-exception path.
 
 Invariants:
   - Probe state exists only in debug builds and is driven by CLI test paths.
@@ -29,6 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

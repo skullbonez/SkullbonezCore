@@ -10,11 +10,8 @@ Summary:
   renderer-bound packet spans, so stale tracer statistics cannot hide miswiring.
 
 Glossary:
-  Visual-state hash: Digest of presentation-bearing typed values, excluding
-    process-local allocation and budget telemetry.
   Semantic hash: Visual-state digest extended with replay diagnostics.
   Exact hash: Visual-state digest extended with ordered renderer-span facts.
-  Prefix digest: Digest rebuilt from every currently published trajectory point.
   Immutable digest reuse: Offline-only policy that reuses a prefix after archive
     load while record identity, version, and published count stay unchanged.
 
@@ -29,6 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
   - tools/check_replay_visual_fidelity.py
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

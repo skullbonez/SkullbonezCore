@@ -8,12 +8,6 @@ Summary:
   owners into one stack-only render model view. RuntimeRenderer consumes that
   view without gaining authority to traverse or diagnose the source owners.
 
-Glossary:
-  Frame publication: One-time projection of owner-backed rows and values for
-    synchronous render-pass consumption during the current frame.
-  Model frame view: Borrowed render, physics, debug, and policy facts whose
-    lifetime ends before the next frame begins.
-
 Invariants:
   - Publication performs no allocation and retains no reference itself.
   - Scene and physics owners outlive every borrow in the returned frame view.
@@ -23,6 +17,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h defines the view.
   - SkullbonezSource/Runtime/App/RunFrame.cpp sequences frame publication.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

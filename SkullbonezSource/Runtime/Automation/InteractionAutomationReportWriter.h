@@ -19,8 +19,6 @@ Glossary:
   Causal proof: Monotonic topology/reveal facts beside exact presented geometry.
   Offline projection: CPU-only reconstruction of captured replay presentation
     used to compare durable state without a second visible run.
-  Durable artifact: Saved replay payload reloaded to prove report facts survive
-    the writer/reader boundary.
 
 Invariants:
   - Evidence storage exists only in the Automation configuration.
@@ -31,6 +29,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
   - tools/validate_replay_visual_fidelity.bat
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

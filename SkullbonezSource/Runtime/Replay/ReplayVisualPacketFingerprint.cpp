@@ -8,12 +8,6 @@ Summary:
   poses, ghost transforms/material values, trajectory diagnostics, and exact
   tracer submission hashes/counts in one stable field order.
 
-Glossary:
-  Prefix digest: Digest rebuilt from every point currently published for one
-    trajectory record.
-  Visual-state hash: Cross-run digest containing only presentation-bearing
-    values, not process-local allocation or budget counters.
-
 Invariants:
   - Float fields are hashed by exact IEEE-754 bits.
   - Every presentation-active record and published point participates.
@@ -24,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayVisualPacketFingerprint.h"
 #include "../../Core/ByteView.h"

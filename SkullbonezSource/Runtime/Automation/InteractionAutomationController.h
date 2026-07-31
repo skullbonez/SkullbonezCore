@@ -16,16 +16,10 @@ Mental model:
 Glossary:
   Automation action: One scheduled command from an interaction script.
   Assertion report: Machine-readable proof row for one expected runtime state.
-  Intercept assertion: Lane-P proof over the replay-owned closest-approach
-    snapshot; it observes distance, ETA, and contact without owning the scan.
-  Presented generation: Replacement prefix prepared by the frame thread and
-    therefore safe to compare with the retained prediction.
   Velocity preview assertion: Held/released-drag proof over the Prediction-owned
     target and delta-v value, without advancing simulation.
   Input override: Scripted mouse/key snapshot forwarded through the normal
     runtime input bridge for a bounded frame window.
-  Development UI command: Fixed presentation or native-window request emitted
-    by the sequencer and applied synchronously by this automation owner.
 
 Invariants:
   - Automation state is active only for CLI validation launches.
@@ -46,6 +40,7 @@ Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Input/Input.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

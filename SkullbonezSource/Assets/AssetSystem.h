@@ -5,9 +5,7 @@ Purpose:
 
 Summary:
   AssetSystem.h loads, owns, and resolves reusable runtime assets for scenes
-  and render code. As a public header, keep edits anchored on asset lifetime,
-  cache ownership, and load/fallback behavior and on the glossary/invariants
-  below.
+  and render code.
 
 Glossary:
   Asset-system borrow: Frame- or operation-local pointer/reference that lets

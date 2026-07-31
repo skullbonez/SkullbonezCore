@@ -8,10 +8,6 @@ Summary:
   strengths and positions, and exposes sampling used by presentation. The
   fixed-step Physics boundary is published separately by TornadoGameplay.
 
-Glossary:
-  Active vortex: An authored vortex after spawn, growth, shrink, drift, and
-    pair-repulsion have been evaluated at the current gameplay time.
-
 Invariants:
   - Physics-visible behavior must remain deterministic; the direct force
     witness and byte-exact baselines are the validation contract.
@@ -25,6 +21,7 @@ Related:
   - SkullbonezSource/Physics/Stages/ExternalForceStage.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

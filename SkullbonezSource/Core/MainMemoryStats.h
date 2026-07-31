@@ -9,7 +9,6 @@ Summary:
   PODs without depending on each other's owners.
 
 Glossary:
-  POD (Plain Old Data): Simple value type with no ownership or behavior.
   Task Manager metric: Named process-memory field used as the top-level total.
   Reconciled total: Tracked engine bytes plus unattributed bytes, adjusted for
     any tracked overshoot so it matches the sampled process metric.
@@ -20,6 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

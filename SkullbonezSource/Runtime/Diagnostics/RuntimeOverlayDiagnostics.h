@@ -9,13 +9,9 @@ Summary:
   value transaction; renderer borrows cross one opaque resource capability.
 
 Glossary:
-  Presentation state: Operator-selected overlay, water, terrain, and physics
-    debug policy sampled into render values each frame.
   Debug visualizers: CPU-side broadphase, collision, and physics line data
     refreshed after committed physics work and borrowed by RuntimeRenderer.
   Presentation edit: Stack-only copy committed atomically when its scope ends.
-  Lifecycle generation: Scene-load attempt identity used to publish a detached
-    presentation value at most once after clearing.
 
 Invariants:
   - The owner is allocated only during the explicit Startup phase and lives
@@ -30,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Runtime/App/RunRender.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

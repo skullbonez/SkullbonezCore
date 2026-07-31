@@ -8,14 +8,6 @@ Summary:
   after solver work has completed. It owns only trace formatting and run-local
   counters; simulation stores remain borrowed for the duration of EmitFrame.
 
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  Convergence trace: Per-iteration solver summary that attributes the stopping
-    metric without retaining every contact-row update.
-  CSV (Comma-Separated Values): Text table format used for byte-exact physics
-  regression output.
-
 Invariants:
   - SkullScope emits append-only debug NDJSON and must not replace the
     byte-exact physics CSV validation artifact.
@@ -29,6 +21,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SkullScope.h"
 #include "../../Core/Log.h"

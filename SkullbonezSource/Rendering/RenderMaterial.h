@@ -14,8 +14,6 @@ Glossary:
   model matrix and consumed by lit_textured_instanced.hlsl.
   Contact flash alpha: Per-instance final-color blend toward white for short
     hit feedback that must be visible over any material branch.
-  Material table: Fixed t4 texture storing default material response values by
-  material kind for the current object shader.
   Legacy tint bridge: Compatibility path that maps old tint/colorOverride scene
   values into material0.rgb and material0.w.
   Backend-neutral: Data that belongs to engine rendering intent, not to a DX12
@@ -31,6 +29,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/shader-inventory.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

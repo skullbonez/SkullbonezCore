@@ -8,12 +8,6 @@ Summary:
   Runtime composition projects these cold-load records into Gameplay-owned
   configuration before the scene begins stepping.
 
-Glossary:
-  DTO (Data Transfer Object): Value-only record that crosses an ownership
-    boundary without carrying services, callbacks, or mutable owner state.
-  Projection: Explicit copy from the authored-scene vocabulary into the
-    Gameplay owner vocabulary.
-
 Invariants:
   - These records mirror the stable authored schema; changing their JSON shape
     requires the repository's versioned authored-format migration process.
@@ -24,6 +18,7 @@ Related:
   - SkullbonezSource/Scene/AuthoredSceneParserRuntime.cpp
   - SkullbonezSource/Gameplay/TornadoField.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

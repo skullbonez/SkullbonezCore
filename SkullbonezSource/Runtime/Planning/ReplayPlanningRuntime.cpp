@@ -8,10 +8,6 @@ Summary:
   retained product owners, and applies planner velocity candidates through
   Physics. No borrowed sibling owner survives the frame call.
 
-Glossary:
-  Candidate: Planner-authored velocity proposal awaiting Physics validation.
-  Dense row: Repairable store index resolved from stable scene identity.
-
 Invariants:
   - Planning pointer geometry is shared with rendering.
   - Stable scene identity is authoritative; dense rows are repairable hints.
@@ -21,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h
   - SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPlanningRuntime.h"
 

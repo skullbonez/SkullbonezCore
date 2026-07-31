@@ -656,6 +656,18 @@ independent re-review pass. The active/future ledger is therefore 9/16 (56%).
 Evidence is in
 `../Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md`.
 
+Engine Glossary Consolidation GC2 completed on 2026-07-31. All 1,208 source
+definition sites for the 321 shared terms are removed, all 964 local term/file
+pairs remain exact, and all 447 affected files cite the canonical glossary.
+The complete whitespace-normalized audit corrects the provisional filler count
+from 77 to 107 and removes every instance. The strict inventory now reports 964
+unique local definitions with zero multi-file terms, drift, rulings, or
+diagnostics. All 575 non-comment source suffixes are byte-identical to GC1; the
+checklist is 458 checked and 117 explicitly deferred to GC3. Automation refresh,
+the 457-case / 2,424,712-assertion fast gate, direct inventories, and independent
+review pass. The active/future ledger is therefore 10/16 (63%). Evidence is in
+`../Reports/2026-07-31/engine-glossary-consolidation-gc2-pass.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1238,9 +1250,9 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 9/16 (56%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 10/16 (63%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
-runtime contract hygiene (3/3), engine glossary consolidation (2/4), then
+runtime contract hygiene (3/3), engine glossary consolidation (3/4), then
 angular impulse frame correctness (0/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
@@ -3029,7 +3041,7 @@ Dependency barriers:
 |---:|---|---|---:|---|
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
-| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | In progress | 2/4 | GC0-GC1 complete; GC2 executes the 575-file consolidation checklist |
+| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | In progress | 3/4 | GC0-GC2 complete; GC3 adjudicates all 117 basename-led summary candidates and closes the 575-file checklist |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |
 
 ### Governance Gap This Campaign Closes

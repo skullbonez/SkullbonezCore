@@ -7,15 +7,6 @@ Summary:
   This system preserves the old Run stepping rules while moving the
   accumulator state and tick decision into one owner.
 
-Glossary:
-  Fixed-step: Deterministic mode that advances physics by one fixed delta per
-  requested tick instead of wall-clock time.
-  Accumulator: Stored fractional tick state that carries time across frames.
-  Commit count: Number of fixed physics ticks the runtime owner must execute
-    after accumulator state is updated.
-  Hitch event: A fixed-step request that exceeds the per-frame catch-up cap;
-    its excess whole ticks are dropped and counted instead of carried forward.
-
 Invariants:
   - Fixed-step mode ignores wall-clock accumulation and commits whole
     PHYSICS_FIXED_DT ticks from the time-scale accumulator.
@@ -27,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Simulation/SimulationSystem.h
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SimulationSystem.h"
 

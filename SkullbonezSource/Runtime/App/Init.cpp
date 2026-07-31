@@ -9,14 +9,10 @@ Summary:
   startup work, constructs the window and DX12 backend, and starts the run loop.
 
 Glossary:
-  COM (Component Object Model): Windows interface lifetime model used by DX12
-  and platform APIs through reference-counted objects.
   Startup owner: A focused helper unit that parses options, resolves launch
     policy, runs an early probe, or installs crash diagnostics before Run exists.
   Manual profiler lifetime: Development-build Tracy ownership explicitly
     bracketed around every engine thread instead of static initialization.
-  Lane R result: Recoverable CLI/startup failure that returns a process exit
-    code with owner/message diagnostics instead of using a fatal exception.
 
 Invariants:
   - Startup owners finish option resolution before Run owns subsystems, keeping
@@ -32,6 +28,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"

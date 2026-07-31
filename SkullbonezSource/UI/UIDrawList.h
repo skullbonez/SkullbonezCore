@@ -8,12 +8,6 @@ Summary:
   can be composed with offsets, while Runtime consumes a read-only span and
   resolves preview identities at submission time.
 
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
-
 Invariants:
   - Command and text storage never grows in steady runtime.
   - Append preserves source order and copies referenced text.
@@ -22,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDrawList.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

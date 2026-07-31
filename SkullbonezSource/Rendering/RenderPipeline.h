@@ -8,10 +8,6 @@ Summary:
   value-only outcome snapshot. RenderPipeline formats and caches that evidence;
   it does not reconstruct scheduling or resource declarations.
 
-Glossary:
-  Live graph: Production callback schedule accumulated across the frame.
-  Snapshot: Value-only outcomes produced by executed pass callbacks.
-
 Invariants:
   - RenderPipeline never creates a RenderGraph or substitutes marker callbacks.
   - The graph borrow is consumed synchronously during diagnostic formatting.
@@ -20,6 +16,7 @@ Related:
   - SkullbonezSource/Rendering/RenderSceneSnapshot.h
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

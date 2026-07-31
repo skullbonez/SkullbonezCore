@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   Camera.cpp stores camera pose and builds view/projection transforms for
-  rendering. As an implementation unit, keep edits anchored on local owner
-  boundaries and call direction and on the glossary/invariants below.
+  rendering.
 
 Glossary:
   Look-at target: World point the camera faces; subtracting the eye produces

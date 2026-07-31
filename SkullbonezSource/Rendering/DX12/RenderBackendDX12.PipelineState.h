@@ -9,11 +9,6 @@ Summary:
   command-binding state is a plain reusable value. Raster state is absent: each
   draw supplies its complete `RasterStateDesc` directly.
 
-Glossary:
-  PSO (Pipeline State Object): Compiled shader and fixed-function draw recipe.
-  RTV (Render Target View): Descriptor row naming the current color output.
-  DSV (Depth Stencil View): Descriptor row naming the current depth output.
-
 Invariants:
   - Reset leaves all binding categories dirty so the next draw fully publishes state.
   - This record owns no COM reference and remains safe for CPU-only architecture tests.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

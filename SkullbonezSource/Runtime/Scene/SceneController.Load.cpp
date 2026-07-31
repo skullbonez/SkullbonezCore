@@ -11,22 +11,12 @@ Summary:
   camera, input, interaction, tool, Replay, UI, and validation owners.
 
 Glossary:
-  CLI (Command-Line Interface): Text arguments or scripts used to launch
-  validation and tooling paths.
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   Render setup owners: Exact DX12 frame-drain and cold resource-build
     capabilities plus the runtime renderer used during scene replacement.
-  Lifecycle generation: Monotonic value identifying one post-preflight load
-    attempt, even when it fails before activation.
-  Lane R result: Recoverable scene-load or renderer-drain failure carrying
-    owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
   Authored projection: Cold-load, field-by-field copy from parser DTOs into an
     owning subsystem's runtime values.
-  Capacity session: Per-scene live/high-water interval advanced only after the
-    old stores are cleared and before new scene population.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -42,6 +32,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneController.h"
 #include "SceneLoadTransaction.h"

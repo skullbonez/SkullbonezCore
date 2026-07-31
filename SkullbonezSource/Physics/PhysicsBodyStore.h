@@ -9,17 +9,7 @@ Summary:
   standalone creation owns dense body rows directly.
 
 Glossary:
-  Body: Simulated object state consumed by the physics step.
-  Sleep: Optimization that skips stable bodies until contact or user action
-    wakes them.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
   Inverse mass: Reciprocal mass value; zero means an immovable body.
-  Scene object id: Stable per-scene id used by replay and diagnostics.
-  Model row hint: Caller-owned cached dense-row guess; the store may repair or
-    invalidate it while resolving stable identity.
-  Fixed-tree release: Authored structure rule where one released fixed prop can
-    release higher parts in the same tree group.
   Hot SoA (Structure of Arrays) fields: Parallel component arrays with
     independently allocated, 32-byte-aligned backing. Production stages
     currently index these streams scalarly through explicit views.
@@ -41,6 +31,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

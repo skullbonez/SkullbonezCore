@@ -5,32 +5,16 @@ Purpose:
 
 Summary:
   WorldEnvironment.h stores world forces, fluid parameters, and water
-  rendering resources. As a public header, keep edits anchored on world-state
-  ownership, terrain/environment data, and physics/render handoff and on the
-  glossary/invariants below.
+  rendering resources.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 raytracing path that can provide water
-  reflection textures.
-  GPU (Graphics Processing Unit): Hardware device that owns renderer resources
-  such as meshes, shaders, textures, and reflection targets.
-  UV (Texture Coordinates): Two-dimensional texture/sample coordinates used by
-  water shaders when perturbing reflection lookup.
   Water render style: Values that feed water shader uniforms, including ordinary
   and cinematic fallback style.
   Water mesh build settings: Values used only when regenerating calm/ocean mesh
   geometry.
   Fluid force settings: Values that affect buoyancy and drag force integration.
-  Fluid surface adjustment: Typed signed velocity issued by input in world units.
-  Buoyancy: Upward force from displaced fluid volume; depends on gravity, fluid
-  density, and submerged volume.
   Drag coefficient: Shape factor used by viscous drag to scale velocity-based
   resistance.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -43,6 +27,7 @@ Related:
   - SkullbonezSource/World/WorldEnvironment.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

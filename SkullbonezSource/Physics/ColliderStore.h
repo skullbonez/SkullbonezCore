@@ -13,15 +13,6 @@ Summary:
   PhysicsBodyStore. Handles are allocator identity; record order is only an
   iteration/detail surface.
 
-Glossary:
-  Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Authoring row: Cold scene round-trip text paired with one hot collider row.
-  Narrowphase: Precise collision pass that computes actual contact points.
-  Convex hull: Collision shape made from a closed convex set of authored points.
-  Hull identity: Cold normalized authored path plus exact canonical scale bits.
-  Scene object id: Stable per-scene id paired with a body for replay diagnostics.
-
 Invariants:
   - Body-binding refresh keeps store row order aligned to scene physics order.
   - Hot and authoring rows share the same dense index and compact together.
@@ -38,6 +29,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

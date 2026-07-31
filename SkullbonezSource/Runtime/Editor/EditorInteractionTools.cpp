@@ -5,18 +5,13 @@ Purpose:
 
 Summary:
   EditorInteractionTools.cpp owns runtime editor placement, selection, gizmos, and
-  overlay tracing. As an implementation unit, keep edits anchored on local
-  owner boundaries and call direction and on the glossary/invariants below.
+  overlay tracing.
 
 Glossary:
-  Gizmo: World-space editor axes or rotation rings used to transform selected
-    models.
   Placement preflight: Capacity and asset-availability check shared by the
     "can place" query and the actual placement commit.
   Body-store row: Physics-owned record that receives editor wake/sleep commands
     after a model-index selection has been validated.
-  Topology drift: Temporary mismatch between editor model count and physics
-    store rows after scene/editor construction or deletion.
 
 Invariants:
   - Preview, preflight, and placement commit must use the same object-type,
@@ -29,6 +24,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorOverlayTools.h"
 #include "EditorPlacementAssets.h"

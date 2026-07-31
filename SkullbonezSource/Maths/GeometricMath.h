@@ -9,8 +9,6 @@ Summary:
   Triangle-normal construction remains an implementation detail.
 
 Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
   Layering boundary: Compile-time dependency direction; Maths must stay below
     World so math helpers can be tested and reused without terrain/runtime
     ownership.
@@ -27,6 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/GeometricMath.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

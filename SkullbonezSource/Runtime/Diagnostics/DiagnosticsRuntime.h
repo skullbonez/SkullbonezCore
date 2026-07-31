@@ -12,11 +12,6 @@ Summary:
 Glossary:
   Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
-  Artifact path: Validation-facing output path that must stay stable.
-  Physics diagnostic command: One-frame key or UI request that changes debug
-    presentation state, not simulation state.
-  Private working set: Resident process pages not shared with other processes;
-    matching it requires a page-level OS query.
   Capacity table: Resident-descending fixed-store rows emitted at scene unload
     and final process shutdown.
 
@@ -28,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

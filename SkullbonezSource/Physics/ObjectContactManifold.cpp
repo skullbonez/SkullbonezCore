@@ -5,26 +5,11 @@ Purpose:
 
 Summary:
   ObjectContactManifold.cpp builds precise object/object contact manifolds for
-  the persistent solver. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  the persistent solver.
 
 Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
-  bounded contact impulses.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact body view: Pose-only body input used by narrowphase so contact
-  geometry can be built from PhysicsBodyRecord state.
   Collider shape reference: Typed non-owning view into ColliderStore's per-kind
     shape payload, read by narrowphase during contact generation.
-  Contact sweep: Conservative object/object time-of-impact query that advances
-  fast bodies to a candidate contact before exact manifolds solve the response.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -35,6 +20,7 @@ Related:
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ObjectContactManifold.h"
 

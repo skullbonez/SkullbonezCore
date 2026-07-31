@@ -11,8 +11,6 @@ Summary:
 Glossary:
   Render GPU timing owner: Renderer lifecycle object that owns query brackets.
   Completed sample: Hash plus milliseconds returned from a finished GPU query.
-  Marker epoch: Core generation that invalidates stale backend query slots.
-  Lane F: Fatal invariant path for an unbalanced renderer timing stack.
 
 Invariants:
   - GPU begin/end scopes balance before frame or device boundaries.
@@ -24,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/RenderGpuTimingOwner.h
   - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderGpuTimingOwner.h"
 

@@ -12,10 +12,6 @@ Glossary:
   Launch token: CLI value naming a scene, suite, built-in hero, or generated
     demo mode.
   Launch policy: Caller-owned values that configure Run before its first frame.
-  Run-value directive: Value-bearing launch option for Run, replay, UI stress,
-    or graphics stress; generic presence-only flags remain parser-owned.
-  Physics-debug override: Visualization-only startup request that must not alter
-    solver state.
 
 Invariants:
   - Scene paths, suite order, diagnostics, defaults, and failure strings remain
@@ -28,6 +24,7 @@ Related:
   - StartupLaunchResolution.h
   - StartupCommandLine.h
   - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "StartupLaunchResolution.h"
 #include "StartupCommandLine.h"

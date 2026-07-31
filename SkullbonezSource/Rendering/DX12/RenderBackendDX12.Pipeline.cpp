@@ -10,23 +10,6 @@ Summary:
   them from a declared value. The owner keeps one cache and one key path for
   both during migration.
 
-Glossary:
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads/writes depth
-  and stencil values during depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  FBO (Framebuffer Object): Engine term for an off-screen color/depth target
-  that can later be sampled as a texture.
-  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
-  object names.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -41,6 +24,7 @@ Invariants:
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "ShaderDX12.h"

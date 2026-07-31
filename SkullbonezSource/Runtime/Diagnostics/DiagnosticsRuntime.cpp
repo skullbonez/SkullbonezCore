@@ -10,18 +10,9 @@ Summary:
   shutdown memory-dump lifecycle.
 
 Glossary:
-  Artifact path: Stable validation/debug output path written for tools or
-    command-line flags.
-  Physics diagnostic command: One-frame key or UI request that changes debug
-    presentation state, not simulation state.
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
 
     for by replay or model collection snapshots.
-  SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
-  JSON (JavaScript Object Notation): Text artifact format used for memory dumps.
-  Private working set: Resident process pages not shared with other processes;
-
-    matching it requires a page-level OS query.
 
 Invariants:
   - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
@@ -35,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsRuntime.h"
 #include "DiagnosticsPhysicsUI.h"

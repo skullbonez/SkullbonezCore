@@ -5,13 +5,9 @@ Purpose:
 
 Summary:
   Matrix4.cpp implements the engine matrix type and common transform
-  operations. As an implementation unit, keep edits anchored on units, basis
-  conventions, and numerical assumptions and on the glossary/invariants below.
+  operations.
 
 Glossary:
-  Active rotation: Rotation that moves a vector in a fixed world basis.
-  Antiparallel normal: Direction exactly opposite world up; its cross product
-    with world up is zero even though the required half-turn is well-defined.
   Clip-space depth: Projected depth range consumed by the graphics pipeline;
     DX12 callers use zero through one.
 
@@ -27,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/Matrix4.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Matrix4.h"
 #include "Quaternion.h"

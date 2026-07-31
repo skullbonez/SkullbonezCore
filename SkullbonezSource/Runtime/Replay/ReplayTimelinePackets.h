@@ -9,7 +9,6 @@ Summary:
   ReplayScrubber owner.
 
 Glossary:
-  Live edge: Newest retained replay sample.
   Present marker: Solver-track position separating retained past from predicted future.
 
 Invariants:
@@ -19,6 +18,7 @@ Invariants:
 Related:
   - ReplayScrubber.h
   - ReplayOverlaySurface.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

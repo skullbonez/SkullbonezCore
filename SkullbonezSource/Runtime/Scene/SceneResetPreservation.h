@@ -8,12 +8,6 @@ Summary:
   operator-owned runtime controls for the current scene. Scene changes and
   Reset To Defaults skip this policy so authored scene data becomes authority.
 
-Glossary:
-  Reset snapshot: Value-only copy of owner state preserved across same-scene
-    reset.
-  UI override: Scene-tab value that should survive an interactive reset.
-  Operator-owned state: Live runtime choice made after scene load.
-
 Invariants:
   - Snapshot fields must mirror restore logic one-for-one.
   - Concrete owner references are borrowed only for capture/restore duration;
@@ -23,6 +17,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

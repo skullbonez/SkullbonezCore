@@ -9,17 +9,6 @@ Summary:
   rows directly. PhysicsWorld mutates the aligned hot-field arrays through
   narrow borrowed views.
 
-Glossary:
-  Body: Simulated object state such as position, orientation, velocity, mass,
-    and sleep flag.
-  Sleep: Optimization that stops simulating stable bodies until something wakes
-    them.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
-  Scene object id: Stable per-scene id used by replay and SkullScope traces.
-  Model row hint: Caller-owned dense-row cache that can be stale after deletion
-    compacts the store; resolver APIs repair or invalidate it.
-
 Invariants:
   - Runtime cold records and hot arrays stay in scene/model slot order for
     current solver traversal, but public body handles are allocator-owned
@@ -33,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsBodyStore.h"
 

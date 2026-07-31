@@ -13,8 +13,6 @@ Glossary:
     dynamic vertex-buffer flush.
   Trace scope: Stable render-pass or batch name that receives draw counts until
     its scope exits.
-  Snapshot: Previous-frame copy read by the UI while the renderer records the
-    next frame.
 
 Invariants:
   - Per-draw recording stays allocation-free and does not create GPU timers.
@@ -23,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.cpp
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

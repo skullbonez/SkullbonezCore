@@ -10,16 +10,11 @@ Summary:
   commands across existing replay owners.
 
 Glossary:
-  Scrubber: UI control that selects retained replay frames.
   Live restore: Applying a retained replay sample back into the current scene.
   Branch restore: Applying a historical replay sample as the new live timeline
 
     while preserving parent/source branch provenance.
   Inspection camera: Temporary replay-focused camera state for selected samples.
-  Control surface: Disposable front-to-back scrubber table that resolves one
-    pointer target from the same named layout rectangles used for drawing.
-  Transport command: Presentation-independent request for record, timeline,
-    prediction, restore, or cold artifact work.
 
 Invariants:
   - Restoring a sample must set the scrubber status message and consume restore
@@ -34,6 +29,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayScrubber.h"
 #include "ReplayRuntime.h"

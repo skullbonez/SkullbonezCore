@@ -11,13 +11,7 @@ Summary:
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
-  Swept overlay: One-step grid coverage of a body's start-to-end path that
-    cannot pollute its persistent current-position membership.
   Sleep-pruned pair: Pair of dormant bodies with no awake energy to create work.
-  Pair-source cell: Retained cell reached by an awake body during this step and
-    therefore eligible to produce awake-to-awake or awake-to-sleep work.
-  Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order that
-    does not depend on cell-bucket discovery history.
 
 Invariants:
   - P1 changes only pair work order after proving same-state raw and final work
@@ -34,6 +28,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h
   - SkullbonezSource/Physics/SolverBroadphaseStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsBroadphaseStage.h"
 

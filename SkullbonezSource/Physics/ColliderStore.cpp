@@ -13,15 +13,6 @@ Summary:
   and topology repair only rebases body identity and handle maps against
   PhysicsBodyStore.
 
-Glossary:
-  Collider: Shape metadata used to decide what precise collision test applies.
-  Authoring row: Cold scene round-trip text paired with one hot collider row.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Narrowphase: Precise collision pass that builds contacts for candidate pairs.
-  Hull identity: Cold normalized authored path plus exact canonical scale bits.
-  Scene object id: Stable per-scene id used when replay and diagnostics name a
-    physics body across frames.
-
 Invariants:
   - Dense collider rows stay in scene/model order for current solver traversal,
     but public collider handles are allocator-owned slots.
@@ -37,6 +28,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ColliderStore.h"
 

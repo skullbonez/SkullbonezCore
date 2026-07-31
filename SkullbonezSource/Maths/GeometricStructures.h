@@ -5,13 +5,7 @@ Purpose:
 
 Summary:
   GeometricStructures.h defines small geometry structs used by math,
-  collision, and rendering code. As a public header, keep edits anchored on
-  units, basis conventions, and numerical assumptions and on the
-  glossary/invariants below.
-
-Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
+  collision, and rendering code.
 
 Invariants:
   - Small geometry structs are plain data contracts shared by math, physics,
@@ -21,6 +15,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

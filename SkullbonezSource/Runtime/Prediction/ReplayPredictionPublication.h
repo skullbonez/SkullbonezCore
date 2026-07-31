@@ -8,11 +8,6 @@ Summary:
   prefix. The frame thread latches one prepared prefix so every presentation
   consumer sees the same rows until the next preparation pass.
 
-Glossary:
-  Published prefix: Contiguous build-frame slots safe for readers.
-  Prepared prefix: Published rows whose topology and trajectories were brought
-    into coherence by the frame thread for one render pass.
-
 Invariants:
   - A slot is published only after its frame and trajectory writes complete.
   - Worker publication cannot expand the prepared prefix during rendering.
@@ -20,6 +15,7 @@ Invariants:
 
 Related:
   - ReplayPrediction.h embeds this owner in the active build state.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

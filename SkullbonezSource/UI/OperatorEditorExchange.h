@@ -10,7 +10,6 @@ Summary:
   before projecting one canonical packet into established owner command paths.
 
 Glossary:
-  Surface: One operator presentation front end, currently Legacy or ImGui.
   Domain view: Read-only scene, property, rendering, diagnostics,
     replay, or tool values
     copied for one presentation frame.
@@ -36,6 +35,7 @@ Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
   - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E8-E15)
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

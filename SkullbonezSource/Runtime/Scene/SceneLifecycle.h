@@ -9,8 +9,6 @@ Summary:
   frame boundaries and apply each relevant phase at most once.
 
 Glossary:
-  Lifecycle generation: Monotonic identity for one accepted scene load attempt,
-    independent of scene index, entity count, or successful activation.
   Lifecycle phase: Ordered commit edge describing how far the load transaction
     progressed before it completed or failed.
   Consumer receipt: Review-time bit proving synchronous legacy consumers ran at
@@ -27,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-22/owner-fanout-reduction-of0-census.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

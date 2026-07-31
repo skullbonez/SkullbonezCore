@@ -11,21 +11,11 @@ Summary:
   that an earlier failed close, reset, or wait was harmless.
 
 Glossary:
-  Recording epoch: Interval in which one command list is known to be open or
-    closed according to the last successful state-changing operation.
-  GPU drain: Ordered close, submit, fence wait, and command-list reopen that
-    must finish before a runtime owner destroys resources.
   Submitted work: Command stream passed to ExecuteCommandLists whose completion
     must be proven by a later fence before allocator or resource reuse.
-  Sticky failure: First recoverable error retained until a new device
-    initialization establishes a fresh command-list lifetime.
   Mapped pointer: CPU address returned by a successful resource Map operation.
   Recreation transaction: Staged replacement of swap-chain resources whose
     public generation advances only after every candidate exists.
-  Fault injection: Debug-only synthetic failure used to prove that queue work
-    stops before the first unsafe submission.
-  Platform profiler GPU stack: Allocation-free nesting state mirrored by PIX
-    ranges while a command list is open.
 
 Invariants:
   - Failed Close or Reset operations never change the logical epoch.
@@ -46,6 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
   - Agentic/Reports/dx12_failure_inventory_20260710.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

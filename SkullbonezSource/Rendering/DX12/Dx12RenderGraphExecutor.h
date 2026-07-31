@@ -9,8 +9,6 @@ Summary:
   mode, ResourceBarrier calls.
 
 Glossary:
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
   Resource barrier: DX12 synchronization command that transitions or orders GPU
   resource use.
 
@@ -24,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp
   - SkullbonezSource/Rendering/RenderGraph.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -11,11 +11,6 @@ Summary:
   dispatch surface.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
   Shape reference: Typed borrowed pointer; store-backed references also carry a
   per-kind storage index so their owner can rebind them after relocation.
 
@@ -35,6 +30,7 @@ Invariants:
 Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

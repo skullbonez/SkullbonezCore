@@ -8,13 +8,6 @@ Summary:
   transition/policy records; composition code performs subsystem-specific
   cleanup from those records.
 
-Glossary:
-  Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
-  Owner: The tool or subsystem currently allowed to consume world input.
-  Gesture: Active pointer operation that owns capture until it ends.
-  Cross-scene pause lock: Explicit policy fact that outranks normal live/tool
-    physics advance until the sampled step input is held.
-
 Invariants:
   - The controller does not clear hover, replay, editor, or physics state
     directly; it returns transition records for Run to apply.
@@ -24,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeInteractionController.h"
 #include "RuntimeInteractionCommands.h"

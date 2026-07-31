@@ -8,15 +8,6 @@ Summary:
   object/object and object/terrain rows. The values carry no owner authority,
   callback, or retained borrow across a solve.
 
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Step policy: Normalized limits and force values borrowed by every contact
-    row in one solver invocation.
-
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
@@ -30,6 +21,7 @@ Related:
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

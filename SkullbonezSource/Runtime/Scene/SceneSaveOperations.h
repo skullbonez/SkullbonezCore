@@ -11,8 +11,6 @@ Summary:
   session, and presentation publications immediately before serialization.
 
 Glossary:
-  Save publication: Detached owner-produced value containing that owner's
-    persisted fields; the world publication borrows stable stores synchronously.
   Load-only save: Command-line scene-load probe that optionally writes the
     fully loaded scene without entering the frame loop.
   Editable replacement: Save of a live editable scene to its active authored
@@ -29,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.cpp
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

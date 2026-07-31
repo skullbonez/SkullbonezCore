@@ -9,33 +9,6 @@ Summary:
   Frame epoch, deferred retirement, descriptor heaps, capture, and graph
   transient state live in dedicated concrete owners.
 
-Glossary:
-  Recording epoch: Logical open/closed state of the reusable command list,
-  committed only after successful Close or Reset.
-  Sticky failure: First active command-path failure retained until a new device
-  initialization establishes a fresh command-list lifetime.
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  CBV (Constant Buffer View): Descriptor row used when shaders read a packed
-  block of constants.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  COM (Component Object Model): Windows interface lifetime model used by DX12
-  through reference-counted objects.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Platform profiler GPU stack: Fixed nesting state that must be closed before
-  any command list is submitted.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -49,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12DeferredReleaseOwner.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 
 // --- DX12 Architecture ---

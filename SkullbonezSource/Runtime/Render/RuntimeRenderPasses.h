@@ -12,14 +12,8 @@ Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
   Camera-lighting sample: Per-frame camera matrices, axes, and directional
     light values shared by concrete world passes.
-  Lane R result: Recoverable resource setup failure reported through an
-    owner/message result at startup instead of throwing through the render owner.
-  Resource context: Creation/rebuild-only render factory bundle used by
-  EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
   vertex buffers used by a pass.
-  DXR (DirectX Raytracing): Optional render capability used for hardware ray
-  traversal and reflection dispatch when the active backend supports it.
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
@@ -32,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

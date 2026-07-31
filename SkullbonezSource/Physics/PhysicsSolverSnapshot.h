@@ -10,8 +10,6 @@ Summary:
   Runtime replay may retain and serialize it without defining solver state.
 
 Glossary:
-  Solver snapshot: Physics state retained at a tick boundary for deterministic
-    restore and diagnostic comparison.
   Contact cache: Persistent contact rows and accumulated impulses reused by the
     solver for stability.
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
@@ -27,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

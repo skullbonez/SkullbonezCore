@@ -9,8 +9,6 @@ Summary:
   owners and derives its camera subowner locally so the two cannot disagree.
 
 Glossary:
-  Director playback: Runtime camera mode that applies authored shot-list poses
-    plus optional phase styles and prediction reveal pacing.
   Shot-list phase: One authored camera/style/advance record from `.shot.json`.
   Reveal pacing: Presentation-only replay overlay speed authored per phase.
   Camera owner: The scene-owned CameraCollection mutated by Director playback.
@@ -28,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.cpp
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

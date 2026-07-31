@@ -9,11 +9,6 @@ Summary:
   borrow those values plus a detached viewport for the current late pass, but
   cannot reach Replay mutation or prediction scheduling through them.
 
-Glossary:
-  Overlay state view: Read-only Replay publication for one UI composition turn.
-  Overlay viewport: Coupled pixel width and height used by overlay layout; the
-    render-command target remains an explicit synchronous borrow.
-
 Invariants:
   - References and sample pointers remain valid for one synchronous late pass.
   - Packets contain no mutable Replay owner and must never be retained.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - ReplayOverlayRenderer.h owns the draw operations that consume these packets.
   - ReplayRuntime.h publishes ReplayOverlayStateView.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

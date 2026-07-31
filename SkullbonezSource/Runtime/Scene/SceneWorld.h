@@ -23,7 +23,6 @@ Glossary:
     identity.
   Presentation capture: Previous/current physics poses retained by the render
     store across one fixed step for interpolation.
-  Post-step output: Bounded physics facts borrowed synchronously by presentation.
 
 Invariants:
   - All six owned domains are born, cleared, and replaced as one scene lifetime.
@@ -37,6 +36,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneWorld.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - Agentic/Reports/2026-07-18/scene-controller-round-2-census.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

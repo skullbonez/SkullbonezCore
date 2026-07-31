@@ -8,7 +8,6 @@ Summary:
   state, so no renderer, scene, or physics owner is exposed to presentation.
 
 Glossary:
-  View model: Read-only presentation snapshot assembled from runtime owners.
   Scalar state: Small copyable values such as counts, flags, and indices.
 
 Invariants:
@@ -17,6 +16,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/UI/RuntimeViewModel.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeViewModel.h"
 

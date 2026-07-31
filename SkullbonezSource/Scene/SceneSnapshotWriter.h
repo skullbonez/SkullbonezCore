@@ -9,9 +9,6 @@ Summary:
   writer resolves every row by stable identity before emitting JSON.
 
 Glossary:
-  Snapshot: Saved live body/collider/material state, not the original spawn command.
-  Save publication: Owner-produced value containing only that owner's persisted
-    fields. SceneWorld's publication borrows its stable stores synchronously.
   Asset part state: Full live body/collider state nested under its durable asset affiliation.
 
 Invariants:
@@ -27,6 +24,7 @@ Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

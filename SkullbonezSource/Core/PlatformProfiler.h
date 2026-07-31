@@ -5,9 +5,7 @@ Purpose:
 
 Summary:
   PlatformProfiler.h bridges engine profiler markers to platform tools such as
-  PIX when available. As a public header, keep edits anchored on process-wide
-  contracts, diagnostics, and validation-sensitive state and on the
-  glossary/invariants below.
+  PIX when available.
 
 Glossary:
   Marker domain: Stable engine category used to group profiler ranges without

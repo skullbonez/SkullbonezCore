@@ -5,16 +5,11 @@ Purpose:
 
 Summary:
   BroadphaseVisualizer.cpp draws the physics broadphase grid as an explanatory
-  debug overlay. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  debug overlay.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
   Debug line command: Frame-scoped renderer command that draws colored line
   vertices for overlays after the owner has checked renderer capability.
-  Heat: Per-cell collision count used only to darken the debug color.
 
 Invariants:
   - This overlay reads broadphase/debug cell data only; it must not feed state
@@ -25,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 
 // =============================================================================

@@ -9,11 +9,6 @@ Summary:
   records their hashes; startup and explicit reload accept bytecode only while
   both hashes match.
 
-Glossary:
-  Freshness manifest: Checked-in JSON map from compiler inputs to baked bytes.
-  Hot reload: Explicit developer action that reruns the offline bake, then asks
-    live shader owners to adopt hash-verified bytes transactionally.
-
 Invariants:
   - Shipping startup never invokes a shader compiler.
   - A stale source or bytecode hash is a recoverable startup failure.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - tools/bake_shaders.py
   - ShaderDX12.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

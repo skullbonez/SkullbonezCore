@@ -10,20 +10,12 @@ Summary:
   changing pass order.
 
 Glossary:
-  Render instance: CPU-side record describing one model's draw transform and
-    material intent.
   Presentation record: Cold render-facing material, label, and highlight values
     copied from the model owner before physics/store projection.
-  Material intent: Renderer-neutral description of surface style and texture
-    selection.
-  Contact highlight: Render-only feedback alpha for red fixed-body hits.
   Bounds radius: Conservative sphere radius used by shadow fitting and other
     render culling without borrowing the physics/model body stream.
   Shape kind: Cheap render-facing discriminator copied from collider metadata.
-  Shadow caster stream: Opaque prepared bin selecting the sphere, box, pine, or
-    convex-hull submission stream without interpreting content in the renderer.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
-  Scene object id: Stable per-scene id shared with other subsystem records.
   Pose history: Previous/current completed solver endpoints stored in the
     existing fixed-capacity instance row for allocation-free presentation.
 
@@ -39,6 +31,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

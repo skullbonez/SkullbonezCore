@@ -14,8 +14,6 @@ Glossary:
     slot is allowed to fire.
   Eject cooldown: Per-body delay after an ejection impulse before another eject
     impulse can fire.
-  Force frame: Ordered cylindrical field values plus per-body timer spans
-    borrowed by Physics for exactly one fixed tick.
   Visual registration: One frame-scoped callback that appends the production
     art pass without exposing gameplay ownership to RuntimeRenderer.
 
@@ -32,6 +30,7 @@ Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.cpp
   - SkullbonezSource/Physics/Stages/ExternalForceStage.h
   - SkullbonezSource/Gameplay/TornadoVisualPass.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

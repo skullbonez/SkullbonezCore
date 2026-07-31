@@ -14,8 +14,6 @@ Glossary:
   Narrowphase island: Connected group of candidate pairs that may mutate the
     same bodies and therefore must execute on one worker.
   Pair-order commit: Sequencer replay of events by original candidate index.
-  Step policy: Scalar thresholds and execution switches normalized once by the
-    sequencer; it contains no store, owner, or retained authority.
 
 Invariants:
   - Serial processing commits each event immediately before the next pair.
@@ -31,6 +29,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

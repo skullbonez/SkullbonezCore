@@ -9,7 +9,6 @@ Summary:
   Reserved storage prevents steady-runtime growth.
 
 Glossary:
-  Lane R: Recoverable result for invalid authored input or capacity exhaustion.
   Stable identity: Nonzero PhysicsSceneObjectId that survives dense-row movement.
 
 Invariants:
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
   - SkullbonezSource/Runtime/Scene/SceneController.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneEntityStore.h"
 #include "../../Core/SbDiagnosticStore.h"

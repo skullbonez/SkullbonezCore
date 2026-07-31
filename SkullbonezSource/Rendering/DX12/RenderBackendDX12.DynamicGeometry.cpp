@@ -10,17 +10,6 @@ Summary:
   later draws carry only operation values. Geometry records draw evidence
   without retaining the aggregate backend or raw diagnostic fields.
 
-Glossary:
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -37,6 +26,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "ShaderDX12.h"

@@ -11,7 +11,6 @@ Summary:
   exit messages arrive later.
 
 Glossary:
-  Lane R: Recoverable result lane for an external-input or environment failure.
   Owned failure: Lane R failure already attributed to the subsystem that
     detected it, including a lease on its immutable owner and diagnostic
     message.
@@ -33,6 +32,7 @@ Related:
   - SkullbonezSource/Core/SbResult.h defines the Lane R result carrier.
   - SkullbonezSource/Runtime/App/RunFrame.cpp owns the platform message-loop call site.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md tracks application command ownership.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -5,24 +5,9 @@ Purpose:
 
 Summary:
   ObjectContactManifold.h builds precise object/object contact manifolds for
-  the persistent solver. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  the persistent solver.
 
 Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact body view: Pose-only body input used by narrowphase so the manifold
-  builder does not need to borrow unrelated owner storage.
-  Contact sweep: Conservative object/object time-of-impact query used before
-  exact manifold generation and solver response.
-  Feature ID: Deterministic contact key used to match rows across frames for
-  warm starting.
   Baumgarte bias: Positional correction term that turns penetration depth into
   a solver velocity target.
 
@@ -34,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

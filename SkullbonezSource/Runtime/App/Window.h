@@ -4,18 +4,11 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Summary:
-  Window.h creates and owns the Win32 window and message pump integration. As
-  a public header, keep edits anchored on local owner boundaries and call
-  direction and on the glossary/invariants below.
+  Window.h creates and owns the Win32 window and message pump integration.
 
 Glossary:
-  HWND (Window Handle): Win32 identifier for the native application window.
-  HDC (Handle to Device Context): Win32 drawing context associated with the
-  window.
   Resize frame owner: Borrowed concrete owner used only to resize swap-chain and
     depth resources when Win32 reports a new client size.
-  Lane R result: Recoverable renderer/window failure returned with an
-    owner/message instead of throwing through WndProc.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
 
@@ -31,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/App/Window.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

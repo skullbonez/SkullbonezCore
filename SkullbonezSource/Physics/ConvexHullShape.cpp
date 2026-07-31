@@ -8,8 +8,6 @@ Summary:
   topology and mass properties from disk; authoring-time tools own derivation.
 
 Glossary:
-  Convex hull: Collision shape whose vertices form one outward-facing closed
-  solid with no inward dents.
   Deterministic topology: Vertex, face, and edge ordering that stays stable so
   physics validation can compare byte-exact output.
   Support mapping: Query that returns the hull point farthest along a direction,
@@ -24,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/ConvexHullShape.h
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ConvexHullShape.h"
 

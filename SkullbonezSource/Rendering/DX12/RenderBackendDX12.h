@@ -18,38 +18,6 @@ Summary:
   Dx12FrameOwner.h. Dx12PipelineOwner consumes each draw's declared raster
   value directly while retaining only command bindings and output state.
 
-Glossary:
-  Recording epoch: Logical open/closed state of the reusable command list,
-  advanced only by successful Close or Reset operations.
-  Sticky failure: First active command-path error retained until device
-  initialization resets the epoch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  SBT (Shader Binding Table): Raytracing table that maps ray records to
-  ray-generation, miss, and hit shaders.
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  CBV (Constant Buffer View): Descriptor row used when shaders read a packed
-  block of constants.
-  Descriptor heap: DX12 table of descriptor rows; shader-visible heaps can be
-  indexed by GPU commands.
-  Fence: GPU/CPU synchronization counter used to prove submitted command work
-  has completed before memory is reused.
-  Root signature: DX12 binding contract that declares which descriptor tables
-  and constants shaders may access.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Platform profiler GPU stack: Fixed marker-name and nesting rows suspended
-  before command-list submission and restored on the replacement list.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -64,6 +32,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -11,8 +11,6 @@ Summary:
   without depending on Assets.
 
 Glossary:
-  FNV-1a: Deterministic non-cryptographic hash that mixes each input byte into a
-    32-bit value using a fixed offset and prime.
   Marker identity: Stable hash paired with a full profiler path for bounded
     lookup and collision validation.
 
@@ -25,6 +23,7 @@ Related:
   - SkullbonezSource/Assets/AssetKeys.h defines asset-specific hashed names.
   - SkullbonezSource/Core/Profiler.h consumes marker hashes.
   - SkullbonezSource/Core/WorkerPool.h hashes its fallback marker path.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

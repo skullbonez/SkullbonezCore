@@ -9,7 +9,6 @@ Summary:
   commands remain outside this catalog.
 
 Glossary:
-  Authoring row: One scalar render setting presented by either operator UI.
   Section: Canonical right-rail grouping used to merge former Render, Sky, and
     Cine concepts without changing their established command enums.
 
@@ -21,6 +20,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/UI/UIFrameComposition.h
   - SkullbonezSource/UI/UITabCinematic.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

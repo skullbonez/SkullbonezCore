@@ -9,10 +9,6 @@ Summary:
   UITabProfilerHistogram.cpp behind the same bounded UIProfilerTabState.
 
 Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-    widget.
   Tool connection badge: Bounded profiler-row text derived from the copied
     Tracy build/lifetime/viewer flags rather than a live tool query.
 
@@ -29,6 +25,7 @@ Related:
   - SkullbonezSource/UI/UITabProfiler.h
   - SkullbonezSource/UI/UITabProfilerHistogram.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabProfiler.h"
 #include "../Assets/AssetKeys.h"

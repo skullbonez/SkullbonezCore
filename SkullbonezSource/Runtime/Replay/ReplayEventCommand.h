@@ -9,7 +9,6 @@ Summary:
   recorder storage, branch authority, or callbacks to the emitting owner.
 
 Glossary:
-  Owner event: Stable wire-coded record of accepted owner work.
   Command batch: Fixed post-action output drained before the input turn ends.
 
 Invariants:
@@ -20,6 +19,7 @@ Invariants:
 Related:
   - ReplayRecorder.h
   - ReplayTimeline.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

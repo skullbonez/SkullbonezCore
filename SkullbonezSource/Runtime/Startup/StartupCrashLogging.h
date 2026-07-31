@@ -8,8 +8,6 @@ Summary:
   subsystem construction so fatal process diagnostics survive partial startup.
 
 Glossary:
-  SEH (Structured Exception Handling): Windows process exception mechanism used
-    to capture access violations and similar faults.
   Symbolized stack: Instruction addresses resolved to function and source names.
 
 Invariants:
@@ -19,6 +17,7 @@ Invariants:
 Related:
   - StartupCrashLogging.cpp
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

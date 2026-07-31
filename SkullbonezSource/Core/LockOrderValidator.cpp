@@ -13,7 +13,6 @@ Glossary:
   locks B then A.
   DFS (Depth-First Search): Graph walk used here to detect whether lock-order
   edges contain a cycle.
-  Debug build: Configuration where validation asserts are active.
 
 Invariants:
   - Debug tracking records observed lock order only; Profile and Release builds
@@ -25,6 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/LockOrderValidator.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #include "LockOrderValidator.h"

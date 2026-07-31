@@ -13,7 +13,6 @@ Glossary:
   Logical binding: Mapping from a graph resource handle to one physical slot.
   Target transaction: Balanced Begin/End interval that temporarily replaces the
     pipeline owner's color target.
-  Pool slot: Physical texture reusable by compatible non-overlapping lifetimes.
 
 Invariants:
   - Pool state and the active target transaction live only in this owner.
@@ -27,6 +26,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp
   - SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h
   - SkullbonezSource/Rendering/RenderGraph.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

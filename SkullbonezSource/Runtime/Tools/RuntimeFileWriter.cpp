@@ -8,12 +8,6 @@ Summary:
   helpers create missing folders, keep numbered saves collision-free, and leave
   serialization to the caller.
 
-Glossary:
-  Artifact: File written by runtime tools, diagnostics, captures, or saves.
-  Parent directory: Folder portion of a requested output path.
-  Numbered path: Prefix plus sequence number chosen to avoid overwriting an
-    existing artifact.
-
 Invariants:
   - Helpers choose paths but do not serialize feature-specific data.
   - Directory creation treats an already-existing directory as success.
@@ -21,6 +15,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeFileWriter.h"
 

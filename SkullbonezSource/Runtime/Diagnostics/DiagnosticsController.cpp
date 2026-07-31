@@ -7,11 +7,6 @@ Summary:
   The controller stores mutable diagnostics state and delegates artifact writes
   to RuntimeDiagnostics so existing output stays byte-for-byte compatible.
 
-Glossary:
-  Perf log: CSV-style runtime performance artifact written during runs.
-  SkullScope: Queryable physics diagnostics trace workflow.
-  Diagnostics artifact: File produced for validation, profiling, or analysis.
-
 Invariants:
   - Formatting and close behavior stay in RuntimeDiagnostics.
   - Controller moves ownership only; artifact schema must not drift here.
@@ -19,6 +14,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsController.h"
 

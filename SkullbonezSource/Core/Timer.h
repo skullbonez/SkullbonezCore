@@ -4,15 +4,11 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Timer.h measures elapsed time for frame pacing and simulation updates. As a
-  public header, keep edits anchored on process-wide contracts, diagnostics,
-  and validation-sensitive state and on the glossary/invariants below.
+  Timer.h measures elapsed time for frame pacing and simulation updates.
 
 Glossary:
   High-resolution counter: Windows performance counter used for sub-frame time
   measurement.
-  Lane R result: Recoverable platform/environment startup failure reported
-    through an owner/message result instead of an exception.
 
 Invariants:
   - m_performanceFrequency is captured by Initialise() before any time sample.
@@ -23,6 +19,7 @@ Related:
   - SkullbonezSource/Core/Timer.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

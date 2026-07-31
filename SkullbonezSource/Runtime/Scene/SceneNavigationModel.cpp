@@ -10,8 +10,6 @@ Summary:
 
 Glossary:
   Browser scene: Authored scene path discovered for the Scene UI.
-  Cinematic deck: Queue or browser subset containing cinematic/concept scenes.
-  Load request: Value naming the chosen queue row and load-preservation flags.
 
 Invariants:
   - Browser paths are normalized before matching or appending to the scene queue.
@@ -25,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneLoadRequest.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneControllerState.h"
 #include "SceneSessionState.h"

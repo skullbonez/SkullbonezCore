@@ -13,13 +13,8 @@ Summary:
 Glossary:
   Handle: Index plus generation pair used as opaque identity for physics-owned
   storage.
-  Generation: Version counter that makes stale recycled handles detectable.
-  Dense row: Compact store array index used by hot simulation scans.
   Boundary count: Public count used to validate topology or view size; it is not
     object identity and must not pick an individual store row.
-  Model row hint: Cached dense-row guess paired with stable identity to avoid
-    scans when the row has not moved.
-  Scene object id: Stable scene/replay correlation id independent of storage.
 
 Invariants:
   - Index/generation handles are identity only; they do not expose storage.
@@ -31,6 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

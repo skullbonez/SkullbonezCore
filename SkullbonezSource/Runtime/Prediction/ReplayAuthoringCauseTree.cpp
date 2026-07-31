@@ -10,8 +10,6 @@ Summary:
   and live-store values without retaining a lower Replay owner.
 
 Glossary:
-  Cause tree: Contact, solver-row, and predicted-motion graph explaining replay
-    body influence.
   Focus row: Cause-tree row selected for replay inspection camera targeting.
 
 Invariants:
@@ -22,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayAuthoring.h"
 #include "../Replay/ReplayCoordination.h"

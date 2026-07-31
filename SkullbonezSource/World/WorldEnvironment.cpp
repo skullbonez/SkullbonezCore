@@ -5,24 +5,13 @@ Purpose:
 
 Summary:
   WorldEnvironment.cpp stores world forces, fluid parameters, and water
-  rendering resources. As an implementation unit, keep edits anchored on
-  world-state ownership, terrain/environment data, and physics/render handoff
-  and on the glossary/invariants below.
+  rendering resources.
 
 Glossary:
-  Buoyancy: Upward force from displaced water, applied through the center of
-  buoyancy instead of the model origin.
   Center of buoyancy: World-space average location of displaced water. Its
   offset from the model origin creates roll/pitch torque.
   Wet sample: Fixed point inside a box-like body used to add angular water
     damping without allocating per-frame data.
-  Fluid surface adjustment: Signed meters-per-second command applied over one
-    simulation interval without exposing input-device semantics.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -33,6 +22,7 @@ Related:
   - SkullbonezSource/World/WorldEnvironment.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "WorldEnvironment.h"
 #include "../Assets/AssetSystem.h"

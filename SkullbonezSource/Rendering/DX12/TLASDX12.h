@@ -5,18 +5,7 @@ Purpose:
 
 Summary:
   TLASDX12.h builds and owns the DX12 raytracing top-level scene acceleration
-  structure. As a public header, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
-
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  structure.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -28,6 +17,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/TLASDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -8,15 +8,6 @@ Summary:
 
   while readers consume a never-stored presentation view.
 
-Glossary:
-  Published prefix: Contiguous prediction rows safe for readers.
-  Prepared prefix: Published rows whose dependent presentation caches were
-    rebuilt together for the current rendered frame.
-  All-body trajectory: Mutual-gravity path record retained for every body,
-    independent of the contact-derived future tree.
-  Velocity drag preview: First-order selected-path estimate retained until the
-    release-triggered authoritative generation commits.
-
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
   - Presentation consumers cannot observe rows beyond the prepared prefix.
@@ -26,6 +17,7 @@ Invariants:
 Related:
   - ReplayRuntime.h
   - ReplayRecorder.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

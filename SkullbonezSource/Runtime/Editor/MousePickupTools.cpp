@@ -11,7 +11,6 @@ Summary:
 Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
   Grab offset: World-space offset from body center to the point initially picked by the ray.
-  Physics body handle: Generational id for the picked body-store row.
   Gesture body: Stable handle captured in the begin command and retained by the
     controller for the drag lifetime.
 
@@ -26,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Tools/RuntimeTools.h"
 #include "../Input/InputRouter.h"

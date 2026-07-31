@@ -9,7 +9,6 @@ Summary:
   contact traversal, and transition expressions remain unchanged.
 
 Glossary:
-  Wake fan-out: Expansion through visual, point-joint, and resting-contact islands.
   Credible support: Terrain, fixed, or previously proven sleeping island anchor.
   Quiet-frame counter: Consecutive eligible ticks required before deactivation.
   Awake list position: Reverse map from dense body row to its slot in the
@@ -27,6 +26,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/SleepIslandSystem.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsSleepController.h"
 

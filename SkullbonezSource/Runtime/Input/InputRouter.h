@@ -13,12 +13,8 @@ Summary:
   without storing the participating editor, pickup, camera, Replay, or launcher.
 
 Glossary:
-  UI (user interface): Interactive engine controls evaluated between the input
-    router's pre-UI and after-UI phases.
-  Win32: Windows desktop API whose virtual-key values occupy the range 0..255.
   Device snapshot: Immutable-by-contract value containing one frame's keys,
     pointer buttons, coordinates, wheel delta, and raw mouse delta.
-  Semantic action: RuntimeInputAction produced from a physical key binding.
   Route phase: Pre-UI, after-UI, or capture stage that owns a binding row.
   Context predicate: All-of bit mask that must be active before an action edge
     may be delivered.
@@ -28,8 +24,6 @@ Glossary:
     a new workspace or world-input owner begins consuming gestures.
   Lifecycle activation: Completed scene-load phase that can publish a new
     cursor intent and request hardware mouse-delta cleanup.
-  Pointer arbitration: Ordered phase cursor that gives the first consuming
-    world-pointer stage exclusive ownership.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -57,6 +51,7 @@ Related:
   - InputController.h defines the existing action and context vocabulary.
   - InputController.Bindings.h publishes the current immutable binding table.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

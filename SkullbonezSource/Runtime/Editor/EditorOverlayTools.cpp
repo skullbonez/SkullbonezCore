@@ -10,8 +10,6 @@ Summary:
 Glossary:
   Preview: Non-authoritative placement or selection feedback before a click.
   Overlay trace: Frame-local line/shape instructions consumed by EditorTracer.
-  Body store: Physics-owned live pose rows used for selection and tool markers.
-  Collider store: Physics-owned shape rows used for shape-accurate outlines.
 
 Invariants:
   - Overlay building must not mutate scene objects.
@@ -20,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"

@@ -5,14 +5,7 @@ Purpose:
 
 Summary:
   RuntimePickService.h defines explicit runtime picking requests for editor,
-  tool, and replay input. As a public header, keep edits anchored on local
-  owner boundaries and call direction and on the glossary/invariants below.
-
-Glossary:
-  Pick purpose: The tool-specific policy for interpreting a mouse ray.
-  Physics body handle: Generational id for a live row in `PhysicsBodyStore`.
-  Model row hint: Dense model-order cache used by synchronous UI work; it is
-    never authority for a physics command.
+  tool, and replay input.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does
@@ -25,6 +18,7 @@ Invariants:
 Related:
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

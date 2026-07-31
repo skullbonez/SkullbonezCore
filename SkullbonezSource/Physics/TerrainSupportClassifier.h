@@ -8,13 +8,6 @@ Summary:
   and sleep policy. The classifier consumes the detached Physics terrain view;
   it never reaches a World terrain owner.
 
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
@@ -23,6 +16,7 @@ Invariants:
 Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 #include "CollisionShape.h"

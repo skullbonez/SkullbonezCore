@@ -1,7 +1,7 @@
 # Engine Glossary Consolidation
 
 Date: 2026-07-31
-Status: IN PROGRESS — 2/4 phases complete
+Status: IN PROGRESS — 3/4 phases complete
 Impact area: Comment standard, shared engine vocabulary, per-file learning headers
 Owner: Documentation standard
 Priority: Medium
@@ -30,11 +30,14 @@ It is a dictionary entry stored in the wrong place, and it has the maintenance
 property that changing one definition is a 46-file edit — which means in
 practice it will never be changed and the copies will drift apart silently.
 
-Separately, 77 files carry the template sentence
-`"As a public header, keep edits anchored on ..."` and 73 carry a `Summary:`
-that restates the filename. `SkullbonezSource/UI/UIState.h:6` is the clearest
-example: *"UIState.h implements UI State widgets, layout, drawing, or UI state
-for the in-engine controls."* That is a tautology occupying a required field.
+The initial same-line scan found 77 files carrying the template sentence
+`"As a public header, keep edits anchored on ..."` and 73 `Summary:` candidates
+that appeared to restate their filename. GC2's complete whitespace-normalized
+scan corrected those provisional measurements to 107 filler instances and 117
+post-consolidation basename-led summary candidates. `SkullbonezSource/UI/UIState.h:6`
+is the clearest original example: *"UIState.h implements UI State widgets,
+layout, drawing, or UI state for the in-engine controls."* That is a tautology
+occupying a required field.
 
 `AGENTS.md` already predicts this failure — *"Do not treat 'file has a learning
 header' as full compliance"* — and the measurement shows it happened anyway.
@@ -127,25 +130,37 @@ not decide them.
   split. Direct self-test/strict scans, the complete 457-case / 2,424,712-
   assertion fast gate, a 2/2 tool comment audit, and independent re-review pass.
 
-- [ ] **GC2 — Execute the per-file consolidation pass.** Working the GC0
+- [x] **GC2 — Execute the per-file consolidation pass.** Working the GC0
   checklist, remove shared-term definitions from per-file glossaries and add the
   `Agentic/Reference/engine-glossary.md` citation to `Related:`. Leave genuinely
-  local vocabulary in place. Also delete the 77 instances of the template
+  local vocabulary in place. Also delete the provisional 77 instances of the template
   sentence `"As a public header, keep edits anchored on ..."` and its
   implementation-unit variant, which carry no information in any file. Tick a
   checklist item only after the file has been inspected against the updated
   guide; leave intentionally deferred files unchecked with a stated reason and
   never silently skip one. Evidence:
   `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc2-pass.md`.
+  Completed across all 575 tracked files: all 1,208 sites for the 321 shared
+  terms are removed, all 964 local term/file pairs remain exact, and all 447
+  affected files cite the canonical glossary. The complete scan removes 107
+  filler instances, correcting the provisional 77. The strict inventory now
+  reports 964 unique local definitions with zero multi-file terms, drift,
+  rulings, or diagnostics. Every non-comment source suffix is byte-identical.
+  The checklist is reconciled at 458 checked and 117 explicitly deferred for
+  GC3. Automation refresh, the complete 457-case / 2,424,712-assertion fast
+  gate, direct inventory proofs, comment audit, and independent review pass.
 
-- [ ] **GC3 — Repair tautological summaries and reconcile.** For each of the 73
-  files whose `Summary:` restates the filename, write a summary that states what
-  the file owns or decides. Where a file genuinely has nothing to say beyond its
-  name, that is itself a finding about the file, not a licence to keep the
-  tautology — record it. Rerun the scoped `git ls-files` inventory, reconcile it
-  against the checklist, and report the checklist path, checked count, deferred
-  count, and any file still unchecked. Rerun `tools/inventory_glossary_terms.py`
-  and confirm no unruled multi-file term remains. Evidence:
+- [ ] **GC3 — Repair tautological summaries and reconcile.** Adjudicate the
+  complete post-GC2 set of 117 basename-led summary candidates, which supersedes
+  the provisional 73-file scan. Rewrite every actual filename restatement to
+  state what the file owns or decides, and explicitly record why any retained
+  basename-led summary still conveys real ownership, decision, or flow
+  information. Where a file genuinely has nothing to say beyond its name, that
+  is itself a finding about the file, not a licence to keep the tautology —
+  record it. Rerun the scoped `git ls-files` inventory, reconcile all 575 rows
+  to checked with zero deferred, and report the checklist path and final counts.
+  Rerun `tools/inventory_glossary_terms.py` and confirm no unruled multi-file
+  term remains. Evidence:
   `Agentic/Reports/2026-07-31/engine-glossary-consolidation-closure.md`.
 
 ## Acceptance
@@ -162,4 +177,5 @@ Documentation-only for the Markdown and comment work; the diff must be proven to
 contain no non-comment source token change. `tools/inventory_glossary_terms.py`
 is new tooling, so GC1 and GC3 each run `tools\validate_fast.bat` and then the
 script's own self-test and repository scan directly, per the `AGENTS.md`
-`tools/*` mapping.
+`tools/*` mapping. GC2 also runs those gates because it clears the temporary
+glossary migration rulings and reconciles line-shifted ownership-ruling sites.

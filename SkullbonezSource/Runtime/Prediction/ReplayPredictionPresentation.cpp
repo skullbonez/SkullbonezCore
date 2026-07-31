@@ -8,10 +8,6 @@ Summary:
   Prediction. Pose, ghost, focus-mask, trajectory, and packet state therefore
   remain physically and logically owned by ReplayPredictionPresentation.
 
-Glossary:
-  Focus mask: Dense frame-local rows faded around the selected path family.
-  Ghost request: Bounded draw command for one predicted body pose.
-
 Invariants:
   - Stable scene identity resolves every dense model-row hint before use.
   - Prediction frame pose application marks matched rows before hiding unmatched bodies.
@@ -21,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionPresentation.h"
 

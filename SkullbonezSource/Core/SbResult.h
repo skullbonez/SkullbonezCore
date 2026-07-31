@@ -9,7 +9,6 @@ Summary:
   same lease, moves transfer it, and the last release reclaims the fixed slot.
 
 Glossary:
-  Lane R: Recoverable result error handling lane for input/environment failure.
   Diagnostic token: Packed eight-bit slot and 56-bit generation identity.
   Lease: One live SbResult reference that prevents a diagnostic slot from reuse.
 
@@ -30,6 +29,7 @@ Related:
   - SkullbonezSource/Core/SbDiagnosticStore.h
   - SkullbonezSource/Core/FatalError.h
   - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

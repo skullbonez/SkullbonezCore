@@ -8,7 +8,6 @@ Summary:
   physics mutation so UI widgets never touch scene objects directly.
 
 Glossary:
-  Editor command: Intent emitted by a widget and applied later by runtime code.
   Widget state: Per-control hover, press, selection, and text state retained
   across frames.
 
@@ -19,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabEditor.cpp
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -5,15 +5,9 @@ Purpose:
 
 Summary:
   Shadow.h defines shadow-map frame data shared by renderers and scene
-  objects. As a public header, keep edits anchored on render submission and
-  resource lifetime and on the glossary/invariants below.
+  objects.
 
 Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Convex hull: Immutable authored collision geometry that can also provide a
-    precise shadow-caster silhouette.
   Caster value: Prepared model transform plus conservative world-space radius
     used to make a per-shadow-map visibility decision without owner lookups.
   Percentage-closer filtering (PCF): Averages several depth comparisons to
@@ -30,6 +24,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

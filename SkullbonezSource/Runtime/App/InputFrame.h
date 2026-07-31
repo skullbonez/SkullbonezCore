@@ -11,14 +11,10 @@ Summary:
   commands are applied.
 
 Glossary:
-  Input turn: Ordered frame interval that samples hardware, offers actions to
-    UI/tools/replay, and commits accepted capture/default/scene requests.
   Composition boundary: Stateless sequencing code that connects domain owners
     without taking ownership of their state or decisions.
   Editor arbitration: Deterministic merge that keeps the canonical legacy lane
     first, coalesces exact duplicate injected intent, and rejects conflicts.
-  Input turn result: Value-only process request emitted after semantic actions
-    are interpreted; Run applies process-wide policy without rescanning input.
 
 Invariants:
   - No borrowed owner is retained after the input coordinator returns.
@@ -32,6 +28,7 @@ Related:
   - Run.h defines the direct coordinator/concrete delegation convention.
   - RunFrame.cpp owns top-level frame order.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

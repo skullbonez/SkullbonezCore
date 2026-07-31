@@ -9,10 +9,6 @@ Summary:
   velocity response, warm starting, and sleep decisions.
 
 Glossary:
-  CCD (Continuous Collision Detection): Swept collision test that asks whether a
-    body hits during a tick, not only where it ends the tick.
-  OBB (Oriented Bounding Box): Box with rotation, used for exact terrain vertex
-    tests.
   Contact patch: The set of terrain-touching features that become solver rows.
 
 Invariants:
@@ -24,6 +20,7 @@ Related:
   - SkullbonezSource/Physics/TerrainContactManifold.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "TerrainContactManifold.h"
 

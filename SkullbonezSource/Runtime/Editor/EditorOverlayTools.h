@@ -10,16 +10,10 @@ Summary:
   from explicit borrowed state.
 
 Glossary:
-  Asset system: Runtime-owned registry borrowed by placement preview when a
-    placeable recipe lives in an asset library.
   Preview state: Editor-owned placement or gizmo data refreshed from current
     input before the render overlay is built.
   Tool overlay trace: Deterministic line/ghost geometry appended for editor,
     inspect, raycast, and mouse-pickup feedback.
-  UI (User Interface): Runtime panels that can claim mouse input before editor
-    tools see it.
-  Body store: Physics-owned body rows used for tool overlay pose authority.
-  Collider store: Physics-owned shape records used for shape-accurate overlays.
 
 Invariants:
   - Helpers take explicit frame-local borrows; they do not cache pointers or
@@ -31,6 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/App/Run.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

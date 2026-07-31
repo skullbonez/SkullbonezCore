@@ -12,8 +12,6 @@ Summary:
 Glossary:
   Paired capture: One solver sample and its presentation projection sharing a
   frame index and presentation hash.
-  Event cursor: Sequence boundary linking a solver checkpoint to recorded
-  commands that occurred before it.
 
 Invariants:
   - Solver and presentation capture advance as one transaction when solver
@@ -25,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayTimeline.h
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
   - SkullbonezSource/Runtime/App/ReplayRuntime.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayTimeline.h"
 

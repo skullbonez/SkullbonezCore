@@ -9,14 +9,9 @@ Summary:
   adds only bounded CPU memory use. ArtifactIO owns materialization and files.
 
 Glossary:
-  Presentation sample: Render-facing pose/state captured from a frame.
-  Solver sample: Physics-facing state retained for rollback and diagnostics.
   State hash: Deterministic per-sample digest later serialized by ArtifactIO.
-  Retention window: Maximum in-memory duration retained by the ring buffers.
   Replay reserve owner: Runtime allocation-policy owner that permits replay-only
     vector growth when captured samples outgrow their current payload capacity.
-  UI (User Interface): Runtime controls and overlays; recorders observe state
-    but never mutate UI state.
 
 Invariants:
   - Recording observes committed state and never advances simulation.
@@ -29,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h
   - SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"

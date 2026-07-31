@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Promotion: Freezing the acquire-visible build prefix as committed prediction.
-  Reveal cursor: Monotonic prediction frame made visible by wall-clock pacing.
 
 Invariants:
   - Cancellation and destruction wait for the schedule to become idle.
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - ReplayPredictionScheduling.h
   - ReplayPredictionPublicationOperations.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPrediction.h"
 #include "ReplayPredictionPublicationOperations.h"

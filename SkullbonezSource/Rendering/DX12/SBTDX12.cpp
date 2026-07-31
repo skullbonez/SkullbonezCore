@@ -5,20 +5,7 @@ Purpose:
 
 Summary:
   SBTDX12.cpp builds the DX12 raytracing shader binding table that maps ray
-  records to shaders. As an implementation unit, keep edits anchored on DX12
-  ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
-
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  SBT (Shader Binding Table): DXR table that maps ray records to
-  ray-generation, miss, and hit shaders.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  records to shaders.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -30,6 +17,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/SBTDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 
 // --- DXR Ray Tracing: Shader Binding Table (SBT) ---

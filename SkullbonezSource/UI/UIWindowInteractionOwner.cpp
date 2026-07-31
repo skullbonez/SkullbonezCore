@@ -8,11 +8,6 @@ Summary:
   the window, widget, tab, and gesture state shared with drawing. InGameUI
   borrows only a synchronous WidgetView and is never reachable from this owner.
 
-Glossary:
-  Capture state: Cross-frame drag, resize, slider, or native-mouse ownership.
-  Widget view: Typed references borrowed by drawing so hit testing and rendered
-    geometry use identical control objects.
-
 Invariants:
   - Device input produces commands; runtime subsystem mutation remains outside UI.
   - WidgetView is not retained beyond the caller's immediate draw operation.
@@ -22,6 +17,7 @@ Related:
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - SkullbonezSource/UI/UI.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"
 #include "UIWindowInteractionOwner.h"

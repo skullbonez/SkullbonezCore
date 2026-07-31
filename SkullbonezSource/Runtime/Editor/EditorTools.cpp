@@ -9,13 +9,6 @@ Summary:
   scene-snapshot and screenshot operations keep persistence authority from
   travelling in one multi-owner hotkey context.
 
-Glossary:
-  Placement gesture: Mouse drag and wheel input used to size an editor object
-    before placement commits.
-  Hull scale: Per-axis size multiplier for convex hull editor assets.
-  Uniform scale: One shared size value applied to all axes.
-  Scale lock: Placement rule that keeps authored multi-part asset proportions coherent.
-
 Invariants:
   - Object-type classification must stay in sync with UI::EditorTab entries.
   - Scale helpers clamp before objects are committed to the scene.
@@ -23,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorTools.h"
 

@@ -7,22 +7,6 @@ Summary:
   Renderer-facing code samples one camera-lighting value, constructs focused
   pass inputs, and appends named callbacks to the live graph in image order.
 
-Glossary:
-  Render pass: Named slice of RuntimeRenderer::RenderPreparedFrame() with explicit
-  inputs, outputs, and resource ownership.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  HDR (High Dynamic Range): Floating-point scene color that preserves bright
-  lighting until the tonemap pass resolves it to display color.
-  FBO (Framebuffer Object): Engine-neutral off-screen render target wrapper.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh or procedural object owned by the DX12 backend.
-  TLAS (Top-Level Acceleration Structure): Raytracing scene-instance table built
-  before reflection rays are dispatched.
-  Compiled transition: Render-graph resource-state edge emitted immediately
-    before its callback records commands.
-
 Invariants:
   - The live RenderGraph owns pass order from world clear through late UI;
     FinalizeFrameGraph adds the sole declaration-only Present edge.
@@ -40,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h declares the render owner.
   - SkullbonezSource/Rendering/RenderPipeline.h formats the live graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderer.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"

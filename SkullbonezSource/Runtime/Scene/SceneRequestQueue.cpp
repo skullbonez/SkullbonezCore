@@ -9,7 +9,6 @@ Summary:
 
 Glossary:
   Owner budget: Fixed number of requests permitted between frame drains.
-  Lane R: Recoverable rejection of invalid external request text.
 
 Invariants:
   - A taken batch preserves exact FIFO order.
@@ -18,6 +17,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneRequestQueue.h"
 #include "../../Core/SbDiagnosticStore.h"

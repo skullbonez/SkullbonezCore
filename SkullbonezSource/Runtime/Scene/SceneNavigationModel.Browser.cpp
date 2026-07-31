@@ -10,8 +10,6 @@ Summary:
   pointer or scene-controller authority.
 
 Glossary:
-  Scene browser: UI-owned paths and labels for authored scene files discovered
-    under the configured data root.
   Stable pointer view: C-string pointers rebuilt only after the owning name
     strings reach their final storage for this refresh.
   Normalized path: Scene path using forward slashes for platform-independent
@@ -25,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UISceneNavigationModel.h
   - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../../UI/UISceneNavigationModel.h"
 #include "../../Core/Log.h"

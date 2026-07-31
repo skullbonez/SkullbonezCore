@@ -10,8 +10,6 @@ Summary:
 
 Glossary:
   Record range: CPU interval spent recording commands for one GPU marker.
-  Marker epoch: Core identity generation advanced when the registry resets.
-  GPU timing sample: Completed timestamp result keyed by Core marker hash.
 
 Invariants:
   - The owner borrows one startup Profiler and renderer diagnostics facet for
@@ -24,6 +22,7 @@ Related:
   - SkullbonezSource/Core/Profiler.h
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

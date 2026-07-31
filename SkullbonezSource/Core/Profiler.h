@@ -5,20 +5,11 @@ Purpose:
 
 Summary:
   Profiler.h records hierarchical CPU/GPU timing markers for runtime
-  diagnostics. As a public header, keep edits anchored on process-wide
-  contracts, diagnostics, and validation-sensitive state and on the
-  glossary/invariants below.
+  diagnostics.
 
 Glossary:
-  CSV (Comma-Separated Values): Text table format used for byte-exact physics
-  regression output.
   QPC (QueryPerformanceCounter): Windows high-resolution CPU timer used for
   wall-clock marker spans.
-  GPU timing sample: Completed renderer measurement submitted as a value keyed
-    by the Core-owned marker hash.
-  Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
-  Warmup frame: Completed frame intentionally excluded from profiler stats and
-    perf CSV rows while a scene/pass settles.
   External owner zone: Tracy interval that reuses the same path and nesting as
     an established engine profiler marker.
 
@@ -36,6 +27,7 @@ Related:
   - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

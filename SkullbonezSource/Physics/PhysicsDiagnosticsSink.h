@@ -8,17 +8,6 @@ Summary:
   trace files and retains a fixed pointer table of scene names registered at
   topology boundaries.
 
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Diagnostic-name table: Fixed pointer table whose pointed-to scene names
-    remain owned by stable scene metadata.
-
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
   are the validation contract.
@@ -29,6 +18,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

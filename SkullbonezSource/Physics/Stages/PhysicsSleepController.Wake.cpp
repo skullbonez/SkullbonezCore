@@ -10,11 +10,7 @@ Summary:
   producers publish bounded indices for sequencer-side ordered insertion.
 
 Glossary:
-  Wake fan-out: Expansion through visual, point-joint, and resting-contact islands.
-  Underwater lock: Dormancy guard that prevents buoyancy jitter from waking a ball.
   Seed sleep: Explicitly establish an eligible body as dormant before island analysis.
-  Pending awake queue: Fixed rows claimed once by atomic sleep-state transition
-    and folded into the ascending awake list after workers finish.
 
 Invariants:
   - Fixed and underwater-locked bodies reject ordinary wake fan-out.
@@ -27,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsSleepController.h"
 

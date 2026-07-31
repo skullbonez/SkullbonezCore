@@ -10,18 +10,12 @@ Summary:
   wires its cold dependencies at the post-input checkpoint.
 
 Glossary:
-  Input turn: Ordered frame interval from immutable device sampling through UI
-    routing and the final owner-specific request checkpoint.
   Pre-UI facts: Focus, key, and pointer values sampled before widgets can claim
     the gesture.
   Post-UI snapshot: Immutable hit/capture result published after widget layout
     so world tools do not reinterpret UI-owned input.
-  Semantic action: Fixed ordered input event derived from sampled key edges,
-    independent of the platform's live hardware state.
   Selected development surface: The one Legacy or ImGui implementation allowed
     to own development-tool input and visibility for the current frame.
-  Input turn result: Value-only request returned to Run when an interpreted
-    semantic action requires process-wide development-surface selection.
 
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
@@ -35,6 +29,7 @@ Related:
   - SkullbonezSource/Runtime/Input/InputRouter.h owns retained input state.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputFrame.h"
 #include "Run.h"

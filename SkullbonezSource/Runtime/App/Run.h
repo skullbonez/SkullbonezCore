@@ -4,9 +4,7 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Run.h coordinates the main game loop and high-level runtime lifecycle. As a
-  public header, keep edits anchored on local owner boundaries and call
-  direction and on the glossary/invariants below.
+  Run.h coordinates the main game loop and high-level runtime lifecycle.
 
 Mental model:
   Run is the process composition root and frame sequencer. Its ordered
@@ -18,13 +16,6 @@ Glossary:
     identity while physics stores own live target pose and motion.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
-  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
-  CLI (Command-Line Interface): Text arguments or scripts used to launch
-  validation and tooling paths.
-  Lane R result: Recoverable scene-load, capture, renderer-drain, or automation
-    failure reported with owner/message diagnostics instead of exceptions.
-  Probe failure: CLI validation failure reported as bounded result/report data
-    so automation exits nonzero without throwing through the frame loop.
   Frame phase result: Small value-only decision passed between adjacent frame
     phases; it is never retained as process or subsystem state.
 
@@ -47,6 +38,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

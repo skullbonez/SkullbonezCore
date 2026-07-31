@@ -4,17 +4,9 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Run.cpp coordinates the main game loop and high-level runtime lifecycle. As
-  an implementation unit, keep edits anchored on local owner boundaries and
-  call direction and on the glossary/invariants below.
+  Run.cpp coordinates the main game loop and high-level runtime lifecycle.
 
 Glossary:
-  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
-  Lane R result: Recoverable scene/load or renderer-drain failure reported as
-    an SkullbonezCore::Core::SbResult so the owning boundary can stop before unsafe mutation.
-  Probe failure: CLI validation failure reported as bounded result/report data
-    so automation exits nonzero without throwing through the frame loop.
   Process-end capacity table: Final active-scene store rows emitted before
     subsystem teardown.
 
@@ -28,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"

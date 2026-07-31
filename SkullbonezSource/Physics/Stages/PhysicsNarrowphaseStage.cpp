@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   CCD refinement: Exact-manifold search around a conservative swept hit time.
-  Pair island: Candidate pairs connected through shared body indices.
   Wake event: Value evidence that an energetic awake body contacted a sleeper.
 
 Invariants:
@@ -24,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsNarrowphaseStage.h"
 #include "PhysicsSleepController.h"

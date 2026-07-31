@@ -10,10 +10,8 @@ Summary:
   diagnostics and visual side effects at their certified positions.
 
 Glossary:
-  Terrain sweep: Continuous collision query over one body's remaining substep.
   Manifold commit: Append of solver-ready terrain contact points and sleep policy.
   Sequencer gap: Typed boundary where cross-domain diagnostics are emitted.
-  Awake slot: Dispatch position mapped to one ascending dynamic body index.
 
 Invariants:
   - Worker scheduling never changes candidate slot identity.
@@ -27,6 +25,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/TerrainContactManifold.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsTerrainStage.h"
 

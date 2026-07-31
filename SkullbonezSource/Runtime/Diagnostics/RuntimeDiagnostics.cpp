@@ -8,17 +8,10 @@ Summary:
   and avoid changing simulation or rendering behavior.
 
 Glossary:
-  CSV (Comma-Separated Values): Text table format used for perf and physics
-  regression output.
   Perf pass: One validation scene run appended to a perf CSV before the next
     restart or exit.
-  SkullScope: Queryable physics diagnostics trace workflow used instead of
-  loading raw traces into model context.
   Side-channel log: Artifact written for diagnostics without changing runtime
     behavior.
-  Private working set: Resident process pages not shared with other processes;
-
-    matching it requires a page-level OS query.
 
 Invariants:
   - Diagnostics may sample and flush artifacts, but must not mutate simulation
@@ -29,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeDiagnostics.h"
 #include "../../Assets/AssetKeys.h"

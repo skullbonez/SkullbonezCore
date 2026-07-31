@@ -7,9 +7,6 @@ Summary:
   Presentation selection has already finished before these operations resolve
   typed Physics rows and emit tracer markers for the chosen values.
 
-Glossary:
-  Submission: Conversion of selected replay values into bounded draw commands.
-
 Invariants:
   - Submission resolves stable scene ids through typed Physics handles.
   - These operations cannot mutate scrub, timeline, or prediction selection.
@@ -17,6 +14,7 @@ Invariants:
 Related:
   - ReplayPredictionDrawing.cpp
   - ReplayCauseFocusSubmission.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

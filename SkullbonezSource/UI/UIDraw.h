@@ -8,12 +8,6 @@ Summary:
   Projection and backend submission happen after UI construction, so tests can
   build complete streams without a renderer device.
 
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
-
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
@@ -24,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDraw.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

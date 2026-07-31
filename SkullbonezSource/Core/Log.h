@@ -4,15 +4,11 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Summary:
-  Log.h writes debug-only runtime, crash, and diagnostics logs. As a public
-  header, keep edits anchored on process-wide contracts, diagnostics, and
-  validation-sensitive state and on the glossary/invariants below.
+  Log.h writes debug-only runtime, crash, and diagnostics logs.
 
 Glossary:
   Engine log: Process-wide debug/test owner that lazily opens and retains
   diagnostic FILE handles.
-  Lane F: Fatal invariant path that must record diagnostics from any thread
-  before terminating.
 
 Invariants:
   - File handles are opened lazily and owned by EngineLog until process exit or
@@ -27,6 +23,7 @@ Related:
   - SkullbonezSource/Core/Log.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

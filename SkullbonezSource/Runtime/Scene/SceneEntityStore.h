@@ -10,9 +10,6 @@ Summary:
   is identity.
 
 Glossary:
-  Scene entity: Scene-owned record that joins stable identity to live owner rows.
-  Asset affiliation: Library/asset/instance/part provenance kept separately from
-    behavior grouping.
   Behavior group: Ragdoll/tree membership keyed by stable root object id and part order.
   Commit: Append after capacity, identity, body, collider, and render preflight.
 
@@ -27,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.cpp
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

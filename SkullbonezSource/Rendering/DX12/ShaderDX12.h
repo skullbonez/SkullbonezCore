@@ -8,15 +8,6 @@ Summary:
   Draw code writes named values into its CPU byte copy, then flushes that copy
   through the frame upload owner before binding the pipeline.
 
-Glossary:
-  CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
-  a packed block of constants.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
@@ -28,6 +19,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

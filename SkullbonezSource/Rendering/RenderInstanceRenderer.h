@@ -5,13 +5,7 @@ Purpose:
 
 Summary:
   RenderInstanceRenderer.h converts prepared render-instance records into backend
-  draw calls. As a public header, keep edits anchored on render submission and
-  resource lifetime and on the glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  draw calls.
 
 Invariants:
   - Methods consume prepared render/collider stores; they do not own scene
@@ -22,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderInstanceRenderer.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

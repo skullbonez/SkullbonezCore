@@ -11,8 +11,6 @@ Summary:
 Glossary:
   Authoring boundary: File I/O path used before or between demo takes, not a
     per-frame simulation loop.
-  Lane R: Repository error-handling lane for recoverable runtime/file input:
-    return bool status and log a path-rich reason instead of throwing.
 
 Invariants:
   - Failed loads never modify the caller's existing shot list.
@@ -23,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Direction/DemoDirector.h
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DemoDirector.h"
 #include "../Tools/RuntimeFileWriter.h"

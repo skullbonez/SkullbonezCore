@@ -9,7 +9,6 @@ Summary:
   can avoid borrowing runtime scene services.
 
 Glossary:
-  Fluid surface: World-space Y plane where the fluid medium begins.
   Fluid density: Density of the liquid medium used by buoyancy and drag.
   Gas density: Density of the air-like medium above the fluid surface.
   Angular drag multiplier: Fluid damping scale applied to submerged spin.
@@ -26,6 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/World/WorldEnvironment.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

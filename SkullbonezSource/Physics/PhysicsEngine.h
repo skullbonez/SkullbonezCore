@@ -12,10 +12,6 @@ Summary:
 Glossary:
   Owner boundary: Public command/query surface that retains the state and
     sequencing authority behind it.
-  Fixed-tree release: Store-owned command that turns authored fixed props into
-    dynamic bodies and wakes same-tree parts after an accepted impulse.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
   Immutable projection: Field-specific borrowed store or diagnostic read whose
     lifetime remains tied to PhysicsEngine.
   Descriptor refresh: Cold authoring edge that replaces body rows from explicit
@@ -35,6 +31,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.cpp
   - SkullbonezSource/Physics/PhysicsApi.h
   - SkullbonezSource/Physics/PhysicsWorld.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -9,13 +9,6 @@ Summary:
   inspect diagnostics without importing the solver sequencer and every stage it
   owns.
 
-Glossary:
-  Persistent contact: Solver row retained across fixed ticks for warm starting.
-  Diagnostics view: Synchronous spans and references into one PhysicsEngine.
-  Candidate pair: Broadphase-selected body pair awaiting narrowphase testing.
-  Convergence trace: Bounded per-iteration attribution for the solver's
-    squared-impulse stopping metric.
-
 Invariants:
   - Every span and reference remains owned by the publishing PhysicsEngine and
     expires when that owner mutates or is destroyed.
@@ -30,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

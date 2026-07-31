@@ -13,10 +13,6 @@ Glossary:
     checkpoint in original submission order.
   Transition request: Load, reset, or create work; only the first accepted
     transition in one batch may mutate scene lifetime.
-  Owner event: Stable replay record emitted only after the concrete scene
-    operation completes successfully.
-  Lane R result: Recoverable scene/load failure that stops the batch without
-    recording rejected work as successful.
 
 Invariants:
   - Requests after the first accepted transition are counted as rejected and
@@ -27,6 +23,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneController.h"
 #include "SceneLoadTransaction.h"

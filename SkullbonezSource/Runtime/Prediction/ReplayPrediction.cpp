@@ -13,22 +13,10 @@ Summary:
 Glossary:
   Path visualizer: Overlay that draws past/future body trajectories and contact
     handoffs.
-  Replay target marker: Overlay outline/ring drawn around the replay-selected
-    body from live body/collider store rows.
   Prediction slice: Bounded worker chunk that advances the private prediction
     engine and publishes a coherent frame prefix.
-  Velocity drag preview: Cheap selected-path estimate that remains visible
-    until the release-triggered authoritative generation commits.
   Prediction physics tick: Prediction-owned fixed step against the private
     prediction engine.
-  Future node: Body discovered by following contacts or predicted movement
-    outward from a selected root body.
-  Physics::PhysicsSceneObjectId: Stable runtime id used across retained samples even when vector
-    indices are only local hints.
-  Model row hint: Cached live body row paired with Physics::PhysicsSceneObjectId; replay tools
-    may keep it only as a repairable lookup shortcut.
-  Solver snapshot: Physics cache state that must be restored to make the next
-    fixed step reproduce.
   WorkerPool: Persistent engine worker threads used for fork-join loops and
     amortized replay prediction chunks.
 
@@ -52,6 +40,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPrediction.h"
 #include "../Scene/SceneEntityStore.h"

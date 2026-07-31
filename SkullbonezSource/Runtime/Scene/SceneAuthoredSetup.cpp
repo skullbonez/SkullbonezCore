@@ -10,20 +10,9 @@ Summary:
   out of Run.
 
 Glossary:
-  Authored scene: Parsed `.scene.json` data that explicitly names terrain,
-    cameras, objects, materials, constraints, and validation gates.
   Required gate: Scene-authored condition that must be observed before a
     validation run can complete.
-  Collider descriptor: Value packet carrying parsed shape and contact material
-    facts into the physics collider store.
   Hull variant: One normalized resolved hull path plus exact authored scale bits.
-  Lane R: Recoverable result error lane for external input such as scene files
-    and authored asset metadata.
-  Ragdoll part: One model body in the generated simple ragdoll assembly.
-  Scene object group: Parsed metadata that ties multi-part authored objects,
-    such as releasable trees, to a single root scene object.
-  Scene object id: Stable parsed physics identity forwarded unchanged to body
-    and collider creation, independent of model insertion order.
 
 Invariants:
   - Scene object insertion order is validation-facing and must stay stable.
@@ -38,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneAuthoredSetup.h"
 #include "../Automation/RuntimeValidationHarness.h"

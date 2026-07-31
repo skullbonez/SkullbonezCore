@@ -9,10 +9,7 @@ Summary:
   sleep locking refreshes only the candidate row's transient submersion value.
 
 Glossary:
-  Sphere cap: Portion of a sphere below the fluid surface; its analytic volume
-    gives a deterministic submerged fraction without sampling.
   Buoyancy row: Physics-owned dense fluid facts aligned with one body row.
-  Fluid surface: World-space Y plane where the fluid medium begins.
 
 Invariants:
   - Row mutations mirror body/collider dense compaction exactly.
@@ -25,6 +22,7 @@ Related:
   - SkullbonezSource/Physics/BuoyancySystem.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "BuoyancySystem.h"
 

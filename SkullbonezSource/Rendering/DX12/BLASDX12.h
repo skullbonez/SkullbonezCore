@@ -5,20 +5,7 @@ Purpose:
 
 Summary:
   BLASDX12.h builds and owns DX12 raytracing bottom-level acceleration
-  structures for mesh geometry. As a public header, keep edits anchored on
-  DX12 ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
-
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  structures for mesh geometry.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -28,6 +15,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/BLASDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

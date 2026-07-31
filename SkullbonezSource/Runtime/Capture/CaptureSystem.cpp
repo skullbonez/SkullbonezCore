@@ -10,8 +10,6 @@ Summary:
   resources.
 
 Glossary:
-  Capture owner: DX12 component that reads pixels from the active back buffer.
-  Back buffer: Swap-chain image that will be presented to the window.
   BMP (Bitmap): Simple image file format used by validation backbuffer captures.
 
 Invariants:
@@ -24,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureSystem.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "CaptureSystem.h"
 #include "../../Core/SbDiagnosticStore.h"

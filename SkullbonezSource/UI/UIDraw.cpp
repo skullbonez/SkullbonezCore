@@ -8,12 +8,6 @@ Summary:
   order. The coordinate helpers expose the same 45-degree projection math for
   passive layout calculations without borrowing TextBatch or a backend owner.
 
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
-
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
@@ -23,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDraw.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIDraw.h"
 

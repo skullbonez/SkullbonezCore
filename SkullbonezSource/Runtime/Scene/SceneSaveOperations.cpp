@@ -11,8 +11,6 @@ Summary:
 Glossary:
   Numbered artifact: Editor snapshot whose sequence advances past existing
     files so an operator save never overwrites an earlier snapshot.
-  Publication: Owner-produced save value; SceneWorld's publication borrows its
-    stores only for the duration of this operation.
 
 Invariants:
   - Path policy is entry-specific, while serialized owner coverage is identical.
@@ -23,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.h
   - SkullbonezSource/Runtime/Tools/RuntimeFileWriter.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneSaveOperations.h"
 

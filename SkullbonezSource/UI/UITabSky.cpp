@@ -5,14 +5,9 @@ Purpose:
 
 Summary:
   UITabSky.cpp owns the Sky tab widgets, layout, and input handling for
-  in-engine sky tuning. As an implementation unit, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  in-engine sky tuning.
 
 Glossary:
-  Sky feature: Toggle for a render pass such as clouds, god rays, or volumetric
-    light.
-  Sky slider: UI row that maps mouse position to a cinematic render parameter.
   Cinematic command: Intent returned for the run loop to apply to render config.
 
 Invariants:
@@ -22,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabSky.h
   - SkullbonezSource/UI/UITabCinematic.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabSky.h"
 

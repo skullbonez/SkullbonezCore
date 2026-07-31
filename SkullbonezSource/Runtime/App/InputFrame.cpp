@@ -13,10 +13,6 @@ Glossary:
     so the operator can return to the same view later.
   UI frame result: Bounded facts produced while applying one UI command batch;
     later input phases use them without reaching back into UI widget state.
-  Acceptance ledger: Value-only facts emitted by the ordered command phases and
-    consumed at the existing action-recording barriers.
-  Lane R result: Recoverable scene-control or capture failure reported without
-    treating the command as successfully applied.
 
 Invariants:
   - Every owner reference is a synchronous borrow and is never retained.
@@ -30,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp owns scene-request execution.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputFrame.h"
 #include "Run.h"

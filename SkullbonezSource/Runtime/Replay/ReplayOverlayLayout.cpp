@@ -7,15 +7,6 @@ Summary:
   Replay layout is a replay subsystem concern. Input hit boxes and drawn
   controls should stay mechanically identical by using the same helpers.
 
-Glossary:
-  Scrubber: Bottom-screen replay timeline control used for save/load, pause,
-    branch, prediction, and velocity-edit actions.
-  Cause window: Movable replay inspection panel that explains selected contact
-    and solver relationships.
-  UIRect: Pixel-space rectangle shared by hit testing and drawing.
-  Control surface: Ordered per-frame table that binds those rectangles to
-    semantic controls and actions without retaining replay state.
-
 Invariants:
   - Input and rendering must call these helpers for the same rectangles.
   - Scrubber controls are published front-to-back so disabled rows block
@@ -24,6 +15,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayOverlayLayout.h"
 #include "../../Core/FatalError.h"

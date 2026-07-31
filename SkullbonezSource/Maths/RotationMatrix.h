@@ -5,12 +5,7 @@ Purpose:
 
 Summary:
   RotationMatrix.h declares rotation matrix helpers used by transforms and
-  collision code. As a public header, keep edits anchored on units, basis
-  conventions, and numerical assumptions and on the glossary/invariants below.
-
-Glossary:
-  Orthogonal basis: Three perpendicular unit axes; its transpose is also its
-    inverse.
+  collision code.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/RotationMatrix.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

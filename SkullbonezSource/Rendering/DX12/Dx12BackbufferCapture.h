@@ -10,7 +10,6 @@ Summary:
   be proved until terminal queue drain.
 
 Glossary:
-  Readback buffer: CPU-readable landing resource for a GPU texture copy.
   Quarantine: Fixed COM-reference array retained after an uncertain Close or
     fence-wait result.
   Terminal drain: Shutdown proof that all submitted GPU and present work has
@@ -28,6 +27,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - SkullbonezSource/Runtime/Capture/CaptureSystem.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

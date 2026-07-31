@@ -10,13 +10,9 @@ Summary:
   keyed point-joint descriptors and solver math.
 
 Glossary:
-  Point joint: Constraint that keeps two local anchors near each other.
-  Slack: Allowed anchor separation before the solver applies correction.
   Preview lines: Editor-only visualization geometry for placement feedback.
   Part display name: Deterministic `<prefix>_<suffix>` identity shared by
     parser collision checks and runtime construction.
-  Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
-    by the joint solver.
 
 Invariants:
   - Constraint order is deterministic and scene-authored.
@@ -30,6 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

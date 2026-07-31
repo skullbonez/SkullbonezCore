@@ -5,16 +5,7 @@ Purpose:
 
 Summary:
   BoundingSphere.h defines sphere collision geometry, swept tests, volume
-  facts, and render transforms. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  facts, and render transforms.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -24,6 +15,7 @@ Related:
   - SkullbonezSource/Physics/BoundingSphere.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -10,12 +10,6 @@ Summary:
   geometry/signatures, while palette translation units consume the same layout
   records for input and drawing.
 
-Glossary:
-  Content signature: Hash of UI-visible values used to invalidate cached draws.
-  Interaction signature: Hash of pointer/focus state used to invalidate hit data.
-  Mini palette: Compact editor placement surface shown while UI is minimized.
-  Flyout: Secondary row of palette variants anchored to one palette entry.
-
 Invariants:
   - Hit testing and drawing consume the same EditorMiniPaletteLayout record.
   - Helpers retain no UI owner pointer or frame borrow.
@@ -25,6 +19,7 @@ Related:
   - UI.cpp owns frame orchestration and retained widget state.
   - UIEditorMiniPalette.cpp owns palette policy, layout, and hit testing.
   - UIEditorMiniPaletteDraw.cpp owns palette and minimized-window drawing.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

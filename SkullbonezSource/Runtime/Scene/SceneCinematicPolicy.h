@@ -9,13 +9,6 @@ Summary:
   clamping/override bits and the pure sun-direction projection shared by render
   passes. Callers retain interaction and transaction ordering.
 
-Glossary:
-  Asset system: Runtime-owned registry used to resolve logical scene/style asset
-    references without falling back to process-global lookup.
-  Cinematic override: Bitmask-selected render fields layered over defaults.
-  Style scene: Authored scene used as material/cinematic source data.
-  Live style: Runtime object/material changes applied without reloading.
-
 Invariants:
   - Helpers do not create or destroy scene models.
   - Helpers borrow active cinematic, model state, and asset metadata only for
@@ -26,6 +19,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Style.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

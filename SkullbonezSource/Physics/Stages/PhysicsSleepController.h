@@ -10,14 +10,10 @@ Summary:
   synchronous fixed-step operations.
 
 Glossary:
-  Sleep island: Connected contact/joint component deactivated as one unit.
   Support edge: Directed relationship used to propagate grounded support.
-  Underwater lock: Policy keeping a fully submerged sleeping ball dormant.
   Visual island id: Persisted debug id shared by bodies that slept together.
   Scratch flags: Transient per-row bits reused by point-joint and explicit-wake
     traversals; they are neither replay state nor cross-stage authority.
-  Pending awake queue: Fixed-capacity worker publication rows folded into the
-    sorted owner list at sequencer barriers.
 
 Invariants:
   - Fixed-list model rows are reserved to the active scene capacity before play.
@@ -36,6 +32,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
   - SkullbonezSource/Physics/SleepIslandSystem.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

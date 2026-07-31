@@ -10,8 +10,6 @@ Summary:
 Glossary:
   Claimed launch: True when a probe option was present and ordinary startup must
     stop after returning outExitCode.
-  Early-exit probe: Bounded validation or generation mode that does not enter
-    the application run loop.
 
 Invariants:
   - Functions retain no references to command-line, parsed, or config storage.
@@ -22,6 +20,7 @@ Related:
   - StartupProbeHarnesses.cpp
   - StartupCommandLine.h
   - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

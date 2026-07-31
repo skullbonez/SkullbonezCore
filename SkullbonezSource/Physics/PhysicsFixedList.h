@@ -19,8 +19,6 @@ Glossary:
   Live count: Number of initialized entries currently visible to callers.
   Capacity cap: Compile-time maximum entry count that replaces vector capacity.
   Capacity reason: Scene quantity or fixed semantic bound that sizes one owner.
-  Canonical publisher: First live list instance holding the allocator token for
-    its conceptual owner's capacity row.
 
 Invariants:
   - Construction registers one nonzero Physics owner handle in the allocator's
@@ -45,6 +43,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/ColliderStore.h
   - AGENTS.md (Runtime Static Allocation Policy)
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

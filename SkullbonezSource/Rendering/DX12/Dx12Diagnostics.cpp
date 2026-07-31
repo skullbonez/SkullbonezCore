@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Query heap: GPU timestamp slot storage written by EndQuery.
-  Readback buffer: CPU-visible destination of ResolveQueryData.
   Slot run: Contiguous written query indices resolved without touching gaps.
   Architecture log: Cold aggregate of descriptor, upload, and draw high-water.
 
@@ -24,6 +23,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12Diagnostics.h"
 #include "../../Core/SbDiagnosticStore.h"

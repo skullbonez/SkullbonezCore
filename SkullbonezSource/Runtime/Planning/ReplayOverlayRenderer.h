@@ -8,7 +8,6 @@ Summary:
   retained prediction command-list cursors used by the geometry pass.
 
 Glossary:
-  UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
   UI text pass: Late overlay pass that invokes replay overlay drawing after
     scene rendering.
   Replay overlay: UI draw pass for replay timeline, prediction controls, and
@@ -17,9 +16,6 @@ Glossary:
     prediction generation, source bank, palette, or topology changes.
   All-body path: Space-scene future trajectory selected by body identity rather
     than contact-derived causality.
-  Overlay state view: Read-only replay publication borrowed for one late pass.
-  Overlay viewport: Coupled pixel width and height used by overlay layout; the
-    render-command target remains an explicit synchronous borrow.
 
 Invariants:
   - Replay state reaches each draw operation only through the published overlay
@@ -34,6 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

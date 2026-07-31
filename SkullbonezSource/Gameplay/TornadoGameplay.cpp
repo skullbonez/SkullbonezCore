@@ -10,9 +10,6 @@ Summary:
   line vertices without transferring gameplay state ownership.
 
 Glossary:
-  Active vortex: Authored vortex after spawn, growth, shrink, drift, and
-    repulsion have been evaluated for the current gameplay clock.
-  Force frame: Synchronous spans borrowed by Physics for exactly one Step call.
   Debug line row: Two position/color vertices packed as xyz/rgb floats for one
     synchronous late-frame draw.
 
@@ -25,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.h
   - SkullbonezSource/Physics/Stages/ExternalForceStage.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "TornadoGameplay.h"
 

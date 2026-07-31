@@ -12,7 +12,6 @@ Summary:
 Glossary:
   Pick transform: Body position plus orientation used to move a collision shape
     from local shape space into world space.
-  RayT: Distance along the supplied pick ray to the first shape hit.
   Half-space clipping: Convex-hull ray test that keeps the interval where the
     ray is inside every face plane.
 
@@ -24,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

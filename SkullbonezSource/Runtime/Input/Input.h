@@ -4,25 +4,16 @@ Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
 Summary:
-  Input.h collects keyboard and mouse state for the run loop and UI. As a
-  public header, keep edits anchored on local owner boundaries and call
-  direction and on the glossary/invariants below.
+  Input.h collects keyboard and mouse state for the run loop and UI.
 
 Glossary:
-  Win32: Windows desktop API used for the app window, messages, and process
-  integration.
-  HWND (Window Handle): Win32 identifier for the native application window.
   HRAWINPUT: Win32 handle for one raw-input packet received through WM_INPUT.
   WM_INPUT: Win32 message carrying high-resolution mouse movement.
-  Callback bridge: The process-local state that lets Win32 callbacks enqueue
-    mouse data until the frame loop consumes it.
   Automation override: Scripted input snapshot used by interaction validation
 
     while the normal runtime input controller still owns command edges.
   Input event buffer: Callback-fed mouse accumulators drained into the next
     DeviceInputFrame for the bound native window.
-  Lane R result: Recoverable input/environment failure reported without
-    treating the cursor operation as a fatal engine invariant.
 
 Invariants:
   - CaptureDeviceInputFrame is the only steady-frame hardware poll. Semantic
@@ -36,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Input/Input.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

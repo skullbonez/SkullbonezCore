@@ -7,7 +7,7 @@ Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventor
 Scope authority: `git ls-files SkullbonezSource`, filtered to tracked
 `.cpp`, `.h`, `.hpp`, `.inl`, and `.hlsl` files.
 
-Progress: **0/575 checked; 0 deferred; 575 unchecked.**
+Progress: **458/575 checked; 117 deferred; 117 unchecked.**
 
 A checked row means the file has been inspected against the updated comment
 guide, shared definitions have moved to the authoritative glossary, genuinely
@@ -17,686 +17,686 @@ Deferred files stay unchecked and require an inline reason.
 
 ## SkullbonezSource/Assets
 
-- [ ] `SkullbonezSource/Assets/AssetKeys.h`
-- [ ] `SkullbonezSource/Assets/AssetSystem.cpp`
-- [ ] `SkullbonezSource/Assets/AssetSystem.h`
-- [ ] `SkullbonezSource/Assets/TextureCollection.cpp`
-- [ ] `SkullbonezSource/Assets/TextureCollection.h`
+- [x] `SkullbonezSource/Assets/AssetKeys.h`
+- [ ] `SkullbonezSource/Assets/AssetSystem.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Assets/AssetSystem.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Assets/TextureCollection.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Assets/TextureCollection.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Core/Allocation
 
-- [ ] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp`
-- [ ] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h`
-- [ ] `SkullbonezSource/Core/Allocation/DevelopmentToolsCapability.h`
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp`
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h`
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp`
-- [ ] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolsCapability.h`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h`
 
 ## SkullbonezSource/Core
 
-- [ ] `SkullbonezSource/Core/AmortizedTask.cpp`
-- [ ] `SkullbonezSource/Core/AmortizedTask.h`
-- [ ] `SkullbonezSource/Core/ByteView.h`
-- [ ] `SkullbonezSource/Core/Common.h`
-- [ ] `SkullbonezSource/Core/Config.cpp`
-- [ ] `SkullbonezSource/Core/Config.h`
-- [ ] `SkullbonezSource/Core/FatalError.cpp`
-- [ ] `SkullbonezSource/Core/FatalError.h`
-- [ ] `SkullbonezSource/Core/Fence.h`
-- [ ] `SkullbonezSource/Core/FloatingPointContract.h`
-- [ ] `SkullbonezSource/Core/LockOrderValidator.cpp`
-- [ ] `SkullbonezSource/Core/LockOrderValidator.h`
-- [ ] `SkullbonezSource/Core/Log.cpp`
-- [ ] `SkullbonezSource/Core/Log.h`
-- [ ] `SkullbonezSource/Core/MainMemoryStats.h`
-- [ ] `SkullbonezSource/Core/PlatformProfiler.cpp`
-- [ ] `SkullbonezSource/Core/PlatformProfiler.h`
-- [ ] `SkullbonezSource/Core/PlatformWin32.h`
-- [ ] `SkullbonezSource/Core/Profiler.cpp`
-- [ ] `SkullbonezSource/Core/Profiler.h`
-- [ ] `SkullbonezSource/Core/SbDiagnosticStore.h`
-- [ ] `SkullbonezSource/Core/SbResult.cpp`
-- [ ] `SkullbonezSource/Core/SbResult.h`
-- [ ] `SkullbonezSource/Core/SceneCapacity.h`
-- [ ] `SkullbonezSource/Core/StringHash.h`
-- [ ] `SkullbonezSource/Core/Timer.cpp`
-- [ ] `SkullbonezSource/Core/Timer.h`
-- [ ] `SkullbonezSource/Core/TracyClientOwner.cpp`
-- [ ] `SkullbonezSource/Core/TracyClientOwner.h`
-- [ ] `SkullbonezSource/Core/WindowConstants.h`
-- [ ] `SkullbonezSource/Core/WorkerPool.cpp`
-- [ ] `SkullbonezSource/Core/WorkerPool.h`
+- [x] `SkullbonezSource/Core/AmortizedTask.cpp`
+- [x] `SkullbonezSource/Core/AmortizedTask.h`
+- [x] `SkullbonezSource/Core/ByteView.h`
+- [ ] `SkullbonezSource/Core/Common.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Core/Config.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Core/Config.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/FatalError.cpp`
+- [x] `SkullbonezSource/Core/FatalError.h`
+- [x] `SkullbonezSource/Core/Fence.h`
+- [x] `SkullbonezSource/Core/FloatingPointContract.h`
+- [x] `SkullbonezSource/Core/LockOrderValidator.cpp`
+- [x] `SkullbonezSource/Core/LockOrderValidator.h`
+- [ ] `SkullbonezSource/Core/Log.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Core/Log.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/MainMemoryStats.h`
+- [ ] `SkullbonezSource/Core/PlatformProfiler.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Core/PlatformProfiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/PlatformWin32.h`
+- [x] `SkullbonezSource/Core/Profiler.cpp`
+- [ ] `SkullbonezSource/Core/Profiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/SbDiagnosticStore.h`
+- [x] `SkullbonezSource/Core/SbResult.cpp`
+- [x] `SkullbonezSource/Core/SbResult.h`
+- [x] `SkullbonezSource/Core/SceneCapacity.h`
+- [x] `SkullbonezSource/Core/StringHash.h`
+- [ ] `SkullbonezSource/Core/Timer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Core/Timer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Core/TracyClientOwner.cpp`
+- [x] `SkullbonezSource/Core/TracyClientOwner.h`
+- [x] `SkullbonezSource/Core/WindowConstants.h`
+- [x] `SkullbonezSource/Core/WorkerPool.cpp`
+- [x] `SkullbonezSource/Core/WorkerPool.h`
 
 ## SkullbonezSource/Gameplay
 
-- [ ] `SkullbonezSource/Gameplay/TornadoField.cpp`
-- [ ] `SkullbonezSource/Gameplay/TornadoField.h`
-- [ ] `SkullbonezSource/Gameplay/TornadoGameplay.cpp`
-- [ ] `SkullbonezSource/Gameplay/TornadoGameplay.h`
-- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
-- [ ] `SkullbonezSource/Gameplay/TornadoVisualPass.h`
+- [x] `SkullbonezSource/Gameplay/TornadoField.cpp`
+- [x] `SkullbonezSource/Gameplay/TornadoField.h`
+- [x] `SkullbonezSource/Gameplay/TornadoGameplay.cpp`
+- [x] `SkullbonezSource/Gameplay/TornadoGameplay.h`
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
+- [x] `SkullbonezSource/Gameplay/TornadoVisualPass.h`
 
 ## SkullbonezSource/Maths
 
-- [ ] `SkullbonezSource/Maths/Frustum.cpp`
-- [ ] `SkullbonezSource/Maths/Frustum.h`
-- [ ] `SkullbonezSource/Maths/GeometricMath.cpp`
-- [ ] `SkullbonezSource/Maths/GeometricMath.h`
-- [ ] `SkullbonezSource/Maths/GeometricStructures.h`
-- [ ] `SkullbonezSource/Maths/MathsCommon.h`
-- [ ] `SkullbonezSource/Maths/Matrix4.cpp`
-- [ ] `SkullbonezSource/Maths/Matrix4.h`
-- [ ] `SkullbonezSource/Maths/OrbitalMechanics.cpp`
-- [ ] `SkullbonezSource/Maths/OrbitalMechanics.h`
-- [ ] `SkullbonezSource/Maths/Quaternion.cpp`
-- [ ] `SkullbonezSource/Maths/Quaternion.h`
-- [ ] `SkullbonezSource/Maths/RotationMatrix.cpp`
-- [ ] `SkullbonezSource/Maths/RotationMatrix.h`
-- [ ] `SkullbonezSource/Maths/Vector3.h`
+- [x] `SkullbonezSource/Maths/Frustum.cpp`
+- [x] `SkullbonezSource/Maths/Frustum.h`
+- [ ] `SkullbonezSource/Maths/GeometricMath.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/GeometricMath.h`
+- [ ] `SkullbonezSource/Maths/GeometricStructures.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/MathsCommon.h`
+- [ ] `SkullbonezSource/Maths/Matrix4.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Maths/Matrix4.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/OrbitalMechanics.cpp`
+- [x] `SkullbonezSource/Maths/OrbitalMechanics.h`
+- [ ] `SkullbonezSource/Maths/Quaternion.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Maths/Quaternion.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Maths/RotationMatrix.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Maths/RotationMatrix.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Maths/Vector3.h`
 
 ## SkullbonezSource/Physics
 
-- [ ] `SkullbonezSource/Physics/BoundingBox.cpp`
-- [ ] `SkullbonezSource/Physics/BoundingBox.h`
-- [ ] `SkullbonezSource/Physics/BoundingSphere.cpp`
-- [ ] `SkullbonezSource/Physics/BoundingSphere.h`
-- [ ] `SkullbonezSource/Physics/BuoyancySystem.cpp`
-- [ ] `SkullbonezSource/Physics/BuoyancySystem.h`
-- [ ] `SkullbonezSource/Physics/ColliderStore.cpp`
-- [ ] `SkullbonezSource/Physics/ColliderStore.h`
-- [ ] `SkullbonezSource/Physics/CollisionShape.h`
-- [ ] `SkullbonezSource/Physics/ContactSolverCommon.h`
-- [ ] `SkullbonezSource/Physics/ConvexHullShape.cpp`
-- [ ] `SkullbonezSource/Physics/ConvexHullShape.h`
+- [ ] `SkullbonezSource/Physics/BoundingBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/BoundingBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/BoundingSphere.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/BoundingSphere.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/BuoyancySystem.cpp`
+- [x] `SkullbonezSource/Physics/BuoyancySystem.h`
+- [x] `SkullbonezSource/Physics/ColliderStore.cpp`
+- [x] `SkullbonezSource/Physics/ColliderStore.h`
+- [x] `SkullbonezSource/Physics/CollisionShape.h`
+- [ ] `SkullbonezSource/Physics/ContactSolverCommon.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/ConvexHullShape.cpp`
+- [x] `SkullbonezSource/Physics/ConvexHullShape.h`
 
 ## SkullbonezSource/Physics/Diagnostics
 
-- [ ] `SkullbonezSource/Physics/Diagnostics/SkullScope.cpp`
-- [ ] `SkullbonezSource/Physics/Diagnostics/SkullScope.h`
+- [x] `SkullbonezSource/Physics/Diagnostics/SkullScope.cpp`
+- [x] `SkullbonezSource/Physics/Diagnostics/SkullScope.h`
 
 ## SkullbonezSource/Physics
 
-- [ ] `SkullbonezSource/Physics/DisjointSet.h`
-- [ ] `SkullbonezSource/Physics/ObjectContactManifold.cpp`
-- [ ] `SkullbonezSource/Physics/ObjectContactManifold.h`
-- [ ] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
-- [ ] `SkullbonezSource/Physics/PersistentContactSolver.h`
-- [ ] `SkullbonezSource/Physics/PhysicsApi.h`
-- [ ] `SkullbonezSource/Physics/PhysicsBodyStore.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsBodyStore.h`
-- [ ] `SkullbonezSource/Physics/PhysicsBroadphaseDebugView.h`
-- [ ] `SkullbonezSource/Physics/PhysicsDebugData.h`
-- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsModel.h`
-- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.h`
-- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsView.h`
-- [ ] `SkullbonezSource/Physics/PhysicsEngine.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsEngine.h`
-- [ ] `SkullbonezSource/Physics/PhysicsEngine.ReplayPredictionCloneScope.h`
-- [ ] `SkullbonezSource/Physics/PhysicsFixedList.h`
-- [ ] `SkullbonezSource/Physics/PhysicsHandles.h`
-- [ ] `SkullbonezSource/Physics/PhysicsMass.h`
-- [ ] `SkullbonezSource/Physics/PhysicsObjectPolicy.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsObjectPolicy.h`
-- [ ] `SkullbonezSource/Physics/PhysicsRuntimeSettings.h`
-- [ ] `SkullbonezSource/Physics/PhysicsSceneVectorReserve.h`
-- [ ] `SkullbonezSource/Physics/PhysicsSolverSnapshot.h`
-- [ ] `SkullbonezSource/Physics/PhysicsStageCapacity.h`
-- [ ] `SkullbonezSource/Physics/PhysicsTerrainView.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsTerrainView.h`
-- [ ] `SkullbonezSource/Physics/PhysicsTimestep.h`
-- [ ] `SkullbonezSource/Physics/PhysicsWorld.cpp`
-- [ ] `SkullbonezSource/Physics/PhysicsWorld.h`
-- [ ] `SkullbonezSource/Physics/PhysicsWorldForces.h`
-- [ ] `SkullbonezSource/Physics/Ragdoll.cpp`
-- [ ] `SkullbonezSource/Physics/Ragdoll.h`
-- [ ] `SkullbonezSource/Physics/SleepIslandSystem.cpp`
-- [ ] `SkullbonezSource/Physics/SleepIslandSystem.h`
-- [ ] `SkullbonezSource/Physics/SolverBroadphaseStage.h`
-- [ ] `SkullbonezSource/Physics/SpatialGrid.cpp`
-- [ ] `SkullbonezSource/Physics/SpatialGrid.h`
+- [x] `SkullbonezSource/Physics/DisjointSet.h`
+- [ ] `SkullbonezSource/Physics/ObjectContactManifold.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/ObjectContactManifold.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/PersistentContactSolver.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/PersistentContactSolver.h`
+- [x] `SkullbonezSource/Physics/PhysicsApi.h`
+- [x] `SkullbonezSource/Physics/PhysicsBodyStore.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsBodyStore.h`
+- [x] `SkullbonezSource/Physics/PhysicsBroadphaseDebugView.h`
+- [x] `SkullbonezSource/Physics/PhysicsDebugData.h`
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsModel.h`
+- [ ] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsSink.h`
+- [x] `SkullbonezSource/Physics/PhysicsDiagnosticsView.h`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.h`
+- [x] `SkullbonezSource/Physics/PhysicsEngine.ReplayPredictionCloneScope.h`
+- [x] `SkullbonezSource/Physics/PhysicsFixedList.h`
+- [x] `SkullbonezSource/Physics/PhysicsHandles.h`
+- [x] `SkullbonezSource/Physics/PhysicsMass.h`
+- [x] `SkullbonezSource/Physics/PhysicsObjectPolicy.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsObjectPolicy.h`
+- [x] `SkullbonezSource/Physics/PhysicsRuntimeSettings.h`
+- [x] `SkullbonezSource/Physics/PhysicsSceneVectorReserve.h`
+- [x] `SkullbonezSource/Physics/PhysicsSolverSnapshot.h`
+- [x] `SkullbonezSource/Physics/PhysicsStageCapacity.h`
+- [x] `SkullbonezSource/Physics/PhysicsTerrainView.cpp`
+- [x] `SkullbonezSource/Physics/PhysicsTerrainView.h`
+- [x] `SkullbonezSource/Physics/PhysicsTimestep.h`
+- [ ] `SkullbonezSource/Physics/PhysicsWorld.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/PhysicsWorld.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/PhysicsWorldForces.h`
+- [x] `SkullbonezSource/Physics/Ragdoll.cpp`
+- [x] `SkullbonezSource/Physics/Ragdoll.h`
+- [ ] `SkullbonezSource/Physics/SleepIslandSystem.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Physics/SleepIslandSystem.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Physics/SolverBroadphaseStage.h`
+- [x] `SkullbonezSource/Physics/SpatialGrid.cpp`
+- [ ] `SkullbonezSource/Physics/SpatialGrid.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Physics/Stages
 
-- [ ] `SkullbonezSource/Physics/Stages/ExternalForceStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/ExternalForceStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsForceStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.State.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h`
+- [x] `SkullbonezSource/Physics/Stages/ExternalForceStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/ExternalForceStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsForceStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.State.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h`
 
 ## SkullbonezSource/Physics
 
-- [ ] `SkullbonezSource/Physics/TerrainContactManifold.cpp`
-- [ ] `SkullbonezSource/Physics/TerrainContactManifold.h`
-- [ ] `SkullbonezSource/Physics/TerrainSupportClassifier.h`
+- [x] `SkullbonezSource/Physics/TerrainContactManifold.cpp`
+- [x] `SkullbonezSource/Physics/TerrainContactManifold.h`
+- [x] `SkullbonezSource/Physics/TerrainSupportClassifier.h`
 
 ## SkullbonezSource/Rendering
 
-- [ ] `SkullbonezSource/Rendering/DrawCallTrace.cpp`
-- [ ] `SkullbonezSource/Rendering/DrawCallTrace.h`
+- [x] `SkullbonezSource/Rendering/DrawCallTrace.cpp`
+- [x] `SkullbonezSource/Rendering/DrawCallTrace.h`
 
 ## SkullbonezSource/Rendering/DX12
 
-- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12DeferredReleaseOwner.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12ResourceBuilder.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h`
-- [ ] `SkullbonezSource/Rendering/DX12/Dx12TextureRegistry.h`
-- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/MeshDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.h`
-- [ ] `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/ShaderDX12.h`
-- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp`
-- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.h`
+- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/DX12/BLASDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12DeferredReleaseOwner.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12ResourceBuilder.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h`
+- [x] `SkullbonezSource/Rendering/DX12/Dx12TextureRegistry.h`
+- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/MeshDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/MeshDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.CommandRecordingState.h`
+- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h`
+- [ ] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp`
+- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h`
+- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/DX12/SBTDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/ShaderBytecodeManifest.h`
+- [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.cpp`
+- [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.h`
+- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/DX12/TLASDX12.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Rendering
 
-- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp`
-- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h`
-- [ ] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h`
-- [ ] `SkullbonezSource/Rendering/RenderCommandTypes.h`
-- [ ] `SkullbonezSource/Rendering/RenderDiagnosticsTypes.h`
-- [ ] `SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderGpuTimingOwner.h`
-- [ ] `SkullbonezSource/Rendering/RenderGraph.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderGraph.h`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceStore.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderInstanceStore.h`
-- [ ] `SkullbonezSource/Rendering/RenderMaterial.h`
-- [ ] `SkullbonezSource/Rendering/RenderPipeline.cpp`
-- [ ] `SkullbonezSource/Rendering/RenderPipeline.h`
-- [ ] `SkullbonezSource/Rendering/RenderRasterBindingContract.h`
-- [ ] `SkullbonezSource/Rendering/RenderRaytracingTypes.h`
-- [ ] `SkullbonezSource/Rendering/RenderResourceTypes.h`
-- [ ] `SkullbonezSource/Rendering/RenderSceneSnapshot.h`
-- [ ] `SkullbonezSource/Rendering/ShaderContracts.h`
-- [ ] `SkullbonezSource/Rendering/ShaderReflectionContracts.h`
-- [ ] `SkullbonezSource/Rendering/Shadow.h`
-- [ ] `SkullbonezSource/Rendering/Text.cpp`
-- [ ] `SkullbonezSource/Rendering/Text.h`
-- [ ] `SkullbonezSource/Rendering/WorldRenderExtension.h`
+- [ ] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h`
+- [ ] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/RenderCommandTypes.h`
+- [x] `SkullbonezSource/Rendering/RenderDiagnosticsTypes.h`
+- [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.cpp`
+- [x] `SkullbonezSource/Rendering/RenderGpuTimingOwner.h`
+- [ ] `SkullbonezSource/Rendering/RenderGraph.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/RenderGraph.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
+- [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/RenderInstanceStore.cpp`
+- [x] `SkullbonezSource/Rendering/RenderInstanceStore.h`
+- [x] `SkullbonezSource/Rendering/RenderMaterial.h`
+- [x] `SkullbonezSource/Rendering/RenderPipeline.cpp`
+- [x] `SkullbonezSource/Rendering/RenderPipeline.h`
+- [x] `SkullbonezSource/Rendering/RenderRasterBindingContract.h`
+- [x] `SkullbonezSource/Rendering/RenderRaytracingTypes.h`
+- [x] `SkullbonezSource/Rendering/RenderResourceTypes.h`
+- [x] `SkullbonezSource/Rendering/RenderSceneSnapshot.h`
+- [x] `SkullbonezSource/Rendering/ShaderContracts.h`
+- [x] `SkullbonezSource/Rendering/ShaderReflectionContracts.h`
+- [ ] `SkullbonezSource/Rendering/Shadow.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/Text.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Rendering/Text.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Rendering/WorldRenderExtension.h`
 
 ## SkullbonezSource/Runtime/App
 
-- [ ] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp`
-- [ ] `SkullbonezSource/Runtime/App/ApplicationExitState.h`
-- [ ] `SkullbonezSource/Runtime/App/Init.cpp`
-- [ ] `SkullbonezSource/Runtime/App/InputFrame.cpp`
-- [ ] `SkullbonezSource/Runtime/App/InputFrame.h`
-- [ ] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp`
-- [ ] `SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp`
-- [ ] `SkullbonezSource/Runtime/App/ReplayReserveInventory.h`
-- [ ] `SkullbonezSource/Runtime/App/ReplayRuntime.cpp`
-- [ ] `SkullbonezSource/Runtime/App/ReplayRuntime.h`
-- [ ] `SkullbonezSource/Runtime/App/ReplayRuntimePackets.h`
-- [ ] `SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp`
-- [ ] `SkullbonezSource/Runtime/App/ReplayValidation.cpp`
-- [ ] `SkullbonezSource/Runtime/App/ReplayValidation.Internal.h`
-- [ ] `SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp`
-- [ ] `SkullbonezSource/Runtime/App/Run.cpp`
-- [ ] `SkullbonezSource/Runtime/App/Run.h`
-- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp`
-- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.h`
-- [ ] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h`
-- [ ] `SkullbonezSource/Runtime/App/RunRender.cpp`
-- [ ] `SkullbonezSource/Runtime/App/RunStartupState.h`
-- [ ] `SkullbonezSource/Runtime/App/RunTimerState.h`
-- [ ] `SkullbonezSource/Runtime/App/Window.cpp`
-- [ ] `SkullbonezSource/Runtime/App/Window.h`
+- [x] `SkullbonezSource/Runtime/App/ApplicationExitState.cpp`
+- [x] `SkullbonezSource/Runtime/App/ApplicationExitState.h`
+- [ ] `SkullbonezSource/Runtime/App/Init.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/App/InputFrame.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputFrame.h`
+- [x] `SkullbonezSource/Runtime/App/InputFrameExecution.cpp`
+- [x] `SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp`
+- [x] `SkullbonezSource/Runtime/App/ReplayReserveInventory.h`
+- [x] `SkullbonezSource/Runtime/App/ReplayRuntime.cpp`
+- [x] `SkullbonezSource/Runtime/App/ReplayRuntime.h`
+- [x] `SkullbonezSource/Runtime/App/ReplayRuntimePackets.h`
+- [x] `SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp`
+- [x] `SkullbonezSource/Runtime/App/ReplayValidation.cpp`
+- [x] `SkullbonezSource/Runtime/App/ReplayValidation.Internal.h`
+- [x] `SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp`
+- [ ] `SkullbonezSource/Runtime/App/Run.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Runtime/App/Run.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Runtime/App/RunFrame.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.h`
+- [x] `SkullbonezSource/Runtime/App/RunLaunchOptions.Renderer.h`
+- [x] `SkullbonezSource/Runtime/App/RunRender.cpp`
+- [x] `SkullbonezSource/Runtime/App/RunStartupState.h`
+- [x] `SkullbonezSource/Runtime/App/RunTimerState.h`
+- [x] `SkullbonezSource/Runtime/App/Window.cpp`
+- [ ] `SkullbonezSource/Runtime/App/Window.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Runtime/Automation
 
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp`
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.h`
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.cpp`
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h`
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp`
-- [ ] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h`
-- [ ] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp`
-- [ ] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationController.h`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h`
+- [x] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.cpp`
+- [x] `SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h`
 
 ## SkullbonezSource/Runtime/Camera
 
-- [ ] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp`
-- [ ] `SkullbonezSource/Runtime/Camera/AttachedCameraController.h`
-- [ ] `SkullbonezSource/Runtime/Camera/Camera.cpp`
-- [ ] `SkullbonezSource/Runtime/Camera/Camera.h`
-- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.cpp`
-- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.h`
-- [ ] `SkullbonezSource/Runtime/Camera/CameraControlState.cpp`
-- [ ] `SkullbonezSource/Runtime/Camera/CameraControlState.h`
-- [ ] `SkullbonezSource/Runtime/Camera/RuntimeCameraMode.h`
+- [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.cpp`
+- [x] `SkullbonezSource/Runtime/Camera/AttachedCameraController.h`
+- [ ] `SkullbonezSource/Runtime/Camera/Camera.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Camera/Camera.h`
+- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Runtime/Camera/CameraCollection.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Camera/CameraControlState.cpp`
+- [x] `SkullbonezSource/Runtime/Camera/CameraControlState.h`
+- [x] `SkullbonezSource/Runtime/Camera/RuntimeCameraMode.h`
 
 ## SkullbonezSource/Runtime/Capture
 
-- [ ] `SkullbonezSource/Runtime/Capture/CaptureController.cpp`
-- [ ] `SkullbonezSource/Runtime/Capture/CaptureController.h`
-- [ ] `SkullbonezSource/Runtime/Capture/CaptureSystem.cpp`
-- [ ] `SkullbonezSource/Runtime/Capture/CaptureSystem.h`
-- [ ] `SkullbonezSource/Runtime/Capture/GraphicsStressController.h`
-- [ ] `SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp`
-- [ ] `SkullbonezSource/Runtime/Capture/RuntimeStressController.h`
+- [x] `SkullbonezSource/Runtime/Capture/CaptureController.cpp`
+- [x] `SkullbonezSource/Runtime/Capture/CaptureController.h`
+- [x] `SkullbonezSource/Runtime/Capture/CaptureSystem.cpp`
+- [x] `SkullbonezSource/Runtime/Capture/CaptureSystem.h`
+- [x] `SkullbonezSource/Runtime/Capture/GraphicsStressController.h`
+- [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp`
+- [x] `SkullbonezSource/Runtime/Capture/RuntimeStressController.h`
 
 ## SkullbonezSource/Runtime/Debug
 
-- [ ] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp`
-- [ ] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h`
-- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp`
-- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h`
-- [ ] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp`
-- [ ] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h`
+- [ ] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h`
+- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.cpp`
+- [ ] `SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Runtime/DevelopmentTools
 
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h`
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h`
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.cpp`
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h`
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp`
-- [ ] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.cpp`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp`
+- [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h`
 
 ## SkullbonezSource/Runtime/Diagnostics
 
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.cpp`
-- [ ] `SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/OverlayDebugState.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h`
+- [x] `SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.cpp`
+- [x] `SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h`
 
 ## SkullbonezSource/Runtime/Direction
 
-- [ ] `SkullbonezSource/Runtime/Direction/DemoDirector.cpp`
-- [ ] `SkullbonezSource/Runtime/Direction/DemoDirector.h`
-- [ ] `SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.cpp`
-- [ ] `SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h`
-- [ ] `SkullbonezSource/Runtime/Direction/LiveStyleController.cpp`
-- [ ] `SkullbonezSource/Runtime/Direction/LiveStyleController.h`
+- [x] `SkullbonezSource/Runtime/Direction/DemoDirector.cpp`
+- [x] `SkullbonezSource/Runtime/Direction/DemoDirector.h`
+- [x] `SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.cpp`
+- [x] `SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h`
+- [x] `SkullbonezSource/Runtime/Direction/LiveStyleController.cpp`
+- [x] `SkullbonezSource/Runtime/Direction/LiveStyleController.h`
 
 ## SkullbonezSource/Runtime/Editor
 
-- [ ] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorHullAssets.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTerrainOrientation.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTerrainOrientation.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTools.h`
-- [ ] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/LauncherLaser.h`
-- [ ] `SkullbonezSource/Runtime/Editor/LauncherTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Editor/MousePickupTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorCommandHistory.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorGizmoTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorHistory.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorHullAssets.h`
+- [ ] `SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorOverlayTools.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTerrainOrientation.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTerrainOrientation.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTools.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTools.h`
+- [x] `SkullbonezSource/Runtime/Editor/EditorTracer.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp`
+- [x] `SkullbonezSource/Runtime/Editor/LauncherLaser.h`
+- [ ] `SkullbonezSource/Runtime/Editor/LauncherTools.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Editor/MousePickupTools.cpp`
 
 ## SkullbonezSource/Runtime/Input
 
-- [ ] `SkullbonezSource/Runtime/Input/Input.cpp`
-- [ ] `SkullbonezSource/Runtime/Input/Input.h`
-- [ ] `SkullbonezSource/Runtime/Input/InputController.Bindings.cpp`
-- [ ] `SkullbonezSource/Runtime/Input/InputController.Bindings.h`
-- [ ] `SkullbonezSource/Runtime/Input/InputController.cpp`
-- [ ] `SkullbonezSource/Runtime/Input/InputController.h`
-- [ ] `SkullbonezSource/Runtime/Input/InputRouter.cpp`
-- [ ] `SkullbonezSource/Runtime/Input/InputRouter.h`
+- [x] `SkullbonezSource/Runtime/Input/Input.cpp`
+- [ ] `SkullbonezSource/Runtime/Input/Input.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.cpp`
+- [x] `SkullbonezSource/Runtime/Input/InputController.Bindings.h`
+- [x] `SkullbonezSource/Runtime/Input/InputController.cpp`
+- [x] `SkullbonezSource/Runtime/Input/InputController.h`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.cpp`
+- [x] `SkullbonezSource/Runtime/Input/InputRouter.h`
 
 ## SkullbonezSource/Runtime/Interaction
 
-- [ ] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.h`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp`
-- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickService.h`
+- [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.Commands.cpp`
+- [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.cpp`
+- [x] `SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionCommands.h`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.cpp`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimePickGeometry.h`
+- [x] `SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp`
+- [ ] `SkullbonezSource/Runtime/Interaction/RuntimePickService.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
 
 ## SkullbonezSource/Runtime/Planning
 
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayGuideArcs.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayTripPlanner.cpp`
-- [ ] `SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayGuideArcs.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayGuideArcs.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayPackets.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPlanningRuntime.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayTripPlanner.cpp`
+- [x] `SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h`
 
 ## SkullbonezSource/Runtime/Prediction
 
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayCauseFocusSubmission.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h`
-- [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp`
-- [ ] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayCauseFocusSubmission.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPrediction.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPackets.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionPublicationOperations.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedMemory.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionScheduling.h`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionTopologyPublication.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h`
+- [x] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.cpp`
+- [x] `SkullbonezSource/Runtime/Prediction/TrajectoryStore.h`
 
 ## SkullbonezSource/Runtime/Render
 
-- [ ] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.h`
-- [ ] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h`
-- [ ] `SkullbonezSource/Runtime/Render/RenderPresentationSettings.h`
-- [ ] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderHost.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
-- [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderResources.h`
-- [ ] `SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp`
-- [ ] `SkullbonezSource/Runtime/Render/UiDrawSubmission.h`
-- [ ] `SkullbonezSource/Runtime/Render/UiTextPass.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.h`
+- [x] `SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h`
+- [x] `SkullbonezSource/Runtime/Render/RenderPresentationSettings.h`
+- [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderHost.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
+- [x] `SkullbonezSource/Runtime/Render/RuntimeRenderResources.h`
+- [x] `SkullbonezSource/Runtime/Render/UiDrawSubmission.cpp`
+- [x] `SkullbonezSource/Runtime/Render/UiDrawSubmission.h`
+- [x] `SkullbonezSource/Runtime/Render/UiTextPass.cpp`
 
 ## SkullbonezSource/Runtime/Replay
 
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayCaptureLimits.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayCapturePackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayEventCommand.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayIdentity.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayOverlaySurface.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentationPackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayPresentationSubmission.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayProbeState.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRecorder.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRestoreService.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayScrubber.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayTimeline.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayTimelinePackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayToolPackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp`
-- [ ] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoring.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringPackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayCaptureLimits.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayCapturePackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayCoordination.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayEventCommand.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayIdentity.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayOverlaySurface.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPathPackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentation.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentationPackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayPresentationSubmission.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayProbeState.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRecorder.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRestoreService.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayScrubber.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayTimeline.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayTimelinePackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayToolPackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.cpp`
+- [x] `SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h`
 
 ## SkullbonezSource/Runtime
 
-- [ ] `SkullbonezSource/Runtime/RuntimeFrameViews.h`
+- [x] `SkullbonezSource/Runtime/RuntimeFrameViews.h`
 
 ## SkullbonezSource/Runtime/Scene
 
-- [ ] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneAutomationGateConfiguration.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Creation.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Navigation.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneController.Style.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneControllerState.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneEntityStore.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLifecycle.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadRequest.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Presentation.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Reset.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneNavigationModel.Browser.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneRequestQueue.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneRequestQueue.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneResetPreservation.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneSaveOperations.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneSessionState.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneSessionState.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneTerrain.h`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp`
-- [ ] `SkullbonezSource/Runtime/Scene/SceneWorld.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneAutomationGateConfiguration.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.Creation.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.Load.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.Navigation.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneController.Style.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneControllerState.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneEntityStore.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLifecycle.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadRequest.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Presentation.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Reset.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneNavigationModel.Browser.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneRequestQueue.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneRequestQueue.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneResetPreservation.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneSaveOperations.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneSessionState.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneSessionState.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneTerrain.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneWorld.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneWorld.h`
 
 ## SkullbonezSource/Runtime/Simulation
 
-- [ ] `SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp`
-- [ ] `SkullbonezSource/Runtime/Simulation/SimulationSystem.h`
+- [x] `SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp`
+- [x] `SkullbonezSource/Runtime/Simulation/SimulationSystem.h`
 
 ## SkullbonezSource/Runtime/Startup
 
-- [ ] `SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupCommandLine.h`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupCrashLogging.cpp`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupCrashLogging.h`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp`
-- [ ] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.h`
+- [x] `SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp`
+- [x] `SkullbonezSource/Runtime/Startup/StartupCommandLine.h`
+- [x] `SkullbonezSource/Runtime/Startup/StartupCrashLogging.cpp`
+- [x] `SkullbonezSource/Runtime/Startup/StartupCrashLogging.h`
+- [x] `SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp`
+- [x] `SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h`
+- [x] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp`
+- [x] `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.h`
 
 ## SkullbonezSource/Runtime/Tools
 
-- [ ] `SkullbonezSource/Runtime/Tools/RuntimeFileWriter.cpp`
-- [ ] `SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h`
-- [ ] `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`
-- [ ] `SkullbonezSource/Runtime/Tools/RuntimeTools.h`
+- [x] `SkullbonezSource/Runtime/Tools/RuntimeFileWriter.cpp`
+- [x] `SkullbonezSource/Runtime/Tools/RuntimeFileWriter.h`
+- [x] `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`
+- [x] `SkullbonezSource/Runtime/Tools/RuntimeTools.h`
 
 ## SkullbonezSource/Runtime/UI
 
-- [ ] `SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp`
-- [ ] `SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.cpp`
-- [ ] `SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.h`
-- [ ] `SkullbonezSource/Runtime/UI/RuntimeUiSurface.h`
-- [ ] `SkullbonezSource/Runtime/UI/RuntimeViewModel.cpp`
-- [ ] `SkullbonezSource/Runtime/UI/RuntimeViewModel.h`
+- [x] `SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp`
+- [x] `SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.cpp`
+- [x] `SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.h`
+- [x] `SkullbonezSource/Runtime/UI/RuntimeUiSurface.h`
+- [x] `SkullbonezSource/Runtime/UI/RuntimeViewModel.cpp`
+- [x] `SkullbonezSource/Runtime/UI/RuntimeViewModel.h`
 
 ## SkullbonezSource/Scene
 
-- [ ] `SkullbonezSource/Scene/AuthoredScene.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredScene.h`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParser.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParserBodies.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParserPresentation.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParserRuntime.cpp`
-- [ ] `SkullbonezSource/Scene/AuthoredSceneParserSchema.h`
-- [ ] `SkullbonezSource/Scene/AuthoredTornadoConfig.h`
-- [ ] `SkullbonezSource/Scene/SceneSnapshotWriter.cpp`
-- [ ] `SkullbonezSource/Scene/SceneSnapshotWriter.h`
+- [ ] `SkullbonezSource/Scene/AuthoredScene.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/Scene/AuthoredScene.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/Scene/AuthoredSceneParser.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserBodies.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserPresentation.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserRuntime.cpp`
+- [x] `SkullbonezSource/Scene/AuthoredSceneParserSchema.h`
+- [x] `SkullbonezSource/Scene/AuthoredTornadoConfig.h`
+- [x] `SkullbonezSource/Scene/SceneSnapshotWriter.cpp`
+- [x] `SkullbonezSource/Scene/SceneSnapshotWriter.h`
 
 ## SkullbonezSource/UI
 
-- [ ] `SkullbonezSource/UI/OperatorEditorExchange.cpp`
-- [ ] `SkullbonezSource/UI/OperatorEditorExchange.h`
-- [ ] `SkullbonezSource/UI/UI.cpp`
-- [ ] `SkullbonezSource/UI/UI.h`
-- [ ] `SkullbonezSource/UI/UIBackdropBlur.cpp`
-- [ ] `SkullbonezSource/UI/UIBackdropBlur.h`
-- [ ] `SkullbonezSource/UI/UIButton.cpp`
-- [ ] `SkullbonezSource/UI/UIButton.h`
-- [ ] `SkullbonezSource/UI/UICache.cpp`
-- [ ] `SkullbonezSource/UI/UICache.h`
-- [ ] `SkullbonezSource/UI/UICheckBox.cpp`
-- [ ] `SkullbonezSource/UI/UICheckBox.h`
-- [ ] `SkullbonezSource/UI/UIComboBox.cpp`
-- [ ] `SkullbonezSource/UI/UIComboBox.h`
-- [ ] `SkullbonezSource/UI/UICommands.h`
-- [ ] `SkullbonezSource/UI/UIDraw.cpp`
-- [ ] `SkullbonezSource/UI/UIDraw.h`
-- [ ] `SkullbonezSource/UI/UIDrawList.cpp`
-- [ ] `SkullbonezSource/UI/UIDrawList.h`
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.cpp`
-- [ ] `SkullbonezSource/UI/UIDrawWidgets.h`
-- [ ] `SkullbonezSource/UI/UIEditorMiniPalette.cpp`
-- [ ] `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp`
-- [ ] `SkullbonezSource/UI/UIFontMetrics.cpp`
-- [ ] `SkullbonezSource/UI/UIFontMetrics.h`
-- [ ] `SkullbonezSource/UI/UIFrameComposition.cpp`
-- [ ] `SkullbonezSource/UI/UIFrameComposition.h`
-- [ ] `SkullbonezSource/UI/UIIconButton.cpp`
-- [ ] `SkullbonezSource/UI/UIIconButton.h`
-- [ ] `SkullbonezSource/UI/UIInput.cpp`
-- [ ] `SkullbonezSource/UI/UIInput.h`
-- [ ] `SkullbonezSource/UI/UILayout.cpp`
-- [ ] `SkullbonezSource/UI/UILayout.h`
-- [ ] `SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp`
-- [ ] `SkullbonezSource/UI/UIProfilerOverlayPresenter.h`
-- [ ] `SkullbonezSource/UI/UIRenderAuthoringCatalog.h`
-- [ ] `SkullbonezSource/UI/UIRenderDiagnostics.h`
-- [ ] `SkullbonezSource/UI/UISceneNavigationModel.h`
-- [ ] `SkullbonezSource/UI/UIScrollBar.cpp`
-- [ ] `SkullbonezSource/UI/UIScrollBar.h`
-- [ ] `SkullbonezSource/UI/UISlider.cpp`
-- [ ] `SkullbonezSource/UI/UISlider.h`
-- [ ] `SkullbonezSource/UI/UIState.h`
-- [ ] `SkullbonezSource/UI/UIStyle.cpp`
-- [ ] `SkullbonezSource/UI/UIStyle.h`
-- [ ] `SkullbonezSource/UI/UITabBar.cpp`
-- [ ] `SkullbonezSource/UI/UITabBar.h`
-- [ ] `SkullbonezSource/UI/UITabCinematic.cpp`
-- [ ] `SkullbonezSource/UI/UITabCinematic.h`
-- [ ] `SkullbonezSource/UI/UITabControls.cpp`
-- [ ] `SkullbonezSource/UI/UITabControls.h`
-- [ ] `SkullbonezSource/UI/UITabEditor.cpp`
-- [ ] `SkullbonezSource/UI/UITabEditor.h`
-- [ ] `SkullbonezSource/UI/UITabMemory.cpp`
-- [ ] `SkullbonezSource/UI/UITabMemory.h`
-- [ ] `SkullbonezSource/UI/UITabOptions.cpp`
-- [ ] `SkullbonezSource/UI/UITabOptions.h`
-- [ ] `SkullbonezSource/UI/UITabPhysics.cpp`
-- [ ] `SkullbonezSource/UI/UITabPhysics.h`
-- [ ] `SkullbonezSource/UI/UITabProfiler.cpp`
-- [ ] `SkullbonezSource/UI/UITabProfiler.h`
-- [ ] `SkullbonezSource/UI/UITabProfilerHistogram.cpp`
-- [ ] `SkullbonezSource/UI/UITabScene.cpp`
-- [ ] `SkullbonezSource/UI/UITabScene.h`
-- [ ] `SkullbonezSource/UI/UITabSky.cpp`
-- [ ] `SkullbonezSource/UI/UITabSky.h`
-- [ ] `SkullbonezSource/UI/UIWindowChrome.cpp`
-- [ ] `SkullbonezSource/UI/UIWindowChrome.h`
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
-- [ ] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
+- [x] `SkullbonezSource/UI/OperatorEditorExchange.cpp`
+- [x] `SkullbonezSource/UI/OperatorEditorExchange.h`
+- [ ] `SkullbonezSource/UI/UI.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UI.h`
+- [x] `SkullbonezSource/UI/UIBackdropBlur.cpp`
+- [x] `SkullbonezSource/UI/UIBackdropBlur.h`
+- [ ] `SkullbonezSource/UI/UIButton.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIButton.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UICache.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UICache.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UICheckBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UICheckBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIComboBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIComboBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UICommands.h`
+- [x] `SkullbonezSource/UI/UIDraw.cpp`
+- [x] `SkullbonezSource/UI/UIDraw.h`
+- [x] `SkullbonezSource/UI/UIDrawList.cpp`
+- [x] `SkullbonezSource/UI/UIDrawList.h`
+- [ ] `SkullbonezSource/UI/UIDrawWidgets.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIDrawWidgets.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIEditorMiniPalette.cpp`
+- [x] `SkullbonezSource/UI/UIEditorMiniPaletteDraw.cpp`
+- [x] `SkullbonezSource/UI/UIFontMetrics.cpp`
+- [x] `SkullbonezSource/UI/UIFontMetrics.h`
+- [x] `SkullbonezSource/UI/UIFrameComposition.cpp`
+- [x] `SkullbonezSource/UI/UIFrameComposition.h`
+- [ ] `SkullbonezSource/UI/UIIconButton.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIIconButton.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIInput.cpp`
+- [x] `SkullbonezSource/UI/UIInput.h`
+- [ ] `SkullbonezSource/UI/UILayout.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UILayout.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp`
+- [x] `SkullbonezSource/UI/UIProfilerOverlayPresenter.h`
+- [x] `SkullbonezSource/UI/UIRenderAuthoringCatalog.h`
+- [x] `SkullbonezSource/UI/UIRenderDiagnostics.h`
+- [x] `SkullbonezSource/UI/UISceneNavigationModel.h`
+- [ ] `SkullbonezSource/UI/UIScrollBar.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIScrollBar.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UISlider.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UISlider.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIState.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIStyle.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIStyle.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabBar.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabBar.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabCinematic.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabCinematic.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabControls.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabControls.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabEditor.cpp`
+- [x] `SkullbonezSource/UI/UITabEditor.h`
+- [x] `SkullbonezSource/UI/UITabMemory.cpp`
+- [x] `SkullbonezSource/UI/UITabMemory.h`
+- [ ] `SkullbonezSource/UI/UITabOptions.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabOptions.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabPhysics.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabPhysics.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabProfiler.cpp`
+- [ ] `SkullbonezSource/UI/UITabProfiler.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabProfilerHistogram.cpp`
+- [ ] `SkullbonezSource/UI/UITabScene.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabScene.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UITabSky.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UITabSky.h`
+- [ ] `SkullbonezSource/UI/UIWindowChrome.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/UI/UIWindowChrome.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
+- [x] `SkullbonezSource/UI/UIWindowInteractionOwner.h`
 
 ## SkullbonezSource/World
 
-- [ ] `SkullbonezSource/World/FluidSurfaceAdjustment.h`
-- [ ] `SkullbonezSource/World/SkyBox.cpp`
-- [ ] `SkullbonezSource/World/SkyBox.h`
-- [ ] `SkullbonezSource/World/Terrain.cpp`
-- [ ] `SkullbonezSource/World/Terrain.h`
-- [ ] `SkullbonezSource/World/WorldEnvironment.cpp`
-- [ ] `SkullbonezSource/World/WorldEnvironment.h`
+- [x] `SkullbonezSource/World/FluidSurfaceAdjustment.h`
+- [ ] `SkullbonezSource/World/SkyBox.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/World/SkyBox.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [x] `SkullbonezSource/World/Terrain.cpp`
+- [ ] `SkullbonezSource/World/Terrain.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/World/WorldEnvironment.cpp` - Deferred to GC3: basename-led summary requires non-tautology adjudication.
+- [ ] `SkullbonezSource/World/WorldEnvironment.h` - Deferred to GC3: basename-led summary requires non-tautology adjudication.

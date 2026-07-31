@@ -10,34 +10,9 @@ Summary:
   surface, fences, command allocators, and frame pacing.
 
 Glossary:
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
-  loss, breadcrumbs, and page-fault clues.
-  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
-  object names.
-  COM (Component Object Model): Windows interface lifetime model used by DX12
-  through reference-counted objects.
-  Descriptor heap: Table of descriptor rows that tell the GPU how to interpret
-  resources for reads, writes, or render targets.
   Shader-visible descriptor heap: Descriptor table the GPU can index from bound
   root tables; rows must not be overwritten until the frame fence proves use is
   complete.
-  PSO (Pipeline State Object): Compiled draw or raytracing state bundle.
-  Root signature: Binding contract that tells command lists where shaders find
-  descriptor tables and constants.
-  Resource state: DX12 usage mode for a resource, such as render target,
-  shader read, copy source, or present.
-  Fence: GPU timeline counter used to prove command allocators, upload bytes,
-  and transient descriptors are no longer in flight.
-  Persistent tail: Fixed suffix excluded from ordinary frame resets so retained
-    GPU geometry can reuse cold-created upload memory across frames.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -47,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderDeviceDX12.h"
 #include "../../Core/SbDiagnosticStore.h"

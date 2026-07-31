@@ -8,11 +8,6 @@ Summary:
   is the narrow value vocabulary copied into body and collider descriptors
   before simulation stores consume it.
 
-Glossary:
-  Physics material: Friction and drag coefficients used by body/collider rows.
-  Body simulation limit: Scalar caps applied before solver rows see velocity.
-  Contact policy: Terrain/contact thresholds shared by body-store force logic.
-
 Invariants:
   - These helpers allocate nothing and read only supplied Physics settings.
   - The returned structs are value policy, not ownership handles.
@@ -22,6 +17,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/ColliderStore.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsObjectPolicy.h"
 

@@ -8,12 +8,6 @@ Summary:
   shape metadata, but diagnostics must not borrow mutable authoring storage.
   This record is a one-frame serialization DTO, not physics storage authority.
 
-Glossary:
-  DTO (Data Transfer Object): Plain value record passed across a subsystem
-    boundary so the receiver can serialize data without owning the source.
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-    output and local queries.
-
 Invariants:
   - Records are sampled from dense model indices during one diagnostics pass.
   - Borrowed string pointers are valid only while the model owner is unchanged.
@@ -22,6 +16,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
   - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

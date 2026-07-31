@@ -5,11 +5,7 @@ Purpose:
 
 Summary:
   PlatformProfiler.cpp bridges engine profiler markers to platform tools such
-  as PIX when available. As an implementation unit, keep edits anchored on
-  process-wide contracts, diagnostics, and validation-sensitive state and on
-  the glossary/invariants below.
-
-Glossary:
+  as PIX when available.
 
 Invariants:
   - Platform profiler calls must be optional; engine profiling remains valid

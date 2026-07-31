@@ -12,7 +12,6 @@ Summary:
 Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
-  Override mask: Bitset recording which UI-touched scene values should persist.
   Run camera command: One-frame Run-tab packet that requests an operator camera mode.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
@@ -26,6 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "OperatorCommandTransaction.h"
 #include "../Scene/SceneController.h"

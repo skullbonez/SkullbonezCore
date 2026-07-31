@@ -16,8 +16,6 @@ Glossary:
     from physics stores.
   Pose command: Solved camera eye/view/up plus whether entry tweening should
     start for this solve.
-  Lifecycle generation: Identity of one accepted scene-load attempt, used to
-    reset attach state once even when the load later fails.
 
 Invariants:
   - Target recovery uses physics-store handles and scene object ids; a dense row is
@@ -30,6 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/App/Run.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

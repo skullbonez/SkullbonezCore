@@ -9,21 +9,14 @@ Summary:
   sleep/contact summaries, and hashes for the authoritative rollback path.
 
 Glossary:
-  Presentation sample: A compact, render-facing record of one committed physics
-  tick. It is useful for inspection, but it is not enough to restore the solver.
   Visual body metadata: Stable body identity/display fields stored once and
     referenced by retained visual frames.
   Visual delta frame: Per-frame body order plus changed dynamic body state; a
     keyframe stores all active body states and ordinary frames carry forward.
-  Solver sample: A same-tick physics-state record with extra mass and inertia
-  inputs. It is still not a full restore checkpoint until persistent contacts,
-  event streams, and hidden solver caches are captured.
   Solver delta frame: Per-frame solver body order plus changed body/world state;
     keyframes are self-contained so ring eviction never strands later deltas.
   Checkpoint summary: A replay boundary marker with hashes and counts. It is
   deliberately not an authoritative restore checkpoint yet.
-  Ring buffer: Fixed-capacity circular array; newest captures evict the oldest
-    samples once the retention window is full.
   Event sample: Accepted owner action, restore, or branch record that must be
     replayed alongside solver state for authoritative rollback work.
   Wire code: Explicit serialized value whose meaning is independent of a C++
@@ -41,6 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

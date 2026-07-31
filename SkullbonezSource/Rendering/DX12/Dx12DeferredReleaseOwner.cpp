@@ -8,10 +8,6 @@ Summary:
   A row is released only after its assigned covering fence completes, or after
   terminal device drain proves that no submitted work can reference it.
 
-Glossary:
-  Covering fence: Queue counter proving all earlier GPU references are finished.
-  Retirement quarantine: Fixed queue of invalidated resources awaiting that proof.
-
 Invariants:
   - Queue exhaustion is fatal with owner and high-water diagnostics; it never grows at runtime.
   - The last release snapshot derives released rows from one input/survivor pair.
@@ -22,6 +18,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12FrameOwner.h"
 #include "../../Core/FatalError.h"

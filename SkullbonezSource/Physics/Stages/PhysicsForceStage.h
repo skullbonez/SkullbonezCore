@@ -18,8 +18,6 @@ Glossary:
     parallel pair-table limit.
   Remaining-time integration: Final model-order advance after all CCD lanes
     have consumed their portion of the shared tick clock.
-  Awake index list: Ascending sleep-owner rows that select force/integration
-    work without rebuilding or scanning the full body store.
 
 Invariants:
   - Worker chunks write disjoint pair-table slots and never reduce forces.
@@ -34,6 +32,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

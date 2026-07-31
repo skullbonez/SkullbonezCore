@@ -11,21 +11,8 @@ Summary:
   for one step only. Canonical emission hides all storage-history ordering.
 
 Glossary:
-  AABB (Axis-Aligned Bounding Box): Box aligned to world axes, often used for
-  cheap broadphase overlap tests.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Persistent membership: Ordinary cell occupancy retained until the body's
-    integer range changes or a cold reset invalidates all ranges.
-  Swept overlay: Velocity-dependent cell occupancy that expires at BeginFrame.
   Intrusive back-link: Index stored in pooled rows so removal can unlink both
     the cell chain and body chain without searching global storage.
-  Lane F: Fatal invariant lane for should-never-happen engine state.
-  Pair-source stamp: Frame generation marking a cell reached by an awake body
-    without changing persistent membership stored in that cell.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -42,6 +29,7 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-bg0.md
+  - Agentic/Reference/engine-glossary.md
 */
 
 // Concept: the grid is a cheap maybe-colliding filter, not a collision solver.

@@ -9,8 +9,6 @@ Summary:
   record and does not acquire scene traversal or diagnostics authority.
 
 Glossary:
-  Frame publication: One-time projection of owner-backed rows and values for
-    synchronous render-pass consumption during the current frame.
   Store view: Borrowed contiguous Physics or Rendering records owned elsewhere.
 
 Invariants:
@@ -22,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RenderModelFramePublisher.h
   - SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderModelFramePublisher.h"
 

@@ -11,10 +11,6 @@ Summary:
 Glossary:
   Capture backend: Narrow renderer capability that can read pixels from the
   active back buffer.
-  Backdrop: Translucent panel drawn behind window chrome to separate controls
-  from the world view.
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
 
 Invariants:
   - UIBackdropBlur must not call renderer-global capture/accessor helpers or
@@ -25,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIBackdropBlur.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIBackdropBlur.h"
 

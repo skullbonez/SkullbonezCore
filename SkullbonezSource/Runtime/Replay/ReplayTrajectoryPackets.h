@@ -10,13 +10,6 @@ Summary:
   Prediction may consume Replay packets, but Replay never reaches into a
   Prediction owner.
 
-Glossary:
-  Trajectory lane: Named path category such as recorded past, predicted future,
-    retained trail, or comparison baseline.
-  Published prefix: Count of points in a record that a synchronous reader may
-    inspect.
-  Record version: Monotonic identity assigned when Prediction replaces a record.
-
 Invariants:
   - These records carry values only; mutation policy and capacity authority
     remain with Runtime/Prediction/TrajectoryStore.
@@ -27,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
   - Agentic/Reports/2026-07-25/replay-subsystem-partition-rs0-census.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

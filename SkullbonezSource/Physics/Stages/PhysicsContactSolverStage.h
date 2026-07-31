@@ -12,8 +12,6 @@ Summary:
   the PhysicsWorld sequencer to commit.
 
 Glossary:
-  Persistent contact: Solver row retained long enough to warm-start a matching
-    contact feature on the next fixed tick.
   Consequence batch: Bounded post-solve records and body indices whose foreign
     owner-side effects are committed after the hot solver pass.
   Phase transaction: Non-copyable owner that admits solver work only through
@@ -21,8 +19,6 @@ Glossary:
   Wake access: Narrow synchronous capability that can invalidate cache rows
     without exposing the contact-solver owner to the sleep subsystem.
   Warm start: Reuse of last tick's accumulated contact impulses.
-  Convergence trace: Fixed-capacity live diagnostic history for PGS stopping
-    metrics; it is not replay state.
 
 Invariants:
   - Owned lists commit scene-derived runtime capacities before play and fail
@@ -46,6 +42,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

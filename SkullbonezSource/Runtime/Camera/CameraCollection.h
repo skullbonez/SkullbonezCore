@@ -4,17 +4,12 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  CameraCollection.h owns scene cameras and camera cycling state. As a public
-  header, keep edits anchored on local owner boundaries and call direction and
-  on the glossary/invariants below.
+  CameraCollection.h owns scene cameras and camera cycling state.
 
 Glossary:
   Primary camera: Camera slot controlled directly by player/debug input.
   Relative camera: Secondary camera that preserves an authored offset from the
   primary camera.
-  Tween: Time-based interpolation between camera poses for non-jarring cuts.
-  Render pose: The eye/view/up triple actually used for the current frame; it
-    can differ from the selected camera slot while a tween is active.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
@@ -28,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Camera/CameraCollection.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

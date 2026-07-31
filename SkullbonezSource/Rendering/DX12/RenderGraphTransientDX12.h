@@ -11,12 +11,6 @@ Summary:
 Glossary:
   Graph transient: A frame-local graph resource that is created by the backend,
   used by one or more graph passes, and reusable by later compatible lifetimes.
-  Pool slot: Compiler-assigned alias bucket for non-overlapping transient
-  lifetimes with matching descriptor needs.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures.
-  RTV (Render Target View): Descriptor row used when the GPU writes color.
-  DSV (Depth Stencil View): Descriptor row used for depth/stencil writes.
-  UAV (Unordered Access View): Descriptor row used when shaders write data.
 
 Invariants:
   - Pool-slot reuse is legal even when a previous logical transient already
@@ -28,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

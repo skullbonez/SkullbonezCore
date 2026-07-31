@@ -5,17 +5,11 @@ Purpose:
 
 Summary:
   Config.h loads, stores, and exposes engine configuration values from files
-  and command-line overrides. As a public header, keep edits anchored on
-  process-wide contracts, diagnostics, and validation-sensitive state and on
-  the glossary/invariants below.
+  and command-line overrides.
 
 Glossary:
   Domain config: Narrow value structure whose fields share one concrete runtime
     owner, such as camera navigation or replay prediction scheduling.
-  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
-  bounded contact impulses.
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
   Parallel mutual gravity: Execution policy for building exact pair forces on
     workers before model-order accumulation on the physics owner thread.
 
@@ -33,6 +27,7 @@ Related:
   - SkullbonezSource/Core/Config.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

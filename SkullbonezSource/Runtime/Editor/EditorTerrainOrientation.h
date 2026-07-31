@@ -10,7 +10,6 @@ Summary:
   without constructing editor assets or scene owners.
 
 Glossary:
-  Antiparallel normal: A terrain normal pointing exactly opposite world up.
   Domain clamp: Explicit restriction of a normalized-vector dot to [-1, 1].
 
 Invariants:
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
   - SkullbonezSource/Maths/MathsCommon.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

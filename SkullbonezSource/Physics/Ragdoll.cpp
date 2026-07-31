@@ -10,12 +10,7 @@ Summary:
   migration path to a full constraint solver.
 
 Glossary:
-  Point joint: Constraint that keeps two local anchors near each other.
-  Slack: Allowed anchor separation before the solver pushes the bodies back
-  toward the constraint.
   Neck swing limit: Special angular clamp applied to the head/torso joint.
-  Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
-    by the joint solver.
   Prefab descriptor: Immutable local part or joint facts consumed by authored
     scene setup.
 
@@ -28,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Ragdoll.h"
 

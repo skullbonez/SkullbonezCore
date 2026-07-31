@@ -18,8 +18,6 @@ Glossary:
     authored phase without changing simulation ownership.
   Phase style: Optional `.style.json` applied through SceneCinematicPolicy when a
     phase becomes active.
-  Lane R result: Recoverable style-load failure that skips the phase style while
-    Director playback continues.
   Reveal rate: Authored multiplier for prediction seconds revealed per real
     second while this phase is active.
 
@@ -39,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h
   - SkullbonezSource/Runtime/Direction/DemoDirector.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DemoDirectorPlayback.h"
 #include "../Scene/SceneCinematicPolicy.h"

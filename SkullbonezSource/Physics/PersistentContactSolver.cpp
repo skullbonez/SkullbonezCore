@@ -5,38 +5,17 @@ Purpose:
 
 Summary:
   PersistentContactSolver.cpp solves object/object and object/terrain
-  persistent contact rows. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below. The guarded transaction implements phase
+  persistent contact rows. The guarded transaction implements phase
   transitions, solver-body arithmetic, and every construction, solve,
   publication, correction, and cache phase. Solve is now the thin ordered
   entry/exit sequencer.
 
 Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
-  bounded contact impulses.
   Warm starting: Initializing a row from its previous solved impulse. A terrain
     row with no cache entry may instead use a row-derived first-touch estimate.
-  Sleep: Optimization that stops simulating stable bodies until collision,
-  movement, or explicit gameplay input wakes them.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact row: One solver constraint created from a manifold point and solved
-  by the Projected Gauss-Seidel loop.
-  Restitution: Bounce response that restores closing speed along the contact
-    normal after impact.
   Friction: Tangent impulse that resists sliding along the contact plane.
-  Feature ID: Deterministic contact identifier used to match rows across
-    frames for warm starting.
   Resting footprint: Stable multi-point support patch that can seed sleep and
   cached support impulses.
-  Step policy: Once-per-solve normalized view of authored contact bounds used
-  by both object and terrain rows.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -54,6 +33,7 @@ Related:
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PersistentContactSolver.h"
 

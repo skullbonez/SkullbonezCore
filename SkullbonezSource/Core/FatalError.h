@@ -9,7 +9,6 @@ Summary:
   terminates the process instead of throwing through gameplay or render paths.
 
 Glossary:
-  Lane F: Fatal invariant error handling lane for should-never-happen state.
   Fatal invariant: Program state that indicates an engine bug rather than
     recoverable user, file, device, or automation input.
 
@@ -22,6 +21,7 @@ Related:
   - SkullbonezSource/Core/FatalError.cpp
   - SkullbonezSource/Core/SbResult.h
   - AGENTS.md (Error Handling Policy)
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

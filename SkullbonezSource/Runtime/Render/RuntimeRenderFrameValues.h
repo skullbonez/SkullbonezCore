@@ -9,7 +9,6 @@ Summary:
   them back through a broad service packet.
 
 Glossary:
-  Model frame view: One-frame collection of scene-owned render/store spans.
   Frame policy: Value-only presentation choices sampled after input.
 
 Invariants:
@@ -21,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/App/Run.h
   - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -15,7 +15,6 @@ Glossary:
   Prepared commit: Stack value containing the manifold and diagnostic record
     computed before sequencer-owned side effects are emitted.
   Rest-applied row: Solver scratch preventing duplicate terrain rest response.
-  Awake index list: Ascending dynamic rows eligible for terrain detection.
 
 Invariants:
   - Detection workers write only the candidate slot matching their body index.
@@ -28,6 +27,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

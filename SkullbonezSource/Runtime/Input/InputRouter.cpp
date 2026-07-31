@@ -18,12 +18,8 @@ Glossary:
   Context exit release: Synthetic release emitted when an accepted action is
     still held but its owning context becomes inactive.
   Focus cancellation: Release events emitted when the application loses focus.
-  UI (user interface): Interactive engine controls evaluated between routing
-    phases.
   Fluid-surface command: Signed world-space velocity published in the immutable
     RuntimeInputSnapshot.
-  Pointer arbitration: Phase cursor that lets the first consuming editor,
-    pickup, camera, Replay, or launcher stage suppress every later owner call.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
@@ -36,6 +32,7 @@ Invariants:
 Related:
   - InputRouter.h defines the value records and caller contract.
   - SkullbonezTests/TestInputRouter.cpp covers edge and context behavior.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputRouter.h"
 #include "../../Core/FatalError.h"

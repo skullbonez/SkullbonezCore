@@ -9,17 +9,8 @@ Summary:
   into runtime-owned systems.
 
 Glossary:
-  HWND (Window Handle): Win32 identifier for the native application window.
-  HDC (Handle to Device Context): Win32 drawing context associated with the
-  window.
   Resize lifecycle: Borrowed renderer capability used only to resize swap-chain
   and depth resources when Win32 reports a new client size.
-  WndProc: Win32 callback used by the OS to deliver window, focus, cursor, and
-  input messages.
-  Callback bridge: Input's bound HWND gate that keeps late or foreign window
-  callbacks from mutating frame input queues.
-  Lane R result: Recoverable renderer/window failure returned with an
-    owner/message instead of throwing through WndProc.
 
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
@@ -33,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/App/Window.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Window.h"
 #include "../../Core/SbDiagnosticStore.h"

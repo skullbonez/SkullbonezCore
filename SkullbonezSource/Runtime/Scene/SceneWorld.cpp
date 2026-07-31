@@ -11,28 +11,10 @@ Summary:
   preserve shared dense order without reaching back into SceneController.
 
 Glossary:
-  Physics material: Per-object friction and drag coefficients owned by
-    PhysicsEngine and copied into authored descriptor rows at cold boundaries.
-  Body simulation limit: Scalar cap owned by PhysicsEngine before authored
-    descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds owned by PhysicsEngine so
-    existing and newly added models receive the same physics policy.
   Body descriptor: PhysicsEngine-owned authoring value that can rebuild a live
     PhysicsBodyStore row without reading legacy object record physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and render-owned presentation rows before frame passes.
-  Collider descriptor: Value packet containing shape/material facts that
-    PhysicsEngine turns into a live ColliderStore row.
-  Topology drift: A body/collider/buoyancy/model count mismatch that means
-    stores must import explicit construction descriptors before stepping.
-  Scene-object group: Cold metadata that maps multi-part authored objects, such
-    as ragdolls or releasable trees, to a stable root scene object id.
-  Fixed-tree release: Authored scene rule that lets tree parts become dynamic
-    when a related fixed part is hit strongly enough.
-  Scene object id: PhysicsBodyStore-owned identity saved in replay samples so
-    restore paths can reject stale model slots.
-  Shadow caster stream: Opaque render bin resolved while scene material and
-    collider facts are both available at the instance-build boundary.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
@@ -51,6 +33,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneWorld.h"
 #include "../../Core/SbDiagnosticStore.h"

@@ -11,12 +11,6 @@ Summary:
   capability views expose only draw, upload, retirement, capture, or diagnostic
   timing/fault operations.
 
-Glossary:
-  Recording epoch: One reusable command-list lifetime from successful Reset to Close.
-  Covering fence: Queue counter proving all earlier GPU references are finished.
-  Retirement quarantine: Fixed queue holding resources or descriptor rows until a covering fence completes.
-  Upload arena: Fixed per-frame CPU-visible storage reused only after its frame fence completes.
-
 Invariants:
   - FRAME_COUNT remains two unless profiling explicitly justifies added queued latency.
   - Allocators, upload bytes, resources, and borrowed descriptor rows are never reused before their covering fence.
@@ -35,6 +29,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

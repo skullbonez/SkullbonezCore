@@ -9,12 +9,6 @@ Summary:
   resulting input-mode and pointer-presentation state.
 
 Glossary:
-  Interaction owner: The single editor, replay, launcher, or camera workspace
-    allowed to interpret the current world gesture.
-  Presentation state: Router-owned desired cursor visibility and native mouse
-    capture, applied after UI and interaction policy settle.
-  Semantic action: Fixed ordered key-edge event routed without polling live
-    hardware again later in the frame.
   World ray: Camera-projected pointer direction sampled once before editor,
     pickup, camera, Replay, or launcher owners can mutate scene state.
 
@@ -31,6 +25,7 @@ Related:
   - InputFrameExecution.cpp owns stateless per-frame composition.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"

@@ -5,9 +5,7 @@ Purpose:
 
 Summary:
   AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
-  and render code. As an implementation unit, keep edits anchored on asset
-  lifetime, cache ownership, and load/fallback behavior and on the
-  glossary/invariants below.
+  and render code.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as

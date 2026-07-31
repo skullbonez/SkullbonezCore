@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Gate configuration: Cold-load value rows later observed by validation.
-  Required contact: Named body pair that must touch before automation completes.
   Broadphase span: Inclusive authored X-cell range that must become active.
 
 Invariants:
@@ -23,6 +22,7 @@ Related:
   - SkullbonezSource/Runtime/Automation/RuntimeValidationHarness.h
   - SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

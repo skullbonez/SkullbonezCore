@@ -9,8 +9,6 @@ Summary:
   dormant/dormant pairs before they enter solver-visible work.
 
 Glossary:
-  Candidate pair: Two model-order body indices emitted by broadphase before
-    object narrowphase builds exact manifolds.
   Contact skin: Extra radius added to a broadphase sphere so near misses still
     reach narrowphase when solver tolerances may need them.
   Swept segment: Relative start-to-end motion of one body against another over
@@ -29,6 +27,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Physics/SpatialGrid.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -9,8 +9,6 @@ Summary:
   previous-frame snapshot for the profiler UI.
 
 Glossary:
-  FNV (Fowler-Noll-Vo): Small string hash used here to identify stable scope
-    paths without storing dynamic lookup tables.
   Leaf: Final component of a slash-delimited trace path, such as Water in
     Frame/Render/Water.
   Overflow: Count of trace nodes or draw events that exceeded the fixed budget;
@@ -24,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DrawCallTrace.h"
 

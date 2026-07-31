@@ -10,7 +10,6 @@ Summary:
   while InputFrameExecution dispatches each action to its named domain owner.
 
 Glossary:
-  Virtual key: Win32 integer key code sampled in DeviceInputFrame.
   Runtime input action: Engine command name produced from a key, UI, mouse, or
     scripted source.
   Context mask: Bit set describing which dispatch pass or runtime state owns a
@@ -25,6 +24,7 @@ Invariants:
 Related:
   - InputController.h defines the action and context vocabulary.
   - InputRouter.Interactions.cpp executes the actions during the frame.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

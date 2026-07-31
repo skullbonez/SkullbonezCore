@@ -16,15 +16,6 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Collider authoring row: Cold scene round-trip text stored outside fixed-step
-    collider rows.
-  Velocity edit: Replay-authored command that changes live body velocity before
-    prediction or the next step samples the body store.
-  Fixed-tree release: Store-owned command that turns authored fixed props into
-    dynamic bodies and wakes same-tree parts after an accepted impulse.
-  Sleep: Solver optimization that stops integrating stable bodies until an
-    explicit wake or contact event reactivates them.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
@@ -41,6 +32,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsEngine.h"
 #include "../Core/Config.h"

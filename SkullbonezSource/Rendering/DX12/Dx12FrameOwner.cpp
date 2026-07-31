@@ -10,11 +10,6 @@ Summary:
   diagnostics view exposes timestamp recording, fence polling, and cold fault
   configuration without submission authority.
 
-Glossary:
-  Recording epoch: One reusable command-list lifetime from successful Reset to Close.
-  Cold flush: Pre-gameplay submit/wait/reset retry when a bounded upload arena is full.
-  Sticky failure: First command or device failure retained until device initialization.
-
 Invariants:
   - The two-frame ring advances only after submission and covering-fence bookkeeping agree.
   - Steady-runtime upload exhaustion drops the caller instead of allocating or stalling.
@@ -26,6 +21,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "Dx12FrameOwner.h"

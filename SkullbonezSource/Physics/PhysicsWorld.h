@@ -5,27 +5,7 @@ Purpose:
 
 Summary:
   PhysicsWorld.h owns per-scene physics working state shared by broadphase,
-  solver, and diagnostics. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Point joint: Constraint that keeps two local anchor points close together
-    without yet modelling a full hinge, cone, or motor.
-  Sleep island: Connected body group that may deactivate only as a unit.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
-  Mutual-gravity pair scratch: Preallocated triangular force table whose unique
-    slots let workers compute pairs without racing or regrouping additions.
-  Awake index list: Sleep-owned ascending dense rows borrowed synchronously by
-    fixed-step stages that can ignore dormant bodies.
+  solver, and diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -39,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

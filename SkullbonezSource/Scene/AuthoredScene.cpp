@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   AuthoredScene.cpp stores parsed authored-scene JSON and applies it to runtime scene
-  state. As an implementation unit, keep edits anchored on scene-file parsing
-  or snapshot contracts and on the glossary/invariants below.
+  state.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,
@@ -14,9 +13,6 @@ Glossary:
     into runtime owners.
   Lane F fatal: Should-never-happen caller/scene-state invariant reported with
     owner diagnostics before process termination.
-  Lane R result: Recoverable load outcome carrying owner/message diagnostics
-
-    for authored scene/style data failures.
   Schema version: Validated scene-file contract version retained with the
     parsed record so later save/load owners can choose the matching shape.
 
@@ -31,6 +27,7 @@ Related:
   - SkullbonezSource/Scene/AuthoredScene.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "AuthoredScene.h"
 

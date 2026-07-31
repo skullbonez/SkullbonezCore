@@ -8,8 +8,6 @@ Summary:
   pointer compatibility behavior while later input slices move those paths.
 
 Glossary:
-  Input edge: Transition from not pressed to pressed, used for one-shot
-  commands.
   Mouse look: Camera mode where relative mouse movement rotates the view.
   Runtime command: Normalized input event consumed later by Run.
 
@@ -20,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Input/InputController.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputController.h"
 #include "InputRouter.h"

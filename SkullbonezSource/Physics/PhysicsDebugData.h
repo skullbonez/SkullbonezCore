@@ -8,15 +8,6 @@ Summary:
   during deterministic fixed-step work, while runtime/rendering code decides
   later whether and how to visualize them.
 
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Contact row: Solver constraint row used to apply impulses at a contact point.
-  SkullScope: Queryable physics diagnostics trace workflow backed by bounded
-  trace output and local queries.
-
 Invariants:
   - These records must stay render-API-free so the physics library can emit
     diagnostics without depending on debug overlay ownership.
@@ -27,6 +18,7 @@ Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

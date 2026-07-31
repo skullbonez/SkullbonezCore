@@ -8,16 +8,6 @@ Summary:
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout.
 
-Glossary:
-  UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
-  Scrubber: Replay timeline UI for retained samples, loaded artifacts, and
-    future prediction frames.
-  Cause tree: Contact, solver, and predicted-motion explanation view rooted at
-    the selected replay body.
-  Presentation sample: Render-only replay pose used for visual scrub previews.
-  Solver sample: Replay frame with solver snapshot data used for restore and
-    inspection.
-
 Invariants:
   - Drawn controls use the same surface rows and pointer-block fact as input, so
     visible hover and actionable hit state stay identical.
@@ -27,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayOverlayRenderer.h"
 #include "../Render/UiDrawSubmission.h"

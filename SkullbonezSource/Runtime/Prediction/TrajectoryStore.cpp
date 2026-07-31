@@ -10,7 +10,6 @@ Summary:
   publish a larger prefix once those points are coherent.
 
 Glossary:
-  Capacity bytes: Vector storage already reserved for records or point arrays.
   Replay allocation scope: RuntimeAllocationTracker phase used while approved
     replay growth performs the actual vector reserve.
 
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/TrajectoryStore.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionReserve.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "TrajectoryStore.h"
 #include "ReplayPredictionReserve.h"

@@ -13,13 +13,6 @@ Glossary:
     original authored file.
   Cold metadata: Names, render materials, and behavior grouping that identify
     objects but do not drive physics integration.
-  Collider authoring row: Cold material text paired with the live collider row
-
-    for exact scene round trips.
-  Asset affiliation: Library, asset, instance, root, and ordered-part identity
-    retained by SceneEntityStore after the original parse data is gone.
-  Scene object group: JSON metadata that lets multi-part object grouping
-    round-trip without parsing display-name suffixes at collection append time.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -34,6 +27,7 @@ Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneSnapshotWriter.h"
 #include "../Core/SbDiagnosticStore.h"

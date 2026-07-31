@@ -9,7 +9,6 @@ Summary:
   the concrete transition barrier.
 
 Glossary:
-  Resource state: DX12 usage mode that controls which reads or writes are legal.
   Barrier: Command-list operation that orders GPU work or transitions a
   resource between states.
 
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
   - SkullbonezSource/Rendering/RenderGraph.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12RenderGraphExecutor.h"
 

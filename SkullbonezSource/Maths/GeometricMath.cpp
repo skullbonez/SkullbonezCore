@@ -8,10 +8,6 @@ Summary:
   and the production ray-plane intersection calculation. Unreachable legacy
   height, point, and barycentric operations are intentionally absent.
 
-Glossary:
-  Engine module: A source file with one focused responsibility inside the
-  SkullbonezCore runtime.
-
 Invariants:
   - Plane representation is dot(normal, point) = distance, with normal expected
     to be unit length.
@@ -24,6 +20,7 @@ Related:
   - SkullbonezSource/Maths/GeometricMath.h
   - Agentic/Reports/2026-07-30/maths-surface-reachability-mr0-census.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "GeometricMath.h"
 

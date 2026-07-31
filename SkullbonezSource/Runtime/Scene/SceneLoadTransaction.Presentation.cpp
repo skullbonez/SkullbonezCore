@@ -8,12 +8,6 @@ Summary:
   state wins, and which deterministic UI stress values should seed diagnostics.
   Keep those decisions here so Run only supplies owners and timing.
 
-Glossary:
-  UI options: Optional `ui` block parsed from a `.scene.json` file.
-  Automation scene: Screenshot/perf/exit scene where the UI should not cover the
-    validation capture unless the scene explicitly says otherwise.
-  UI stress: Deterministic diagnostics input churn for exercising UI behavior.
-
 Invariants:
   - Authored visible/minimized/window settings apply in the same order as the
     historic RunScene code.
@@ -24,6 +18,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPresentation.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/UI/UI.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"
 #include "SceneLoadPresentation.h"

@@ -11,21 +11,12 @@ Summary:
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
-  Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy object-record mirrors are retired.
   Cause tree row: UI row derived from retained solver contacts or prediction
     future nodes.
-  Collider store: Physics-owned shape, material, and radius records paired with
-    body handles.
   Hash log: Deterministic text stream that lets saved replay output be compared.
   Loaded presentation: Replay artifact data loaded from disk for scrub preview.
   Prediction worker: Amortized task that fills replay-owned prediction build
     frames outside the render thread.
-  Authored path colour: Scene material base colour reused by orbital guide and
-    predicted trajectory ribbons.
-  Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
-  Velocity edit: Replay tool state for selecting one path-target body and
-    editing its linear or angular velocity vectors.
 
 Invariants:
   - Full owner-state accessors are private. External render, input, UI, and
@@ -42,6 +33,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"

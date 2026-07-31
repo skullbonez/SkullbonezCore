@@ -12,10 +12,6 @@ Summary:
 Glossary:
   Pipeline capacity: Remaining bounded diagnostics events for this fixed tick;
     payload rows are optional.
-  Fixed-tree release: Solver event asking owner-side fixed support to wake.
-  Replay transfer: Explicit copy between solver ownership and snapshot values.
-  Convergence trace: Bounded live-solve iteration summaries excluded from
-    replay capture and restore.
 
 Invariants:
   - Consequence queues are cleared but never re-reserved in Solve.
@@ -31,6 +27,7 @@ Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsContactSolverStage.h"
 

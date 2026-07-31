@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   RunFrame.cpp runs one frame of input, simulation, rendering, profiling, and
-  presentation. As an implementation unit, keep edits anchored on local owner
-  boundaries and call direction and on the glossary/invariants below.
+  presentation.
 
 Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches
@@ -22,20 +21,12 @@ Glossary:
     state, and replay identity.
   ColliderStore: Physics-owned hot collider rows plus per-kind shape payloads,
     material parameters, and broadphase radius.
-  Lane R result: Recoverable scene-control or capture failure that prevents a
-    failed side effect from being reported as a successful frame transition.
   Presentation pin: Per-frame alpha override to exact current solver state for
     scheduled and auto-cycle capture automation.
   UI text facts: Value-only late-presentation snapshot shared by the operator
     surfaces without exposing mutable owners.
-  Submitted-frame mark: Development profiler boundary emitted only after DX12
-    accepts a successful Present for the game frame.
-  Shared editor view: Frame-owned storage passed to the operator-editor
-    composer and then consumed by the selected development frontend.
   Development UI apply result: One automation-owned batch outcome containing
     only a recoverable status and an optional Run-owned surface selection.
-  Input turn result: Value-only process request published after the input owner
-    interprets semantic actions; Run never reopens the action array.
   FIFO (First In, First Out): Platform-message order retained when the bounded
     drain defers excess messages to the next frame.
 
@@ -57,6 +48,7 @@ Related:
   - SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"

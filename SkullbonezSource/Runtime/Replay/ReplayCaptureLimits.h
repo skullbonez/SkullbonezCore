@@ -8,7 +8,6 @@ Summary:
   including recorder storage or mutation APIs.
 
 Glossary:
-  Retention window: Maximum authored duration requested for retained past samples.
   Default horizon: Future duration used before an operator changes prediction.
   Maximum horizon: Longest bounded future exposed by prediction controls.
 
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - ReplayRecorder.h
   - ReplayOverlaySurface.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -8,15 +8,6 @@ Summary:
   resources used by the renderer. The concrete shader-development owner now
   contains its cold bake, drain, stage, and publication transaction.
 
-Glossary:
-  Upload arena: Frame-scoped CPU-visible staging memory used to seed default
-  heap resources before their copy commands execute.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Hot reload: Developer-only rebake and transactional replacement of live
-    shader bytecode and dependent pipelines.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -29,6 +20,7 @@ Invariants:
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "../../Core/WindowConstants.h"

@@ -16,8 +16,6 @@ Glossary:
     layer stores the value but never interprets or executes it.
   Pointer control: First visible row whose hit rectangle contains the current
     pointer, including a disabled row that blocks controls behind it.
-  Hot control: Pointer control when that row is enabled.
-  Surface: Disposable per-frame ordered control table for one panel or overlay.
 
 Invariants:
   - Storage is inline and cannot grow after construction.
@@ -31,6 +29,7 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-ui-control-u6-review.md
   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h
   - SkullbonezSource/UI/UIDraw.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

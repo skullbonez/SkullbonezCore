@@ -8,14 +8,6 @@ Summary:
   through EditorPlacementAssets.h. Input routing, tracer ghosts, and placement
   commit all use this same source of recipe truth.
 
-Glossary:
-  Asset system: Runtime-owned registry used to resolve editor asset-library
-    names before falling back to conventional data paths.
-  Placement recipe: Data and helper logic used to preview or spawn one editor object type.
-  Asset primitive: Single collision shape in a placeable asset recipe, such as a
-    box, sphere, or convex hull.
-  Authored hull: Baked convex hull asset used for editor-placeable collision geometry.
-
 Invariants:
   - Preview bounds and placement commit must read the same asset recipe helpers.
   - Building-library path lookup borrows the runtime asset system; the parsed
@@ -28,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"
 #include "EditorTerrainOrientation.h"

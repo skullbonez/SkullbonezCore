@@ -10,8 +10,6 @@ Summary:
 
 Glossary:
   Pipeline record: Bounded diagnostic breadcrumb emitted by one physics stage.
-  Feature ID: Deterministic contact identifier used to match a row across
-  frames.
   Linger cache: Presentation-only contact history that fades after solver rows
   disappear.
   Terrain contact probe: Exact selected terrain triangle plus the vertical
@@ -27,6 +25,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsDebugVisualizer.h"
 

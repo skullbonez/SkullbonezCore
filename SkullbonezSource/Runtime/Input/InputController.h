@@ -24,8 +24,6 @@ Package ownership:
     by InputRouter or the camera owner; all methods remain stateless.
 
 Glossary:
-  Input edge: Transition from not pressed to pressed, used for one-shot
-  commands.
   Camera delta: Per-frame mouse movement accumulated before camera update.
   Runtime input event: Frame-local input state consumed by Run.
 
@@ -38,6 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Input/InputController.cpp
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

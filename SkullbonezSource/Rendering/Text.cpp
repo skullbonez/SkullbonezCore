@@ -4,18 +4,7 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Text.cpp builds and draws bitmap/SDF text for HUD and diagnostics. As an
-  implementation unit, keep edits anchored on render submission and resource
-  lifetime and on the glossary/invariants below.
-
-Glossary:
-  SDF (Signed Distance Field): Texture representation used for crisp scalable
-  text rendering.
-  Lane R result: Recoverable asset/tooling failure reported at startup with an
-    owner and bounded message instead of an exception.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Text.cpp builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Invariants:
   - Text and quad batches use fixed vertex layouts that must match their
@@ -28,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/Text.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Text.h"
 #include "../Core/SbDiagnosticStore.h"

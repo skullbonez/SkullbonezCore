@@ -5,20 +5,7 @@ Purpose:
 
 Summary:
   SleepIslandSystem.h groups supported bodies into sleep islands and decides
-  when islands may sleep. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Hot body fields: Physics-owned arrays holding fixed/sleep/velocity state for
-    the current tick.
-  Support edge budget: Fixed four-edges-per-body storage ceiling shared by
-    contact and point-joint producers.
+  when islands may sleep.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -32,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/SleepIslandSystem.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

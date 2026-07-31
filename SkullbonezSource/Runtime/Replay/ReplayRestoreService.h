@@ -10,9 +10,6 @@ Summary:
   the matching world/camera/tool presentation state.
 
 Glossary:
-  Solver sample: Replay frame containing restorable physics body rows and hidden
-    solver world cache state.
-  Scene object id: Stable physics-owned identity used to reject stale model slots.
   Restore operands: Concrete live owners borrowed only for one synchronous
     apply or capture call.
 
@@ -28,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

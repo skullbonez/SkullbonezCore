@@ -8,7 +8,6 @@ Summary:
   selection, placement, and physics mutation so mouse raycasts stay out of UI.
 
 Glossary:
-  Editor command: Intent emitted by a widget and applied later by runtime code.
   Placement mode: Editor state where a picked object kind can be inserted into
   the active scene.
 
@@ -19,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabEditor.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabEditor.h"
 

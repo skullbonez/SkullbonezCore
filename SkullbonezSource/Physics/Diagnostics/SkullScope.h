@@ -9,10 +9,6 @@ Summary:
   the diagnostic dependency point inward to Physics rather than upward from
   Core.
 
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-
 Invariants:
   - SkullScope state is debug-only and records run-local counters, not global
     engine state.
@@ -23,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -9,7 +9,6 @@ Summary:
   frame facts plus synchronous domain borrows for submission.
 
 Glossary:
-  Owner view: Named set of lifetime-stable borrows for one render domain.
   Submission view: One-frame values sampled only after tool/replay owners have
     completed their bounded draw records.
 
@@ -23,6 +22,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

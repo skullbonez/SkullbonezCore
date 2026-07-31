@@ -4,23 +4,12 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Text.h builds and draws bitmap/SDF text for HUD and diagnostics. As a public
-  header, keep edits anchored on render submission and resource lifetime and
-  on the glossary/invariants below.
+  Text.h builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Glossary:
-  SDF (Signed Distance Field): Texture representation used for crisp scalable
-  text rendering.
-  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
-  Lane R result: Recoverable asset/tooling failure reported at startup with an
-    owner and bounded message instead of an exception.
   VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.
   RGBA (Red, Green, Blue, Alpha): Four-channel color payload used by HUD quads.
-  UV (Texture Coordinates): Font-atlas coordinates used to sample glyphs.
   FOV (Field of View): Camera/projection angle that defines legacy text space.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
   - Text2d owns static backend handles for the active font; RuntimeRenderer owns
@@ -31,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/Text.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

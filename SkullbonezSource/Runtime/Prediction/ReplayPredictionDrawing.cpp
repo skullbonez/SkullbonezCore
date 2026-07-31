@@ -13,14 +13,10 @@ Glossary:
   Frame-local ribbon: Screen-space-width overlay stroke emitted through
     EditorTracer for the deterministic visual oracle.
   Draw quota: Frame-local cap for ordinary replay ribbon segments.
-  Published prefix: Contiguous prediction frames released by the worker for readers.
   Retained range chunk: Small stable slice appended when one trajectory outgrows
     its current compact GPU range.
   Frame-local prediction draw: Full visible trajectory submission rebuilt only
     by the deterministic fidelity oracle.
-  Authored path colour: Scene material base colour copied to a body's space trajectory.
-  Velocity drag preview: First-order selected path formed by adding delta-v
-    times elapsed time to committed display-stride points.
 
 Invariants:
   - Drawing receives const prediction and presentation values only.
@@ -38,6 +34,7 @@ Related:
   - ReplayPredictionDrawing.h
   - ReplayPredictionPresentation.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionDrawing.h"
 #include "../Replay/ReplayAuthoring.h"

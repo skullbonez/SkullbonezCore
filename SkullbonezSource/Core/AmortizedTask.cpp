@@ -9,8 +9,6 @@ Summary:
   the existing project layout stable.
 
 Glossary:
-  Worker pool: Persistent thread group that runs bounded jobs outside the main
-  thread.
   Atomic cursor: Thread-safe index used to claim each slice once.
   Budget: Maximum item count processed by one submitted chunk.
 
@@ -23,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/AmortizedTask.h
   - SkullbonezSource/Core/WorkerPool.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #include "AmortizedTask.h"

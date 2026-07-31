@@ -5,26 +5,7 @@ Purpose:
 
 Summary:
   SpatialGrid.h partitions space into broadphase cells so physics can test
-  nearby objects cheaply. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  CCD (Continuous Collision Detection): Swept test that asks whether moving
-  bodies collide during a tick.
-  AABB (Axis-Aligned Bounding Box): Box aligned to world axes, often used for
-  cheap broadphase overlap tests.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order,
-  independent of cell-bucket discovery history.
-  Persistent membership: Cell occupancy retained across fixed steps until a
-    body's integer cell range changes.
-  Pair-source stamp: Frame generation marking a cell reached by an awake body;
-    production candidate collection skips unstamped sleep-only cells.
+  nearby objects cheaply.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -48,6 +29,7 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
