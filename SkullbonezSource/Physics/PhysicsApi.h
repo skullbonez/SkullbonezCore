@@ -19,6 +19,8 @@ Glossary:
     validation does not depend on allocator addresses or hash traversal.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
+  Frame matrix: Public mapping that states whether each geometric value is
+    body-local, body-to-world, body-principal, or world-space.
   View: Borrowed immutable result whose storage remains owned by PhysicsEngine.
 
 Invariants:
@@ -27,6 +29,9 @@ Invariants:
     scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; PhysicsEngine owns allocation order and
     deterministic solver mutation.
+  - Body pose, linear/angular velocity, ray/AABB inputs, and query hits are
+    world-space. Shape offsets and joint anchors are body-local, orientation
+    maps body to world, and rotational inertia is a body-principal diagonal.
   - Unproved or procedurally transformed hull geometry carries a non-shareable
     identity and therefore receives its own cold storage row.
   - Query views borrow PhysicsEngine fixed scratch and never expose mutable
@@ -84,12 +89,12 @@ enum PhysicsPointJointUpdateMask : uint32_t
 struct PhysicsBodyCreateDesc
 {
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShape shape;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::CollisionDetection::CollisionShape shape;                                     // Geometry and center offset are body-local.
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;                         // World-space center of mass.
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION; // Body-to-world rotation.
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;                   // World-space distance per second.
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;                  // World-space radians per second.
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-principal diagonal.
     float mass = 1.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
@@ -103,7 +108,7 @@ struct PhysicsBodyCreateDesc
     PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic;
     bool startsAsleep = false;
     bool releasesFromFixedOnContact = false;
-    bool usesWorldInertia = false;
+    bool usesWorldInertia = false;                                                      // Rotate world torque through the body-principal diagonal when true.
     float contactReleaseImpulseThreshold = 0.0f;
     const char* diagnosticName = nullptr;
 };
@@ -152,11 +157,11 @@ struct PhysicsBodyUpdateDesc
 {
     PhysicsBodyHandle body;
     uint32_t updateMask = PHYSICS_BODY_UPDATE_NONE;
-    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;                         // World-space center of mass.
+    Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION; // Body-to-world rotation.
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;                   // World-space distance per second.
+    Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;                  // World-space radians per second.
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;                // Body-principal diagonal.
     float mass = 1.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
@@ -235,7 +240,7 @@ struct PhysicsColliderCreateDesc
 {
     PhysicsBodyHandle body;
     PhysicsSceneObjectId sceneObjectId;
-    Math::CollisionDetection::CollisionShape shape;
+    Math::CollisionDetection::CollisionShape shape;                                     // Geometry and center offset are body-local.
     float boundingRadius = 0.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
@@ -294,8 +299,8 @@ struct PhysicsPointJointCreateDesc
 {
     PhysicsBodyHandle bodyA;
     PhysicsBodyHandle bodyB;
-    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;                     // Offset from body A's center in body A axes.
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;                     // Offset from body B's center in body B axes.
     float slack = 0.25f;
     float stiffness = 0.22f;
     float damping = 0.35f;
@@ -309,8 +314,8 @@ struct PhysicsPointJointUpdateDesc
     uint32_t updateMask = PHYSICS_POINT_JOINT_UPDATE_NONE;
     PhysicsBodyHandle bodyA;
     PhysicsBodyHandle bodyB;
-    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;                     // Offset from body A's center in body A axes.
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;                     // Offset from body B's center in body B axes.
     float slack = 0.25f;
     float stiffness = 0.22f;
     float damping = 0.35f;
@@ -320,9 +325,9 @@ struct PhysicsPointJointUpdateDesc
 
 struct PhysicsRayCastDesc
 {
-    Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 direction = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
-    float maxDistance = 0.0f;
+    Math::Vector::Vector3 origin = Math::Vector::ZERO_VECTOR;                           // World-space segment origin.
+    Math::Vector::Vector3 direction = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );        // World direction; need not be unit length.
+    float maxDistance = 0.0f;                                                           // World-space length after direction normalization.
     bool includeFixedBodies = true;
     bool includeSleepingBodies = true;
 };
@@ -332,16 +337,16 @@ struct PhysicsRayCastHit
     PhysicsBodyHandle body;
     PhysicsColliderHandle collider;
     PhysicsSceneObjectId sceneObjectId;
-    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
-    float distance = 0.0f;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;                            // World-space hit point.
+    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;                           // Unit world-space outward normal.
+    float distance = 0.0f;                                                              // World-space distance from the query origin.
     bool hit = false;
 };
 
 struct PhysicsBroadphaseCellQueryDesc
 {
-    Math::Vector::Vector3 min = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 max = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 min = Math::Vector::ZERO_VECTOR;                              // World-space axis-aligned lower bound.
+    Math::Vector::Vector3 max = Math::Vector::ZERO_VECTOR;                              // World-space axis-aligned upper bound.
     bool includeFixedBodies = true;
     bool includeSleepingBodies = true;
 };

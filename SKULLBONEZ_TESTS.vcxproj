@@ -221,6 +221,7 @@
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />

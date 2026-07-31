@@ -1,7 +1,7 @@
 # Vector Frame Contract Closure
 
 Date: 2026-08-01
-Status: NOT STARTED — 0/5 phases complete
+Status: IN PROGRESS — 1/5 phases complete
 Impact area: Physics force integration, public Physics descriptors, Scene authoring, Maths vector semantics
 Owner: Physics, Scene, Maths
 Priority: High
@@ -45,7 +45,7 @@ all unaffected committed artifacts exact.
 
 ## Phases
 
-- [ ] **VF0 — Pin the public frame matrix and cross-path oracles.** Document the
+- [x] **VF0 — Pin the public frame matrix and cross-path oracles.** Document the
   frame of every vector/quaternion/shape field in `PhysicsApi.h`: body-local
   shape offsets, body-to-world orientation, world pose and velocities,
   body-principal diagonal inertia, local joint anchors, world ray/AABB inputs,
@@ -54,6 +54,8 @@ all unaffected committed artifacts exact.
   `Ragdoll.cpp::ApplyRecordInvInertia`; either route it through the shared
   inertia helper with exact arithmetic or record why its local owner retains
   the spelling.
+  Evidence:
+  `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf0-frame-matrix.md`.
 
 - [ ] **VF1 — Correct anisotropic angular-drag clamping.** Establish a rotated
   anisotropic-body oracle that independently derives the no-reversal clamp in

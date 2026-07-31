@@ -121,8 +121,20 @@ Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBod
     }
 
     const RotationMatrix rotation = BodyRotation( hot );
-    const Vector3 local = rotation.TransposeMultiply( value );
-    return rotation * VectorMultiply( hot.inverseRotationalInertia, local );
+    Vector3 worldResult;
+    const auto multiplyByBodyInverseInertia = [&]( const Vector3& bodyValue, Vector3& outBodyResult )
+    {
+        outBodyResult = VectorMultiply( hot.inverseRotationalInertia, bodyValue );
+
+        return true;
+    };
+
+    // Why: ragdoll rows keep their value-returning, infallible inverse-inertia
+    // seam, while the frame conversion is owned by the same helper as contact,
+    // force, and gameplay impulses. The direct isotropic path above stays in
+    // place so its arithmetic and hot-loop cost remain byte-for-byte unchanged.
+    const bool applied = TryApplyWorldInertiaResponse( rotation, true, value, multiplyByBodyInverseInertia, worldResult );
+    return applied ? worldResult : ZERO_VECTOR;
 }
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float limit )

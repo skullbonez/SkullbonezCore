@@ -177,6 +177,9 @@
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

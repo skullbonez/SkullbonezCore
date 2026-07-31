@@ -742,6 +742,17 @@ the 494.8-second full gate. The active/future ledger is therefore 16/21 (76%).
 Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
 
+Vector Frame Contract Closure VF0 completed on 2026-08-01. Every public
+Physics vector/quaternion/shape field now states its frame, rotated query and
+point-joint tests reject plausible wrong-frame inputs, and Ragdoll's
+anisotropic inverse-inertia path shares the AI2 conversion without changing
+its isotropic branch. The pre-change VF1-VF3 artifact prediction is zero bytes:
+mapped scenes have zero effective angular-drag density, the authored offset
+outlier belongs only to unmapped `ragdoll_playground`, and `VectorReflect` has
+no production caller. The active/future ledger is therefore 17/21 (81%).
+Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure-vf0-frame-matrix.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1324,12 +1335,12 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is at 16/21 (76%), with Vector Frame
-Contract Closure VF0 the binding phase.**
+**The Gate Blind Spot Campaign (2026-07-31) is at 17/21 (81%), with Vector Frame
+Contract Closure VF1 the binding phase.**
 Run its five plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
 angular impulse frame correctness (5/5), followed by
-vector frame contract closure (0/5).
+vector frame contract closure (1/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
 decision. Plan 4 contains the first behavioral correction; its AI4 owner gate is
@@ -3126,7 +3137,7 @@ Dependency barriers:
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Complete | 5/5 | AI0-AI4 complete; owner accepted the zero-delta proof and post-acceptance gates passed without refresh; retained until aggregate closure |
-| 5 | [vector-frame-contract-closure](TODO/vector-frame-contract-closure.md) | Active | 0/5 | VF0 is binding; no phase carries baseline regeneration authority |
+| 5 | [vector-frame-contract-closure](TODO/vector-frame-contract-closure.md) | Active | 1/5 | VF1 is binding; VF0 predicts zero artifact movement and no phase carries baseline regeneration authority |
 
 ### Governance Gap This Campaign Closes
 
