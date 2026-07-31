@@ -265,7 +265,7 @@ bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int mode
 // Why: launcher ray hits still identify targets by model index, but the physics
 // mutation should run on the already-resolved body handle.
 void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics, Physics::PhysicsBodyHandle body,
-                                  const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& localApplicationPoint )
+                                  const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset )
 {
 
     if ( !body.IsValid() )
@@ -273,7 +273,7 @@ void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics, Physics::Phys
         return;
     }
 
-    physics.ApplyBodyImpulse( body, impulse, localApplicationPoint );
+    physics.ApplyBodyImpulse( body, impulse, worldApplicationOffset );
 }
 
 
@@ -758,8 +758,8 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics, int model
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    const Math::Vector::Vector3 localApplicationPoint = hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(),
-                                                                                                 static_cast<std::size_t>( modelHitIndex ) );
+    const Math::Vector::Vector3 worldApplicationOffset =
+        hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( modelHitIndex ) );
 
     const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
@@ -770,7 +770,7 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics, int model
         return;
     }
 
-    ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
+    ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, worldApplicationOffset );
 }
 
 bool RuntimeTools::FireLauncherProjectile( SceneWorld& world, SceneSessionState& scene, int activeModelCapacity,

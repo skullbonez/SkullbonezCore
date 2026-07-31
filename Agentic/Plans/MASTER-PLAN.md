@@ -711,7 +711,9 @@ Angular Impulse Frame Correctness AI2 completed on 2026-08-01. One shared
 inertia-frame helper now serves pending gameplay, world-force, and contact
 impulses while preserving each path's diagonal operation and the historical
 world-force order. The rotated anisotropic-box test is green and the rotated
-isotropic-sphere path is component-exact. Unit, core Physics, and deep Physics
+isotropic-sphere path is component-exact. Public and retained-state vocabulary
+now exposes the application value as a world-space center-relative offset.
+Unit, core Physics, and deep Physics
 gates pass with no baseline refresh. The active/future ledger is therefore
 14/16 (88%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai2-impulse.md`.

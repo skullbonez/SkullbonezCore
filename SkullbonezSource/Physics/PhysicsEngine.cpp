@@ -1082,20 +1082,20 @@ void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
 
 
 void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                           const Math::Vector::Vector3& localApplicationPoint )
+                                           const Math::Vector::Vector3& worldApplicationOffset )
 {
 
     // Why: initial authored/generated impulses are one-shot physics state.
     // Writing them into the body store avoids routing setup through the
     // collection-owned model-index command wrappers.
-    m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+    m_bodyStore.SetPendingBodyImpulse( body, impulse, worldApplicationOffset );
 }
 
 
 void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                      const Math::Vector::Vector3& localApplicationPoint )
+                                      const Math::Vector::Vector3& worldApplicationOffset )
 {
-    SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+    SetPendingBodyImpulse( body, impulse, worldApplicationOffset );
     WakeBody( body );
 }
 

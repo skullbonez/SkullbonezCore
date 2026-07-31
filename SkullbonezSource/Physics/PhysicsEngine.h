@@ -191,15 +191,16 @@ class PhysicsEngine
     // without a per-command presentation projection.
     void SeedBodyAsleep( PhysicsBodyHandle body );
 
-    // Queues one-shot solver input by body handle. Callers that only need a
-    // pending impulse must not rebuild descriptor rows for presentation wake.
+    // Queues one-shot solver input by body handle. The application offset is a
+    // world-space vector from the body's center of mass. Callers that only need
+    // a pending impulse must not rebuild descriptor rows for presentation wake.
     void SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
+                                const Math::Vector::Vector3& worldApplicationOffset );
 
     // Queues a one-shot impulse and wakes by body handle without borrowing the
     // model owner.
     void ApplyBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
+                           const Math::Vector::Vector3& worldApplicationOffset );
     void SetSleepEnabled( bool enabled );
     bool IsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );

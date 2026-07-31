@@ -168,7 +168,9 @@ proof, and a complete zero-delta artifact comparison.
   Completed with one caller-supplied diagonal-operation helper shared by the
   gameplay, world-force, and contact-solver paths. The rotated anisotropic-box
   characterization is now an ordinary passing cross-path test, while a rotated
-  sphere pins the exact pre-change component values. Unit, core Physics, and
+  sphere pins the exact pre-change component values. Public and stored impulse
+  vocabulary now names the application value as a world-space center-relative
+  offset, matching the AI0 ruling. Unit, core Physics, and
   deep Physics gates pass without refreshing any baseline. Owner direction on
   2026-08-01 removed the proposed additional `at_rest` frame assertion because
   the deep gate already hashes the complete 54,001-line CSV byte-for-byte;

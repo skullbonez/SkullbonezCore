@@ -12,6 +12,9 @@ diagonal inertia before returning the result to world angular velocity. One
 Physics-owned helper supplies the same frame conversion to pending gameplay
 impulses, world-force integration, and contact-solver impulses while leaving
 each caller's established diagonal division or multiplication semantics intact.
+The public command parameters, launcher value, and retained body-state field now
+name the application value as a world-space center-relative offset rather than
+the stale body-local vocabulary identified by AI0.
 
 The AI0 rotated anisotropic-box characterization is now an ordinary passing
 test. A second focused test rotates an isotropic sphere and compares every
@@ -37,12 +40,19 @@ tool, or baseline changed.
 | `tools\validate_tests.bat` | PASS in 61.9 s; 453 cases / 2,422,921 assertions; zero warnings/errors |
 | `tools\validate_physics.bat` | PASS in 94.8 s; two generated 44,401-line runs match the committed core baseline byte-for-byte |
 | `tools\validate_physics_deep.bat` | PASS in 109.9 s; all CSVs, known-issue signatures, and SkullScope query output exact |
+| Post-vocabulary `tools\validate_build.bat Profile` | PASS in 34.9 s; zero warnings/errors |
+| Post-vocabulary `tools\validate_tests.bat` plus direct Profile suite | PASS; 453 cases / 2,422,921 assertions |
 
-The touched-source comment audit is 4/4 with zero deferred files:
+The touched-source comment audit is 9/9 with zero deferred files:
 
 - `SkullbonezSource/Physics/PersistentContactSolver.cpp`
 - `SkullbonezSource/Physics/PhysicsBodyStore.cpp`
 - `SkullbonezSource/Physics/PhysicsBodyStore.h`
+- `SkullbonezSource/Physics/PhysicsEngine.cpp`
+- `SkullbonezSource/Physics/PhysicsEngine.h`
+- `SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp`
+- `SkullbonezSource/Runtime/Tools/RuntimeTools.cpp`
+- `SkullbonezTests/TestPhysicsHandles.cpp`
 - `SkullbonezTests/TestPersistentContactSolver.cpp`
 
 No physics, query, performance, replay, interaction, screenshot, scene, config,

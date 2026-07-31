@@ -83,7 +83,7 @@ struct PhysicsBodyRecord
     uint32_t vectorAlignmentPadding = 0;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR;                      // World-space offset from the center of mass.
     float mass = 0.0f;                                                                                // Authoring mass; fixed bodies still report mass.
     float contactReleaseImpulseThreshold = 1.0f;                                                      // Minimum contact impulse before authored fixed props release.
     float angularVelocityLimit = 5.0f;                                                                // Per-body spin cap applied before force integration.
@@ -151,7 +151,7 @@ struct PhysicsBodyCreateRecord
 struct PhysicsBodyPreservedRefreshState
 {
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR;
     bool hasPendingImpulse = false;
     bool isSleeping = false;
     bool hasState = false;
@@ -433,7 +433,7 @@ class PhysicsBodyStore
     bool SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector::Vector3& linearVelocity,
                           const Math::Vector::Vector3& angularVelocity );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
+                                const Math::Vector::Vector3& worldApplicationOffset );
 
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has

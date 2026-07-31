@@ -315,7 +315,7 @@ void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const Ph
 
         PreservedRefreshState& state = preserved[static_cast<std::size_t>( record.handle.index )];
         state.pendingImpulse = record.pendingImpulse;
-        state.pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
+        state.pendingImpulseWorldOffset = record.pendingImpulseWorldOffset;
         state.hasPendingImpulse = record.hasPendingImpulse;
         state.isSleeping = hotFields.awake[bodyIndex] == 0u;
         state.hasState = true;
@@ -824,7 +824,7 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
     // Invariant: the application point is a world-space center-relative offset,
     // so this cross product and the resulting torque both remain in world space
     // until the shared inertia-frame conversion.
-    const Vector3 worldTorqueImpulse = CrossProduct( record.pendingImpulseApplicationPoint, record.pendingImpulse );
+    const Vector3 worldTorqueImpulse = CrossProduct( record.pendingImpulseWorldOffset, record.pendingImpulse );
     Vector3 angularImpulseDelta;
     const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
     const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
@@ -837,7 +837,7 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
     }
 
     record.pendingImpulse = ZERO_VECTOR;
-    record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record.pendingImpulseWorldOffset = ZERO_VECTOR;
     record.hasPendingImpulse = false;
 }
 
@@ -1467,13 +1467,13 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
         if ( preservedState && preservedState->hasPendingImpulse )
         {
             record.pendingImpulse = preservedState->pendingImpulse;
-            record.pendingImpulseApplicationPoint = preservedState->pendingImpulseApplicationPoint;
+            record.pendingImpulseWorldOffset = preservedState->pendingImpulseWorldOffset;
             record.hasPendingImpulse = true;
         }
         else
         {
             record.pendingImpulse = ZERO_VECTOR;
-            record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+            record.pendingImpulseWorldOffset = ZERO_VECTOR;
             record.hasPendingImpulse = false;
         }
 
@@ -1590,7 +1590,7 @@ void PhysicsBodyStore::ClearPendingImpulses()
     for ( PhysicsBodyRecord& record : m_bodies )
     {
         record.pendingImpulse = ZERO_VECTOR;
-        record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+        record.pendingImpulseWorldOffset = ZERO_VECTOR;
         record.hasPendingImpulse = false;
     }
 }
@@ -1665,7 +1665,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& re
     hot.inverseRotationalInertia = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertia;
     hot.fixed = restore.fixed;
     record->pendingImpulse = ZERO_VECTOR;
-    record->pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record->pendingImpulseWorldOffset = ZERO_VECTOR;
     record->hasPendingImpulse = false;
     StoreHotStateAt( modelIndex, hot );
     return true;
@@ -2106,7 +2106,7 @@ bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body, const Vector3& l
 
 
 bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse,
-                                              const Vector3& localApplicationPoint )
+                                              const Vector3& worldApplicationOffset )
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( body );
 
@@ -2116,7 +2116,7 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vect
     }
 
     record->pendingImpulse = impulse;
-    record->pendingImpulseApplicationPoint = localApplicationPoint;
+    record->pendingImpulseWorldOffset = worldApplicationOffset;
     record->hasPendingImpulse = true;
     return true;
 }
