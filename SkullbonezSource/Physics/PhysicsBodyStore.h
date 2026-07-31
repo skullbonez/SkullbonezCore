@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Physics-facing body data has an explicit owner. Scene/model authoring code
   submits descriptor values at creation and topology-repair boundaries, while
-  standalone creation owns dense body rows directly.
+  standalone creation owns dense body rows directly. The shared inertia-frame
+  conversion keeps gameplay, world-force, and contact impulses consistent.
 
 Glossary:
   Inverse mass: Reciprocal mass value; zero means an immovable body.
@@ -109,6 +110,34 @@ struct PhysicsBodyHotState
     bool fixed = false;
     bool awake = true;
 };
+
+// Concept: world-space torque crosses body-diagonal inertia through one frame
+// conversion shared by force, gameplay impulse, and contact-solver paths.
+//
+// Invariant: `usesWorldInertia` selects either the exact direct diagonal
+// operation or the ordered R^T -> diagonal operation -> R transform. The
+// callable is a synchronous arithmetic borrow; it is never retained. Keeping
+// the diagonal operation caller-supplied preserves the established division
+// semantics for authored inertia and multiplication semantics for cached
+// inverse inertia. World-force callers retain their historical rotated path so
+// byte-exact physics baselines see no operation-order change outside the
+// corrected pending-impulse case.
+template <typename TryApplyBodyDiagonal>
+bool TryApplyWorldInertiaResponse( const Math::Transformation::RotationMatrix& orientation, bool usesWorldInertia,
+                                   const Math::Vector::Vector3& worldValue, const TryApplyBodyDiagonal& tryApplyBodyDiagonal,
+                                   Math::Vector::Vector3& outWorldResult )
+{
+    const Math::Vector::Vector3 bodyValue = usesWorldInertia ? orientation.TransposeMultiply( worldValue ) : worldValue;
+    Math::Vector::Vector3 bodyResult;
+
+    if ( !tryApplyBodyDiagonal( bodyValue, bodyResult ) )
+    {
+        return false;
+    }
+
+    outWorldResult = usesWorldInertia ? orientation * bodyResult : bodyResult;
+    return true;
+}
 
 struct PhysicsBodyCreateRecord
 {

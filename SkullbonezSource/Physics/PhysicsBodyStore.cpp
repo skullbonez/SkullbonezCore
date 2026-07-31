@@ -82,6 +82,7 @@ using SkullbonezCore::Physics::PhysicsHandleAssignmentMask;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Physics::TryApplyWorldInertiaResponse;
 
 namespace
 {
@@ -789,11 +790,17 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
     }
 
     const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
-    Vector3 localAngularImpulse;
+    Vector3 angularImpulseDelta;
+    const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
+    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
 
-    if ( orientation.TransposeMultiply( worldTorqueImpulse ).TryDivided( record.rotationalInertia, localAngularImpulse ) )
+    // Invariant: the world-force path historically rotates every shape. Passing
+    // true preserves its byte-exact baseline arithmetic while sharing the frame
+    // conversion with pending and contact impulses.
+
+    if ( TryApplyWorldInertiaResponse( orientation, true, worldTorqueImpulse, tryDivideByBodyInertia, angularImpulseDelta ) )
     {
-        hot.angularVelocity += orientation * localAngularImpulse;
+        hot.angularVelocity += angularImpulseDelta;
     }
 }
 
@@ -814,10 +821,17 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
         hot.linearVelocity += linearImpulseDelta;
     }
 
-    const Vector3 torque = CrossProduct( record.pendingImpulseApplicationPoint, record.pendingImpulse );
+    // Invariant: the application point is a world-space center-relative offset,
+    // so this cross product and the resulting torque both remain in world space
+    // until the shared inertia-frame conversion.
+    const Vector3 worldTorqueImpulse = CrossProduct( record.pendingImpulseApplicationPoint, record.pendingImpulse );
     Vector3 angularImpulseDelta;
+    const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
+    const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
+    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
 
-    if ( torque.TryDivided( record.rotationalInertia, angularImpulseDelta ) )
+    if ( TryApplyWorldInertiaResponse( orientation, record.usesWorldInertia, worldTorqueImpulse, tryDivideByBodyInertia,
+                                       angularImpulseDelta ) )
     {
         hot.angularVelocity += angularImpulseDelta;
     }

@@ -230,13 +230,15 @@ Vector3 PersistentContactSolveTransaction::ApplyInverseInertia( int bodyIndex, c
 
     const SolverBodyState& body = Body( static_cast<std::size_t>( bodyIndex ) );
 
-    if ( !body.useWorldInertia )
+    Vector3 result;
+    const auto multiplyByBodyInverseInertia = [&]( const Vector3& bodyValue, Vector3& outBodyResult )
     {
-        return Vector::VectorMultiply( body.invInertia, value );
-    }
+        outBodyResult = Vector::VectorMultiply( body.invInertia, bodyValue );
 
-    const Vector3 bodyValue = body.orientation.TransposeMultiply( value );
-    return body.orientation * Vector::VectorMultiply( body.invInertia, bodyValue );
+        return true;
+    };
+    TryApplyWorldInertiaResponse( body.orientation, body.useWorldInertia, value, multiplyByBodyInverseInertia, result );
+    return result;
 }
 
 // CATTO REF:

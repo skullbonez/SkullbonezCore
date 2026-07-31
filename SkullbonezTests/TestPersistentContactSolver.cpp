@@ -375,8 +375,7 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
 }
 
 
-TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anisotropic box" *
-           doctest::should_fail() )
+TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anisotropic box" )
 {
     SolverFixture fixture;
     const Vector3 halfExtents( 1.0f, 2.0f, 3.0f );
@@ -436,12 +435,55 @@ TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anis
     contactPath.ApplyImpulse( contact, -worldImpulse );
     const Vector3 contactAngularVelocity = contactPath.Body( 0u ).angularVelocity;
 
-    // AI0 red characterization: the pending path currently divides the
-    // world-space torque by body-space diagonal inertia without rotating it.
-    // AI2 removes should_fail only after gameplay shares this contact arithmetic.
+    // Invariant: both paths share the same world/body inertia-frame conversion
+    // for this world-space application offset and impulse; this cross-path
+    // oracle catches a deterministic frame error that byte baselines could
+    // otherwise preserve.
     CHECK( gameplayAngularVelocity.x == doctest::Approx( contactAngularVelocity.x ) );
     CHECK( gameplayAngularVelocity.y == doctest::Approx( contactAngularVelocity.y ) );
     CHECK( gameplayAngularVelocity.z == doctest::Approx( contactAngularVelocity.z ) );
+}
+
+TEST_CASE( "Pending gameplay impulse preserves the exact isotropic sphere response" )
+{
+    SolverFixture fixture;
+    const Vector3 isotropicInertia( 4.0f, 4.0f, 4.0f );
+
+    PhysicsBodyCreateRecord body;
+    body.cold.mass = 2.0f;
+    body.cold.rotationalInertia = isotropicInertia;
+    body.cold.angularVelocityLimit = 1000.0f;
+    body.cold.usesWorldInertia = false;
+    body.hot.orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.73f );
+    body.hot.inverseMass = 1.0f / body.cold.mass;
+    body.hot.inverseRotationalInertia = Vector3( 0.25f, 0.25f, 0.25f );
+    body.hot.boundingRadius = 1.0f;
+    const auto bodyHandle = fixture.bodyStore.CreateBodyRecord( body );
+    REQUIRE( bodyHandle.IsValid() );
+
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.shapeKind = ColliderShapeKind::Sphere;
+    collider.boundingRadius = body.hot.boundingRadius;
+    const CollisionShape shape( BoundingSphere( body.hot.boundingRadius, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape )
+                 .IsValid() );
+
+    const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
+    const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
+    REQUIRE( fixture.bodyStore.SetPendingBodyImpulse( bodyHandle, worldImpulse, worldApplicationOffset ) );
+
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    const BuoyancyBodyFacts noBuoyancy;
+    REQUIRE( fixture.bodyStore.ApplyForces( noForces, fixture.colliderStore, {}, noBuoyancy, 0, kSolverDt ) );
+
+    const Vector3 actual = SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
+    Vector3 expected;
+    REQUIRE( CrossProduct( worldApplicationOffset, worldImpulse ).TryDivided( isotropicInertia, expected ) );
+    CHECK( actual.x == expected.x );
+    CHECK( actual.y == expected.y );
+    CHECK( actual.z == expected.z );
 }
 
 

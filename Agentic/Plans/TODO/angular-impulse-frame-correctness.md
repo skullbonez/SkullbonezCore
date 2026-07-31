@@ -1,7 +1,7 @@
 # Angular Impulse Frame Correctness
 
 Date: 2026-07-31
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Physics angular impulse response, mutual-gravity reduction, physics baselines
 Owner: Physics
 Priority: High
@@ -157,7 +157,7 @@ proof, and a complete zero-delta artifact comparison.
   from the same 200-body scene, mean Reduce time improved from 0.093166 ms to
   0.079943 ms and median from 0.0924 ms to 0.0780 ms.
 
-- [ ] **AI2 — Correct the pending-impulse angular path.** Route
+- [x] **AI2 — Correct the pending-impulse angular path.** Route
   `ApplyPendingImpulse` through the same world-inertia conversion used by
   `ApplyWorldImpulse` and the contact solver, honouring `usesWorldInertia`.
   Apply AI0's frame ruling. Prefer one shared conversion helper over a third
@@ -165,6 +165,15 @@ proof, and a complete zero-delta artifact comparison.
   test goes green. Confirm the sphere path is bit-identical, since isotropic
   inertia must be unaffected by the change. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai2-impulse.md`.
+  Completed with one caller-supplied diagonal-operation helper shared by the
+  gameplay, world-force, and contact-solver paths. The rotated anisotropic-box
+  characterization is now an ordinary passing cross-path test, while a rotated
+  sphere pins the exact pre-change component values. Unit, core Physics, and
+  deep Physics gates pass without refreshing any baseline. Owner direction on
+  2026-08-01 removed the proposed additional `at_rest` frame assertion because
+  the deep gate already hashes the complete 54,001-line CSV byte-for-byte;
+  its generated SHA-256 remains
+  `0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984`.
 
 - [ ] **AI3 — Sweep for other conventions that baselines would lock in.**
   Investigation and reporting only; register follow-up plans rather than

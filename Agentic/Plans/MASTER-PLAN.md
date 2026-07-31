@@ -700,48 +700,21 @@ ms to 0.079943 ms and median from 0.0924 ms to 0.0780 ms. The active/future
 ledger is therefore 13/16 (81%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
 
-The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle.
-The uncommitted AI2 implementation is preserved in the named local stash
-`paused AI2 world-inertia correction before restoring pre-536 physics` and must
-not be resumed without a new owner instruction. The BV1/BV2/BV3/BV5 behavior
-and all four goldens changed by `536e0a60` are superseded; the restored Debug
-solver produces two identical 44,401-line varied runs that match the pre-`536`
-oracle on every line. This corrective work does not change the 13/16 ledger.
-Evidence is in
-`../Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
+The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle;
+that restoration remains authoritative. Owner direction on 2026-08-01 resumed
+AI2 and removed the proposed extra `at_rest` all-asleep-frame prerequisite
+because the existing deep lane already hashes the complete CSV byte-for-byte.
+The generated 7,649,427-byte / 54,001-line artifact retains committed SHA-256
+`0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984`.
 
-### Next-Agent Handover: AI2 Resting-State Prerequisite
-
-Before applying or reworking the AI2 stash, add one cheap `at_rest` sleep-
-transition assertion to `tools\validate_physics_deep.bat`. Reuse the existing
-`Debug/physics_known_at_rest.csv` lane rather than launching the scene a second
-time. The check must pin the exact first fixed physics frame where all six
-dynamic bodies are sleeping, prove the immediately preceding frame is not yet
-fully asleep, and prove no body wakes again through the final recorded frame.
-This is an AI2 prerequisite, not a new campaign phase, so the ledger remains
-13/16.
-
-Do not encode the owner's approximate frame `1800` as a guess. A fresh
-post-restoration SkullScope census ran scene playback frames `0..1799` at the
-authored `timeScale: 10`, producing fixed physics frames `0..8999`, and found
-no frame with `awake_count == 0` and `sleeping_count == body_count`. The boxes
-first sleep at fixed frames `1326` (`box_a`), `1765` (`box_c`), and `1870`
-(`box_b`); `ball_a`, `ball_b`, and `ball_c` remain awake through frame `8999`.
-The existing deep CSV independently reports the same transitions and no all-
-asleep frame. The next agent must treat that result as a red resting-state
-finding, determine why the balls never settle, and establish the owner-accepted
-exact all-asleep frame before pinning the deep assertion. No physics golden
-refresh is authorized by this prerequisite.
-
-The paused stash contains only the four-file AI2 world/body inertia-frame
-correction: `PhysicsBodyStore.h`, `PhysicsBodyStore.cpp`,
-`PersistentContactSolver.cpp`, and `TestPersistentContactSolver.cpp` (99
-insertions, 16 deletions at stash time). It adds a shared inertia-frame helper,
-routes pending gameplay and contact angular impulses through it, turns the
-rotated-anisotropic-box characterization into a passing test, and adds an
-isotropic-sphere exactness case. Expect conflicts in the solver and test after
-the pre-`536` restoration; inspect and reapply the intent instead of blindly
-popping the stash.
+Angular Impulse Frame Correctness AI2 completed on 2026-08-01. One shared
+inertia-frame helper now serves pending gameplay, world-force, and contact
+impulses while preserving each path's diagonal operation and the historical
+world-force order. The rotated anisotropic-box test is green and the rotated
+isotropic-sphere path is component-exact. Unit, core Physics, and deep Physics
+gates pass with no baseline refresh. The active/future ledger is therefore
+14/16 (88%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai2-impulse.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1325,11 +1298,11 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) remains at 13/16 (81%), with AI2
-paused by owner direction after the pre-`536` physics oracle restoration.**
+**The Gate Blind Spot Campaign (2026-07-31) is at 14/16 (88%), with AI3 the
+binding investigation-only phase.**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
-angular impulse frame correctness (2/5).
+angular impulse frame correctness (3/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
 decision. Plan 4 is sequenced last on owner instruction because it is the only
@@ -3119,7 +3092,7 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; before AI2 resumes, land the red `at_rest` exact all-asleep-frame deep check described in the next-agent handover, then reapply the named stash by intent; **no baseline regeneration is authorized** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | In progress | 3/5 | AI0-AI2 complete with zero artifact movement; AI3 is an investigation-only convention sweep and **no baseline regeneration is authorized** |
 
 ### Governance Gap This Campaign Closes
 
