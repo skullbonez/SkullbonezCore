@@ -794,8 +794,33 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The Claim Integrity Campaign is complete and excluded under rule 4. MASTER and
-SessionState agree that the active/future ledger is empty (0%). Unreachable
+The Claim Integrity Campaign is complete and excluded under rule 4. Unreachable
 Symbol Remediation closed last with 181 removals, 79 exact retain rulings,
 mandatory Automation/Debug/Profile reachability, clear independent review, and
 all mapped gates passing without baseline movement.
+
+The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
+source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
+agree the active/future ledger is now **0/16 (0%)**. Run the four plans in
+order:
+
+1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (0/4, HP0-HP3) — the
+   pipeline trace runs in the innermost PGS loop in every configuration to
+   produce a `uint16_t` count. Keep the count byte-exact everywhere and delete
+   only the payload work; a moved replay hash means the task is wrong.
+2. `Plans/TODO/runtime-contract-hygiene.md` (0/3, CH0-CH2) — a frame phase that
+   returns Lane R failure without latching it exits `0`; orphan `Quaternion.h`
+   comments; the last `throw` in engine source.
+3. `Plans/TODO/engine-glossary-consolidation.md` (0/4, GC0-GC3) — 570 of 576
+   files carry a glossary block with `Draw command` defined 46 times. Owner
+   retains `Summary:`; only `Glossary` handling changes. Shared glossary is
+   `Reference/engine-glossary.md`, deliberately not `Core/Common.h`.
+4. `Plans/TODO/angular-impulse-frame-correctness.md` (0/5, AI0-AI4) — **the only
+   plan that stops for the owner.** `ApplyPendingImpulse` divides a world torque
+   by body-frame inertia while `ApplyWorldImpulse` and the contact solver both
+   handle it correctly. AI4 halts for explicit sign-off before regenerating any
+   baseline. Do not reorder AI0/AI1/AI2: AI0's predicted delta and AI1's
+   zero-byte proof are the owner's verification instrument.
+
+Plans 1-3 land without an owner decision. No plan in this campaign carries
+bounded-divergence authority.

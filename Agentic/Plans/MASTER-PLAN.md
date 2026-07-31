@@ -555,6 +555,16 @@ JSON semantics reach the test binary, and every mapped gate is clear. Closure
 evidence is in
 `../Reports/2026-07-30/build-configuration-parity-closure.md`.
 
+The denominator grew 0 → 16 on 2026-07-31 when the owner registered the
+four-plan Gate Blind Spot Campaign from a source-and-tests-only engine review at
+tip `1967a863`, conducted without reading `Agentic/`, plan files, reports, or
+commit history: solver diagnostic hot-path cost (4 tasks, HP0-HP3), runtime
+contract hygiene (3 tasks, CH0-CH2), engine glossary consolidation (4 tasks,
+GC0-GC3), and angular impulse frame correctness (5 tasks, AI0-AI4). Execution
+order is 1→4 as listed. Plan 4 is deliberately last because it is the only plan
+in the campaign that stops for an owner decision; the ordering rationale,
+dependency barriers, and the owner gate live in the campaign section below.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1136,6 +1146,20 @@ caller should move, and plan 1's Capability Slice Ownership Rule landed
 layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
+
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 0/16 (0%).**
+Run its four plans in the listed order: solver diagnostic hot-path cost (0/4),
+runtime contract hygiene (0/3), engine glossary consolidation (0/4), then
+angular impulse frame correctness (0/5).
+
+Plans 1-3 are strictly byte-exact or documentation-only and require no owner
+decision. Plan 4 is sequenced last on owner instruction because it is the only
+plan that moves physics baselines, and it **stops at AI4 for explicit owner
+sign-off** before regenerating anything. AI0 must record its predicted baseline
+delta before AI2 changes production code, and AI1 must prove it moved zero bytes
+before AI2 moves them deliberately; that contrast is the owner's verification
+instrument and reordering those tasks destroys it. No plan in this campaign
+carries bounded-divergence authority, and plan 1 must not move a replay hash.
 
 The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
 `persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
@@ -2814,6 +2838,136 @@ review-enforced because
 their subject matter has no honest mechanical proxy; a regex that flags every
 `acosf` without an adjacent `clamp` would fire on the four correctly guarded
 sites and miss a guard placed three lines earlier.
+
+## Gate Blind Spot Campaign (2026-07-31)
+
+Source: source-and-tests-only engine review at tip `1967a863` on 2026-07-31,
+deliberately conducted without reading `Agentic/`, plan files, reports, audits,
+or commit history, so the findings reflect what a new reader sees in the code
+alone. Evidence is dated 2026-07-31 and recorded in each plan; no historical
+measurement is reused.
+
+**Campaign thesis.** The previous campaign named the gap between mechanically
+enforced rules (100%) and review-only rules (whatever the last reviewer looked
+at). This campaign names the next one: **a passing gate proves consistency, not
+correctness and not cost.** Every finding is something the existing gates
+reproduce perfectly and therefore cannot see.
+
+- `ApplyPendingImpulse` divides a world torque by body-frame inertia. It is
+  deterministically wrong, so byte-exact CSV baselines lock the wrong value in
+  and re-prove it every run.
+- The solver pipeline trace runs in the innermost PGS loop in every
+  configuration to produce a `uint16_t` count. Correctness gates are silent
+  because nothing is wrong; the perf gate is silent because the cost has always
+  been there.
+- Mutual gravity re-derives its entire triangular predicate set on the main
+  thread. The determinism suite passes precisely because the redundant pass is
+  faithful.
+- A frame phase that returns Lane R failure without latching it exits `0`. Every
+  current phase latches, so no gate fires; nothing enforces that the next one
+  will.
+- 570 of 576 files carry a glossary block, with `Draw command` defined 46 times
+  and `Broadphase` 30 times. The header-presence rule is at 100%; the
+  information content is not what the rule measures.
+
+The review's positive findings are recorded so later work does not regress them:
+the pair-force table that makes mutual-gravity accumulation order invariant
+under worker scheduling (`Stages/PhysicsForceStage.cpp:344`), the
+worker-count-invariant byte-exact determinism suite, the `CATTO REF:` /
+`ENGINE-SPECIFIC:` citation-and-deviation discipline, the SAT plus
+Sutherland-Hodgman narrowphase with feature-ID warm-start keys and the measured
+25% cross-family challenger margin, fence-proven DX12 retirement quarantine,
+`PhysicsFixedList`'s named English capacity reasons in its fatal diagnostics,
+handle-and-generation body identity with stale-hint fallback, the 80-line
+phase-named `Run::Execute` with RAII allocation-phase scopes, and zero
+`TODO`/`FIXME`/`HACK` at `/W4` with warnings-as-errors. All are load-bearing.
+
+**Structural findings recorded, not scheduled.** The 20-stream SoA hot-field
+body store is paid for and not cashed in: `LoadPhysicsBodyHotState` touches 18
+streams per body, physics contains no SIMD (the only `_mm_*` in the tree is
+`Matrix4::operator*`), and adding a hot field costs edits in roughly eight
+places including a clone macro. The owner is aware and has explicitly excluded
+it from this campaign. Also recorded: 57 `*View` types and 138 owning
+`std::vector` members in Runtime/Physics/Rendering headers against a stated
+global zero-allocation-by-default policy. Neither is registered as a plan.
+
+Binding owner directions:
+
+- Plans 1, 2, and 3 are strictly byte-exact and land without an owner decision.
+  Plan 1 must not move a replay hash, plan 2 must not move a physics byte, and
+  plan 3 is documentation-only.
+- Plan 4 is the only plan carrying an owner gate. AI4 stops for explicit owner
+  sign-off before any baseline is regenerated. It does **not** receive
+  task-scoped bounded-divergence authority: the point of the change is that the
+  existing artifacts recorded a wrong value, not a reordered one, so the
+  divergence rules for evaluation-order transitions do not apply.
+- Plan 1 explicitly rejects "compile the trace out of Release." Removing it from
+  Release alone leaves the cost in Profile, which is where `validate_perf`
+  measures, and compiling it out of Profile would move every replay sample hash
+  because `pipelineRecordCount` is hashed at `ReplayRecorder.cpp:1576`, `:1815`,
+  and `:2033` while replay fidelity validates from the Profile test binary. The
+  accepted design keeps the count exact everywhere and deletes only the payload
+  work, so inventory rule 11 is never engaged.
+- Plan 3 retains the `Summary:` field by owner ruling; the original review
+  proposed removing it. Only `Glossary` handling changes, plus repair of Summary
+  lines that restate the filename. The shared glossary is
+  `Agentic/Reference/engine-glossary.md`, not `Core/Common.h`, because that
+  header states an invariant against regaining domain content and `Core`
+  defining Rendering and Physics vocabulary would invert the mechanically
+  enforced dependency direction.
+- Plan 3 adds a sixth repeatable inventory. Like the existing five, no count in
+  it is an allowance, budget, or ratchet.
+- Plan 4 AI3 is investigation-only and registers follow-up plans rather than
+  changing behavior, so the AI4 baseline delta stays attributable to exactly one
+  named cause.
+
+Dependency barriers:
+
+- Plan 4 AI1 before AI2 — AI1 must prove it moved zero baseline bytes before
+  AI2 moves them deliberately. Reversing the order destroys the owner's ability
+  to attribute the delta, which is the reason both findings share one plan.
+- Plan 4 AI0 before AI2 — AI0 predicts the expected baseline delta before any
+  production code changes. That prediction is the oracle AI4 verifies against;
+  producing it after the fact proves nothing.
+- Plan 1 before plan 4 — both touch physics byte-exactness. Landing plan 1's
+  strictly-neutral change first means plan 4's AI1 neutrality proof is measured
+  against a settled tree.
+- Plans 2 and 3 have no barrier in either direction and may run at any point.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | TODO | 0/4 | Ready; start at HP0 census of pipeline-trace producers, consumers, and per-configuration reachability |
+| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | TODO | 0/3 | Ready; no barrier in either direction |
+| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Ready; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |
+
+### Governance Gap This Campaign Closes
+
+The previous campaign converted two review-only rules into inventories. This one
+addresses a different gap: the repository has strong gates for *drift* and no
+gate for *initial wrongness or standing cost*.
+
+Byte-exact baselines are the primary physics contract, and they are excellent at
+what they do. They also mean a value that was wrong the first time is re-proven
+correct on every run, forever, with increasing confidence. `ApplyPendingImpulse`
+is the concrete instance: three paths compute the same physical quantity, two
+agree, one has disagreed since it was written, and no gate in the repository is
+capable of noticing because all three are deterministic.
+
+Plan 4 AI3 is the structural response — a sweep for other places where a
+convention is documented in one direction and implemented in the other, asking
+of each whether a byte-exact baseline would hide it. Its output is follow-up
+plans, not a new mechanical checker, because the honest mechanical proxy does
+not exist: no regex distinguishes a correct frame conversion from an incorrect
+one. The counterweight to "deterministic" is a second independent derivation of
+the same quantity, which is what AI0's cross-path equivalence test installs and
+what future physics work should imitate.
+
+Plan 1 records the matching cost lesson. The convergence diagnostics and the
+pipeline trace sit in the same loop with the same purpose; one was designed with
+an explicit comment about not spending simulation budget on observational work,
+and the other was not. Nothing enforced consistency between two sibling
+diagnostics, and the shipping binary paid for years.
 
 ## Features
 
