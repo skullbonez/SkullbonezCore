@@ -21,6 +21,8 @@
 //   - Solar scenes use XY orbital coordinates and oblique cameras with Z up,
 //     matching the terrain-camera interaction convention after axis remapping.
 //   - Deep-space presentation is authored as literal black with no second sun.
+//   - Initial impulse application points are world-axis offsets from each body
+//     center, never absolute world positions.
 //
 // Related:
 //   - SkullbonezSource/Scene/AuthoredScene.h
@@ -43,19 +45,22 @@
 
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::AuthoredScene;
-using SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene;
 using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
 using SkullbonezCore::Runtime::SceneObjectMaterialOverride;
+using SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene;
 
 namespace
 {
 SkullbonezCore::Core::SbDiagnosticStore diagnostics;
 
 constexpr const char* kSmallestCommittedScenePath = "SkullbonezData/scenes/terrain_compare.scene.json";
+constexpr const char* kCardinalRollScenePath = "SkullbonezData/scenes/cardinal_roll_test.scene.json";
+constexpr const char* kRagdollPlaygroundScenePath = "SkullbonezData/scenes/ragdoll_playground.scene.json";
 constexpr const char* kSolarSystemScenePath = "SkullbonezData/scenes/solar_system.scene.json";
 constexpr const char* kSolarSlingshotScenePath = "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json";
-constexpr const char* kVersionedAssetScene = R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
+constexpr const char* kVersionedAssetScene =
+    R"({"format":"skullbonez.scene.json","version":2,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetLibraries":["unit_versioned.assets.json"]})";
 
 struct TemporaryMalformedSceneFile
 {
@@ -91,7 +96,8 @@ void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char*
 
 std::string BuildOverCapacityTornadoScene()
 {
-    std::string scene = R"({"format":"skullbonez.scene.json","version":2,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"tornadoSystem":{"vortices":[)";
+    std::string scene =
+        R"({"format":"skullbonez.scene.json","version":2,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"tornadoSystem":{"vortices":[)";
 
     for ( std::size_t index = 0; index <= SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS; ++index )
     {
@@ -112,6 +118,16 @@ std::string BuildVersionedQuaternionScene( uint32_t version )
 {
     return std::string( R"({"format":"skullbonez.scene.json","version":)" ) + std::to_string( version ) +
            R"(,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"ballState","sceneObjectId":12,"name":"probe","position":[0,0,0],"velocity":[0,0,0],"angularVelocity":[0,0,0],"orientation":[0.25,-0.5,0.75,-1],"radius":1,"mass":1,"restitution":0.1,"inertia":[1,1,1],"fixed":false,"sleeping":false}]})";
+}
+
+std::string BuildVersionedImpulseOffsetScene( uint32_t version, const char* offsetKey )
+{
+    const std::string identity = version == 1u ? "" : R"(,"sceneObjectId":71)";
+    return std::string( R"({"format":"skullbonez.scene.json","version":)" ) + std::to_string( version ) +
+           R"(,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"ball")" +
+           identity +
+           R"(,"name":"impulse_probe","position":[10,20,30],"radius":1,"mass":2,"moment":3,"restitution":0.1,"force":[4,5,6],")" +
+           offsetKey + R"(":[1,2,3],"fixed":false}]})";
 }
 } // namespace
 
@@ -145,6 +161,37 @@ TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected record
     CHECK( camera.view.x == doctest::Approx( 1400.0f ) );
     CHECK( camera.view.y == doctest::Approx( 0.0f ) );
     CHECK( camera.view.z == doctest::Approx( 200.0f ) );
+}
+
+TEST_CASE( "AuthoredSceneParser: initial impulse offsets are center-relative world vectors" )
+{
+    SUBCASE( "a nonzero authored lever arm reaches the parsed impulse record" )
+    {
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, kCardinalRollScenePath, scene ) );
+        REQUIRE( scene.GetBallCount() == 4 );
+
+        const auto& north = scene.GetBall( 0 );
+        CHECK( std::string( north.name ) == "north" );
+        CHECK( north.forceZ == doctest::Approx( -500.0f ) );
+        CHECK( north.impulseWorldOffsetFromCenterX == doctest::Approx( 10.0f ) );
+        CHECK( north.impulseWorldOffsetFromCenterY == doctest::Approx( 0.0f ) );
+        CHECK( north.impulseWorldOffsetFromCenterZ == doctest::Approx( 0.0f ) );
+    }
+
+    SUBCASE( "wake_ball applies its impulse through the body center" )
+    {
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, kRagdollPlaygroundScenePath, scene ) );
+        REQUIRE( scene.GetBallCount() == 1 );
+
+        const auto& wakeBall = scene.GetBall( 0 );
+        CHECK( std::string( wakeBall.name ) == "wake_ball" );
+        CHECK( wakeBall.forceZ == doctest::Approx( 120.0f ) );
+        CHECK( wakeBall.impulseWorldOffsetFromCenterX == doctest::Approx( 0.0f ) );
+        CHECK( wakeBall.impulseWorldOffsetFromCenterY == doctest::Approx( 0.0f ) );
+        CHECK( wakeBall.impulseWorldOffsetFromCenterZ == doctest::Approx( 0.0f ) );
+    }
 }
 
 TEST_CASE( "AuthoredSceneParser: solar bodies publish their authored colours" )
@@ -276,7 +323,7 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
     SUBCASE( "current schema is already canonical" )
     {
         const TemporaryMalformedSceneFile current( "unit_scene_parser_current_quaternion.scene.json",
-                                                   BuildVersionedQuaternionScene( 3 ) );
+                                                   BuildVersionedQuaternionScene( 4 ) );
         AuthoredScene scene;
         REQUIRE( TryLoadAuthoredScene( diagnostics, current.path, scene ) );
         REQUIRE( scene.GetBallStateCount() == 1 );
@@ -290,10 +337,58 @@ TEST_CASE( "AuthoredSceneParser: quaternion representation is versioned at the s
     SUBCASE( "future schema fails closed" )
     {
         const TemporaryMalformedSceneFile future( "unit_scene_parser_future_quaternion.scene.json",
-                                                  BuildVersionedQuaternionScene( 4 ) );
+                                                  BuildVersionedQuaternionScene( 5 ) );
         AuthoredScene scene;
         CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, future.path, scene ), future.path,
-                          "Unsupported scene schema version: 4" );
+                          "Unsupported scene schema version: 5" );
+    }
+}
+
+TEST_CASE( "AuthoredSceneParser: impulse offset spelling is versioned at the scene boundary" )
+{
+    for ( uint32_t version = 1u; version <= 3u; ++version )
+    {
+        const TemporaryMalformedSceneFile legacy( "unit_scene_parser_legacy_impulse_offset.scene.json",
+                                                  BuildVersionedImpulseOffsetScene( version, "forcePosition" ) );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, legacy.path, scene ) );
+        REQUIRE( scene.GetBallCount() == 1 );
+        CHECK( scene.GetSchemaVersion() == version );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterX == doctest::Approx( 1.0f ) );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterY == doctest::Approx( 2.0f ) );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterZ == doctest::Approx( 3.0f ) );
+    }
+
+    SUBCASE( "version 4 accepts only the explicit center-relative world offset" )
+    {
+        const TemporaryMalformedSceneFile current( "unit_scene_parser_current_impulse_offset.scene.json",
+                                                   BuildVersionedImpulseOffsetScene( 4u, "impulseWorldOffsetFromCenter" ) );
+        AuthoredScene scene;
+        REQUIRE( TryLoadAuthoredScene( diagnostics, current.path, scene ) );
+        REQUIRE( scene.GetBallCount() == 1 );
+        CHECK( scene.GetSchemaVersion() == 4u );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterX == doctest::Approx( 1.0f ) );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterY == doctest::Approx( 2.0f ) );
+        CHECK( scene.GetBall( 0 ).impulseWorldOffsetFromCenterZ == doctest::Approx( 3.0f ) );
+    }
+
+    SUBCASE( "version 4 rejects the retired absolute-position spelling" )
+    {
+        const TemporaryMalformedSceneFile retired( "unit_scene_parser_retired_impulse_offset.scene.json",
+                                                   BuildVersionedImpulseOffsetScene( 4u, "forcePosition" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, retired.path, scene ), retired.path,
+                          "forcePosition is retired in scene schema version 4" );
+    }
+
+    SUBCASE( "legacy versions reject the version 4 spelling" )
+    {
+        const TemporaryMalformedSceneFile futureField( "unit_scene_parser_future_impulse_offset.scene.json",
+                                                       BuildVersionedImpulseOffsetScene( 3u,
+                                                                                         "impulseWorldOffsetFromCenter" ) );
+        AuthoredScene scene;
+        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, futureField.path, scene ), futureField.path,
+                          "impulseWorldOffsetFromCenter requires scene schema version 4" );
     }
 }
 
@@ -338,11 +433,12 @@ TEST_CASE( "AuthoredSceneParser: legacy releasable trees resolve stable root ids
 
 TEST_CASE( "AuthoredSceneParser: missing behavior-group root is a recoverable parse failure" )
 {
-    const TemporaryMalformedSceneFile missingGroupRoot( "unit_scene_parser_missing_group_root.scene.json",
-                                                        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"convexHull","name":"tree_child","hull":"pyramid","position":[0,0,0],"restitution":0.1,"objectGroup":{"kind":"releasableTree","root":"missing_root","part":1}}]})" );
-                                                        AuthoredScene scene;
-                                                        CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, missingGroupRoot.path, scene ), missingGroupRoot.path,
-                                                        "does not name an object" );
+    const TemporaryMalformedSceneFile missingGroupRoot(
+        "unit_scene_parser_missing_group_root.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"convexHull","name":"tree_child","hull":"pyramid","position":[0,0,0],"restitution":0.1,"objectGroup":{"kind":"releasableTree","root":"missing_root","part":1}}]})" );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, missingGroupRoot.path, scene ), missingGroupRoot.path,
+                      "does not name an object" );
 }
 
 
@@ -382,11 +478,12 @@ TEST_CASE( "AuthoredSceneParser: wrong member type reports recoverable load fail
 
 TEST_CASE( "AuthoredSceneParser: unknown asset instance reports recoverable load failure" )
 {
-    const TemporaryMalformedSceneFile unknownAsset( "unit_scene_parser_unknown_asset.scene.json",
-                                                    R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetInstances":[{"asset":"missing.asset","name":"ghost","position":[0,0,0]}]})" );
-                                                    AuthoredScene scene;
-                                                    CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, unknownAsset.path, scene ), unknownAsset.path,
-                                                    "Unknown asset instance reference" );
+    const TemporaryMalformedSceneFile unknownAsset(
+        "unit_scene_parser_unknown_asset.scene.json",
+        R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetInstances":[{"asset":"missing.asset","name":"ghost","position":[0,0,0]}]})" );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( diagnostics, unknownAsset.path, scene ), unknownAsset.path,
+                      "Unknown asset instance reference" );
 }
 
 

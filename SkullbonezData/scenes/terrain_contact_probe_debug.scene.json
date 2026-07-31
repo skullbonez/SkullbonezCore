@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 4,
   "cinematic": {
     "shadows": true,
     "shadowMapSize": 2048,
@@ -88,7 +88,7 @@
         0,
         0
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         0,
         0

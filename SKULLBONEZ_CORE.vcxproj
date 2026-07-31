@@ -606,6 +606,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\UI\RenderDiagnosticsProjection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.InitialImpulse.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLoadTransaction.h" />

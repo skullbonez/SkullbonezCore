@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 4,
   "styles": [
     "low_poly_art_style"
   ],
@@ -106,7 +106,7 @@
         0,
         0
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0

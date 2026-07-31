@@ -1063,6 +1063,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.InitialImpulse.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>

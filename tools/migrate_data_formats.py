@@ -1,10 +1,14 @@
 # File: tools/migrate_data_formats.py
-# Purpose: Upgrade authored scenes, asset libraries, convex hulls, and engine config files.
+# Purpose:
+#   Upgrade authored scenes, asset libraries, convex hulls, and engine config
+#   files.
 #
-# Mental model:
-#   Runtime readers retain only their current/current-1 compatibility window.
-#   This cold tool owns durable rewrites from legacy authored inputs to the
-#   current native stamp, including exact quaternion representation migrations.
+# Summary:
+#   This cold tool owns deterministic rewrites from legacy authored inputs to
+#   each format's current native stamp; runtime compatibility remains specific
+#   to that format and version. Migration steps are sequenced by source version
+#   so an already-crossed quaternion or vocabulary boundary is never applied
+#   twice.
 #
 # Glossary:
 #   Native stamp: The integer version field/directive owned by one file format.
@@ -20,11 +24,14 @@
 #     authored content were retired.
 #   Config v6: Removes the render-only terrain sampling key after rendering and
 #     collision returned to one authoritative post grid.
+#   Scene v4: Renames the authored impulse application value so the key states
+#     that its world-space vector is relative to the body's center.
 #
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
 #   - Scene v1/v2 raw orientations are conjugated exactly once on the v3 step.
+#   - Scene v3 impulse offsets retain their numbers while only the key changes.
 #   - Config migrations edit only their owned rows and preserve unrelated rows.
 #
 # Related:
@@ -46,7 +53,7 @@ import bake_hulls
 
 ASSET_LIBRARY_VERSION = 1
 CONFIG_VERSION = 6
-SCENE_VERSION = 3
+SCENE_VERSION = 4
 ASSET_FORMAT = "skullbonez.asset_library.json"
 SCENE_FORMAT = "skullbonez.scene.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
@@ -56,6 +63,7 @@ ORIENTATION_RE = re.compile(
     rf'(\s*,\s*)({JSON_NUMBER})(\s*,\s*)({JSON_NUMBER})(\s*\])'
 )
 SCENE_VERSION_RE = re.compile(r'("version"\s*:\s*)(\d+)')
+LEGACY_IMPULSE_OFFSET_KEY_RE = re.compile(r'"forcePosition"(?=\s*:)')
 
 
 class MigrationError(RuntimeError):
@@ -90,6 +98,14 @@ def _count_scene_orientations(value: object) -> int:
     return 0
 
 
+def _count_scene_key(value: object, target: str) -> int:
+    if isinstance(value, dict):
+        return sum((1 if key == target else 0) + _count_scene_key(child, target) for key, child in value.items())
+    if isinstance(value, list):
+        return sum(_count_scene_key(child, target) for child in value)
+    return 0
+
+
 def migrate_scene_text(text: str, path: Path) -> str:
     try:
         document = json.loads(text)
@@ -103,27 +119,47 @@ def migrate_scene_text(text: str, path: Path) -> str:
         raise MigrationError(f"{path}: scene version must be a positive integer")
     if version > SCENE_VERSION:
         raise MigrationError(f"{path}: scene version {version} is newer than current version {SCENE_VERSION}")
+    migrated = text
+
+    # Named v1/v2->v3 step: stored quaternions changed convention. A v3 file
+    # has already crossed this boundary and must never be conjugated again.
+    if version < 3:
+        expected_count = _count_scene_orientations(document)
+
+        def conjugate(match: re.Match[str]) -> str:
+            return (
+                match.group(1)
+                + _negate_json_number(match.group(2))
+                + match.group(3)
+                + _negate_json_number(match.group(4))
+                + match.group(5)
+                + _negate_json_number(match.group(6))
+                + match.group(7)
+                + match.group(8)
+                + match.group(9)
+            )
+
+        migrated, count = ORIENTATION_RE.subn(conjugate, migrated)
+        if count != expected_count:
+            raise MigrationError(f"{path}: parsed {expected_count} orientations but rewrote {count}")
+
+    # Named v3->v4 step: the old key sounded like an absolute world point, but
+    # the value has always crossed into Physics as a world-space offset from
+    # the body's center. Preserve every number and change only that key token.
+    if version < 4:
+        current_key_count = _count_scene_key(document, "impulseWorldOffsetFromCenter")
+        if current_key_count:
+            raise MigrationError(
+                f"{path}: scene version {version} uses impulseWorldOffsetFromCenter, which requires version 4"
+            )
+        expected_count = _count_scene_key(document, "forcePosition")
+        migrated, count = LEGACY_IMPULSE_OFFSET_KEY_RE.subn('"impulseWorldOffsetFromCenter"', migrated)
+        if count != expected_count:
+            raise MigrationError(f"{path}: parsed {expected_count} forcePosition keys but rewrote {count}")
+
     if version == SCENE_VERSION:
-        return text
+        return migrated
 
-    expected_count = _count_scene_orientations(document)
-
-    def conjugate(match: re.Match[str]) -> str:
-        return (
-            match.group(1)
-            + _negate_json_number(match.group(2))
-            + match.group(3)
-            + _negate_json_number(match.group(4))
-            + match.group(5)
-            + _negate_json_number(match.group(6))
-            + match.group(7)
-            + match.group(8)
-            + match.group(9)
-        )
-
-    migrated, count = ORIENTATION_RE.subn(conjugate, text)
-    if count != expected_count:
-        raise MigrationError(f"{path}: parsed {expected_count} orientations but rewrote {count}")
     migrated, version_count = SCENE_VERSION_RE.subn(rf"\g<1>{SCENE_VERSION}", migrated, count=1)
     if version_count != 1:
         raise MigrationError(f"{path}: scene version field was not found")
@@ -266,16 +302,20 @@ def expected_text(path: Path) -> str:
 def discover(repo: Path, explicit: list[Path]) -> list[Path]:
     if explicit:
         return [path.resolve() if path.is_absolute() else (repo / path).resolve() for path in explicit]
-    # The campaign census includes the buoyancy orientation fixture even though
-    # its current authoring uses Euler values. Stamp it with the same scene
-    # generation so the owner visual-acceptance set has one unambiguous schema
-    # boundary.
-    scenes = [
-        path
-        for path in sorted((repo / "SkullbonezData" / "scenes").glob("*.scene.json"))
-        if '"orientation"' in path.read_bytes().decode("utf-8")
-        or path.name == "buoyancy_inertia_orientation.scene.json"
-    ]
+    # Why: the default census follows content that needs a named migration. A
+    # current v3 orientation-only scene is outside the v4 vocabulary change and
+    # may be provenance-bound to an artifact that this phase cannot regenerate.
+    scenes = []
+    for path in sorted((repo / "SkullbonezData" / "scenes").glob("*.scene.json")):
+        text = path.read_bytes().decode("utf-8")
+        version_match = SCENE_VERSION_RE.search(text)
+        version = int(version_match.group(2)) if version_match else 0
+        needs_quaternion_step = version < 3 and (
+            '"orientation"' in text or path.name == "buoyancy_inertia_orientation.scene.json"
+        )
+        needs_impulse_offset_step = '"forcePosition"' in text or '"impulseWorldOffsetFromCenter"' in text
+        if needs_quaternion_step or needs_impulse_offset_step:
+            scenes.append(path)
     return (
         sorted((repo / "SkullbonezData" / "assets").glob("*.assets.json"))
         + sorted((repo / "SkullbonezData" / "hulls").glob("*.hull"))
@@ -288,20 +328,39 @@ def self_test() -> None:
     scene_path = Path("legacy.scene.json")
     legacy_scene = (
         '{"format":"skullbonez.scene.json","version":2,'
-        '"orientation":[0,-0.0,1.25e-3,-4.0]}'
+        '"orientation":[0,-0.0,1.25e-3,-4.0],"forcePosition":[1,2,3]}'
     )
     scene = migrate_scene_text(legacy_scene, scene_path)
     assert scene == (
-        '{"format":"skullbonez.scene.json","version":3,'
-        '"orientation":[-0.0,0.0,-1.25e-3,-4.0]}'
+        '{"format":"skullbonez.scene.json","version":4,'
+        '"orientation":[-0.0,0.0,-1.25e-3,-4.0],"impulseWorldOffsetFromCenter":[1,2,3]}'
     )
     assert migrate_scene_text(scene, scene_path) == scene
+    v3_scene = migrate_scene_text(
+        '{"format":"skullbonez.scene.json","version":3,'
+        '"orientation":[0.25,-0.5,0.75,1.0],"forcePosition":[4,5,6]}',
+        scene_path,
+    )
+    assert v3_scene == (
+        '{"format":"skullbonez.scene.json","version":4,'
+        '"orientation":[0.25,-0.5,0.75,1.0],"impulseWorldOffsetFromCenter":[4,5,6]}'
+    )
     try:
-        migrate_scene_text('{"format":"skullbonez.scene.json","version":4}', scene_path)
+        migrate_scene_text('{"format":"skullbonez.scene.json","version":5}', scene_path)
     except MigrationError as exc:
-        assert "newer than current version 3" in str(exc)
+        assert "newer than current version 4" in str(exc)
     else:
         raise AssertionError("future scene version must fail")
+    try:
+        migrate_scene_text(
+            '{"format":"skullbonez.scene.json","version":3,'
+            '"impulseWorldOffsetFromCenter":[1,2,3]}',
+            scene_path,
+        )
+    except MigrationError as exc:
+        assert "requires version 4" in str(exc)
+    else:
+        raise AssertionError("future scene key in a legacy version must fail")
 
     asset_path = Path("legacy.assets.json")
     asset = migrate_asset_text('{"format":"skullbonez.asset_library.json","assets":[]}', asset_path)

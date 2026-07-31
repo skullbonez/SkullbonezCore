@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 4,
   "cinematic": {},
   "simulation": {
     "seed": 20260602,
@@ -317,7 +317,7 @@
         0,
         12
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -341,7 +341,7 @@
         0,
         -4
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -365,7 +365,7 @@
         0,
         42
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         1,
         0,
         0
@@ -389,7 +389,7 @@
         0,
         -44
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         1,
         0,
         0
@@ -413,7 +413,7 @@
         0,
         -22
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         0,
         1
@@ -437,7 +437,7 @@
         0,
         20
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         0,
         1
@@ -623,7 +623,7 @@
         -3,
         -20
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         1,
         0,
         0
@@ -647,7 +647,7 @@
         -2,
         24
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         1,
         0,
         0
@@ -671,7 +671,7 @@
         -5,
         4
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -695,7 +695,7 @@
         -5,
         -18
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -785,7 +785,7 @@
         0,
         12
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -809,7 +809,7 @@
         0,
         -10
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -899,7 +899,7 @@
         0,
         -15
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0
@@ -923,7 +923,7 @@
         0,
         8
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         1,
         0

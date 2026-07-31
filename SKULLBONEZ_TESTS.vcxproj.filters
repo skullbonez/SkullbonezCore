@@ -246,6 +246,9 @@
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestSceneAuthoredImpulseSetup.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

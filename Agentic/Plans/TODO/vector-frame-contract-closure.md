@@ -1,7 +1,7 @@
 # Vector Frame Contract Closure
 
 Date: 2026-08-01
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Physics force integration, public Physics descriptors, Scene authoring, Maths vector semantics
 Owner: Physics, Scene, Maths
 Priority: High
@@ -68,12 +68,14 @@ all unaffected committed artifacts exact.
   Evidence:
   `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf1-angular-drag.md`.
 
-- [ ] **VF2 — Repair the authored impulse-offset schema.** Replace the ambiguous
+- [x] **VF2 — Repair the authored impulse-offset schema.** Replace the ambiguous
   `forcePosition`/`forcePos*` vocabulary with an explicit world-space
   center-relative impulse offset across parser values, authored setup, scene
   files, and relevant tests. Correct `ragdoll_playground`'s absolute-position
   outlier using a focused scene-loading/impulse oracle. Do not retain a silent
   compatibility alias that lets new files keep authoring the ambiguous field.
+  Evidence:
+  `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md`.
 
 - [ ] **VF3 — Adjudicate `VectorReflect`.** With its zero-production-caller
   census in hand, choose one honest surface: delete the test-only helper, rename

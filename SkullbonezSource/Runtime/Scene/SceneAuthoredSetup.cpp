@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneAuthoredSetup.h"
+#include "SceneAuthoredSetup.InitialImpulse.h"
 #include "../Automation/RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneSessionState.h"
@@ -594,9 +595,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
         entity.SetName( ball.name );
         ApplyEditorPlacedSphereMaterial( entity, ball.name );
 
-        const bool hasInitialImpulse = !ball.isFixed &&
-                                       ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
-
         const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -625,11 +623,7 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         const PhysicsBodyHandle body = appendResult.body;
 
-        if ( hasInitialImpulse )
-        {
-            sceneWorld.Physics().SetPendingBodyImpulse( body, Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                                        Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
-        }
+        ApplyAuthoredBallInitialImpulse( sceneWorld.Physics(), body, ball );
     }
 
     // ball_state entries: full dynamic state from a snapshot

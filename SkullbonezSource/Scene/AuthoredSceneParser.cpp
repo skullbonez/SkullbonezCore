@@ -105,9 +105,9 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json
             return {};
         }
 
-        // Compatibility: v3 files migrated from v1 retain their compact
+        // Compatibility: v3+ files migrated from v1 may retain their compact
         // identity shape. The shared post-parse pass fills only absent ids in
-        // historical section order; writer-made v3 files keep explicit ids.
+        // historical section order; writer-made current files keep explicit ids.
         return {};
     }
 
@@ -614,7 +614,7 @@ void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool s
         return;
     }
 
-    if ( documentVersion < 1 || documentVersion > 3 )
+    if ( documentVersion < 1 || documentVersion > 4 )
     {
         Fail( path, "Unsupported scene schema version: " + std::to_string( documentVersion ) );
         return;

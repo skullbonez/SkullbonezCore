@@ -175,11 +175,11 @@
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, SceneSessionState& sceneState, SceneWorld& sceneWorld, SceneAutomationGateConfiguration& automationGates, const AuthoredScene& scene )",
-      "body_sha256": "fcd418f8f468a29c4c6d81e9d0e95700fd3c7fc3f7d8ba0de7716c2df4b26b64",
+      "body_sha256": "62d44c934c181e7bd61abd7c5d76b36602390b7dbe1761c13641ad05da9cbaa6",
       "owner": "SceneAuthoredSetup entity transaction",
       "disposition": "retain-owner",
       "reason": "One authored-scene setup transaction creates the complete entity topology and automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md",
       "plan": ""
     },
     {
@@ -245,11 +245,11 @@
     {
       "file": "SkullbonezSource/Scene/SceneSnapshotWriter.cpp",
       "signature": "SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const SceneSaveRequest& request )",
-      "body_sha256": "d00c83b08d92a7258a031ea09b1676a1d60f41d7fbcdf417c89ac23e236c31b7",
+      "body_sha256": "11247633432b570bccfa6de4c542ed3e1f864876b7706a00e2cd30a82e7410d9",
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
       "reason": "One scene writer validates the request and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md",
       "plan": ""
     },
     {

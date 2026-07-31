@@ -105,7 +105,7 @@ struct GeneratedObjectSample
 {
     Vector3 position;
     Vector3 force;
-    Vector3 forcePosition;
+    Vector3 impulseWorldOffsetFromCenter;
     Vector3 boxHalfExtents;
     Vector3 rotationalInertia;
     float mass = 0.0f;
@@ -142,7 +142,7 @@ GeneratedObjectSample SampleGeneratedObject( unsigned int& rngState, const Skull
                             randSigned( config.generatedScene.ballForceRange ),
                             randSigned( config.generatedScene.ballForceRange ) );
 
-    sample.forcePosition = Vector3( randSign(), randSign(), randSign() );
+    sample.impulseWorldOffsetFromCenter = Vector3( randSign(), randSign(), randSign() );
 
     if ( objectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
     {
@@ -270,7 +270,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
             }
 
             const PhysicsBodyHandle body = appendResult.body;
-            sceneWorld.Physics().SetPendingBodyImpulse( body, sample.force, sample.forcePosition );
+            sceneWorld.Physics().SetPendingBodyImpulse( body, sample.force, sample.impulseWorldOffsetFromCenter );
         }
         else
         {
@@ -294,7 +294,7 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
             }
 
             const PhysicsBodyHandle body = appendResult.body;
-            sceneWorld.Physics().SetPendingBodyImpulse( body, sample.force, sample.forcePosition );
+            sceneWorld.Physics().SetPendingBodyImpulse( body, sample.force, sample.impulseWorldOffsetFromCenter );
         }
     }
 
@@ -369,7 +369,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
                        randSigned( config.generatedScene.ballForceRange ),
                        randSigned( config.generatedScene.ballForceRange ) );
 
-        Vector3 forcePos( randSign(), randSign(), randSign() );
+        Vector3 impulseWorldOffsetFromCenter( randSign(), randSign(), randSign() );
 
         SceneEntityCreateDesc gameModel;
         const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
@@ -388,7 +388,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
         }
 
         const PhysicsBodyHandle body = appendResult.body;
-        sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
+        sceneWorld.Physics().SetPendingBodyImpulse( body, force, impulseWorldOffsetFromCenter );
     }
 
     // --- Box pass ---
@@ -412,7 +412,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
                        randSigned( config.generatedScene.ballForceRange ),
                        randSigned( config.generatedScene.ballForceRange ) );
 
-        Vector3 forcePos( randSign(), randSign(), randSign() );
+        Vector3 impulseWorldOffsetFromCenter( randSign(), randSign(), randSign() );
 
         float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( scene.rngState ) % 3 ) ) * 0.6f;
         float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( scene.rngState ) % 4 ) * 0.2f );
@@ -439,7 +439,7 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
         }
 
         const PhysicsBodyHandle body = appendResult.body;
-        sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
+        sceneWorld.Physics().SetPendingBodyImpulse( body, force, impulseWorldOffsetFromCenter );
     }
 
     scene.modelCount = balls + boxes;

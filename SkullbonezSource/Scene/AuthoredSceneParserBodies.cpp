@@ -80,9 +80,28 @@ void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path
         ReadVec3( *force, path, "ball.force", ball.forceX, ball.forceY, ball.forceZ );
     }
 
-    if ( const Json* forcePosition = FindMember( object, "forcePosition" ) )
+    // Compatibility: versions 1-3 retain the historical key only inside their
+    // versioned parser path. Version 4 fails closed on that spelling so newly
+    // authored scenes cannot silently preserve its absolute-position ambiguity.
+    const bool usesExplicitImpulseOffset = m_currentDocumentVersion >= 4;
+    const char* impulseOffsetKey = usesExplicitImpulseOffset ? "impulseWorldOffsetFromCenter" : "forcePosition";
+    const char* incompatibleKey = usesExplicitImpulseOffset ? "forcePosition" : "impulseWorldOffsetFromCenter";
+
+    if ( FindMember( object, incompatibleKey ) )
     {
-        ReadVec3( *forcePosition, path, "ball.forcePosition", ball.forcePosX, ball.forcePosY, ball.forcePosZ );
+        Fail( path, std::string( "ball." ) + incompatibleKey +
+                        ( usesExplicitImpulseOffset ? " is retired in scene schema version 4; use ball."
+                                                    : " requires scene schema version 4; use ball." ) +
+                        impulseOffsetKey );
+
+        return;
+    }
+
+    if ( const Json* impulseWorldOffsetFromCenter = FindMember( object, impulseOffsetKey ) )
+    {
+        const std::string impulseOffsetContext = std::string( "ball." ) + impulseOffsetKey;
+        ReadVec3( *impulseWorldOffsetFromCenter, path, impulseOffsetContext.c_str(), ball.impulseWorldOffsetFromCenterX,
+                  ball.impulseWorldOffsetFromCenterY, ball.impulseWorldOffsetFromCenterZ );
     }
 
     if ( const Json* euler = FindMember( object, "euler" ) )
