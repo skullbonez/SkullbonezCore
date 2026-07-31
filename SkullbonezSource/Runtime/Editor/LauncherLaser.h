@@ -7,19 +7,6 @@ Summary:
   The laser is display-only feedback for launcher-mode ray shots. It never changes
   physics state; callers provide the already-computed hit/miss segment.
 
-Glossary:
-  Billboard: Camera-facing quad built from a world-space segment and view
-    direction.
-  Ribbon: Thin render strip used for the laser core and glow.
-  Resource builder: Cold renderer owner borrowed only while compiling the
-    laser shader.
-  Geometry owner: Renderer owner borrowed while creating or destroying the
-    laser vertex buffer.
-  Render command context: Per-frame renderer capability borrowed only while
-    precompiling and drawing laser vertices with the pass-owned additive bucket.
-  Snapshot: Compact replay record of visible launcher feedback.
-  Shader handle: Runtime id that resolves to renderer-owned shader state.
-
 Invariants:
   - LauncherLaser owns only transient render feedback.
   - Replay snapshots must preserve enough state to restore visible shots.
@@ -29,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
   - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -112,7 +100,6 @@ class LauncherLaser
     // Lifetime: pass a live geometry owner from the backend-release phase to
     // destroy GPU handles; nullptr means clear CPU-side state only.
     void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
-    void Clear();
     void Fire( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                const Math::Vector::Vector3& cameraUp, float distance, bool hit );
     void Update( float dt );

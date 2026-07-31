@@ -9,7 +9,6 @@ Summary:
   without reaching back into Runtime or polling hardware.
 
 Glossary:
-  Virtual key: Integer code used by UI controls to identify a keyboard level.
   Prior level: Widget-owned bit recording whether that key was down on the
     preceding UI interaction turn.
 
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIInput.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIInput.h"
 

@@ -4,9 +4,8 @@ Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
 Summary:
-  RunFrame.cpp runs one frame of input, simulation, rendering, profiling, and
-  presentation. As an implementation unit, keep edits anchored on local owner
-  boundaries and call direction and on the glossary/invariants below.
+  Runs one frame of input, simulation,
+  rendering, profiling, and presentation.
 
 Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches
@@ -22,20 +21,12 @@ Glossary:
     state, and replay identity.
   ColliderStore: Physics-owned hot collider rows plus per-kind shape payloads,
     material parameters, and broadphase radius.
-  Lane R result: Recoverable scene-control or capture failure that prevents a
-    failed side effect from being reported as a successful frame transition.
   Presentation pin: Per-frame alpha override to exact current solver state for
     scheduled and auto-cycle capture automation.
   UI text facts: Value-only late-presentation snapshot shared by the operator
     surfaces without exposing mutable owners.
-  Submitted-frame mark: Development profiler boundary emitted only after DX12
-    accepts a successful Present for the game frame.
-  Shared editor view: Frame-owned storage passed to the operator-editor
-    composer and then consumed by the selected development frontend.
   Development UI apply result: One automation-owned batch outcome containing
     only a recoverable status and an optional Run-owned surface selection.
-  Input turn result: Value-only process request published after the input owner
-    interprets semantic actions; Run never reopens the action array.
   FIFO (First In, First Out): Platform-message order retained when the bounded
     drain defers excess messages to the next frame.
 
@@ -57,6 +48,7 @@ Related:
   - SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
@@ -187,7 +179,6 @@ struct Run::FrameSimulationPhaseResult
 
 struct Run::FrameRenderPhaseResult
 {
-    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     float presentationAlpha = 1.0f;
 };
 
@@ -251,7 +242,7 @@ void Run::BeginFrameDiagnosticsPhase()
 }
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
+Run::FrameInputPhaseResult Run::RunAutomationAndInputPhase()
 {
     const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
     const ReplayInputView automationReplayInput = automationReplayView.input;
@@ -274,7 +265,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 
     if ( !developmentUiApply.status.Ok() )
     {
-        m_applicationExit.RequestOwnedFailure( developmentUiApply.status );
+        m_applicationExit.RequestPhaseFailure( developmentUiApply.status );
     }
 #endif
 
@@ -303,7 +294,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
 
     if ( !result.status.Ok() )
     {
-        m_applicationExit.RequestOwnedFailure( result.status );
+        m_applicationExit.RequestPhaseFailure( result.status );
     }
 
     if ( result.requestQuit )
@@ -311,7 +302,7 @@ InteractionAutomationFrameResult Run::RunAutomationBeforeInputPhase()
         PostQuitMessage( 0 );
     }
 
-    return result;
+    return RunInputPhase( &result );
 }
 #endif
 
@@ -471,12 +462,12 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( finishResult );
-            return FrameRenderPhaseResult { finishResult, presentationAlpha };
+            m_applicationExit.RequestPhaseFailure( finishResult );
+            return FrameRenderPhaseResult { presentationAlpha };
         }
     }
 
-    return FrameRenderPhaseResult { SkullbonezCore::Core::SbResult::Success(), presentationAlpha };
+    return FrameRenderPhaseResult { presentationAlpha };
 }
 
 RuntimeRenderModelFrameView Run::PublishRenderModelsPhase()
@@ -529,7 +520,7 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 
     if ( !automationAfterRender.status.Ok() )
     {
-        m_applicationExit.RequestOwnedFailure( automationAfterRender.status );
+        m_applicationExit.RequestPhaseFailure( automationAfterRender.status );
     }
 
     if ( automationAfterRender.requestQuit )
@@ -552,7 +543,7 @@ void Run::FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy )
     m_timers.cpuFrameWorkMs = static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 }
 
-SkullbonezCore::Core::SbResult Run::PresentFramePhase()
+void Run::PresentFramePhase()
 {
     PROFILE_BEGIN( m_profiler, "Frame/VsyncWait" );
     SkullbonezCore::Core::SbResult presentResult = SkullbonezCore::Core::SbResult::Success();
@@ -570,8 +561,8 @@ SkullbonezCore::Core::SbResult Run::PresentFramePhase()
     {
         m_timers.frameTimer.StopTimer();
         PROFILE_FRAME_END( m_profiler );
-        m_applicationExit.RequestOwnedFailure( presentResult );
-        return presentResult;
+        m_applicationExit.RequestPhaseFailure( presentResult );
+        return;
     }
 
     // Invariant: Tracy counts submitted game frames, not attempted render turns,
@@ -579,7 +570,6 @@ SkullbonezCore::Core::SbResult Run::PresentFramePhase()
     SKORE_TRACY_MARK_SUBMITTED_FRAME();
     m_timers.frameTimer.StopTimer();
     PROFILE_FRAME_END( m_profiler );
-    return SkullbonezCore::Core::SbResult::Success();
 }
 
 bool Run::CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy )
@@ -629,17 +619,24 @@ SkullbonezCore::Core::SbResult Run::Execute()
         BeginFrameDiagnosticsPhase();
         PROFILE_BEGIN( m_profiler, "Frame/Input" );
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-        const auto automationResult = RunAutomationBeforeInputPhase();
-        const InteractionAutomationFrameResult* automation = &automationResult;
+        const FrameInputPhaseResult input = RunAutomationAndInputPhase();
 #else
-        const InteractionAutomationFrameResult* automation = nullptr;
+        const FrameInputPhaseResult input = RunInputPhase( nullptr );
 #endif
-        const FrameInputPhaseResult input = RunInputPhase( automation );
         PROFILE_END( m_profiler, "Frame/Input" );
+
+        if ( m_applicationExit.ExitRequested() )
+        {
+            return m_applicationExit.Resolve( 0 );
+        }
+
         const auto simulation = RunSimulationPhase( secondsPerFrame, input.proceedPolicy );
         const auto render = PrepareRenderPhase( input.legacyDevelopmentUiActive, simulation );
 
-        if ( !render.status.Ok() )
+        // Invariant: every frame phase below has a status-free return. Failure
+        // is observable only through the ApplicationExitState latch.
+
+        if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
@@ -649,14 +646,20 @@ SkullbonezCore::Core::SbResult Run::Execute()
         const auto facts = FramePresentationFacts { render.presentationAlpha, simulation.capturePresentationPinned,
                                                     secondsPerFrame, input.legacyDevelopmentUiActive };
 
-        const auto operatorUiResult = RenderOperatorUiPhase( models, facts );
+        RenderOperatorUiPhase( models, facts );
 
-        if ( !operatorUiResult.Ok() )
+        if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
 
         RunPostDrawDiagnosticsPhase( input.legacyDevelopmentUiActive );
+
+        if ( m_applicationExit.ExitRequested() )
+        {
+            return m_applicationExit.Resolve( 0 );
+        }
+
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
 
@@ -666,9 +669,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
         }
         FinishFrameWorkPhase( input.proceedPolicy );
-        const SkullbonezCore::Core::SbResult presentResult = PresentFramePhase();
+        PresentFramePhase();
 
-        if ( !presentResult.Ok() )
+        if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
         }
@@ -703,6 +706,11 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     const RuntimeInputSnapshot& inputSnapshot = m_inputRouter.RuntimeSnapshot();
     const bool stepRequested = proceedPolicy.stepRequested;
     const bool replayCapture = replayInput.captureEnabled;
+    const OverlayDebugState overlayPresentation = m_overlayDiagnostics->PresentationSnapshot();
+
+    // Why: the saturated Replay count remains live every step, but payload rows
+    // are observational work needed only by capture or pipeline presentation.
+    m_sceneController.Scene().Physics().SetPipelineTraceFullRecordConsumerActive( replayCapture || ( overlayPresentation.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0u );
 #ifdef _DEBUG
     const bool physicsCapture = m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride[0] != '\0' ||
                                 m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride[0] != '\0' ||
@@ -866,7 +874,7 @@ void Run::AfterPhysicsStep()
 
         if ( !probeResult.status.Ok() )
         {
-            m_applicationExit.RequestOwnedFailure( probeResult.status );
+            m_applicationExit.RequestPhaseFailure( probeResult.status );
             PostQuitMessage( 0 );
             return;
         }
@@ -924,7 +932,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because screenshot capture failed." );
-        m_applicationExit.RequestOwnedFailure( result.captureResult );
+        m_applicationExit.RequestPhaseFailure( result.captureResult );
         PostQuitMessage( 1 );
         return false;
     }
@@ -1040,7 +1048,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
         fflush( stderr );
         PrintRuntimeExitReason( "Exiting because auto-cycle screenshot capture failed." );
-        m_applicationExit.RequestOwnedFailure( result.captureResult );
+        m_applicationExit.RequestPhaseFailure( result.captureResult );
         PostQuitMessage( 1 );
         return;
     }

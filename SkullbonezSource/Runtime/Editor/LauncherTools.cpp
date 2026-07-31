@@ -4,15 +4,10 @@ Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
 Summary:
-  LauncherTools.cpp owns launcher-mode raycast, projectile, laser, and repro
-  snapshot behavior. As an implementation unit, keep edits anchored on local
-  owner boundaries and call direction and on the glossary/invariants below.
+  Owns launcher-mode raycast,
+  projectile, laser, and repro snapshot behavior.
 
 Glossary:
-  Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy object-record mirrors are retired.
-  Collider store: Physics-owned shape, material, and radius records paired with
-    body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
     crosshair, including enough scene and physics state to recreate the issue.
 
@@ -26,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Tools/RuntimeTools.h"
 #include "../Camera/CameraCollection.h"

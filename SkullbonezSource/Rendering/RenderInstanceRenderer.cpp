@@ -11,15 +11,6 @@ Summary:
   physics-owned pose/shape data does not have to be copied back into every
   legacy object record merely for rendering.
 
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Convex hull: Immutable authored collision geometry rendered through dynamic
-    hull vertices instead of the sphere or box instance streams.
-  Shadow caster stream: Owner-prepared opaque bin selecting one primitive
-    submission path without inspecting material or asset content here.
-
 Invariants:
   - RenderInstanceRenderer consumes prepared render instances and collider rows; the
     scene owner remains responsible for refreshing those stores before drawing.
@@ -31,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderInstanceRenderer.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderInstanceRenderer.h"
 

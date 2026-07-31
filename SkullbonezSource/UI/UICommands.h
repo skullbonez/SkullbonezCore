@@ -9,14 +9,6 @@ Summary:
   representative actions are projected back into this established packet.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  FBO (Framebuffer Object): Engine off-screen render target abstraction used by
-  reflection and post-processing code.
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
   Command struct: One-frame request packet emitted by UI code and consumed by
   the run loop.
   Shared editor exchange: Fixed-capacity domain queues through which both
@@ -30,6 +22,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

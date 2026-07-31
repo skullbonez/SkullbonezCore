@@ -62,7 +62,6 @@ QuaternionComponents ComponentsOf( const Quaternion& q )
     q.GetComponents( components.x, components.y, components.z, components.w );
     return components;
 }
-
 float MagnitudeSquared( const Quaternion& q )
 {
     const QuaternionComponents c = ComponentsOf( q );
@@ -230,35 +229,6 @@ TEST_CASE( "Property invariant: quaternion normalization and matrix orthonormali
 }
 
 
-TEST_CASE( "Quaternion: XYZ vector and scalar overloads encode the same angular displacement" )
-{
-    Quaternion vectorForm;
-    vectorForm.RotateAboutXYZ( Vector3( 0.2f, -0.3f, 0.4f ) );
-    Quaternion scalarForm;
-    scalarForm.RotateAboutXYZ( 0.2f, -0.3f, 0.4f );
-
-    CheckQuaternionNear( vectorForm, ComponentsOf( scalarForm ) );
-    const Vector3 probe( 1.0f, 2.0f, -3.0f );
-    const Vector3 rotated = vectorForm.GetOrientationMatrix() * probe;
-    const Vector3 recovered = vectorForm.GetOrientationMatrix().TransposeMultiply( rotated );
-    CHECK( recovered.x == doctest::Approx( probe.x ).epsilon( kEpsilon ) );
-    CHECK( recovered.y == doctest::Approx( probe.y ).epsilon( kEpsilon ) );
-    CHECK( recovered.z == doctest::Approx( probe.z ).epsilon( kEpsilon ) );
-}
-
-
-TEST_CASE( "Quaternion: sub-tolerance XYZ displacement is an identity-preserving no-op" )
-{
-    Quaternion value( 0.2f, -0.3f, 0.4f, 0.5f );
-    value.Normalise();
-    const QuaternionComponents before = ComponentsOf( value );
-
-    value.RotateAboutXYZ( TOLERANCE * 0.25f, 0.0f, 0.0f );
-
-    CheckQuaternionNear( value, before );
-}
-
-
 TEST_CASE( "Quaternion: orientation matrix exposes identity support extent and arbitrary rotation" )
 {
     const Quaternion identity;
@@ -331,17 +301,4 @@ TEST_CASE( "Quaternion behavior: attached-camera basis round trips target-local 
 
     CheckVectorNear( worldRight, Vector3( 0.0f, 1.0f, 0.0f ) );
     CheckVectorNear( targetRotation.TransposeMultiply( worldRight ), localRight );
-}
-
-
-TEST_CASE( "RotationMatrix: identity reset and legacy multiply spelling preserve a vector" )
-{
-    SkullbonezCore::Math::Transformation::RotationMatrix matrix( 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f );
-    matrix.Identity();
-    const Vector3 probe( -2.0f, 3.0f, 4.0f );
-
-    const Vector3 ordinary = matrix * probe;
-    const Vector3 legacy = matrix *= probe;
-    CHECK( ordinary == probe );
-    CHECK( legacy == probe );
 }

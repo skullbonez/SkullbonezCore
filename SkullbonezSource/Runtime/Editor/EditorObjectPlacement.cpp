@@ -13,10 +13,6 @@ Glossary:
     asset recipe availability without mutating the scene.
   Placement request: User-selected object type, static/dynamic mode, and target
     terrain point.
-  Asset primitive: Single spawned collision body inside a placeable asset
-    container, such as a box, sphere, or convex hull.
-  Scene-object group: Scene-owned behavior metadata that keeps multi-part editor
-    prefabs, such as releasable trees, tied to one stable root object id.
 
 Invariants:
   - Preflight and commit must use matching geometry decisions.
@@ -28,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"
 #include "../../Assets/AssetKeys.h"

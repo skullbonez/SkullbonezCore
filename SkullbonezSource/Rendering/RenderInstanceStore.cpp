@@ -9,17 +9,6 @@ Summary:
   come from explicit presentation records. It does not allocate GPU resources;
   it records the CPU-side draw intent that a future render snapshot can consume.
 
-Glossary:
-  Render instance: One draw-facing object record with transform and material
-    intent.
-  Material intent: Engine-level material choice before a renderer maps it to
-    shaders, textures, or descriptor rows.
-  Scene object id: Stable per-scene id shared with other subsystem records.
-  Contact highlight: Render-only feedback alpha copied from presentation state
-    after gameplay/physics feedback has advanced.
-  Shadow caster stream: Scene-owner bin copied unchanged into the draw record so
-    render submission does not reinterpret material content.
-
 Invariants:
   - Records stay in scene model order and render handles mirror model indices
     until render owns a separate allocation id.
@@ -30,6 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderInstanceStore.h"
 
@@ -560,21 +550,9 @@ bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObj
 }
 
 
-const RenderInstanceRecord* RenderInstanceStore::Data() const
-{
-    return m_instances.empty() ? nullptr : m_instances.data();
-}
-
-
 int RenderInstanceStore::Count() const
 {
     return static_cast<int>( m_instances.size() );
-}
-
-
-bool RenderInstanceStore::Empty() const
-{
-    return m_instances.empty();
 }
 
 

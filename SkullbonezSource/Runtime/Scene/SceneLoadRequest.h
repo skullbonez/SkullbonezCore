@@ -10,8 +10,6 @@ Summary:
   per-call owner borrows.
 
 Glossary:
-  Load request: Accepted navigation result containing an optional scene load
-    and whether the runtime should become interactive first.
   Scene UI request: One-frame Scene-tab intent submitted to SceneController.
   Scene browser path: Path discovered from the scenes directory and shown in
     the UI browser.
@@ -29,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

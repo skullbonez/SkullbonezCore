@@ -20,17 +20,8 @@ Glossary:
     or retargets a fixed camera shot list without taking ownership away from
     the runtime camera state.
   Prediction target: Replay body selected for future-path diagnostics.
-  Intercept assertion: Probe comparison against the replay-owned
-    closest-approach snapshot for one published prediction prefix.
-  Presented generation: Replacement prefix that completed frame-thread
-    preparation and was eligible for rendering before a later edit arrived.
   Automation report: JSON side-channel describing what the scripted interaction
   observed without mutating validation baselines directly.
-  Probe failure: CLI validation failure persisted as report `ok=false` and
-    returned to the process boundary after the frame loop exits.
-  Development UI command: Fixed-capacity presentation or native-window request
-    interpreted here against borrowed editor/window owners; a process-surface
-    selection is returned to the composition root as a typed value.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -50,6 +41,7 @@ Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InteractionAutomationController.h"
 #include "../App/Run.h"

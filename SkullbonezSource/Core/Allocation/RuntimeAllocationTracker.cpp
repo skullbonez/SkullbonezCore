@@ -18,8 +18,6 @@ Glossary:
   Foreign pointer: Address passed to global delete without a readable,
     pointer-bound tracker header produced by this hook.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
-  Development tool owner: A thread-local, hard-capped ImGui or Tracy scope that
-    is permitted only when the shared development capability is compiled.
   Trace connection generation: Monotonic Tracy viewer-session id stored beside
     a heavy-mode allocation so its free cannot leak into a later capture.
 
@@ -43,6 +41,7 @@ Related:
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
   - tools/check_allocation_policy.py
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeAllocationTracker.h"
 

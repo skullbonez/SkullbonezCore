@@ -8,13 +8,6 @@ Summary:
   failure-safe preparation from the first bookkeeping mutation: queue
   validation, runtime-state preservation, and GPU drain happen before commit.
 
-Glossary:
-  Load preparation: Failure-safe phase before teardown and object population.
-  GPU drain: Checked close, submit, wait, and command-list reopen that proves
-    old scene resources are no longer referenced by the GPU.
-  Reset snapshot: Preserved operator-owned runtime state for interactive resets.
-  Scene browser: UI-facing list of available scene files.
-
 Invariants:
   - SceneLoadTransaction preparation returns intent/state without mutating any owner.
   - Commit runs only after a successful GPU drain, lifecycle
@@ -25,6 +18,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.Preparation.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

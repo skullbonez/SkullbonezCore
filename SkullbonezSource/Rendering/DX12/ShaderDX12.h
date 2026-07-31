@@ -8,15 +8,6 @@ Summary:
   Draw code writes named values into its CPU byte copy, then flushes that copy
   through the frame upload owner before binding the pipeline.
 
-Glossary:
-  CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
-  a packed block of constants.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
@@ -28,6 +19,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -139,13 +131,11 @@ class ShaderDX12
     bool CanAdoptReload( const ShaderDX12& candidate ) const;
     bool PrepareReload( ShaderDX12ReloadPayload& payload ) const;
     void AdoptReload( ShaderDX12ReloadPayload& payload );
-    const char* SourcePath() const;
 
     void Use() const;
     void SetInt( const char* name, int value ) const;
     void SetFloat( const char* name, float value ) const;
     void SetVec3( const char* name, float x, float y, float z ) const;
-    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const;
     void SetVec4( const char* name, float x, float y, float z, float w ) const;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const;
     bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const;

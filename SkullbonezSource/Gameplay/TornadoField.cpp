@@ -108,12 +108,6 @@ void TornadoField::SetFieldValue( float TornadoFieldConfig::* field, float value
 }
 
 
-Vector3 TornadoField::SampleAcceleration( const Vector3& position ) const
-{
-    return SampleAccelerationForConfigImpl( m_config, position );
-}
-
-
 Vector3 TornadoField::SampleAccelerationForConfig( const TornadoFieldConfig& config, const Vector3& position )
 {
     return SampleAccelerationForConfigImpl( config, position );
@@ -359,17 +353,4 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
 void TornadoSystem::RebuildActiveVortices()
 {
     BuildActiveVortices( m_config, m_elapsedSeconds, m_activeVortices );
-}
-
-
-Vector3 TornadoSystem::SampleAcceleration( const Vector3& position ) const
-{
-    Vector3 acceleration = ZERO_VECTOR;
-
-    for ( const TornadoActiveVortex& vortex : m_activeVortices )
-    {
-        acceleration += SampleAccelerationForConfigImpl( vortex.field, position );
-    }
-
-    return acceleration;
 }

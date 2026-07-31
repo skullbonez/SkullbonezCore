@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Accepted event: Persistence request whose complete file rewrite succeeded.
-  Lane R: Recoverable filesystem/config failure returned with owner diagnostics.
 
 Invariants:
   - Request order is preserved even when ordinary and cinematic saves interleave.
@@ -19,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.Persistence.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderDefaultsStore.h"
 

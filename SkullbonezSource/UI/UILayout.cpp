@@ -4,16 +4,8 @@ Purpose:
   Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UILayout.cpp implements UI Layout widgets, layout, drawing, or UI state for
-  the in-engine controls. As an implementation unit, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Centralizes deterministic geometry and value
+  conversions shared by composition and hit testing.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -22,6 +14,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UILayout.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UILayout.h"
 #include "UIFontMetrics.h"
@@ -89,17 +82,6 @@ UIRect MinimizedRect( int screenW, int screenH, float requestedW )
     const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
     const float w = std::clamp( requestedW, 154.0f, maxW );
     return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
-}
-
-
-float MinimizedWidthForTitle( const char* title, int screenW )
-{
-    constexpr float margin = 14.0f;
-    constexpr float textSize = 12.5f;
-    constexpr float chromeW = 76.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float textW = UIFontMetrics::MeasureText( textSize, title ? title : "" );
-    return std::clamp( textW + chromeW, 154.0f, maxW );
 }
 
 

@@ -9,7 +9,6 @@ Summary:
   publishes a blob after every identity check succeeds.
 
 Glossary:
-  Freshness manifest: Checked-in JSON map from compiler inputs to baked bytes.
   DXIL container reflection: Compiler metadata used to discover constant-buffer
     offsets without compiling source at startup.
 
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - tools/bake_shaders.py
   - ShaderDX12.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ShaderBytecodeManifest.h"
 #include "../ShaderReflectionContracts.h"

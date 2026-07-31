@@ -7,10 +7,6 @@ Summary:
   Run coordinates deterministic validation churn from composed owners. Each
   delegated stress operation receives concrete owners and retains none.
 
-Glossary:
-  Lane R result: Recoverable scene-load or GPU-drain failure surfaced through
-    the stress action result instead of being counted as successful churn.
-
 Invariants:
   - UI stress randomness is deterministic from UIStressState so crashes can be
     reproduced from the same launch options.
@@ -22,6 +18,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../App/Run.h"
 #include "RuntimeStressController.h"

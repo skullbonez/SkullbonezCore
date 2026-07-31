@@ -15,7 +15,6 @@ Mental model:
   values after returning to the frame sequencer.
 
 Glossary:
-  Shared editor view: One UI-facing value projection used by Legacy and ImGui.
   Cold detail: Inspector and diagnostics data sampled only while ImGui is shown.
   Late UI pass: Presentation work recorded after the 3D game view.
 
@@ -29,6 +28,7 @@ Related:
   - Runtime/App/Run.h owns the private frame-coordinator declaration.
   - RuntimeFrameViews.h retains the value-only late-UI facts.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../App/Run.h"
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
@@ -216,8 +216,8 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
 
 using namespace OperatorEditorFrameComposer;
 
-SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                                           const FramePresentationFacts& presentationFacts )
+void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                 const FramePresentationFacts& presentationFacts )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -232,8 +232,8 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( viewportCapture );
-            return viewportCapture;
+            m_applicationExit.RequestPhaseFailure( viewportCapture );
+            return;
         }
     }
 #endif
@@ -719,8 +719,8 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( imguiResult.status );
-            return imguiResult.status;
+            m_applicationExit.RequestPhaseFailure( imguiResult.status );
+            return;
         }
 
         if ( imguiResult.commands.requestSurfaceSwap )
@@ -749,7 +749,6 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         }
     }
 #endif
-    return SkullbonezCore::Core::SbResult::Success();
 }
 
 

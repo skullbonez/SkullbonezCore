@@ -10,16 +10,8 @@ Summary:
   scene; callers borrow it instead of reaching domains through forwarding.
 
 Glossary:
-  Scene session: Current scene state plus controller-owned queue navigation data.
-  Scene queue: Ordered authored scene list, with an empty path selecting the
-    generated demo scene.
-  Scene request: Deferred load, reset, create, or defaults-save owner intent.
   Scene world: Concrete owner for active-scene entities, physics, cameras,
     terrain, environment settings, and render presentation.
-  Proceed policy: Value packet that freezes the sampled step edge and
-    cross-scene pause decision for one frame.
-  Lifecycle generation: Monotonic identity for one post-preflight scene-load
-    attempt, independent of scene index or successful activation.
 
 Invariants:
   - SceneController owns queue/index bookkeeping and composes exactly one
@@ -33,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -218,7 +211,6 @@ class SceneController : public SceneSession
     void SubmitSaveCurrentDefaults();
     SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
     SceneRequestBatch TakePendingRequests();
-    std::size_t PendingRequestCount() const;
 
   private:
     friend class SceneLoadTransaction;

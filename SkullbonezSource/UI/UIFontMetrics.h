@@ -13,7 +13,6 @@ Mental model:
   measures text without borrowing the renderer's atlas, shader, or text batch.
 
 Glossary:
-  Glyph advance: Horizontal distance added after laying out one character.
   Baked font: The committed SDF atlas whose header is the single metric source.
 
 Invariants:
@@ -24,6 +23,7 @@ Invariants:
 Related:
   - Rendering/Text.cpp loads the same advances from font_atlas.sdf.
   - UIDrawList.h records text without renderer ownership.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -256,8 +256,8 @@ void TestExactBoxPickRejectsOldBoundingSphereEnvelope()
 void TestTreeTrunkHullPickUsesConvexFaces()
 {
     SbDiagnosticStore diagnostics;
-    const ConvexHullShape trunk = ConvexHullShape::LoadFromFile( diagnostics,
-                                                                 "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+    ConvexHullShape trunk;
+    EXPECT_TRUE( ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/tree_trunk_faceted.hull", trunk ).Ok() );
 
     const CollisionShape shape = trunk;
     const RuntimePickShapeTransform transform = MakePickTransform();
@@ -280,8 +280,10 @@ void TestRotatedShapePickReturnsNearestEntry()
     EXPECT_TRUE( TryIntersectRuntimePickShape( box, rotated, Vector3( 0.0f, 0.0f, -10.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 9.0f, 0.001f );
 
-    const CollisionShape trunk = ConvexHullShape::LoadFromFile( diagnostics,
-                                                                "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+    ConvexHullShape loadedTrunk;
+    EXPECT_TRUE(
+        ConvexHullShape::TryLoadFromFile( diagnostics, "SkullbonezData/hulls/tree_trunk_faceted.hull", loadedTrunk ).Ok() );
+    const CollisionShape trunk = loadedTrunk;
 
     EXPECT_TRUE( TryIntersectRuntimePickShape( trunk, rotated, Vector3( 0.0f, 0.0f, -20.0f ), Vector3( 0.0f, 0.0f, 1.0f ), rayT ) );
     EXPECT_NEAR( rayT, 17.2f, 0.02f );

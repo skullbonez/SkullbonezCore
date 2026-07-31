@@ -4,13 +4,8 @@ Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  RotationMatrix.h declares rotation matrix helpers used by transforms and
-  collision code. As a public header, keep edits anchored on units, basis
-  conventions, and numerical assumptions and on the glossary/invariants below.
-
-Glossary:
-  Orthogonal basis: Three perpendicular unit axes; its transpose is also its
-    inverse.
+  Declares rotation matrix helpers
+  used by transforms and collision code.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/RotationMatrix.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -51,7 +47,8 @@ class RotationMatrix
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32,
                     float f33 );                                         // Explicit row-major component construction.
     ~RotationMatrix() = default;
-    void Identity();                                                     // Resets to no-rotation matrix.
+
+    // Resets to no-rotation matrix.
     Vector::Vector3 operator*( const Vector::Vector3& v ) const;         // Applies this rotation to v.
     Vector::Vector3 operator*=( const Vector::Vector3& v ) const;        // Legacy spelling for applying this rotation to v.
     Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)

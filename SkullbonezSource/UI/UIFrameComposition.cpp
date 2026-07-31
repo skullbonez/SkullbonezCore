@@ -9,15 +9,6 @@ Summary:
   rectangles, labels, and preview selections from explicit frame values without
   retaining a host or frame borrow.
 
-Glossary:
-  Content signature: Hash of UI-visible values used to invalidate cached draws.
-  Interaction signature: Hash of pointer/focus state used to invalidate hit data.
-  Preview catalog: Bounded render-target list offered to the UI for inspection.
-  Profiler connection snapshot: Fixed build, lifetime, and viewer-state flags
-    copied into a profiler frame without retaining the live tool owner.
-  Capacity snapshot: Detached owner rows whose labels and counters invalidate
-    cached Memory-tab draws when any value changes.
-
 Invariants:
   - Hash field order is part of draw-cache invalidation behavior.
   - Preview helpers clamp every authored/runtime count to fixed UI capacities.
@@ -31,6 +22,7 @@ Invariants:
 Related:
   - UIFrameComposition.h declares value contracts and constants.
   - UI.cpp owns the surrounding UI frame.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIFrameComposition.h"
 #include "UIFontMetrics.h"

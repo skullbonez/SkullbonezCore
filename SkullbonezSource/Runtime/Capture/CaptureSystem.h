@@ -10,10 +10,6 @@ Summary:
   do not need to impersonate a renderer.
 
 Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-    resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-  Capture owner: Concrete DX12 component that supplies screenshot readback.
   Due predictor: Side-effect-free trigger query used before simulation so the
     eventual captured frame can pin presentation to committed solver state.
 
@@ -27,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureSystem.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

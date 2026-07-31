@@ -16,8 +16,6 @@ Glossary:
   Main memory: Coarsely reconciled process, replay, and game-object memory stats.
   Replay policy: Preset, retention, and budget request displayed by the Memory
     tab and applied by replay timeline composition.
-  Memory waterline: Compact F6 overlay that tracks known engine memory and
-    pinned reserve-growth events without polling process memory.
 
 Invariants:
   - Drawing the tab must not allocate, resample memory, or resize replay rings
@@ -32,6 +30,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabMemory.cpp
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

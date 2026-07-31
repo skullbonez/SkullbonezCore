@@ -29,15 +29,21 @@
 //     without linking a World terrain implementation into the test path.
 //   - Config stamping copies every Physics-owned source field without clamping;
 //     clamp policy remains at the consuming owner boundary.
+//   - Pipeline count-only and full-record modes share the fixed saturation
+//     ceiling, while full mode preserves every retained payload field.
+//   - Sleep and parallel narrowphase count-only lanes preserve event identity
+//     while leaving their optional payload storage untouched.
 //
 // Related:
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 //   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
+//   - SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h
 //   - SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.cpp
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Core/Config.h"
@@ -51,6 +57,7 @@
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 
 #include <algorithm>
 #include <array>
@@ -61,9 +68,9 @@
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ObjectNarrowphaseEvent;
 using SkullbonezCore::Physics::ObjectNarrowphaseEventKind;
@@ -71,8 +78,8 @@ using SkullbonezCore::Physics::ObjectNarrowphaseStepPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyStore;
-using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PhysicsSleepController;
 using SkullbonezCore::Physics::PhysicsTerrainCell;
@@ -291,6 +298,159 @@ TEST_CASE( "Physics runtime settings: execution switches preserve one-hot proven
     checkOneHot();
 }
 
+TEST_CASE( "Physics pipeline recorder: count-only and full modes share exact saturation" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsPipelineTraceRecorder;
+
+    PhysicsPipelineTraceRecorder fullRecorder;
+    PhysicsPipelineTraceRecorder countOnlyRecorder;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        fullRecorder.Reserve();
+        countOnlyRecorder.Reserve();
+    }
+
+    fullRecorder.BeginStep( true );
+    countOnlyRecorder.BeginStep( false );
+    const auto makeRecord = []( uint32_t row )
+    {
+        PhysicsPipelineRecord record;
+        record.stage = row % 2u == 0u ? PhysicsPipelineStage::SleepIslandDecision
+                                      : PhysicsPipelineStage::BroadphaseCandidate;
+        record.bodyA = static_cast<int>( row );
+        record.bodyB = -static_cast<int>( row ) - 1;
+        record.iteration = static_cast<int>( row % 23u );
+        record.featureId = 0x12340000u + row;
+        record.point = Vector3( static_cast<float>( row ) + 0.25f, -static_cast<float>( row ) - 0.5f,
+                                static_cast<float>( row ) + 0.75f );
+        record.normal = Vector3( -0.5f, 0.25f, 0.75f );
+        record.scalarA = static_cast<float>( row ) + 1.5f;
+        record.scalarB = -static_cast<float>( row ) - 2.5f;
+        record.scalarC = static_cast<float>( row ) + 3.5f;
+        return record;
+    };
+
+    constexpr uint32_t recordLimit = SkullbonezCore::Physics::PHYSICS_MAX_PIPELINE_TRACE_RECORDS;
+    for ( uint32_t row = 0u; row + 1u < recordLimit; ++row )
+    {
+        const PhysicsPipelineRecord record = makeRecord( row );
+        fullRecorder.Record( record );
+        countOnlyRecorder.Record( record );
+    }
+
+    CHECK( fullRecorder.Count() == recordLimit - 1u );
+    CHECK( countOnlyRecorder.Count() == fullRecorder.Count() );
+    CHECK( fullRecorder.RemainingRecordCapacity() == 1 );
+    CHECK( countOnlyRecorder.RemainingRecordCapacity() == 1 );
+    REQUIRE( fullRecorder.Records().size() == recordLimit - 1u );
+    CHECK( countOnlyRecorder.Records().empty() );
+
+    const PhysicsPipelineRecord ceilingRecord = makeRecord( recordLimit - 1u );
+    fullRecorder.Record( ceilingRecord );
+    countOnlyRecorder.Record( ceilingRecord );
+    CHECK( fullRecorder.Count() == recordLimit );
+    CHECK( countOnlyRecorder.Count() == recordLimit );
+    REQUIRE( fullRecorder.Records().size() == recordLimit );
+    CHECK( fullRecorder.Records().back().featureId == ceilingRecord.featureId );
+
+    constexpr uint32_t overflowRows = 17u;
+    for ( uint32_t row = recordLimit; row < recordLimit + overflowRows; ++row )
+    {
+        const PhysicsPipelineRecord record = makeRecord( row );
+        fullRecorder.Record( record );
+        countOnlyRecorder.Record( record );
+    }
+
+    CHECK( fullRecorder.Count() == recordLimit );
+    CHECK( countOnlyRecorder.Count() == recordLimit );
+    CHECK( fullRecorder.RemainingRecordCapacity() == 0 );
+    CHECK( countOnlyRecorder.RemainingRecordCapacity() == 0 );
+    CHECK( countOnlyRecorder.Records().empty() );
+
+    const std::span<const PhysicsPipelineRecord> records = fullRecorder.Records();
+    REQUIRE( records.size() == fullRecorder.Count() );
+    const auto checkRecord = [&]( uint32_t row )
+    {
+        const PhysicsPipelineRecord expected = makeRecord( row );
+        const PhysicsPipelineRecord& actual = records[row];
+        CHECK( actual.stage == expected.stage );
+        CHECK( actual.bodyA == expected.bodyA );
+        CHECK( actual.bodyB == expected.bodyB );
+        CHECK( actual.iteration == expected.iteration );
+        CHECK( actual.featureId == expected.featureId );
+        CHECK( actual.point.x == doctest::Approx( expected.point.x ) );
+        CHECK( actual.point.y == doctest::Approx( expected.point.y ) );
+        CHECK( actual.point.z == doctest::Approx( expected.point.z ) );
+        CHECK( actual.normal.x == doctest::Approx( expected.normal.x ) );
+        CHECK( actual.normal.y == doctest::Approx( expected.normal.y ) );
+        CHECK( actual.normal.z == doctest::Approx( expected.normal.z ) );
+        CHECK( actual.scalarA == doctest::Approx( expected.scalarA ) );
+        CHECK( actual.scalarB == doctest::Approx( expected.scalarB ) );
+        CHECK( actual.scalarC == doctest::Approx( expected.scalarC ) );
+    };
+    checkRecord( 0u );
+    checkRecord( recordLimit / 2u );
+    checkRecord( recordLimit - 1u );
+
+    fullRecorder.BeginStep( true );
+    countOnlyRecorder.BeginStep( false );
+    CHECK( fullRecorder.Count() == 0u );
+    CHECK( countOnlyRecorder.Count() == 0u );
+    CHECK( fullRecorder.Records().empty() );
+    CHECK( countOnlyRecorder.Records().empty() );
+
+    PhysicsPipelineTraceRecorder batchedCountRecorder;
+    batchedCountRecorder.BeginStep( false );
+    batchedCountRecorder.RecordEvents( recordLimit - 1u );
+    CHECK( batchedCountRecorder.Count() == recordLimit - 1u );
+    CHECK( batchedCountRecorder.RemainingRecordCapacity() == 1 );
+    batchedCountRecorder.RecordEvents( 1u );
+    CHECK( batchedCountRecorder.Count() == recordLimit );
+    batchedCountRecorder.RecordEvents( overflowRows );
+    CHECK( batchedCountRecorder.Count() == recordLimit );
+    CHECK( batchedCountRecorder.Records().empty() );
+}
+
+TEST_CASE( "Physics step diagnostics: consumer selection keeps counting active in both modes" )
+{
+    using SkullbonezCore::Physics::PhysicsPipelineRecord;
+    using SkullbonezCore::Physics::PhysicsPipelineStage;
+    using SkullbonezCore::Physics::PhysicsStepDiagnostics;
+
+    // Why: the diagnostics owner contains fixed-capacity Debug storage. Static
+    // placement mirrors its runtime lifetime without consuming the doctest stack.
+    static PhysicsStepDiagnostics diagnostics;
+    diagnostics.Clear();
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        diagnostics.ReserveSceneCapacity( 0u );
+    }
+
+    PhysicsPipelineRecord record;
+    record.stage = PhysicsPipelineStage::SleepIslandDecision;
+    record.bodyA = 7;
+    record.featureId = 0xabcdu;
+
+    diagnostics.SetPipelineTraceFullRecordConsumerActive( false );
+    diagnostics.BeginStep( 0 );
+    diagnostics.RecordPipelineStage( record );
+    CHECK( diagnostics.GetPipelineRecordCount() == 1u );
+    CHECK( diagnostics.GetPipelineTrace().empty() );
+
+    diagnostics.SetPipelineTraceFullRecordConsumerActive( true );
+    diagnostics.BeginStep( 0 );
+    diagnostics.RecordPipelineStage( record );
+    CHECK( diagnostics.GetPipelineRecordCount() == 1u );
+    REQUIRE( diagnostics.GetPipelineTrace().size() == 1u );
+    CHECK( diagnostics.GetPipelineTrace().front().stage == record.stage );
+    CHECK( diagnostics.GetPipelineTrace().front().bodyA == record.bodyA );
+    CHECK( diagnostics.GetPipelineTrace().front().featureId == record.featureId );
+}
+
 TEST_CASE( "Physics sleep policy: thresholds square after clamp and frame count saturates at 255" )
 {
     PhysicsSleepController controller;
@@ -350,7 +510,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
     }
 
     PhysicsSleepController controller;
@@ -358,7 +518,7 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK_FALSE( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
-           std::vector<int>{ 1, 2 } );
+           std::vector<int> { 1, 2 } );
 
     controller.SeedModelAsleep( bodies, 1 );
     REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
@@ -367,20 +527,14 @@ TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve asce
     PhysicsWorldForces worldForces;
     std::array<BuoyancyBodyFacts, 3> buoyancyFacts;
     std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
-    const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
-                                                                    colliders,
-                                                                    {},
-                                                                    worldForces,
-                                                                    buoyancyFacts,
-                                                                    bodies.MutableRecords(),
-                                                                    timeRemaining,
-                                                                    3,
+    const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
+                                                                    bodies.MutableRecords(), timeRemaining, 3,
                                                                     1.0f / 120.0f );
     wakeAccess.WakeBody( 1 );
     CHECK( controller.GetAwakeBodyIndices().size() == 1u );
     controller.FlushPendingAwakeBodyIndices();
     CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
-           std::vector<int>{ 1, 2 } );
+           std::vector<int> { 1, 2 } );
 
     // A cold fixed/dynamic edit can change list membership without changing
     // body count; invalidation makes the next owner mirror rebuild it.
@@ -396,23 +550,19 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     PhysicsBodyStore& bodies = StageBodyStore();
     ColliderStore& colliders = StageColliderStore();
     const CollisionShape sphere = UnitSphere();
-    const auto desc =
-        SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 91u ),
-                                                            sphere,
-                                                            Vector3( 0.0f, 0.0f, 0.0f ),
-                                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-                                                            Vector3( 1.0f, 2.0f, 3.0f ),
-                                                            Vector3( 4.0f, 5.0f, 6.0f ),
-                                                            Vector3( 1.0f, 1.0f, 1.0f ),
-                                                            1.0f,
-                                                            0.0f,
-                                                            PhysicsBodyMotionKind::Dynamic );
+    const auto
+        desc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 91u ), sphere,
+                                                                   Vector3( 0.0f, 0.0f, 0.0f ),
+                                                                   SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                                   Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 4.0f, 5.0f, 6.0f ),
+                                                                   Vector3( 1.0f, 1.0f, 1.0f ), 1.0f, 0.0f,
+                                                                   PhysicsBodyMotionKind::Dynamic );
     const auto handle = bodies.CreateBodyRecord( desc, true );
     ColliderRecord collider;
     collider.body = handle;
     collider.sceneObjectId = MakePhysicsSceneObjectId( 91u );
     collider.boundingRadius = 1.0f;
-    colliders.CreateColliderRecord( collider, sphere );
+    SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
     PhysicsSleepController controller;
     ReserveTestSleepCapacity( controller );
     controller.MirrorFlagsFrom( bodies, 1 );
@@ -453,40 +603,29 @@ TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row whil
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
     }
 
     PhysicsSleepController controller;
     ReserveTestSleepCapacity( controller );
     REQUIRE( controller.MirrorFlagsFrom( bodies, 4 ) );
-    std::fill( controller.MutableSupportedStatesForTerrain().begin(),
-               controller.MutableSupportedStatesForTerrain().end(),
+    std::fill( controller.MutableSupportedStatesForTerrain().begin(), controller.MutableSupportedStatesForTerrain().end(),
                static_cast<uint8_t>( 1u ) );
     std::array<float, 4> timeRemaining = { 1.0f, 1.0f, 1.0f, 1.0f };
     const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
     const std::array<uint16_t, 4> restingCounts = { 0u, 0u, 0u, 0u };
     const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
-    SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
-        "TestPhysicsStageState.pipeline", SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
-    };
+    SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
     {
         SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-        pipeline.Reserve( 16u );
+        pipeline.Reserve();
     }
     PhysicsWorldForces worldForces;
     std::array<BuoyancyBodyFacts, 4> buoyancyFacts;
     const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 1u };
-    controller.RunIslandStage( bodies,
-                               colliders,
-                               worldForces,
-                               buoyancyFacts,
-                               timeRemaining,
-                               contacts,
-                               restingCounts,
-                               joints,
-                               pipeline,
-                               sleepPolicy );
+    controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts, restingCounts, joints,
+                               pipeline, sleepPolicy );
 
     CHECK( controller.GetAwakeBodyIndices().empty() );
     REQUIRE( controller.GetSleepStates().size() == 4u );
@@ -500,56 +639,54 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
 {
     // Concept: the pipeline decision row is the public diagnostic for why an
     // otherwise quiet, fixed-anchored island could not advance toward sleep.
-    for ( const bool stretched : { false, true } )
+    for ( const bool retainPipelineRecords : { true, false } )
     {
-        PhysicsBodyStore& bodies = StageBodyStore();
-        ColliderStore& colliders = StageColliderStore();
-        PhysicsBodyCreateRecord anchor;
-        anchor.hot.fixed = true;
-        const auto anchorHandle = bodies.CreateBodyRecord( anchor );
-        PhysicsBodyCreateRecord dynamic;
-        dynamic.hot.position = Vector3( stretched ? 2.0f : 0.1f, 0.0f, 0.0f );
-        const auto dynamicHandle = bodies.CreateBodyRecord( dynamic );
-
-        SkullbonezCore::Physics::PointJointConstraint joint;
-        joint.SetBodies( anchorHandle, dynamicHandle );
-        joint.slack = 0.25f;
-        const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints = { joint };
-        const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
-        std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
-        std::array<uint16_t, 2> restingCounts = { 0u, 0u };
-        SkullbonezCore::Physics::PhysicsPipelineRowList<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline {
-            "TestPhysicsStageState.pointJointPipeline",
-            SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity
-        };
+        for ( const bool stretched : { false, true } )
         {
-            SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
-                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
-            pipeline.Reserve( 16u );
-        }
-        PhysicsWorldForces worldForces;
-        std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
-        PhysicsSleepController controller;
-        ReserveTestSleepCapacity( controller );
-        controller.MirrorFlagsFrom( bodies, 2 );
-        const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
-        controller.RunIslandStage( bodies,
-                                   colliders,
-                                   worldForces,
-                                   buoyancyFacts,
-                                   timeRemaining,
-                                   contacts,
-                                   restingCounts,
-                                   joints,
-                                   pipeline,
-                                   sleepPolicy );
+            PhysicsBodyStore& bodies = StageBodyStore();
+            ColliderStore& colliders = StageColliderStore();
+            PhysicsBodyCreateRecord anchor;
+            anchor.hot.fixed = true;
+            const auto anchorHandle = bodies.CreateBodyRecord( anchor );
+            PhysicsBodyCreateRecord dynamic;
+            dynamic.hot.position = Vector3( stretched ? 2.0f : 0.1f, 0.0f, 0.0f );
+            const auto dynamicHandle = bodies.CreateBodyRecord( dynamic );
 
-        REQUIRE( pipeline.size() == 1u );
-        CHECK( pipeline[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
-        CHECK( pipeline[0].bodyA == 1 );
-        CHECK( pipeline[0].scalarB == doctest::Approx( 1.0f ) );
-        CHECK( pipeline[0].scalarC == doctest::Approx( stretched ? 2.0f : 0.0f ) );
-        CHECK( controller.GetSleepCounters()[1] == ( stretched ? 0u : 1u ) );
+            SkullbonezCore::Physics::PointJointConstraint joint;
+            joint.SetBodies( anchorHandle, dynamicHandle );
+            joint.slack = 0.25f;
+            const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints = { joint };
+            const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
+            std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
+            std::array<uint16_t, 2> restingCounts = { 0u, 0u };
+            SkullbonezCore::Physics::PhysicsPipelineTraceRecorder pipeline;
+            {
+                SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+                    SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+                pipeline.Reserve();
+            }
+            pipeline.BeginStep( retainPipelineRecords );
+            PhysicsWorldForces worldForces;
+            std::array<BuoyancyBodyFacts, 2> buoyancyFacts;
+            PhysicsSleepController controller;
+            ReserveTestSleepCapacity( controller );
+            controller.MirrorFlagsFrom( bodies, 2 );
+            const SkullbonezCore::Physics::PhysicsSleepStepPolicy sleepPolicy { 0.01f, 0.01f, 3u };
+            controller.RunIslandStage( bodies, colliders, worldForces, buoyancyFacts, timeRemaining, contacts,
+                                       restingCounts, joints, pipeline, sleepPolicy );
+
+            CHECK( pipeline.Count() == 1u );
+            const std::span<const SkullbonezCore::Physics::PhysicsPipelineRecord> records = pipeline.Records();
+            REQUIRE( records.size() == ( retainPipelineRecords ? 1u : 0u ) );
+            if ( retainPipelineRecords )
+            {
+                CHECK( records[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
+                CHECK( records[0].bodyA == 1 );
+                CHECK( records[0].scalarB == doctest::Approx( 1.0f ) );
+                CHECK( records[0].scalarC == doctest::Approx( stretched ? 2.0f : 0.0f ) );
+            }
+            CHECK( controller.GetSleepCounters()[1] == ( stretched ? 0u : 1u ) );
+        }
     }
 }
 
@@ -572,7 +709,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         ColliderRecord collider;
         collider.body = handle;
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, sphere );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, sphere );
         if ( ( bodyIndex & 1 ) != 0 )
         {
             candidatePairs.emplace_back( bodyIndex - 1, bodyIndex );
@@ -585,23 +722,10 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     PhysicsWorldForces worldForces;
     std::vector<BuoyancyBodyFacts> buoyancyFacts( kBodyCount );
     std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
-    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies,
-                                                               colliders,
-                                                               {},
-                                                               worldForces,
-                                                               buoyancyFacts,
-                                                               bodies.MutableRecords(),
-                                                               timeRemaining,
-                                                               kBodyCount,
+    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies, colliders, {}, worldForces, buoyancyFacts,
+                                                               bodies.MutableRecords(), timeRemaining, kBodyCount,
                                                                1.0f / 120.0f );
-    const ObjectNarrowphaseStepPolicy policy { 0.25f,
-                                                0.09f,
-                                                0.01f,
-                                                0.05f,
-                                                1.0f / 24.0f,
-                                                1.0f / 120.0f,
-                                                true,
-                                                true };
+    const ObjectNarrowphaseStepPolicy policy { 0.25f, 0.09f, 0.01f, 0.05f, 1.0f / 24.0f, 1.0f / 120.0f, true, true, true };
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
@@ -613,39 +737,33 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
         stage.ReserveSceneCapacity( kBodyCount );
     }
 
-    REQUIRE( stage.TryRunParallel( bodies,
-                                   colliders,
-                                   {},
-                                   buoyancyFacts,
-                                   candidatePairs,
-                                   wakeAccess,
-                                   timeRemaining,
-                                   persistentCache,
-                                   policy,
-                                   nullptr,
-                                   workerPool ) );
+    REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
+                                   persistentCache, policy, nullptr, workerPool ) );
     const std::vector<ObjectNarrowphaseEvent> first( stage.GetEvents().begin(), stage.GetEvents().end() );
-    REQUIRE( stage.TryRunParallel( bodies,
-                                   colliders,
-                                   {},
-                                   buoyancyFacts,
-                                   candidatePairs,
-                                   wakeAccess,
-                                   timeRemaining,
-                                   persistentCache,
-                                   policy,
-                                   nullptr,
-                                   workerPool ) );
-    const auto second = stage.GetEvents();
+    REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
+                                   persistentCache, policy, nullptr, workerPool ) );
+    const std::vector<ObjectNarrowphaseEvent> second( stage.GetEvents().begin(), stage.GetEvents().end() );
+
+    ObjectNarrowphaseStepPolicy countOnlyPolicy = policy;
+    countOnlyPolicy.retainPipelineRecords = false;
+    REQUIRE( stage.TryRunParallel( bodies, colliders, {}, buoyancyFacts, candidatePairs, wakeAccess, timeRemaining,
+                                   persistentCache, countOnlyPolicy, nullptr, workerPool ) );
+    const std::vector<ObjectNarrowphaseEvent> countOnly( stage.GetEvents().begin(), stage.GetEvents().end() );
 
     REQUIRE( first.size() == kPairCount );
     REQUIRE( second.size() == first.size() );
+    REQUIRE( countOnly.size() == first.size() );
     for ( int pairIndex = 0; pairIndex < kPairCount; ++pairIndex )
     {
         const auto& expectedPair = candidatePairs[static_cast<size_t>( pairIndex )];
         CHECK( first[static_cast<size_t>( pairIndex )].kind == ObjectNarrowphaseEventKind::SweptObjectMiss );
         CHECK( second[static_cast<size_t>( pairIndex )].kind == first[static_cast<size_t>( pairIndex )].kind );
-        CHECK( second[static_cast<size_t>( pairIndex )].pipelineRecord.bodyA == expectedPair.first );
-        CHECK( second[static_cast<size_t>( pairIndex )].pipelineRecord.bodyB == expectedPair.second );
+        CHECK( second[static_cast<size_t>( pairIndex )].hasPipelineEvent == 1u );
+        REQUIRE( second[static_cast<size_t>( pairIndex )].pipelineRecord.has_value() );
+        CHECK( second[static_cast<size_t>( pairIndex )].pipelineRecord->bodyA == expectedPair.first );
+        CHECK( second[static_cast<size_t>( pairIndex )].pipelineRecord->bodyB == expectedPair.second );
+        CHECK( countOnly[static_cast<size_t>( pairIndex )].kind == first[static_cast<size_t>( pairIndex )].kind );
+        CHECK( countOnly[static_cast<size_t>( pairIndex )].hasPipelineEvent == 1u );
+        CHECK_FALSE( countOnly[static_cast<size_t>( pairIndex )].pipelineRecord.has_value() );
     }
 }

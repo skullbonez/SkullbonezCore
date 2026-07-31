@@ -12,7 +12,6 @@ Mental model:
   Runtime composition boundary once and become an immutable UI value table.
 
 Glossary:
-  Glyph advance: Horizontal distance added after laying out one character.
   Cold setup: Startup/device initialization phase before steady frame work.
 
 Invariants:
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - UIFontMetrics.h
   - Rendering/Text.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIFontMetrics.h"
 

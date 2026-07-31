@@ -8,13 +8,6 @@ Summary:
   and flushes GPU work before old scene resources are destroyed. Commit advances
   controller bookkeeping only after preparation and unload consumers succeed.
 
-Glossary:
-  Load preparation: Scene load phase that validates queue index, preserves optional
-    runtime state, and marks controller bookkeeping.
-  Scene browser: UI-facing list of scene files discovered on disk.
-  GPU (Graphics Processing Unit): Render device that must be flushed before old
-    scene resources are torn down.
-
 Invariants:
   - GPU flush happens before caller-owned teardown can destroy scene resources.
   - Browser paths and queue paths compare in normalized slash form.
@@ -25,6 +18,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"
 #include "SceneLoadPreparation.h"

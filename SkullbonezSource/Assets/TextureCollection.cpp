@@ -4,10 +4,8 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  TextureCollection.cpp loads texture files and hands renderer-neutral texture
-  ids to draw code. As an implementation unit, keep edits anchored on asset
-  lifetime, cache ownership, and load/fallback behavior and on the
-  glossary/invariants below.
+  Loads texture files and hands
+  renderer-neutral texture ids to draw code.
 
 Glossary:
   Legacy hash: 32-bit texture key kept for old render callers while asset ids
@@ -15,13 +13,6 @@ Glossary:
   Backend handle: Opaque texture id owned by the active render backend.
   Render resource context: Borrowed renderer facet that creates and deletes
   long-lived texture resources.
-  Render command context: Borrowed renderer facet used during a frame to bind a
-  texture handle to a shader slot.
-  Lane R result: Recoverable owner/message result used for missing or unreadable
-    texture files and backend texture-creation failures.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
   - Texture slots are fixed-size legacy storage keyed by legacy hash.
@@ -35,6 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Assets/TextureCollection.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "TextureCollection.h"
 #include "../Core/FatalError.h"
@@ -160,23 +152,6 @@ void TextureCollection::DeleteTexture( uint32_t hash )
     }
 
     ReleaseTexture( m_textures[index] );
-}
-
-
-int TextureCollection::NumFreeTextureSpaces() const
-{
-    int freeCount = 0;
-
-    for ( const GpuTextureRecord& texture : m_textures )
-    {
-
-        if ( !texture.IsResident() )
-        {
-            ++freeCount;
-        }
-    }
-
-    return freeCount;
 }
 
 

@@ -9,11 +9,7 @@ Summary:
   fields over engine defaults without rebuilding the current scene.
 
 Glossary:
-  Style scene: Authored scene used only as a material/cinematic style source.
-  Cinematic override: Bitmask-selected render fields layered over defaults.
   Material override: Authored material/tint applied to matching live models.
-  Lane R result: Recoverable style-load failure that returns diagnostics instead
-    of crashing the active run.
 
 Invariants:
   - Style application mutates render-facing state only; it does not rebuild
@@ -25,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneCinematicPolicy.h"
 #include "SceneController.h"

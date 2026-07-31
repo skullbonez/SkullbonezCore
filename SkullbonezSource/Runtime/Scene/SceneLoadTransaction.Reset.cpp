@@ -9,10 +9,6 @@ Summary:
   arguments; no mutable multi-domain context is retained or stored.
 
 Glossary:
-  Reset snapshot: Value-only copy of owner state preserved across a same-scene
-    reset transaction.
-  Operator-owned state: UI/debug/camera/runtime choices made during the current
-    run rather than authored scene defaults.
   Suppress exit: Interactive-run flag that prevents automation from quitting.
 
 Invariants:
@@ -24,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"
 #include "SceneResetPreservation.h"

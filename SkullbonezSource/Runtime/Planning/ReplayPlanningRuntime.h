@@ -66,8 +66,6 @@ class ReplayPlanningRuntime
     const ReplayTripPlannerView& TripPlannerView() const noexcept;
     bool HasActiveState() const noexcept;
     bool HasInterceptTarget() const noexcept;
-    Physics::PhysicsSceneObjectId InterceptTargetId() const noexcept;
-    Physics::ModelRowHint InterceptTargetModelRow() const noexcept;
 
     // Returns whether either visible planning surface owns the pointer.
     bool TickPointerSurface( bool uiBlocksMouse, int screenWidth, InputRouter& inputRouter );

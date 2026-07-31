@@ -10,10 +10,7 @@ Summary:
 Glossary:
   Amortized work: Large job split across multiple ticks so one frame does not
   pay the full cost.
-  Worker pool: Persistent thread group that runs bounded jobs outside the main
-  thread.
   In-flight chunk: Submitted worker slice that has not yet marked completion.
-  Lane F: Fatal invariant path for state that cannot safely continue.
 
 Invariants:
   - WorkFunction receives half-open ranges [begin, end) and must tolerate
@@ -25,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #pragma once

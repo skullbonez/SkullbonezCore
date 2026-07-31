@@ -9,9 +9,6 @@ Summary:
   then delegates pixel writing to CaptureSystem.
 
 Glossary:
-  Capture result: Value outcome folded into the fixed accepted-request batch.
-  Auto-cycle: Screenshot automation that steps through tracked balls/scenes.
-  Screenshot request: Runtime state describing when and where to capture pixels.
   Request ring: Fixed FIFO storage drained at the input-frame capture checkpoint.
 
 Invariants:
@@ -22,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureController.h
   - SkullbonezSource/Runtime/Capture/CaptureSystem.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "CaptureController.h"
 #include "../../Core/SbDiagnosticStore.h"
@@ -63,12 +61,6 @@ void CaptureController::ResetScreenshot()
 void CaptureController::DisableAutomationExit()
 {
     m_screenshot.isScreenshotAndExit = false;
-}
-
-
-bool CaptureController::IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const
-{
-    return CaptureSystem::IsScreenshotDue( m_screenshot, isSceneMode, currentFrame, elapsedMs );
 }
 
 
@@ -203,11 +195,6 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
 }
 
 
-SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
-                                                                     const char* path )
-{
-    return CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
-}
 #endif
 } // namespace Runtime
 } // namespace SkullbonezCore

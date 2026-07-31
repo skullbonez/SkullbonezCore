@@ -18,7 +18,9 @@
 #
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
-#   it for decisions.
+#     it for decisions.
+#   - The default solver packet remains the owner-controlled oracle; convergence
+#     diagnostics are exercised separately through their explicit opt-in flag.
 #
 # Related:
 #   - AGENTS.md
@@ -168,6 +170,20 @@ def run_queries():
     return packet
 
 
+def verify_convergence_projection():
+    payload = run_query_set(
+        TRACE,
+        [("solver_convergence", ["solver", "--frames", "0:1200", "--limit", "12", "--include-convergence"])],
+    )["solver_convergence"]
+    stats = payload.get("convergenceStats")
+    worst = payload.get("convergenceWorst")
+    if not isinstance(stats, dict) or int(stats.get("sample_count") or 0) <= 0:
+        raise RuntimeError("opt-in solver convergence statistics are missing or empty")
+    if not isinstance(worst, list) or not worst:
+        raise RuntimeError("opt-in solver convergence sample is missing or empty")
+    print("  PASS: opt-in solver convergence projection is populated")
+
+
 def canonical_json(packet):
     return json.dumps(packet, indent=2, sort_keys=True) + "\n"
 
@@ -209,6 +225,8 @@ def main():
     try:
         print("  Generating SkullScope trace from physics_bench_varied.scene.json...")
         generate_trace(TRACE, [])
+        print("  Checking opt-in solver convergence projection...")
+        verify_convergence_projection()
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
         return compare_or_update(current_text, args.update)

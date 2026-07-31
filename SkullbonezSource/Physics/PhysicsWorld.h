@@ -4,28 +4,8 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Summary:
-  PhysicsWorld.h owns per-scene physics working state shared by broadphase,
-  solver, and diagnostics. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Point joint: Constraint that keeps two local anchor points close together
-    without yet modelling a full hinge, cone, or motor.
-  Sleep island: Connected body group that may deactivate only as a unit.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
-  Mutual-gravity pair scratch: Preallocated triangular force table whose unique
-    slots let workers compute pairs without racing or regrouping additions.
-  Awake index list: Sleep-owned ascending dense rows borrowed synchronously by
-    fixed-step stages that can ignore dormant bodies.
+  Owns per-scene physics working state
+  shared by broadphase, solver, and diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -39,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -215,7 +196,6 @@ class PhysicsWorld
     // table and runtime owns the CSV writer, so fixed steps do not borrow model
     // or logging globals.
     bool ShouldEmitStepDiagnostics() const;
-    bool ShouldEmitCollisionTimeDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
     void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float fChangeInTime,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
@@ -230,6 +210,7 @@ class PhysicsWorld
     bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+    void SetPipelineTraceFullRecordConsumerActive( bool active );
 
     // Cold authored mutation boundary: dense-row identity or fixed/sleep
     // classification may have changed before the next fixed step.
@@ -260,6 +241,7 @@ class PhysicsWorld
     std::span<const uint8_t> GetSleepSupportedStates() const;
     std::span<const uint8_t> GetSleepInhibitedStates() const;
     std::span<const PhysicsDebugContact> GetPhysicsDebugContacts() const;
+    uint32_t GetPhysicsPipelineRecordCount() const;
     std::span<const PhysicsPipelineRecord> GetPhysicsPipelineTrace() const;
 
 #ifdef _DEBUG
@@ -267,7 +249,6 @@ class PhysicsWorld
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
 };
 

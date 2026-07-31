@@ -9,13 +9,8 @@ Summary:
   terrain-backed model stores without changing spawn order or RNG consumption.
 
 Glossary:
-  Generated scene: Demo scene built from deterministic code rather than a
-    `.scene.json` file.
   RNG (Random Number Generator): Local MSVC-compatible generator used for
     stable object placement.
-  Solver object: Exact-count generated ball or box used by solver validation.
-  Collider descriptor: Value packet carrying generated shape and contact
-    material facts into the physics collider store.
 
 Invariants:
   - RNG consumption is part of generated scene determinism.
@@ -27,6 +22,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneGeneratedSetup.h"
 #include "../../Assets/AssetKeys.h"

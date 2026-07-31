@@ -11,12 +11,6 @@ Summary:
   capability views expose only draw, upload, retirement, capture, or diagnostic
   timing/fault operations.
 
-Glossary:
-  Recording epoch: One reusable command-list lifetime from successful Reset to Close.
-  Covering fence: Queue counter proving all earlier GPU references are finished.
-  Retirement quarantine: Fixed queue holding resources or descriptor rows until a covering fence completes.
-  Upload arena: Fixed per-frame CPU-visible storage reused only after its frame fence completes.
-
 Invariants:
   - FRAME_COUNT remains two unless profiling explicitly justifies added queued latency.
   - Allocators, upload bytes, resources, and borrowed descriptor rows are never reused before their covering fence.
@@ -24,6 +18,8 @@ Invariants:
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
   - Capability objects cannot reach unrelated backend state.
   - Diagnostics can inspect the fence timeline but cannot submit or advance it.
+  - Retirement diagnostics derive release counts from one input/survivor pair
+    and reset at each device-lifecycle boundary.
   - Pass precompile may populate the bounded PSO cache but cannot bind command
     state or submit a draw.
 
@@ -33,6 +29,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -41,6 +38,7 @@ Related:
 #include "RenderDeviceDX12.h"
 #include "Dx12DescriptorHeaps.h"
 #include "MeshDX12.h"
+#include "../../Core/FatalError.h"
 #include "../RenderCommandTypes.h"
 #include "../RenderGraph.h"
 
@@ -59,6 +57,7 @@ class Dx12PipelineOwner;
 class Dx12TextureOwner;
 class Dx12Diagnostics;
 class Dx12FrameOwner;
+struct Dx12DeferredReleaseOwnerTestAccess;
 struct DynamicVBDX12;
 struct InstancedMeshDX12;
 
@@ -72,6 +71,97 @@ struct DeferredResourceReleaseDX12
     bool fenceAssigned = false;
 };
 
+// Invariant: one diagnostic state derives every reported release fact from the
+// same input/survivor pair and retains only the latest observed fence state.
+class Dx12RetirementDiagnosticState
+{
+  public:
+    void ObservePendingCount( size_t pendingCount )
+    {
+
+        if ( pendingCount > m_pendingHighWater )
+        {
+            m_pendingHighWater = pendingCount;
+        }
+    }
+    void ObserveRelease( size_t inputCount, size_t survivorCount, bool frameFenceReady, UINT64 completedFence )
+    {
+
+        if ( survivorCount > inputCount )
+        {
+            SB_FATAL( "Dx12RetirementDiagnosticState",
+                      "Retirement release diagnostics received impossible accounting. input=%zu survivors=%zu", inputCount,
+                      survivorCount );
+        }
+
+        m_lastReleaseInputCount = inputCount;
+        m_lastReleasedCount = inputCount - survivorCount;
+        m_lastReleaseSurvivorCount = survivorCount;
+        m_lastFrameFenceReady = frameFenceReady;
+
+        if ( frameFenceReady )
+        {
+            m_lastObservedCompletedFence = completedFence;
+        }
+    }
+    void Reset()
+    {
+        m_pendingHighWater = 0;
+        m_lastReleaseInputCount = 0;
+        m_lastReleasedCount = 0;
+        m_lastReleaseSurvivorCount = 0;
+        m_lastObservedCompletedFence = 0;
+        m_lastFrameFenceReady = false;
+    }
+    size_t PendingHighWater() const
+    {
+        return m_pendingHighWater;
+    }
+    size_t LastReleaseInputCount() const
+    {
+        return m_lastReleaseInputCount;
+    }
+    size_t LastReleasedCount() const
+    {
+        return m_lastReleasedCount;
+    }
+    size_t LastReleaseSurvivorCount() const
+    {
+        return m_lastReleaseSurvivorCount;
+    }
+    UINT64 LastObservedCompletedFence() const
+    {
+        return m_lastObservedCompletedFence;
+    }
+    bool LastFrameFenceReady() const
+    {
+        return m_lastFrameFenceReady;
+    }
+    [[noreturn]] void FatalExhaustion( size_t capacity, size_t currentCount ) const
+    {
+
+        // Hazard: high-water necessarily reaches capacity before a bounded
+        // queue can reject its next row. The last release facts distinguish
+        // normal saturation from a stalled or never-observed fence.
+        SB_FATAL( "Dx12DeferredReleaseOwner",
+                  "Retirement capacity exhausted. owner=Rendering/DX12 phase=quarantine "
+                  "capacity=%zu count=%zu high_water=%zu "
+                  "last_release_input=%zu last_released=%zu last_survivors=%zu fence_ready=%d "
+                  "last_completed_fence=%llu",
+                  capacity, currentCount, PendingHighWater(), LastReleaseInputCount(), LastReleasedCount(),
+                  LastReleaseSurvivorCount(), LastFrameFenceReady() ? 1 : 0,
+                  static_cast<unsigned long long>( LastObservedCompletedFence() ) );
+    }
+
+  private:
+    size_t m_pendingHighWater = 0;
+    size_t m_lastReleaseInputCount = 0;
+    size_t m_lastReleasedCount = 0;
+    size_t m_lastReleaseSurvivorCount = 0;
+    UINT64 m_lastObservedCompletedFence = 0;
+    bool m_lastFrameFenceReady = false;
+};
+
 // Lifetime: resources invalidated while command work may still reference them
 // are quarantined here until a covering fence or terminal drain proves release.
 class Dx12DeferredReleaseOwner
@@ -83,17 +173,76 @@ class Dx12DeferredReleaseOwner
     // The stress churn is the runtime high-water proof for this fixed queue.
     static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
     void Quarantine( ID3D12Resource* resource, UINT descriptorIndex = UINT_MAX,
-                     Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None, UINT cpuDescriptorIndex = UINT_MAX );
-    void QuarantineStaticDescriptor( UINT descriptorIndex );
+                     Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None, UINT cpuDescriptorIndex = UINT_MAX )
+    {
+
+        if ( !resource && descriptorIndex == UINT_MAX && cpuKind == Dx12CpuDescriptorKind::None )
+        {
+            return;
+        }
+
+        if ( m_pendingCount >= MAX_PENDING_RETIREMENTS )
+        {
+            m_diagnostics.FatalExhaustion( MAX_PENDING_RETIREMENTS, m_pendingCount );
+        }
+
+        DeferredResourceReleaseDX12 retired;
+        retired.resource = resource;
+        retired.staticDescriptorIndex = descriptorIndex;
+        retired.cpuDescriptorKind = cpuKind;
+        retired.cpuDescriptorIndex = cpuDescriptorIndex;
+        m_pending[m_pendingCount++] = retired;
+        m_diagnostics.ObservePendingCount( m_pendingCount );
+    }
+    void QuarantineStaticDescriptor( UINT descriptorIndex )
+    {
+
+        if ( descriptorIndex != UINT_MAX )
+        {
+            Quarantine( nullptr, descriptorIndex );
+        }
+    }
     void AssignFence( UINT64 fenceValue );
     void ReleaseCompleted( Dx12RenderDevice& device, Dx12DescriptorHeaps& descriptors, Dx12SubmittedWorkState& submittedWork,
                            bool releaseUnfenced );
+    void ResetForDevice()
+    {
+
+        if ( m_pendingCount != 0 )
+        {
+            SB_FATAL( "Dx12DeferredReleaseOwner",
+                      "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=device_reset "
+                      "count=%zu",
+                      m_pendingCount );
+        }
+
+        m_diagnostics.Reset();
+    }
+    void ResetAfterShutdown()
+    {
+
+        if ( m_pendingCount != 0 )
+        {
+            SB_FATAL( "Dx12DeferredReleaseOwner",
+                      "Retirement diagnostics reset crossed a live queue. owner=Rendering/DX12 phase=shutdown_reset "
+                      "count=%zu",
+                      m_pendingCount );
+        }
+
+        m_diagnostics.Reset();
+    }
     bool Empty() const;
     size_t Count() const;
+    size_t HighWater() const
+    {
+        return m_diagnostics.PendingHighWater();
+    }
 
   private:
+    friend struct Dx12DeferredReleaseOwnerTestAccess;
     std::array<DeferredResourceReleaseDX12, MAX_PENDING_RETIREMENTS> m_pending = {};
     size_t m_pendingCount = 0;
+    Dx12RetirementDiagnosticState m_diagnostics;
 };
 
 struct Dx12PlatformProfilerGpuScopeDX12
@@ -435,7 +584,6 @@ class Dx12FrameOwner
     void EndProfilerEvent();
     ID3D12Device* Device() const;
     ID3D12GraphicsCommandList* CommandList() const;
-    void ActivateShader( ShaderDX12* shader );
 
     // Frame/output commands remain on the owner that already governs the
     // recording epoch and active pipeline target.

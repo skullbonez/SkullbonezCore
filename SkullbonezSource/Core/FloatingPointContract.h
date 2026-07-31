@@ -3,7 +3,7 @@ File: SkullbonezSource/Core/FloatingPointContract.h
 Purpose:
   Pins floating-point contraction off for every repository translation unit.
 
-Mental model:
+Summary:
   A compiler may replace a multiply followed by an add with one fused
   instruction. The fused operation rounds once instead of twice, so it can
   change physics bits even when the source expression and `/fp:precise` remain

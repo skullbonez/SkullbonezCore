@@ -9,9 +9,6 @@ Summary:
   diagnostic structs.
 
 Glossary:
-  Perf log: CSV-style runtime performance artifact written during runs.
-  SkullScope: Queryable physics diagnostics trace workflow.
-  Diagnostics artifact: File produced for validation, profiling, or analysis.
   Trace state: Mutable state needed while a diagnostics run is active.
 
 Invariants:
@@ -21,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -43,11 +41,9 @@ class DiagnosticsController
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler );
 
     RunPerfLogState& PerfLog();
-    const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
     void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
-    void LogPerfMemory( int pass, const char* checkpoint );
     void ResetPerfLogForSceneLoad();
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
@@ -61,8 +57,6 @@ class DiagnosticsController
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();
-    const RunPhysicsDiagnosticsState& PhysicsDiagnostics() const;
-    bool PhysicsDiagnosticsEnabled() const;
 #endif
 
   private:

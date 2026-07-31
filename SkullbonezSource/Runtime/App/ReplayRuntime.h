@@ -14,19 +14,8 @@ Mental model:
   implement their domain transitions.
 
 Glossary:
-  Presentation track: Render-facing replay samples used for visual scrubbing.
   Solver track: Physics-facing samples and snapshots used for deterministic
     inspection and rollback.
-  Cause tree: Replay graph used by the tool UI to explain which contact or
-    predicted movement caused another replay body to matter.
-  Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy object-record mirrors are retired.
-  Collider store: Physics-owned shape, material, and radius records paired with
-    body handles.
-  UI (User Interface): Runtime controls and overlays that expose replay state
-    to the player or debugging workflow.
-  Velocity edit: Replay tool that displays and edits linear/angular velocity on
-    the current path target.
   Render pose override: One-frame draw-pose request consumed by
     RenderInstanceStore during replay scrub or prediction preview.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -38,8 +27,6 @@ Glossary:
     capture appends beyond the configured retention window.
   Replay memory policy: Runtime-owned preset, retention, and budget request that
     resolves to concrete presentation and solver recorder windows.
-  Lifecycle generation: Scene-load identity used to separate clear-phase
-    interaction cleanup from activated-scene timeline setup.
 
 Invariants:
   - Replay, Prediction, and Planning are sibling fields; none retains a
@@ -62,6 +49,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -289,26 +277,6 @@ class ReplayRuntime
     void CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents,
                               RuntimeTools& runtimeTools );
     void CancelRenderFrame( RuntimeTools& runtimeTools );
-    ReplayVisualPacket
-    BuildVisualProjectionForValidation( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
-                                        std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
-                                        const Physics::PhysicsBodyStore& bodyStore, RuntimeTools& runtimeTools,
-                                        const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp,
-                                        uint64_t replayReserveGrowthEvents );
-
-    // Validation-only terminal transition: the sole engine process may decode
-    // its frozen RVPD state and rebuild CPU presentation values after the last
-    // rendered frame, but it can never schedule another prediction generation.
-    void EnterOfflinePredictionVerification();
-
-    // Cold artifact verification operations intentionally expose no mutable
-    // prediction or presentation owner state to the probe translation unit.
-    bool LoadPredictionArchiveForVerification( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );
-
-    // Cold validation command that serializes the owner-coherent path and
-    // prediction pair without publishing their private storage.
-    bool BuildPredictionArchiveForValidation( std::vector<uint8_t>& outBytes ) const;
-    void ResetPredictionPresentationVerification();
 
     // Publishes reveal, trajectory, and marker caches for callers that project
     // restored prediction values without running the normal frame scheduler.

@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Framebuffer: Off-screen color/depth target used by cinematic and shadow passes.
-  HDR (High Dynamic Range): Floating-point color that can represent values above white.
 
 Invariants:
   - Values own no native resource, descriptor, or renderer pointer.
@@ -19,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderResources.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

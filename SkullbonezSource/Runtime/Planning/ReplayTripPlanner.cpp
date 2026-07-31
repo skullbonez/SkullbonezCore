@@ -11,7 +11,6 @@ Summary:
 Glossary:
   Live input: One copied snapshot of the sun, ship, target, and scene policy.
   Published generation: Completed isolated-engine prediction inspected once.
-  Candidate: Absolute live-world linear velocity requested for the ship.
 
 Invariants:
   - Failed analytic solves and non-improving misses never mutate output values.
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
   - SkullbonezSource/Runtime/Planning/ReplayInterceptReadout.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayTripPlanner.h"
 

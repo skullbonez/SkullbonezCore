@@ -12,8 +12,6 @@ Summary:
 Glossary:
   Directive row: Fixed parser-table entry mapping an option spelling to a
     value or flag callback.
-  Lane R result: Recoverable startup parse failure reported through the fixed
-    command-line error buffer.
   Build-lane option: Debug-only validation flag rejected in unsupported builds.
 
 Invariants:
@@ -27,6 +25,7 @@ Related:
   - StartupCommandLine.h
   - StartupLaunchResolution.h
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "StartupCommandLine.h"
 #include "StartupLaunchResolution.h"

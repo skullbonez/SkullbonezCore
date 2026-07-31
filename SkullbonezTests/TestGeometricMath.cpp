@@ -1,12 +1,12 @@
 //
 // File: SkullbonezTests/TestGeometricMath.cpp
 // Purpose:
-//   Lock the first pure-math unit contracts for GeometricMath.
+//   Lock the production-reachable pure-math contracts for GeometricMath.
 //
 // Summary:
-//   GeometricMath is the legacy plane and ray segment helper. The public ray
-//   APIs use a movement vector rather than an infinite normalized direction, so
-//   a valid collision time lives in the inclusive range [0,1].
+//   GeometricMath is the plane and ray-segment helper used by terrain physics.
+//   Its ray API uses a movement vector rather than an infinite normalized
+//   direction, so a valid collision time lives in the inclusive range [0,1].
 //
 // Glossary:
 //   Ray segment: Origin plus a finite displacement vector for one query.
@@ -21,7 +21,7 @@
 // Related:
 //   - SkullbonezSource/Maths/GeometricMath.h
 //   - SkullbonezSource/Maths/GeometricStructures.h
-//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
+//   - Agentic/Reports/2026-07-30/maths-surface-reachability-mr0-census.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -77,7 +77,7 @@ Triangle SlopedTriangle()
 } // namespace
 
 
-TEST_CASE( "GeometricMath: plane construction and height follow triangle winding" )
+TEST_CASE( "GeometricMath: plane construction follows triangle winding" )
 {
     const Plane flatPlane = GeometricMath::ComputePlane( FlatTriangle() );
     CheckVectorNear( flatPlane.m_normal, Vector3( 0.0f, -1.0f, 0.0f ) );
@@ -85,7 +85,6 @@ TEST_CASE( "GeometricMath: plane construction and height follow triangle winding
 
     const Plane slopedPlane = GeometricMath::ComputePlane( SlopedTriangle() );
     CheckVectorNear( slopedPlane.m_normal, Vector3( 0.57735026f, -0.57735026f, 0.57735026f ) );
-    CheckNear( GeometricMath::GetHeightFromPlane( SlopedTriangle(), 2.0f, 3.0f ), 5.0f );
 }
 
 
@@ -95,10 +94,9 @@ TEST_CASE( "GeometricMath: ray-plane segment hit, miss, and boundary times" )
 
     const Ray hit( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 0.0f, -4.0f, 0.0f ) );
     CheckNear( GeometricMath::CalculateIntersectionTime( plane, hit ), 0.5f );
-    CheckVectorNear( GeometricMath::ComputeIntersectionPoint( plane, hit ), Vector3( 0.0f, 0.0f, 0.0f ) );
 
     const Ray endpointHit( Vector3( 0.0f, 2.0f, 0.0f ), Vector3( 0.0f, -2.0f, 0.0f ) );
-    CheckNear( GeometricMath::CalculateIntersectionTime( FlatTriangle(), endpointHit ), 1.0f );
+    CheckNear( GeometricMath::CalculateIntersectionTime( plane, endpointHit ), 1.0f );
 
     const Ray startsOnPlane( Vector3( 0.5f, 0.0f, 0.5f ), Vector3( 0.0f, -2.0f, 0.0f ) );
     CheckNear( GeometricMath::CalculateIntersectionTime( plane, startsOnPlane ), 0.0f );

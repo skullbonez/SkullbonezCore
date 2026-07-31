@@ -8,13 +8,6 @@ Summary:
   It should explain why objects are considered near each other without changing
   physics state.
 
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Heat: Per-cell collision count used only to darken the debug color.
-
 Invariants:
   - Visualizer state is explanatory overlay state and never participates in
     solver, broadphase, or narrowphase decisions.
@@ -24,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

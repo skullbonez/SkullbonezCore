@@ -1,0 +1,716 @@
+{
+  "generated_from": "2026-07-30 final synchronized Debug/Profile reachability closure census",
+  "rulings": [
+    {
+      "file": "SkullbonezSource/Core/LockOrderValidator.cpp",
+      "signature": "uint32_t LockOrderValidator::RegisterLock( const char* name )",
+      "owner": "Core::Threading::TrackedMutex",
+      "disposition": "retain-owner",
+      "reason": "Debug mutex construction must register a stable lock identity with the validator.",
+      "evidence": "TrackedMutex constructor calls RegisterLock; WorkerPool owns a production TrackedMutex. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?RegisterLock@LockOrderValidator@Threading@SkullbonezCore@@QEAAIPEBD@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/Log.cpp",
+      "signature": "void EngineLog::CloseAllForTests()",
+      "owner": "Core::EngineLog native-diagnostics seam",
+      "disposition": "retain-owner",
+      "reason": "The native logging concurrency test must close retained handles before exact-byte inspection.",
+      "evidence": "tools/validate_native_diagnostics.py compiles with SKULLBONEZ_TEST_ENGINE_LOG; ASan Log.obj emits ?CloseAllForTests@EngineLog@Core@SkullbonezCore@@QEAAXXZ and TestRuntimeContracts calls it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=missing; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=0/0; symbols=<native-diagnostics-only>",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/Profiler.cpp",
+      "signature": "void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks )",
+      "owner": "Core::WorkerProfilerScope",
+      "disposition": "retain-owner",
+      "reason": "Completed worker scopes publish their bounded per-worker sample through Profiler.",
+      "evidence": "WorkerProfilerScope destructor calls RecordWorkerSample; WorkerPool header templates construct the scope around production worker chunks. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=1; required_arity=5/5; symbols=?RecordWorkerSample@Profiler@Core@SkullbonezCore@@QEAAXPEBDIH_J1@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/SbResult.cpp",
+      "signature": "SbDiagnosticIdentity SbResult::DiagnosticIdentity() const noexcept",
+      "owner": "Core::SbDiagnosticStore lease identity",
+      "disposition": "retain-owner",
+      "reason": "Deliberate test seam for token generation, shared leases, stale identities, and foreign-store rejection.",
+      "evidence": "TestSbResult and runtime-contract tests directly verify copy/move identity stability and stale/cross-store outcomes. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?DiagnosticIdentity@SbResult@Core@SkullbonezCore@@QEBA?AUSbDiagnosticIdentity@23@XZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/SbResult.cpp",
+      "signature": "SbDiagnosticCopyStatus SbDiagnosticStore::CopyDiagnostic( SbDiagnosticIdentity identity, char ( &owner )[OWNER_CAPACITY], char ( &message )[MESSAGE_CAPACITY] ) const noexcept",
+      "owner": "Core::SbDiagnosticStore bounded diagnostic copy",
+      "disposition": "retain-owner",
+      "reason": "Deliberate detached-copy seam for success, foreign, stale, and live identities.",
+      "evidence": "TestSbResult directly exercises all identity-status branches and exact bounded output. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=3/3; symbols=?CopyDiagnostic@SbDiagnosticStore@Core@SkullbonezCore@@QEBA?AW4SbDiagnosticCopyStatus@23@USbDiagnosticIdentity@23@AEAY0GA@DAEAY0CAA@D@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/SpatialGrid.cpp",
+      "signature": "void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs, bool restrictToPairSourceCells )",
+      "owner": "Math::CollisionDetection::SpatialGrid pure membership seam",
+      "disposition": "retain-owner",
+      "reason": "Focused tests require pair membership, deduplication, ordering, and pair-source filtering without production body/collider policy.",
+      "evidence": "TestSpatialGrid invokes it directly with caller-reserved output; production uses filtered candidate generation. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=1/2; symbols=?GetCandidatePairs@SpatialGrid@CollisionDetection@Math@SkullbonezCore@@QEAAXAEAV?$vector@U?$pair@HH@std@@V?$allocator@U?$pair@HH@std@@@2@@std@@_N@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
+      "signature": "void PersistentContactSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity )",
+      "owner": "Physics::PersistentContactSolveTransaction body storage",
+      "disposition": "retain-owner",
+      "reason": "The owning stage reserves transaction body state before play.",
+      "evidence": "PhysicsContactSolverStage::ReserveSceneCapacity calls m_solveTransaction.ReserveSceneCapacity. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=6; required_arity=1/1; symbols=?ReserveSceneCapacity@PersistentContactSolveTransaction@Physics@SkullbonezCore@@QEAAX_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
+      "signature": "void PersistentContactSolveTransaction::Clear()",
+      "owner": "Physics::PersistentContactSolveTransaction lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Stage clear and replay restore reset body rows and the phase cursor.",
+      "evidence": "PhysicsContactSolverStage::Clear and RestoreReplayState call m_solveTransaction.Clear. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=53; required_arity=0/0; symbols=?Clear@PersistentContactSolveTransaction@Physics@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
+      "signature": "uint64_t PersistentContactSolveTransaction::CollectDynamicMemoryBytes() const",
+      "owner": "Physics::PersistentContactSolveTransaction memory census",
+      "disposition": "retain-owner",
+      "reason": "The owning stage must include transaction backing in its memory accounting.",
+      "evidence": "PhysicsContactSolverStage::CollectDynamicMemoryBytes adds m_solveTransaction.CollectDynamicMemoryBytes(). 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=8; required_arity=0/0; symbols=?CollectDynamicMemoryBytes@PersistentContactSolveTransaction@Physics@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
+      "owner": "Physics::PhysicsNarrowphaseStage island work item",
+      "disposition": "retain-owner",
+      "reason": "Each dispatched island delegates its bounded pair range to this operation.",
+      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-07-31 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
+      "signature": "bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a, const ObjectNarrowphaseIsland& b )",
+      "owner": "Physics::PhysicsNarrowphaseStage deterministic island ordering",
+      "disposition": "retain-owner",
+      "reason": "Island ordering must follow ascending minimum source-pair index.",
+      "evidence": "BuildObjectNarrowphaseIslands passes this function as the comparator to std::sort. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=2/2; symbols=?ObjectNarrowphaseIslandPrecedesByMinPairIndex@PhysicsNarrowphaseStage@Physics@SkullbonezCore@@CA_NAEBUObjectNarrowphaseIsland@23@0@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp",
+      "signature": "bool Dx12CachedPsoStore::BuildPersistentEntryNameForTest( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, const std::array<std::uint8_t, DIGEST_BYTES>& manifestDigest, const std::array<std::uint8_t, DIGEST_BYTES>& rootSignatureDigest, wchar_t ( &outName )[ENTRY_NAME_CHARS] )",
+      "owner": "Dx12CachedPsoStore persistent-cache identity contract",
+      "disposition": "retain-owner",
+      "reason": "This is a deliberate narrow test seam over the production cache-key algorithm.",
+      "evidence": "TestDx12CachedPsoStore.cpp uses it to prove content-address stability, pointer independence, and invalidation boundaries. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=4/4; symbols=?BuildPersistentEntryNameForTest@Dx12CachedPsoStore@Rendering@SkullbonezCore@@SA_NAEBUD3D12_GRAPHICS_PIPELINE_STATE_DESC@@AEBV?$array@E$0CA@@std@@1AEAY0EF@_W@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "bool Dx12FrameOwner::PrepareDraw()",
+      "owner": "Dx12FrameOwner draw gate",
+      "disposition": "retain-owner",
+      "reason": "It enforces the frame owner's draw-readiness boundary.",
+      "evidence": "Dx12DrawGate forwards to this method and is consumed by MeshDX12, FramebufferDX12, and dynamic geometry. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=11; required_arity=0/0; symbols=?PrepareDraw@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_NXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "bool Dx12FrameOwner::PrepareFramebufferBind()",
+      "owner": "Dx12FrameOwner framebuffer-bind gate",
+      "disposition": "retain-owner",
+      "reason": "It enforces the frame owner's framebuffer binding precondition.",
+      "evidence": "Dx12DrawGate forwards to it and live framebuffer binding paths consume the gate. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=0/0; symbols=?PrepareFramebufferBind@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_NXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "int Dx12FrameOwner::SuspendProfilerForSubmit( const char* reason )",
+      "owner": "Dx12FrameOwner upload-submit transaction",
+      "disposition": "retain-owner",
+      "reason": "It begins the profiler suspension paired around an upload submission.",
+      "evidence": "It is reached by the live FlushUploadBuffer and upload-reservation preparation chain. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?SuspendProfilerForSubmit@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAAHPEBD@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "void Dx12FrameOwner::RestoreProfilerAfterSubmit( int depth )",
+      "owner": "Dx12FrameOwner upload-submit transaction",
+      "disposition": "retain-owner",
+      "reason": "It restores the profiler state captured for a submission.",
+      "evidence": "It is the paired completion step in the live FlushUploadBuffer chain. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=3; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?RestoreProfilerAfterSubmit@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAAXH@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()",
+      "owner": "Dx12FrameOwner upload-submit transaction",
+      "disposition": "retain-owner",
+      "reason": "It owns flushing the active frame upload command stream.",
+      "evidence": "PrepareUploadReservation reaches it when the upload arena requires submission before a reservation. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=0/0; symbols=?FlushUploadBuffer@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA?AVSbResult@Core@3@XZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category )",
+      "owner": "Dx12FrameOwner upload reservation policy",
+      "disposition": "retain-owner",
+      "reason": "It arbitrates reservation capacity and any required upload flush.",
+      "evidence": "The live reserve methods call it before publishing upload addresses. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=2; test_calls=0; ambiguous_production_calls=0; required_arity=3/3; symbols=?PrepareUploadReservation@Dx12FrameOwner@Rendering@SkullbonezCore@@AEAA_N_K0W4RenderUploadCategory@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )",
+      "owner": "Dx12FrameOwner upload reservation policy",
+      "disposition": "retain-owner",
+      "reason": "It is the generic frame-owned GPU upload reservation seam.",
+      "evidence": "Dx12UploadReservations forwards to it for live shader, resource, texture, and dynamic-geometry consumers. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=6; required_arity=2/3; symbols=?ReserveUpload@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_K_K0W4RenderUploadCategory@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory )",
+      "owner": "Dx12FrameOwner geometry upload reservation policy",
+      "disposition": "retain-owner",
+      "reason": "It owns the coupled geometry/constant reservation rule.",
+      "evidence": "Dx12UploadReservations exposes it to live geometry upload paths. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=5; required_arity=3/3; symbols=?ReserveGeometryUpload@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_K_K0W4RenderUploadCategory@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveConstantUpload( UINT64 size )",
+      "owner": "Dx12FrameOwner constant upload reservation policy",
+      "disposition": "retain-owner",
+      "reason": "It owns frame-local constant-buffer reservation.",
+      "evidence": "Dx12UploadReservations exposes it to live shader/resource upload paths. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=1/1; symbols=?ReserveConstantUpload@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_K_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "void Dx12FrameOwner::CancelPendingConstantUpload()",
+      "owner": "Dx12FrameOwner constant upload reservation policy",
+      "disposition": "retain-owner",
+      "reason": "It rolls back the frame owner's pending constant reservation.",
+      "evidence": "Dx12UploadReservations forwards cancellation for live upload error paths. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=12; required_arity=0/0; symbols=?CancelPendingConstantUpload@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "uint8_t* Dx12FrameOwner::UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const",
+      "owner": "Dx12FrameOwner upload-address mapping",
+      "disposition": "retain-owner",
+      "reason": "It maps a frame-owned GPU reservation back to its CPU upload address.",
+      "evidence": "Dx12UploadReservations forwards it to live upload writers. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=10; required_arity=1/1; symbols=?UploadPointer@Dx12FrameOwner@Rendering@SkullbonezCore@@QEBAPEAE_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "void Dx12FrameOwner::RetireStaticDescriptor( UINT descriptorIndex )",
+      "owner": "Dx12FrameOwner deferred descriptor retirement",
+      "disposition": "retain-owner",
+      "reason": "It applies frame/fence lifetime policy to static descriptor release.",
+      "evidence": "Dx12ResourceRelease forwards to it for framebuffer, transient-resource, and backend resource owners. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=9; required_arity=1/1; symbols=?RetireStaticDescriptor@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAAXI@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState )",
+      "owner": "Dx12FrameOwner pipeline draw gate",
+      "disposition": "retain-owner",
+      "reason": "It owns pipeline selection and readiness for an actual draw.",
+      "evidence": "The live draw gate reaches it from mesh and dynamic-geometry rendering. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=6; required_arity=5/5; symbols=?PreparePipelineDraw@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_NW4VertexFormat12@23@_NPEBUInstancedMeshDX12@23@PEBUDynamicVBDX12@23@AEBURasterStateDesc@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp",
+      "signature": "bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& declaredRasterState )",
+      "owner": "Dx12FrameOwner pipeline precompile gate",
+      "disposition": "retain-owner",
+      "reason": "It owns pipeline preparation without issuing a draw.",
+      "evidence": "The live pipeline-owner precompile path reaches it through the draw capability boundary. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=5/5; symbols=?PrecompilePipelineDraw@Dx12FrameOwner@Rendering@SkullbonezCore@@QEAA_NW4VertexFormat12@23@_NPEBUInstancedMeshDX12@23@PEBUDynamicVBDX12@23@AEBURasterStateDesc@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
+      "signature": "GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource )",
+      "owner": "Dx12GraphTransientPool mutable slot lookup",
+      "disposition": "retain-owner",
+      "reason": "It provides mutation-authorized access to a transient graph resource.",
+      "evidence": "Exact decorated-symbol relocations reach this overload from ExecuteTransitions, BeginRenderTarget, and EndRenderTarget. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=1/1; symbols=?FindSlot@Dx12GraphTransientPool@Rendering@SkullbonezCore@@AEAAPEAUGraphTransientResourceDX12@23@URenderGraphResourceHandle@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
+      "signature": "const GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource ) const",
+      "owner": "Dx12GraphTransientPool const slot lookup",
+      "disposition": "retain-owner",
+      "reason": "It provides read-only resolution without exposing mutable pool authority.",
+      "evidence": "Exact decorated-symbol relocations reach this overload from Resolve. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=1/1; symbols=?FindSlot@Dx12GraphTransientPool@Rendering@SkullbonezCore@@AEBAPEBUGraphTransientResourceDX12@23@URenderGraphResourceHandle@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
+      "signature": "const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const",
+      "owner": "Dx12TextureOwner const handle resolution",
+      "disposition": "retain-owner",
+      "reason": "It resolves handles for read-only texture queries while preserving owner authority.",
+      "evidence": "Exact decorated-symbol relocations reach this overload from two const query methods. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=5; required_arity=1/1; symbols=?ResolveEntry@Dx12TextureOwner@Rendering@SkullbonezCore@@AEBAPEBUTextureEntryDX12@23@I@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
+      "signature": "TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )",
+      "owner": "Dx12TextureOwner mutable handle resolution",
+      "disposition": "retain-owner",
+      "reason": "It resolves handles for owner-authorized texture mutation.",
+      "evidence": "Exact decorated-symbol relocations reach this overload from three mutation/bind methods. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=5; required_arity=1/1; symbols=?ResolveEntry@Dx12TextureOwner@Rendering@SkullbonezCore@@AEAAPEAUTextureEntryDX12@23@I@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
+      "signature": "void Dx12TextureOwner::ReportStaleHandle( uint32_t handle ) const",
+      "owner": "Dx12TextureOwner handle-validity diagnostics",
+      "disposition": "retain-owner",
+      "reason": "It publishes violations of the texture handle generation/lifetime contract.",
+      "evidence": "Live bind, unload, and query operations reach it after failed handle resolution. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=2; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?ReportStaleHandle@Dx12TextureOwner@Rendering@SkullbonezCore@@AEBAXI@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp",
+      "signature": "void Dx12FenceTimeline::Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HANDLE eventHandle )",
+      "owner": "Dx12FenceTimeline lifecycle",
+      "disposition": "retain-owner",
+      "reason": "It binds the queue, fence, and event that form one timeline invariant.",
+      "evidence": "Dx12RenderDevice initialization calls it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=3/3; symbols=?Init@Dx12FenceTimeline@Rendering@SkullbonezCore@@QEAAXPEAUID3D12CommandQueue@@PEAUID3D12Fence@@PEAX@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp",
+      "signature": "void Dx12FenceTimeline::Reset()",
+      "owner": "Dx12FenceTimeline lifecycle",
+      "disposition": "retain-owner",
+      "reason": "It releases the device-bound timeline state as one lifecycle action.",
+      "evidence": "Dx12RenderDevice shutdown calls it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=75; required_arity=0/0; symbols=?Reset@Dx12FenceTimeline@Rendering@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp",
+      "signature": "void Dx12UploadArena::Init( ID3D12Resource* resource, uint8_t* mappedPtr, UINT64 capacityBytes )",
+      "owner": "Dx12UploadArena lifecycle",
+      "disposition": "retain-owner",
+      "reason": "It establishes the resource, mapping, and capacity that define one arena.",
+      "evidence": "Dx12FrameUploadSystem calls it during upload-system initialization. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=3/3; symbols=?Init@Dx12UploadArena@Rendering@SkullbonezCore@@QEAAXPEAUID3D12Resource@@PEAE_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp",
+      "signature": "void Dx12UploadArena::Reset()",
+      "owner": "Dx12UploadArena lifecycle",
+      "disposition": "retain-owner",
+      "reason": "It clears the arena's owned mapping and reservation state.",
+      "evidence": "Dx12FrameUploadSystem calls it during reset/shutdown. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=75; required_arity=0/0; symbols=?Reset@Dx12UploadArena@Rendering@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp",
+      "signature": "Dx12UploadArenaStats Dx12UploadArena::GetStats() const",
+      "owner": "Dx12UploadArena telemetry",
+      "disposition": "retain-owner",
+      "reason": "It reports reservation/high-water state owned by the arena.",
+      "evidence": "Dx12FrameUploadSystem consumes the snapshot in its live statistics path. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=50; required_arity=0/0; symbols=?GetStats@Dx12UploadArena@Rendering@SkullbonezCore@@QEBA?AUDx12UploadArenaStats@23@XZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "signature": "const char* ToString( RenderGraphQueueType queue )",
+      "owner": "RenderGraph diagnostic formatting",
+      "disposition": "retain-owner",
+      "reason": "It formats the queue vocabulary owned by RenderGraph.",
+      "evidence": "Live graph text formatting calls this exact overload. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=18; required_arity=1/1; symbols=?ToString@Rendering@SkullbonezCore@@YAPEBDW4RenderGraphQueueType@12@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "signature": "const char* ToString( RenderGraphPassExecutionOwner owner )",
+      "owner": "RenderGraph diagnostic formatting",
+      "disposition": "retain-owner",
+      "reason": "It formats the execution-owner vocabulary owned by RenderGraph.",
+      "evidence": "Live graph text formatting calls this exact overload. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=18; required_arity=1/1; symbols=?ToString@Rendering@SkullbonezCore@@YAPEBDW4RenderGraphPassExecutionOwner@12@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "signature": "const char* ToString( RenderGraphResourceKind kind )",
+      "owner": "RenderGraph diagnostic formatting",
+      "disposition": "retain-owner",
+      "reason": "It formats the resource-kind vocabulary owned by RenderGraph.",
+      "evidence": "Live graph text formatting calls this exact overload. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=18; required_arity=1/1; symbols=?ToString@Rendering@SkullbonezCore@@YAPEBDW4RenderGraphResourceKind@12@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "signature": "const char* ToString( RenderGraphResourceFormat format )",
+      "owner": "RenderGraph diagnostic formatting",
+      "disposition": "retain-owner",
+      "reason": "It formats the resource-format vocabulary owned by RenderGraph.",
+      "evidence": "Live graph text formatting calls this exact overload. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=18; required_arity=1/1; symbols=?ToString@Rendering@SkullbonezCore@@YAPEBDW4RenderGraphResourceFormat@12@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderGraph.cpp",
+      "signature": "void RenderGraphCompileResult::Clear()",
+      "owner": "RenderGraphCompileResult lifecycle",
+      "disposition": "retain-owner",
+      "reason": "It resets all coupled compile-result collections before recompilation.",
+      "evidence": "RenderGraph::Compile calls it directly. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=50; required_arity=0/0; symbols=?Clear@RenderGraphCompileResult@Rendering@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderInstanceStore.cpp",
+      "signature": "void RenderInstanceStore::Refresh( const std::vector<RenderInstancePresentationRecord>& presentation, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float presentationAlpha )",
+      "owner": "RenderInstanceStore snapshot refresh",
+      "disposition": "retain-owner",
+      "reason": "It is the vector-shaped production boundary for rebuilding detached render instances.",
+      "evidence": "SceneWorld::Refresh reaches it and it delegates to the pointer/count implementation. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=3/4; symbols=?Refresh@RenderInstanceStore@Rendering@SkullbonezCore@@QEAAXAEBV?$vector@URenderInstancePresentationRecord@Rendering@SkullbonezCore@@V?$allocator@URenderInstancePresentationRecord@Rendering@SkullbonezCore@@@std@@@std@@AEBVPhysicsBodyStore@Physics@3@AEBVColliderStore@73@M@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Rendering/RenderInstanceStore.cpp",
+      "signature": "void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation, int presentationCount, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float presentationAlpha )",
+      "owner": "RenderInstanceStore snapshot refresh",
+      "disposition": "retain-owner",
+      "reason": "It implements the bounded rebuild of presentation records into render instances.",
+      "evidence": "The live vector overload calls it from SceneWorld::Refresh. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=1; required_arity=4/5; symbols=?Refresh@RenderInstanceStore@Rendering@SkullbonezCore@@QEAAXPEBURenderInstancePresentationRecord@23@HAEBVPhysicsBodyStore@Physics@3@AEBVColliderStore@63@M@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/ApplicationExitState.cpp",
+      "signature": "bool ApplicationExitState::HasOwnedFailure() const noexcept",
+      "owner": "App exit arbitration",
+      "disposition": "retain-owner",
+      "reason": "Exposes stored owned-failure precedence without mutation authority.",
+      "evidence": "TestApplicationExitState.cpp verifies owned/unowned result precedence. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?HasOwnedFailure@ApplicationExitState@Runtime@SkullbonezCore@@QEBA_NXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/Window.cpp",
+      "signature": "DevelopmentTools::ImGuiEditorNativeMessageRoute Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )",
+      "owner": "Window native-message boundary",
+      "disposition": "retain-owner",
+      "reason": "Routes Win32 messages through the development-UI owner before engine input.",
+      "evidence": "Window.cpp WndProc calls this exact method under SKULLBONEZ_DEVELOPMENT_TOOLS. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=4/4; symbols=?RouteDevelopmentUiMessage@Window@Runtime@SkullbonezCore@@QEAA?AUImGuiEditorNativeMessageRoute@DevelopmentTools@23@PEAUHWND__@@I_K_J@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/App/Window.cpp",
+      "signature": "void Window::SetWindowDimensions( int m_width, int m_height )",
+      "owner": "Window size lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Publishes WM_SIZE client dimensions before resize handling.",
+      "evidence": "Window.cpp WndProc calls this exact integer overload with LOWORD/HIWORD(lParam). 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=2/2; symbols=?SetWindowDimensions@Window@Runtime@SkullbonezCore@@QEAAXHH@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Editor/EditorCommandHistory.cpp",
+      "signature": "std::size_t EditorCommandHistory::StoredCount() const",
+      "owner": "EditorCommandHistory bounded ring",
+      "disposition": "retain-owner",
+      "reason": "Observes the bounded history ring's capacity and clear invariant.",
+      "evidence": "TestEditorCommandHistory.cpp verifies capacity pressure and Clear. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?StoredCount@EditorCommandHistory@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Input/InputRouter.cpp",
+      "signature": "RuntimePointerRouteStage RuntimePointerArbitration::Winner() const",
+      "owner": "InputRouter pointer arbitration",
+      "disposition": "retain-owner",
+      "reason": "Observes the completed arbitration result without duplicating state ownership.",
+      "evidence": "TestInputRouter.cpp verifies BeginStage/FinishStage winner selection. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?Winner@RuntimePointerArbitration@Runtime@SkullbonezCore@@QEBA?AW4RuntimePointerRouteStage@23@XZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Input/InputRouter.cpp",
+      "signature": "void InputActions::Reset()",
+      "owner": "InputActions frame output",
+      "disposition": "retain-owner",
+      "reason": "Clears the caller-owned bounded action output at each input-frame boundary.",
+      "evidence": "InputRouter::BeginFrame calls output.Reset(); RunInputPhase is the production root. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=73; required_arity=0/0; symbols=?Reset@InputActions@Runtime@SkullbonezCore@@QEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Input/InputRouter.cpp",
+      "signature": "void InputRouter::Reset()",
+      "owner": "Runtime/Input :: InputRouter construction lifecycle",
+      "disposition": "retain-owner",
+      "reason": "The private reset establishes every retained edge, snapshot, pointer-presentation, and focus field before the first input frame; only InputRouter construction may invoke it.",
+      "evidence": "Profile and Debug compilation prove the constructor's direct same-translation-unit call; the former public declaration and direct test call were removed. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=73; required_arity=0/0; symbols=?Reset@InputRouter@Runtime@SkullbonezCore@@AEAAXXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp",
+      "signature": "ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )",
+      "owner": "Replay prediction path presentation",
+      "disposition": "retain-owner",
+      "reason": "Owns bounded path-visualizer drawing and ribbon/time budgets.",
+      "evidence": "ReplayPredictionPresentation::RenderPathVisualizer calls it from the production presentation path. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?RenderReplayPathVisualizer@ReplayOverlay@Runtime@SkullbonezCore@@YA?AUReplayPathVisualizerRenderResult@123@AEBUReplayPathVisualizerRenderContext@123@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RenderDefaultsStore.cpp",
+      "signature": "RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index ) const",
+      "owner": "RenderDefaultsStore request queue",
+      "disposition": "retain-owner",
+      "reason": "Observes ordered bounded request arbitration without exposing mutable storage.",
+      "evidence": "TestOwnerRequestQueues verifies pending request order and type. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=1/1; symbols=?PendingTypeAt@RenderDefaultsStore@Runtime@SkullbonezCore@@QEBA?AW4RenderDefaultsRequestType@23@_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
+      "signature": "void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* step ) const",
+      "owner": "ReflectionPass lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Logs reflection target recreation and release in pass-owned order.",
+      "evidence": "EnsureGpuResources and ReleaseGpuResources call it before target mutation. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?LogResourceLifecycleStep@ReflectionPass@Runtime@SkullbonezCore@@AEBAXPEBD0@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
+      "signature": "void ShadowPass::LogResourceLifecycleStep( const char* phase, const char* step ) const",
+      "owner": "ShadowPass lifecycle",
+      "disposition": "retain-owner",
+      "reason": "Logs each ordered shadow reset phase.",
+      "evidence": "ShadowPass::ReleaseGpuResources calls it for terrain, object, and frame-payload reset steps. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?LogResourceLifecycleStep@ShadowPass@Runtime@SkullbonezCore@@AEBAXPEBD0@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "uint64_t ReplayRecorder::CollectMemoryBytes() const",
+      "owner": "Replay presentation recorder",
+      "disposition": "retain-owner",
+      "reason": "Owns byte accounting for its fixed-capacity storage.",
+      "evidence": "TestReplayRecorder and TestRuntimeValueSeams verify accounting. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=2; required_arity=0/0; symbols=?CollectMemoryBytes@ReplayRecorder@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplayRecorder::AcquireSampleSlotIndex()",
+      "owner": "Replay presentation recorder ring",
+      "disposition": "retain-owner",
+      "reason": "Enforces bounded insertion and pre-eviction promotion.",
+      "evidence": "Live ReplayRecorder capture methods call it before storing frames. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=0/0; symbols=?AcquireSampleSlotIndex@ReplayRecorder@Runtime@SkullbonezCore@@AEAA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "void ReplayRecorder::PromoteVisualFrameToKeyframe( std::size_t offset )",
+      "owner": "Replay presentation recorder ring",
+      "disposition": "retain-owner",
+      "reason": "Preserves delta resolvability across ring-head eviction.",
+      "evidence": "AcquireSampleSlotIndex calls it before overwriting a full ring. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?PromoteVisualFrameToKeyframe@ReplayRecorder@Runtime@SkullbonezCore@@AEAAX_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount )",
+      "owner": "Replay presentation checkpoints",
+      "disposition": "retain-owner",
+      "reason": "Owns bounded checkpoint cadence and summaries.",
+      "evidence": "Live presentation capture calls it when a checkpoint is due. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?StoreCheckpointSummary@ReplayRecorder@Runtime@SkullbonezCore@@AEAAXAEBUReplayPresentationSample@23@_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplayRecorder::SampleCapacityFromConfig() const",
+      "owner": "Replay presentation capacity policy",
+      "disposition": "retain-owner",
+      "reason": "Derives fixed ring/checkpoint capacity from recorder configuration.",
+      "evidence": "ReplayRecorder::Configure calls it before live capture storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=0/0; symbols=?SampleCapacityFromConfig@ReplayRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplayRecorder::CheckpointCapacityFromConfig() const",
+      "owner": "Replay presentation capacity policy",
+      "disposition": "retain-owner",
+      "reason": "Derives fixed ring/checkpoint capacity from recorder configuration.",
+      "evidence": "ReplayRecorder::Configure calls it before live capture storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=0/0; symbols=?CheckpointCapacityFromConfig@ReplayRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "uint64_t ReplaySolverRecorder::CollectMemoryBytes() const",
+      "owner": "Replay solver recorder",
+      "disposition": "retain-owner",
+      "reason": "Owns byte accounting for fixed-capacity solver storage.",
+      "evidence": "TestReplayRecorder and TestRuntimeValueSeams verify accounting. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=2; required_arity=0/0; symbols=?CollectMemoryBytes@ReplaySolverRecorder@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()",
+      "owner": "Replay solver recorder ring",
+      "disposition": "retain-owner",
+      "reason": "Enforces bounded insertion and pre-eviction promotion.",
+      "evidence": "Live solver capture calls it before storing frames. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=0/0; symbols=?AcquireSampleSlotIndex@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEAA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "void ReplaySolverRecorder::PromoteSolverFrameToKeyframe( std::size_t offset )",
+      "owner": "Replay solver recorder ring",
+      "disposition": "retain-owner",
+      "reason": "Preserves solver-delta resolvability across eviction.",
+      "evidence": "AcquireSampleSlotIndex calls it before overwriting a full ring. 2026-07-30 final synchronized Debug/Profile census: classification=own-tu-only; mapping=exact; own_tu_calls=1; test_calls=0; ambiguous_production_calls=0; required_arity=1/1; symbols=?PromoteSolverFrameToKeyframe@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEAAX_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount )",
+      "owner": "Replay solver checkpoints",
+      "disposition": "retain-owner",
+      "reason": "Owns bounded solver-checkpoint cadence and summaries.",
+      "evidence": "Live solver capture calls it when a checkpoint is due. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=3; required_arity=2/2; symbols=?StoreCheckpointSummary@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEAAXAEBUReplaySolverFrameSample@23@_K@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplaySolverRecorder::SampleCapacityFromConfig() const",
+      "owner": "Replay solver capacity policy",
+      "disposition": "retain-owner",
+      "reason": "Derives fixed ring/checkpoint capacity from configuration.",
+      "evidence": "ReplaySolverRecorder::Configure calls it before live storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=4; required_arity=0/0; symbols=?SampleCapacityFromConfig@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "std::size_t ReplaySolverRecorder::CheckpointCapacityFromConfig() const",
+      "owner": "Replay solver capacity policy",
+      "disposition": "retain-owner",
+      "reason": "Derives fixed ring/checkpoint capacity from configuration.",
+      "evidence": "ReplaySolverRecorder::Configure calls it before live storage is sized. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=2; required_arity=0/0; symbols=?CheckpointCapacityFromConfig@ReplaySolverRecorder@Runtime@SkullbonezCore@@AEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+      "signature": "uint64_t ReplayEventRecorder::CollectMemoryBytes() const",
+      "owner": "Replay event recorder",
+      "disposition": "retain-owner",
+      "reason": "Owns byte accounting for bounded event storage.",
+      "evidence": "TestReplayRecorder and TestRuntimeValueSeams verify accounting. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=2; required_arity=0/0; symbols=?CollectMemoryBytes@ReplayEventRecorder@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp",
+      "signature": "bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result )",
+      "owner": "Replay V2 presentation-only schema",
+      "disposition": "retain-owner",
+      "reason": "Deliberate compatibility seam for presentation-only artifacts.",
+      "evidence": "TestReplayArtifact creates deterministic, legacy, and adversarial presentation-only artifacts. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=2/3; symbols=?SavePresentation@ReplayV2Artifact@Runtime@SkullbonezCore@@SA_NAEBVReplayRecorder@23@PEBDPEAUReplayV2SaveResult@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
+      "signature": "SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request, SkullbonezCore::Core::EngineConfig& config, RunLaunchOptions& launchOptions, const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender, const RunStartupState& startup, Assets::AssetSystem& assets, Threading::WorkerPool& workerPool, DiagnosticsRuntime& diagnosticsRuntime, Rendering::Dx12FrameOwner* renderFrame, Rendering::Dx12ResourceBuilder* renderResources, RuntimeRenderer& renderer, SceneLoadTransaction& transaction )",
+      "owner": "SceneLoadTransaction load phase",
+      "disposition": "retain-owner",
+      "reason": "Concrete load implementation borrowed by the invariant-owning transaction.",
+      "evidence": "SceneLoadTransaction::Load advances phase then calls this exact overload with itself. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=8; required_arity=12/12; symbols=?Load@SceneController@Runtime@SkullbonezCore@@AEAA?AVSbResult@Core@3@AEBUSceneLoadRequest@23@AEAVEngineConfig@53@AEAURunLaunchOptions@23@AEBUCinematicRenderConfig@53@AEBURunStartupState@23@AEAVAssetSystem@Assets@3@AEAVWorkerPool@Threading@3@AEAVDiagnosticsRuntime@23@PEAVDx12FrameOwner@Rendering@3@PEAVDx12ResourceBuilder@Rendering@3@AEAVRuntimeRenderer@23@AEAVSceneLoadTransaction@23@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Scene/SceneController.Style.cpp",
+      "signature": "const SkullbonezCore::Core::CinematicRenderConfig& ActiveSceneCinematicConfig( const SceneSessionState& scene, const SkullbonezCore::Core::EngineConfig& config )",
+      "owner": "Scene cinematic policy",
+      "disposition": "retain-owner",
+      "reason": "Projects the active cinematic config to const presentation consumers.",
+      "evidence": "OperatorEditorFrameComposer calls this const overload in production. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=19; required_arity=2/2; symbols=?ActiveSceneCinematicConfig@Runtime@SkullbonezCore@@YAAEBUCinematicRenderConfig@Core@2@AEBUSceneSessionState@12@AEBVEngineConfig@42@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp",
+      "signature": "uint64_t SimulationSystem::DroppedPhysicsTickCount() const noexcept",
+      "owner": "Simulation fixed-step diagnostics",
+      "disposition": "retain-owner",
+      "reason": "Observes the dropped-tick accumulator without moving pacing authority.",
+      "evidence": "TestSimulationSystem verifies reset, hitch, and lifecycle accounting. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?DroppedPhysicsTickCount@SimulationSystem@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp",
+      "signature": "uint64_t SimulationSystem::PhysicsHitchEventCount() const noexcept",
+      "owner": "Simulation fixed-step diagnostics",
+      "disposition": "retain-owner",
+      "reason": "Observes the hitch-event accumulator without moving pacing authority.",
+      "evidence": "TestSimulationSystem verifies reset, hitch, and lifecycle accounting. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?PhysicsHitchEventCount@SimulationSystem@Runtime@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Scene/AuthoredScene.cpp",
+      "signature": "SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )",
+      "owner": "AuthoredScene transactional parser",
+      "disposition": "retain-owner",
+      "reason": "It is the registry-free Lane-R seam that only publishes a complete parsed scene.",
+      "evidence": "Scene parser unit tests call it with fixtures and verify failed parsing does not publish partial state. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=3/3; symbols=?TryLoadFromFile@AuthoredScene@Runtime@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDAEAV123@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Scene/AuthoredScene.cpp",
+      "signature": "SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path, AuthoredScene& outScene )",
+      "owner": "AuthoredScene transactional style parser",
+      "disposition": "retain-owner",
+      "reason": "It is the registry-free Lane-R seam that only publishes a complete parsed style scene.",
+      "evidence": "Scene parser unit tests call it with fixtures and verify failure remains non-publishing. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=3/3; symbols=?TryLoadStyleFromFile@AuthoredScene@Runtime@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDAEAV123@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Scene/AuthoredScene.cpp",
+      "signature": "uint32_t AuthoredScene::GetSchemaVersion() const",
+      "owner": "AuthoredScene schema contract",
+      "disposition": "retain-owner",
+      "reason": "It exposes the parsed schema version for contract verification.",
+      "evidence": "SceneParserUnitTests asserts it for parsed fixtures at multiple test sites. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?GetSchemaVersion@AuthoredScene@Runtime@SkullbonezCore@@QEBAIXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Scene/AuthoredScene.cpp",
+      "signature": "int AuthoredScene::GetAssetLibraryCount() const",
+      "owner": "AuthoredScene asset-library parse contract",
+      "disposition": "retain-owner",
+      "reason": "It exposes the bounded parsed asset-library count.",
+      "evidence": "Scene parser tests use it to verify library count and ordering. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?GetAssetLibraryCount@AuthoredScene@Runtime@SkullbonezCore@@QEBAHXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/UI/UIDrawList.cpp",
+      "signature": "uint64_t UIDrawList::Fingerprint() const",
+      "owner": "UIDrawList deterministic command-surface contract",
+      "disposition": "retain-owner",
+      "reason": "It is the narrow observable for deterministic detached UI output.",
+      "evidence": "UiBoundaryUnitTests compares fingerprints to prove equal draw surfaces remain stable and changed surfaces differ. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=0/0; symbols=?Fingerprint@UIDrawList@UI@SkullbonezCore@@QEBA_KXZ",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/World/Terrain.cpp",
+      "signature": "SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config, std::unique_ptr<Terrain>& outTerrain )",
+      "owner": "Terrain authoritative height-map physics construction",
+      "disposition": "retain-owner",
+      "reason": "It is the CPU/render-free Lane-R seam that owns validated terrain creation.",
+      "evidence": "TestTerrain.cpp and runtime-contract fatal probes use it to exercise authoritative terrain loading without a render device. 2026-07-30 final synchronized Debug/Profile census: classification=test-only; mapping=exact; own_tu_calls=0; test_calls=1; ambiguous_production_calls=0; required_arity=7/7; symbols=?TryCreatePhysicsFromHeightMap@Terrain@Geometry@SkullbonezCore@@SA?AVSbResult@Core@3@AEAVSbDiagnosticStore@53@PEBDHHHAEBVEngineConfig@53@AEAV?$unique_ptr@VTerrain@Geometry@SkullbonezCore@@U?$default_delete@VTerrain@Geometry@SkullbonezCore@@@std@@@std@@@Z",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/World/Terrain.cpp",
+      "signature": "const SkullbonezCore::Core::EngineConfig& Terrain::Config() const",
+      "owner": "Terrain immutable construction configuration",
+      "disposition": "retain-owner",
+      "reason": "It exposes the configuration retained by the terrain owner to its rendering collaborators.",
+      "evidence": "Live terrain shader/render paths call it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=25; required_arity=0/0; symbols=?Config@Terrain@Geometry@SkullbonezCore@@AEBAAEBVEngineConfig@Core@3@XZ",
+      "plan": ""
+    }
+  ]
+}

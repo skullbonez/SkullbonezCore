@@ -17,6 +17,8 @@ Glossary:
 
 Invariants:
   - Tests use integer message codes and do not depend on Win32 types or calls.
+  - A status-free frame phase reports failure only through RequestPhaseFailure;
+    resolving message exit code zero must preserve that failure.
   - Every precedence ordering that could overwrite an owned failure has explicit
     coverage.
 
@@ -73,6 +75,22 @@ TEST_CASE( "Owned failure requests exit and retains owner diagnostics" )
     CHECK_FALSE( result.Ok() );
     CHECK_EQ( std::strcmp( result.ErrorOwner(), "CaptureController" ), 0 );
     CHECK_EQ( std::strcmp( result.ErrorMessage(), "readback failed at frame 17" ), 0 );
+}
+
+
+TEST_CASE( "Status-free frame phase failure latch cannot resolve as process exit zero" )
+{
+    ApplicationExitState state( diagnostics );
+    const SbResult phaseFailure = diagnostics.Failure( "Runtime/Present", "swap-chain presentation failed" );
+
+    state.RequestPhaseFailure( phaseFailure );
+    const SbResult result = state.Resolve( 0 );
+
+    CHECK( state.ExitRequested() );
+    CHECK( state.HasOwnedFailure() );
+    CHECK_FALSE( result.Ok() );
+    CHECK_EQ( std::strcmp( result.ErrorOwner(), "Runtime/Present" ), 0 );
+    CHECK_EQ( std::strcmp( result.ErrorMessage(), "swap-chain presentation failed" ), 0 );
 }
 
 

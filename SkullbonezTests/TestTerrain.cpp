@@ -33,6 +33,8 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
@@ -186,7 +188,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
         collider.body = handle;
         const CollisionShape shape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
         collider.boundingRadius = 1.0f;
-        colliders.CreateColliderRecord( collider, shape );
+        SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape  );
     }
 
     const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
@@ -219,11 +221,13 @@ TEST_CASE( "Coverage floor contract: terrain sweep and manifold support every co
 {
     EngineConfig config;
     Terrain terrain( 0.0f, 0.0f, 0.0f, config );
+    SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
+        diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
     const CollisionShape shapes[] = {
         SphereShape( 1.0f ),
         BoxShape( Vector3( 1.0f, 1.0f, 1.0f ) ),
-        SkullbonezCore::Math::CollisionDetection::ConvexHullShape::LoadFromFile( diagnostics,
-                                                                                 "SkullbonezData/hulls/pyramid.hull" ),
+        hull,
     };
 
     const float centerHeights[] = { 4.0f, 4.0f, 5.0f };

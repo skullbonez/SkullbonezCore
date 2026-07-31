@@ -10,21 +10,8 @@ Summary:
   contracts remain visible where the work happens.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  Render pass: A named slice of frame rendering with explicit inputs, outputs,
-  and GPU resource ownership.
   GPU resource: Backend-owned texture, framebuffer, shader, descriptor, or
   dynamic vertex buffer that must be released before backend teardown.
-  HDR (High Dynamic Range): Floating-point scene color that can hold values
-  brighter than display white until tonemapping resolves it.
-  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures.
 
 Invariants:
   - EnsureGpuResources may lazily create or resize backend resources, but must
@@ -40,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp owns frame orchestration.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"
 #include "RuntimeRenderFrameValues.h"
@@ -407,12 +395,6 @@ void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* rend
     }
 
     m_resources.quadVB = 0;
-}
-
-
-uint32_t FullscreenQuadPass::QuadVB() const
-{
-    return m_resources.quadVB;
 }
 
 
@@ -1241,13 +1223,6 @@ void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ 
 }
 
 
-void ObjectPass::ReleaseGpuResources()
-{
-
-    // Nothing to release until body shaders/materials move behind this pass.
-}
-
-
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
 
@@ -1506,13 +1481,6 @@ void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resour
 
     // Debug visualizers own their transient geometry; this pass owns late-frame
     // ordering so diagnostics draw over production geometry.
-}
-
-
-void DebugOverlayPass::ReleaseGpuResources()
-{
-
-    // Current debug visualizers release with their owning systems.
 }
 
 

@@ -8,17 +8,6 @@ Summary:
   DXIL, reflects its constant layout during cold startup or explicit developer
   reload, and publishes bytecode plus uniform uploads needed by pipeline draws.
 
-Glossary:
-  Upload arena: Frame-scoped CPU-visible staging memory used for packed shader
-  constants before a draw binds their GPU address.
-  CBV (Constant Buffer View): Descriptor or root binding that lets shaders read
-  a packed block of constants.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -31,6 +20,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ShaderDX12.h"
 #include "Dx12ShaderDevelopment.h"
@@ -259,12 +249,6 @@ void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
     m_vsBytecodeHash = payload.vertexHash;
     m_psBytecodeHash = payload.pixelHash;
     m_cbDirty = true;
-}
-
-
-const char* ShaderDX12::SourcePath() const
-{
-    return m_sourcePath.c_str();
 }
 
 
@@ -954,12 +938,6 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
 
     memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
-}
-
-
-void ShaderDX12::SetVec3( const char* name, const Vector3& v ) const
-{
-    SetVec3( name, v.x, v.y, v.z );
 }
 
 

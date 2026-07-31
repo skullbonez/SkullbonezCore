@@ -11,16 +11,10 @@ Summary:
   SceneController-owned lifecycle generation.
 
 Glossary:
-  Live style: Control-folder protocol that applies style JSON and requests a
-    screenshot without restarting the process.
-  Graphics stress: Seeded DX12/runtime churn used to reproduce resource and
-    lifetime faults deterministically.
   Scene gate: Authored validation requirement that observes committed physics
     state without becoming scene business state.
   Resume: Scene-load transition that preserves the stress random stream and
     counters while restoring launch cadence.
-  Lifecycle generation: Scene-load identity used to replace caller-owned
-    apply/reset flags with idempotent validation-owner reactions.
 
 Invariants:
   - The owner is allocated only during Startup and lives for the process.
@@ -37,6 +31,7 @@ Related:
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -148,7 +143,6 @@ class RuntimeValidationHarness
         return m_graphicsStress;
     }
     SceneAutomationGateTracker& SceneGates();
-    const SceneAutomationGateTracker& SceneGates() const;
 
   private:
     void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );

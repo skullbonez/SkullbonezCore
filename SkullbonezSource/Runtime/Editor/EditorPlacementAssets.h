@@ -11,12 +11,8 @@ Summary:
   that must remain template-visible to caller lambdas.
 
 Glossary:
-  Placement recipe: Typed editor data that describes a tree, house, building,
-    or hull-backed primitive selected from the editor tab.
   Building part visitor: Header-visible template that visits authored JSON
     primitive records without allocating a callback object.
-  Authored hull: Baked convex hull asset used for editor-placeable collision
-    geometry and preview outlines.
 
 Invariants:
   - Preview, preflight, tracer ghost, and placement commit must all consume the
@@ -29,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorObjectPlacement.cpp
   - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -170,9 +167,6 @@ bool TryComputeEditorTreeWorldBounds( Core::SbDiagnosticStore& diagnostics, cons
                                       const Math::Vector::Vector3& terrainPoint,
                                       const Math::Transformation::RotationMatrix& orientation, Math::Vector::Vector3& outMin,
                                       Math::Vector::Vector3& outMax );
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Math::Vector::Vector3& terrainPoint,
-                                       const Math::Transformation::RotationMatrix& orientation,
-                                       Math::Vector::Vector3& outMin, Math::Vector::Vector3& outMax );
 float EditorTreeVerticalSize( Core::SbDiagnosticStore& diagnostics, int objectType );
 float EditorHouseVerticalSize( int objectType );
 

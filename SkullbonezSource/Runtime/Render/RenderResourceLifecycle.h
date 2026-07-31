@@ -165,7 +165,6 @@ class RenderResourceLifecycle
         return m_config;
     }
     Rendering::PrimitiveBatchRenderer& PrimitiveBatches();
-    const Rendering::PrimitiveBatchRenderer& PrimitiveBatches() const;
     Rendering::RenderGpuTimingOwner& GpuTiming()
     {
         return m_gpuTiming;

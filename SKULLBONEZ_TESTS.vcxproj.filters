@@ -114,9 +114,6 @@
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp">
-      <Filter>Source Files\Tests</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -160,6 +157,9 @@
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestEditorTerrainOrientation.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp">
@@ -334,6 +334,9 @@
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp">

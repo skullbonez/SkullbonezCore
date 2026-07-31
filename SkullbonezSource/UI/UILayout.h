@@ -4,16 +4,8 @@ Purpose:
   Implements UI Layout widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UILayout.h implements UI Layout widgets, layout, drawing, or UI state for
-  the in-engine controls. As a public header, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Centralizes deterministic geometry and value
+  conversions shared by composition and hit testing.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -22,6 +14,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UILayout.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -107,7 +100,6 @@ float SceneTabComboWidth( float contentW );
 void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y );
 
 UIRect MinimizedRect( int screenW, int screenH, float requestedW );
-float MinimizedWidthForTitle( const char* title, int screenW );
 float GravityStrengthFromWorld( float gravity );
 float WorldGravityFromStrength( float strength );
 int RemainingSceneObjectSlots( int modelCapacity, int otherCount );

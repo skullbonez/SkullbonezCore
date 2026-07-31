@@ -1771,51 +1771,58 @@ def query_solver(conn, cache, args):
     stats["warm_start_rate"] = (warm_started_rows / total_contact_rows) if total_contact_rows else None
     stats["position_correction_row_rate"] = (correction_rows / total_contact_rows) if total_contact_rows else None
 
-    convergence_limit = max(1, args.limit or DEFAULT_LIMIT)
-    convergence_rows = conn.execute(
-        f"""
-        select frame, iteration, stopping_impulse_delta_sq,
-               normal_impulse_delta_sq, tangent_impulse_delta_sq,
-               normal_changed_rows, tangent_changed_rows,
-               max_row_impulse_delta_sq, max_row_normal_impulse_delta_sq,
-               max_row_tangent_impulse_delta_sq, max_row_body_a, max_row_body_b,
-               max_row_feature_id, max_row_is_terrain, dropped_iterations
-        from solver_iteration_summaries
-        where {' and '.join(where)}
-        order by stopping_impulse_delta_sq desc, frame, iteration
-        limit ?
-        """,
-        [*params, convergence_limit],
-    ).fetchall()
-    convergence_stats_row = conn.execute(
-        f"""
-        select count(*) as sample_count,
-               count(distinct frame) as frame_count,
-               max(stopping_impulse_delta_sq) as max_stopping_impulse_delta_sq,
-               max(normal_impulse_delta_sq) as max_normal_impulse_delta_sq,
-               max(tangent_impulse_delta_sq) as max_tangent_impulse_delta_sq,
-               max(max_row_impulse_delta_sq) as max_row_impulse_delta_sq,
-               max(max_row_normal_impulse_delta_sq) as max_row_normal_impulse_delta_sq,
-               max(max_row_tangent_impulse_delta_sq) as max_row_tangent_impulse_delta_sq,
-               sum(normal_changed_rows) as normal_changed_rows,
-               sum(tangent_changed_rows) as tangent_changed_rows,
-               max(dropped_iterations) as max_dropped_iterations
-        from solver_iteration_summaries
-        where {' and '.join(where)}
-        """,
-        params,
-    ).fetchone()
-
-    return {
+    result = {
         "cache": cache,
         "run": run_id,
         "stats": stats,
         "timeline": rows_to_dicts(sample_rows(rows, args.limit or DEFAULT_LIMIT)),
-        "convergenceStats": row_to_dict(convergence_stats_row) or {},
-        "convergenceWorst": rows_to_dicts(convergence_rows),
         "note": None if rows else "Dedicated solver_stats rows are not present for this trace yet.",
         "relatedQueries": ["contacts --top impulse", "contacts --top penetration", "frame <frame>"],
     }
+
+    if args.include_convergence:
+        convergence_limit = max(1, args.limit or DEFAULT_LIMIT)
+        convergence_rows = conn.execute(
+            f"""
+            select frame, iteration, stopping_impulse_delta_sq,
+                   normal_impulse_delta_sq, tangent_impulse_delta_sq,
+                   normal_changed_rows, tangent_changed_rows,
+                   max_row_impulse_delta_sq, max_row_normal_impulse_delta_sq,
+                   max_row_tangent_impulse_delta_sq, max_row_body_a, max_row_body_b,
+                   max_row_feature_id, max_row_is_terrain, dropped_iterations
+            from solver_iteration_summaries
+            where {' and '.join(where)}
+            order by stopping_impulse_delta_sq desc, frame, iteration
+            limit ?
+            """,
+            [*params, convergence_limit],
+        ).fetchall()
+        convergence_stats_row = conn.execute(
+            f"""
+            select count(*) as sample_count,
+                   count(distinct frame) as frame_count,
+                   max(stopping_impulse_delta_sq) as max_stopping_impulse_delta_sq,
+                   max(normal_impulse_delta_sq) as max_normal_impulse_delta_sq,
+                   max(tangent_impulse_delta_sq) as max_tangent_impulse_delta_sq,
+                   max(max_row_impulse_delta_sq) as max_row_impulse_delta_sq,
+                   max(max_row_normal_impulse_delta_sq) as max_row_normal_impulse_delta_sq,
+                   max(max_row_tangent_impulse_delta_sq) as max_row_tangent_impulse_delta_sq,
+                   sum(normal_changed_rows) as normal_changed_rows,
+                   sum(tangent_changed_rows) as tangent_changed_rows,
+                   max(dropped_iterations) as max_dropped_iterations
+            from solver_iteration_summaries
+            where {' and '.join(where)}
+            """,
+            params,
+        ).fetchone()
+
+        # Invariant: convergence evidence is opt-in. The validated default
+        # packet remains the owner-approved oracle while engineering queries can
+        # still inspect the later diagnostic stream explicitly.
+        result["convergenceStats"] = row_to_dict(convergence_stats_row) or {}
+        result["convergenceWorst"] = rows_to_dicts(convergence_rows)
+
+    return result
 
 
 def query_pipeline(conn, cache, args):
@@ -2242,6 +2249,11 @@ def build_parser():
     solver = sub.add_parser("solver", help="Persistent contact solver cache/projection diagnostics.")
     add_common(solver)
     solver.add_argument("--frames", default=None)
+    solver.add_argument(
+        "--include-convergence",
+        action="store_true",
+        help="Add bounded convergence statistics without changing the validated default packet.",
+    )
     solver.set_defaults(func=query_solver)
 
     pipeline = sub.add_parser("pipeline", help="Catto pipeline stage counts by frame.")

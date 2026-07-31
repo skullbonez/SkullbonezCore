@@ -8,14 +8,6 @@ Summary:
   behind one controller. A physics step returns bounded post-step facts for
   presentation consumers instead of mutating render feedback through relays.
 
-Glossary:
-  Scene session: Mutable per-scene queue, completion, and automation state.
-  Scene queue: Ordered list of authored scenes or demo entries to run.
-  Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
-  Post-step output: Borrowed bounded physics facts consumed before the next step.
-  Proceed policy: One post-input decision shared by every late-frame consumer
-    that can advance scene work.
-
 Invariants:
   - Scene queue, session, and lifecycle state have one concrete owner.
   - Interactive scene requests cannot bypass the controller-owned ring.
@@ -25,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneSessionState.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneController.h"
 #include "../../Core/SbDiagnosticStore.h"
@@ -219,12 +212,6 @@ void SceneController::SubmitSaveCurrentDefaults()
 SceneRequestBatch SceneController::TakePendingRequests()
 {
     return m_requests.TakePending();
-}
-
-
-std::size_t SceneController::PendingRequestCount() const
-{
-    return m_requests.Size();
 }
 
 

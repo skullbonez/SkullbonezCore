@@ -12,8 +12,6 @@ Glossary:
   Live backup: Detached solver sample captured before any restore mutation.
   Topology restore: Cold scene rebuild needed when an artifact's body layout
     differs from the current generated scene.
-  Phase cursor: Value that admits only the legal restore walk and terminal
-    failure transitions.
 
 Invariants:
   - The normal walk is select, backup, topology, checkpoint, step, verify,
@@ -26,6 +24,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayRestoreService.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

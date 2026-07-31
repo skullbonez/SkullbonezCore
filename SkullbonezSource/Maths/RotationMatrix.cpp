@@ -4,14 +4,8 @@ Purpose:
   Implements rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  RotationMatrix.cpp implements rotation matrix helpers used by transforms and
-  collision code. As an implementation unit, keep edits anchored on units,
-  basis conventions, and numerical assumptions and on the glossary/invariants
-  below.
-
-Glossary:
-  Orthogonal basis: Three perpendicular unit axes; its transpose maps a
-    world-space vector back into local space.
+  Implements rotation matrix helpers
+  used by transforms and collision code.
 
 Invariants:
   - RotationMatrix represents an orthogonal 3x3 rotation basis; TransposeMultiply
@@ -21,6 +15,7 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/RotationMatrix.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RotationMatrix.h"
 
@@ -40,22 +35,6 @@ RotationMatrix::RotationMatrix( float f11, float f12, float f13, float f21, floa
                                 float f33 )
     : m11( f11 ), m12( f12 ), m13( f13 ), m21( f21 ), m22( f22 ), m23( f23 ), m31( f31 ), m32( f32 ), m33( f33 )
 {
-}
-
-
-void RotationMatrix::Identity()
-{
-    m11 = 1.0f;
-    m12 = 0.0f;
-    m13 = 0.0f;
-
-    m21 = 0.0f;
-    m22 = 1.0f;
-    m23 = 0.0f;
-
-    m31 = 0.0f;
-    m32 = 0.0f;
-    m33 = 1.0f;
 }
 
 

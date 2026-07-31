@@ -4,15 +4,8 @@ Purpose:
   Builds simple procedural meshes used by debug rendering and generated scenes.
 
 Summary:
-  PrimitiveMeshBuilder.h builds simple procedural meshes used by debug
-  rendering and generated scenes. As a public header, keep edits anchored on
-  render submission and resource lifetime and on the glossary/invariants
-  below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Builds simple procedural meshes used by
+  debug rendering and generated scenes.
 
 Invariants:
   - Primitive coordinates, winding, normals, and UVs are shared geometry
@@ -22,6 +15,7 @@ Invariants:
 
 Related:
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

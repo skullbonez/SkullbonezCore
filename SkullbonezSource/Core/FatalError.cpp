@@ -9,7 +9,6 @@ Summary:
   validation and crash triage see the first broken invariant.
 
 Glossary:
-  Lane F: Fatal invariant error handling lane for should-never-happen state.
   Profile build: Optimized validation build with SKULLBONEZ_PROFILE_ENABLED.
 
 Invariants:
@@ -22,6 +21,7 @@ Related:
   - SkullbonezSource/Core/FatalError.h
   - SkullbonezSource/Core/Log.h
   - AGENTS.md (Error Handling Policy)
+  - Agentic/Reference/engine-glossary.md
 */
 #include "FatalError.h"
 #include "Log.h"

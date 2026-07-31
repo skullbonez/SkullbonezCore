@@ -8,13 +8,6 @@ Summary:
   says a complete prefix is available. Replacing a record increments its
   version; appending points under the published prefix does not.
 
-Glossary:
-  Trajectory lane: Named path category such as past root, future root, child
-    incoming/outgoing, retained trail, or baseline root.
-  Published prefix: Count of points a reader may consume from a record.
-  Record version: Monotonic identity for a replaced record; readers can detect
-    replacement without comparing point arrays.
-
 Invariants:
   - Points append only while capacity is already reserved; append failure must
     be handled by the builder without growing from the draw path.
@@ -24,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

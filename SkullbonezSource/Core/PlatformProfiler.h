@@ -4,10 +4,8 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  PlatformProfiler.h bridges engine profiler markers to platform tools such as
-  PIX when available. As a public header, keep edits anchored on process-wide
-  contracts, diagnostics, and validation-sensitive state and on the
-  glossary/invariants below.
+  Bridges engine profiler markers to
+  platform tools such as PIX when available.
 
 Glossary:
   Marker domain: Stable engine category used to group profiler ranges without
@@ -66,7 +64,6 @@ const char* DecorateMarkerName( const char* name, const char* suffix, char* buff
 
 void CpuBegin( const char* name, uint32_t hash );
 void CpuEnd();
-void CpuMarker( const char* name, uint32_t hash );
 
 } // namespace PlatformProfiler
 } // namespace Core

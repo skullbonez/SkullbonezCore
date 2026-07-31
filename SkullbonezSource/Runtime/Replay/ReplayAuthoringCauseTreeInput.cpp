@@ -8,10 +8,6 @@ Summary:
   gestures over that lower Replay value. Prediction composes row contents in
   its own package, while this file never names Prediction state or scheduling.
 
-Glossary:
-  Cause window: Replay explanation surface containing selectable cause rows.
-  Hot control: The cause-window control currently under the frame pointer.
-
 Invariants:
   - Window placement and row selection mutate only ReplayAuthoring state.
   - Pointer capture is released when a cause-window drag ends or becomes unavailable.
@@ -21,6 +17,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayAuthoring.h
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
   - SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayAuthoring.h"
 

@@ -11,10 +11,6 @@ Summary:
 
 Glossary:
   Action identity: The domain enum value that names one owner-side operation.
-  Projection: Conversion from the common queue back into established narrow UI
-    command structs consumed by concrete runtime owners.
-  FNV-1a: Small deterministic hash used only to prove each surface implementation
-    consumed the same frame values; it is not durable identity or serialization.
 
 Invariants:
   - Validation completes before a command consumes queue capacity.
@@ -26,6 +22,7 @@ Related:
   - SkullbonezSource/UI/OperatorEditorExchange.h
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezTests/TestOwnerRequestQueues.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "OperatorEditorExchange.h"
 

@@ -7,9 +7,6 @@ Summary:
   ReplayScrubber is the mutable cursor/track authority. ReplayRuntime sequences
   cross-owner prediction cancellation, physics restore, and camera reactions.
 
-Glossary:
-  Live edge: The newest retained replay sample.
-
 Invariants:
   - Retained cursor state never escapes by mutable reference; consumers receive
     value snapshots and issue owner commands.
@@ -19,6 +16,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

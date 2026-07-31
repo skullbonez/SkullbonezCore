@@ -8,15 +8,8 @@ Summary:
   waits on a fence. Worker-disabled mode runs the same work inline.
 
 Glossary:
-  Worker pool: Persistent thread group that runs bounded jobs outside the main
-  thread.
-  Fork-join: Pattern where the main thread splits work, workers run chunks, and
-  the main thread waits before merging results.
-  Fence: Synchronization primitive used to wait for all queued chunks.
   Profiler thread label: Stable indexed worker name copied into development
     profiling metadata once when a worker enters its loop.
-  Lane F: Fatal invariant path used when bounded worker contracts cannot be
-  preserved.
 
 Invariants:
   - Worker-disabled mode runs work inline through the same public helpers so
@@ -30,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Core/WorkerPool.h
   - SkullbonezSource/Core/AmortizedTask.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #include "WorkerPool.h"
@@ -318,18 +312,6 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState, ParallelTaskDispatche
 int WorkerPool::GetThreadCount() const
 {
     return static_cast<int>( m_threads.size() );
-}
-
-
-int WorkerPool::GetMinParallelItems() const
-{
-    return m_minParallelItems;
-}
-
-
-bool WorkerPool::IsInitialised() const
-{
-    return GetThreadCount() > 0;
 }
 
 

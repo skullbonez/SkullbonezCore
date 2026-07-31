@@ -4,16 +4,7 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Summary:
-  Log.cpp writes debug-only runtime, crash, and diagnostics logs. As an
-  implementation unit, keep edits anchored on process-wide contracts,
-  diagnostics, and validation-sensitive state and on the glossary/invariants
-  below.
-
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  CSV (Comma-Separated Values): Text table format used for byte-exact physics
-  regression output.
+  Writes debug-only runtime, crash, and diagnostics logs.
 
 Invariants:
   - Debug logs are opened in binary mode so newline bytes stay byte-exact for
@@ -25,6 +16,7 @@ Related:
   - SkullbonezSource/Core/Log.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Log.h"
 

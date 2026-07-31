@@ -8,12 +8,6 @@ Summary:
   capture/readback renderer capability belongs to screenshot and validation
   paths, not per-frame UI decoration.
 
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Backdrop: Translucent panel drawn before chrome to separate controls from
-  the world view.
-
 Invariants:
   - Backdrop drawing must stay on UIDrawContext so it cannot pull renderer
     capture/readback or resource-factory capabilities into the UI layout path.
@@ -21,6 +15,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIBackdropBlur.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -52,7 +47,6 @@ class UIBackdropBlur
                bool enabled );
     void Invalidate( UIBackdropBlurInvalidationReason reason = UIBackdropBlurInvalidationReason::Unknown );
     void ResetResources();
-    UIBackdropBlurInvalidationReason LastInvalidationReason() const;
 
   private:
     int m_lastScreenW = 0;

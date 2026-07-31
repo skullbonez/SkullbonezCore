@@ -9,7 +9,6 @@ Summary:
   the graph-owned world-extension callback.
 
 Glossary:
-  Ribbon: Camera-facing strip representing the elevated funnel shell.
   Dust band: Ground-following quad ring encoded with terrain-height attributes.
   Callback payload: Stack record borrowed by RenderGraph for dry-run and live
     execution before the registration scope returns.
@@ -23,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Gameplay/TornadoVisualPass.h
   - SkullbonezData/shaders/transient_colored_triangles.hlsl
+  - Agentic/Reference/engine-glossary.md
 */
 #include "TornadoGameplay.h"
 

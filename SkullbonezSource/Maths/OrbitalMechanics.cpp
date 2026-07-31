@@ -68,11 +68,6 @@ bool IsFinite( const Vector3& value )
     return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z );
 }
 
-float ClampUnit( float value )
-{
-    return std::clamp( value, -1.0f, 1.0f );
-}
-
 float WrapRadians( float value )
 {
     value = std::fmod( value, TWO_PI );
@@ -553,31 +548,6 @@ OrbitalStatus SolveLambert( const Vector3& r1, const Vector3& r2, float timeOfFl
 }
 
 
-float HohmannTransferSeconds( float r1, float r2, float mu )
-{
-
-    if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
-    {
-        return 0.0f;
-    }
-
-    const float semiMajorAxis = 0.5f * ( r1 + r2 );
-    return PI * std::sqrt( semiMajorAxis * semiMajorAxis * semiMajorAxis / mu );
-}
-
-
-float HohmannDepartureDeltaV( float r1, float r2, float mu )
-{
-
-    if ( r1 <= 0.0f || r2 <= 0.0f || mu <= 0.0f )
-    {
-        return 0.0f;
-    }
-
-    const float circularSpeed = std::sqrt( mu / r1 );
-    const float transferSpeed = circularSpeed * std::sqrt( 2.0f * r2 / ( r1 + r2 ) );
-    return transferSpeed - circularSpeed;
-}
 } // namespace Orbital
 } // namespace Math
 } // namespace SkullbonezCore

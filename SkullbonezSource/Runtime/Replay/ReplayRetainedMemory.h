@@ -8,9 +8,6 @@ Summary:
   artifact family. Prediction owns its separate working-set policy row.
 
 Glossary:
-  Presentation sample: Render-facing retained pose/style state owned by
-    ReplayRecorder.
-  Solver sample: Physics-facing retained state owned by ReplaySolverRecorder.
   Prediction prefix: Coherent published future-frame prefix owned by
     ReplayPrediction and its TrajectoryStore.
   Artifact document: Cold-I/O v2 representation owned by ReplayV2Artifact.
@@ -30,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

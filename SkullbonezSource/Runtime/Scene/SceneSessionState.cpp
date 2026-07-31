@@ -8,8 +8,6 @@ Summary:
   Stateless path helpers normalize controller-owned scene queue entries.
 
 Glossary:
-  Scene queue: Ordered list of authored scene paths, where an empty path means
-  the generated demo scene.
   Scene-run state: Counters, flags, and overrides that describe the currently
     loaded scene.
 
@@ -22,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneSessionState.h
   - SkullbonezSource/Runtime/Scene/SceneController.cpp
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneSessionState.h"
 
@@ -250,10 +249,6 @@ int SceneSession::NextIndex() const
     return m_state.currentSceneIndex + 1;
 }
 
-const std::vector<std::string>& SceneSession::Queue() const
-{
-    return m_queue;
-}
 
 void SceneSession::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
 {

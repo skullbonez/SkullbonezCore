@@ -9,8 +9,6 @@ Summary:
   sky, cloud, ray, and palette controls.
 
 Glossary:
-  Sky feature: Toggle for sky, clouds, god rays, or volumetric lighting.
-  Sky slider: Focused cinematic parameter slider owned by this tab.
   Active slider: Global UI drag id captured while the user drags a slider.
 
 Invariants:
@@ -21,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabSky.cpp
   - SkullbonezSource/UI/UITabCinematic.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

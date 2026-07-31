@@ -12,8 +12,6 @@ Glossary:
   Workspace tick: One input-frame pass through replay scrub, authoring, and path tools.
   Timeline reset: Scene-boundary command that restarts retained replay history.
   Startup workflow: Cold command-line replay load or validation operation.
-  Transport command: Presentation-independent record, scrub, prediction, or
-    artifact intent translated by ReplayRuntime into existing replay owners.
   Published view: Read-only, frame-scoped evidence that exposes no mutation
     path back into a replay owner.
 
@@ -27,6 +25,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

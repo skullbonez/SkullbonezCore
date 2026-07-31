@@ -9,7 +9,6 @@ Summary:
   keyboard keys or automation source produced it.
 
 Glossary:
-  Fluid surface: World-space Y plane separating the configured fluid and gas.
   Adjustment velocity: Signed vertical speed in world meters per second.
 
 Invariants:
@@ -21,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Input/InputRouter.cpp
   - SkullbonezSource/World/WorldEnvironment.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

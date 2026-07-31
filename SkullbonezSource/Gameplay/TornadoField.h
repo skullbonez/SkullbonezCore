@@ -8,10 +8,6 @@ Summary:
   strengths and positions, and exposes sampling used by presentation. The
   fixed-step Physics boundary is published separately by TornadoGameplay.
 
-Glossary:
-  Active vortex: An authored vortex after spawn, growth, shrink, drift, and
-    pair-repulsion have been evaluated at the current gameplay time.
-
 Invariants:
   - Physics-visible behavior must remain deterministic; the direct force
     witness and byte-exact baselines are the validation contract.
@@ -25,6 +21,7 @@ Related:
   - SkullbonezSource/Physics/Stages/ExternalForceStage.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -113,7 +110,6 @@ class TornadoField
 
     static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
                                                               const Math::Vector::Vector3& position );
-    Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     std::size_t DynamicMemoryBytes() const;
 
   private:
@@ -145,7 +141,6 @@ class TornadoSystem
     {
         return m_activeVortices;
     }
-    Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
     std::size_t DynamicMemoryBytes() const;
 
     static void BuildActiveVortices( const TornadoSystemConfig& config, float elapsedSeconds,

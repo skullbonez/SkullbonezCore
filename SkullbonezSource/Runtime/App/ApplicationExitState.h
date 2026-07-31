@@ -11,7 +11,6 @@ Summary:
   exit messages arrive later.
 
 Glossary:
-  Lane R: Recoverable result lane for an external-input or environment failure.
   Owned failure: Lane R failure already attributed to the subsystem that
     detected it, including a lease on its immutable owner and diagnostic
     message.
@@ -21,6 +20,8 @@ Glossary:
 Invariants:
   - The first owned failure wins; later failures and normal exits cannot replace
     its diagnostics.
+  - A frame phase reports failure only through RequestPhaseFailure; its public
+    phase result contains no status that Run::Execute can drop.
   - A nonzero message exit code becomes a Lane R failure only when no richer
     owned failure exists.
   - All retained state is fixed-size; requesting or resolving exit allocates no
@@ -31,6 +32,7 @@ Related:
   - SkullbonezSource/Core/SbResult.h defines the Lane R result carrier.
   - SkullbonezSource/Runtime/App/RunFrame.cpp owns the platform message-loop call site.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md tracks application command ownership.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -52,6 +54,10 @@ class ApplicationExitState
     // Records a subsystem-attributed Lane R failure and requests exit. Success
     // values are ignored, and only the first failure is retained.
     void RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept;
+
+    // Latches a non-success frame-phase result. Status-free frame signatures
+    // make this the only failure signal that Run::Execute can observe.
+    void RequestPhaseFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept;
 
     [[nodiscard]] bool ExitRequested() const noexcept;
     [[nodiscard]] bool HasOwnedFailure() const noexcept;

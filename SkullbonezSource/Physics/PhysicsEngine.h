@@ -12,10 +12,6 @@ Summary:
 Glossary:
   Owner boundary: Public command/query surface that retains the state and
     sequencing authority behind it.
-  Fixed-tree release: Store-owned command that turns authored fixed props into
-    dynamic bodies and wakes same-tree parts after an accepted impulse.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
   Immutable projection: Field-specific borrowed store or diagnostic read whose
     lifetime remains tied to PhysicsEngine.
   Descriptor refresh: Cold authoring edge that replaces body rows from explicit
@@ -35,6 +31,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.cpp
   - SkullbonezSource/Physics/PhysicsApi.h
   - SkullbonezSource/Physics/PhysicsWorld.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -207,6 +204,10 @@ class PhysicsEngine
     bool IsSleepEnabled() const;
     void BeginCollisionVisualFrame( PhysicsBodyCount bodyCount );
     void EndCollisionVisualFrame();
+
+    // Counting remains active for Replay identity. Runtime calls this before a
+    // step to retain payload rows only when a full-record consumer is live.
+    void SetPipelineTraceFullRecordConsumerActive( bool active );
     void ClearPointJointConstraints();
 
     // Creates a point joint from physics body handles and rejects stale or
@@ -228,8 +229,6 @@ class PhysicsEngine
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     uint64_t CollectSceneSizedStoreMemoryBytes() const;
-    bool ShouldEmitStepDiagnostics() const;
-    bool ShouldEmitCollisionTimeDiagnostics() const;
 
     // Registers scene-lifetime presentation names at a cold topology boundary.
     // The diagnostics sink copies only the pointer table into fixed storage.
@@ -252,6 +251,7 @@ class PhysicsEngine
     static std::span<const uint8_t> ReadSleepSupportedStates( const PhysicsEngine& engine );
     static std::span<const uint8_t> ReadSleepInhibitedStates( const PhysicsEngine& engine );
     static std::span<const PhysicsDebugContact> ReadDebugContacts( const PhysicsEngine& engine );
+    static uint32_t ReadPipelineRecordCount( const PhysicsEngine& engine );
     static std::span<const PhysicsPipelineRecord> ReadPipelineTrace( const PhysicsEngine& engine );
     static const PhysicsBodyRowList<PointJointConstraint>& ReadPointJointConstraints( const PhysicsEngine& engine );
     static std::size_t ReadPointJointCapacity( const PhysicsEngine& engine );
@@ -261,15 +261,11 @@ class PhysicsEngine
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    bool SetDiagnosticsSuppressed( bool suppressed );
 #endif
 
   private:
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
-#ifdef _DEBUG
-    void ValidatePhysicsStoreMappings( int modelCount ) const;
-#endif
 
     // Lifetime: this fixed-size owner allocation is created and destroyed with
     // PhysicsEngine. PhysicsWorld owns its hot stage storage; the indirection is

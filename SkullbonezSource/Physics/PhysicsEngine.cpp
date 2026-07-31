@@ -16,15 +16,6 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
-  Physics material: Runtime policy for collider friction and sphere drag.
-  Collider authoring row: Cold scene round-trip text stored outside fixed-step
-    collider rows.
-  Velocity edit: Replay-authored command that changes live body velocity before
-    prediction or the next step samples the body store.
-  Fixed-tree release: Store-owned command that turns authored fixed props into
-    dynamic bodies and wakes same-tree parts after an accepted impulse.
-  Sleep: Solver optimization that stops integrating stable bodies until an
-    explicit wake or contact event reactivates them.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
@@ -41,6 +32,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsEngine.h"
 #include "../Core/Config.h"
@@ -881,37 +873,6 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-#ifdef _DEBUG
-void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
-{
-    assert( m_bodyStore.Count() == modelCount );
-    assert( m_colliderStore.Count() == modelCount );
-    assert( m_buoyancySystem.Count() == modelCount );
-
-    const auto bodies = m_bodyStore.Records();
-    const auto colliders = m_colliderStore.Records();
-
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t index = static_cast<std::size_t>( i );
-        const PhysicsBodyRecord& body = bodies[index];
-        const ColliderRecord& collider = colliders[index];
-        const PhysicsBodyHandle bodyHandle = m_bodyStore.HandleForModelIndex( i );
-        const PhysicsColliderHandle colliderHandle = m_colliderStore.HandleForBodyHandle( bodyHandle );
-
-        assert( bodyHandle.IsValid() );
-        assert( colliderHandle.IsValid() );
-        assert( body.handle == bodyHandle );
-        assert( collider.handle == colliderHandle );
-        assert( collider.body == bodyHandle );
-        assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
-        assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
-        assert( body.sceneObjectId == collider.sceneObjectId );
-    }
-}
-#endif
-
-
 void PhysicsEngine::Step( float fChangeInTime, const PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool,
                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
@@ -1163,6 +1124,11 @@ void PhysicsEngine::EndCollisionVisualFrame()
     m_world->EndCollisionVisualFrame();
 }
 
+void PhysicsEngine::SetPipelineTraceFullRecordConsumerActive( bool active )
+{
+    m_world->SetPipelineTraceFullRecordConsumerActive( active );
+}
+
 
 void PhysicsEngine::ClearPointJointConstraints()
 {
@@ -1377,18 +1343,6 @@ uint64_t PhysicsEngine::CollectSceneSizedStoreMemoryBytes() const
 }
 
 
-bool PhysicsEngine::ShouldEmitStepDiagnostics() const
-{
-    return m_world->ShouldEmitStepDiagnostics();
-}
-
-
-bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
-{
-    return m_world->ShouldEmitCollisionTimeDiagnostics();
-}
-
-
 void PhysicsEngine::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
 {
     m_world->SetDiagnosticNames( diagnosticNames );
@@ -1486,6 +1440,11 @@ std::span<const PhysicsPipelineRecord> PhysicsEngine::ReadPipelineTrace( const P
     return engine.m_world->GetPhysicsPipelineTrace();
 }
 
+uint32_t PhysicsEngine::ReadPipelineRecordCount( const PhysicsEngine& engine )
+{
+    return engine.m_world->GetPhysicsPipelineRecordCount();
+}
+
 
 const SkullbonezCore::Physics::PhysicsBodyRowList<PointJointConstraint>&
 PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
@@ -1524,8 +1483,4 @@ void PhysicsEngine::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-bool PhysicsEngine::SetDiagnosticsSuppressed( bool suppressed )
-{
-    return m_world->SetDiagnosticsSuppressed( suppressed );
-}
 #endif

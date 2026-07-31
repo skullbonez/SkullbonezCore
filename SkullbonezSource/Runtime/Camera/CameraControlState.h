@@ -16,8 +16,6 @@ Glossary:
     focus, UI ownership, or camera mode changes.
   Auto-cycle screenshot: Validation/authoring helper that advances tracked
     models and captures one screenshot per target at a fixed interval.
-  Director playback: Presentation-only shot-list state that times authored
-    camera/style phases without mutating deterministic physics.
   Detached scene camera: Transaction-owned copy populated during scene load and
     committed to this owner once the corresponding clear phase is observed.
 
@@ -34,6 +32,7 @@ Related:
   - SkullbonezSource/Runtime/Input/InputController.h
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

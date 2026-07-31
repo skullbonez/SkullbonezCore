@@ -7,14 +7,6 @@ Summary:
   Physics runtime settings are stamped process input. Physics object policy is
   the stable set of scalar values a body or contact path reads afterward.
 
-Glossary:
-  Physics material: Per-object friction and drag coefficients consumed by the
-    body integrator, collision shape, and fluid-force cache.
-  Body simulation limit: Scalar cap enforced by a body before solver rows see
-    velocity state.
-  Contact policy: Geometry thresholds that decide when terrain is close enough
-    to count as contact and when bounce response may be applied.
-
 Invariants:
   - Defaults must match PhysicsRuntimeSettings defaults until settings
     application replaces them, because models can be constructed before the
@@ -26,6 +18,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/ColliderStore.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

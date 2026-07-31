@@ -4,25 +4,14 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Summary:
-  Terrain.h stores terrain mesh, height queries, and terrain rendering
-  resources. As a public header, keep edits anchored on world-state ownership,
-  terrain/environment data, and physics/render handoff and on the
-  glossary/invariants below.
+  Stores terrain mesh, height
+  queries, and terrain rendering resources.
 
 Glossary:
-  DXR (DirectX Raytracing): DirectX 12 feature used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the
   shared render/collision post grid.
   Terrain post: Authoritative height sample shared by terrain rendering and
   collision queries.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
   VBO (Vertex Buffer Object): Legacy engine term for renderer-owned terrain
   vertex/index storage; the DX12 path backs it through MeshDX12.
 
@@ -38,6 +27,7 @@ Related:
   - SkullbonezSource/World/Terrain.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -171,8 +161,8 @@ class Terrain
     bool IsInBounds( float xPosition, float zPosition );                                              // World X/Z coordinates inside the terrain collision domain.
     float GetTerrainHeightAt( float xPosition, float zPosition,
                               bool isFluidMin = false );                                              // Height sample; isFluidMin asks water tests for the lowest terrain support.
-    Math::Vector::Vector3 GetTerrainNormalAt( float xPosition,
-                                              float zPosition );                                      // Surface normal used by contact rows and slope alignment.
+
+    // Surface normal used by contact rows and slope alignment.
     void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight,
                                       Math::Vector::Vector3& outNormal );                             // Combined lookup: one cached-cell query instead of two.
     void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight,

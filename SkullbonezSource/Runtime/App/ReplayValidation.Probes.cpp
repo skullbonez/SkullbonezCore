@@ -10,8 +10,6 @@ Summary:
   no object or declaration surface to Release, Profile, or Automation builds.
 
 Glossary:
-  Replay probe: Debug-only command-line workflow that validates one replay
-    behavior and reports a machine-readable Lane P result.
   Lane P: Probe assertion reported through the existing validation/report
     channel rather than an exception or product fallback.
   Visual projection: Rebuilding renderer-bound replay packet values from a
@@ -27,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/App/ReplayValidation.cpp
   - SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayProbeState.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayPresentation.h"
 #include "../Replay/ReplayOverlayLayout.h"

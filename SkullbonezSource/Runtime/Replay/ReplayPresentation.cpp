@@ -577,26 +577,6 @@ ReplayPathColorMode ReplayPresentation::CyclePathColorMode() noexcept
 }
 
 
-bool ReplayPresentation::SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore )
-{
-
-    if ( modelIndex < 0 )
-    {
-        return false;
-    }
-
-    const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-
-    if ( !body || !body->sceneObjectId.IsValid() )
-    {
-        return false;
-    }
-
-    return SetPathTarget( Physics::PhysicsSceneObjectId { body->sceneObjectId }, Physics::ModelRowHint { modelIndex },
-                          name );
-}
-
-
 bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name )
 {
 

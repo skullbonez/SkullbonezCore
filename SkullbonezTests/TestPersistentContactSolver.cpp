@@ -35,16 +35,19 @@
 //   - Raw stamped settings normalize once at the solver boundary; direct value
 //     tests pin every lower and upper bound used by contact rows.
 //   - Diagnostic samples observe solver work but never enter replay state.
+//   - Full and count-only pipeline lanes produce identical logical event counts
+//     and byte-identical body writeback; only full mode retains payload rows.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
-//   - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+//   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
 //   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "TestFixedSeed.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
@@ -53,6 +56,7 @@
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
+#include "../SkullbonezSource/Physics/BuoyancySystem.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
@@ -76,6 +80,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
@@ -83,6 +88,7 @@ using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
+using SkullbonezCore::Physics::PersistentContactSolveTransaction;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyOrientation;
@@ -218,7 +224,7 @@ struct SolverFixture
         collider.boundingRadius = radius;
         collider.restitution = restitution;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider, shape );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -255,7 +261,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)colliderStore.CreateColliderRecord( collider, shape );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -292,36 +298,6 @@ struct SolverFixture
                                    inhibitsSleep );
     }
 
-    void AddTerrainFaceContact( int bodyIndex, uint32_t firstFeatureId, float penetration, uint8_t pointCount )
-    {
-        const auto hotFields = bodyStore.HotFields();
-        const float radius = hotFields.boundingRadius[static_cast<std::size_t>( bodyIndex )];
-        TerrainContactManifold manifold;
-        manifold.bodyA = bodyIndex;
-        manifold.bodyB = -1;
-        manifold.normal = Vector3( 0.0f, 1.0f, 0.0f );
-        manifold.tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
-        manifold.tangent2 = Vector3( 0.0f, 0.0f, 1.0f );
-        manifold.pointCount = pointCount;
-        manifold.supportsRestingPolicy = true;
-        manifold.allowsTangentFriction = true;
-
-        // Invariant: all rows carry the same build-time penetration while the
-        // symmetric arms model distinct points on one four-corner footprint.
-        for ( uint8_t pointIndex = 0; pointIndex < pointCount; ++pointIndex )
-        {
-            auto& point = manifold.points[pointIndex];
-            const float x = ( pointIndex & 1u ) != 0u ? 0.25f : -0.25f;
-            const float z = ( pointIndex & 2u ) != 0u ? 0.25f : -0.25f;
-            point.featureId = firstFeatureId + pointIndex;
-            point.rA = Vector3( x, -radius, z );
-            point.point = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) ) + point.rA;
-            point.penetration = penetration;
-        }
-
-        terrainContactManifolds.push_back( manifold );
-    }
-
     void CopySolverStateFrom( const SolverFixture& source )
     {
         PhysicsSolverSnapshot snapshot;
@@ -329,9 +305,10 @@ struct SolverFixture
         solver.RestoreReplayState( snapshot );
     }
 
-    void Solve( bool collectConvergenceDiagnostics = true )
+    void Solve( bool collectConvergenceDiagnostics = true, bool retainPipelineRecords = true )
     {
         worldForces.gravity = config.worldForces.gravity;
+        diagnostics.SetPipelineTraceFullRecordConsumerActive( retainPipelineRecords );
         diagnostics.BeginStep( bodyStore.Count() );
         auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
@@ -363,7 +340,6 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     settings.body.contactRestitutionThreshold = 0.9f;
 
     PhysicsWorldForces worldForces;
-    worldForces.gravity = 12.5f;
     worldForces.mutualGravity.enabled = true;
     worldForces.mutualGravity.elasticCollisions = true;
     auto policy = PhysicsContactSolverStage::ResolveStepPolicy( settings, worldForces );
@@ -380,9 +356,6 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     CHECK( policy.nonNegativeSleepAngularSpeed == 0.0f );
     CHECK( policy.rawContactRestitutionThreshold == settings.body.contactRestitutionThreshold );
     CHECK( policy.contactRestitutionThreshold == 0.0f );
-    CHECK( policy.gravityAcceleration.x == 0.0f );
-    CHECK( policy.gravityAcceleration.y == worldForces.gravity );
-    CHECK( policy.gravityAcceleration.z == 0.0f );
 
     settings.solver.slop = 0.15f;
     settings.solver.baumgarteBeta = 0.25f;
@@ -402,13 +375,83 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
 }
 
 
+TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anisotropic box" *
+           doctest::should_fail() )
+{
+    SolverFixture fixture;
+    const Vector3 halfExtents( 1.0f, 2.0f, 3.0f );
+    const CollisionShape shape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const Vector3 rotationalInertia( 2.0f, 5.0f, 9.0f );
+
+    PhysicsBodyCreateRecord body;
+    body.cold.mass = 4.0f;
+    body.cold.rotationalInertia = rotationalInertia;
+    body.cold.angularVelocityLimit = 1000.0f;
+    body.cold.usesWorldInertia = true;
+    body.hot.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.65f );
+    body.hot.inverseMass = 1.0f / body.cold.mass;
+    body.hot.inverseRotationalInertia =
+        Vector3( 1.0f / rotationalInertia.x, 1.0f / rotationalInertia.y, 1.0f / rotationalInertia.z );
+    body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shape );
+    const auto bodyHandle = fixture.bodyStore.CreateBodyRecord( body );
+    REQUIRE( bodyHandle.IsValid() );
+
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.shapeKind = ColliderShapeKind::Box;
+    collider.boundingRadius = body.hot.boundingRadius;
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape )
+                 .IsValid() );
+
+    const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
+    const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
+    REQUIRE( fixture.bodyStore.SetPendingBodyImpulse( bodyHandle, worldImpulse, worldApplicationOffset ) );
+
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    const BuoyancyBodyFacts noBuoyancy;
+    REQUIRE( fixture.bodyStore.ApplyForces( noForces, fixture.colliderStore, {}, noBuoyancy, 0, kSolverDt ) );
+    const Vector3 gameplayAngularVelocity =
+        SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
+
+    PersistentContactSolveTransaction contactPath;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        contactPath.ReserveSceneCapacity( 1u );
+    }
+    contactPath.ResetBodies( 1u );
+    auto& contactBody = contactPath.Body( 0u );
+    contactBody.invInertia = body.hot.inverseRotationalInertia;
+    contactBody.orientation = body.hot.orientation.GetOrientationMatrix();
+    contactBody.useWorldInertia = true;
+
+    SkullbonezCore::Physics::PersistentContact contact;
+    contact.bodyA = 0;
+    contact.bodyB = -1;
+    contact.rA = worldApplicationOffset;
+
+    // Body A receives the impulse opposite the solver-row direction. Negating
+    // the row impulse therefore applies the same world impulse as gameplay.
+    contactPath.ApplyImpulse( contact, -worldImpulse );
+    const Vector3 contactAngularVelocity = contactPath.Body( 0u ).angularVelocity;
+
+    // AI0 red characterization: the pending path currently divides the
+    // world-space torque by body-space diagonal inertia without rotating it.
+    // AI2 removes should_fail only after gameplay shares this contact arithmetic.
+    CHECK( gameplayAngularVelocity.x == doctest::Approx( contactAngularVelocity.x ) );
+    CHECK( gameplayAngularVelocity.y == doctest::Approx( contactAngularVelocity.y ) );
+    CHECK( gameplayAngularVelocity.z == doctest::Approx( contactAngularVelocity.z ) );
+}
+
+
 TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and outside replay state" )
 {
     SkullbonezCore::Physics::PersistentContactConvergenceTrace trace;
     SkullbonezCore::Physics::PersistentContactIterationDiagnostics sample;
 
-    for ( std::size_t iteration = 0u;
-          iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u; ++iteration )
+    for ( std::size_t iteration = 0u; iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u;
+          ++iteration )
     {
         sample.iteration = static_cast<int>( iteration + 1u );
         trace.Append( sample );
@@ -447,6 +490,36 @@ TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and 
     CHECK( disabled.solver.GetConvergenceTrace().Samples().empty() );
 }
 
+TEST_CASE( "Persistent contact solver: count-only specialization matches the full-record event count" )
+{
+    SolverFixture full;
+    full.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.1f, -0.2f, 0.3f ) );
+    full.AddTerrainContact( 0, 91u, 0.08f );
+    full.Solve( true, true );
+
+    const auto& fullEffects = full.solver.GetSideEffects();
+    REQUIRE_FALSE( fullEffects.pipelineRecords.empty() );
+    CHECK( fullEffects.pipelineEventCount == 0u );
+    const std::size_t fullEventCount = fullEffects.pipelineRecords.size();
+    const auto fullHotFields = full.bodyStore.HotFields();
+    const Vector3 fullPosition = PhysicsBodyPosition( fullHotFields, 0u );
+    const Vector3 fullLinearVelocity = PhysicsBodyLinearVelocity( fullHotFields, 0u );
+    const Vector3 fullAngularVelocity = PhysicsBodyAngularVelocity( fullHotFields, 0u );
+
+    SolverFixture countOnly;
+    countOnly.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.1f, -0.2f, 0.3f ) );
+    countOnly.AddTerrainContact( 0, 91u, 0.08f );
+    countOnly.Solve( true, false );
+
+    const auto& countOnlyEffects = countOnly.solver.GetSideEffects();
+    CHECK( countOnlyEffects.pipelineRecords.empty() );
+    CHECK( countOnlyEffects.pipelineEventCount == fullEventCount );
+    const auto countOnlyHotFields = countOnly.bodyStore.HotFields();
+    CHECK( PhysicsBodyPosition( countOnlyHotFields, 0u ) == fullPosition );
+    CHECK( PhysicsBodyLinearVelocity( countOnlyHotFields, 0u ) == fullLinearVelocity );
+    CHECK( PhysicsBodyAngularVelocity( countOnlyHotFields, 0u ) == fullAngularVelocity );
+}
+
 
 TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching terrain row" )
 {
@@ -459,68 +532,21 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( first.solver.GetStats().cachePreviousRows == 0 );
     CHECK( first.solver.GetStats().cacheMisses == 1 );
     CHECK( first.solver.GetPersistentContactCache()[0].accN > 0.0f );
-    PhysicsSolverSnapshot reducedCache;
-    first.solver.CaptureReplayState( reducedCache );
-    REQUIRE( reducedCache.persistentContactCache.size() == 1u );
-    reducedCache.persistentContactCache[0].accN *= 0.25f;
-    reducedCache.persistentContactCache[0].accT1 = 0.0f;
-    reducedCache.persistentContactCache[0].accT2 = 0.0f;
-    const float reducedCachedNormalImpulse = reducedCache.persistentContactCache[0].accN;
 
     SolverFixture second;
     second.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.1f, 0.0f ) );
     second.AddTerrainContact( 0, 42u, 0.05f );
-    second.solver.RestoreReplayState( reducedCache );
+    second.CopySolverStateFrom( first );
     second.Solve();
 
     CHECK( second.solver.GetStats().cachePreviousRows == 1 );
     CHECK( second.solver.GetStats().cacheHits == 1 );
     CHECK( second.solver.GetStats().warmStartedRows == 1 );
     CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
-    REQUIRE( second.solver.GetPersistentContacts().size() == 1u );
-    CHECK( second.solver.GetPersistentContacts()[0].terrainWarmStart > reducedCachedNormalImpulse );
-
-    const auto& pipeline = second.solver.GetSideEffects().pipelineRecords;
-    const auto warmStart = std::find_if(
-        pipeline.begin(), pipeline.end(), []( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-        { return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart && record.featureId == 42u; } );
-    REQUIRE( warmStart != pipeline.end() );
-    CHECK( warmStart->scalarB == doctest::Approx( reducedCachedNormalImpulse ).epsilon( 0.00001 ) );
 }
 
 
-TEST_CASE( "Persistent contact solver: manifold rows share one position-correction budget" )
-{
-    SolverFixture onePoint;
-    onePoint.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    const float onePointInitialY = onePoint.bodyStore.HotFields().positionY[0];
-    onePoint.AddTerrainFaceContact( 0, 520u, 0.2f, 1u );
-    onePoint.Solve();
-
-    SolverFixture fourPoints;
-    fourPoints.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    const float fourPointInitialY = fourPoints.bodyStore.HotFields().positionY[0];
-    fourPoints.AddTerrainFaceContact( 0, 530u, 0.2f, 4u );
-    fourPoints.Solve();
-
-    const auto& onePointStats = onePoint.solver.GetStats();
-    const auto& fourPointStats = fourPoints.solver.GetStats();
-    const float onePointDisplacement = fabsf( onePoint.bodyStore.HotFields().positionY[0] - onePointInitialY );
-    const float fourPointDisplacement = fabsf( fourPoints.bodyStore.HotFields().positionY[0] - fourPointInitialY );
-
-    CHECK( onePointStats.positionCorrectionRows == 1 );
-    CHECK( fourPointStats.positionCorrectionRows == 4 );
-    CHECK( onePointStats.positionCorrectionTotal == doctest::Approx( 0.16f ).epsilon( 0.00001 ) );
-    CHECK( onePointDisplacement == doctest::Approx( 0.08f ).epsilon( 0.00001 ) );
-    CHECK( fourPointStats.positionCorrectionTotal ==
-           doctest::Approx( onePointStats.positionCorrectionTotal ).epsilon( 0.00001 ) );
-    CHECK( fourPointStats.positionCorrectionMax ==
-           doctest::Approx( onePointStats.positionCorrectionMax * 0.25f ).epsilon( 0.00001 ) );
-    CHECK( fourPointDisplacement == doctest::Approx( onePointDisplacement ).epsilon( 0.00001 ) );
-}
-
-
-TEST_CASE( "Persistent contact solver: terrain row uses row-derived first-touch support instead of a fixed weight seed" )
+TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame resting sink" )
 {
     SolverFixture fixture;
     fixture.config.solver.iterations = 1;
@@ -533,43 +559,15 @@ TEST_CASE( "Persistent contact solver: terrain row uses row-derived first-touch 
     const auto& contact = fixture.solver.GetPersistentContacts()[0];
     const float expectedWeightImpulse = fixture.bodyStore.Records()[0].mass * gravityStepSpeed;
     CHECK( contact.terrainWarmStart == doctest::Approx( expectedWeightImpulse ).epsilon( 0.00001 ) );
-    CHECK( contact.accN == doctest::Approx( expectedWeightImpulse ).epsilon( 0.00001 ) );
     CHECK( fixture.solver.GetStats().warmStartedRows == 1 );
-    CHECK( fixture.solver.GetPersistentContactCounts()[0] == 1u );
     CHECK( fixture.terrainRestApplied[0] == 1u );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] >= -0.00001f );
 }
 
 
-TEST_CASE( "Persistent contact solver: terrain first-touch load is shared across every body contact row" )
+TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bob without becoming cached support" )
 {
-    SolverFixture fixture;
-    fixture.config.solver.iterations = 1;
-    const float gravityStepSpeed = fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
-    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -gravityStepSpeed, 0.0f ) );
-    fixture.AddTerrainContact( 0, 511u, 0.0f );
-    fixture.AddTerrainContact( 0, 512u, 0.0f );
-    fixture.Solve();
-
-    REQUIRE( fixture.solver.GetPersistentContacts().size() == 2u );
-    CHECK( fixture.solver.GetPersistentContactCounts()[0] == 2u );
-    const float expectedTotalImpulse = fixture.bodyStore.Records()[0].mass * gravityStepSpeed;
-    const float expectedRowImpulse = expectedTotalImpulse * 0.5f;
-    float totalFirstTouchImpulse = 0.0f;
-
-    for ( const auto& contact : fixture.solver.GetPersistentContacts() )
-    {
-        CHECK( contact.terrainWarmStart == doctest::Approx( expectedRowImpulse ).epsilon( 0.00001 ) );
-        totalFirstTouchImpulse += contact.terrainWarmStart;
-    }
-
-    CHECK( totalFirstTouchImpulse == doctest::Approx( expectedTotalImpulse ).epsilon( 0.00001 ) );
-    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] >= -0.00001f );
-}
-
-
-TEST_CASE( "Persistent contact solver: shoreline rows cache row-derived impulses without becoming sleep support" )
-{
+    constexpr float shorelineScale = 0.35f;
     constexpr float tiltedEdgeRadians = 0.75f;
     const float tiltedBoxCenterY = cosf( tiltedEdgeRadians ) + sinf( tiltedEdgeRadians );
 
@@ -617,7 +615,7 @@ TEST_CASE( "Persistent contact solver: shoreline rows cache row-derived impulses
     SolverFixture shoreline;
     shoreline.config.solver.iterations = 1;
     const float gravityStepSpeed = fabsf( shoreline.config.worldForces.gravity ) * kSolverDt;
-    const float shorelineResidualSpeed = gravityStepSpeed * 0.35f;
+    const float shorelineResidualSpeed = gravityStepSpeed * shorelineScale;
     TerrainContactManifold shorelineManifold = buildUnsupportedTerrainEdge( shoreline, shorelineResidualSpeed );
 
     PhysicsTerrainStage terrainStage;
@@ -643,23 +641,23 @@ TEST_CASE( "Persistent contact solver: shoreline rows cache row-derived impulses
     shoreline.Solve();
 
     REQUIRE( shoreline.solver.GetPersistentContacts().size() == shorelineManifold.pointCount );
-    float solvedNormalImpulse = 0.0f;
+    const float expectedShorelineImpulse = shoreline.bodyStore.Records()[0].mass * shorelineResidualSpeed;
+    float shorelineWarmStart = 0.0f;
 
     for ( const auto& contact : shoreline.solver.GetPersistentContacts() )
     {
-        solvedNormalImpulse += contact.accN;
-        CHECK( contact.terrainWarmStart > 0.0f );
-        CHECK( contact.accN >= 0.0f );
+        shorelineWarmStart += contact.terrainWarmStart;
+        CHECK( contact.terrainWarmStart ==
+               doctest::Approx( expectedShorelineImpulse / static_cast<float>( shorelineManifold.pointCount ) )
+                   .epsilon( 0.00001 ) );
     }
 
-    CHECK( solvedNormalImpulse > 0.0f );
+    CHECK( shorelineWarmStart == doctest::Approx( expectedShorelineImpulse ).epsilon( 0.00001 ) );
     CHECK( shoreline.solver.GetStats().warmStartedRows == shorelineManifold.pointCount );
-    CHECK( shoreline.solver.GetStats().cacheMisses == shorelineManifold.pointCount );
-    REQUIRE( shoreline.solver.GetPersistentContactCache().size() == shorelineManifold.pointCount );
-    CHECK( shoreline.solver.GetPersistentContactCounts()[0] == shorelineManifold.pointCount );
+    CHECK( shoreline.solver.GetPersistentContactCache().empty() );
     CHECK( shoreline.terrainRestApplied[0] == 0u );
     const float shorelineFinalVerticalVelocity = shoreline.bodyStore.HotFields().linearVelocityY[0];
-    CHECK( fabsf( shorelineFinalVerticalVelocity ) <= shorelineResidualSpeed * 0.085f );
+    CHECK( fabsf( shorelineFinalVerticalVelocity ) <= 0.0002f );
 
     const auto& shorelinePipeline = shoreline.solver.GetSideEffects().pipelineRecords;
     const auto
@@ -672,57 +670,48 @@ TEST_CASE( "Persistent contact solver: shoreline rows cache row-derived impulses
                                                       record.iteration == 0;
                                            } );
     REQUIRE( shorelineIteration != shorelinePipeline.end() );
-    CHECK( shorelineIteration->scalarA == 0.0f );
+    CHECK( fabsf( shorelineIteration->scalarA ) <= 0.00001f );
 
-    SolverFixture cached;
-    cached.config.solver.iterations = 1;
-    TerrainContactManifold cachedManifold = buildUnsupportedTerrainEdge( cached, shorelineResidualSpeed );
-    cached.terrainContactManifolds.push_back( cachedManifold );
-    cached.CopySolverStateFrom( shoreline );
-    cached.Solve();
+    SolverFixture unseeded;
+    unseeded.config.solver.iterations = 1;
+    TerrainContactManifold unseededManifold = buildUnsupportedTerrainEdge( unseeded, shorelineResidualSpeed );
+    unseededManifold.inhibitsSleep = false;
+    unseeded.terrainContactManifolds.push_back( unseededManifold );
+    unseeded.Solve();
 
-    REQUIRE( cached.solver.GetPersistentContacts().size() == cachedManifold.pointCount );
+    REQUIRE( unseeded.solver.GetPersistentContacts().size() == unseededManifold.pointCount );
 
-    for ( const auto& contact : cached.solver.GetPersistentContacts() )
+    for ( const auto& contact : unseeded.solver.GetPersistentContacts() )
     {
-        CHECK( contact.terrainWarmStart > 0.0f );
-        CHECK( contact.accN >= 0.0f );
+        CHECK( contact.terrainWarmStart == 0.0f );
     }
 
-    CHECK( cached.solver.GetStats().cachePreviousRows == shorelineManifold.pointCount );
-    CHECK( cached.solver.GetStats().cacheHits == cachedManifold.pointCount );
-    CHECK( cached.solver.GetStats().cacheMisses == 0 );
-    CHECK( cached.solver.GetStats().warmStartedRows == cachedManifold.pointCount );
-    REQUIRE( cached.solver.GetPersistentContactCache().size() == cachedManifold.pointCount );
-    CHECK( cached.solver.GetPersistentContactCounts()[0] == cachedManifold.pointCount );
-    CHECK( cached.terrainRestApplied[0] == 0u );
-    const float cachedFinalVerticalVelocity = cached.bodyStore.HotFields().linearVelocityY[0];
-    CHECK( fabsf( cachedFinalVerticalVelocity ) <= shorelineResidualSpeed * 0.085f );
-    CHECK( fabsf( cachedFinalVerticalVelocity ) < fabsf( shorelineFinalVerticalVelocity ) );
+    CHECK( unseeded.solver.GetStats().warmStartedRows == 0 );
 
-    const auto& cachedPipeline = cached.solver.GetSideEffects().pipelineRecords;
+    const auto& unseededPipeline = unseeded.solver.GetSideEffects().pipelineRecords;
     const auto
-        cachedIteration = std::find_if( cachedPipeline.begin(), cachedPipeline.end(),
-                                        [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-                                        {
-                                            return record.stage ==
-                                                       SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
-                                                   record.featureId == cachedManifold.points[0].featureId &&
-                                                   record.iteration == 0;
-                                        } );
-    REQUIRE( cachedIteration != cachedPipeline.end() );
-    CHECK( cachedIteration->scalarA == 0.0f );
+        unseededIteration = std::find_if( unseededPipeline.begin(), unseededPipeline.end(),
+                                          [&]( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+                                          {
+                                              return record.stage ==
+                                                         SkullbonezCore::Physics::PhysicsPipelineStage::SolverIteration &&
+                                                     record.featureId == unseededManifold.points[0].featureId &&
+                                                     record.iteration == 0;
+                                          } );
+    REQUIRE( unseededIteration != unseededPipeline.end() );
+    CHECK( unseededIteration->scalarA == 0.0f );
+    const float unseededFinalVerticalVelocity = unseeded.bodyStore.HotFields().linearVelocityY[0];
+    CHECK( unseededFinalVerticalVelocity == doctest::Approx( -shorelineResidualSpeed ).epsilon( 0.00001 ) );
+    CHECK( fabsf( shorelineFinalVerticalVelocity ) < fabsf( unseededFinalVerticalVelocity ) );
 }
 
 
-TEST_CASE( "Persistent contact solver: terrain support variants share row-derived load without first-touch over-push" )
+TEST_CASE( "Persistent contact solver: terrain seed strength bounds one-iteration three-box stack sink" )
 {
     struct StackMeasurement
     {
         std::array<float, 3> verticalVelocity = {};
-        float terrainNormalImpulse = 0.0f;
-        float firstTouchEstimate = 0.0f;
-        float gravityStepSpeed = 0.0f;
+        float terrainWarmStart = 0.0f;
     };
 
     auto measureStack = []( bool supportsRestingPolicy, bool inhibitsSleep, uint32_t featureId )
@@ -758,9 +747,7 @@ TEST_CASE( "Persistent contact solver: terrain support variants share row-derive
         REQUIRE( terrainContact != fixture.solver.GetPersistentContacts().end() );
 
         StackMeasurement result;
-        result.terrainNormalImpulse = terrainContact->accN;
-        result.firstTouchEstimate = terrainContact->terrainWarmStart;
-        result.gravityStepSpeed = gravityStepSpeed;
+        result.terrainWarmStart = terrainContact->terrainWarmStart;
         const auto solvedHotFields = fixture.bodyStore.HotFields();
 
         for ( std::size_t bodyIndex = 0; bodyIndex < result.verticalVelocity.size(); ++bodyIndex )
@@ -775,33 +762,22 @@ TEST_CASE( "Persistent contact solver: terrain support variants share row-derive
     const StackMeasurement shoreline = measureStack( false, true, 602u );
     const StackMeasurement zero = measureStack( false, false, 603u );
 
-    CHECK( full.firstTouchEstimate > 0.0f );
-    CHECK( shoreline.firstTouchEstimate > 0.0f );
-    CHECK( zero.firstTouchEstimate > 0.0f );
-    CHECK( full.firstTouchEstimate == doctest::Approx( shoreline.firstTouchEstimate ).epsilon( 0.00001 ) );
-    CHECK( shoreline.firstTouchEstimate == doctest::Approx( zero.firstTouchEstimate ).epsilon( 0.00001 ) );
-    CHECK( full.terrainNormalImpulse > 0.0f );
-    CHECK( shoreline.terrainNormalImpulse > 0.0f );
-    CHECK( zero.terrainNormalImpulse > 0.0f );
-    CHECK( full.terrainNormalImpulse == doctest::Approx( shoreline.terrainNormalImpulse ).epsilon( 0.00001 ) );
-    CHECK( shoreline.terrainNormalImpulse == doctest::Approx( zero.terrainNormalImpulse ).epsilon( 0.00001 ) );
-    CHECK( fabsf( full.verticalVelocity[2] ) < full.gravityStepSpeed );
-    CHECK( fabsf( shoreline.verticalVelocity[2] ) < shoreline.gravityStepSpeed );
-    CHECK( fabsf( zero.verticalVelocity[2] ) < zero.gravityStepSpeed );
-    CHECK( full.verticalVelocity[2] <= 0.00001f );
-    CHECK( shoreline.verticalVelocity[2] <= 0.00001f );
-    CHECK( zero.verticalVelocity[2] <= 0.00001f );
-    CHECK( full.firstTouchEstimate == doctest::Approx( 0.1f ).epsilon( 0.00001 ) );
-    CHECK( full.terrainNormalImpulse == doctest::Approx( 0.852343f ).epsilon( 0.00001 ) );
+    CHECK( full.terrainWarmStart > 0.0f );
+    CHECK( shoreline.terrainWarmStart == doctest::Approx( full.terrainWarmStart * 0.35f ).epsilon( 0.00001 ) );
+    CHECK( zero.terrainWarmStart == 0.0f );
     CHECK( full.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
-    CHECK( full.verticalVelocity[1] == doctest::Approx( -0.300611f ).epsilon( 0.00001 ) );
-    CHECK( full.verticalVelocity[2] == doctest::Approx( -0.0232174f ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[0] == doctest::Approx( full.verticalVelocity[0] ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[1] == doctest::Approx( full.verticalVelocity[1] ).epsilon( 0.00001 ) );
-    CHECK( shoreline.verticalVelocity[2] == doctest::Approx( full.verticalVelocity[2] ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[0] == doctest::Approx( full.verticalVelocity[0] ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[1] == doctest::Approx( full.verticalVelocity[1] ).epsilon( 0.00001 ) );
-    CHECK( zero.verticalVelocity[2] == doctest::Approx( full.verticalVelocity[2] ).epsilon( 0.00001 ) );
+    CHECK( full.verticalVelocity[1] == doctest::Approx( -0.249842f ).epsilon( 0.00001 ) );
+    CHECK( full.verticalVelocity[2] == doctest::Approx( 0.011951f ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[1] == doctest::Approx( -0.291092f ).epsilon( 0.00001 ) );
+    CHECK( shoreline.verticalVelocity[2] == doctest::Approx( -0.0166234f ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[0] == doctest::Approx( 0.0f ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[1] == doctest::Approx( -0.313303f ).epsilon( 0.00001 ) );
+    CHECK( zero.verticalVelocity[2] == doctest::Approx( -0.0320095f ).epsilon( 0.00001 ) );
+    CHECK( full.verticalVelocity[1] > shoreline.verticalVelocity[1] );
+    CHECK( shoreline.verticalVelocity[1] > zero.verticalVelocity[1] );
+    CHECK( full.verticalVelocity[2] > shoreline.verticalVelocity[2] );
+    CHECK( shoreline.verticalVelocity[2] > zero.verticalVelocity[2] );
 }
 
 
@@ -827,7 +803,11 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
     const PersistentContactCacheEntry& cached = fixture.solver.GetPersistentContactCache()[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
-    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient * cached.accN;
+    const float terrainWarmStart = fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) *
+                                   kSolverDt;
+
+    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient *
+                                ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
 
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
@@ -842,131 +822,12 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.diagnostics.GetDebugContacts().size() == 1u );
-    REQUIRE( fixture.solver.GetPersistentContacts().size() == 1u );
-    REQUIRE( fixture.solver.GetPersistentContactCache().size() == 1u );
-    const auto& contact = fixture.solver.GetPersistentContacts()[0];
-    const auto& cached = fixture.solver.GetPersistentContactCache()[0];
     CHECK( fixture.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
            fixture.config.body.contactRestitutionThreshold );
 
-    // Invariant: BV3 may change how a cold terrain row obtains support, and
-    // BV5 may divide positional repair across manifold rows, but neither may
-    // change terrain restitution. These values are the exact pre-campaign
-    // one-point sphere oracle: 0.5 N*s first-touch support, 4.5 m/s rebound,
-    // 21 N*s accumulated normal impulse, and no zero-penetration translation.
-    CHECK( contact.terrainWarmStart == doctest::Approx( 0.5f ).epsilon( 0.00001 ) );
-    CHECK( contact.bias == doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
-    CHECK( cached.accN == doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
-    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse ==
-           doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
-    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] ==
-           doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
-    CHECK( fixture.bodyStore.HotFields().positionY[0] ==
-           doctest::Approx( 1.0f ).epsilon( 0.00001 ) );
-}
-
-
-TEST_CASE( "Persistent contact solver: object restitution applies only to a fresh contact" )
-{
-    auto buildImpact = []( SolverFixture& fixture )
-    {
-        constexpr float restitution = 0.75f;
-        fixture.config.solver.slop = 0.0f;
-        fixture.config.solver.baumgarteBeta = 0.2f;
-        fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), restitution, true );
-        fixture.AddDynamicSphere( Vector3( 0.0f, 1.99f, 0.0f ), Vector3( 0.0f, -6.0f, 0.0f ), restitution );
-        fixture.candidatePairs.emplace_back( 0, 1 );
-    };
-
-    SolverFixture fresh;
-    buildImpact( fresh );
-    fresh.Solve();
-
-    REQUIRE( fresh.solver.GetPersistentContactCache().size() == 1u );
-    REQUIRE( fresh.diagnostics.GetDebugContacts().size() == 1u );
-    CHECK( fresh.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed > fresh.config.body.contactRestitutionThreshold );
-    CHECK( fresh.bodyStore.HotFields().linearVelocityY[1] > 0.0f );
-    const float freshSeparatingSpeed = fresh.bodyStore.HotFields().linearVelocityY[1];
-
-    SolverFixture persistent;
-    buildImpact( persistent );
-    persistent.CopySolverStateFrom( fresh );
-    persistent.Solve();
-
-    // Invariant: cached normal load marks support carried from the previous
-    // frame, so the same high closing speed gets Baumgarte repair but no new
-    // restitution energy. Cache reach is pinned separately against the exact
-    // resting-footprint classifier rather than inferred from feature shape.
-    REQUIRE( persistent.solver.GetStats().cacheHits == 1 );
-    REQUIRE( persistent.diagnostics.GetDebugContacts().size() == 1u );
-    REQUIRE( persistent.solver.GetPersistentContacts().size() == 1u );
-    CHECK( persistent.diagnostics.GetDebugContacts()[0].preSolveClosingSpeed >
-           persistent.config.body.contactRestitutionThreshold );
-    const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta *
-                                        persistent.solver.GetPersistentContacts()[0].penetration / kSolverDt;
-    CHECK( persistent.solver.GetPersistentContacts()[0].bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
-           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
-}
-
-
-TEST_CASE( "Persistent contact solver: restitution suppression follows exact resting-footprint cache reach" )
-{
-    constexpr float thinContactRotation = 0.75f;
-    constexpr float contactOverlap = 0.02f;
-    const float thinContactDistance = 1.0f + cosf( thinContactRotation ) + sinf( thinContactRotation ) - contactOverlap;
-
-    auto buildBoxPair = [&]( SolverFixture& fixture, const Vector3& dynamicPosition )
-    {
-        fixture.config.solver.slop = 0.0f;
-        fixture.config.solver.baumgarteBeta = 0.2f;
-        fixture.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
-        fixture.AddBox( dynamicPosition, thinContactRotation, false );
-        fixture.candidatePairs.emplace_back( 0, 1 );
-    };
-
-    SolverFixture verticalEdge;
-    buildBoxPair( verticalEdge, Vector3( 0.0f, thinContactDistance, -0.5f ) );
-    verticalEdge.Solve();
-
-    REQUIRE_FALSE( verticalEdge.solver.GetPersistentContacts().empty() );
-    CHECK( std::none_of( verticalEdge.solver.GetPersistentContacts().begin(),
-                         verticalEdge.solver.GetPersistentContacts().end(),
-                         []( const SkullbonezCore::Physics::PersistentContact& contact )
-                         { return contact.supportsRestingPolicy; } ) );
-    CHECK( verticalEdge.solver.GetPersistentContactCache().empty() );
-
-    SolverFixture lateralFresh;
-    buildBoxPair( lateralFresh, Vector3( 0.0f, -0.5f, thinContactDistance ) );
-    lateralFresh.Solve();
-
-    REQUIRE_FALSE( lateralFresh.solver.GetPersistentContacts().empty() );
-    CHECK( std::all_of( lateralFresh.solver.GetPersistentContacts().begin(),
-                        lateralFresh.solver.GetPersistentContacts().end(),
-                        []( const SkullbonezCore::Physics::PersistentContact& contact )
-                        { return contact.supportsRestingPolicy; } ) );
-    REQUIRE_FALSE( lateralFresh.solver.GetPersistentContactCache().empty() );
-
-    SolverFixture lateralPersistent;
-    buildBoxPair( lateralPersistent, Vector3( 0.0f, -0.5f, thinContactDistance ) );
-    lateralPersistent.bodyStore.MutableHotFields().linearVelocityZ[1] = -6.0f;
-    lateralPersistent.CopySolverStateFrom( lateralFresh );
-    lateralPersistent.Solve();
-
-    REQUIRE( lateralPersistent.solver.GetStats().cacheHits > 0 );
-    const auto reusedRow = std::find_if( lateralPersistent.solver.GetPersistentContacts().begin(),
-                                         lateralPersistent.solver.GetPersistentContacts().end(),
-                                         []( const SkullbonezCore::Physics::PersistentContact& contact )
-                                         { return contact.warmStarted; } );
-    REQUIRE( reusedRow != lateralPersistent.solver.GetPersistentContacts().end() );
-    const float expectedBaumgarteBias = lateralPersistent.config.solver.baumgarteBeta * reusedRow->penetration / kSolverDt;
-    CHECK( reusedRow->bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-
-    // Invariant: `supportsRestingPolicy`, not edge/corner vocabulary, defines
-    // resting-cache reach. Vertical box edge-only support is excluded; this
-    // lateral thin box contact is admitted and suppresses restitution after
-    // cached load.
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse > 0.0f );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
 }
 
 

@@ -7,11 +7,6 @@ Summary:
   Isolated simulation supplies completed frame rows. This owner derives the
   contiguous trajectory and causal-topology records consumed by presentation.
 
-Glossary:
-  Publication: Release of completed prediction rows and their derived visual records.
-  All-body trajectory: Space-scene path record built for every visible body
-    without requiring a causal contact edge.
-
 Invariants:
   - Derived rows never outpace the acquire-visible prediction frame prefix.
   - Trajectory and topology versions advance only after complete replacement data exists.
@@ -21,6 +16,7 @@ Related:
   - ReplayPredictionPublication.h
   - ReplayPredictionPublicationOperations.h
   - ReplayPredictionScheduling.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionPublicationOperations.h"
 #include "../Scene/SceneEntityStore.h"

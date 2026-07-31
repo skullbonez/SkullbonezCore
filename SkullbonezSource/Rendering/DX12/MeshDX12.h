@@ -8,13 +8,6 @@ Summary:
   draw gate for command readiness and Dx12Diagnostics for bounded draw evidence.
   It has no aggregate backend, raw trace, or raw counter reference.
 
-Glossary:
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
@@ -29,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -108,7 +102,6 @@ class MeshDX12
     {
         return m_format;
     }
-    void ResetResources();
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

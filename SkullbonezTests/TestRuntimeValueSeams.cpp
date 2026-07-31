@@ -516,9 +516,4 @@ TEST_CASE( "Replay overlay: cause-window packets clamp placement and scrolling" 
     CHECK( fresh.width == 380 );
     CHECK( fresh.height == 520 );
 
-    const SkullbonezCore::UI::UIRect tree = ReplayCauseTreePanelRect( 1024, 768 );
-    CHECK( ReplayCauseTreeVisibleRowCapacity( tree ) > 0 );
-    const SkullbonezCore::UI::UIRect firstRow = ReplayCauseTreeRowRect( tree, 0 );
-    const SkullbonezCore::UI::UIRect secondRow = ReplayCauseTreeRowRect( tree, 1 );
-    CHECK( secondRow.y - firstRow.y == doctest::Approx( REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
 }

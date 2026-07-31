@@ -11,10 +11,6 @@ Summary:
 Glossary:
   Launch resolution: Conversion of a CLI scene or suite token into the exact
     repository/file path and startup policy used by Run.
-  Physics-debug override: Visualization-only startup request that must not alter
-    solver state.
-  Run-value directive: Value-bearing Run, replay, UI-stress, or graphics-stress
-    option whose result belongs to the launch-policy packet.
 
 Invariants:
   - Scene/suite paths, diagnostics, defaults, and physics-debug messages remain
@@ -25,6 +21,7 @@ Related:
   - StartupCommandLine.h
   - StartupLaunchResolution.cpp
   - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

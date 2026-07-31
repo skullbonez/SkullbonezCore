@@ -24,12 +24,6 @@ Glossary:
     by its registered hard capacity.
   Development tool permission: Compile-time-only owner metadata that lets one
     calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
-  Capacity row: Allocation-free registry view of one fixed store's sizing rule,
-    element size, committed capacity, live count, high-water, and resident bytes.
-  Canonical publisher: The single claimed list instance allowed to mutate one
-    conceptual owner's capacity row; copies and same-name clones remain silent.
-  Capacity session: One loaded scene's live-usage window, ending immediately
-    before its store rows are cleared or replaced.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
@@ -50,6 +44,7 @@ Related:
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - AGENTS.md (Runtime Static Allocation Policy)
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

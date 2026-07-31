@@ -4,17 +4,9 @@ Purpose:
   Implements UI ComboBox widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UIComboBox.h implements UI ComboBox widgets, layout, drawing, or UI state
-
-  for the in-engine controls. As a public header, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Owns dropdown state and derives
+  field, option hit testing, and
+  drawing from one bounds model.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -23,6 +15,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIComboBox.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

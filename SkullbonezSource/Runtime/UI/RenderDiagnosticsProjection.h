@@ -9,8 +9,6 @@ Summary:
   synchronously and retain no owner or source pointer.
 
 Glossary:
-  Projection: Field-by-field conversion from an owning domain snapshot into a
-    consumer-owned value.
   Diagnostic snapshot: Immutable renderer counters sampled for one UI frame.
 
 Invariants:
@@ -21,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIRenderDiagnostics.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

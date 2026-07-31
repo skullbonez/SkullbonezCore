@@ -18,12 +18,8 @@ Glossary:
   Context exit release: Synthetic release emitted when an accepted action is
     still held but its owning context becomes inactive.
   Focus cancellation: Release events emitted when the application loses focus.
-  UI (user interface): Interactive engine controls evaluated between routing
-    phases.
   Fluid-surface command: Signed world-space velocity published in the immutable
     RuntimeInputSnapshot.
-  Pointer arbitration: Phase cursor that lets the first consuming editor,
-    pickup, camera, Replay, or launcher stage suppress every later owner call.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
@@ -36,6 +32,7 @@ Invariants:
 Related:
   - InputRouter.h defines the value records and caller contract.
   - SkullbonezTests/TestInputRouter.cpp covers edge and context behavior.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InputRouter.h"
 #include "../../Core/FatalError.h"
@@ -160,33 +157,6 @@ InputKeySnapshot InputKeySnapshot::FromWords( const std::array<uint64_t, WORD_CO
 }
 
 
-InputKeySnapshot InputKeySnapshot::FromDownKeys( const int* virtualKeys, std::size_t keyCount )
-{
-    InputKeySnapshot snapshot;
-
-    if ( !virtualKeys )
-    {
-        return snapshot;
-    }
-
-    for ( std::size_t index = 0; index < keyCount; ++index )
-    {
-        const int virtualKey = virtualKeys[index];
-
-        if ( virtualKey < 0 || virtualKey >= VIRTUAL_KEY_COUNT )
-        {
-            continue;
-        }
-
-        const std::size_t word = static_cast<std::size_t>( virtualKey ) / 64u;
-        const uint64_t bit = uint64_t { 1 } << ( static_cast<unsigned int>( virtualKey ) & 63u );
-        snapshot.m_words[word] |= bit;
-    }
-
-    return snapshot;
-}
-
-
 bool InputKeySnapshot::IsDown( int virtualKey ) const
 {
 
@@ -223,12 +193,6 @@ std::size_t InputActions::Count() const
 }
 
 
-bool InputActions::Empty() const
-{
-    return m_count == 0;
-}
-
-
 bool InputActions::Overflowed() const
 {
     return m_overflowed;
@@ -238,12 +202,6 @@ bool InputActions::Overflowed() const
 const InputActionEvent& InputActions::operator[]( std::size_t index ) const
 {
     return m_events[index];
-}
-
-
-const InputActionEvent* InputActions::Data() const
-{
-    return m_events.data();
 }
 
 
@@ -277,19 +235,7 @@ RuntimeInputContext& InputRouter::RuntimeContext()
 }
 
 
-const RuntimeInputContext& InputRouter::RuntimeContext() const
-{
-    return m_runtimeContext;
-}
-
-
 InputActions& InputRouter::Actions()
-{
-    return m_actions;
-}
-
-
-const InputActions& InputRouter::Actions() const
 {
     return m_actions;
 }

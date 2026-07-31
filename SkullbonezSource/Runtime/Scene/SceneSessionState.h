@@ -9,10 +9,6 @@ Summary:
   ledger; SceneController inherits that cohesive owner.
 
 Glossary:
-  Scene queue: Ordered list of authored scene paths, where an empty path means
-  the generated demo scene.
-  Cinematic deck: A queue of concept/cinematic scenes cycled as one authored
-  visual look set.
   Lifecycle packet: Value snapshot identifying one post-preflight load attempt
     and the last ordered phase that attempt reached.
 
@@ -31,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -129,7 +126,6 @@ class SceneSession
     int QueueSize() const;
     int CurrentIndex() const;
     int NextIndex() const;
-    const std::vector<std::string>& Queue() const;
 
     void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );

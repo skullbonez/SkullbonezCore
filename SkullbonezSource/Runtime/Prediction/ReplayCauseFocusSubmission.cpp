@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Cause focus: The selected body, contact, motion, or solver row highlighted by replay authoring.
-  Submission: Conversion of already-selected values into tracer draw commands.
 
 Invariants:
   - Stable PhysicsSceneObjectId values resolve through typed store handles.
@@ -22,6 +21,7 @@ Related:
   - ReplayPredictionDrawing.cpp
   - ReplayPredictionPresentation.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayPresentationSubmission.h"
 

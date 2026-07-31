@@ -10,9 +10,7 @@ Summary:
   rebuild; view methods expose only synchronous bounded rows.
 
 Glossary:
-  Replay transfer: Deterministic copy between owned sleep rows and the solver snapshot.
   Row view: Borrow of an owner-retained model-order buffer for one sequenced pass.
-  Capacity bytes: Reserved storage reported for diagnostics, not live row count.
 
 Invariants:
   - Replay capture and restore preserve every sleep-owned row in matching order.
@@ -24,6 +22,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsSleepController.h"
 

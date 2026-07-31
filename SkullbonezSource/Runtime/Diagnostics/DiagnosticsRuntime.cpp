@@ -10,18 +10,9 @@ Summary:
   shutdown memory-dump lifecycle.
 
 Glossary:
-  Artifact path: Stable validation/debug output path written for tools or
-    command-line flags.
-  Physics diagnostic command: One-frame key or UI request that changes debug
-    presentation state, not simulation state.
   Reconciled memory: Tracked engine bytes plus any process memory not accounted
 
     for by replay or model collection snapshots.
-  SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
-  JSON (JavaScript Object Notation): Text artifact format used for memory dumps.
-  Private working set: Resident process pages not shared with other processes;
-
-    matching it requires a page-level OS query.
 
 Invariants:
   - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
@@ -35,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsController.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsRuntime.h"
 #include "DiagnosticsPhysicsUI.h"
@@ -574,24 +566,6 @@ CaptureController& DiagnosticsRuntime::Capture()
 }
 
 
-const CaptureController& DiagnosticsRuntime::Capture() const
-{
-    return m_capture;
-}
-
-
-DiagnosticsController& DiagnosticsRuntime::Diagnostics()
-{
-    return m_diagnostics;
-}
-
-
-const DiagnosticsController& DiagnosticsRuntime::Diagnostics() const
-{
-    return m_diagnostics;
-}
-
-
 void DiagnosticsRuntime::BindProfiler( SkullbonezCore::Core::Profiler* profiler )
 {
     m_diagnostics.BindProfiler( profiler );
@@ -599,12 +573,6 @@ void DiagnosticsRuntime::BindProfiler( SkullbonezCore::Core::Profiler* profiler 
 
 
 RunPerfLogState& DiagnosticsRuntime::PerfLog()
-{
-    return m_diagnostics.PerfLog();
-}
-
-
-const RunPerfLogState& DiagnosticsRuntime::PerfLog() const
 {
     return m_diagnostics.PerfLog();
 }
@@ -619,12 +587,6 @@ void DiagnosticsRuntime::ClosePerfLog()
 void DiagnosticsRuntime::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
 {
     m_diagnostics.ClosePerfLogWithMemoryCheckpoint( pass, checkpoint );
-}
-
-
-void DiagnosticsRuntime::LogPerfMemory( int pass, const char* checkpoint )
-{
-    m_diagnostics.LogPerfMemory( pass, checkpoint );
 }
 
 
@@ -785,12 +747,6 @@ void DiagnosticsRuntime::SetMainMemoryDumpPath( const char* path )
     }
 
     strncpy_s( m_mainMemoryDumpPath, sizeof( m_mainMemoryDumpPath ), path, _TRUNCATE );
-}
-
-
-const char* DiagnosticsRuntime::MainMemoryDumpPath() const
-{
-    return m_mainMemoryDumpPath;
 }
 
 
@@ -958,18 +914,6 @@ RunPhysicsDiagnosticsState& DiagnosticsRuntime::PhysicsDiagnostics()
 }
 
 
-const RunPhysicsDiagnosticsState& DiagnosticsRuntime::PhysicsDiagnostics() const
-{
-    return m_diagnostics.PhysicsDiagnostics();
-}
-
-
-bool DiagnosticsRuntime::PhysicsDiagnosticsEnabled() const
-{
-    return m_diagnostics.PhysicsDiagnosticsEnabled();
-}
-
-
 void DiagnosticsRuntime::SetPhysicsRegressionLogOverride( const char* path )
 {
     RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_diagnostics.PerfLog(), path );
@@ -1073,9 +1017,5 @@ DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress()
 }
 
 
-const DiagnosticsRuntime::UIStressState& DiagnosticsRuntime::UIStress() const
-{
-    return m_uiStress;
-}
 } // namespace Runtime
 } // namespace SkullbonezCore

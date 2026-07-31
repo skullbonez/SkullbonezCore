@@ -491,6 +491,7 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorInteractionTools",
     "EditorObjectPlacement",
     "EditorPlacementAssets",
+    "EditorTerrainOrientation",
     "EditorTools",
     "EditorOverlayTools",
     "EditorTracer",

@@ -52,7 +52,6 @@ class Frustum
     static bool IntersectsHalfSpace( const Vector::Vector3& center, float radius, const float plane[4],
                                      float conservativeEpsilon = 0.05f );
 
-    const FrustumPlane& Plane( int index ) const;
 
   private:
     FrustumPlane m_planes[PLANE_COUNT] = {};

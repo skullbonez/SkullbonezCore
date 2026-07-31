@@ -4,17 +4,8 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Summary:
-  BoundingSphere.h defines sphere collision geometry, swept tests, volume
-  facts, and render transforms. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Defines sphere collision geometry, swept
+  tests, volume facts, and render transforms.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -24,6 +15,7 @@ Related:
   - SkullbonezSource/Physics/BoundingSphere.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -99,8 +91,8 @@ class BoundingSphere
                                             const Transformation::Matrix4& rotation )
         const;                                            // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
     float GetVolume() const;                              // V = (4/3) * π * r³
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight )
-        const;                                            // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
+
+    // Fraction [0,1] of sphere volume below fluidSurfaceHeight  (spherical cap integral)
     float GetDragCoefficient() const;                     // C_d ≈ 0.47  (smooth sphere)
     float GetProjectedSurfaceArea() const;                // A = π * r²  (circular cross-section)
     float GetRadius() const;                              // Collision radius in meters.

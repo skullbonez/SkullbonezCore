@@ -9,12 +9,9 @@ Summary:
   chase storage owners directly.
 
 Glossary:
-  View model: Read-only presentation snapshot assembled from runtime owners.
   Snapshot payload: Small copyable values such as counts, flags, indices, and
     bounded frame-local arrays.
   Presentation layer: UI or diagnostics code that reads state without owning it.
-  Presentation alpha: Bounded live interpolation fraction copied for UI
-    diagnostics; capture pin state explains intentional alpha 1 frames.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -22,6 +19,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -8,12 +8,6 @@ Summary:
   commands through the public bounded operations so text offsets and clip
   diagnostics remain owned by the destination list.
 
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
-
 Invariants:
   - Capacity exhaustion sets diagnostics and never allocates or reorders.
   - Reused command slots are zero-initialized before semantic hashing.
@@ -21,6 +15,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDrawList.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIDrawList.h"
 

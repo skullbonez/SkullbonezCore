@@ -8,14 +8,6 @@ Summary:
   through EditorPlacementAssets.h. Input routing, tracer ghosts, and placement
   commit all use this same source of recipe truth.
 
-Glossary:
-  Asset system: Runtime-owned registry used to resolve editor asset-library
-    names before falling back to conventional data paths.
-  Placement recipe: Data and helper logic used to preview or spawn one editor object type.
-  Asset primitive: Single collision shape in a placeable asset recipe, such as a
-    box, sphere, or convex hull.
-  Authored hull: Baked convex hull asset used for editor-placeable collision geometry.
-
 Invariants:
   - Preview bounds and placement commit must read the same asset recipe helpers.
   - Building-library path lookup borrows the runtime asset system; the parsed
@@ -28,8 +20,10 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"
+#include "EditorTerrainOrientation.h"
 #include "EditorTools.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../UI/UITabEditor.h"
@@ -1738,41 +1732,7 @@ Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNo
         return IDENTITY_QUATERNION;
     }
 
-    const float normalMag = VectorMag( terrainNormal );
-
-    if ( normalMag <= TOLERANCE )
-    {
-        return IDENTITY_QUATERNION;
-    }
-
-    terrainNormal /= normalMag;
-
-    const Vector3 up( 0.0f, 1.0f, 0.0f );
-    const float dot = std::clamp( Dot( up, terrainNormal ), -1.0f, 1.0f );
-    Quaternion orientation = IDENTITY_QUATERNION;
-
-    if ( dot > 0.9995f )
-    {
-        return orientation;
-    }
-
-    if ( dot < -0.9995f )
-    {
-        orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), _PI );
-        return orientation;
-    }
-
-    Vector3 axis = CrossProduct( up, terrainNormal );
-    const float axisMag = VectorMag( axis );
-
-    if ( axisMag <= TOLERANCE )
-    {
-        return orientation;
-    }
-
-    axis /= axisMag;
-    orientation.RotateAboutAxis( axis, acosf( dot ) );
-    return orientation;
+    return EditorTerrainOrientationFromNormal( terrainNormal );
 }
 
 
@@ -1935,21 +1895,6 @@ void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, co
             }
         }
     }
-}
-
-
-bool TryComputeEditorHouseWorldBounds( const EditorHouseDefinition& house, const Vector3& terrainPoint,
-                                       const RotationMatrix& orientation, Vector3& outMin, Vector3& outMax )
-{
-    outMin = Vector3( FLT_MAX, FLT_MAX, FLT_MAX );
-    outMax = Vector3( -FLT_MAX, -FLT_MAX, -FLT_MAX );
-
-    for ( int partIndex = 0; partIndex < house.partCount; ++partIndex )
-    {
-        ExpandEditorHousePartWorldBounds( house.parts[partIndex], terrainPoint, orientation, outMin, outMax );
-    }
-
-    return outMin.x != FLT_MAX && outMax.x != -FLT_MAX;
 }
 
 

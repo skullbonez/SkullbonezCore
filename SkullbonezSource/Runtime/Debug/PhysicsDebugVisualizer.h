@@ -4,19 +4,8 @@ Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Summary:
-  PhysicsDebugVisualizer.h draws physics contacts, axes, sleep state, and
-  pipeline diagnostics. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
-  output and local queries.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Draws physics contacts, axes,
+  sleep state, and pipeline diagnostics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -27,6 +16,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

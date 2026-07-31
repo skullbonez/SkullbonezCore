@@ -9,9 +9,6 @@ Summary:
   trigger state, a fixed request ring, and per-frame automation decisions.
 
 Glossary:
-  Capture result: Value outcome folded into the fixed accepted-request batch.
-  Auto-cycle: Screenshot automation that advances capture targets over time.
-  Screenshot request: Runtime state describing when and where to capture pixels.
   Accepted capture: Queued screenshot whose complete readback/file write succeeded.
   Frame gate: Per-frame decision that says whether a capture is due now.
 
@@ -23,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/CaptureSystem.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -65,7 +63,6 @@ class CaptureController
 
     void ResetScreenshot();
     void DisableAutomationExit();
-    bool IsScreenshotDue( bool isSceneMode, int currentFrame, double elapsedMs ) const;
     bool RequiresDeterministicPresentation( bool isSceneMode, int currentFrame, double elapsedMs ) const;
     RuntimeCaptureResult TickScreenshots( bool isSceneMode, bool isInteractiveRun, int currentFrame, double elapsedMs,
                                           const char* currentScenePath, Rendering::Dx12BackbufferCapture& backend );
@@ -80,7 +77,6 @@ class CaptureController
     std::size_t PendingScreenshotCount() const;
 
     SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::Dx12BackbufferCapture& backend, const char* path );
-    SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend, const char* path );
 
   private:
     SkullbonezCore::Core::SbDiagnosticStore& m_diagnostics;

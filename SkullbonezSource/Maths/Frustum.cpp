@@ -109,9 +109,4 @@ bool Frustum::IntersectsHalfSpace( const Vector::Vector3& center, float radius, 
     return signedDistance >= -expandedRadius;
 }
 
-const FrustumPlane& Frustum::Plane( int index ) const
-{
-    assert( index >= 0 && index < PLANE_COUNT );
-    return m_planes[index];
-}
 } // namespace SkullbonezCore::Math::Visibility

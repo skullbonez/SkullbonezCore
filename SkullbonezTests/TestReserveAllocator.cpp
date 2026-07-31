@@ -36,6 +36,8 @@
 //   - A new capacity session resets the visible and list-local peak lazily.
 //   - Grow-only default extension preserves the existing admitted prefix and
 //     value-initializes only newly admitted rows.
+//   - Non-trivial fixed-list relocation moves every live element without
+//     unwinding and destroys the retired prefix exactly once.
 //
 // Related:
 //   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
@@ -61,7 +63,6 @@
 #include <cstring>
 #include <new>
 #include <ranges>
-#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -766,106 +767,74 @@ TEST_CASE( "PhysicsFixedList: runtime and compile-time ceilings remain distinct"
 
 namespace
 {
-struct PhysicsFixedListThrowingValue
+struct PhysicsFixedListRelocationValue
 {
-    explicit PhysicsFixedListThrowingValue( int initialValue = 0 ) : value( initialValue )
+    explicit PhysicsFixedListRelocationValue( int initialValue = 0 ) : value( initialValue )
     {
         ++liveCount;
     }
 
-    PhysicsFixedListThrowingValue( const PhysicsFixedListThrowingValue& other ) : value( other.value )
+    PhysicsFixedListRelocationValue( const PhysicsFixedListRelocationValue& ) = delete;
+    PhysicsFixedListRelocationValue& operator=( const PhysicsFixedListRelocationValue& ) = delete;
+    PhysicsFixedListRelocationValue( PhysicsFixedListRelocationValue&& other ) noexcept : value( other.value )
     {
-        ++copyAttempts;
-
-        if ( throwOnCopyAttempt > 0 && copyAttempts == throwOnCopyAttempt )
-        {
-            throw std::runtime_error( "PhysicsFixedList copy probe" );
-        }
-
-        ++liveCount;
-    }
-
-    PhysicsFixedListThrowingValue( PhysicsFixedListThrowingValue&& other ) : value( other.value )
-    {
-        ++moveAttempts;
-
-        if ( throwOnMoveAttempt > 0 && moveAttempts == throwOnMoveAttempt )
-        {
-            throw std::runtime_error( "PhysicsFixedList move probe" );
-        }
-
+        ++moveConstructions;
         other.value = -1;
         ++liveCount;
     }
+    PhysicsFixedListRelocationValue& operator=( PhysicsFixedListRelocationValue&& ) = delete;
 
-    ~PhysicsFixedListThrowingValue()
+    ~PhysicsFixedListRelocationValue()
     {
         --liveCount;
     }
 
     int value = 0;
     static inline int liveCount = 0;
-    static inline int copyAttempts = 0;
-    static inline int throwOnCopyAttempt = 0;
-    static inline int moveAttempts = 0;
-    static inline int throwOnMoveAttempt = 0;
+    static inline int moveConstructions = 0;
 };
 } // namespace
 
 
-TEST_CASE( "PhysicsFixedList: failed non-trivial relocation cleans every constructed destination" )
+TEST_CASE( "PhysicsFixedList: non-trivial relocation preserves values and retires the old prefix" )
 {
     RuntimeAllocationScope sceneLoad( RuntimeAllocationPhase::SceneLoad );
-    using List = PhysicsFixedList<PhysicsFixedListThrowingValue, 8>;
-    PhysicsFixedListThrowingValue::liveCount = 0;
-    PhysicsFixedListThrowingValue::copyAttempts = 0;
-    PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
-    PhysicsFixedListThrowingValue::moveAttempts = 0;
-    PhysicsFixedListThrowingValue::throwOnMoveAttempt = 0;
+    using List = PhysicsFixedList<PhysicsFixedListRelocationValue, 8>;
+    PhysicsFixedListRelocationValue::liveCount = 0;
+    PhysicsFixedListRelocationValue::moveConstructions = 0;
 
     {
-        List source( "unit.physics-fixed-list.throwing-source", ExplicitTestCapacity );
+        List source( "unit.physics-fixed-list.relocation-source", ExplicitTestCapacity );
         source.Reserve( 3u );
-        source.push_back( PhysicsFixedListThrowingValue( 17 ) );
-        source.push_back( PhysicsFixedListThrowingValue( 23 ) );
-        REQUIRE( PhysicsFixedListThrowingValue::liveCount == 2 );
+        source.push_back( PhysicsFixedListRelocationValue( 17 ) );
+        source.push_back( PhysicsFixedListRelocationValue( 23 ) );
+        REQUIRE( PhysicsFixedListRelocationValue::liveCount == 2 );
 
-        PhysicsFixedListThrowingValue::copyAttempts = 0;
-        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 2;
-        bool relocationThrew = false;
+        PhysicsFixedListRelocationValue::moveConstructions = 0;
+        source.Reserve( 5u );
 
-        try
-        {
-            source.Reserve( 5u );
-        }
-        catch ( const std::runtime_error& )
-        {
-            relocationThrew = true;
-        }
-
-        CHECK( relocationThrew );
-        CHECK( source.capacity() == 3u );
+        CHECK( PhysicsFixedListRelocationValue::moveConstructions == 2 );
+        CHECK( source.capacity() == 5u );
         CHECK( source.size() == 2u );
         CHECK( source[0].value == 17 );
         CHECK( source[1].value == 23 );
-        CHECK( PhysicsFixedListThrowingValue::liveCount == 2 );
+        CHECK( PhysicsFixedListRelocationValue::liveCount == 2 );
         source.clear();
         const std::span<const RuntimeReserveCapacityView> capacityRows = RuntimeReserveAllocator::CapacityRows();
         const auto sourceRow = std::find_if( capacityRows.begin(), capacityRows.end(),
                                              []( const RuntimeReserveCapacityView& candidate )
-                                             {
-                                                 return candidate.ownerName &&
-                                                        std::strcmp( candidate.ownerName,
-                                                                     "unit.physics-fixed-list.throwing-source" ) == 0;
-                                             } );
+                                              {
+                                                  return candidate.ownerName &&
+                                                         std::strcmp( candidate.ownerName,
+                                                                      "unit.physics-fixed-list.relocation-source" ) == 0;
+                                              } );
         REQUIRE( sourceRow != capacityRows.end() );
-        CHECK( sourceRow->currentCapacity == 3 );
+        CHECK( sourceRow->currentCapacity == 5 );
         CHECK( sourceRow->liveCount == 0 );
         CHECK( sourceRow->sessionHighWater == 2 );
-        PhysicsFixedListThrowingValue::throwOnCopyAttempt = 0;
     }
 
-    CHECK( PhysicsFixedListThrowingValue::liveCount == 0 );
+    CHECK( PhysicsFixedListRelocationValue::liveCount == 0 );
 }
 
 

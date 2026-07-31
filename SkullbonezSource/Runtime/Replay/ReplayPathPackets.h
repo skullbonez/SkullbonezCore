@@ -9,7 +9,6 @@ Summary:
 
 Glossary:
   Retained path: Solver-history trajectory for the selected replay body.
-  Future node: Prediction-owned causal child exposed through a bounded path view.
 
 Invariants:
   - Scene object ids are durable; model rows are validated hints.
@@ -18,6 +17,7 @@ Invariants:
 Related:
   - ReplayPresentation.h
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionView.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

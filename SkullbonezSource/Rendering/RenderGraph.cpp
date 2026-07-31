@@ -5,15 +5,8 @@ Purpose:
   lifetime plans.
 
 Summary:
-  RenderGraph.cpp records render pass/resource intent, callback execution, and
-  transient texture lifetime plans. As an implementation unit, keep edits
-  anchored on render submission and resource lifetime and on the
-  glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Records render pass/resource intent, callback
+  execution, and transient texture lifetime plans.
 
 Invariants:
   - The graph records pass/resource intent, transient lifetime diagnostics, and
@@ -24,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderGraph.h"
 
@@ -865,12 +859,6 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
         result.transientDiagnostics.highWaterDescriptors = (std::max)( result.transientDiagnostics.highWaterDescriptors,
                                                                        liveDescriptors );
     }
-}
-
-
-RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const
-{
-    return ExecuteCallbacks( mode, 0u, static_cast<uint32_t>( m_passes.size() ) );
 }
 
 

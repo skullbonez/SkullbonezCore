@@ -56,6 +56,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
@@ -635,13 +636,19 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
         {
             const int column = index % 8;
             const int row = index / 8;
+            // Why: the bounded parallel case deliberately places adjacent
+            // fixed bodies across chunked rows. Their skipped pairs create
+            // holes in worker slices and exercise canonical compaction, while
+            // the 520-body case remains the all-dynamic serial-fallback proof.
+            const bool createReceiverGap = bodyCount == kParallelMutualGravityBodyCount && index % 9 < 2;
             AddMutualGravityBody( engine, terrainView, static_cast<uint32_t>( 300u + index ),
                                   Vector3( static_cast<float>( column * 20 - 70 ), static_cast<float>( 100 + row * 17 ),
                                            static_cast<float>( ( index * 13 ) % 29 - 14 ) ),
                                   Vector3( static_cast<float>( ( index % 5 ) - 2 ) * 0.03f,
                                            static_cast<float>( ( index % 3 ) - 1 ) * 0.02f,
                                            static_cast<float>( ( index % 7 ) - 3 ) * 0.01f ),
-                                  1.0f + static_cast<float>( index % 11 ) * 0.25f, 0.5f );
+                                  1.0f + static_cast<float>( index % 11 ) * 0.25f, 0.5f,
+                                  createReceiverGap ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic );
         }
 
         REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == bodyCount );
@@ -917,7 +924,8 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
     sample.world.scenePhysicsEnabled = true;
     sample.world.sceneTextEnabled = true;
     sample.contactCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
-    sample.pipelineRecordCount = static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
+    sample.pipelineRecordCount = static_cast<uint16_t>(
+        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineRecordCount( engine ) );
     engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
                                         MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 
@@ -1350,8 +1358,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
 
 TEST_CASE( "PhysicsEngine solar assist: same-state 120-second forecast matches live and depends on Earth gravity" )
 {
-    const SkullbonezCore::Runtime::AuthoredScene scene = SkullbonezCore::Runtime::AuthoredScene::
-        LoadFromFile( resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json" );
+    SkullbonezCore::Runtime::AuthoredScene scene;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene(
+        resultDiagnostics, "SkullbonezData/scenes/solar_system_mars_slingshot.scene.json", scene ) );
 
     DeterminismTerrainFixture liveFixture( kDeepSpaceTerrainBaseY );
     DeterminismTerrainFixture forecastFixture( kDeepSpaceTerrainBaseY );

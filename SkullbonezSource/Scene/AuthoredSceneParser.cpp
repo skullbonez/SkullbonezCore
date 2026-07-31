@@ -8,11 +8,6 @@ Summary:
   AuthoredSceneParser result. Shared validation and failure policy live in
   AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
-Glossary:
-  Schema domain: Cohesive authored section translated without creating another
-    scene owner or intermediate model.
-  Lane R: Recoverable invalid-input result accumulated by the active parser.
-
 Invariants:
   - Authored JSON field names remain command-line and scene-file compatibility.
   - Parser failure stops further mutation and is returned without an engine throw.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "AuthoredSceneParserSchema.h"
 
@@ -673,31 +669,6 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadStyle( const char* pa
     return TryLoadDocument( path, true, outScene );
 }
 
-AuthoredScene AuthoredSceneParser::LoadScene( const char* path )
-{
-    AuthoredScene scene;
-    const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
-
-    if ( !result.Ok() )
-    {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
-    }
-
-    return scene;
-}
-
-AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
-{
-    AuthoredScene scene;
-    const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
-
-    if ( !result.Ok() )
-    {
-        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.ErrorMessage() );
-    }
-
-    return scene;
-}
 
 SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly,
                                                                      AuthoredScene& outScene )
@@ -742,18 +713,6 @@ SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadDocument( const char*
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-
-AuthoredScene LoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
-                                             const Assets::AssetSystem* assets )
-{
-    return AuthoredSceneParser( resultDiagnostics, assets ).LoadScene( path );
-}
-
-AuthoredScene LoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const char* path,
-                                          const Assets::AssetSystem* assets )
-{
-    return AuthoredSceneParser( resultDiagnostics, assets ).LoadStyle( path );
-}
 
 SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                                  const char* path, const Assets::AssetSystem* assets,

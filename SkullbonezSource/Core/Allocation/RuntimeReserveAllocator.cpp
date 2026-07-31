@@ -19,12 +19,6 @@ Glossary:
     startup preallocation or replay-approved growth.
   Last phase/frame: Compact breadcrumbs that identify where an owner last
     allocated or grew without needing heap-backed logs.
-  Development tool owner: ImGui or Tracy attribution admitted only by the
-    shared compile capability and rejected after its active-byte cap.
-  Capacity row: Fixed registry storage carrying one store's live sizing
-    telemetry without building a heap-backed report.
-  Capacity session: One scene's high-water interval. A generation lets each
-    retained store reset its local peak lazily without a central store list.
 
 Invariants:
   - The registry uses fixed arrays and atomics only; no STL containers or heap
@@ -41,6 +35,7 @@ Related:
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeReserveAllocator.h"
 

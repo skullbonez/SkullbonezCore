@@ -10,9 +10,6 @@ Summary:
   remain private to the DX12 owner.
 
 Glossary:
-  BLAS (Bottom-Level Acceleration Structure): Raytracing index for one mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Scene instance table that references BLAS geometry.
-  UAV (Unordered Access View): Descriptor row used when raytracing writes the reflection texture.
   GPU VA (GPU Virtual Address): Device address of vertex data used during cold acceleration-structure setup.
 
 Invariants:
@@ -23,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

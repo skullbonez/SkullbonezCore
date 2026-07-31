@@ -10,13 +10,8 @@ Summary:
   bookkeeping and a value gate configuration for the synchronous load phase.
 
 Glossary:
-  Authored scene: Parsed `.scene.json` data that explicitly drives runtime
-    setup.
-  Required contact: Validation gate requiring two named bodies to touch.
   Required broadphase cells: Validation gate requiring the broadphase grid to
     activate a particular x-cell span.
-  Scene entity: Durable scene-owned identity, display, material, and asset row
-    committed beside the live physics body.
 
 Invariants:
   - Helpers borrow SceneWorld as one owner and retain no store pointer.
@@ -29,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

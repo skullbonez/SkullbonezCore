@@ -4,19 +4,8 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Summary:
-  BoundingSphere.cpp defines sphere collision geometry, swept tests, volume
-  facts, and render transforms. As an implementation unit, keep edits anchored
-  on deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Defines sphere collision geometry, swept
+  tests, volume facts, and render transforms.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -26,6 +15,7 @@ Related:
   - SkullbonezSource/Physics/BoundingSphere.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "BoundingSphere.h"
 #include "BoundingBox.h"
@@ -221,47 +211,6 @@ float BoundingSphere::GetVolume() const
 
     // m_volume of sphere = 4/3 * PI * m_radius^3
     return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
-}
-
-
-float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
-{
-
-    // Buoyancy needs "how much of this sphere is under the water line?" Full
-    // above/below cases are simple; the middle case is the spherical-cap formula
-    // for a ball sliced by a flat plane.
-    // Compare the sphere's bottom (center.y - r) and top (center.y + r) against the fluid surface.
-
-    if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
-    {
-
-        // not touching fluid
-        return 0.0f;
-    }
-    else if ( m_position.y + m_radius <= m_fluidSurfaceHeight )
-    {
-
-        // totally submerged in fluid
-        return 1.0f;
-    }
-    else
-    {
-
-        /*
-            Partially submerged: compute the volume of a spherical cap.
-
-            A "spherical cap" is the dome-shaped region of a sphere below a cutting plane.
-            If y = depth of the cap (distance from the bottom of the sphere to the waterline):
-
-                V_cap = π/3 * (3r - y) * y²   (standard formula for spherical cap volume)
-
-            The submerged percentage is V_cap / V_sphere.
-
-            Formula from: http://vps.arachnoid.com/calculus/volume1.html
-        */
-        float yValue = m_fluidSurfaceHeight - ( m_position.y - m_radius );
-        return ( ( ( ONE_OVER_THREE * _PI * ( ( 3.0f * m_radius ) - yValue ) * yValue * yValue ) ) / GetVolume() );
-    }
 }
 
 

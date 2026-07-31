@@ -8,16 +8,10 @@ Summary:
   taking ownership of trajectory, baseline, topology, marker, or lookup state.
 
 Glossary:
-  Published prefix: Contiguous prediction frames whose completed rows are
-    visible to readers after a release/acquire publication step.
   Topology publication: Bounded cause-tree and trajectory values derived only
     from the published frame prefix.
   Affected-body trail: Bounded fallback evidence for a moving body that is not
     already represented by the published causal topology.
-  All-body trajectory: Mutual-gravity future path published independently of
-    contact causality.
-  Model row hint: Sample-local shortcut repaired against stable scene identity;
-    never durable identity itself.
   Build-root prefix: Worker-filled root points made reader-visible only through
     the frame thread's acquire-latched presentation count.
 
@@ -34,6 +28,7 @@ Related:
   - ReplayPredictionPublication.cpp
   - ReplayPredictionTopologyPublication.cpp
   - ReplayPrediction.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

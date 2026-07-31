@@ -89,7 +89,7 @@
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <!-- The CPU test target compiles Terrain/AssetSystem value paths without linking native DX12 owners. -->
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;_DEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -115,7 +115,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -142,7 +142,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -168,7 +168,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>ThirdPtySource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;SKULLBONEZ_TEST_PROFILE_ALLOCATION_FATAL;_CONSOLE;DOCTEST_CONFIG_NO_RTTI;DOCTEST_CONFIG_USE_STD_HEADERS;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Sync</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -205,7 +205,6 @@
     <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
-    <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12OnlyRuntime.cpp" />
     <ClCompile Include="SkullbonezTests\TestDx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestShaderReflectionContracts.cpp" />
@@ -218,6 +217,7 @@
     <ClCompile Include="SkullbonezTests\TestOrbitalMechanics.cpp" />
     <ClCompile Include="SkullbonezTests\TestOwnerRequestQueues.cpp" />
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezTests\TestEditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
@@ -277,6 +277,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Capture\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorTerrainOrientation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderDefaultsStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsPhysicsUI.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />

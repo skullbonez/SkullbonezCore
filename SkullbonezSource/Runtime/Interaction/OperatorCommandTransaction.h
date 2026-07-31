@@ -14,11 +14,6 @@ Mental model:
   Each phase sees the final values left by the preceding phase; later commands
   are therefore the explicit winner when two commands touch the same state.
 
-Glossary:
-  Acceptance ledger: Detached facts describing commands accepted this frame.
-  Phase cursor: Value that permits only the adjacent OC0 phase walk.
-  Lane F: Fatal invariant path used for programmer ordering errors.
-
 Invariants:
   - The only legal walk is Idle -> DeviceAndMode -> PhysicsControl ->
     RuntimePresentation -> SimulationPolicy -> PhysicsMaterial -> WorldPolicy ->
@@ -36,6 +31,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
   - SkullbonezSource/UI/UICommands.h
   - Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

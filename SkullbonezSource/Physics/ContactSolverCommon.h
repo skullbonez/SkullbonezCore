@@ -4,17 +4,8 @@ Purpose:
   Shares contact-row math helpers and data structures across physics solver code.
 
 Summary:
-  ContactSolverCommon.h shares contact-row math helpers and data structures
-  across physics solver code. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Shares contact-row math helpers and data
+  structures across physics solver code.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -23,6 +14,7 @@ Invariants:
 Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

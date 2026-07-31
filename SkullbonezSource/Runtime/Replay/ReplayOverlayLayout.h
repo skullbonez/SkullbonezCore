@@ -9,14 +9,8 @@ Summary:
   so the runtime composition root does not own screen-space replay layout.
 
 Glossary:
-  Scrubber: Timeline control for seeking retained replay frames and future
-    prediction frames.
   Track: Normalized timeline lane, either presentation or solver-backed.
-  Cause window: Resizable replay inspection panel that lists body/contact rows.
   Hot zone: Bottom-screen hover strip that reveals replay controls.
-  Control surface: Fixed-capacity per-frame table shared by scrubber hit testing
-    and, in later phases, drawing.
-  UIRect: Pixel-space rectangle shared by hit testing and drawing.
 
 Invariants:
   - Constants in this file shape both hit testing and rendering.
@@ -26,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.cpp
   - SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -147,9 +142,6 @@ UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH );
 float ReplayPredictionHorizonT( float seconds );
 float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon );
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH );
-UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH );
-UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow );
-int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel );
 UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state );
 UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state );

@@ -9,10 +9,8 @@ Summary:
   the presentation domain owns its state transitions.
 
 Glossary:
-  Active cell: A populated broadphase grid bucket drawn by the spatial overlay.
   Contact linger: Seconds that contact debug lines remain visible after their
     source contact leaves the solver output.
-  Pipeline cursor: Selected physics pipeline stage rendered by the debug pass.
 
 Invariants:
   - Construction is a single bounded startup allocation outside steady play.
@@ -24,6 +22,7 @@ Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeOverlayDiagnostics.h
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"

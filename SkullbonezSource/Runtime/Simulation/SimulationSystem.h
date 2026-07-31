@@ -8,17 +8,6 @@ Summary:
   state into deterministic physics ticks. Run remains responsible for
   camera/UI logic that consumes the returned simulation/camera deltas.
 
-Glossary:
-  Fixed-step: Deterministic mode that advances physics by one fixed delta per
-    requested tick instead of wall-clock time.
-  Accumulator: Stored fractional tick state that carries time across frames.
-  Commit count: Number of fixed physics ticks the runtime owner must execute
-    after the scheduler has updated accumulator state.
-  Presentation alpha: Bounded leftover accumulator fraction used only to
-    display between the previous and current completed physics poses.
-  Hitch event: A fixed-step request whose whole-tick demand exceeds the
-    per-frame catch-up cap; excess whole ticks are intentionally discarded.
-
 Invariants:
   - SimulationSystem decides tick counts only; it does not borrow model owners,
     physics stores, world forces, worker pools, or presentation callbacks.
@@ -32,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

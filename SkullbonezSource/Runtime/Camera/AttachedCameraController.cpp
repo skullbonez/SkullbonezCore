@@ -10,8 +10,6 @@ Summary:
   and input owners without reaching back into controller state.
 
 Glossary:
-  Scene object id: Stable physics identity used to recover a followed body when
-    dense model rows are rebuilt.
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
     and looks along that body's forward axis.
   Orbit wheel: Mouse-wheel zoom applied to attach orbit distance.
@@ -28,6 +26,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Camera/AttachedCameraController.h
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
@@ -850,7 +849,7 @@ void AttachedCameraController::CaptureOrbit( AttachedCameraState& state, const A
     }
 
     const float pitchDistance = (std::max)( distance, 0.001f );
-    const float normalizedY = std::clamp( offset.y / pitchDistance, -1.0f, 1.0f );
+    const float normalizedY = SkullbonezCore::Math::ClampUnit( offset.y / pitchDistance );
     state.orbitDistance = ClampAttachedCameraOrbitDistance( target.radius, distance );
     state.orbitPitchRadians = ClampAttachedCameraOrbitPitch( asinf( normalizedY ) );
     state.orbitYawRadians = WrapAttachedCameraOrbitYaw( atan2f( offset.x, offset.z ) );

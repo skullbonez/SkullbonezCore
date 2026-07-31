@@ -9,17 +9,7 @@ Summary:
   visible even when fired straight out of the crosshair.
 
 Glossary:
-  Billboard: Camera-facing quad built from a world-space segment and view
-    direction.
-  Ribbon: Thin quad strip used to render one laser streak.
   Afterimage: Fading visual trail that remains briefly after the shot.
-  Resource builder: Cold renderer owner borrowed only while compiling the
-    laser shader.
-  Geometry owner: Renderer owner borrowed while creating or destroying the
-    laser vertex buffer.
-  Render command context: Per-frame renderer capability borrowed only while
-    drawing laser vertices and temporarily changing draw state.
-  Shader handle: Runtime id that resolves to a renderer-owned shader resource.
 
 Invariants:
   - Laser shots are visual feedback only; physics impulses happen elsewhere.
@@ -28,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "LauncherLaser.h"
 
@@ -107,11 +98,6 @@ void LauncherLaser::ResetResources( Rendering::Dx12GeometryOwner* renderGeometry
     m_rasterStatePrepared = false;
 }
 
-void LauncherLaser::Clear()
-{
-    m_shots = {};
-    m_nextShot = 0;
-}
 
 void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                      Rendering::Dx12GeometryOwner& renderGeometry )

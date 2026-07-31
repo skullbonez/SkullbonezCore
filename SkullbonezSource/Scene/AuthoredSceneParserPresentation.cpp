@@ -8,11 +8,6 @@ Summary:
   AuthoredSceneParser result. Shared validation and failure policy live in
   AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
-Glossary:
-  Schema domain: Cohesive authored section translated without creating another
-    scene owner or intermediate model.
-  Lane R: Recoverable invalid-input result accumulated by the active parser.
-
 Invariants:
   - Authored JSON field names remain command-line and scene-file compatibility.
   - Parser failure stops further mutation and is returned without an engine throw.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "AuthoredSceneParserSchema.h"
 

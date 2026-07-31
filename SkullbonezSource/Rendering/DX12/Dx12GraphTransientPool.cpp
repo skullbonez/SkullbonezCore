@@ -11,7 +11,6 @@ Summary:
 
 Glossary:
   Materialization: Creating the native texture and view rows for a logical slot.
-  Covering fence: Completion proof required before descriptor/resource reuse.
   Current access: Last compiled graph use emitted for a physical texture slot.
 
 Invariants:
@@ -26,6 +25,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12GraphTransientPool.h"
 

@@ -5,17 +5,8 @@ Purpose:
   lifetime plans for the renderer.
 
 Summary:
-  RenderGraph.h records render pass/resource intent, callback ordering, and
-  transient texture lifetime plans for the renderer. As a public header, keep
-  edits anchored on render submission and resource lifetime and on the
-  glossary/invariants below.
-
-Glossary:
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Records render pass/resource intent, callback ordering,
+  and transient texture lifetime plans for the renderer.
 
 Invariants:
   - Render graph handles are graph-local ids, not CPU pointers or GPU descriptor
@@ -34,6 +25,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.h
   - Agentic/Reports/2026-07-20/render-graph-completion-closure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -690,7 +682,6 @@ class RenderGraph
 
     // Executes callback-owned passes in declaration order. The range overload
     // is the production path for newly appended one-shot callback payloads.
-    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
     RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass,
                                                          uint32_t passCount ) const;
 

@@ -9,7 +9,6 @@ Summary:
 
 Glossary:
   Physics debug flag: Physics-owned bit identifying one visual diagnostic layer.
-  Pipeline cursor: Wrapped index selecting the displayed physics pipeline stage.
 
 Invariants:
   - Command application changes diagnostic presentation only, never simulation.
@@ -20,6 +19,7 @@ Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsPhysicsUI.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - SkullbonezSource/UI/UICommands.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DiagnosticsPhysicsUI.h"
 

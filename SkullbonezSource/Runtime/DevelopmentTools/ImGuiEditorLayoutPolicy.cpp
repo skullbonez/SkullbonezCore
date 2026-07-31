@@ -244,6 +244,7 @@ bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) 
     return false;
 }
 
+
 ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, std::size_t textBytes ) noexcept
 {
     ImGuiEditorPreferenceParseResult result;

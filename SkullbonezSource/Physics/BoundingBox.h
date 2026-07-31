@@ -4,23 +4,12 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  BoundingBox.h defines oriented-box collision geometry and its
-  broadphase/render helper math. As a public header, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  Defines oriented-box collision geometry
+  and its broadphase/render helper math.
 
 Glossary:
-  AABB (Axis-Aligned Bounding Box): Box aligned to world axes, often used for
-  cheap broadphase overlap tests.
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
   Half-extents: Positive distance from the box center to one face along each
   local axis; full box dimensions are twice these values.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -30,6 +19,7 @@ Related:
   - SkullbonezSource/Physics/BoundingBox.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -92,7 +82,6 @@ class BoundingBox
     // --- Shape interface (matches BoundingSphere for std::visit dispatch) ---
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;
     float GetProjectedSurfaceArea() const;
     float GetBoundingRadius() const;

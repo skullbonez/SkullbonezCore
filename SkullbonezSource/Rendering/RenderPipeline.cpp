@@ -8,10 +8,6 @@ Summary:
   This file adds value-only frame outcomes and writes that graph without
   reconstructing pass order or resource intent.
 
-Glossary:
-  Live graph: The production RenderGraph whose callbacks recorded this frame.
-  Snapshot: Value-only outcomes captured after production callbacks executed.
-
 Invariants:
   - Diagnostics never build a second graph or install marker callbacks.
   - Snapshot equality suppresses redundant disk writes; graph text equality is
@@ -21,6 +17,7 @@ Related:
   - SkullbonezSource/Rendering/RenderPipeline.h
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderPipeline.h"
 

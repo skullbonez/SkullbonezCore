@@ -9,7 +9,6 @@ Summary:
   whether release owes one authoritative refresh.
 
 Glossary:
-  Cause row: One body, contact, solver, or prediction explanation in the replay causality tree.
   Dense-row hint: Frame-local model row validated against a stable scene object id before use.
   Drag changed: Bit recording that at least one accepted velocity mutation
     requires a release-time prediction refresh.
@@ -22,6 +21,7 @@ Invariants:
 Related:
   - ReplayAuthoring.h
   - ReplayOverlayPackets.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

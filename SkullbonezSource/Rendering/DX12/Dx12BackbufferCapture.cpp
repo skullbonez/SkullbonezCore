@@ -10,8 +10,6 @@ Summary:
 
 Glossary:
   Footprint: DX12 row-pitch and placement description for a texture copy.
-  Covering fence: Queue counter proving the copy no longer references readback
-    storage.
   Uncertain result: Close or wait failure for which immediate COM release is
     forbidden by the capture policy.
 
@@ -25,6 +23,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12BackbufferCapture.h"
 
@@ -202,8 +201,9 @@ void Dx12BackbufferCapture::Quarantine( ID3D12Resource* resource, const char* fa
     if ( m_quarantinedCount >= m_quarantined.size() )
     {
         SB_FATAL( "Dx12BackbufferCapture",
-                  "Uncertain readback quarantine exhausted. operation=%s capacity=%zu high_water=%zu",
-                  failedOperation ? failedOperation : "unknown", m_quarantined.size(), m_quarantinedCount );
+                  "Uncertain readback quarantine exhausted. owner=Rendering/DX12/Capture phase=uncertain_submission "
+                  "operation=%s count=%zu capacity=%zu",
+                  failedOperation ? failedOperation : "unknown", m_quarantinedCount, m_quarantined.size() );
     }
 
     m_quarantined[m_quarantinedCount++] = resource;

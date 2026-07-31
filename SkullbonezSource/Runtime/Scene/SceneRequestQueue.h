@@ -8,10 +8,6 @@ Summary:
   controller owns this ring and hands Run one value-only batch at the scene
   execution checkpoint until the full load lifecycle moves behind the owner.
 
-Glossary:
-  Scene request: Deferred load, reset, create, or defaults-save intent.
-  Request batch: Ordered fixed-capacity copy drained at one frame checkpoint.
-
 Invariants:
   - Submission order is observable same-frame behavior.
   - A frame batch contains at most the first submitted scene transition.
@@ -21,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

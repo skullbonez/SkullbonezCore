@@ -10,8 +10,6 @@ Summary:
   failed process.
 
 Glossary:
-  SEH (Structured Exception Handling): Windows exception record delivered for
-    faults such as invalid memory access.
   Symbol displacement: Byte offset from a resolved function start to the fault.
   Terminate handler: Last-resort callback for an unexpected exception-free
     engine termination.
@@ -24,6 +22,7 @@ Invariants:
 Related:
   - StartupCrashLogging.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "StartupCrashLogging.h"
 

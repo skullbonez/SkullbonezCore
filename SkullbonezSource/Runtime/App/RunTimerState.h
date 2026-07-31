@@ -16,8 +16,6 @@ Glossary:
   rather than physics authority.
   Timer startup boundary: Explicit high-resolution counter check that can fail
     from platform/environment limits before the frame loop begins.
-  Lifecycle generation: Scene-load attempt identity used to apply timer reset
-    and restart actions at most once.
 
 Invariants:
   - Timer members are process-lifetime values owned by Run; borrowers may sample
@@ -31,6 +29,7 @@ Related:
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -13,34 +13,12 @@ Mental model:
   gesture is active; tools retain only the start values needed to apply it.
 
 Glossary:
-  Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
-    placeable recipe comes from an asset library.
   Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
     data that persists between frames.
-  Replay visual sample: Compact snapshot of tool visuals restored while replay
-    scrubbing so debug feedback follows recorded frames.
-  Replay target marker: Debug overlay outline/ring drawn around a replay body
-    from live body/collider store values.
-  Replay ribbon: Screen-space-width overlay stroke generated from replay path
-    segments, with an analytic edge and optional selected-path halo.
-  Retained ribbon chunk: Fixed compact segment slice appended by prediction;
-    its physical handle is stable while packet commands sort it canonically.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
-  Body store: Physics-owned dense body rows borrowed by tool hit tests and
-    command paths without reading mirrored legacy object record body state.
-  Collider store: Physics-owned dense collider rows borrowed for shape-derived
-    hit-test bounds.
-  Physics body handle: Generational id for a live simulation body row; runtime
-    tools store it when they need to issue physics commands.
-  Model row hint: Cached dense model-order row paired with stable body/collider
-    handles; resolve it before use because collection edits can move rows.
-  Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
-    the oldest slots.
   Launcher tuning command: One-frame Physics-tab packet that edits launcher
     raycast visualization, impulse strength, or projectile speed.
-  Lifecycle generation: Scene-load identity used to invalidate transient tool
-    gestures, history, and ray lines exactly once after clearing.
 
 Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
@@ -59,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -579,13 +558,6 @@ class EditorTracer
     void AddReplayImpulseVector( const Math::Vector::Vector3& point, const Math::Vector::Vector3& impulse, float r, float g,
                                  float b );
 
-    // Draws the downstream replay collision marker from the exact collider
-    // shape at the predicted contact frame. Callers pass explicit pose/shape so
-    // future-node overlays never fall back to broadphase radius rings.
-    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& position,
-                                      const Math::Orientation::Quaternion& orientation,
-                                      const Math::CollisionDetection::CollisionShapeReference& shape, int depth );
-
     // Draws the yellow causal-entry outline: a predicted body's in-place pose
     // at the prediction start (perfect formation for a wall brick). Pose comes
     // from prediction samples, never from live model state.
@@ -644,7 +616,6 @@ class RuntimeTools
     }
 
     RunRayCastTestState& RayCastTest();
-    const RunRayCastTestState& RayCastTest() const;
     bool ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands );
     RayCastLauncherTuningUICommandResult ApplyRayCastLauncherTuningUICommands( const UI::UIPhysicsCommands& commands );
     void ClearRayCastTestLines();
@@ -687,7 +658,6 @@ class RuntimeTools
     const LauncherLaser& Laser() const;
 
     RunMousePickupState& MousePickup();
-    const RunMousePickupState& MousePickup() const;
 
     // Called only after editor routing declines the pointer and composition
     // proves manipulator mode is the active world owner. All borrows expire
@@ -750,7 +720,6 @@ class RuntimeTools
                                 RuntimeInteractionController& interaction );
 
     EditorTracer& Tracer();
-    const EditorTracer& Tracer() const;
 
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.

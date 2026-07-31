@@ -11,9 +11,7 @@ Summary:
 
 Glossary:
   Timestamp pair: Begin/end query slots used to measure one GPU marker.
-  Covering fence: Queue value proving resolved readback bytes are CPU-readable.
   Draw trace: Bounded hierarchy of scoped draw records for diagnostics UI.
-  Fault injection: Debug-only policy that blocks a reviewed submission point.
 
 Invariants:
   - Readback mapping occurs only after its covering fence completes.
@@ -25,6 +23,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -123,7 +122,6 @@ class Dx12Diagnostics
     void PopDrawCallTraceScope( uint32_t hash );
     void PlatformProfilerGpuBegin( const char* name, uint32_t hash );
     void PlatformProfilerGpuEnd();
-    void PlatformProfilerGpuMarker( const char* name, uint32_t hash );
 
     void ConfigureFaultInjection( Dx12DiagnosticsFrame& frame );
     void ReportArchitectureStats( const char* reason, const Dx12DescriptorHeaps& descriptors,

@@ -8,11 +8,6 @@ Summary:
   records that both input and drawing consume without reaching into InGameUI
   retained state.
 
-Glossary:
-  Mini palette: Compact editor placement surface shown while UI is minimized.
-  Hold mode: Press-duration gesture that opens tree or ragdoll variants.
-  Flyout: Secondary variant row anchored to one palette entry.
-
 Invariants:
   - Hit testing and drawing use the same EditorMiniPaletteLayout geometry.
   - Functions retain no frame or owner reference after returning.
@@ -21,6 +16,7 @@ Invariants:
 Related:
   - UIFrameComposition.h owns shared layout records and helper contracts.
   - UI.cpp owns the surrounding UI frame.
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UIFrameComposition.h"
 #include "UIFontMetrics.h"
@@ -357,34 +353,6 @@ int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, cons
     return sceneVisibleCount == 0 && state.filter[0] != '\0' ? 1 : sceneVisibleCount;
 }
 
-void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
-{
-
-    if ( !text || textSize == 0 || UIFontMetrics::MeasureText( pxSize, text ) <= maxWidth )
-    {
-        return;
-    }
-
-    size_t len = strlen( text );
-
-    while ( len > 3 && UIFontMetrics::MeasureText( pxSize, text ) > maxWidth )
-    {
-        text[len - 3] = '.';
-        text[len - 2] = '.';
-        text[len - 1] = '.';
-        text[len] = '\0';
-        --len;
-    }
-}
-
-void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, const Style::UIColor& color,
-                     const char* value, float maxWidth )
-{
-    char text[192] = {};
-    snprintf( text, sizeof( text ), "%s", value ? value : "" );
-    EllipsizeToWidth( text, sizeof( text ), pxSize, maxWidth );
-    draw.Text( x, y, pxSize, color.r, color.g, color.b, text );
-}
 
 int RenderSliderIndexFromActiveSlider( int activeSlider )
 {

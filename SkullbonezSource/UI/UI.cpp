@@ -4,20 +4,10 @@ Purpose:
   Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
 Summary:
-  UI.cpp records the current typed widget view into one complete ordered frame
-  and delegates persistent window/input state to UIWindowInteractionOwner.
-  Public wrappers preserve existing call sites while authority lives in the
-  concrete interaction owner.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Retained draw stream: Fixed-capacity command/text storage reused across
-    frames by one UI owner.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-    widget.
-  Widget view: Synchronous typed references borrowed from the interaction owner
-    so drawing uses the exact controls whose bounds were hit-tested.
+  Records the current typed widget view into one complete
+  ordered frame and delegates persistent window/input state to
+  UIWindowInteractionOwner. Public wrappers preserve existing call
+  sites while authority lives in the concrete interaction owner.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -31,6 +21,7 @@ Related:
   - SkullbonezSource/UI/UI.h
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"
 #include "UIFrameComposition.h"
@@ -84,10 +75,6 @@ void InGameUI::ToggleVisible( double now )
 void InGameUI::SetMinimized( bool minimized, double now )
 {
     m_windowInteraction.SetMinimized( minimized, now );
-}
-void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
-{
-    m_windowInteraction.ToggleMaximizeMinimize( screenW, screenH, now );
 }
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
@@ -149,17 +136,9 @@ void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
     m_windowInteraction.SetPerformanceHistogramEnabled( enabled );
 }
-bool InGameUI::IsPerformanceHistogramEnabled() const
-{
-    return m_windowInteraction.IsPerformanceHistogramEnabled();
-}
 void InGameUI::TogglePerformanceHistogramEnabled()
 {
     m_windowInteraction.TogglePerformanceHistogramEnabled();
-}
-void InGameUI::SetMemoryOverlayEnabled( bool enabled )
-{
-    m_windowInteraction.SetMemoryOverlayEnabled( enabled );
 }
 bool InGameUI::IsMemoryOverlayEnabled() const
 {

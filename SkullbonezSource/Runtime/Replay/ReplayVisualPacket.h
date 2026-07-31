@@ -15,12 +15,8 @@ Glossary:
     for one presented ReplayFrameIndex.
   Submission stream: Ordered floats passed toward a render command after replay
     presentation has applied its capacity and priority rules.
-  Future node: Causal topology row naming the predicted body, parent, activation
-    frame, contact evidence, and depth that make a child path visible.
   Retained marker: Replay-owned entry, rest, and horizon poses that remain
     visible after their activation tick.
-  Ghost request: Typed predicted pose and material treatment consumed by the
-    ordinary object-shape renderer.
   First difference: Typed location of the earliest unequal packet field or
     submission float; recordIndex names its row and floatIndex names the field
     or component within that row.
@@ -37,6 +33,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionPresentation.h
   - SkullbonezSource/Runtime/Editor/EditorTracer.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

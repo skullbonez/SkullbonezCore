@@ -15,8 +15,6 @@ Glossary:
     trajectory.
   Publication token: Monotonic Prediction value that invalidates retained
     geometry only when a reader-visible trajectory prefix changes.
-  Velocity drag preview: Frame-local first-order bend of only the selected
-    committed path while authoritative prediction remains untouched.
 
 Invariants:
   - Draw cursors and retained command storage belong to Prediction.
@@ -29,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPathPackets.h
   - SkullbonezSource/Runtime/Replay/ReplayTrajectoryPackets.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

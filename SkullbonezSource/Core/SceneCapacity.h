@@ -10,8 +10,6 @@ Summary:
   as their hard compile-time ceilings.
 
 Glossary:
-  Scene capacity: Maximum number of model/body/collider rows the runtime can
-    address in one loaded scene.
   Active capacity: Configured runtime limit clamped below the hard scene
     capacity before append/reserve boundaries.
   Slot count: Fixed camera or texture table size used by hash-key lookup.
@@ -28,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h applies active capacity.
   - SkullbonezSource/Physics/PhysicsBodyStore.h fixes body storage to the scene ceiling.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

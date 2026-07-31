@@ -14,8 +14,6 @@ Glossary:
   Allocation size: Bytes newly reserved by a successful growth request.
   Capacity span: Old, requested, and granted element capacities for the target.
   Peak utilisation: Session high-water divided by committed capacity.
-  Memory waterline: Compact overlay that tracks known engine memory and pinned
-    reserve-growth events without polling process memory.
 
 Invariants:
   - Formatting uses stack buffers only; memory diagnostics must not allocate.
@@ -34,6 +32,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabMemory.h
   - SkullbonezSource/UI/UI.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabMemory.h"
 

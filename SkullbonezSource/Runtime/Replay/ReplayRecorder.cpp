@@ -9,14 +9,9 @@ Summary:
   adds only bounded CPU memory use. ArtifactIO owns materialization and files.
 
 Glossary:
-  Presentation sample: Render-facing pose/state captured from a frame.
-  Solver sample: Physics-facing state retained for rollback and diagnostics.
   State hash: Deterministic per-sample digest later serialized by ArtifactIO.
-  Retention window: Maximum in-memory duration retained by the ring buffers.
   Replay reserve owner: Runtime allocation-policy owner that permits replay-only
     vector growth when captured samples outgrow their current payload capacity.
-  UI (User Interface): Runtime controls and overlays; recorders observe state
-    but never mutate UI state.
 
 Invariants:
   - Recording observes committed state and never advances simulation.
@@ -29,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h
   - SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"
@@ -2014,7 +2010,7 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
                                      m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
 
     const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
     const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
@@ -2763,7 +2759,7 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                      m_maxPenetrationScratch, m_normalImpulseSumScratch );
     }
 
-    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
+    sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineRecordCount( physics ) );
     physics.CaptureReplaySolverSnapshot( m_solverCaptureWorldSnapshot.physics,
                                          Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
 

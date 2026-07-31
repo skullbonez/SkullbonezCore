@@ -11,18 +11,12 @@ Summary:
   in for saved restore verification work.
 
 Glossary:
-  Presentation track: Body poses, camera, and world display fields used for
-    smooth visual scrubbing.
   Solver checkpoint chunk: Sparse saved solver payloads copied from retained
     checkpoint-boundary samples. Saved checkpoint-frame restore verification
     exists; event chunks and arbitrary target restore are separate work.
   Branch provenance chunk: Small records naming live timeline ancestry after a
     hash-verified restore creates a child branch.
-  RVIS: Ordered packet identity, typed counts, and exact render-buffer rows.
-  RVPD: Bounded typed prediction state used by non-presenting round-trip checks.
   Chunk: A typed byte range in the replay file, found through the chunk table.
-  JSON (JavaScript Object Notation): Human-readable metadata encoding used by
-    the binary artifact's manifest chunk.
 
 Invariants:
   - Presentation artifacts are little-endian and chunk-table based.
@@ -34,6 +28,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -119,8 +114,6 @@ class ReplayV2Artifact
 
     // Saves presentation data plus sparse solver hashes/checkpoints so restore
     // validation can compare source frames against the saved artifact.
-    static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,
-                                                  const char* path, ReplayV2SaveResult* result = nullptr );
     static bool SavePresentationWithSolverHashes( const ReplayRecorder& recorder, const ReplaySolverRecorder& solverRecorder,
                                                   const ReplayEventRecorder& eventRecorder, const char* path,
                                                   ReplayV2SaveResult* result = nullptr );

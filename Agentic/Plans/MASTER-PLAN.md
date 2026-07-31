@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-28
+Date: 2026-07-30
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -537,6 +537,211 @@ build-configuration parity (6 tasks, BP0-BP5), maths surface reachability
 retirement diagnostic honesty (2 tasks, DH0-DH1). Execution order is 1→4 as
 listed; the ordering rationale, dependency barriers, and per-plan gates live in
 the campaign section below.
+
+Build configuration parity closed BP0-BP5 on 2026-07-30 and left the live
+ledger under rule 4. Maths Surface Reachability MR2 then registered the
+four-phase Unreachable Symbol Remediation follow-up, growing the remaining
+ledger from 0/10 to 0/14. Maths Surface Reachability then closed MR0-MR3 and
+left the ledger under rule 4, returning the active/future total to 0/10.
+Inverse-Trig Domain Guards closed TD0-TD3 and left the ledger under rule 4,
+reducing the active/future total to 0/6.
+Retirement Diagnostic Honesty closed DH0-DH1 and left the ledger under rule 4,
+reducing the active/future total to 0/4. Unreachable Symbol Remediation then
+closed UR0-UR3 and left the ledger under rule 4. The Claim Integrity Campaign
+is complete and its active/future ledger is empty (0%).
+All 1,640 compile rows have inherited list metadata, the 61 shared sources have
+exact owner rulings for their intentional test/engine differences, production
+JSON semantics reach the test binary, and every mapped gate is clear. Closure
+evidence is in
+`../Reports/2026-07-30/build-configuration-parity-closure.md`.
+
+The denominator grew 0 → 16 on 2026-07-31 when the owner registered the
+four-plan Gate Blind Spot Campaign from a source-and-tests-only engine review at
+tip `1967a863`, conducted without reading `Agentic/`, plan files, reports, or
+commit history: solver diagnostic hot-path cost (4 tasks, HP0-HP3), runtime
+contract hygiene (3 tasks, CH0-CH2), engine glossary consolidation (4 tasks,
+GC0-GC3), and angular impulse frame correctness (5 tasks, AI0-AI4). Execution
+order is 1→4 as listed. Plan 4 is deliberately last because it is the only plan
+in the campaign that stops for an owner decision; the ordering rationale,
+dependency barriers, and the owner gate live in the campaign section below.
+
+Solver Diagnostic Hot-Path Cost HP0 completed on 2026-07-31. The census found
+all 16 pipeline stages produced in every configuration, corrected the
+provisional record size from 44 to 56 bytes, proved that solver Replay
+snapshots/hash/artifacts and prediction consume complete ordered records, and
+measured the current `perf_1000` count and Profile timing. Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`.
+
+Solver Diagnostic Hot-Path Cost HP1 completed on 2026-07-31. One Physics-owned
+recorder now preserves exact 4,096-event saturation in count-only and
+full-record modes; Replay capture, pipeline presentation, Debug SkullScope, and
+default direct/prediction engines retain ordered payloads. The original
+allocation-owner identity and backing remain unchanged. Focused mode coverage,
+455 unit cases / 2,423,400 assertions, fast validation, ownership inventories,
+and reachability pass. The active/future ledger is therefore 2/16 (13%).
+Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp1-recorder.md`.
+
+Solver Diagnostic Hot-Path Cost HP2 completed on 2026-07-31. Every producer
+selects full/count execution before its row loop or through a compile-time
+specialization. Count-only execution constructs no pipeline payload, omits the
+diagnostic body-position loads and `sqrtf`, and submits bounded stage counts
+without row-local capacity checks. Synchronized Automation/Debug/Profile
+reachability, 456 unit cases / 2,424,707 assertions, fast validation, a 17/17
+comment audit, and independent re-review pass. The active/future ledger is
+therefore 3/16 (19%). Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md`.
+
+Solver Diagnostic Hot-Path Cost HP3 completed on 2026-07-31. Physics and every
+approved Replay visual/causal value remain exact without a golden refresh; the
+enabled 348,925,625-byte diagnostic trace matches HP0 byte-for-byte. Allocation
+policy and the two bounded 4,096-row full-record reserves remain unchanged. The
+same two-pass Profile workload improves mean `Frame/Physics` by 6.71%,
+persistent contacts by 33.65%, and `SolveRows` by 40.90%. Tests, Physics,
+Replay visual, allocation, performance, and full validation pass. The
+active/future ledger is therefore 4/16 (25%). Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`.
+
+Runtime Contract Hygiene CH0 completed on 2026-07-31. Direct
+`Run::Execute` phase boundaries no longer return a failure status that a caller
+can drop: their results are `void` or contain control/presentation values only,
+and frame failures use the first-failure `ApplicationExitState` latch.
+`RequestPhaseFailure` rejects success through Lane F, while focused coverage
+proves a latched phase failure cannot resolve message exit code zero as success.
+Profile compilation, the complete repository gate, a 7/7 comment audit, and
+independent ownership review pass. The active/future ledger is therefore 5/16
+(31%). Evidence is in
+`../Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md`.
+
+Runtime Contract Hygiene CH1 completed on 2026-07-31. `Quaternion.h` now
+documents only live methods and states the normalized world-axis/radians
+contract for `RotateAboutAxis`; its implementation adds a Debug-only unit-axis
+assert without changing Release production arithmetic. The 22-site caller
+audit found every production caller valid and corrected two test helper
+boundaries that admitted four non-unit fixture axes. Formatting, Debug
+compilation, 28 focused cases / 2,302 assertions, a 4/4 comment audit, and
+independent review pass. The active/future ledger is therefore 6/16 (38%).
+Evidence is in
+`../Reports/2026-07-31/runtime-contract-hygiene-ch1-quaternion.md`.
+
+Runtime Contract Hygiene CH2 completed on 2026-07-31. `PhysicsFixedList`
+requires nothrow-move-constructible elements, retains the trivial byte-transfer
+path, and relocates non-trivial rows without an unwind branch. Every live
+instantiation compiles under the contract; focused non-trivial lifetime
+coverage, 457 unit cases / 2,424,712 assertions, byte-exact Physics, allocation
+policy, the 652.3-second full gate, a 2/2 comment audit, and independent review
+pass. Engine source now contains zero throw expressions. The active/future
+ledger is therefore 7/16 (44%). Evidence is in
+`../Reports/2026-07-31/runtime-contract-hygiene-closure.md`.
+
+Engine Glossary Consolidation GC0 completed on 2026-07-31. The corrected
+tracked source-bearing scope is 575 files: the provisional 576 included
+`SkullbonezSource/AGENTS.md`. The complete census records 2,172 definitions for
+1,285 unique terms, classifies 321 multi-file terms as shared and 964
+single-file terms as local, and adjudicates canonical wording for all 264
+shared terms whose copies have drifted. The explicit checklist contains 575
+unique unchecked rows. This phase is documentation-only. The active/future
+ledger is therefore 8/16 (50%). Evidence is in
+`../Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md`.
+
+Engine Glossary Consolidation GC1 completed on 2026-07-31. The shared glossary
+reproduces all 321 GC0 owner adjudications exactly. The repeatable inventory
+reproduces the 575-file / 2,172-definition / 1,285-term census, reports 321
+multi-file terms and 264 wording drifts, and matches 321 exact current
+file/line/wording migration rulings with zero diagnostics. Comment and reviewer
+rules now enforce the shared/local split and non-tautological summaries;
+`validate_fast` runs the self-test and strict scan. The complete 457-case /
+2,424,712-assertion gate, direct inventory checks, 2/2 tool comment audit, and
+independent re-review pass. The active/future ledger is therefore 9/16 (56%).
+Evidence is in
+`../Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md`.
+
+Engine Glossary Consolidation GC2 completed on 2026-07-31. All 1,208 source
+definition sites for the 321 shared terms are removed, all 964 local term/file
+pairs remain exact, and all 447 affected files cite the canonical glossary.
+The complete whitespace-normalized audit corrects the provisional filler count
+from 77 to 107 and removes every instance. The strict inventory now reports 964
+unique local definitions with zero multi-file terms, drift, rulings, or
+diagnostics. All 575 non-comment source suffixes are byte-identical to GC1; the
+checklist is 458 checked and 117 explicitly deferred to GC3. Automation refresh,
+the 457-case / 2,424,712-assertion fast gate, direct inventories, and independent
+review pass. The active/future ledger is therefore 10/16 (63%). Evidence is in
+`../Reports/2026-07-31/engine-glossary-consolidation-gc2-pass.md`.
+
+Engine Glossary Consolidation GC3 completed on 2026-07-31 and closes the plan
+at 4/4. All 117 conservative basename-led candidates are adjudicated: 83 retain
+their informative clause without the filename subject, and 34 templated UI
+headers now state concrete bounds, input, retained-state, preview/commit, style,
+cache, or drawing ownership. Zero basename-led summaries remain across all 575
+tracked source files. The checklist is 575/575 checked with zero deferred; all
+117 non-comment suffixes are unchanged; strict glossary/path inventories, the
+457-case / 2,424,712-assertion fast gate, post-gate direct proofs, and
+independent closure review pass. The active/future ledger is therefore 11/16
+(69%). Evidence is in
+`../Reports/2026-07-31/engine-glossary-consolidation-closure.md`.
+
+Angular Impulse Frame Correctness AI0 completed on 2026-07-31. The three
+torque-to-angular-velocity paths and every direct caller are censused, the
+application point is ruled a world-space center-relative offset, and a focused
+expected-failure test records the rotated anisotropic mismatch against the
+contact solver. The pre-change oracle predicts zero committed artifact bytes:
+all mapped authored impulses are isotropic spheres, generated anisotropic boxes
+receive their pending impulse at identity, and the launcher interaction targets
+a sphere. The active/future ledger is therefore 12/16 (75%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai0-census.md`.
+
+Angular Impulse Frame Correctness AI1 completed on 2026-07-31. Mutual-gravity
+workers now emit dense canonical prefixes into disjoint slices; the main thread
+compacts them in chunk order and reduces only the active linear list. The
+40-body fixture creates cross-chunk receiver gaps and remains bit-exact at zero,
+one, and four workers; the unchanged 520-body fallback also passes. Across 660
+samples of the same 200-body Profile scene, Reduce mean improved from 0.093166
+ms to 0.079943 ms and median from 0.0924 ms to 0.0780 ms. The active/future
+ledger is therefore 13/16 (81%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
+
+The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle.
+The uncommitted AI2 implementation is preserved in the named local stash
+`paused AI2 world-inertia correction before restoring pre-536 physics` and must
+not be resumed without a new owner instruction. The BV1/BV2/BV3/BV5 behavior
+and all four goldens changed by `536e0a60` are superseded; the restored Debug
+solver produces two identical 44,401-line varied runs that match the pre-`536`
+oracle on every line. This corrective work does not change the 13/16 ledger.
+Evidence is in
+`../Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
+
+### Next-Agent Handover: AI2 Resting-State Prerequisite
+
+Before applying or reworking the AI2 stash, add one cheap `at_rest` sleep-
+transition assertion to `tools\validate_physics_deep.bat`. Reuse the existing
+`Debug/physics_known_at_rest.csv` lane rather than launching the scene a second
+time. The check must pin the exact first fixed physics frame where all six
+dynamic bodies are sleeping, prove the immediately preceding frame is not yet
+fully asleep, and prove no body wakes again through the final recorded frame.
+This is an AI2 prerequisite, not a new campaign phase, so the ledger remains
+13/16.
+
+Do not encode the owner's approximate frame `1800` as a guess. A fresh
+post-restoration SkullScope census ran scene playback frames `0..1799` at the
+authored `timeScale: 10`, producing fixed physics frames `0..8999`, and found
+no frame with `awake_count == 0` and `sleeping_count == body_count`. The boxes
+first sleep at fixed frames `1326` (`box_a`), `1765` (`box_c`), and `1870`
+(`box_b`); `ball_a`, `ball_b`, and `ball_c` remain awake through frame `8999`.
+The existing deep CSV independently reports the same transitions and no all-
+asleep frame. The next agent must treat that result as a red resting-state
+finding, determine why the balls never settle, and establish the owner-accepted
+exact all-asleep frame before pinning the deep assertion. No physics golden
+refresh is authorized by this prerequisite.
+
+The paused stash contains only the four-file AI2 world/body inertia-frame
+correction: `PhysicsBodyStore.h`, `PhysicsBodyStore.cpp`,
+`PersistentContactSolver.cpp`, and `TestPersistentContactSolver.cpp` (99
+insertions, 16 deletions at stash time). It adds a shared inertia-frame helper,
+routes pending gameplay and contact angular impulses through it, turns the
+rotated-anisotropic-box characterization into a passing test, and adds an
+isotropic-sphere exactness case. Expect conflicts in the solver and test after
+the pre-`536` restoration; inspect and reapply the intent instead of blindly
+popping the stash.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1120,6 +1325,21 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
+**The Gate Blind Spot Campaign (2026-07-31) remains at 13/16 (81%), with AI2
+paused by owner direction after the pre-`536` physics oracle restoration.**
+Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
+runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
+angular impulse frame correctness (2/5).
+
+Plans 1-3 are strictly byte-exact or documentation-only and require no owner
+decision. Plan 4 is sequenced last on owner instruction because it is the only
+plan with a behavioral correction and it **stops at AI4 for explicit owner
+sign-off** before closure. AI0's census predicts zero committed artifact
+movement because no mapped baseline reaches the defect; AI1 and AI2 must both
+prove zero-byte movement. Any changed artifact reopens AI0/AI2 and blocks
+closure rather than authorizing regeneration. No plan in this campaign carries
+bounded-divergence authority, and plan 1 must not move a replay hash.
+
 The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
 `persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
 approved retain decision: the dense wall's 12-iteration cap reflects honest
@@ -1132,13 +1352,13 @@ The owner retired merge queues and any GitHub ownership change, exact-commit
 hosted CPU run 30505659321 passed, and graphics-card validation remains
 local-only.
 
-The Claim Integrity Campaign (2026-07-30) is the active queue at 0/16 (0%).
-Start with plan 1 `build-configuration-parity`: it holds the campaign's only
-correctness divergence between the test binary and the shipping binary, and its
-BP4 inventory also covers the finding class behind BP3. Plans 2-4 follow in
-order under the dependency barriers recorded in the campaign section. No plan in
-this campaign carries a bounded-divergence allowance; all four are strictly
-byte-exact for physics.
+The Claim Integrity Campaign (2026-07-30) is complete. Build Configuration
+Parity, Maths Surface Reachability, Inverse-Trig Domain Guards, Retirement
+Diagnostic Honesty, and Unreachable Symbol Remediation all closed and left the
+live ledger under rule 4. The final remediation deleted 181 unreachable
+functions, retained 79 exact ruled seams, and expanded compiled reachability to
+the mandatory Automation/Debug/Profile object graph. No plan in this campaign
+used bounded divergence; final Physics remained byte-exact.
 
 Plans 1-6 were strictly byte-exact. Plan 7 moved its baselines only after the
 QN4 hands-on visual acceptance checkbox. Plan 8 used its explicit
@@ -2633,7 +2853,7 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
+| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-31/pre-536-physics-oracle-restoration.md) | Superseded | 0/7 accepted | Owner rejected the `536e0a60` golden transition on 2026-07-31; BV1/BV2/BV3/BV5 behavior and all four changed physics goldens are restored to the pre-campaign policy/oracle without rewriting history |
 | 9 | [persistent-contact-convergence-early-out](../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; owner-approved retain decision preserves the honest row-level stopping criterion, exact diagnostics, deterministic repeats, and final-source validation |
 
 ### Plan 8 Ordering Consequences
@@ -2737,8 +2957,9 @@ as a plan here. It is recorded so the next review does not re-derive it.
 
 Binding owner directions:
 
-- No plan in this campaign carries a bounded-divergence allowance. All four are
-  strictly byte-exact for physics. A differing physics byte means the change
+- No plan in this campaign carries a bounded-divergence allowance. All five
+  registered plans are strictly byte-exact for physics. A differing physics
+  byte means the change
   altered evaluation rather than configuration or domain guarding, and the task
   is reverted rather than baselined.
 - `inverse-trig-domain-guards` inverts the usual reading of a byte difference.
@@ -2753,6 +2974,9 @@ Binding owner directions:
   than harden it. Hardening would retain a public maths API with no runtime
   caller. MR0 may escalate a specific symbol back only on evidence that a live
   caller was intended and lost its edge in a refactor.
+- Plan 2 MR2 registered plan 5 after the first compiler-backed inventory exposed
+  a repository-wide population that cannot be adjudicated honestly inside the
+  focused Maths plan. Its exact rows are current judgements, never allowances.
 
 Dependency barriers:
 
@@ -2763,31 +2987,167 @@ Dependency barriers:
   sites. Running TD1 first would harden code that is about to be removed.
 - Plan 4 has no barrier in either direction and is sequenced last only because it
   is the smallest and lowest-risk.
+- Plan 5 starts after the four originally registered plans. Their source changes
+  must settle before the repository-wide reachability population is adjudicated.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [build-configuration-parity](TODO/build-configuration-parity.md) | Not started | 0/6 | Ready now. BP0 censuses per-file build settings across all five projects and classifies every external-JSON accessor in the four shared TUs |
-| 2 | [maths-surface-reachability](TODO/maths-surface-reachability.md) | Not started | 0/4 | Starts after plan 1 BP1. MR0 confirms reachability with a type-aware Debug-and-Profile census before any deletion |
-| 3 | [inverse-trig-domain-guards](TODO/inverse-trig-domain-guards.md) | Not started | 0/4 | Starts after plan 2 MR1. TD0 re-confirms the eight-site census against the post-deletion tree; TD1 unifies the three existing clamp spellings |
-| 4 | [retirement-diagnostic-honesty](TODO/retirement-diagnostic-honesty.md) | Not started | 0/2 | No barrier; may run any time after plan 1. DH0 adds real high-water accounting to the DX12 retirement quarantine |
+| 1 | [build-configuration-parity](../Reports/2026-07-30/build-configuration-parity-closure.md) | Complete | 6/6 | Closed 2026-07-30 and removed from the live ledger under rule 4; production JSON semantics, inherited forced includes, exact rulings, clear review, and all final gates complete |
+| 2 | [maths-surface-reachability](../Reports/2026-07-30/maths-surface-reachability-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; eight dead definitions removed, 407 exact follow-up rulings registered, review clear, coverage and all final gates pass |
+| 3 | [inverse-trig-domain-guards](../Reports/2026-07-30/inverse-trig-domain-guards-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; one shared clamp policy, explicit Camera and antiparallel fallbacks, focused finite-output tests, byte-exact Physics, clear review, and all final gates complete |
+| 4 | [retirement-diagnostic-honesty](../Reports/2026-07-30/retirement-diagnostic-honesty-closure.md) | Complete | 2/2 | Closed 2026-07-30 and removed from the live ledger under rule 4; truthful bounded retirement accounting, corrected readback diagnostics, fatal probes, clean DX12 baselines, one-minute graphics stress, clear review, and all final gates complete |
+| 5 | [unreachable-symbol-remediation](../Reports/2026-07-30/unreachable-symbol-remediation-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; 181 unreachable functions removed, 79 exact retain rulings remain, Automation/Debug/Profile reachability is mandatory, review is clear, and every final gate passes byte-exact Physics |
 
 ### Governance Gap This Campaign Closes
 
-The four findings share a cause worth naming, because it predicts where the next
+The four original findings share a cause worth naming, because it predicts where the next
 one appears. Everything mechanically enforced in this repository is at 100%:
 all 573 first-party `SkullbonezSource` `.cpp`/`.h`/`.hpp`/`.inl` files carry a
 learning header, and that source has zero `throw`, zero `catch`, zero `goto`,
 zero `TODO`/`FIXME`/`HACK`, and one `const_cast`. Everything enforced only by review sits at whatever the last
-reviewer happened to look at — and all four findings are review-only.
+reviewer happened to look at — and all four original findings are review-only.
 
 Plans 1 and 2 convert two of those review-only rules into inventories:
 `check_build_config_consistency.py` reports files compiled under divergent
 settings, and `inventory_unreachable_symbols.py` reports symbols with no
 non-test caller. Both follow the established unruled-fails/ruled-passes contract
-and neither introduces a threshold. Plans 3 and 4 stay review-enforced because
+and neither introduces a threshold. Plan 5 owns the repository-wide remediation
+population discovered by the second inventory. Plans 3 and 4 stay
+review-enforced because
 their subject matter has no honest mechanical proxy; a regex that flags every
 `acosf` without an adjacent `clamp` would fire on the four correctly guarded
 sites and miss a guard placed three lines earlier.
+
+## Gate Blind Spot Campaign (2026-07-31)
+
+Source: source-and-tests-only engine review at tip `1967a863` on 2026-07-31,
+deliberately conducted without reading `Agentic/`, plan files, reports, audits,
+or commit history, so the findings reflect what a new reader sees in the code
+alone. Evidence is dated 2026-07-31 and recorded in each plan; no historical
+measurement is reused.
+
+**Campaign thesis.** The previous campaign named the gap between mechanically
+enforced rules (100%) and review-only rules (whatever the last reviewer looked
+at). This campaign names the next one: **a passing gate proves consistency, not
+correctness and not cost.** Every finding is something the existing gates
+reproduce perfectly and therefore cannot see.
+
+- `ApplyPendingImpulse` divides a world torque by body-frame inertia. It is
+  deterministically wrong, so byte-exact CSV baselines lock the wrong value in
+  and re-prove it every run.
+- The solver pipeline trace runs in the innermost PGS loop in every
+  configuration to produce a `uint16_t` count. Correctness gates are silent
+  because nothing is wrong; the perf gate is silent because the cost has always
+  been there.
+- Mutual gravity re-derives its entire triangular predicate set on the main
+  thread. The determinism suite passes precisely because the redundant pass is
+  faithful.
+- A frame phase that returns Lane R failure without latching it exits `0`. Every
+  current phase latches, so no gate fires; nothing enforces that the next one
+  will.
+- 570 of 576 files carry a glossary block, with `Draw command` defined 46 times
+  and `Broadphase` 30 times. The header-presence rule is at 100%; the
+  information content is not what the rule measures.
+
+The review's positive findings are recorded so later work does not regress them:
+the pair-force table that makes mutual-gravity accumulation order invariant
+under worker scheduling (`Stages/PhysicsForceStage.cpp:344`), the
+worker-count-invariant byte-exact determinism suite, the `CATTO REF:` /
+`ENGINE-SPECIFIC:` citation-and-deviation discipline, the SAT plus
+Sutherland-Hodgman narrowphase with feature-ID warm-start keys and the measured
+25% cross-family challenger margin, fence-proven DX12 retirement quarantine,
+`PhysicsFixedList`'s named English capacity reasons in its fatal diagnostics,
+handle-and-generation body identity with stale-hint fallback, the 80-line
+phase-named `Run::Execute` with RAII allocation-phase scopes, and zero
+`TODO`/`FIXME`/`HACK` at `/W4` with warnings-as-errors. All are load-bearing.
+
+**Structural findings recorded, not scheduled.** The 20-stream SoA hot-field
+body store is paid for and not cashed in: `LoadPhysicsBodyHotState` touches 18
+streams per body, physics contains no SIMD (the only `_mm_*` in the tree is
+`Matrix4::operator*`), and adding a hot field costs edits in roughly eight
+places including a clone macro. The owner is aware and has explicitly excluded
+it from this campaign. Also recorded: 57 `*View` types and 138 owning
+`std::vector` members in Runtime/Physics/Rendering headers against a stated
+global zero-allocation-by-default policy. Neither is registered as a plan.
+
+Binding owner directions:
+
+- Plans 1, 2, and 3 are strictly byte-exact and land without an owner decision.
+  Plan 1 must not move a replay hash, plan 2 must not move a physics byte, and
+  plan 3 is documentation-only.
+- Plan 4 is the only plan carrying an owner gate. AI4 stops for explicit owner
+  sign-off before closure. It does **not** receive task-scoped
+  bounded-divergence authority: AI0 proved the existing artifacts do not reach
+  the defect, so AI1 and AI2 must leave them byte-exact. Any movement blocks
+  closure and reopens the census or implementation; no regeneration is
+  authorized.
+- Plan 1 explicitly rejects "compile the trace out of Release." Removing it from
+  Release alone leaves the cost in Profile, which is where `validate_perf`
+  measures, and compiling it out of Profile would move every replay sample hash
+  because `pipelineRecordCount` is hashed at `ReplayRecorder.cpp:1576`, `:1815`,
+  and `:2033` while replay fidelity validates from the Profile test binary. The
+  accepted design keeps the count exact everywhere and deletes only the payload
+  work, so inventory rule 11 is never engaged.
+- Plan 3 retains the `Summary:` field by owner ruling; the original review
+  proposed removing it. Only `Glossary` handling changes, plus repair of Summary
+  lines that restate the filename. The shared glossary is
+  `Agentic/Reference/engine-glossary.md`, not `Core/Common.h`, because that
+  header states an invariant against regaining domain content and `Core`
+  defining Rendering and Physics vocabulary would invert the mechanically
+  enforced dependency direction.
+- Plan 3 adds a sixth repeatable inventory. Like the existing five, no count in
+  it is an allowance, budget, or ratchet.
+- Plan 4 AI3 is investigation-only and registers follow-up plans rather than
+  changing behavior, preserving AI0's zero-delta oracle through AI4.
+
+Dependency barriers:
+
+- Plan 4 AI1 before AI2 — AI1 must prove it moved zero baseline bytes before
+  AI2 applies the focused correction and independently proves the same
+  zero-artifact result. Reversing the order destroys the separate neutrality
+  evidence, which is the reason both findings share one plan.
+- Plan 4 AI0 before AI2 — AI0 predicts the expected baseline delta before any
+  production code changes. That prediction is the oracle AI4 verifies against;
+  producing it after the fact proves nothing.
+- Plan 1 before plan 4 — both touch physics byte-exactness. Landing plan 1's
+  strictly-neutral change first means plan 4's AI1 neutrality proof is measured
+  against a settled tree.
+- Plans 2 and 3 have no barrier in either direction and may run at any point.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
+| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
+| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; before AI2 resumes, land the red `at_rest` exact all-asleep-frame deep check described in the next-agent handover, then reapply the named stash by intent; **no baseline regeneration is authorized** |
+
+### Governance Gap This Campaign Closes
+
+The previous campaign converted two review-only rules into inventories. This one
+addresses a different gap: the repository has strong gates for *drift* and no
+gate for *initial wrongness or standing cost*.
+
+Byte-exact baselines are the primary physics contract, and they are excellent at
+what they do. They also mean a value that was wrong the first time is re-proven
+correct on every run, forever, with increasing confidence. `ApplyPendingImpulse`
+is the concrete instance: three paths compute the same physical quantity, two
+agree, one has disagreed since it was written, and no gate in the repository is
+capable of noticing because all three are deterministic.
+
+Plan 4 AI3 is the structural response — a sweep for other places where a
+convention is documented in one direction and implemented in the other, asking
+of each whether a byte-exact baseline would hide it. Its output is follow-up
+plans, not a new mechanical checker, because the honest mechanical proxy does
+not exist: no regex distinguishes a correct frame conversion from an incorrect
+one. The counterweight to "deterministic" is a second independent derivation of
+the same quantity, which is what AI0's cross-path equivalence test installs and
+what future physics work should imitate.
+
+Plan 1 records the matching cost lesson. The convergence diagnostics and the
+pipeline trace sit in the same loop with the same purpose; one was designed with
+an explicit comment about not spending simulation budget on observational work,
+and the other was not. Nothing enforced consistency between two sibling
+diagnostics, and the shipping binary paid for years.
 
 ## Features
 

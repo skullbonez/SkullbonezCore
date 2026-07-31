@@ -13,12 +13,8 @@ Summary:
   without storing the participating editor, pickup, camera, Replay, or launcher.
 
 Glossary:
-  UI (user interface): Interactive engine controls evaluated between the input
-    router's pre-UI and after-UI phases.
-  Win32: Windows desktop API whose virtual-key values occupy the range 0..255.
   Device snapshot: Immutable-by-contract value containing one frame's keys,
     pointer buttons, coordinates, wheel delta, and raw mouse delta.
-  Semantic action: RuntimeInputAction produced from a physical key binding.
   Route phase: Pre-UI, after-UI, or capture stage that owns a binding row.
   Context predicate: All-of bit mask that must be active before an action edge
     may be delivered.
@@ -28,8 +24,6 @@ Glossary:
     a new workspace or world-input owner begins consuming gestures.
   Lifecycle activation: Completed scene-load phase that can publish a new
     cursor intent and request hardware mouse-delta cleanup.
-  Pointer arbitration: Ordered phase cursor that gives the first consuming
-    world-pointer stage exclusive ownership.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -57,6 +51,7 @@ Related:
   - InputController.h defines the existing action and context vocabulary.
   - InputController.Bindings.h publishes the current immutable binding table.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -190,10 +185,6 @@ class InputKeySnapshot
     // Win32 virtual key with value n; no hardware is polled by this type.
     static InputKeySnapshot FromWords( const std::array<uint64_t, WORD_COUNT>& words );
 
-    // Convenience for tests and automation capture. Invalid virtual-key values
-    // are ignored, and the caller-owned array is not retained.
-    static InputKeySnapshot FromDownKeys( const int* virtualKeys, std::size_t keyCount );
-
     bool IsDown( int virtualKey ) const;
     const std::array<uint64_t, WORD_COUNT>& Words() const;
 
@@ -326,12 +317,10 @@ class InputActions
 
     void Reset();
     std::size_t Count() const;
-    bool Empty() const;
     bool Overflowed() const;
 
     // Precondition: index is less than Count().
     const InputActionEvent& operator[]( std::size_t index ) const;
-    const InputActionEvent* Data() const;
 
     RuntimeMouseEdges mouse;
     bool focusLost = false;
@@ -353,9 +342,7 @@ class InputRouter
     explicit InputRouter( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics );
 
     RuntimeInputContext& RuntimeContext();
-    const RuntimeInputContext& RuntimeContext() const;
     InputActions& Actions();
-    const InputActions& Actions() const;
 
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
@@ -369,7 +356,6 @@ class InputRouter
     void RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPhase phase, RuntimeInputContextMask activeContexts,
                      InputActions& output );
 
-    void Reset();
     bool AppFocused() const;
     const DeviceInputFrame& DeviceFrame() const;
     void PublishUiSnapshot( const UiInputHitSnapshot& snapshot );
@@ -480,6 +466,7 @@ class InputRouter
     static constexpr std::size_t ACTION_COUNT = static_cast<std::size_t>( RuntimeInputAction::Count );
     static constexpr std::size_t PHASE_COUNT = 3;
 
+    void Reset();
     static bool IsActionValid( RuntimeInputAction action );
     static bool IsPhaseValid( InputActionPhase phase );
     static std::size_t ActionIndex( RuntimeInputAction action );

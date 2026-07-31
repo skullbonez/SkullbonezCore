@@ -14,8 +14,6 @@ Glossary:
   Narrowphase island: Connected group of candidate pairs that may mutate the
     same bodies and therefore must execute on one worker.
   Pair-order commit: Sequencer replay of events by original candidate index.
-  Step policy: Scalar thresholds and execution switches normalized once by the
-    sequencer; it contains no store, owner, or retained authority.
 
 Invariants:
   - Serial processing commits each event immediately before the next pair.
@@ -31,11 +29,13 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <utility>
 
@@ -81,7 +81,7 @@ struct ObjectNarrowphaseEvent
     // Invariant: worker passes fill one event per candidate-pair slot; the
     // PhysicsWorld sequencer commits those slots later in original pair order.
     ObjectNarrowphaseEventKind kind = ObjectNarrowphaseEventKind::None;
-    PhysicsPipelineRecord pipelineRecord;
+    std::optional<PhysicsPipelineRecord> pipelineRecord;
     int collisionTimeBodyA = -1;
     int collisionTimeBodyB = -1;
     float collisionTime = 0.0f;
@@ -89,7 +89,11 @@ struct ObjectNarrowphaseEvent
     int visualBodyA = -1;
     int visualBodyB = -1;
     int64_t collisionCellKey = 0;
-    uint8_t hasPipelineRecord = 0;
+
+    // Invariant: hasPipelineEvent preserves the canonical count in both modes.
+    // The optional is engaged only by the compile-time full-record lane, so a
+    // count-only worker never constructs a diagnostic payload.
+    uint8_t hasPipelineEvent = 0;
     uint8_t emitCollisionTime = 0;
     uint8_t markVisualContact = 0;
     uint8_t hasCollisionCellKey = 0;
@@ -106,6 +110,10 @@ struct ObjectNarrowphaseStepPolicy
     float contactEpsilon = 0.0f;
     float invCellSize = 0.0f;
     float dt = 0.0f;
+
+    // Value-only selector copied into worker callables. Island/serial owners
+    // branch once before their pair loops and invoke a compile-time lane.
+    bool retainPipelineRecords = true;
     bool parallel = false;
     bool parallelNarrowphase = false;
 };
@@ -157,6 +165,7 @@ class PhysicsNarrowphaseStage
         void operator()( int islandIndex ) const;
     };
 
+    static void ObserveObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event, ObjectNarrowphaseEventKind kind );
     static void RecordObjectNarrowphaseEvent( ObjectNarrowphaseEvent& event, ObjectNarrowphaseEventKind kind,
                                               const PhysicsPipelineRecord& record );
     static void EmitObjectCollisionTimeEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB, float collisionTime,
@@ -164,6 +173,7 @@ class PhysicsNarrowphaseStage
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
     static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event, const PhysicsBodyHotFieldsConstView& hotFields,
                                                int bodyA, int bodyB, float invCellSize );
+    template <bool RetainPipelineRecords>
     void ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                          PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                          std::span<const std::pair<int, int>> candidatePairs,
@@ -181,6 +191,7 @@ class PhysicsNarrowphaseStage
 
     void Clear();
     void ReserveSceneCapacity( std::size_t bodyCapacity );
+    template <bool RetainPipelineRecords>
     void ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                        PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
                                        std::span<const std::pair<int, int>> candidatePairs,

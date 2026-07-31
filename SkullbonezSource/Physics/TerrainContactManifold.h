@@ -9,10 +9,6 @@ Summary:
   body/collider records.
 
 Glossary:
-  Terrain sweep: Continuous collision query against the terrain plane under a body.
-  Manifold: Set of contact points and normals describing one body touching terrain.
-  Feature ID: Deterministic contact key used to match rows across frames for warm
-    starting.
   Resting policy: Metadata that decides whether a terrain contact may seed sleep
     and cached support impulses.
 
@@ -27,6 +23,7 @@ Related:
   - SkullbonezSource/Physics/TerrainContactManifold.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

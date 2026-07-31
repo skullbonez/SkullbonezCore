@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Tombstone: Empty registry slot retained for bounded reuse.
-  Generation: Eight-bit reuse epoch encoded into an opaque texture handle.
 
 Invariants:
   - Handle zero is always null.
@@ -20,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp
   - SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

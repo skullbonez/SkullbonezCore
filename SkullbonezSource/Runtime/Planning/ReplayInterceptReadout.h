@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Closest approach: Prediction frame with the smallest ship-to-target distance.
-  Published prefix: Contiguous prediction rows that are safe for frame readers.
   Topology version: Generation tag for the prediction node set and row order.
 
 Invariants:
@@ -24,6 +23,7 @@ Related:
   - ReplayPredictionView.h publishes the frame prefix.
   - ReplayRuntime.cpp composes selection, scan, and rendering.
   - SkullbonezTests/TestReplayInterceptReadout.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

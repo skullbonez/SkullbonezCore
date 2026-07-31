@@ -18,8 +18,6 @@ Glossary:
     authored phase without changing simulation ownership.
   Phase style: Optional `.style.json` applied through SceneCinematicPolicy when a
     phase becomes active.
-  Lane R result: Recoverable style-load failure that skips the phase style while
-    Director playback continues.
   Reveal rate: Authored multiplier for prediction seconds revealed per real
     second while this phase is active.
 
@@ -39,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.h
   - SkullbonezSource/Runtime/Direction/DemoDirector.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "DemoDirectorPlayback.h"
 #include "../Scene/SceneCinematicPolicy.h"
@@ -270,6 +269,7 @@ void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDia
 
 namespace DemoDirectorPlayback
 {
+
 bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& cameras, const char* path )
 {
     DemoShotList loadedShotList;
@@ -294,6 +294,7 @@ bool LoadShotList( CameraControlState& camera, Environment::CameraCollection& ca
 
     return true;
 }
+
 
 bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& cameras )
 {
@@ -394,6 +395,7 @@ bool SetCurrentPhasePose( CameraControlState& camera, Environment::CameraCollect
     return true;
 }
 
+
 bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 {
     DemoDirectorPlaybackState& director = camera.director;
@@ -415,6 +417,7 @@ bool SetCurrentPhaseStyle( CameraControlState& camera, const char* stylePath )
 
     return true;
 }
+
 
 bool SelectNextPhaseForAuthoring( CameraControlState& camera, Environment::CameraCollection& cameras )
 {

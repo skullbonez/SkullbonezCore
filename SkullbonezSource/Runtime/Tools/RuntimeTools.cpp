@@ -11,16 +11,6 @@ Summary:
 Glossary:
   Launcher ray: Camera-centered tool ray used for laser impulses, projectile
     aim, and raycast visualization.
-  Replay visual sample: Snapshot of launcher lines and laser shots used by
-    replay scrubbing.
-  Contact release: Rule that lets selected fixed authored props become dynamic
-    after a strong enough launcher impulse.
-  Body store: Physics-owned dense body rows holding simulation position, mass,
-    fixed state, and handles for command targets.
-  Collider store: Physics-owned dense collider rows holding shape-derived bounds
-    used by launcher broad hit tests.
-  Physics body handle: Generational id for the body-store row that receives
-    launcher impulses or wake commands.
 
 Invariants:
   - Raycast and laser histories are fixed-capacity replay state; preserve cursor
@@ -37,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/LauncherTools.cpp
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeTools.h"
 #include "../../Assets/AssetKeys.h"
@@ -321,10 +312,6 @@ RunRayCastTestState& RuntimeTools::RayCastTest()
     return m_rayCastTest;
 }
 
-const RunRayCastTestState& RuntimeTools::RayCastTest() const
-{
-    return m_rayCastTest;
-}
 
 bool RuntimeTools::ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands )
 {
@@ -884,20 +871,18 @@ LauncherLaser& RuntimeTools::Laser()
     return m_laser;
 }
 
+
 const LauncherLaser& RuntimeTools::Laser() const
 {
     return m_laser;
 }
+
 
 RunMousePickupState& RuntimeTools::MousePickup()
 {
     return m_mousePickup;
 }
 
-const RunMousePickupState& RuntimeTools::MousePickup() const
-{
-    return m_mousePickup;
-}
 
 RunEditorPlacementState& RuntimeTools::Editor()
 {
@@ -910,11 +895,6 @@ const RunEditorPlacementState& RuntimeTools::Editor() const
 }
 
 EditorTracer& RuntimeTools::Tracer()
-{
-    return m_editorTracer;
-}
-
-const EditorTracer& RuntimeTools::Tracer() const
 {
     return m_editorTracer;
 }

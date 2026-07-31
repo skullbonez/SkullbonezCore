@@ -10,16 +10,9 @@ Summary:
   clear capture and payload before applying the new mode.
 
 Glossary:
-  Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
-  Owner: The tool or subsystem currently allowed to consume world input.
-  Gesture: Active pointer operation that owns capture until it ends.
   Physics advance: Per-frame policy that decides whether the physics step runs.
-  Cross-scene pause lock: Scene-owned fact that forces step-held physics even
-    when the active camera or tool would normally keep simulation running.
   World-settings command: Input-owned value in domain units consumed by the
     concrete world owner after routing completes.
-  Lifecycle generation: Scene-load identity that makes clear and activation
-    workspace reactions idempotent.
 
 Invariants:
   - RuntimeInteractionTransition is a diff record; callers must compare previous
@@ -40,6 +33,7 @@ Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -251,8 +245,6 @@ class RuntimeInteractionController
   public:
     RuntimeWorkspace Workspace() const;
     WorldInteractionOwner Owner() const;
-    CameraLookState CameraLook() const;
-    PhysicsAdvanceState PhysicsAdvance() const;
     const RuntimeInteractionGesture& Gesture() const;
     RuntimePointerCaptureOwner PointerCapture() const;
 
@@ -267,7 +259,6 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
     RuntimeInteractionTransition EnterCameraMode( RunCameraMode mode );
-    RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason );
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
                                                                       InteractionExitReason reason );

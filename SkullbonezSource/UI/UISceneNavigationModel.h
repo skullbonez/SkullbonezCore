@@ -8,12 +8,6 @@ Summary:
   value model. Runtime may borrow these values synchronously when it decides
   queue and load policy, but this header contains no Runtime authority.
 
-Glossary:
-  Scene browser: UI-facing authored-scene paths, display names, and stable
-    pointer views used by the scene combo box.
-  UI override: Live Scene/Run-tab value that survives an interactive reset and
-    feeds the next generated-scene rebuild.
-
 Invariants:
   - `namePtrs` points into `names`; refresh paths and names before rebuilding
     the pointer views.
@@ -26,6 +20,7 @@ Related:
   - SkullbonezSource/UI/UI.h
   - SkullbonezSource/Runtime/Scene/SceneControllerState.h
   - Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

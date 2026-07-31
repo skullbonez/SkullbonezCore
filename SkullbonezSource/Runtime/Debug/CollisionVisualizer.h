@@ -4,25 +4,10 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  CollisionVisualizer.h builds debug drawing for collision shapes and contact
-  diagnostics. As a public header, keep edits anchored on deterministic
-  physics, diagnostics, or world-state flow and on the glossary/invariants
-  below.
+  Builds debug drawing for
+  collision shapes and contact diagnostics.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Resource builder: Cold renderer owner borrowed only while compiling the
-    collision shader.
-  Geometry owner: Renderer owner borrowed while creating or destroying debug
-    vertex and instance buffers.
-  Render command context: Renderer capability borrowed only while drawing a
-    collision-visualizer frame.
-  Render diagnostics: Renderer capability borrowed to name child draw-trace
-    scopes without reopening global renderer access.
   Sleep group: Connected set of bodies that can stop simulating together once
   the solver decides motion is stable.
 
@@ -34,6 +19,7 @@ Related:
   - SkullbonezSource/Runtime/Debug/CollisionVisualizer.cpp
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

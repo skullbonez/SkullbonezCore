@@ -4,17 +4,9 @@ Purpose:
   Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabScene.cpp implements UI TabScene widgets, layout, drawing, or UI state
-
-  for the in-engine controls. As an implementation unit, keep edits anchored
-  on UI request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Owns filtered scene selection,
+  scene commands, and
+  time-scale preview/commit interaction.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -25,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabScene.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabScene.h"
 

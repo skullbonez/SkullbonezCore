@@ -4,10 +4,8 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Summary:
-  AssetSystem.cpp loads, owns, and resolves reusable runtime assets for scenes
-  and render code. As an implementation unit, keep edits anchored on asset
-  lifetime, cache ownership, and load/fallback behavior and on the
-  glossary/invariants below.
+  Loads, owns, and resolves reusable
+  runtime assets for scenes and render code.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as
@@ -223,10 +221,6 @@ void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::Engin
                                BuiltInShaderContract( true, false, false, false, false ) );
 }
 
-const std::string& AssetSystem::GetDataRoot() const
-{
-    return m_dataRoot;
-}
 
 std::string AssetSystem::ResolvePath( const char* relativePath ) const
 {
@@ -296,45 +290,6 @@ std::string AssetSystem::RegisterSourceAssetPath( AssetKind kind, const char* lo
     return RegisterSourceAsset( kind, logicalName, relativePath ).resolvedPath;
 }
 
-const SourceAssetRecord* AssetSystem::FindSourceAsset( const char* logicalName ) const
-{
-
-    if ( !logicalName || logicalName[0] == '\0' )
-    {
-        return nullptr;
-    }
-
-    for ( const SourceAssetRecord& record : m_sourceAssets )
-    {
-
-        if ( record.logicalName == logicalName )
-        {
-            return &record;
-        }
-    }
-
-    return nullptr;
-}
-
-const SourceAssetRecord* AssetSystem::FindSourceAssetById( AssetId id ) const
-{
-
-    if ( id == 0 )
-    {
-        return nullptr;
-    }
-
-    for ( const SourceAssetRecord& record : m_sourceAssets )
-    {
-
-        if ( record.id == id )
-        {
-            return &record;
-        }
-    }
-
-    return nullptr;
-}
 
 const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* logicalName, const char* relativePath,
                                                                    uint32_t legacyHash, bool generateMips, bool linearFilter,
@@ -373,25 +328,6 @@ const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* l
     return m_textureAssets.back();
 }
 
-const TextureSourceAsset* AssetSystem::FindTextureSourceAsset( const char* logicalName ) const
-{
-
-    if ( !logicalName || logicalName[0] == '\0' )
-    {
-        return nullptr;
-    }
-
-    for ( const TextureSourceAsset& texture : m_textureAssets )
-    {
-
-        if ( texture.logicalName == logicalName )
-        {
-            return &texture;
-        }
-    }
-
-    return nullptr;
-}
 
 const TextureSourceAsset* AssetSystem::FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const
 {
@@ -413,25 +349,6 @@ const TextureSourceAsset* AssetSystem::FindTextureSourceAssetByLegacyHash( uint3
     return nullptr;
 }
 
-const TextureSourceAsset* AssetSystem::FindTextureSourceAssetById( AssetId id ) const
-{
-
-    if ( id == 0 )
-    {
-        return nullptr;
-    }
-
-    for ( const TextureSourceAsset& texture : m_textureAssets )
-    {
-
-        if ( texture.id == id )
-        {
-            return &texture;
-        }
-    }
-
-    return nullptr;
-}
 
 const std::vector<TextureSourceAsset>& AssetSystem::GetTextureSourceAssets() const
 {
@@ -489,10 +406,6 @@ const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logical
     return nullptr;
 }
 
-const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
-{
-    return m_shaderAssets;
-}
 
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
@@ -562,64 +475,6 @@ const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAsset( const c
     return nullptr;
 }
 
-const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAssetById( AssetId id ) const
-{
 
-    if ( id == 0 )
-    {
-        return nullptr;
-    }
-
-    for ( const AssetLibrarySourceAsset& library : m_assetLibraryAssets )
-    {
-
-        if ( library.id == id )
-        {
-            return &library;
-        }
-    }
-
-    return nullptr;
-}
-
-const std::vector<AssetLibrarySourceAsset>& AssetSystem::GetAssetLibrarySourceAssets() const
-{
-    return m_assetLibraryAssets;
-}
-
-void AssetSystem::Clear()
-{
-    m_sourceAssets.clear();
-    m_textureAssets.clear();
-    m_shaderAssets.clear();
-    m_assetLibraryAssets.clear();
-    m_nextAssetId = 1;
-    m_nextGeneration = 1;
-}
-
-size_t AssetSystem::GetSourceAssetCount() const
-{
-    return m_sourceAssets.size();
-}
-
-size_t AssetSystem::GetTextureSourceAssetCount() const
-{
-    return m_textureAssets.size();
-}
-
-size_t AssetSystem::GetShaderSourceAssetCount() const
-{
-    return m_shaderAssets.size();
-}
-
-size_t AssetSystem::GetAssetLibrarySourceAssetCount() const
-{
-    return m_assetLibraryAssets.size();
-}
-
-const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName )
-{
-    return BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-}
 } // namespace Assets
 } // namespace SkullbonezCore

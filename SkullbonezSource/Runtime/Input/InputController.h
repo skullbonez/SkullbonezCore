@@ -24,8 +24,6 @@ Package ownership:
     by InputRouter or the camera owner; all methods remain stateless.
 
 Glossary:
-  Input edge: Transition from not pressed to pressed, used for one-shot
-  commands.
   Camera delta: Per-frame mouse movement accumulated before camera update.
   Runtime input event: Frame-local input state consumed by Run.
 
@@ -38,6 +36,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Input/InputController.cpp
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -303,12 +302,6 @@ class RuntimeInputContext
     void SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source );
 
     RuntimeInputMode CurrentMode() const;
-    RuntimeInputMode PreviousMode() const;
-    bool AppFocused() const;
-    bool UIBlocksKeyboard() const;
-    bool UIBlocksMouse() const;
-    int TransitionCount() const;
-    RuntimeInputTransition TransitionAt( int historyIndex ) const;
 
   private:
     static constexpr int TRANSITION_HISTORY_COUNT = 8;
@@ -330,10 +323,6 @@ class InputController
     static void ApplyModeAction( RuntimeInputContext& context, RuntimeInputMode mode, RuntimeInputAction action,
                                  RuntimeInputActionSource source );
     static RuntimeInputMode ResolveMode( const RuntimeInputModeState& state );
-    static const char* DescribeMode( RuntimeInputMode mode );
-    static const char* DescribeAction( RuntimeInputAction action );
-    static const char* DescribeSource( RuntimeInputActionSource source );
-    static void DescribeLastTransitions( const RuntimeInputContext& context, char* out, std::size_t outSize );
     static void ResetUnfocusedInput( CameraControlState& camera );
     static void ResetMouseLook( CameraControlState& camera );
     static void SetMouseLookDelta( CameraControlState& camera, long rawX, long rawY );

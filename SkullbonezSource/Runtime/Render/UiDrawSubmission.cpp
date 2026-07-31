@@ -15,8 +15,6 @@ Mental model:
 Glossary:
   Submission barrier: Flush of queued shapes and text before an image so later
     commands remain visually above it.
-  Preview catalog: Renderer-owned frame snapshot that maps the UI's stable
-    catalog index to one current texture handle and its presentation metadata.
 
 Invariants:
   - Command order, clip depth, and preview batch barriers are preserved exactly.
@@ -28,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Render/UiDrawSubmission.h
   - SkullbonezSource/UI/UIDrawList.h
   - SkullbonezSource/UI/UIFrameComposition.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UiDrawSubmission.h"
 #include "RuntimeRenderPasses.h"

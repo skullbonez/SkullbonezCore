@@ -4,15 +4,8 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Summary:
-  SkyBox.cpp builds and renders the skybox or sky backdrop for scene
-  rendering. As an implementation unit, keep edits anchored on world-state
-  ownership, terrain/environment data, and physics/render handoff and on the
-  glossary/invariants below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Builds and renders the skybox or
+  sky backdrop for scene rendering.
 
 Invariants:
   - SkyBox owns renderer-facing face meshes and shader resources for the active
@@ -25,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/World/SkyBox.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SkyBox.h"
 #include "../Core/SbDiagnosticStore.h"

@@ -9,7 +9,6 @@ Summary:
   that refreshes authoritative prediction.
 
 Glossary:
-  Cause row: One replay explanation row.
   Velocity preview request: Fixed-size target and delta-v command that replaces
     its predecessor without scheduling simulation.
 
@@ -23,6 +22,7 @@ Invariants:
 Related:
   - ReplayRuntime.h
   - ReplayRecorder.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

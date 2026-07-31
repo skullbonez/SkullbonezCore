@@ -4,30 +4,30 @@
   "tests": [
     {
       "artifact": "Debug/physics_regression_solver.csv",
-      "bytes": 2776043,
+      "bytes": 2773228,
       "lines": 20001,
       "name": "seeded_solver_distribution_watch",
       "risk": "Seeded mixed solver distribution drifts after the varied scene becomes the primary full CSV baseline.",
       "scene": "SkullbonezData/scenes/physics_regression_solver.scene.json",
-      "sha256": "a2b731e892a2787c6b7fc7dc1996343b8cbc767327c887d1c123e3018911de3d"
+      "sha256": "6ff2d63ee8b498578d204aa91ec4a050744650302791fdef110b1041079611cd"
     },
     {
       "artifact": "Debug/physics_known_stacking.csv",
-      "bytes": 3068630,
+      "bytes": 3075201,
       "lines": 22501,
       "name": "stacking_stability_watch",
       "risk": "Stacking drift or topple in stacking.scene.json.",
       "scene": "SkullbonezData/scenes/stacking.scene.json",
-      "sha256": "bb53c9fd7be85931a9fc17197036c220052017bbb639365179c2e4892d3dd975"
+      "sha256": "325d22759fdb965e65f8a9235e9e71b6429bb1c47b97de7541e90020e803dca6"
     },
     {
       "artifact": "Debug/physics_known_at_rest.csv",
-      "bytes": 7799860,
+      "bytes": 7649427,
       "lines": 54001,
       "name": "at_rest_settling_watch",
       "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.json.",
       "scene": "SkullbonezData/scenes/at_rest.scene.json",
-      "sha256": "964818119c2b851500e444348805d807ab806e080331da1aab583bb9a148785f"
+      "sha256": "0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984"
     },
     {
       "artifact": "Debug/physics_known_terrain_contact.csv",
@@ -36,7 +36,7 @@
       "name": "terrain_contact_watch",
       "risk": "Terrain contact micro-bounce or support classification drift.",
       "scene": "SkullbonezData/scenes/terrain_contact_probe_debug.scene.json",
-      "sha256": "90ae39fc5717d5e17dad6b3701565fdc04740502fef9bf36c5ff3d9ce60d103d"
+      "sha256": "823d6756b9cdb11e973cdc7e38dd8efc1f32a00efc40b65f5cb207130c9e8631"
     }
   ]
 }

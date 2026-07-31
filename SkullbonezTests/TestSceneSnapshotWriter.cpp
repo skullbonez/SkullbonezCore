@@ -34,6 +34,8 @@ Related:
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
+#include "TestResultLoadFixtures.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 
 #include "../SkullbonezSource/Physics/BoundingBox.h"
@@ -138,7 +140,8 @@ TEST_CASE( "Scene save owners publish every session and presentation field" )
 void CheckCompleteOwnerPublication( const char* path, const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                     const PresentationSaveState& presentation )
 {
-    const AuthoredScene saved = AuthoredScene::LoadFromFile( diagnostics, path );
+    AuthoredScene saved;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, path, saved ) );
     CHECK( saved.IsPhysicsEnabled() == session.physicsOn );
     CHECK( saved.IsTextEnabled() == session.textOn );
     CHECK( saved.IsEditableScene() == session.editableScene );
@@ -281,13 +284,13 @@ void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, Collide
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider, shape, colliderAuthoring );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape, colliderAuthoring  );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = body.cold.sceneObjectId;
     entity.SetName( displayName );
     entity.SetRenderTint( 0.1f * static_cast<float>( assetPartIndex + 1u ), 0.4f, 0.7f, 1.0f );
-    Rendering::RenderMaterial completeMaterial = entity.GetRenderMaterial();
+    Rendering::RenderMaterial completeMaterial = entity.renderMaterial;
     completeMaterial.baseColor[3] = 0.55f + 0.05f * static_cast<float>( assetPartIndex );
     completeMaterial.emissiveColor[0] = 0.05f;
     completeMaterial.emissiveColor[1] = 0.10f;
@@ -549,7 +552,7 @@ void AppendParsedEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, C
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)colliders.CreateColliderRecord( collider, shape, colliderAuthoring );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape, colliderAuthoring  );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = id;
@@ -695,7 +698,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritativ
     const SceneSaveRequest request { kSnapshotPath, world, session, presentation };
     REQUIRE( SceneSnapshotWriter::Save( diagnostics, request ).Ok() );
 
-    const AuthoredScene saved = AuthoredScene::LoadFromFile( diagnostics, kSnapshotPath );
+    AuthoredScene saved;
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, kSnapshotPath, saved ) );
     CHECK( saved.GetSchemaVersion() == 3u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );

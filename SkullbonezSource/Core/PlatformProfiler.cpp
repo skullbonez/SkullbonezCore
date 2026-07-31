@@ -4,12 +4,8 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  PlatformProfiler.cpp bridges engine profiler markers to platform tools such
-  as PIX when available. As an implementation unit, keep edits anchored on
-  process-wide contracts, diagnostics, and validation-sensitive state and on
-  the glossary/invariants below.
-
-Glossary:
+  Bridges engine profiler markers to
+  platform tools such as PIX when available.
 
 Invariants:
   - Platform profiler calls must be optional; engine profiling remains valid
@@ -384,22 +380,6 @@ void CpuEnd()
 #endif
 }
 
-void CpuMarker( const char* name, uint32_t hash )
-{
-
-    if ( !IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    const char* markerName = name ? name : "(null)";
-    PIXSetMarker( ColorForMarker( markerName, hash ), "%s", markerName );
-#else
-    (void)name;
-    (void)hash;
-#endif
-}
 
 } // namespace PlatformProfiler
 } // namespace Core

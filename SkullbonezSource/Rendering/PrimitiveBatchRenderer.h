@@ -9,10 +9,6 @@ Summary:
   per-frame rendering context.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
   Instance buffer: CPU-built per-object payload uploaded so one mesh can draw
   many objects with different transforms/materials.
 
@@ -27,6 +23,7 @@ Related:
   - SkullbonezSource/Rendering/PrimitiveMeshBuilder.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 #include "../Core/Config.h"

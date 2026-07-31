@@ -10,9 +10,6 @@ Summary:
   header owns declarations and value helpers, not a second scene model.
 
 Glossary:
-  Lane R: Recoverable parse failure returned for invalid external scene input.
-  Schema domain: Cohesive authored section such as assets, bodies, simulation,
-    presentation, or document composition.
   Parser failure scope: Thread-local error target used only during one bounded
     parse so legacy helper calls can stop without throwing.
 
@@ -27,6 +24,7 @@ Related:
   - AuthoredSceneParserBodies.cpp owns body, joint, material, and group rows.
   - AuthoredSceneParserRuntime.cpp owns simulation and runtime settings.
   - AuthoredSceneParserPresentation.cpp owns UI, water, cinematic, and camera fields.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -1254,8 +1252,6 @@ class AuthoredSceneParser
     AuthoredSceneParser( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, const Assets::AssetSystem* assets );
     SkullbonezCore::Core::SbResult TryLoadScene( const char* path, AuthoredScene& outScene );
     SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, AuthoredScene& outScene );
-    AuthoredScene LoadScene( const char* path );
-    AuthoredScene LoadStyle( const char* path );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

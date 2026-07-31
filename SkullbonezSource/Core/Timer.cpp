@@ -4,14 +4,7 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Timer.cpp measures elapsed time for frame pacing and simulation updates. As
-  an implementation unit, keep edits anchored on process-wide contracts,
-  diagnostics, and validation-sensitive state and on the glossary/invariants
-  below.
-
-Glossary:
-  Lane R result: Recoverable platform/environment startup failure reported
-    through an owner/message result instead of an exception.
+  Measures elapsed time for frame pacing and simulation updates.
 
 Invariants:
   - Timer startup returns a Lane R result when high-resolution counters are
@@ -23,6 +16,7 @@ Related:
   - SkullbonezSource/Core/Timer.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Timer.h"
 #include "FatalError.h"
@@ -131,32 +125,4 @@ double Timer::GetCurrentTimeInSeconds()
     }
 
     return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
-}
-
-
-bool Timer::IncrementFrameCount()
-{
-
-    if ( !m_frameCountCurrentSecond )
-    {
-        m_frameTimer = GetCurrentTimeInSeconds();
-    }
-
-    ++m_frameCountCurrentSecond;
-
-    return ( GetCurrentTimeInSeconds() - m_frameTimer > 1 );
-}
-
-
-void Timer::StoreFpsAndResetFrameCounter()
-{
-    m_currentFPSValue = m_frameCountCurrentSecond;
-
-    m_frameCountCurrentSecond = 0;
-}
-
-
-int Timer::GetCurrentFPS()
-{
-    return m_currentFPSValue;
 }

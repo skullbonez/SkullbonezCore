@@ -18,8 +18,6 @@ Glossary:
     or retained segment payloads submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
-  Compiled transition: Render-graph state edge assigned to a specific pass and
-    resource before callbacks record live commands.
   Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
   Retained geometry chunk: Stable compact record slice whose physical address
     does not change when another feature-owned range grows.
@@ -39,6 +37,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

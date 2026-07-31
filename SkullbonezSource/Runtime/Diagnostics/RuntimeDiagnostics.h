@@ -8,15 +8,8 @@ Summary:
   and frame context, while this subsystem owns how that context is written.
 
 Glossary:
-  CLI (Command-Line Interface): Flags passed to SKULLBONEZ_CORE.exe at launch.
-  CSV (Comma-Separated Values): Text table format used for perf and physics
-  regression output.
   NDJSON (Newline-Delimited JSON): One JSON object per line, used by SkullScope
     traces so tools can stream bounded queries.
-  Private working set: Resident process pages not shared with other processes;
-    matching it requires a page-level OS query.
-  SkullScope: Queryable physics diagnostics trace workflow used instead of
-    loading raw traces into model context.
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
@@ -25,6 +18,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

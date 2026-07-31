@@ -276,6 +276,15 @@ Comment quality is part of completion, not a follow-up nicety.
 - Do not treat "file has a learning header" as full compliance. The body of the
   file must also teach local vocabulary, non-obvious ownership/lifetime rules,
   invariants, hazards, units, and validation-sensitive behavior.
+- Every learning-header `Summary:` must add ownership, decision, or flow
+  information beyond the filename. A filename restatement is not a summary.
+- A glossary term defined in exactly one tracked source file remains local. A
+  term defined in more than one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
+  `.hlsl` file belongs in `Agentic/Reference/engine-glossary.md`; source
+  learning headers cite that reference from `Related:` instead of copying the
+  definition. `tools/inventory_glossary_terms.py` reports current duplicates and
+  wording drift. Exact current rulings record migration ownership; they are not
+  permission to retain copies or a count budget.
 - For a subsystem or full-repository comment pass, first create or update an
   explicit checklist plan under `Agentic/Plans/` that lists every tracked source
   file in scope. Use `git ls-files`, not `rg`, for the inventory because ignored
@@ -324,7 +333,7 @@ the targeted validation gates below.
 
 **Repeatable inventories are the instrument, not budgets.** Banning frozen counts
 removed the wrong instrument but left nothing in its place, so shape rules were
-enforced only when a human happened to notice. Four tools now report current
+enforced only when a human happened to notice. Seven tools now report current
 structure without ratcheting anything:
 
 | Tool | Reports | Owning rule |
@@ -333,8 +342,11 @@ structure without ratcheting anything:
 | `tools/inventory_authority_free_aggregates.py` | suffix-free data-bearing type discovery, members, behavior, stated invariants, sites | Invariant Ownership Rule |
 | `tools/inventory_extraction_scars.py` | function-block member-prefixed locals, pure parameter aliases | Extraction Scar Rule |
 | `tools/inventory_function_complexity.py` | function body lines, maximum brace depth, closure count, current-body owner rulings | Function Complexity Ownership Review Rule |
+| `tools/check_build_config_consistency.py` | effective C++ project metadata, shared-source divergence, dropped list inheritance | Build Configuration Consistency Rule |
+| `tools/inventory_unreachable_symbols.py` | Debug/Profile decorated-symbol reachability, test-only and unrooted same-TU definitions, exact current rulings | Symbol Reachability Ownership Review Rule |
+| `tools/inventory_glossary_terms.py` | multi-file learning-header definitions, wording drift, exact current site/wording rulings | Comment Quality Gate glossary split rule |
 
-All four outputs are **current measurements requiring review**, never
+All seven outputs are **current measurements requiring review**, never
 allowances. The aggregate and extraction-scar inventories use the shared
 unruled-fails/ruled-passes gate backed by
 `tools/aggregate_ownership_rulings.json`. The wide-signature inventory uses
@@ -342,8 +354,16 @@ unruled-fails/ruled-passes gate backed by
 review trigger must match a current ruling by file and normalized signature.
 The function-complexity inventory uses
 `tools/function_complexity_rulings.json`; a triggered body must match by file,
-normalized signature, and full-body digest. Historical dispositions never
-satisfy either gate. Never convert any inventory into a count threshold, ratio,
+normalized signature, and full-body digest. The build-configuration inventory
+uses `tools/build_config_rulings.json`; a shared file/setting pair must match
+the digest of every current cross-project configuration variant, while dropped
+list inheritance is always a defect and cannot be ruled away. The reachability
+inventory uses `tools/reachability_rulings.json`; its file/signature identity
+must match the current definition, and a repair ruling must name a live plan.
+The glossary inventory uses `tools/glossary_term_rulings.json`; each exact term
+must match the current definition-site file, line, and wording fingerprint, and
+every repair ruling names the live consolidation plan. Historical dispositions
+never satisfy any gate. Never convert any inventory into a count threshold, ratio,
 or "no more than N" budget, and never add a ruling merely to make a number look
 better — a row records a judgement and names the plan that owns the repair.
 
@@ -352,6 +372,40 @@ file the reviewer actually reads. A rule that exists only here, while
 `Agentic/Skills/rubber-duck/SKILL.md` and
 `Agentic/Skills/carmack-test/SKILL.md` say nothing about it, is unenforced in
 practice.
+
+## Symbol Reachability Ownership Review Rule
+
+An ordinary out-of-line first-party function definition in a `.cpp` file, with
+a matching first-party header declaration and no Debug or Profile production
+reference outside its own translation unit, triggers qualitative owner review.
+Constructors, destructors, operators, inline/header definitions, and
+internal-linkage helpers remain review-owned outside this inventory. This is a
+review trigger, not proof that the symbol is dead: virtual dispatch, callbacks,
+exports, compiler-generated uses, and a source-to-symbol join uncertainty must
+be resolved before deletion.
+
+`tools/inventory_unreachable_symbols.py` runs after current Debug and Profile
+builds. Decorated COFF names preserve overload type identity after each
+configuration's preprocessor has run. The source pass supplies same-TU helper
+edges; compiler objects own production cross-TU and `SKULLBONEZ_TESTS`
+references. Standalone `Agentic/Tests` projects contribute masked lexical test
+edges because their objects live outside the Debug/Profile roots. Every row is
+classified as no-reference, test-only, own-TU-only, or own-TU-and-test-only.
+
+For every row, the reviewer must answer:
+
+1. Which concrete module or invariant owns the symbol?
+2. What exact production invocation mechanism reaches it, if any?
+3. Is a test proving a deliberately exposed invariant seam, or manufacturing
+   reachability for retired surface?
+4. Does an unrooted same-TU component have a live entry, or should it be
+   internalized/deleted?
+5. Is the exact current ruling `retain-owner`, or does `repair-plan` name the
+   active plan that owns adjudication and deletion?
+
+An unruled row, stale signature ruling, or missing repair plan fails
+`validate_fast`. A ruled row is current judgement, not an allowance. Never
+convert the row count into a ceiling, target ratio, or ratchet.
 
 ## Wide Signature Ownership Review Rule
 
@@ -786,7 +840,10 @@ render, or tool gate; it does not replace it.
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `tools/inventory_authority_free_aggregates.py`, `tools/inventory_extraction_scars.py`, `tools/cpp_source_scan.py`, `tools/aggregate_ownership_rulings.json` | `validate_fast`, which runs both `--self-test` invocations, the aggregate repository scan in `--strict` mode, and the extraction-scar repository scan |
 | `tools/inventory_function_complexity.py`, `tools/function_complexity_rulings.json` | `validate_fast`, which runs the complexity `--self-test` and current-tree `--strict` scan; then run the changed script directly |
+| `tools/inventory_glossary_terms.py`, `tools/glossary_term_rulings.json`, `Agentic/Reference/engine-glossary.md`, `Agentic/Reference/comment-style-guide.md`, `Agentic/Skills/comment-style-audit/skill.md`, or `Agentic/Skills/rubber-duck/SKILL.md` glossary rules | `validate_fast`, which runs the glossary `--self-test` and current-tree `--strict` scan; then run `python tools\inventory_glossary_terms.py --self-test` and `python tools\inventory_glossary_terms.py --repo . --strict` directly |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
+| `tools/check_build_config_consistency.py`, `tools/build_config_rulings.json`, or any root first-party `*.vcxproj` | `validate_fast`, then `python tools\check_build_config_consistency.py --self-test` and `python tools\check_build_config_consistency.py --repo .` |
+| `tools/inventory_unreachable_symbols.py`, `tools/reachability_rulings.json`, or externally declared C++ symbol reachability | Build Debug and Profile, then `validate_fast`; run `python tools\inventory_unreachable_symbols.py --self-test` and `python tools\inventory_unreachable_symbols.py --repo . --strict` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |
@@ -808,7 +865,8 @@ render, or tool gate; it does not replace it.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
-- **Physics baseline refreshes require a final physics gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, or `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines. A copied physics artifact is not trustworthy until the gate compares it byte-exactly against the committed baseline.
+- **Physics baselines are owner-controlled and immutable without explicit approval.** An agent must never regenerate, replace, or accept changed physics CSV, known-issue, or SkullScope goldens unless the owner explicitly approves that exact baseline transition after reviewing the behavior. A plan's divergence allowance, a passing determinism check, or an agent-authored closure report is not approval. When behavior differs without approval, restore the owner-approved oracle and repair the implementation.
+- **An owner-approved physics baseline refresh requires a final physics gate.** Regenerate CSV or SkullScope baselines only from the final Debug executable, scene files, and config that will be committed, then rerun the matching gate after the baseline files are updated: `tools\validate_physics.bat` for the core varied-scene baseline, or `tools\validate_physics_deep.bat` for bullet sweep, shooting, known-issue, or SkullScope baselines. A copied physics artifact is not trustworthy until the gate compares it byte-exactly against the committed baseline.
 - **`tools\update_baselines.bat` is visual/perf only.** Do not use it for physics CSV or SkullScope baselines unless the script explicitly grows that support; use the Debug physics artifacts generated by the validation commands and rerun the matching physics gate.
 - **Time all user-requested work.** Record elapsed wall-clock time for every task from the start of work to the final response. Report the time taken in the final answer, and call out timings for substantial sub-runs such as builds, validation scripts, game launches, SkullScope trace generation, or long investigations.
 - **Protect dirty worktrees.** Run `git status --short --branch` before edits and before commits. Treat pre-existing changes as user-owned. Never use `git reset --hard`, destructive `git clean`, checkout/discard commands, or broad formatter runs that touch unrelated files unless the user explicitly requested that operation.

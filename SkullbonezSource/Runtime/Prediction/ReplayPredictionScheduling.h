@@ -10,10 +10,7 @@ Summary:
   measure pass budgets, and advance the presentation reveal cursor.
 
 Glossary:
-  Instant build: One worker submission that completes the remaining horizon.
-  Amortized build: Small worker submissions spread across render frames.
   Latest-wins restart: One pending rebuild bit representing every newer edit.
-  Reveal cursor: Monotonic presentation frame reached by the prediction clock.
   Budget pass: Named prediction stage whose elapsed-time exhaustion is counted.
 
 Invariants:
@@ -29,6 +26,7 @@ Invariants:
 Related:
   - ReplayPrediction.h stores the scheduling state.
   - ReplayPredictionScheduling.cpp owns cancellation and prefix promotion.
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

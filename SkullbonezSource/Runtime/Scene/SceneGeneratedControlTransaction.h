@@ -14,11 +14,9 @@ Glossary:
     rebuild phases.
   Generated UI command: One-frame Scene/Run tab request for generated object
     counts.
-  Phase cursor: Value state that accepts only the adjacent rebuild walk.
   Rebuild action: Returned flags for caller-owned replay/profiler cleanup.
   Action status: Lane R result that blocks all rebuild mutations when the GPU
     drain cannot prove old resource use complete.
-  Model capacity: Active object capacity limit.
 
 Invariants:
   - Every accepted command walks DrainAndReset, Repopulate,
@@ -34,6 +32,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

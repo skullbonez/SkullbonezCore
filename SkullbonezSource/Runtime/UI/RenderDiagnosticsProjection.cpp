@@ -9,7 +9,6 @@ Summary:
   boundary, preventing either package from adopting the other's types.
 
 Glossary:
-  Descriptor: Indexed GPU resource binding slot reported as usage/capacity.
   Transient: Frame-scoped storage whose current and peak use are diagnostic
     values rather than durable ownership.
 
@@ -21,6 +20,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderDiagnosticsProjection.h"
 

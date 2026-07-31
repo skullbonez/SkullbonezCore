@@ -9,9 +9,6 @@ Summary:
   those consumers detached from SpatialGrid storage and mutation authority.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds pairs worth testing precisely.
-  Active cell: Occupied persistent or swept-overlay grid cell in the latest
-    committed physics step.
   Visualization coordinate: Signed 16-bit projection used only for diagnostics;
     collision identity retains full-width coordinates inside SpatialGrid.
 
@@ -25,6 +22,7 @@ Related:
   - SkullbonezSource/Physics/SpatialGrid.h
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

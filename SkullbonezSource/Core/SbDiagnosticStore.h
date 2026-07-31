@@ -9,8 +9,6 @@ Summary:
   slots and returns a compact lease. The last lease reclaims the slot.
 
 Glossary:
-  Publication: Atomic transition from a free slot to complete immutable bytes.
-  Generation: Monotonic per-slot identity that rejects a handle after reuse.
   High-water: Largest number of simultaneously live diagnostic entries.
 
 Invariants:
@@ -33,6 +31,7 @@ Related:
   - SkullbonezSource/Core/SbResult.h
   - SkullbonezSource/Core/SbResult.cpp
   - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

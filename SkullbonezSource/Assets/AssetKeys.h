@@ -10,7 +10,6 @@ Summary:
   identity humans edit in scene/config data.
 
 Glossary:
-  FNV-1a: Small deterministic hash used for legacy string-key lookup.
   Texture key: Hash that selects a fixed TextureCollection slot.
   Camera key: Hash that selects an authored CameraCollection slot.
 
@@ -25,6 +24,7 @@ Related:
   - SkullbonezSource/Assets/TextureCollection.h consumes texture keys.
   - SkullbonezSource/Runtime/Camera/CameraCollection.h consumes camera keys.
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

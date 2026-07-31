@@ -4,19 +4,8 @@ Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
 Summary:
-  PhysicsDiagnosticsSink.cpp streams bounded physics diagnostics to SkullScope
-  trace files. As an implementation unit, keep edits anchored on deterministic
-  physics, diagnostics, or world-state flow and on the glossary/invariants
-  below.
-
-Glossary:
-  Diagnostic-name table: Fixed pointer table registered when scene topology
-    changes and borrowed only while emitting Debug rows.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Streams bounded physics
+  diagnostics to SkullScope trace files.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -26,6 +15,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsDiagnosticsSink.h"
 
@@ -182,12 +172,6 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsPath( const char* path )
 void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_skullScope.SetRunId( runId );
-}
-
-
-bool PhysicsDiagnosticsSink::IsCollisionTimeLogEnabled() const
-{
-    return m_physicsCollisionTimeLogPath[0] != '\0';
 }
 
 

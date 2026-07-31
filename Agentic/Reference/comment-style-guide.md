@@ -52,7 +52,7 @@ Purpose:
   Owns the DirectX 12 renderer backend: device setup, swap-chain targets,
   descriptor tables, command recording, and frame presentation.
 
-Mental model:
+Summary:
   DX12 separates GPU memory from small binding records called descriptors.
   This file creates the memory, creates descriptor rows that describe that
   memory, then records command-list operations that bind those rows.
@@ -81,14 +81,27 @@ Header fields:
 |-------|----------|-------|
 | `File` | Yes | Filename only, or path if the basename is ambiguous. |
 | `Purpose` | Yes | One to three lines saying what this file owns. |
-| `Mental model` | Yes for non-trivial files | Plain-English model of how to think about the file. |
-| `Glossary` | Yes | Local or behavior-sensitive terms used in this file. Do not define assumed baseline technology names. |
+| `Summary` | Yes | Plain-English ownership, decision, or flow that adds information beyond the filename. A filename restatement does not satisfy this field. |
+| `Glossary` | When the file defines local vocabulary | Terms defined by exactly one tracked source file. Shared terms belong in `Agentic/Reference/engine-glossary.md`. |
 | `Invariants` | When relevant | Ordering, lifetime, threading, units, determinism, API contracts. |
 | `Related` | When useful | Nearby files, reference docs, papers, tools, or validation scripts. |
 
+`Summary:` is retained because a useful summary teaches the file's ownership,
+decision, or data flow before the reader reaches code. It must say something the
+filename does not. For example, `UIState.h implements UI state` is a tautology;
+name the state authority, lifecycle, or boundary the file actually owns.
+
 Keep file glossaries local. Define the terms a reader needs for this file, not
-every term in the engine. If a glossary grows past about twelve entries, keep the
-most local terms and link to a reference document.
+every term in the engine. The split is exact and count-free:
+
+- A term defined in exactly one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
+  `.hlsl` file remains in that file's `Glossary:` block.
+- A term defined in more than one tracked source file belongs in
+  `Agentic/Reference/engine-glossary.md`. Remove the copied definitions and cite
+  the shared glossary from each affected file's `Related:` block.
+
+The inventory reports current structure; the number of entries in one file is
+never a threshold or budget.
 
 ## Glossary Rules
 
@@ -101,8 +114,11 @@ naturally unless the comment is explaining a Skullbonez-specific contract,
 non-obvious API rule, invariant, lifetime, or hazard.
 
 When a local, ambiguous, or behavior-sensitive acronym or domain term appears in
-a file, define it in the file glossary and expand it on first local use if the
-nearby code is dense.
+a file, first decide whether another tracked source file defines the same exact
+term. Define a single-file term in the file glossary. For a multi-file term,
+cite `Agentic/Reference/engine-glossary.md` from `Related:` and do not copy its
+definition. Expand either kind on first dense local use when that helps the
+reader follow the code.
 
 Use this entry shape:
 
@@ -376,8 +392,12 @@ Avoid stale historical comments unless the history explains a current rule.
 When editing a file, check:
 
 - Does the file have a learning header?
-- Does the glossary define local, ambiguous, or behavior-sensitive terms while
-  skipping assumed baseline technology names?
+- Does `Summary:` state ownership, a decision, or a flow that the filename does
+  not already reveal?
+- Does the file glossary define only single-file local vocabulary while shared
+  definitions live in `Agentic/Reference/engine-glossary.md` and are cited from
+  `Related:`?
+- Does the glossary skip assumed baseline technology names?
 - Does the first dense use of a non-assumed acronym expand or point to the
   glossary?
 - Are comments explaining concepts, reasons, invariants, lifetimes, hazards, or units?
@@ -407,7 +427,8 @@ That skill should be run intermittently:
 The skill should do four things:
 
 1. Inspect the touched files, not the whole repository by default.
-2. Add or refresh file learning headers and glossaries.
+2. Add or refresh file learning headers, local glossaries, and shared-glossary
+   citations.
 3. Replace acronym-only and restatement comments with concept/why/invariant comments.
 4. Report any terms that still need a human-approved explanation.
 

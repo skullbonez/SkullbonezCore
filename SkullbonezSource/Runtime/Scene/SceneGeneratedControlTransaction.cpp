@@ -14,7 +14,6 @@ Glossary:
     accepted UI override before falling back to scene state.
   Follow-up action: Returned flags that tell Run to reset replay and profiler
     state after rebuilding generated objects.
-  Model capacity: Maximum active model count that generated rebuilds must obey.
 
 Invariants:
   - Accepted requests follow DrainAndReset, Repopulate, PublishFollowUps, and
@@ -27,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedControlTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "SceneGeneratedControlTransaction.h"
 #include "SceneController.h"

@@ -9,17 +9,8 @@ Summary:
   widget, tab-input, gesture, and cache authority live in that owner.
 
 Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
   Scene navigation model: UI-owned browser rows and generated-scene overrides
     borrowed synchronously by runtime navigation and load transactions.
-  Interaction owner: Concrete owner of persistent UI controls and cross-frame
-    pointer/capture state; it emits typed command values rather than mutating
-    runtime subsystems.
-  Capacity row: Detached fixed-size owner telemetry copied by Runtime for one
-    Memory-tab draw.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -36,6 +27,7 @@ Related:
   - SkullbonezSource/UI/UI.cpp
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -265,7 +257,6 @@ class InGameUI
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );
-    void ToggleMaximizeMinimize( int screenW, int screenH, double now );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
@@ -280,9 +271,7 @@ class InGameUI
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
     void SetPerformanceHistogramEnabled( bool enabled );
-    bool IsPerformanceHistogramEnabled() const;
     void TogglePerformanceHistogramEnabled();
-    void SetMemoryOverlayEnabled( bool enabled );
     bool IsMemoryOverlayEnabled() const;
     void ToggleMemoryOverlayEnabled();
     bool NeedsUiTextPass() const;

@@ -4,19 +4,8 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  BoundingBox.cpp defines oriented-box collision geometry and its
-  broadphase/render helper math. As an implementation unit, keep edits
-  anchored on deterministic physics, diagnostics, or world-state flow and on
-  the glossary/invariants below.
-
-Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Defines oriented-box collision geometry
+  and its broadphase/render helper math.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -26,6 +15,7 @@ Related:
   - SkullbonezSource/Physics/BoundingBox.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 
 // =============================================================================
@@ -100,29 +90,6 @@ float BoundingBox::GetVolume() const
 
 // Simplified submersion: treat the box as a vertical slab with height
 // 2*halfExtent.y.
-float BoundingBox::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
-{
-
-    // This is a deliberately rough buoyancy approximation: it treats the box as
-    // an upright vertical slab. The exact submerged volume of a rotated box would
-    // need clipping against the water plane and is more expensive than this path
-    // currently wants.
-    float totalHeight = m_halfExtents.y * 2.0f;
-    float bottom = m_position.y - m_halfExtents.y;
-    float top = m_position.y + m_halfExtents.y;
-
-    if ( fluidSurfaceHeight >= top )
-    {
-        return 1.0f;
-    }
-
-    if ( fluidSurfaceHeight <= bottom )
-    {
-        return 0.0f;
-    }
-
-    return ( fluidSurfaceHeight - bottom ) / totalHeight;
-}
 
 
 // Drag coefficient for a cube: ~1.05 (bluff body)

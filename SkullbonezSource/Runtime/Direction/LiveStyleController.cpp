@@ -5,13 +5,7 @@ Purpose:
 
 Summary:
   LiveStyleController applies live style-harness updates without restarting
-  physics or scene state. As an implementation unit, keep edits anchored on
-  local owner boundaries and call direction and on the glossary/invariants
-  below.
-
-Glossary:
-  Lane R result: Recoverable style-load or capture failure reported to the
-    control status file and stderr while the run stays alive.
+  physics or scene state.
 
 Invariants:
   - Live style polling is opt-in and style-only; it must not reload scene
@@ -22,6 +16,7 @@ Invariants:
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "LiveStyleController.h"
 #include "../Scene/SceneController.h"

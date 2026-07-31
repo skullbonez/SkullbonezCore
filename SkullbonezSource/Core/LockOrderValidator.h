@@ -12,7 +12,6 @@ Glossary:
   TrackedMutex: std::mutex wrapper that reports lock acquisition and release to
   the Debug validator.
   Lock graph: Directed graph of observed "held before acquired" relationships.
-  Debug build: Configuration where validation asserts are active.
 
 Invariants:
   - TrackedMutex must match std::mutex lock/try_lock/unlock semantics for
@@ -23,6 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #pragma once
@@ -71,7 +71,6 @@ class TrackedMutex
     TrackedMutex( const char* name, LockOrderValidator& validator );
 
     void lock();
-    bool try_lock();
     void unlock();
 
   private:

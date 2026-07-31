@@ -10,12 +10,6 @@ Summary:
   InGameUI remains the draw/resource composer and borrows WidgetView only for
   the duration of one draw call.
 
-Glossary:
-  Widget view: Short-lived typed references to owner-held controls whose bounds
-    are shared by input hit testing and drawing.
-  Capture state: Window drag, resize, slider, and native-mouse ownership that
-    can span multiple frames.
-
 Invariants:
   - Widget bounds used for hit testing and drawing come from the same objects.
   - The owner never retains an InGameUI pointer, reference, or callback.
@@ -25,6 +19,7 @@ Related:
   - SkullbonezSource/UI/UI.cpp
   - SkullbonezSource/UI/UIWindowInteractionOwner.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -129,7 +124,6 @@ class UIWindowInteractionOwner
     void SetVisible( bool visible, double now );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now );
-    void ToggleMaximizeMinimize( int screenW, int screenH, double now );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     void CancelInputCapture();

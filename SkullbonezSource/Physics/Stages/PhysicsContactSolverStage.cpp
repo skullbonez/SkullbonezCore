@@ -10,14 +10,13 @@ Summary:
   regain mutable access to solver internals.
 
 Glossary:
-  Pipeline capacity: Remaining bounded diagnostics records for this fixed tick.
-  Fixed-tree release: Solver event asking owner-side fixed support to wake.
-  Replay transfer: Explicit copy between solver ownership and snapshot values.
-  Convergence trace: Bounded live-solve iteration summaries excluded from
-    replay capture and restore.
+  Pipeline capacity: Remaining bounded diagnostics events for this fixed tick;
+    payload rows are optional.
 
 Invariants:
   - Consequence queues are cleared but never re-reserved in Solve.
+  - Pipeline consequences use one representation per step: ordered records or
+    an equivalent count-only total.
   - Capacity exhaustion is a Lane F fatal invariant violation.
   - Cache erasure preserves the original packed-key body matching expressions.
   - Replay restore clears convergence diagnostics rather than presenting stale
@@ -28,6 +27,7 @@ Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsContactSolverStage.h"
 
@@ -159,6 +159,7 @@ void PhysicsContactSolverStage::Clear()
     m_persistentRestingContactCounts.clear();
     m_solveTransaction.Clear();
     m_sideEffects.pipelineRecords.clear();
+    m_sideEffects.pipelineEventCount = 0;
     m_sideEffects.collisionVisualBodies.clear();
     m_sideEffects.fixedContactBodies.clear();
     m_sideEffects.releaseWakeBodies.clear();
@@ -169,6 +170,7 @@ void PhysicsContactSolverStage::PrepareSideEffects( int modelCount, std::size_t 
                                                     int pipelineRecordCapacity )
 {
     m_sideEffects.pipelineRecords.clear();
+    m_sideEffects.pipelineEventCount = 0;
     m_sideEffects.collisionVisualBodies.clear();
     m_sideEffects.fixedContactBodies.clear();
     m_sideEffects.releaseWakeBodies.clear();

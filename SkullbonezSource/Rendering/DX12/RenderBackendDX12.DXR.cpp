@@ -9,28 +9,6 @@ Summary:
   Dx12FrameOwner remains the only authority that closes, submits, or fences the
   shared command list.
 
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
-  mesh's triangles.
-  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
-  instances that point at BLAS geometry.
-  SBT (Shader Binding Table): DXR table that maps ray records to
-  ray-generation, miss, and hit shaders.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  CBV (Constant Buffer View): Descriptor row used when shaders read a packed
-  block of constants.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
-  loss, breadcrumbs, and page-fault clues.
-  COM (Component Object Model): Windows interface lifetime model used by DX12
-  through reference-counted objects.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
@@ -42,6 +20,7 @@ Invariants:
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "../../Core/WindowConstants.h"
@@ -152,10 +131,6 @@ bool Dx12RaytracingOwner::Initialized() const
     return m_commandList4 != nullptr && m_pipeline != nullptr && m_reflectionTexture != nullptr;
 }
 
-const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
-{
-    return m_featureResult.Current();
-}
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {

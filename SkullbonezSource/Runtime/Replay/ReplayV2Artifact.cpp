@@ -11,10 +11,6 @@ Summary:
   provide restore evidence.
 
 Glossary:
-  ABI (Application Binary Interface): Byte-level file contract used by saved
-    replay artifacts and replay_query tooling.
-  JSON (JavaScript Object Notation): Text metadata format used inside the
-    manifest chunk.
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense versioned visual-state records.
@@ -23,10 +19,7 @@ Glossary:
   ECUR: Event cursor records attached to sparse solver checkpoints.
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
-  RVIS: Exact full-packet identity, count, byte-length, and digest records.
-  RVPD: Typed completed-prediction state with no renderer or worker ownership.
   INDX: Frame seek index into the presentation chunk.
-  POD (Plain Old Data): Trivially copyable value written as raw bytes.
 
 Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
@@ -38,6 +31,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
   - tools/replay_query.py
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayV2Artifact.h"
 
@@ -2916,12 +2910,6 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder, const ReplaySol
 }
 } // namespace
 
-bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
-                                                         const ReplaySolverRecorder& solverRecorder, const char* path,
-                                                         ReplayV2SaveResult* result )
-{
-    return SavePresentationWithTracks( recorder, solverRecorder, nullptr, {}, {}, path, result );
-}
 
 bool ReplayV2Artifact::SavePresentationWithSolverHashes( const ReplayRecorder& recorder,
                                                          const ReplaySolverRecorder& solverRecorder,

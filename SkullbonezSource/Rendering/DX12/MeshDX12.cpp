@@ -8,13 +8,6 @@ Summary:
   default-heap vertex buffer. Draws pass through the frame gate and record their
   evidence through the concrete diagnostics owner before native submission.
 
-Glossary:
-  Upload arena: Frame-scoped CPU-visible staging memory whose bytes may be
-  reused only after the owning frame fence completes.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -29,6 +22,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "MeshDX12.h"
 #include "../../Core/FatalError.h"
@@ -186,15 +180,4 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
     commandList->IASetVertexBuffers( 0, 1, &m_vbView );
     m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshDeclaredRaster", m_vertexCount, 1 } );
     commandList->DrawInstanced( static_cast<UINT>( m_vertexCount ), 1, 0, 0 );
-}
-
-
-void MeshDX12::ResetResources()
-{
-
-    if ( m_vertexBuffer )
-    {
-        m_vertexBuffer->Release();
-        m_vertexBuffer = nullptr;
-    }
 }

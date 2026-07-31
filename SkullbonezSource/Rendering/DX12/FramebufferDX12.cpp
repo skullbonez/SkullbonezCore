@@ -4,23 +4,8 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  FramebufferDX12.cpp implements off-screen framebuffer resources and
-  descriptor views for the DX12 renderer. As an implementation unit, keep
-  edits anchored on DX12 ownership, descriptors, resources, and command
-  submission and on the glossary/invariants below.
-
-Glossary:
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Implements off-screen framebuffer resources
+  and descriptor views for the DX12 renderer.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -35,6 +20,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "FramebufferDX12.h"
 #include "../../Core/FatalError.h"

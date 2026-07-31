@@ -8,19 +8,6 @@ Summary:
   SRV rows. It borrows the active backend command stream during upload or mip
   dispatch but stores no backend pointer across calls.
 
-Glossary:
-  Upload arena: Frame-scoped CPU-visible staging memory used for texture rows
-  before CopyTextureRegion moves them into GPU-owned texture memory.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
-  state that DX12 binds before drawing or dispatching.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
-
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
   must stay explicit.
@@ -30,6 +17,7 @@ Invariants:
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"
 #include "Dx12RenderGraphExecutor.h"
@@ -957,23 +945,6 @@ ID3D12Resource* Dx12TextureOwner::ResolveResource( uint32_t handle ) const
 {
     const TextureEntryDX12* entry = ResolveEntry( handle );
     return entry ? entry->resource : nullptr;
-}
-
-
-uint32_t Dx12TextureOwner::FindHandleForSrv( UINT srvIndex ) const
-{
-    const auto& entries = m_registry.Entries();
-
-    for ( size_t index = 0; index < entries.size(); ++index )
-    {
-
-        if ( entries[index].srvIndex == srvIndex )
-        {
-            return Dx12TextureHandleCodec::Encode( index, entries[index].generation );
-        }
-    }
-
-    return 0;
 }
 
 

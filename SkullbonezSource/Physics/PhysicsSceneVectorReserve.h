@@ -10,7 +10,6 @@ Summary:
   already-approved outer Replay owner and never registers a second privilege.
 
 Glossary:
-  Scene capacity: Logical row ceiling derived from the loaded scene topology.
   Retained backing: Physical vector allocation kept after a smaller scene
     lowers its logical capacity.
   Replay owner: Registered upper-layer allocation authority that admits the
@@ -29,6 +28,7 @@ Related:
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Physics/PhysicsEngine.cpp
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

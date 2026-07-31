@@ -9,12 +9,8 @@ Summary:
   body and collider stores, while fixed-step stages borrow only dense spans.
 
 Glossary:
-  Sphere cap: Portion of a sphere below the fluid surface; its analytic volume
-    gives a deterministic submerged fraction without sampling.
   Submersion snapshot: Per-body fraction cached on the buoyancy row for one
     physics decision, not an authoring value.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
 
 Invariants:
   - Facts row i describes body/collider row i; lifecycle commands use the same
@@ -26,6 +22,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/BuoyancySystem.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -12,8 +12,6 @@ Summary:
   same coordinates.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth precise tests.
-  Candidate pair: Normalized body-index pair that may reach narrowphase.
   Fast-sweep augmentation: Conservative segment check that protects tiny,
     high-speed bodies from depending only on grid-cell overlap.
   Collision-cell key: Deterministic diagnostic hash of a contact midpoint cell.
@@ -21,8 +19,6 @@ Glossary:
     construction from one broadphase input state before either can evolve it.
   Grid maintenance: Adds or removes only cells whose integer body range changed;
     settled bodies retain their entries without per-step reinsertion.
-  Pair-source cell: Current-generation cell reached by an awake body; dormant
-    membership remains resident even when the cell is not visited this step.
 
 Invariants:
   - Solver-visible candidates use the P1 canonical `(minIndex, maxIndex)`
@@ -40,6 +36,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

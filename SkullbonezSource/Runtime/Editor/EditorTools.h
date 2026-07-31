@@ -8,15 +8,6 @@ Summary:
   editable object scale, clamp ranges, placement semantics, and editor command
   side effects expressed through focused per-operation borrows.
 
-Glossary:
-  Asset system: Runtime-owned registry that resolves editor asset-library names
-    without querying process-global state.
-  Placement gesture: Mouse drag and wheel input used to size an object before
-    placement commits.
-  Hull scale: Per-axis size multiplier for convex hull editor assets.
-  Uniform scale: One shared size value applied to all axes.
-  Scale lock: Rule that keeps authored multi-part tree/root proportions stable.
-
 Invariants:
   - Scale helpers must be deterministic and side-effect free.
   - Command helpers borrow only the concrete owners used by that operation.
@@ -26,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -208,9 +200,6 @@ const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::Phy
 const Physics::PhysicsBodyRecord* TryResolveEditorBodyRecord( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
 bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                    Physics::PhysicsBodyHandle bodyHandle, Physics::PhysicsColliderHandle colliderHandle,
-                                   int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
-                                   const Physics::ColliderRecord*& outCollider );
-bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                    int modelIndex, const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
 bool TryGetEditorSelectionFrame( const SceneWorld& world, Physics::PhysicsBodyHandle selectedBodyHandle,

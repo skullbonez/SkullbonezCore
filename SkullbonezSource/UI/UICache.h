@@ -4,16 +4,8 @@ Purpose:
   Implements UI Cache widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UICache.h implements UI Cache widgets, layout, drawing, or UI state for the
-  in-engine controls. As a public header, keep edits anchored on UI request,
-  layout, hit-test, and draw-command flow and on the glossary/invariants
-  below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Replays retained draw commands only when style,
+  content, size, and animation inputs still match.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -22,6 +14,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UICache.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -74,7 +67,6 @@ class UICacheState
 
     UIDrawList& MutableDrawList();
     const UIDrawList& DrawList() const;
-    uint32_t DirtyFlags() const;
     float ReplayOffsetX( const UICacheFrameKey& key ) const;
     float ReplayOffsetY( const UICacheFrameKey& key ) const;
 

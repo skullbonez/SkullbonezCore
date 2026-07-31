@@ -11,21 +11,12 @@ Summary:
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
-  Body store: Physics-owned live body records used for pose and velocity
-    authority while legacy object-record mirrors are retired.
   Cause tree row: UI row derived from retained solver contacts or prediction
     future nodes.
-  Collider store: Physics-owned shape, material, and radius records paired with
-    body handles.
   Hash log: Deterministic text stream that lets saved replay output be compared.
   Loaded presentation: Replay artifact data loaded from disk for scrub preview.
   Prediction worker: Amortized task that fills replay-owned prediction build
     frames outside the render thread.
-  Authored path colour: Scene material base colour reused by orbital guide and
-    predicted trajectory ribbons.
-  Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
-  Velocity edit: Replay tool state for selecting one path-target body and
-    editing its linear or angular velocity vectors.
 
 Invariants:
   - Full owner-state accessors are private. External render, input, UI, and
@@ -42,6 +33,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayRuntime.h"
 #include "../../Assets/AssetKeys.h"
@@ -806,79 +798,12 @@ void ReplayRuntime::CancelRenderFrame( RuntimeTools& runtimeTools )
     }
 }
 
-ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation( PhysicsEngine& physics, const SceneEntityStore& entities,
-                                                                      std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore,
-                                                                      RuntimeTools& runtimeTools, const Math::Vector::Vector3& cameraEye, const Math::Vector::Vector3& cameraUp,
-                                                                      uint64_t replayReserveGrowthEvents )
-{
-    EditorTracer& tracer = runtimeTools.Tracer();
-    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-
-    // Invariant: validation owns the canonical frame-local oracle. It never
-    // consumes retained ranges, so optimized output cannot self-approve.
-    AppendOverlayTrace( physics, entities, tracer, prediction,
-                        ReplayOverlayBuildInput { runtimeTools.Editor().editorModeEnabled, RuntimeInteractionGesture {},
-                                                  0 } );
-
-    (void)m_predictionOwner.PresentationOwner().BuildGhostDrawRequests( prediction, presentationRecords, bodyStore );
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraEye, cameraUp );
-    m_predictionOwner.PresentationOwner().PublishVisualPacket( packet, prediction,
-                                                               m_visualPresentation.PathVisualizer().targetId,
-                                                               m_timeline.Solver().LatestSample(),
-                                                               replayReserveGrowthEvents );
-
-    return m_predictionOwner.PresentationOwner().PublishedVisualPacketView();
-}
 
 void ReplayRuntime::ApplyAuthoringPredictionRequest()
 {
     const ReplayAuthoringPredictionRequest request = m_authoring.TakePredictionRequest();
     m_predictionOwner.ApplyAuthoringRequest( request, ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS,
                                              ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS );
-}
-
-void ReplayRuntime::EnterOfflinePredictionVerification()
-{
-
-    // Invariant: this is a one-way terminal capability transition for a CLI
-    // validation process. It does not clear the frozen prediction because the
-    // caller immediately replaces it from RVPD, and no render frame follows.
-    m_predictionOwner.EnterOfflineVerification();
-    m_predictionOwner.PresentationOwner().ResetTrajectoryVisualStats();
-}
-
-
-bool ReplayRuntime::LoadPredictionArchiveForVerification( std::span<const uint8_t> bytes, char* outReason,
-                                                          std::size_t reasonSize )
-{
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/ColdIO/LoadPredictionArchive",
-                                   ::HashStr( "Frame/Replay/ColdIO/LoadPredictionArchive" ) );
-
-    RunReplayPathVisualizerState archivePath;
-
-    if ( !m_predictionOwner.LoadArchive( bytes, archivePath, outReason, reasonSize ) )
-    {
-        return false;
-    }
-
-    m_visualPresentation.ApplyArchivePathState( archivePath );
-    return true;
-}
-
-
-bool ReplayRuntime::BuildPredictionArchiveForValidation( std::vector<uint8_t>& outBytes ) const
-{
-    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/Replay/ColdIO/BuildPredictionArchive",
-                                   ::HashStr( "Frame/Replay/ColdIO/BuildPredictionArchive" ) );
-
-    return m_predictionOwner.BuildArchive( m_visualPresentation.PathVisualizer(), outBytes );
-}
-
-
-void ReplayRuntime::ResetPredictionPresentationVerification()
-{
-    m_predictionOwner.PresentationOwner().ResetTrajectoryVisualStats();
-    m_predictionOwner.ResetVerificationMarkers();
 }
 
 

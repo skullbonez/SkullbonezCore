@@ -5,33 +5,9 @@ Purpose:
   allocators, and frame pacing.
 
 Summary:
-  RenderDeviceDX12.h owns the device and presentation epoch: native device
-  objects, published extent/generation, VSync/tearing policy, main depth
-  surface, fences, command allocators, and frame pacing.
-
-Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  UAV (Unordered Access View): Descriptor row used when compute or raytracing
-  shaders write textures or buffers.
-  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
-  loss, breadcrumbs, and page-fault clues.
-  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
-  object names.
-  COM (Component Object Model): Windows interface lifetime model used by DX12
-    through reference-counted objects.
-  Upload arena: Fixed, persistently mapped per-frame byte range used for
-    constants, vertices, instances, and resource-copy rows.
-  Persistent tail: Fixed suffix excluded from ordinary frame resets so retained
-    GPU geometry can reuse cold-created upload memory across frames.
-  Cold flush: Submit/wait/reset retry allowed outside steady gameplay when an
-    upload reservation does not fit.
+  Owns the device and presentation epoch: native device
+  objects, published extent/generation, VSync/tearing policy,
+  main depth surface, fences, command allocators, and frame pacing.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -41,6 +17,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -225,7 +202,6 @@ class Dx12FenceTimeline
         return m_lastSignaledValue;
     }
 
-    Dx12FenceTimelineStats GetStats() const;
 
   private:
     SkullbonezCore::Core::SbDiagnosticStore& m_resultDiagnostics;
@@ -516,11 +492,6 @@ class Dx12DescriptorAllocator
     // API. This method checks the full range before consuming any rows, so an
     // exhaustion failure cannot leave the caller with a half-reserved table.
     UINT AllocateTransientRange( UINT count );
-
-    // Reports whether a complete range fits without mutating counters. Fatal
-    // allocation policy remains in AllocateTransientRange; tests and callers
-    // may use this only to reason about capacity before committing a table.
-    bool CanAllocateTransientRange( UINT count ) const;
 
     // CPU handle into the shader-visible heap. The CPU uses this to write or
     // copy a descriptor into a shader-readable slot.

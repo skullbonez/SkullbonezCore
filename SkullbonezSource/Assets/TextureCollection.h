@@ -4,15 +4,8 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  TextureCollection.h loads texture files and hands renderer-neutral texture
-  ids to draw code. As a public header, keep edits anchored on asset lifetime,
-  cache ownership, and load/fallback behavior and on the glossary/invariants
-  below.
-
-Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Loads texture files and hands
+  renderer-neutral texture ids to draw code.
 
 Invariants:
   - m_textures is fixed to SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
@@ -26,6 +19,7 @@ Invariants:
 Related:
   - SkullbonezSource/Assets/TextureCollection.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -102,7 +96,6 @@ class TextureCollection
     SkullbonezCore::Core::SbResult EnsureTexture( uint32_t hash );
     SkullbonezCore::Core::SbResult SelectTexture( uint32_t hash );
     TextureHandleResult GetTextureHandle( uint32_t hash );
-    int NumFreeTextureSpaces() const;
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
     SkullbonezCore::Core::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );

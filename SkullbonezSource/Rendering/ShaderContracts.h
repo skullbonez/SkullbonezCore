@@ -11,10 +11,6 @@ Summary:
 Glossary:
   Uniform: Named shader constant set by engine code before drawing.
   Resource: Shader-visible texture or buffer binding declared by a shader.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  ABI (Application Binary Interface): The compiled binding contract between
-  C++ root parameters, shader registers, and draw-time texture slots.
   Vertex layout: Ordered per-vertex and per-instance data shape consumed by a
   shader program.
 
@@ -28,6 +24,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
   - SkullbonezSource/Rendering/ShaderReflectionContracts.h
   - Agentic/Reference/shader-inventory.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

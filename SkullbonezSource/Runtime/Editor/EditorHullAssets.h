@@ -10,8 +10,6 @@ Summary:
 Glossary:
   Hull asset: Authored convex collision mesh used by editor primitives.
   Hull token: Stable scene-file string that names a built-in hull asset.
-  Contact release: Editor/authored behavior that lets fixed decoration become
-    dynamic after a large impact.
 
 Invariants:
   - Scene-file tokens are compatibility contracts; do not rename them casually.
@@ -22,6 +20,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

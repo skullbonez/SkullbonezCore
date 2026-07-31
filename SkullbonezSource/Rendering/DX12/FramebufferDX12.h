@@ -4,20 +4,9 @@ Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  FramebufferDX12.h declares off-screen framebuffer resources and their views.
-  It borrows one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
+  Declares off-screen framebuffer resources and their views. It borrows
+  one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
   framebuffer cannot retain allocator aliases with independent lifetimes.
-
-Glossary:
-  RTV (Render Target View): Descriptor row used when the GPU writes color
-  pixels into a texture or back buffer.
-  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
-  depth/stencil data for depth testing.
-  SRV (Shader Resource View): Descriptor row used when shaders read textures
-  or buffers.
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -30,6 +19,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

@@ -10,7 +10,6 @@ Summary:
 
 Glossary:
   Presentation packet: Frame-local immutable spans submitted to rendering.
-  Focus mask: Dense frame-local rows faded around the selected path family.
   Submission probe: Stable-window evidence for trajectory bytes and reserve growth.
 
 Invariants:
@@ -24,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionRetainedGeometry.h
   - SkullbonezSource/Runtime/Replay/ReplayPresentation.h
   - SkullbonezSource/Runtime/App/ReplayRuntime.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

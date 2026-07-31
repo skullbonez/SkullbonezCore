@@ -12,20 +12,10 @@ Summary:
 
 Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
-  Gizmo: World-space translate, rotate, or scale affordance drawn over selected models.
   Selection outline: Shape-accurate wire outline drawn from explicit pose and
     collision-shape values supplied by the owning tool.
-  Replay target marker: Replay overlay outline/ring drawn from explicit
-    body-store pose and collider-store shape/radius values.
   Replay future marker: Shape-accurate downstream collision outline drawn at
     the latest visible predicted/retained pose, never from a broadphase radius substitute.
-  Replay ribbon: Screen-space-width strip generated from replay path segments;
-    its pixel shader gives every path an analytic edge and only selected paths
-    an emphasis halo.
-  Retained ribbon chunk: Eight-segment compact slice that preserves a path's
-    physical records while a separately sorted command mirror preserves draw order.
-  FNV (Fowler-Noll-Vo): Small deterministic byte-stream hash used here for
-    validation evidence, not for security.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
@@ -46,6 +36,7 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"
 #include "EditorTools.h"
@@ -1171,17 +1162,6 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
     direction /= magnitude;
     const float length = std::clamp( sqrtf( magnitude ) * 3.0f, 1.8f, 12.0f );
     EmitArrow( point, point + direction * length, r, g, b );
-}
-
-
-void EditorTracer::AddReplayFutureTargetMarker( const Vector3& position, const Quaternion& orientation,
-                                                const CollisionShapeReference& shape, int depth )
-{
-    const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
-    const float r = std::clamp( 0.98f - depthFade * 0.55f, 0.52f, 1.0f );
-    const float g = std::clamp( 0.72f - depthFade * 0.22f, 0.42f, 0.82f );
-    const float b = std::clamp( 0.22f - depthFade * 0.12f, 0.10f, 0.32f );
-    EmitShapeOutline( position, orientation, shape, r, g, b );
 }
 
 

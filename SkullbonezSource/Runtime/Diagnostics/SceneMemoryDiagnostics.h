@@ -9,8 +9,6 @@ Summary:
   controller or mutable cross-domain context is retained.
 
 Glossary:
-  Owner view: Three synchronous const store references plus Gameplay byte
-    values projected by SceneWorld.
   Aggregate snapshot: Value-only MainMemoryGameObjectStats returned to UI,
     stress, renderer, or shutdown diagnostics.
 
@@ -24,6 +22,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Rendering/RenderInstanceStore.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

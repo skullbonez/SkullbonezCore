@@ -17,10 +17,6 @@ Glossary:
   RuntimeRenderer: Owner of pass instances and the live frame-graph builder.
   Pass order: The stable sequence of shadows, sky, reflection, objects, terrain,
     water, post effects, and UI/text.
-  Lane R result: Recoverable resource setup or GPU-drain failure reported
-    through an owner/message result instead of throwing through the render owner.
-  Resource context: Creation/rebuild-only view of the renderer factory and
-  resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
     teardown.
   World extension: One synchronous callback-owned graphics pass registered by
@@ -41,6 +37,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
   - SkullbonezSource/Runtime/App/RunRender.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

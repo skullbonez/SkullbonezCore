@@ -11,6 +11,8 @@ Summary:
 Glossary:
   Maths prelude: The small set of includes, constants, and build toggles that
     math headers need before a standalone SkullbonezMaths library exists.
+  Unit domain: Closed numeric interval [-1, 1] accepted by inverse cosine and
+    inverse sine.
   Aliasing period: Core/Common.h includes this header while older callers still
     expect these names from Common.h; new Maths code should include this file
     directly.
@@ -20,6 +22,8 @@ Invariants:
     Log.h; doing so reintroduces the upward dependency L2 is removing.
   - These constants are compile-time numeric contracts. Changing their values
     changes math, collision, and renderer-validation scope.
+  - Normalized-vector inverse-trig inputs use ClampUnit so float rounding at a
+    pole cannot escape the function domain.
 
 Related:
   - SkullbonezSource/Core/Common.h
@@ -27,6 +31,7 @@ Related:
 */
 #pragma once
 
+#include <algorithm>
 #include <cfloat> // FLT_MAX for math users that still include the common prelude.
 #include <cmath>  // sqrtf, sinf, cosf, fabsf, acosf
 
@@ -52,3 +57,15 @@ constexpr float NO_COLLISION = 1e30f;
 constexpr float TOLERANCE = 0.00005f;
 constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
 constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
+
+namespace SkullbonezCore::Math
+{
+
+// Invariant: inverse-trig inputs derived from normalized float vectors use
+// this visible domain clamp before acos/asin. Rounding can otherwise move an
+// exact pole just outside [-1, 1], where the NaN result makes comparisons fail open.
+inline float ClampUnit( float value )
+{
+    return std::clamp( value, -1.0f, 1.0f );
+}
+} // namespace SkullbonezCore::Math

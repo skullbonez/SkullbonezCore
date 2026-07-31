@@ -471,9 +471,3 @@ SceneAutomationGateTracker& RuntimeValidationHarness::SceneGates()
 {
     return m_sceneGates;
 }
-
-
-const SceneAutomationGateTracker& RuntimeValidationHarness::SceneGates() const
-{
-    return m_sceneGates;
-}

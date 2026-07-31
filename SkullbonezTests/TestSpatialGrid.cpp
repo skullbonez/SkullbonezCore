@@ -35,6 +35,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestColliderStoreFixtures.h"
 #include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
@@ -679,7 +680,7 @@ TEST_CASE( "SpatialGrid: canonical output reaches the current scene-index ceilin
         ColliderRecord collider;
         collider.body = bodyHandle;
         collider.boundingRadius = 0.1f;
-        (void)colliderStore.CreateColliderRecord( collider, sphere );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, sphere  );
     }
 
     std::vector<uint8_t> sleepState( static_cast<size_t>( kSceneCeiling ), 0u );

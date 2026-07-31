@@ -4,27 +4,13 @@ Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
 Summary:
-  ObjectContactManifold.cpp builds precise object/object contact manifolds for
-  the persistent solver. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  Narrowphase dispatches each shape pair here, reduces its candidate geometry
+  to stable world-space contact rows, and assigns deterministic feature ids for
+  the persistent solver cache.
 
 Glossary:
-  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
-  collision tests.
-  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
-  bounded contact impulses.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact body view: Pose-only body input used by narrowphase so contact
-  geometry can be built from PhysicsBodyRecord state.
   Collider shape reference: Typed non-owning view into ColliderStore's per-kind
     shape payload, read by narrowphase during contact generation.
-  Contact sweep: Conservative object/object time-of-impact query that advances
-  fast bodies to a candidate contact before exact manifolds solve the response.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -32,9 +18,10 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.h
-  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ObjectContactManifold.h"
 
@@ -81,25 +68,6 @@ constexpr uint32_t FEATURE_KIND_BOX_EDGE = 3u;
 constexpr uint32_t FEATURE_KIND_SPHERE_HULL = 4u;
 constexpr uint32_t FEATURE_KIND_HULL_FACE = 5u;
 constexpr uint32_t FEATURE_KIND_HULL_EDGE = 6u;
-
-float SatChallengerMargin( int challengerAxisType, int winningAxisType, float contactSkin )
-{
-
-    // Invariant: comparisons within one feature family stay strict so SAT still
-    // chooses the geometrically smallest overlap. A different family must win
-    // by a meaningful part of the admitted contact band before it re-keys every
-    // warm-start row for the pair. The floor preserves deterministic exact-touch
-    // behavior when a caller supplies a zero or sub-millimetre skin.
-    //
-    // Why: current-tip wall A/B measurements found that a 10% band still left
-    // materially more face/edge churn, while 5% failed the controlled rocking
-    // crossover. The 25% band is the measured stabilization point recorded in
-    // the campaign closure report linked by this file's Related section.
-    constexpr float minimumAxisTypeMargin = 1.0e-4f;
-    constexpr float contactBandFraction = 0.25f;
-    return challengerAxisType == winningAxisType ? 0.0f
-                                                 : (std::max)( minimumAxisTypeMargin, contactSkin * contactBandFraction );
-}
 
 // ENGINE-SPECIFIC:
 //   BoxWorld caches the OBB basis in world space. Catto's solver later needs
@@ -621,8 +589,17 @@ bool AcceptSatAxis( const BoxWorld& a, const BoxWorld& b, const Vector3& axisRaw
         return false;
     }
 
-    const float challengerMargin = SatChallengerMargin( axisType, best.axisType, contactSkin );
-    const bool better = overlap < best.overlap - challengerMargin;
+    constexpr float tieEpsilon = 1.0e-4f;
+    bool better = overlap < best.overlap - tieEpsilon;
+
+    if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
+    {
+
+        if ( axisType < best.axisType )
+        {
+            better = true;
+        }
+    }
 
     if ( better )
     {
@@ -1311,8 +1288,21 @@ bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vecto
         return false;
     }
 
-    const float challengerMargin = SatChallengerMargin( axisType, best.axisType, contactSkin );
-    const bool better = overlap < best.overlap - challengerMargin;
+    constexpr float tieEpsilon = 1.0e-4f;
+    bool better = overlap < best.overlap - tieEpsilon;
+
+    if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
+    {
+
+        if ( axisType < best.axisType )
+        {
+            better = true;
+        }
+        else if ( axisType == best.axisType && axisA >= 0 && best.axisA >= 0 && axisA < best.axisA )
+        {
+            better = true;
+        }
+    }
 
     if ( better )
     {

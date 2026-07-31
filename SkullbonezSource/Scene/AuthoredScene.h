@@ -4,29 +4,12 @@ Purpose:
   Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  AuthoredScene.h stores parsed authored-scene JSON and applies it to runtime scene
-  state. As a public header, keep edits anchored on scene-file parsing or
-  snapshot contracts and on the glossary/invariants below.
+  Stores parsed authored-scene JSON
+  and applies it to runtime scene state.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
-  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
-  CSV (Comma-Separated Values): Text table format used for byte-exact physics
-  regression output.
-  Override mask: Bitfield that records which optional JSON fields were authored
-    so unspecified values keep engine.cfg defaults.
-  Lane R result: Recoverable load outcome carrying owner/message diagnostics
-    instead of letting malformed authored input escape as an exception.
-  Asset system: Runtime-owned registry that resolves logical asset-library names
-    without requiring the parser to query process-global state.
   Asset provenance: Cold scene-file records that retain which library, asset,
     instance, and ordered part produced each expanded shape row.
-  Scene object group: Parsed metadata that ties multi-part authored objects,
-    such as releasable trees, to one root object before runtime construction.
-  Scene object id: Stable nonzero physics identity carried by every parsed body
-    row instead of inferred later from vector or creation order.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
@@ -39,6 +22,7 @@ Related:
   - SkullbonezSource/Scene/AuthoredScene.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -63,10 +47,6 @@ namespace Runtime
 {
 class AuthoredScene;
 class AuthoredSceneParser;
-AuthoredScene LoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
-                                             const Assets::AssetSystem* assets );
-AuthoredScene LoadStyleSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
-                                          const Assets::AssetSystem* assets );
 SkullbonezCore::Core::SbResult TryLoadAuthoredSceneFromFileImpl( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                  const char* path, const Assets::AssetSystem* assets,
                                                                  AuthoredScene& outScene );
@@ -558,7 +538,6 @@ class AuthoredScene
 
   public:
     AuthoredScene();
-    static AuthoredScene LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
 
     // Lane R: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
@@ -567,19 +546,14 @@ class AuthoredScene
 
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
-    static AuthoredScene LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
-                                       const Assets::AssetSystem& assets );
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const char* path, const Assets::AssetSystem& assets,
                                                            AuthoredScene& outScene );
-    static AuthoredScene LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
     static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                 const char* path, AuthoredScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
-    static AuthoredScene LoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path,
-                                            const Assets::AssetSystem& assets );
     static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                 const char* path, const Assets::AssetSystem& assets,
                                                                 AuthoredScene& outScene );

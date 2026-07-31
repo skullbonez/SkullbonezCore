@@ -5,13 +5,15 @@
 @rem
 @rem Mental model:
 @rem   Full validation is the trustworthy PR fan-in: cheap failures surface
-@rem   first, each CPU test target runs once, then automation, DX12, and
-@rem   deterministic physics provide three runtime lanes. The automation lane
-@rem   launches a negative Profile boundary plus one positive replay smoke.
+@rem   first, after a required Debug build makes two-configuration reachability
+@rem   evidence current. Each CPU test target then runs once before automation,
+@rem   DX12, and deterministic physics provide three runtime lanes. The
+@rem   automation lane launches a negative Profile boundary plus one positive
+@rem   replay smoke.
 @rem
 @rem Glossary:
-@rem   CPU preflight: Formatting, project metadata, staged-size, and Profile
-@rem   build checks that do not launch a test or the engine.
+@rem   CPU preflight: Formatting, project metadata, staged-size, Profile build,
+@rem   and Debug/Profile reachability checks that do not launch a test or engine.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
@@ -46,7 +48,17 @@ set "PREVIOUS_ASSUME_PROFILE_BUILT=%SKULLBONEZ_ASSUME_PROFILE_BUILT%"
 set "PREVIOUS_ASSUME_DEBUG_BUILT=%SKULLBONEZ_ASSUME_DEBUG_BUILT%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
-echo === Phase 0: Mandatory CPU Preflight ===
+echo === Phase 0: Build Debug Configuration ===
+call "%~dp0validate_build.bat" Debug
+if errorlevel 1 (
+    echo.
+    echo VALIDATE_FULL: FAILED at Debug build.
+    exit /b 1
+)
+set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
+
+echo.
+echo === Phase 1: Mandatory CPU Preflight ===
 call "%~dp0validate_fast.bat" --preflight-only
 set "PREFLIGHT_EXIT=%ERRORLEVEL%"
 if not "%PREFLIGHT_EXIT%"=="0" (
@@ -58,7 +70,7 @@ set "SKULLBONEZ_ASSUME_PROFILE_BUILT=1"
 set "SKULLBONEZ_DEPENDENCY_GRAPH_ALREADY_VALIDATED=1"
 
 echo.
-echo === Phase 1: Mandatory CPU Tests ===
+echo === Phase 2: Mandatory CPU Tests ===
 call "%~dp0validate_all_cpu_tests.bat"
 set "CPU_TEST_EXIT=%ERRORLEVEL%"
 if not "%CPU_TEST_EXIT%"=="0" (
@@ -68,23 +80,13 @@ if not "%CPU_TEST_EXIT%"=="0" (
 )
 
 echo.
-echo === Phase 2: Automation Build Boundary and Replay Prediction Smoke ===
+echo === Phase 3: Automation Build Boundary and Replay Prediction Smoke ===
 call "%~dp0validate_automation.bat"
 if errorlevel 1 (
     echo.
     echo VALIDATE_FULL: FAILED at automation validation.
     exit /b 1
 )
-
-echo.
-echo === Phase 3: Build Debug Configuration ===
-call "%~dp0validate_build.bat" Debug
-if errorlevel 1 (
-    echo.
-    echo VALIDATE_FULL: FAILED at Debug build.
-    exit /b 1
-)
-set "SKULLBONEZ_ASSUME_DEBUG_BUILT=1"
 
 echo.
 echo === Phase 4: DX12 Renderer Validation ===

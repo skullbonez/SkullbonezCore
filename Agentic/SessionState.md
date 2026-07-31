@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-30
+Date: 2026-07-31
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,12 +12,30 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | All MASTER plans are complete. No active or future implementation work remains. |
-| Active/future progress | Empty (0%). `Agentic/Plans/TODO/` contains no plans; all completed plans are excluded under rule 4. |
+| Current objective | Preserve the owner-approved pre-`536e0a60` physics oracle; Angular Impulse Frame Correctness AI2 is paused in a named local stash pending new owner direction. |
+| Active/future progress | 13/16 (81%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 3/3; Engine Glossary Consolidation 4/4; Angular Impulse Frame Correctness 2/5. |
+| Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
+| Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
+| Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
+| Retirement diagnostic honesty closure | DH0-DH1 are complete. The DX12 retirement owner now retains a monotonic peak and one coherent release/fence snapshot, rejects diagnostic reset while rows remain live, and reports owner/phase/current/peak facts at exhaustion. The readback audit removed its structurally tautological high-water. Focused coverage passes 2 cases / 44 assertions; the complete suite passes 471 cases / 2,423,979 assertions. DX12 validation reports zero errors and clean captures, graphics stress exits 0 after 61.093 seconds, full validation and 44,401-line byte-exact Physics pass, comment audit is 5/5, and final review is clear. Evidence: `Agentic/Reports/2026-07-30/retirement-diagnostic-honesty-closure.md`. |
+| Unreachable symbol remediation closure | UR0-UR3 are complete. The mandatory Automation/Debug/Profile compiler graph corrects the provisional 407 rows to 246 adjudicated rows; 181 unreachable ordinary functions are removed and 79 exact retain-owner rulings remain with zero diagnostics. Automation-only Director, editor, terrain, and launcher APIs were restored after the full gate proved their roots. Fast, coverage, all six CPU lanes, Automation smoke, full validation, and 44,401-line byte-exact Physics pass; comment checklist is 172/172 with zero deferred and final review is clear. Evidence: `Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md`. |
+| Solver diagnostic hot-path cost HP0 | The complete producer/consumer census finds all 16 pipeline stages live in Debug/Profile/Release, corrects the provisional record size from 44 to 56 bytes, and proves full ordered records remain required by solver Replay snapshots/hash/artifacts, prediction, SkullScope, and the pipeline overlay. A bounded two-run `perf_1000` trace retained 296,714 records per 180-frame run with zero saturation and 866 pipeline-only `sqrtf` calls; the complete two-pass Profile scene measured `SolveRows` at 0.120002 ms mean. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`. |
+| Solver diagnostic hot-path cost HP1 | One Physics-owned recorder now preserves the exact saturated 4,096-event count while retaining ordered payloads only for Replay capture, the pipeline overlay, Debug SkullScope, and default direct/prediction engines. The original reserve identity and 229,376-byte backing remain unchanged. Focused Profile/Debug mode equality and field-faithfulness coverage passes; `validate_fast` passes 455 cases / 2,423,400 assertions with clean dependency, ownership, and reachability inventories. Comment audit is 13/13. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp1-recorder.md`. |
+| Solver diagnostic hot-path cost HP2 | Count-only execution now constructs no pipeline payload: stage mode dispatch is compile-time or hoisted, narrowphase/terrain payload optionals stay disengaged, counts submit in stage batches, and the solver omits trace-only position loads and its diagnostic `sqrtf`. Automation/Debug/Profile reachability, 456 cases / 2,424,707 assertions, `validate_fast`, 17/17 comment audit, and independent re-review pass. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md`. |
+| Solver diagnostic hot-path cost closure | Physics and every approved Replay visual/causal value remain exact without a golden refresh; the enabled 348,925,625-byte trace matches HP0 byte-for-byte. Allocation policy and both bounded 4,096-row full-record reserves remain unchanged. The same Profile workload improves mean `Frame/Physics` 6.71%, persistent contacts 33.65%, and `SolveRows` 40.90%. Tests, Physics, Replay visual, allocation, performance, and full validation pass. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`. |
+| Runtime contract hygiene CH0 | Direct frame-phase boundaries are status-free, `RequestPhaseFailure` is the sole frame failure channel and rejects success through Lane F, and a focused 1-case / 5-assertion regression proves message exit code zero preserves phase failure. Profile compilation, the complete repository gate, a 7/7 comment audit, exact current-body ownership rulings, and independent review pass. Evidence: `Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md`. |
+| Runtime contract hygiene CH1 | `Quaternion.h` now documents only live methods and states the normalized world-axis/radians contract for `RotateAboutAxis`; a Debug-only assertion enforces it without changing Release production arithmetic. The 22-site audit found production callers valid and corrected two test helpers covering four non-unit fixture axes. Formatting, Debug compilation, 28 cases / 2,302 assertions, and a 4/4 comment audit pass. Evidence: `Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch1-quaternion.md`. |
+| Runtime contract hygiene closure | CH0-CH2 are complete. `PhysicsFixedList` now rejects element types that cannot move without throwing, preserves its trivial byte-transfer path, and directly relocates non-trivial rows under the compile-time contract. Engine source contains zero throw expressions. Focused relocation passes 1 case / 12 assertions; all 457 tests / 2,424,712 assertions, byte-exact Physics, allocation policy, formatting, the 652.3-second full gate, a 2/2 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-31/runtime-contract-hygiene-closure.md`. |
+| Engine glossary consolidation GC0 | The corrected tracked source scope is 575 files; the provisional 576 included `SkullbonezSource/AGENTS.md`. The complete term-to-file census records 2,172 definitions / 1,285 terms: 321 shared, 964 local, 264 drifted shared, and 57 exact shared. All repeated terms are classified shared, including explicit `Model row hint` and `Published prefix` rulings. The source-of-truth checklist contains 575 unique unchecked rows. This phase is documentation-only. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md`. |
+| Engine glossary consolidation GC1 | The shared glossary reproduces all 321 GC0 owner adjudications exactly. The new repeatable inventory reproduces the 575-file / 2,172-definition / 1,285-term census, reports 321 multi-file terms and 264 wording drifts, and matches 321 exact current migration rulings with zero diagnostics. Comment/audit/reviewer rules and `validate_fast` now enforce the split. Direct checks, the complete 457-case / 2,424,712-assertion gate, a 2/2 tool comment audit, and independent re-review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md`. |
+| Engine glossary consolidation GC2 | All 1,208 source sites for the 321 shared terms are removed; all 964 local term/file pairs remain exact; and all 447 affected files cite the canonical glossary. The complete scan removes 107 filler instances, correcting the provisional 77. Strict inventory reports 964 unique local definitions with zero shared terms, drift, rulings, or diagnostics. Every non-comment source suffix is byte-identical; the 575-row checklist is 458 checked and 117 explicitly deferred to GC3. Automation refresh, 457 cases / 2,424,712 assertions, direct inventories, and independent review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc2-pass.md`. |
+| Engine glossary consolidation closure | GC0-GC3 are complete. All 117 conservative basename-led candidates are adjudicated: 83 informative clauses retain their ownership content without the filename subject and 34 templated UI headers state concrete responsibilities. Zero basename-led summaries remain across 575 files; the checklist is 575/575 with zero deferred; all 117 source suffixes are unchanged; strict inventories, Automation refresh, 457 cases / 2,424,712 assertions, post-gate direct proofs, and independent closure review pass. Evidence: `Agentic/Reports/2026-07-31/engine-glossary-consolidation-closure.md`. |
+| Angular impulse frame correctness AI0 | All three torque-to-angular-velocity paths and every direct pending-impulse caller are censused. The application point is ruled a world-space center-relative offset. A focused `should_fail` test records gameplay `(-2.35, 0.96, 0.55)` versus contact `(-1.13982, 0.808092, 0.55)` for a rotated anisotropic box. The pre-change oracle predicts zero committed baseline bytes because mapped authored impulses are spheres, generated anisotropic boxes start at identity, and the launcher fixture targets a sphere. Evidence: `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai0-census.md`. |
+| Angular impulse frame correctness AI1 | Mutual gravity now emits canonical compact worker prefixes and reduces one linear active-pair list without clearing or scanning the full triangular extent. Worker-count fixtures remain bit-exact, all Physics and deep-Physics artifacts remain byte-exact, and the same Profile scene improves Reduce mean 14.19%, median 15.58%, and P95 5.04%. Fast, allocation, performance, and ownership gates pass; comment audit is 3/3 and independent review is clear. Evidence: `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
-| Validation for box vibration closure | The controlled fixture closes at zero flips, zero cap-bound frames, one minimum iteration, and zero cache misses. Exact terrain restitution and one-budget-per-manifold oracles pass. Four final Debug goldens move intentionally; Physics, deep Physics, 463 cases / 2,423,860 assertions, formatting, all ownership inventories, the full repository gate, 8/8 comment audit, and independent review pass. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md`. |
+| Pre-536 physics oracle restoration | Owner direction supersedes the Box Vibration And Warm-Start Integrity closure. BV1 restitution suppression, BV2 SAT hysteresis, BV3 terrain row-derived warm start, and BV5 manifold correction division are removed; all four `536e0a60` goldens are restored byte-for-byte from its parent. A fresh Debug executable produces two identical 44,401-line varied runs matching the restored oracle on every line. Evidence: `Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md`. |
 | Validation for box vibration BV5 | One-point/four-point coverage pins one 0.16 total correction budget, a 0.04 four-point row maximum, and equal 0.08 body displacement. Persistent-contact coverage passes 12 cases / 174 assertions; all unit coverage passes 463 cases / 2,423,855 assertions. The controlled fixture remains zero-flip/one-iteration/zero-miss and repeats byte-identically. Physics/deep Physics stop at the inspected deferred transition: 35,091 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs match, all ten shooting targets react, only the stacking known-issue hash moves beyond BV3, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv5.md`. |
 | Validation for box vibration BV4 | The controlled fixture retains zero flips, zero cap-bound frames, one minimum iteration, zero misses, and BV2's exact 842,927-byte CSV hash across two fresh Debug runs. The wall remains at 12 minimum/average/maximum iterations for all 1,000 measured frames despite 41,901 / 580,467 misses (7.218498%) and 557,764 / 582,238 warm-started rows (95.796564%). The required separate convergence finding is queued as plan 9; BV5 remains viable. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv4.md`. |
 | Validation for box vibration BV3 | Fixed terrain seed scales and all accumulated-impulse floors are deleted. The two-point shoreline fixture caches both rows, stays outside resting policy, holds first-frame residual vertical speed below 8.5% of input, and improves on reuse. Persistent-contact coverage passes 11 cases / 167 assertions; all unit coverage passes 462 cases / 2,423,848 assertions. Physics/deep Physics stop at the inspected deferred transition: 35,093 varied-scene lines and 28 shooting lines differ, all bullet sweeps and three-body chaos stay exact, paired varied-scene runs are identical, all ten shooting targets react, and no changed CSV contains NaN/Inf. No baseline was regenerated. Evidence: `Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-bv3.md`. |
@@ -81,11 +99,18 @@ plan inventory.
 
 ## Live Queue
 
-The Fresh-Read Engine Review Campaign is complete. Plan 9 closed CE0-CE3 on the
-owner-approved retain decision and left the live ledger under rule 4. The
-active/future ledger is empty (0%). Validation-gate integrity also closed V0-V5
-at 6/6 and left the live inventory under rule 4. No active or future MASTER plan
-remains.
+The Gate Blind Spot Campaign is active at 13/16 (81%). Solver Diagnostic
+Hot-Path Cost HP0-HP3 are complete with exact artifacts and a recorded Profile
+win without refreshing a golden. Runtime Contract Hygiene CH0-CH2 are complete
+with its exit, Quaternion, and zero-throw contracts closed. Engine Glossary
+Consolidation is complete at 4/4 with the 575-file checklist closed and zero
+basename-led summaries. Angular Impulse Frame Correctness is 2/5; AI2 is binding
+next and its owner gate remains at AI4.
+
+The Claim Integrity Campaign is complete. Build Configuration Parity, Maths
+Surface Reachability, Inverse-Trig Domain Guards, Retirement Diagnostic
+Honesty, and Unreachable Symbol Remediation all closed and left the live ledger
+under rule 4.
 
 The Principal Engineer Feedback Campaign is complete and has no live plan in
 the active/future ledger. Physics body layout, Replay restore/wide-signature
@@ -790,12 +815,56 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-All MASTER plans are complete and the active/future ledger is empty (0%).
-Validation-gate integrity closed V0-V5 at 6/6 after exact-commit hosted CPU run
-30505659321 passed. Merge queues and GitHub repository-ownership changes are
-retired; graphics-card validation is local-only. Permanent validation closure
-evidence is in
-`Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. Permanent
-Fresh-Read closure evidence is in
-`Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`.
-MASTER and SessionState agree that no next MASTER action remains.
+The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
+Blind Spot Campaign is active at **13/16 (81%)**. Solver Diagnostic Hot-Path Cost
+HP0-HP3 are complete: count-only execution avoids payload construction,
+trace-only vector loads, the diagnostic `sqrtf`, and row-local capacity
+compares; Physics, Replay, overlay/SkullScope, and allocation evidence remain
+exact; the same Profile workload records a 40.90% mean `SolveRows` reduction.
+Runtime Contract Hygiene CH0-CH2 are complete with status-free frame boundaries,
+a truthful Quaternion contract, zero engine throw expressions, byte-exact
+Physics, and passing focused/full evidence. Engine Glossary Consolidation GC0-
+GC3 establish the 321-term canonical glossary, remove all 1,208 shared source
+definitions and 107 filler instances, replace all 117 basename-led summaries,
+and close the checklist at 575/575 with zero deferred.
+Angular Impulse Frame Correctness AI0 rules the application point a world-space
+center-relative offset, pins the rotated anisotropic mismatch in an
+expected-failure test, and predicts zero committed artifact movement. AI1
+replaces the full triangular clear/rescan with canonical compact worker
+prefixes and a linear active-pair reduce while preserving exact worker-count
+results; the same Profile scene records 14.19% lower mean Reduce time.
+
+Owner direction on 2026-07-31 pauses AI2. Its four-file uncommitted change is
+preserved in stash `paused AI2 world-inertia correction before restoring
+pre-536 physics`. Do not apply or resume it without a new owner instruction.
+The Box Vibration And Warm-Start Integrity behavior and its `536e0a60` golden
+transition are superseded; the pre-`536` policy and four oracle files are again
+authoritative.
+
+The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
+source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
+agree the active/future ledger is now **13/16 (81%)**. Run the four plans in
+order:
+
+1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (4/4, HP0-HP3) — complete;
+   exact Physics, Replay, and enabled diagnostic artifacts are preserved without
+   refresh, allocation ownership is unchanged, and the Profile win is recorded.
+2. `Plans/TODO/runtime-contract-hygiene.md` (3/3, CH0-CH2) — complete; CH0
+   removed droppable frame failure statuses, CH1 repaired the `Quaternion.h`
+   surface and normalized-axis precondition, and CH2 removed the last engine
+   throw expression under a compile-time relocation contract.
+3. `Plans/TODO/engine-glossary-consolidation.md` (4/4, GC0-GC3) — complete;
+   321 shared definitions are canonical, 964 local definitions remain in their
+   owning files, all 117 basename-led summaries are repaired, and the 575-row
+   checklist is closed with strict inventory and independent review evidence.
+4. `Plans/TODO/angular-impulse-frame-correctness.md` (2/5, AI0-AI4) — **the only
+   remaining plan and the only plan that stops for the owner.** AI2 is paused
+   in the named local stash and must not resume without new owner direction.
+   `ApplyPendingImpulse` divides a world torque
+   by body-frame inertia while `ApplyWorldImpulse` and the contact solver both
+   handle it correctly. AI4 halts for explicit sign-off before closure. AI0
+   predicts zero committed artifact movement, so AI1 and AI2 must both remain
+   byte-exact; any movement reopens the work and no regeneration is authorized.
+
+Plans 1-3 land without an owner decision. No plan in this campaign carries
+bounded-divergence authority.

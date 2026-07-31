@@ -10,12 +10,8 @@ Summary:
   camera, terrain, entity, and physics stores as independent participants.
 
 Glossary:
-  Generated scene: Runtime-created demo scene with deterministic cameras and
-    model placement.
   Object type override: Command-line/runtime option that forces generated
     objects to all balls or all boxes.
-  Solver object: Exact-count validation object used by deterministic physics
-    scenes.
   Population mode: Caller-resolved choice between model, exact-solver, and no
     generated population after UI/authored/default precedence is applied.
   Population result: Recoverable setup status plus a flag that says whether
@@ -30,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneLoadRequest.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

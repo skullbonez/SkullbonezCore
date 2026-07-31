@@ -9,10 +9,6 @@ Summary:
   deterministic local output on the caller thread.
 
 Glossary:
-  Worker pool: Persistent thread group that runs bounded jobs outside the main
-  thread.
-  Fork-join: Pattern where the main thread splits work, workers run chunks, and
-  the main thread waits before merging results.
   Deterministic merge: Main-thread combine step that consumes worker chunks in a
   stable order so validation output remains reproducible.
 
@@ -28,6 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Fence.h
+  - Agentic/Reference/engine-glossary.md
 */
 
 #pragma once
@@ -100,8 +97,6 @@ class WorkerPool
                                  int outCapacity ) const;
 
     int GetThreadCount() const;
-    int GetMinParallelItems() const;
-    bool IsInitialised() const;
 
     static int MaxThreadCount();
     static int ResolveThreadCount( int requestedThreadCount );

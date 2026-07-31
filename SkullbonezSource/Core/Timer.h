@@ -4,15 +4,11 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Timer.h measures elapsed time for frame pacing and simulation updates. As a
-  public header, keep edits anchored on process-wide contracts, diagnostics,
-  and validation-sensitive state and on the glossary/invariants below.
+  Measures elapsed time for frame pacing and simulation updates.
 
 Glossary:
   High-resolution counter: Windows performance counter used for sub-frame time
   measurement.
-  Lane R result: Recoverable platform/environment startup failure reported
-    through an owner/message result instead of an exception.
 
 Invariants:
   - m_performanceFrequency is captured by Initialise() before any time sample.
@@ -23,6 +19,7 @@ Related:
   - SkullbonezSource/Core/Timer.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -66,9 +63,10 @@ class Timer
     double GetElapsedTime();             // Seconds between the last StartTimer and StopTimer calls.
     double GetTimeSinceLastStart();      // Seconds since the active interval started.
     double GetTotalTime();               // Seconds since this Timer successfully initialized.
-    bool IncrementFrameCount();          // Advances FPS bucket; true means a full second elapsed.
-    void StoreFpsAndResetFrameCounter(); // Publishes the finished FPS bucket and starts a new one.
-    int GetCurrentFPS();                 // Last published frames-per-second value.
+
+    // Advances FPS bucket; true means a full second elapsed.
+    // Publishes the finished FPS bucket and starts a new one.
+    // Last published frames-per-second value.
 };
 } // namespace Environment
 } // namespace SkullbonezCore

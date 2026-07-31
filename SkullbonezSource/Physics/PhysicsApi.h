@@ -9,21 +9,14 @@ Summary:
   or solver-private container.
 
 Glossary:
-  AABB (Axis-Aligned Bounding Box): Query box aligned to world X/Y/Z axes.
-  Body: Simulated object state such as pose, velocity, mass, and sleep flag.
   Broadphase query: Cheap spatial query that returns candidate bodies, not exact
     narrowphase contacts.
-  Collider: Shape and material-adjacent collision metadata paired with a body.
   Contact: Immutable collision-pair view exposed for diagnostics/replay without
     solver-private manifold storage.
   Constraint: Solver relationship between bodies; point joints use stable
     typed handles at the PhysicsEngine owner boundary.
   Deterministic order: Broadphase candidates iterate stable body-store order so
     validation does not depend on allocator addresses or hash traversal.
-  Hull identity: Cold normalized authored path and exact canonical X/Y/Z scale
-    bits that prove immutable hull geometry can share one store row.
-  Restitution: Bounce response copied from collider material data into contact
-    views for diagnostics and future solver inputs.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
   View: Borrowed immutable result whose storage remains owned by PhysicsEngine.
@@ -43,6 +36,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsHandles.h
   - SkullbonezSource/Physics/PhysicsEngine.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

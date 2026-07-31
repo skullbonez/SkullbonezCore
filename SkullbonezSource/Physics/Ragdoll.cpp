@@ -10,12 +10,7 @@ Summary:
   migration path to a full constraint solver.
 
 Glossary:
-  Point joint: Constraint that keeps two local anchors near each other.
-  Slack: Allowed anchor separation before the solver pushes the bodies back
-  toward the constraint.
   Neck swing limit: Special angular clamp applied to the head/torso joint.
-  Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
-    by the joint solver.
   Prefab descriptor: Immutable local part or joint facts consumed by authored
     scene setup.
 
@@ -28,6 +23,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Ragdoll.h"
 
@@ -228,7 +224,9 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJoi
         torsoUp.Normalise();
         headUp.Normalise();
 
-        const float dot = std::clamp( Dot( headUp, torsoUp ), -1.0f, 1.0f );
+        // Invariant: this shared spelling preserves the former std::clamp
+        // bounds exactly; ordinary solver inputs must remain byte-identical.
+        const float dot = SkullbonezCore::Math::ClampUnit( Dot( headUp, torsoUp ) );
 
         if ( dot >= RAGDOLL_NECK_MAX_SWING_COSINE )
         {
@@ -269,12 +267,6 @@ int PointJointConstraint::BodyAIndex( const PhysicsBodyStore& bodyStore ) const
 int PointJointConstraint::BodyBIndex( const PhysicsBodyStore& bodyStore ) const
 {
     return bodyStore.ModelIndexForHandle( bodyB );
-}
-
-
-float Ragdoll::DefaultEditorScale()
-{
-    return RAGDOLL_DEFAULT_SCALE;
 }
 
 

@@ -9,8 +9,6 @@ Summary:
   without including Rendering headers or naming backend-owned types.
 
 Glossary:
-  Upload category: UI row identifying which render activity consumed transient
-    upload bytes.
   Visibility view: One rendering viewpoint whose candidate/submitted/cull/draw
     counts are displayed by the profiler surface.
   High water: Largest observed usage retained for diagnostics.
@@ -26,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/UI/RenderDiagnosticsProjection.h
   - SkullbonezSource/Rendering/RenderDiagnosticsTypes.h
   - SkullbonezSource/UI/UITabMemory.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

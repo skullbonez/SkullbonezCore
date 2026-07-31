@@ -4,13 +4,11 @@ Purpose:
   Implements primitive GPU resource creation and bounded batch submission.
 
 Summary:
-  PrimitiveBatchRenderer.cpp owns visible and shadow-depth submission for the
+  Owns visible and shadow-depth submission for the
   built-in primitive meshes emitted by PrimitiveMeshBuilder.h.
 
 Glossary:
   Cbuffer (Constant Buffer): Shader constant block uploaded once before a draw.
-  Material table: Fixed t4 texture that stores default per-kind material response
-  values for object shaders.
   Instance payload: Per-object data appended after the model matrix in an
   instanced draw stream.
 
@@ -26,6 +24,7 @@ Related:
   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PrimitiveBatchRenderer.h"
 #include "../Core/Config.h"

@@ -9,8 +9,6 @@ Summary:
   because it owns scene loading, UI, render diagnostics, and live settings.
 
 Glossary:
-  Graphics stress: Deterministic fuzzer that mutates render settings, UI state,
-    and scene loads to reproduce DX12 lifetime or resource bugs.
   Scene interval: Minimum rendered-frame spacing between stress-requested scene
     reloads.
   Memory log interval: Frame cadence for emitting memory attribution lines
@@ -26,6 +24,7 @@ Related:
   - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

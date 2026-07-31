@@ -5,26 +5,26 @@ Purpose:
 
 Summary:
   PhysicsForceStage prepares deterministic model-order gravity forces, retains
-  the capped triangular pair table used by worker dispatch, and applies all
+  the capped compact pair list used by worker dispatch, and applies all
   per-body forces and remaining-time integration through explicit synchronous
   borrows. Large scenes retain the exact serial fallback without allocating
   pair scratch beyond 512 bodies.
 
 Glossary:
-  Pair table: Triangular array with one force value for each `(i,j)` body pair.
+  Pair list: Chunk-local canonical contributions compacted into one linear
+    model-order sequence before reduction.
   Model-order reduction: Serial replay of pair forces in the original nested
     loop order so worker scheduling cannot change floating-point additions.
   Large-scene fallback: Exact serial pair accumulation used above the bounded
     parallel pair-table limit.
   Remaining-time integration: Final model-order advance after all CCD lanes
     have consumed their portion of the shared tick clock.
-  Awake index list: Ascending sleep-owner rows that select force/integration
-    work without rebuilding or scanning the full body store.
 
 Invariants:
-  - Worker chunks write disjoint pair-table slots and never reduce forces.
-  - Model-order accumulation, serial fallback arithmetic, marker names, worker
-    thresholds, and worker hashes match the certified P2 implementation.
+  - Worker chunks write disjoint pair-list slices and never reduce forces.
+  - Model-order accumulation, serial fallback arithmetic, worker thresholds,
+    and worker hashes match the certified P2 implementation. The Reduce marker
+    is additive observation around that unchanged arithmetic.
   - Borrowed spans and returned force pointers are valid only during the
     enclosing fixed step; the force pointer expires on the next prepare/clear.
   - Integration borrows the PhysicsWorld-owned CCD clock and mutates no retained
@@ -34,6 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -69,9 +70,20 @@ struct PhysicsWorldForces;
 class PhysicsForceStage
 {
   private:
+
+    // Invariant: one record owns one canonical pair contribution. The bounded
+    // 512-body path leaves the high bit of each index free to retain whether
+    // that body receives the force, avoiding mutable-state reads in reduction.
+    struct MutualGravityPairForce
+    {
+        Math::Vector::Vector3 force;
+        uint16_t bodyAAndReceiver = 0u;
+        uint16_t bodyBAndReceiver = 0u;
+    };
+
     PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_BODY_ROWS>
         m_mutualGravityForces { "PhysicsForceStage.m_mutualGravityForces", PhysicsCapacityReason::SceneBodies };
-    PhysicsFixedList<Math::Vector::Vector3, PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS>
+    PhysicsFixedList<MutualGravityPairForce, PHYSICS_MAX_MUTUAL_GRAVITY_PAIRS>
         m_mutualGravityPairForces { "PhysicsForceStage.m_mutualGravityPairForces",
                                     PhysicsCapacityReason::MutualGravityPairs };
     std::size_t m_mutualGravityPairHighWater = 0;

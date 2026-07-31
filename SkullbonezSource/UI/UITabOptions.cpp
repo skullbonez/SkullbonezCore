@@ -4,16 +4,8 @@ Purpose:
   Implements UI TabOptions widgets, layout, drawing, or UI state for the in-engine controls.
 
 Summary:
-  UITabOptions.cpp implements UI TabOptions widgets, layout, drawing, or UI
-  state for the in-engine controls. As an implementation unit, keep edits
-  anchored on UI request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
-
-Glossary:
-  Draw command: Lightweight record describing a UI shape or text batch to
-  render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Previews and commits runtime option
+  toggles, time scale, and model-count controls.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -22,6 +14,7 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabOptions.h
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "UITabOptions.h"
 

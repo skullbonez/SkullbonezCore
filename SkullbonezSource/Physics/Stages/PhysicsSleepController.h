@@ -10,14 +10,10 @@ Summary:
   synchronous fixed-step operations.
 
 Glossary:
-  Sleep island: Connected contact/joint component deactivated as one unit.
   Support edge: Directed relationship used to propagate grounded support.
-  Underwater lock: Policy keeping a fully submerged sleeping ball dormant.
   Visual island id: Persisted debug id shared by bodies that slept together.
   Scratch flags: Transient per-row bits reused by point-joint and explicit-wake
     traversals; they are neither replay state nor cross-stage authority.
-  Pending awake queue: Fixed-capacity worker publication rows folded into the
-    sorted owner list at sequencer barriers.
 
 Invariants:
   - Fixed-list model rows are reserved to the active scene capacity before play.
@@ -25,6 +21,8 @@ Invariants:
     scoped capability values.
   - Packed scratch bits are written only by the serial sleep owner; no worker
     may update a different bit in the same row concurrently.
+  - Full/count pipeline mode dispatch occurs once before sleep row loops; the
+    count lane never constructs a diagnostic payload.
   - No callback, host pointer, PhysicsWorld reference, or concrete sibling
     owner crosses this boundary.
   - Parallel wake producers claim a body once through atomic sleep-state
@@ -34,6 +32,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
   - SkullbonezSource/Physics/SleepIslandSystem.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -62,6 +61,7 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
+class PhysicsPipelineTraceRecorder;
 struct PersistentContact;
 struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
@@ -196,11 +196,18 @@ class PhysicsSleepController
                                std::span<const PointJointConstraint> pointJointConstraints, int index );
     void WakeRestingContactIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                                    std::span<const PersistentContact> persistentContacts, int index );
-    void ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                           const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
-                           std::span<float> timeRemaining,
-                           PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
-                           const PhysicsSleepStepPolicy& sleepPolicy, class DisjointSet& sleepIslands );
+    template <bool RetainPipelineRecords>
+    void RunIslandStageMode( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                             const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
+                             std::span<float> timeRemaining, std::span<const PersistentContact> persistentContacts,
+                             std::span<const uint16_t> persistentRestingContactCounts,
+                             std::span<const PointJointConstraint> pointJointConstraints,
+                             PhysicsPipelineTraceRecorder& physicsPipelineTrace, const PhysicsSleepStepPolicy& sleepPolicy );
+    template <bool RetainPipelineRecords>
+    void ApplyTransitionsMode( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                               const PhysicsWorldForces& worldForces, std::span<BuoyancyBodyFacts> buoyancyFacts,
+                               std::span<float> timeRemaining, PhysicsPipelineTraceRecorder& physicsPipelineTrace,
+                               const PhysicsSleepStepPolicy& sleepPolicy, class DisjointSet& sleepIslands );
     void RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount );
     void AddAwakeBodyIndex( int index );
     void RemoveAwakeBodyIndex( int index );
@@ -252,10 +259,7 @@ class PhysicsSleepController
                          std::span<float> timeRemaining, std::span<const PersistentContact> persistentContacts,
                          std::span<const uint16_t> persistentRestingContactCounts,
                          std::span<const PointJointConstraint> pointJointConstraints,
-                         PhysicsPipelineRowList<PhysicsPipelineRecord>& physicsPipelineTrace,
-                         const PhysicsSleepStepPolicy& sleepPolicy );
-    bool IsPointJointPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
-                           int bodyA, int bodyB ) const;
+                         PhysicsPipelineTraceRecorder& physicsPipelineTrace, const PhysicsSleepStepPolicy& sleepPolicy );
 
     void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
     void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );

@@ -14,8 +14,6 @@ Mental model:
 
 Glossary:
   Report fact: Derived validation value shared by live assertions and final JSON.
-  Durable artifact: Saved replay payload reloaded to prove writer/reader
-    agreement rather than trusting in-memory state.
   RVIS (Replay Visual Instance State): Ordered visual packet rows stored beside
     replay samples for offline fidelity verification.
 
@@ -28,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp
   - tools/validate_replay_visual_fidelity.bat
+  - Agentic/Reference/engine-glossary.md
 */
 #include "InteractionAutomationReportWriter.h"
 #include "InteractionAutomationController.h"

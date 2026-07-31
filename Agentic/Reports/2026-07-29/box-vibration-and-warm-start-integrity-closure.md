@@ -1,5 +1,10 @@
 # Box Vibration And Warm-Start Integrity Closure
 
+> Superseded 2026-07-31 by owner direction. The baseline transition and the
+> BV1/BV2/BV3/BV5 solver behavior accepted here were rolled back because the
+> varied scene was visibly unstable. See
+> `Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
+
 Date: 2026-07-29
 
 Branch: `nightrunner-30th-JUL-26`

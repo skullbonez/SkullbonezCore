@@ -11,9 +11,6 @@ Summary:
 Glossary:
   Porkchop grid: Fixed launch-delay/time-of-flight matrix whose cells publish
     bounded transfer costs.
-  Control surface: Ordered fixed-capacity rows coupling one rectangle to one
-    semantic planning action.
-  UIRect: Pixel-space rectangle shared by hit testing and drawing.
 
 Invariants:
   - Specific buttons precede the broad panel row so disabled controls still
@@ -24,6 +21,7 @@ Related:
   - SkullbonezSource/Runtime/Planning/ReplayPlanningOverlayLayout.cpp
   - SkullbonezSource/Runtime/Planning/ReplayTripPlanner.h
   - SkullbonezSource/Runtime/Planning/ReplayPorkchopPanel.h
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 

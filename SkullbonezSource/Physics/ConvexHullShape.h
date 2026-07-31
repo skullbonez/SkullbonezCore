@@ -10,13 +10,8 @@ Summary:
   read without heap allocation or mutation by narrowphase.
 
 Glossary:
-  Convex hull: Closed polytope whose faces enclose a volume with no concavity.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-    and penetration from candidate shape pairs.
   Face: One planar polygon on the hull boundary.
   Edge: Undirected segment shared by exactly two faces.
-  Lane R: Recoverable result error lane for external input such as scene files
-    and baked hull assets.
 
 Invariants:
   - Stored hull topology is immutable after scene-load scaling and validation.
@@ -26,6 +21,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/ConvexHullShape.cpp
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
+  - Agentic/Reference/engine-glossary.md
 */
 #pragma once
 
@@ -99,12 +95,10 @@ class ConvexHullShape
     // diagnostics instead of escaping through runtime code.
     static SkullbonezCore::Core::SbResult TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const char* path, ConvexHullShape& outHull );
-    static ConvexHullShape LoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* path );
 
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetDefaultMass() const;
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;
     float GetProjectedSurfaceArea() const;
     float GetBoundingRadius() const;

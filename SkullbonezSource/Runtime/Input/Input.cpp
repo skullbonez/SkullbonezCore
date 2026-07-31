@@ -11,16 +11,8 @@ Summary:
   immutable frame value.
 
 Glossary:
-  Win32: Windows desktop API used for the app window, messages, and cursor
-    state.
-  WndProc: Win32 window callback that receives mouse wheel and raw mouse
-    packets before the frame boundary captures input.
   Input window bridge: Borrowed pointer to the active runtime window used by
     frame capture to translate pointer positions through the current client area.
-  Accumulator: Small process-local queue that stores callback data until the
-    frame loop consumes it.
-  Lane R result: Recoverable input/environment failure reported without
-    treating the cursor operation as a fatal engine invariant.
 
 Invariants:
   - Process-local Win32 input accumulators are drained into one DeviceInputFrame;
@@ -34,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Input/Input.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "Input.h"
 #include "../../Core/SbDiagnosticStore.h"

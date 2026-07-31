@@ -4,36 +4,17 @@ Purpose:
   Sequences the fixed physics step and lifecycle of concrete stage owners.
 
 Summary:
-  PhysicsWorld.cpp is the composition and sequencing surface for the extracted
-  force, broadphase, narrowphase, terrain, contact, sleep, and diagnostics
-  owners. It retains only cross-stage clocks and top-level sibling lanes.
+  Composes and sequences the extracted force, broadphase, narrowphase,
+  terrain, contact, sleep, and diagnostics owners. It retains only
+  cross-stage clocks and top-level sibling lanes.
 
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
-  CCD (Continuous Collision Detection): Swept collision test that asks whether
-  objects hit during a tick, not only where they end the tick.
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
-  Contact row: Persistent solver constraint row that applies one contact's
-    normal and friction impulses.
-  Point joint: Constraint that keeps two local anchor points close together
-    without yet modelling a full hinge, cone, or motor.
-  Sleep island: Connected body group that may deactivate only as a unit.
-  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
-    so buoyancy jitter does not repeatedly wake them.
   X-macro field list: Preprocessor list invoked by several tiny visitors so
     replay capture and restore use the same ordered state inventory.
   PhysicsEngine: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
-  Lane F: Fatal invariant lane for should-never-happen engine state.
-  Mutual-gravity pair scratch: Triangular array with one force value for every
-    `(i,j)` body pair, populated in parallel and replayed in serial model order.
-  Awake index list: Ascending dense body rows owned by the sleep controller and
-    borrowed by work-producing stages for one sequenced fixed-step interval.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -45,12 +26,15 @@ Invariants:
     triangular replay order never depend on worker count.
   - Parallel wake producers are flushed before the next awake-list consumer;
     worker scheduling never changes the ascending stage iteration order.
+  - Pipeline trace mode is fixed at BeginStep; stage commit seams preserve one
+    saturated event count whether or not payload records are retained.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
+  - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsWorld.h"
 #include "../Core/Common.h"
@@ -586,9 +570,20 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 {
     const PersistentContactSolverSideEffects& effects = m_contactSolverStage.GetSideEffects();
 
-    for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
+    // Invariant: Solve selected this same step-owned mode before producing
+    // effects, so exactly one representation is committed here.
+
+    if ( m_stepDiagnostics.RetainsFullPipelineRecords() )
     {
-        m_stepDiagnostics.RecordPipelineStage( record );
+
+        for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
+        {
+            m_stepDiagnostics.RecordPipelineStage( record );
+        }
+    }
+    else
+    {
+        m_stepDiagnostics.RecordPipelineEvents( effects.pipelineEventCount );
     }
 
     for ( int index : effects.collisionVisualBodies )
@@ -738,11 +733,6 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore, const Colli
 void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
 {
 
-    if ( event.hasPipelineRecord )
-    {
-        m_stepDiagnostics.RecordPipelineStage( event.pipelineRecord );
-    }
-
     if ( event.emitCollisionTime )
     {
 #ifdef _DEBUG
@@ -858,6 +848,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
                                                           settings.body.contactEpsilon,
                                                           invCellSize,
                                                           dt,
+                                                          m_stepDiagnostics.RetainsFullPipelineRecords(),
                                                           settings.execution.parallel,
                                                           settings.execution.parallelNarrowphase };
 
@@ -871,9 +862,36 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
         PROFILE_SCOPED( m_profiler, "Frame/Physics/Narrowphase/CommitEvents" );
         const std::span<const ObjectNarrowphaseEvent> events = m_narrowphase.GetEvents();
 
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+        if ( narrowphasePolicy.retainPipelineRecords )
         {
-            CommitObjectNarrowphaseEvent( events[static_cast<size_t>( pairIndex )] );
+
+            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+            {
+                const ObjectNarrowphaseEvent& event = events[static_cast<size_t>( pairIndex )];
+
+                if ( event.pipelineRecord )
+                {
+                    m_stepDiagnostics.RecordPipelineStage( *event.pipelineRecord );
+                }
+
+                CommitObjectNarrowphaseEvent( event );
+            }
+        }
+        else
+        {
+            std::size_t pipelineEventCount = 0;
+
+            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+            {
+                const ObjectNarrowphaseEvent& event = events[static_cast<size_t>( pairIndex )];
+                pipelineEventCount += event.hasPipelineEvent;
+                CommitObjectNarrowphaseEvent( event );
+            }
+
+            if ( pipelineEventCount != 0 )
+            {
+                m_stepDiagnostics.RecordPipelineEvents( pipelineEventCount );
+            }
         }
     }
     else
@@ -883,15 +901,45 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
         // Deferring this loop would change what the next pair observes.
         PROFILE_SCOPED( m_profiler, "Frame/Physics/Narrowphase/SerialPairs" );
 
-        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+        if ( narrowphasePolicy.retainPipelineRecords )
         {
-            ObjectNarrowphaseEvent event;
-            m_narrowphase.ProcessObjectNarrowphasePair( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
-                                                        candidatePairs, narrowphaseWake, m_timeRemaining,
-                                                        m_contactSolverStage.GetPersistentContactCache(), narrowphasePolicy,
-                                                        m_profiler, pairIndex, event );
 
-            CommitObjectNarrowphaseEvent( event );
+            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+            {
+                ObjectNarrowphaseEvent event;
+                m_narrowphase.ProcessObjectNarrowphasePair<true>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
+                                                                  candidatePairs, narrowphaseWake, m_timeRemaining,
+                                                                  m_contactSolverStage.GetPersistentContactCache(),
+                                                                  narrowphasePolicy, m_profiler, pairIndex, event );
+
+                if ( event.pipelineRecord )
+                {
+                    m_stepDiagnostics.RecordPipelineStage( *event.pipelineRecord );
+                }
+
+                CommitObjectNarrowphaseEvent( event );
+            }
+        }
+        else
+        {
+            std::size_t pipelineEventCount = 0;
+
+            for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+            {
+                ObjectNarrowphaseEvent event;
+                m_narrowphase.ProcessObjectNarrowphasePair<false>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
+                                                                   candidatePairs, narrowphaseWake, m_timeRemaining,
+                                                                   m_contactSolverStage.GetPersistentContactCache(),
+                                                                   narrowphasePolicy, m_profiler, pairIndex, event );
+
+                pipelineEventCount += event.hasPipelineEvent;
+                CommitObjectNarrowphaseEvent( event );
+            }
+
+            if ( pipelineEventCount != 0 )
+            {
+                m_stepDiagnostics.RecordPipelineEvents( pipelineEventCount );
+            }
         }
     }
 
@@ -913,36 +961,83 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
 
-    for ( int x : awakeBodyIndices )
+    // Why: duplicate the short commit lane so the diagnostic-mode decision is
+    // hoisted outside the body loop and count-only code cannot construct rows.
+
+    if ( m_stepDiagnostics.RetainsFullPipelineRecords() )
     {
-        const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
 
-        if ( candidate.tested )
+        for ( int x : awakeBodyIndices )
         {
-            const PreparedTerrainCandidateCommit commit = m_terrain.PrepareCandidateCommit( bodyStore, colliderStore,
-                                                                                            m_terrainView, buoyancyFacts,
-                                                                                            settings, m_profiler, x,
-                                                                                            candidate.availableTime,
-                                                                                            candidate.sweep );
+            const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
 
-            if ( commit.hit )
+            if ( candidate.tested )
             {
-                m_stepDiagnostics.RecordPipelineStage( commit.pipelineRecord );
+                const PreparedTerrainCandidateCommit
+                    commit = m_terrain.PrepareCandidateCommit<true>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
+                                                                     settings, m_profiler, x, candidate.availableTime,
+                                                                     candidate.sweep );
+
+                if ( commit.hit )
+                {
+                    m_stepDiagnostics.RecordPipelineStage( *commit.pipelineRecord );
 #ifdef _DEBUG
-                const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
+                    const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
 #else
-                constexpr bool diagnosticsSuppressed = false;
+                    constexpr bool diagnosticsSuppressed = false;
 #endif
 
-                m_stepDiagnostics.EmitCollisionTime( diagnosticsSuppressed, "terrain", x, -1, commit.collisionTime,
-                                                     commit.availableTime );
+                    m_stepDiagnostics.EmitCollisionTime( diagnosticsSuppressed, "terrain", x, -1, commit.collisionTime,
+                                                         commit.availableTime );
 
-                m_terrain.CommitCandidate( commit, m_sleepController.MutableSupportedStatesForTerrain(),
-                                           m_sleepController.MutableInhibitedStatesForTerrain() );
+                    m_terrain.CommitCandidate( commit, m_sleepController.MutableSupportedStatesForTerrain(),
+                                               m_sleepController.MutableInhibitedStatesForTerrain() );
 
-                m_stepDiagnostics.MarkCollisionVisualContact( x );
-                m_timeRemaining[x] = commit.remainingTime;
+                    m_stepDiagnostics.MarkCollisionVisualContact( x );
+                    m_timeRemaining[x] = commit.remainingTime;
+                }
             }
+        }
+    }
+    else
+    {
+        std::size_t pipelineEventCount = 0;
+
+        for ( int x : awakeBodyIndices )
+        {
+            const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
+
+            if ( candidate.tested )
+            {
+                const PreparedTerrainCandidateCommit
+                    commit = m_terrain.PrepareCandidateCommit<false>( bodyStore, colliderStore, m_terrainView, buoyancyFacts,
+                                                                      settings, m_profiler, x, candidate.availableTime,
+                                                                      candidate.sweep );
+
+                if ( commit.hit )
+                {
+                    ++pipelineEventCount;
+#ifdef _DEBUG
+                    const bool diagnosticsSuppressed = m_diagnosticsSuppressed;
+#else
+                    constexpr bool diagnosticsSuppressed = false;
+#endif
+
+                    m_stepDiagnostics.EmitCollisionTime( diagnosticsSuppressed, "terrain", x, -1, commit.collisionTime,
+                                                         commit.availableTime );
+
+                    m_terrain.CommitCandidate( commit, m_sleepController.MutableSupportedStatesForTerrain(),
+                                               m_sleepController.MutableInhibitedStatesForTerrain() );
+
+                    m_stepDiagnostics.MarkCollisionVisualContact( x );
+                    m_timeRemaining[x] = commit.remainingTime;
+                }
+            }
+        }
+
+        if ( pipelineEventCount != 0 )
+        {
+            m_stepDiagnostics.RecordPipelineEvents( pipelineEventCount );
         }
     }
 
@@ -986,7 +1081,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
     m_sleepController.RunIslandStage( bodyStore, colliderStore, worldForces, buoyancyFacts, m_timeRemaining,
                                       m_contactSolverStage.GetPersistentContacts(),
                                       m_contactSolverStage.GetPersistentRestingContactCounts(), m_pointJointConstraints,
-                                      m_stepDiagnostics.MutablePipelineTrace(), sleepPolicy );
+                                      m_stepDiagnostics.MutablePipelineTraceRecorder(), sleepPolicy );
 
     PROFILE_END( m_profiler, "Frame/Physics/Integrate" );
 
@@ -1026,6 +1121,11 @@ void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )
 void PhysicsWorld::EndCollisionVisualFrame()
 {
     m_stepDiagnostics.EndCollisionVisualFrame();
+}
+
+void PhysicsWorld::SetPipelineTraceFullRecordConsumerActive( bool active )
+{
+    m_stepDiagnostics.SetPipelineTraceFullRecordConsumerActive( active );
 }
 
 
@@ -1201,16 +1301,6 @@ bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 }
 
 
-bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
-{
-#ifdef _DEBUG
-    return m_stepDiagnostics.ShouldEmitCollisionTimeDiagnostics( m_diagnosticsSuppressed );
-#else
-    return false;
-#endif
-}
-
-
 void PhysicsWorld::SetDiagnosticNames( std::span<const char* const> diagnosticNames )
 {
     m_stepDiagnostics.SetDiagnosticNames( diagnosticNames );
@@ -1256,14 +1346,6 @@ void PhysicsWorld::SetPhysicsDiagnosticsPath( const char* path )
 void PhysicsWorld::SetPhysicsDiagnosticsRunId( const char* runId )
 {
     m_stepDiagnostics.SetPhysicsDiagnosticsRunId( runId );
-}
-
-
-bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
-{
-    const bool previous = m_diagnosticsSuppressed;
-    m_diagnosticsSuppressed = suppressed;
-    return previous;
 }
 
 
@@ -1380,4 +1462,9 @@ std::span<const PhysicsDebugContact> PhysicsWorld::GetPhysicsDebugContacts() con
 std::span<const PhysicsPipelineRecord> PhysicsWorld::GetPhysicsPipelineTrace() const
 {
     return m_stepDiagnostics.GetPipelineTrace();
+}
+
+uint32_t PhysicsWorld::GetPhysicsPipelineRecordCount() const
+{
+    return m_stepDiagnostics.GetPipelineRecordCount();
 }
