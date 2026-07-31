@@ -1,11 +1,12 @@
 # Angular Impulse Frame Correctness
 
 Date: 2026-07-31
-Status: IN PROGRESS — 4/5 phases complete
+Status: COMPLETE — 5/5 phases complete
 Impact area: Physics angular impulse response, mutual-gravity reduction, physics baselines
 Owner: Physics
 Priority: High
-Owner gate: AI4 requires explicit owner sign-off before closure; AI0 predicts no baseline regeneration
+Owner gate: Accepted 2026-08-01 with no baseline regeneration
+Retention: Temporarily retained under inventory rule 4 until the Gate Blind Spot Campaign aggregate closes
 
 ## Problem And Evidence
 
@@ -198,7 +199,7 @@ proof, and a complete zero-delta artifact comparison.
   and explicit `PhysicsApi.h` frame documentation. No behavior or artifact
   changed in AI3.
 
-- [ ] **AI4 — Owner verification and zero-delta acceptance.** Present the
+- [x] **AI4 — Owner verification and zero-delta acceptance.** Present the
   complete artifact comparison against AI0's prediction and prove every
   committed physics, query, performance, interaction, screenshot, and replay
   visual artifact remained byte-exact. Confirm AI1 and AI2 contributed zero
@@ -211,9 +212,14 @@ proof, and a complete zero-delta artifact comparison.
   gates against the unchanged committed baselines and close without refreshing
   them. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
-  The pre-signoff packet is ready with a no-blocker independent review, complete
-  zero-delta evidence, and explicit Replay-provenance and shared-helper test-
-  isolation caveats. AI4 remains unchecked until the owner accepts it.
+  Owner acceptance was recorded on 2026-08-01 after the no-blocker independent
+  review and the complete zero-delta packet disclosed the Replay-provenance and
+  shared-helper test-isolation caveats. The post-acceptance unchanged-baseline
+  rerun passed 453/453 unit cases and 2,422,921 assertions, core and deep
+  Physics exactness, allocation/performance on an idle-host rerun, every
+  accepted offline Replay visual/causal mutation control against the existing
+  single generation, and the 494.8-second full composition gate. No baseline,
+  scene, schema, configuration, or render artifact was refreshed.
 
 ## Acceptance
 

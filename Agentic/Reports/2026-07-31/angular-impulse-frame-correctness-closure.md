@@ -1,17 +1,17 @@
-# Angular Impulse Frame Correctness — AI4 Owner Packet
+# Angular Impulse Frame Correctness — Closure
 
 Date: 2026-08-01
 Plan: `Agentic/Plans/TODO/angular-impulse-frame-correctness.md`
-Phase: AI4 owner verification
+Phase: AI4 complete
 Branch: `nightrunner-1st-AUG-26`
-Status: READY FOR EXPLICIT OWNER SIGN-OFF; AI4 remains unchecked
+Status: ACCEPTED AND COMPLETE
 
-## Decision Requested
+## Owner Decision
 
-Accept AI4's zero-delta proof and authorize the unchanged-baseline closure rerun,
-or reject it with the artifact or invariant that remains unexplained. This
-packet does not mark AI4 complete. The active/future ledger remains 15/21 (71%)
-and Vector Frame Contract Closure remains queued until acceptance.
+The owner accepted AI4's zero-delta proof on 2026-08-01 and authorized the
+unchanged-baseline closure rerun. That rerun is complete. Angular Impulse Frame
+Correctness is 5/5, the active/future ledger is 16/21 (76%), and Vector Frame
+Contract Closure VF0 is now the binding next phase.
 
 The plan grants no baseline-regeneration authority. No committed baseline,
 scene, schema, project, dependency rule, Rendering file, or configuration file
@@ -168,8 +168,22 @@ Rubber-duck accounting:
 
 ## Owner Gate
 
-AI4 stays unchecked until the owner explicitly accepts this packet. After
-acceptance, rerun the matching gates against the unchanged committed baselines,
-mark AI4 complete, update the 15/21 ledger, archive/close the plan as directed by
-the repository workflow, commit, and push. Do not start Vector Frame Contract
-Closure before that acceptance.
+Owner acceptance and every matching unchanged-baseline closure proof are
+complete. The plan remains temporarily under `Plans/TODO/` only because MASTER
+retains the five Gate Blind Spot plans until the aggregate campaign closes;
+Vector Frame Contract Closure may now begin.
+
+## Post-Acceptance Closure Rerun
+
+| Command or proof | Final result |
+|---|---|
+| `tools\validate_tests.bat` | PASS in 48.6 s; 453/453 cases and 2,422,921/2,422,921 assertions |
+| `tools\validate_physics.bat` | PASS in 25.1 s; two 44,401-line varied runs byte-exact |
+| `tools\validate_physics_deep.bat` | PASS in 112.0 s; every CSV, known signature, and SkullScope query artifact exact |
+| Existing complete `at_rest` artifact | 7,649,427 bytes / 54,001 lines / SHA-256 `0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984` |
+| `tools\validate_perf.bat` | Absolute budgets, allocation, and interaction passed on both runs; the first comparison encountered host timing noise, and the 65.4-second idle-host rerun passed both DX12 and Physics regression comparisons |
+| Accepted Replay offline proof | PASS in 32.7 s against the existing single generation; positive fidelity plus every visual, causal, semantic, artifact, prediction, and ten determinism mutation controls passed with the accepted LF provenance normalization |
+| `tools\validate_full.bat` | PASS in 494.8 s; 453 cases / 2,422,921 assertions, Automation smoke, matching DX12 screenshots, and byte-exact 44,401-line Physics |
+
+The closure rerun changed no tracked file. It did not start a second Replay
+engine process, regenerate prediction, or modify a committed baseline.

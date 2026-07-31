@@ -729,14 +729,17 @@ Contract Closure follow-up, growing the denominator 16 -> 21; the active/future
 ledger is therefore 15/21 (71%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`.
 
-Angular Impulse Frame Correctness AI4's owner packet is ready on 2026-08-01,
-but AI4 remains incomplete pending explicit owner sign-off. Unit, core Physics,
-deep Physics, performance, DX12 screenshot, Replay visual/causal, strict
-ownership-inventory, and full-composition evidence support AI0's zero-byte
-prediction without changing a committed baseline. The packet discloses the
-known CRLF/LF Replay-manifest provenance limitation and the shared-helper test-
-isolation caveat; independent review found no blocker. The active/future ledger
-therefore remains 15/21 (71%). Evidence is in
+Angular Impulse Frame Correctness AI4 completed with explicit owner acceptance
+on 2026-08-01. Unit, core Physics, deep Physics, performance, DX12 screenshot,
+Replay visual/causal, strict ownership-inventory, and full-composition evidence
+support AI0's zero-byte prediction without changing a committed baseline. The
+accepted packet discloses the known CRLF/LF Replay-manifest provenance
+limitation and the shared-helper test-isolation caveat; independent review found
+no blocker. The post-acceptance rerun passed 453 cases / 2,422,921 assertions,
+core and deep Physics exactness, an idle-host performance comparison, all
+accepted offline Replay controls against the existing single generation, and
+the 494.8-second full gate. The active/future ledger is therefore 16/21 (76%).
+Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
@@ -1321,17 +1324,17 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is at 15/21 (71%), with AI4 the
-binding owner-verification phase.**
+**The Gate Blind Spot Campaign (2026-07-31) is at 16/21 (76%), with Vector Frame
+Contract Closure VF0 the binding phase.**
 Run its five plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
-angular impulse frame correctness (4/5), followed after owner acceptance by
+angular impulse frame correctness (5/5), followed by
 vector frame contract closure (0/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
-decision. Plan 4 contains the first behavioral correction and it **stops at AI4
-for explicit owner sign-off** before closure. Plan 5 is the AI3 follow-up and
-starts only after that acceptance. AI0's census predicts zero committed artifact
+decision. Plan 4 contains the first behavioral correction; its AI4 owner gate is
+accepted and closed. Plan 5 is the AI3 follow-up and may now begin. AI0's census
+predicts zero committed artifact
 movement because no mapped baseline reaches the defect; AI1 and AI2 must both
 prove zero-byte movement. Any changed artifact reopens AI0/AI2 and blocks
 closure rather than authorizing regeneration. No plan in this campaign carries
@@ -3072,8 +3075,8 @@ Binding owner directions:
 - Plans 1, 2, and 3 are strictly byte-exact and land without an owner decision.
   Plan 1 must not move a replay hash, plan 2 must not move a physics byte, and
   plan 3 is documentation-only.
-- Plan 4 carries the current owner gate. AI4 stops for explicit owner
-  sign-off before closure. It does **not** receive task-scoped
+- Plan 4's AI4 owner gate was accepted on 2026-08-01 after its zero-delta proof.
+  It did **not** receive task-scoped
   bounded-divergence authority: AI0 proved the existing artifacts do not reach
   the defect, so AI1 and AI2 must leave them byte-exact. Any movement blocks
   closure and reopens the census or implementation; no regeneration is
@@ -3096,9 +3099,9 @@ Binding owner directions:
   it is an allowance, budget, or ratchet.
 - Plan 4 AI3 is investigation-only and registers follow-up plans rather than
   changing behavior, preserving AI0's zero-delta oracle through AI4.
-- Plan 5 is the registered AI3 follow-up. It begins only after AI4 acceptance,
-  carries no baseline-refresh authority, and stops for an owner ruling if a
-  focused correction reaches any committed artifact.
+- Plan 5 is the registered AI3 follow-up. AI4 acceptance is complete, so VF0 is
+  now binding. It carries no baseline-refresh authority and stops for an owner
+  ruling if a focused correction reaches any committed artifact.
 
 Dependency barriers:
 
@@ -3122,8 +3125,8 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Owner verification | 4/5 | AI0-AI3 complete with zero artifact movement; AI4 presents the complete zero-delta proof and stops for explicit sign-off |
-| 5 | [vector-frame-contract-closure](TODO/vector-frame-contract-closure.md) | Queued | 0/5 | Registered by AI3; starts after AI4 owner acceptance and carries **no baseline regeneration authority** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Complete | 5/5 | AI0-AI4 complete; owner accepted the zero-delta proof and post-acceptance gates passed without refresh; retained until aggregate closure |
+| 5 | [vector-frame-contract-closure](TODO/vector-frame-contract-closure.md) | Active | 0/5 | VF0 is binding; no phase carries baseline regeneration authority |
 
 ### Governance Gap This Campaign Closes
 
@@ -3150,7 +3153,7 @@ what future physics work should imitate.
 That sweep registered plan 5 for the mixed-frame anisotropic angular-drag
 clamp, authored impulse-offset schema, ambiguous test-only vector reflection,
 and explicit public descriptor frame matrix. Registration grows this campaign
-from 16 to 21 tasks; AI4 remains the binding owner gate before plan 5 begins.
+from 16 to 21 tasks; AI4 acceptance is complete and plan 5 may begin.
 
 Plan 1 records the matching cost lesson. The convergence diagnostics and the
 pipeline trace sit in the same loop with the same purpose; one was designed with
