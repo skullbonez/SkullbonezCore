@@ -56,6 +56,7 @@
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
+#include "../SkullbonezSource/Physics/BuoyancySystem.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/ContactSolverCommon.h"
 #include "../SkullbonezSource/Physics/ObjectContactManifold.h"
@@ -79,6 +80,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::BuildTerrainContactManifold;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
@@ -86,6 +88,7 @@ using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
+using SkullbonezCore::Physics::PersistentContactSolveTransaction;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyOrientation;
@@ -403,6 +406,76 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     CHECK( policy.terrainBaumgarteBeta == settings.terrain.baumgarteBeta );
     CHECK( policy.maxBaumgarteBias == settings.terrain.maxBaumgarteBias );
     CHECK( policy.iterations == settings.solver.iterations );
+}
+
+
+TEST_CASE( "Pending gameplay impulse matches the contact path for a rotated anisotropic box" *
+           doctest::should_fail() )
+{
+    SolverFixture fixture;
+    const Vector3 halfExtents( 1.0f, 2.0f, 3.0f );
+    const CollisionShape shape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+    const Vector3 rotationalInertia( 2.0f, 5.0f, 9.0f );
+
+    PhysicsBodyCreateRecord body;
+    body.cold.mass = 4.0f;
+    body.cold.rotationalInertia = rotationalInertia;
+    body.cold.angularVelocityLimit = 1000.0f;
+    body.cold.usesWorldInertia = true;
+    body.hot.orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.65f );
+    body.hot.inverseMass = 1.0f / body.cold.mass;
+    body.hot.inverseRotationalInertia =
+        Vector3( 1.0f / rotationalInertia.x, 1.0f / rotationalInertia.y, 1.0f / rotationalInertia.z );
+    body.hot.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( shape );
+    const auto bodyHandle = fixture.bodyStore.CreateBodyRecord( body );
+    REQUIRE( bodyHandle.IsValid() );
+
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.shapeKind = ColliderShapeKind::Box;
+    collider.boundingRadius = body.hot.boundingRadius;
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( fixture.colliderStore, collider, shape )
+                 .IsValid() );
+
+    const Vector3 worldImpulse( 3.0f, 5.0f, -2.0f );
+    const Vector3 worldApplicationOffset( 0.75f, -0.4f, 1.1f );
+    REQUIRE( fixture.bodyStore.SetPendingBodyImpulse( bodyHandle, worldImpulse, worldApplicationOffset ) );
+
+    PhysicsWorldForces noForces;
+    noForces.angularDragMultiplier = 0.0f;
+    const BuoyancyBodyFacts noBuoyancy;
+    REQUIRE( fixture.bodyStore.ApplyForces( noForces, fixture.colliderStore, {}, noBuoyancy, 0, kSolverDt ) );
+    const Vector3 gameplayAngularVelocity =
+        SkullbonezCore::Physics::PhysicsBodyAngularVelocity( fixture.bodyStore.HotFields(), 0u );
+
+    PersistentContactSolveTransaction contactPath;
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        contactPath.ReserveSceneCapacity( 1u );
+    }
+    contactPath.ResetBodies( 1u );
+    auto& contactBody = contactPath.Body( 0u );
+    contactBody.invInertia = body.hot.inverseRotationalInertia;
+    contactBody.orientation = body.hot.orientation.GetOrientationMatrix();
+    contactBody.useWorldInertia = true;
+
+    SkullbonezCore::Physics::PersistentContact contact;
+    contact.bodyA = 0;
+    contact.bodyB = -1;
+    contact.rA = worldApplicationOffset;
+
+    // Body A receives the impulse opposite the solver-row direction. Negating
+    // the row impulse therefore applies the same world impulse as gameplay.
+    contactPath.ApplyImpulse( contact, -worldImpulse );
+    const Vector3 contactAngularVelocity = contactPath.Body( 0u ).angularVelocity;
+
+    // AI0 red characterization: the pending path currently divides the
+    // world-space torque by body-space diagonal inertia without rotating it.
+    // AI2 removes should_fail only after gameplay shares this contact arithmetic.
+    CHECK( gameplayAngularVelocity.x == doctest::Approx( contactAngularVelocity.x ) );
+    CHECK( gameplayAngularVelocity.y == doctest::Approx( contactAngularVelocity.y ) );
+    CHECK( gameplayAngularVelocity.z == doctest::Approx( contactAngularVelocity.z ) );
 }
 
 

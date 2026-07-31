@@ -680,6 +680,16 @@ independent closure review pass. The active/future ledger is therefore 11/16
 (69%). Evidence is in
 `../Reports/2026-07-31/engine-glossary-consolidation-closure.md`.
 
+Angular Impulse Frame Correctness AI0 completed on 2026-07-31. The three
+torque-to-angular-velocity paths and every direct caller are censused, the
+application point is ruled a world-space center-relative offset, and a focused
+expected-failure test records the rotated anisotropic mismatch against the
+contact solver. The pre-change oracle predicts zero committed artifact bytes:
+all mapped authored impulses are isotropic spheres, generated anisotropic boxes
+receive their pending impulse at identity, and the launcher interaction targets
+a sphere. The active/future ledger is therefore 12/16 (75%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai0-census.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1262,19 +1272,19 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 11/16 (69%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 12/16 (75%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
-angular impulse frame correctness (0/5).
+angular impulse frame correctness (1/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
 decision. Plan 4 is sequenced last on owner instruction because it is the only
-plan that moves physics baselines, and it **stops at AI4 for explicit owner
-sign-off** before regenerating anything. AI0 must record its predicted baseline
-delta before AI2 changes production code, and AI1 must prove it moved zero bytes
-before AI2 moves them deliberately; that contrast is the owner's verification
-instrument and reordering those tasks destroys it. No plan in this campaign
-carries bounded-divergence authority, and plan 1 must not move a replay hash.
+plan with a behavioral correction and it **stops at AI4 for explicit owner
+sign-off** before closure. AI0's census predicts zero committed artifact
+movement because no mapped baseline reaches the defect; AI1 and AI2 must both
+prove zero-byte movement. Any changed artifact reopens AI0/AI2 and blocks
+closure rather than authorizing regeneration. No plan in this campaign carries
+bounded-divergence authority, and plan 1 must not move a replay hash.
 
 The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
 `persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
@@ -3012,10 +3022,11 @@ Binding owner directions:
   Plan 1 must not move a replay hash, plan 2 must not move a physics byte, and
   plan 3 is documentation-only.
 - Plan 4 is the only plan carrying an owner gate. AI4 stops for explicit owner
-  sign-off before any baseline is regenerated. It does **not** receive
-  task-scoped bounded-divergence authority: the point of the change is that the
-  existing artifacts recorded a wrong value, not a reordered one, so the
-  divergence rules for evaluation-order transitions do not apply.
+  sign-off before closure. It does **not** receive task-scoped
+  bounded-divergence authority: AI0 proved the existing artifacts do not reach
+  the defect, so AI1 and AI2 must leave them byte-exact. Any movement blocks
+  closure and reopens the census or implementation; no regeneration is
+  authorized.
 - Plan 1 explicitly rejects "compile the trace out of Release." Removing it from
   Release alone leaves the cost in Profile, which is where `validate_perf`
   measures, and compiling it out of Profile would move every replay sample hash
@@ -3033,14 +3044,14 @@ Binding owner directions:
 - Plan 3 adds a sixth repeatable inventory. Like the existing five, no count in
   it is an allowance, budget, or ratchet.
 - Plan 4 AI3 is investigation-only and registers follow-up plans rather than
-  changing behavior, so the AI4 baseline delta stays attributable to exactly one
-  named cause.
+  changing behavior, preserving AI0's zero-delta oracle through AI4.
 
 Dependency barriers:
 
 - Plan 4 AI1 before AI2 — AI1 must prove it moved zero baseline bytes before
-  AI2 moves them deliberately. Reversing the order destroys the owner's ability
-  to attribute the delta, which is the reason both findings share one plan.
+  AI2 applies the focused correction and independently proves the same
+  zero-artifact result. Reversing the order destroys the separate neutrality
+  evidence, which is the reason both findings share one plan.
 - Plan 4 AI0 before AI2 — AI0 predicts the expected baseline delta before any
   production code changes. That prediction is the oracle AI4 verifies against;
   producing it after the fact proves nothing.
@@ -3054,7 +3065,7 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts next at AI0; **stops at AI4 for owner sign-off before any baseline regeneration** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | In progress | 1/5 | AI0 fixes the frame ruling and zero-byte artifact oracle; AI1 is next; **stops at AI4 for owner sign-off with no baseline regeneration authorized** |
 
 ### Governance Gap This Campaign Closes
 

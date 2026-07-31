@@ -1,11 +1,11 @@
 # Angular Impulse Frame Correctness
 
 Date: 2026-07-31
-Status: TODO — 0/5 phases complete
+Status: IN PROGRESS — 1/5 phases complete
 Impact area: Physics angular impulse response, mutual-gravity reduction, physics baselines
 Owner: Physics
 Priority: High
-Owner gate: AI4 requires explicit owner sign-off before any baseline is regenerated
+Owner gate: AI4 requires explicit owner sign-off before closure; AI0 predicts no baseline regeneration
 
 ## Problem And Evidence
 
@@ -98,18 +98,20 @@ byte.
 
 This plan carries **no bounded-divergence allowance**. AI1 is strictly
 byte-exact and a differing byte reverts the task. AI2 is a deliberate behavioral
-correction whose baseline delta requires explicit owner acceptance at AI4 — it
-is not a `MASTER-PLAN` task-scoped divergence, because the point of the change
-is that the previous artifacts recorded a wrong value, not a reordered one.
+correction, but AI0 proved that no committed baseline or fixture reaches the
+defect with both non-identity orientation and anisotropic inertia. AI2 must
+therefore leave every committed artifact byte-exact. Any artifact movement is
+unexplained divergence that reopens AI0 and AI2; it is never accepted or
+refreshed at AI4.
 
 The task order is deliberate. AI1 lands first and must prove it moved nothing.
-AI2 then moves baselines. The owner therefore sees a clean contrast: one
-refactor that changed no artifact, and one correction whose artifact delta can
-be attributed to a single named cause.
+AI2 then turns the focused expected-failure test green without moving committed
+artifacts. The owner therefore sees an exact refactor, a focused correction
+proof, and a complete zero-delta artifact comparison.
 
 ## Phases
 
-- [ ] **AI0 — Census the angular impulse paths, predict the delta, and resolve
+- [x] **AI0 — Census the angular impulse paths, predict the delta, and resolve
   the frame question.** Document all three torque→angular-velocity conversions
   and their exact arithmetic. Resolve whether `pendingImpulseApplicationPoint`
   is local or world by inspecting every caller, and state the intended contract;
@@ -122,6 +124,18 @@ be attributed to a single named cause.
   production code changes** — that prediction is the oracle AI4 checks against.
   Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai0-census.md`.
+  Completed with all three arithmetic paths and every direct caller recorded.
+  The application-point contract is a world-space offset from the body's center:
+  launcher ray hits already construct that value, generated/authored values are
+  lever offsets at spawn, and zero-point callers are frame-neutral. One authored
+  ragdoll demo contains an absolute-position-looking outlier, recorded for
+  separate authoring repair rather than used to reverse the API contract. A
+  `doctest::should_fail` characterization exercises the production pending and
+  contact paths and records the current `(-2.35, 0.96, 0.55)` versus
+  `(-1.13982, 0.808092, 0.55)` mismatch. The pre-change artifact oracle is zero
+  committed baseline bytes: mapped authored impulses are spheres, generated
+  anisotropic boxes start at identity, and the launcher fixture targets a
+  sphere.
 
 - [ ] **AI1 — Byte-exact mutual-gravity reduce.** Emit a compacted canonical
   pair list from the parallel build pass and make the serial reduce a linear
@@ -157,16 +171,18 @@ be attributed to a single named cause.
   would hide it. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`.
 
-- [ ] **AI4 — Owner verification and baseline acceptance.** Present the complete
-  artifact delta against AI0's prediction: which scenes moved, which rows, and
-  why the shape is the expected consequence of correcting an inertia transform
-  rather than unexplained divergence. Prove no body loss, non-finite state,
-  energy explosion, invariant failure, allocation violation, or unrelated
-  scene/config/schema/render change is hidden by the refresh. Confirm AI1
-  contributed zero bytes to the delta. **Stop here for explicit owner sign-off.**
-  Only after that, regenerate baselines from the final Debug executable, scenes,
-  and config that will be committed, then rerun the matching physics gates so
-  the artifacts are compared byte-exactly against the committed set. Evidence:
+- [ ] **AI4 — Owner verification and zero-delta acceptance.** Present the
+  complete artifact comparison against AI0's prediction and prove every
+  committed physics, query, performance, interaction, screenshot, and replay
+  visual artifact remained byte-exact. Confirm AI1 and AI2 contributed zero
+  artifact bytes while the focused test changed from expected failure to an
+  ordinary pass. Prove no body loss, non-finite state, energy explosion,
+  invariant failure, allocation violation, false negative in the census, or
+  unrelated scene/config/schema/render change. Any artifact movement blocks
+  closure and reopens AI0/AI2; this plan authorizes no baseline regeneration.
+  **Stop here for explicit owner sign-off.** After acceptance, rerun the matching
+  gates against the unchanged committed baselines and close without refreshing
+  them. Evidence:
   `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
 
 ## Acceptance
@@ -175,14 +191,14 @@ One shared conversion produces the angular response for gameplay, world-force,
 and contact impulses, and a rotated box responds identically to equivalent
 impulses from any of those sources. Mutual gravity derives its participating
 pairs once and its reduce is measurably cheaper with zero artifact movement.
-Physics baselines are regenerated only after recorded owner acceptance, and the
-delta matches the prediction made before the code changed.
+The focused rotated-box proof passes, every committed artifact remains
+byte-exact, and the owner explicitly accepts the correction without a baseline
+refresh.
 
 ## Validation
 
 `tools\validate_tests.bat`, `tools\validate_physics.bat`,
 `tools\validate_physics_deep.bat`, `tools\validate_perf.bat`,
 `tools\validate_replay_visual_fidelity.bat`, and `tools\validate_full.bat`.
-Baseline regeneration in AI4 follows the `AGENTS.md` physics baseline rule:
-final Debug artifacts only, then rerun the matching gate for byte-exact
-comparison against the committed baselines.
+Compare final Debug artifacts against the committed baselines. Any difference
+blocks closure and reopens AI0/AI2; this plan authorizes no regeneration.
