@@ -1,7 +1,7 @@
 # Runtime Contract Hygiene
 
 Date: 2026-07-31
-Status: IN PROGRESS — 2/3 phases complete
+Status: COMPLETE — 3/3 phases complete
 Impact area: Application exit reporting, Quaternion public contract, Physics fixed-list unwind path
 Owner: Runtime
 Priority: Medium
@@ -85,7 +85,7 @@ header describe the code that exists, and make the zero-throw claim true.
   while two test helper boundaries normalized four arbitrary-axis fixtures.
   Debug build and 28 focused cases / 2,302 assertions pass.
 
-- [ ] **CH2 — Make the zero-throw inventory true.** Remove the rethrow at
+- [x] **CH2 — Make the zero-throw inventory true.** Remove the rethrow at
   `PhysicsFixedList.h:581`. Preferred repair is to require nothrow-move-
   constructible `T` for relocation with a `static_assert` and delete the
   `_CPPUNWIND` block, since the list already deletes copy and move and only
@@ -94,6 +94,11 @@ header describe the code that exists, and make the zero-throw claim true.
   explicit lane-F failure instead. Confirm the repository-wide `throw` count is
   zero afterwards. Physics must stay byte-exact. Evidence:
   `Agentic/Reports/2026-07-31/runtime-contract-hygiene-closure.md`.
+  Completed with a class-level nothrow-move constraint, a direct non-unwinding
+  relocation path, and non-trivial relocation lifetime coverage. Every live
+  instantiation compiles under the constraint; engine source contains zero
+  throw expressions. Tests, byte-exact Physics, allocation policy, formatting,
+  the full repository gate, and independent review pass.
 
 ## Acceptance
 

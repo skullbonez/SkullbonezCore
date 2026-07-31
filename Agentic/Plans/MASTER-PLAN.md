@@ -624,6 +624,16 @@ independent review pass. The active/future ledger is therefore 6/16 (38%).
 Evidence is in
 `../Reports/2026-07-31/runtime-contract-hygiene-ch1-quaternion.md`.
 
+Runtime Contract Hygiene CH2 completed on 2026-07-31. `PhysicsFixedList`
+requires nothrow-move-constructible elements, retains the trivial byte-transfer
+path, and relocates non-trivial rows without an unwind branch. Every live
+instantiation compiles under the contract; focused non-trivial lifetime
+coverage, 457 unit cases / 2,424,712 assertions, byte-exact Physics, allocation
+policy, the 652.3-second full gate, a 2/2 comment audit, and independent review
+pass. Engine source now contains zero throw expressions. The active/future
+ledger is therefore 7/16 (44%). Evidence is in
+`../Reports/2026-07-31/runtime-contract-hygiene-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1206,9 +1216,9 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 6/16 (38%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 7/16 (44%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
-runtime contract hygiene (2/3), engine glossary consolidation (0/4), then
+runtime contract hygiene (3/3), engine glossary consolidation (0/4), then
 angular impulse frame correctness (0/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
@@ -2996,8 +3006,8 @@ Dependency barriers:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
-| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | In progress | 2/3 | CH0-CH1 complete; CH2 zero-throw repair is binding next |
-| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Ready; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
+| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
+| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Binding next; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |
 
 ### Governance Gap This Campaign Closes

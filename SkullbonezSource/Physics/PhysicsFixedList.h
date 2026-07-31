@@ -38,6 +38,8 @@ Invariants:
   - Capacity-session changes reset the local peak lazily before the next
     publication; retained stores do not carry a preceding scene's peak forward.
   - Noncanonical destruction cannot clear the canonical capacity row.
+  - Element relocation cannot unwind because every T is nothrow move constructible.
+  - Trivially copyable rows retain the byte-exact transfer path.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
@@ -95,6 +97,9 @@ inline constexpr char ExplicitTestCapacity[] = "Explicit unit-test fixed-list ca
 
 template <typename T, std::size_t Capacity> class PhysicsFixedList
 {
+    static_assert( std::is_nothrow_move_constructible<T>::value,
+                   "PhysicsFixedList elements must be nothrow move constructible" );
+
   public:
     using value_type = T;
     using iterator = T*;
@@ -554,33 +559,16 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         }
         else
         {
-            std::size_t constructed = 0u;
 
-#if defined( _CPPUNWIND )
-            try
+            // Invariant: CommitBacking allocates the replacement before this
+            // loop, and the class constraint makes every element move
+            // non-throwing. The old prefix stays live until all replacements
+            // exist, so no partial relocation state can escape.
+
+            for ( std::size_t index = 0u; index < m_count; ++index )
             {
-#endif
-
-                for ( ; constructed < m_count; ++constructed )
-                {
-                    new ( static_cast<void*>( &replacement[constructed] ) )
-                        T( std::move_if_noexcept( *ValueAt( constructed ) ) );
-                }
-
-#if defined( _CPPUNWIND )
+                new ( static_cast<void*>( &replacement[index] ) ) T( std::move( *ValueAt( index ) ) );
             }
-            catch ( ... )
-            {
-
-                while ( constructed > 0u )
-                {
-                    --constructed;
-                    std::launder( reinterpret_cast<T*>( &replacement[constructed] ) )->~T();
-                }
-
-                throw;
-            }
-#endif
 
             for ( std::size_t index = 0; index < m_count; ++index )
             {
