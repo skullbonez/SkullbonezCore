@@ -1,8 +1,8 @@
 # Solver Diagnostic Hot-Path Cost — HP0 Census
 
-Date: 2026-07-31  
-Branch: `nightrunner-30th-JUL-26`  
-Source tip: `9b09de95` (source-bearing code is unchanged from `1967a863`)  
+Date: 2026-07-31
+Branch: `nightrunner-30th-JUL-26`
+Source tip: `9b09de95` (source-bearing code is unchanged from `1967a863`)
 Scope: pipeline-trace producers, consumers, replay identity, and current
 `perf_1000` cost
 
