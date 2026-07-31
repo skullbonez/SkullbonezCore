@@ -710,6 +710,39 @@ oracle on every line. This corrective work does not change the 13/16 ledger.
 Evidence is in
 `../Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
 
+### Next-Agent Handover: AI2 Resting-State Prerequisite
+
+Before applying or reworking the AI2 stash, add one cheap `at_rest` sleep-
+transition assertion to `tools\validate_physics_deep.bat`. Reuse the existing
+`Debug/physics_known_at_rest.csv` lane rather than launching the scene a second
+time. The check must pin the exact first fixed physics frame where all six
+dynamic bodies are sleeping, prove the immediately preceding frame is not yet
+fully asleep, and prove no body wakes again through the final recorded frame.
+This is an AI2 prerequisite, not a new campaign phase, so the ledger remains
+13/16.
+
+Do not encode the owner's approximate frame `1800` as a guess. A fresh
+post-restoration SkullScope census ran scene playback frames `0..1799` at the
+authored `timeScale: 10`, producing fixed physics frames `0..8999`, and found
+no frame with `awake_count == 0` and `sleeping_count == body_count`. The boxes
+first sleep at fixed frames `1326` (`box_a`), `1765` (`box_c`), and `1870`
+(`box_b`); `ball_a`, `ball_b`, and `ball_c` remain awake through frame `8999`.
+The existing deep CSV independently reports the same transitions and no all-
+asleep frame. The next agent must treat that result as a red resting-state
+finding, determine why the balls never settle, and establish the owner-accepted
+exact all-asleep frame before pinning the deep assertion. No physics golden
+refresh is authorized by this prerequisite.
+
+The paused stash contains only the four-file AI2 world/body inertia-frame
+correction: `PhysicsBodyStore.h`, `PhysicsBodyStore.cpp`,
+`PersistentContactSolver.cpp`, and `TestPersistentContactSolver.cpp` (99
+insertions, 16 deletions at stash time). It adds a shared inertia-frame helper,
+routes pending gameplay and contact angular impulses through it, turns the
+rotated-anisotropic-box characterization into a passing test, and adds an
+isotropic-sphere exactness case. Expect conflicts in the solver and test after
+the pre-`536` restoration; inspect and reapply the intent instead of blindly
+popping the stash.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -3086,7 +3119,7 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; AI2 is preserved in a named local stash and must not resume without new owner direction; **no baseline regeneration is authorized** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; before AI2 resumes, land the red `at_rest` exact all-asleep-frame deep check described in the next-agent handover, then reapply the named stash by intent; **no baseline regeneration is authorized** |
 
 ### Governance Gap This Campaign Closes
 
