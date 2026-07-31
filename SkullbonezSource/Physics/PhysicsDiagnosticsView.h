@@ -21,7 +21,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Physics/PhysicsWorld.h
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
-  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -80,10 +80,9 @@ struct PersistentContact
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
 
-    // First-touch terrain impulse derived from row effective mass, signed
-    // gravity, and total body contact rows. Cache hits never use this estimate.
-    // The historical member name remains because Replay v2 conversion and
-    // hashing project this diagnostics record directly.
+    // Terrain support seed derived from body weight, vertical normal support,
+    // and manifold point count. It remains a minimum normal/friction impulse
+    // for the row; Replay v2 conversion and hashing project this field directly.
     float terrainWarmStart = 0.0f;
 
     // Captured before impulses so diagnostics can reject force-transfer rows

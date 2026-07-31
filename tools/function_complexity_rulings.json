@@ -25,11 +25,11 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
-      "body_sha256": "25ccb6fd261ee0668d466b6b5ce281b584efca45ce2ace572b6c0d6d52d11cd0",
+      "body_sha256": "c3dd3a0bf41e820fcab1ccca8b5601b94a19c26e3a0754f94964127c5c316ea0",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, bias, friction bounds, warm-start impulses, and optional trace values; compile-time trace retention preserves that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md",
+      "evidence": "Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md",
       "plan": ""
     },
     {

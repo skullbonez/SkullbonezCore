@@ -6,8 +6,7 @@ Purpose:
 
 Summary:
   PhysicsContactSolverStage owns and executes the complete persistent-row solve
-
-  for one fixed step. It borrows dense body, collider, sleep, terrain, and
+  during one fixed step. It borrows dense body, collider, sleep, terrain, and
   diagnostics rows synchronously and publishes a typed consequence batch for
   the PhysicsWorld sequencer to commit.
 
@@ -40,7 +39,7 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -210,9 +209,10 @@ class PersistentContactSolveTransaction
                          PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity,
                          Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
-    void BuildTerrainRows( PhysicsContactSolverStage& stage,
+    void BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
+                           const PersistentContactSolverStepPolicy& stepPolicy,
                            PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity,
+                           std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity, float dt,
                            Core::Profiler* profiler );
     template <bool RetainPipelineRecords>
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,

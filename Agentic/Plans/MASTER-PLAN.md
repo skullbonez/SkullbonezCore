@@ -700,6 +700,16 @@ ms to 0.079943 ms and median from 0.0924 ms to 0.0780 ms. The active/future
 ledger is therefore 13/16 (81%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
 
+The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle.
+The uncommitted AI2 implementation is preserved in the named local stash
+`paused AI2 world-inertia correction before restoring pre-536 physics` and must
+not be resumed without a new owner instruction. The BV1/BV2/BV3/BV5 behavior
+and all four goldens changed by `536e0a60` are superseded; the restored Debug
+solver produces two identical 44,401-line varied runs that match the pre-`536`
+oracle on every line. This corrective work does not change the 13/16 ledger.
+Evidence is in
+`../Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1282,7 +1292,8 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 13/16 (81%).**
+**The Gate Blind Spot Campaign (2026-07-31) remains at 13/16 (81%), with AI2
+paused by owner direction after the pre-`536` physics oracle restoration.**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
 angular impulse frame correctness (2/5).
@@ -2809,7 +2820,7 @@ Dependency barriers:
 | 5 | [broadphase-capacity-right-sizing](../Reports/2026-07-29/broadphase-capacity-right-sizing-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; exact 10.170568x acceptance reduction, nine SceneLoad-only owners, byte-exact Physics, all closure gates, 9/9 comment audit, and independent review are clear |
 | 6 | [runtime-include-closure-reduction](../Reports/2026-07-29/runtime-include-closure-reduction-closure.md) | Complete | 4/4 | Closed 2026-07-29 and removed from the live ledger under rule 4; heavy closure, zero non-Physics solver reach, exact accounting, mapped gates, 30/30 comment audit, and independent review are clear |
 | 7 | [quaternion-convention-normalization](../Reports/2026-07-29/quaternion-convention-normalization-closure.md) | Complete | 6/6 | Closed 2026-07-29 and removed from the live ledger under rule 4; canonical Hamilton math, scene v3/replay v5 migration, prior owner visual acceptance, inspected baseline regeneration, all mapped gates, 41/41 comment audit, and independent review are clear |
-| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md) | Complete | 7/7 | Closed 2026-07-29 and removed from the live ledger under rule 4; zero controlled flips/cap frames/misses, honest terrain warm start, exact terrain-restitution and manifold-correction oracles, final baseline transition, 8/8 comment audit, mapped gates, and independent review are clear |
+| 8 | [box-vibration-and-warm-start-integrity](../Reports/2026-07-31/pre-536-physics-oracle-restoration.md) | Superseded | 0/7 accepted | Owner rejected the `536e0a60` golden transition on 2026-07-31; BV1/BV2/BV3/BV5 behavior and all four changed physics goldens are restored to the pre-campaign policy/oracle without rewriting history |
 | 9 | [persistent-contact-convergence-early-out](../Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md) | Complete | 4/4 | Closed 2026-07-30 and removed from the live ledger under rule 4; owner-approved retain decision preserves the honest row-level stopping criterion, exact diagnostics, deterministic repeats, and final-source validation |
 
 ### Plan 8 Ordering Consequences
@@ -3075,7 +3086,7 @@ Dependency barriers:
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
 | 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | In progress | 2/5 | AI0 fixes the frame ruling and zero-byte artifact oracle; AI1 lands the byte-exact compact gravity reduce; AI2 is next; **stops at AI4 for owner sign-off with no baseline regeneration authorized** |
+| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; AI2 is preserved in a named local stash and must not resume without new owner direction; **no baseline regeneration is authorized** |
 
 ### Governance Gap This Campaign Closes
 

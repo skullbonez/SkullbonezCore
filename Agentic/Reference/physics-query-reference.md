@@ -225,12 +225,17 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top impulse --
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top penetration --limit 20
 ```
 
-The `solver` result includes `convergenceStats` and a bounded
-`convergenceWorst` sample. Each retained iteration reports the exact squared
-impulse-delta stopping metric, normal/tangent attribution, changed-row counts,
-and the largest contributing terrain or object row with that row's own
-normal/tangent split. The engine retains at most 64 iterations per frame and
-reports dropped iterations explicitly.
+The importer stores the engine's bounded convergence summaries in its local
+SQLite cache, including the exact squared impulse-delta stopping metric and
+row attribution. Request them with:
+
+```bat
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson solver --include-convergence --limit 20
+```
+
+Those optional diagnostics are deliberately excluded from the default
+validated `solver` packet: changing an engineering projection is not authority
+to redefine an owner-controlled physics query oracle.
 
 ### Which bodies are moving fastest?
 

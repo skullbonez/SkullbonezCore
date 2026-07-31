@@ -18,7 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
-  - Agentic/Reports/2026-07-29/box-vibration-and-warm-start-integrity-closure.md
+  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
@@ -63,8 +63,6 @@ struct PersistentContactSolverStepPolicy
     float nonNegativeSleepAngularSpeed = 0.0f;
     float gravityMagnitude = 0.0f;
 
-    // Signed live world force used when a terrain row has no cached impulse.
-    Math::Vector::Vector3 gravityAcceleration = Math::Vector::ZERO_VECTOR;
     float contactEpsilon = 0.0f;
     int iterations = 1;
     bool elasticCollisions = false;
