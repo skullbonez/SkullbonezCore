@@ -32,8 +32,8 @@
 
 #include <cmath>
 
-using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -57,17 +57,16 @@ void CheckMatrixNear( const Matrix4& actual, const float ( &expected )[16], floa
 
 void CheckIdentity( const Matrix4& value, float epsilon = kEpsilon )
 {
-    const float expected[16] = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f
-    };
+    const float expected[16] = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
     CheckMatrixNear( value, expected, epsilon );
 }
 
-Matrix4 Rotation( const Vector3& axis, float radians )
+Matrix4 Rotation( Vector3 axis, float radians )
 {
+    // Invariant: the public axis-angle API requires a unit axis. Normalize the
+    // arbitrary-axis fixture at this helper boundary so every test call is valid.
+    axis.Normalise();
     Quaternion rotation;
     rotation.RotateAboutAxis( axis, radians );
     return Matrix4::FromQuaternion( rotation );
@@ -85,15 +84,10 @@ TEST_CASE( "Matrix4: inverse of identity is identity" )
 
 TEST_CASE( "Matrix4: TRS composition matches column-major manual values" )
 {
-    const Matrix4 composed =
-        Matrix4::Translate( 3.0f, -2.0f, 5.0f ) * Rotation( Vector3( 0.0f, 0.0f, 1.0f ), 1.57079632679f ) *
-        Matrix4::Scale( 2.0f, 3.0f, 4.0f );
-    const float expected[16] = {
-        0.0f, 2.0f, 0.0f, 0.0f,
-        -3.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 4.0f, 0.0f,
-        3.0f, -2.0f, 5.0f, 1.0f
-    };
+    const Matrix4 composed = Matrix4::Translate( 3.0f, -2.0f, 5.0f ) *
+                             Rotation( Vector3( 0.0f, 0.0f, 1.0f ), 1.57079632679f ) * Matrix4::Scale( 2.0f, 3.0f, 4.0f );
+    const float expected[16] = { 0.0f, 2.0f, 0.0f, 0.0f, -3.0f, 0.0f,  0.0f, 0.0f,
+                                 0.0f, 0.0f, 4.0f, 0.0f, 3.0f,  -2.0f, 5.0f, 1.0f };
 
     CheckMatrixNear( composed, expected );
 }
@@ -101,9 +95,8 @@ TEST_CASE( "Matrix4: TRS composition matches column-major manual values" )
 
 TEST_CASE( "Matrix4: inverse times original returns identity" )
 {
-    const Matrix4 original =
-        Matrix4::Translate( -4.0f, 7.0f, 1.5f ) * Rotation( Vector3( 1.0f, 2.0f, 3.0f ), 0.64577182324f ) *
-        Matrix4::Scale( 2.0f, 0.5f, 3.0f );
+    const Matrix4 original = Matrix4::Translate( -4.0f, 7.0f, 1.5f ) *
+                             Rotation( Vector3( 1.0f, 2.0f, 3.0f ), 0.64577182324f ) * Matrix4::Scale( 2.0f, 0.5f, 3.0f );
 
     CheckIdentity( original.Inverse() * original, 0.0001f );
 }
@@ -114,11 +107,9 @@ TEST_CASE( "Matrix4: coincident look-at falls back to identity and zero up falls
     const Vector3 eye( 3.0f, -2.0f, 7.0f );
     CheckIdentity( Matrix4::LookAt( eye, eye, Vector3( 0.0f, 1.0f, 0.0f ) ) );
 
-    const Matrix4 zeroUp = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 5.0f ),
-                                            Vector3( 0.0f, 0.0f, 0.0f ),
+    const Matrix4 zeroUp = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 5.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
                                             Vector3( 0.0f, 0.0f, 0.0f ) );
-    const Matrix4 worldUp = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 5.0f ),
-                                             Vector3( 0.0f, 0.0f, 0.0f ),
+    const Matrix4 worldUp = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 5.0f ), Vector3( 0.0f, 0.0f, 0.0f ),
                                              Vector3( 0.0f, 1.0f, 0.0f ) );
     CheckMatrixNear( zeroUp, worldUp.m );
 }
@@ -126,11 +117,9 @@ TEST_CASE( "Matrix4: coincident look-at falls back to identity and zero up falls
 
 TEST_CASE( "Matrix4: parallel look-at up vectors choose a finite perpendicular basis" )
 {
-    const Matrix4 alongY = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 0.0f ),
-                                            Vector3( 0.0f, 1.0f, 0.0f ),
+    const Matrix4 alongY = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 1.0f, 0.0f ),
                                             Vector3( 0.0f, 1.0f, 0.0f ) );
-    const Matrix4 alongX = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 0.0f ),
-                                            Vector3( 1.0f, 0.0f, 0.0f ),
+    const Matrix4 alongX = Matrix4::LookAt( Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 1.0f, 0.0f, 0.0f ),
                                             Vector3( 1.0f, 0.0f, 0.0f ) );
 
     CheckIdentity( alongY.Inverse() * alongY, 0.0001f );
@@ -159,8 +148,7 @@ TEST_CASE( "Matrix4: projection helpers pin their depth identities" )
 
 TEST_CASE( "Matrix4: vector overloads and uniform scale preserve TRS composition" )
 {
-    const Matrix4 vectorForm = Matrix4::Translate( Vector3( 2.0f, 3.0f, 4.0f ) ) *
-                               Matrix4::Scale( 5.0f, 5.0f, 5.0f );
+    const Matrix4 vectorForm = Matrix4::Translate( Vector3( 2.0f, 3.0f, 4.0f ) ) * Matrix4::Scale( 5.0f, 5.0f, 5.0f );
     const Matrix4 scalarForm = Matrix4::Translate( 2.0f, 3.0f, 4.0f ) * Matrix4::Scale( 5.0f );
     CheckMatrixNear( vectorForm, scalarForm.m );
 

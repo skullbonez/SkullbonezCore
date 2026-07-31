@@ -16,8 +16,8 @@ Glossary:
 Invariants:
   - Orientation quaternions should remain normalized before conversion to
     matrices or solver rows.
-  - RotateAboutXYZ treats xyz as one angular-displacement vector rather than an
-    ordered Euler rotation.
+  - RotateAboutAxis requires a normalized world-space axis and interprets its
+    angle in radians.
   - World-axis deltas left-multiply the current orientation so call order stays
     visible in active-rotation space.
 
@@ -26,6 +26,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Quaternion.h"
+
+#include <cassert>
 
 
 using namespace SkullbonezCore::Math::Orientation;
@@ -78,6 +80,15 @@ void Quaternion::Normalise()
 
 void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
 {
+
+#ifdef _DEBUG
+
+    // Hazard: normalizing the composed quaternion cannot recover the requested
+    // angle when the axis length scales only delta.xyz. Preserve Release math,
+    // but expose caller misuse in Debug like Vector3::Normalise.
+    const float axisMagnitudeSquared = axis.x * axis.x + axis.y * axis.y + axis.z * axis.z;
+    assert( fabsf( axisMagnitudeSquared - 1.0f ) <= TOLERANCE && "Quaternion::RotateAboutAxis requires a normalized axis" );
+#endif
 
     // A positive right-handed world-axis delta left-multiplies the current
     // orientation. Hamilton composition then exposes the same order as the

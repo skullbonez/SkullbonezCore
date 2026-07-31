@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - IDENTITY_QUATERNION is the no-rotation sentinel and must stay (0,0,0,1).
   - Orientation interpolation normalizes its result and clamps alpha to [0,1].
+  - RotateAboutAxis requires a normalized world-space axis and interprets angle
+    in radians.
 
 Related:
   - SkullbonezSource/Maths/Quaternion.cpp
@@ -51,34 +53,27 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                         // Initializes to identity orientation.
-    Quaternion( float fX, float fY, float fZ, float fW ); // Explicit component construction for deserialization/math helpers.
+    Quaternion();                                                     // Initializes to identity orientation.
+    Quaternion( float fX, float fY, float fZ, float fW );             // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
-    void Identity();                                      // Resets orientation to the no-rotation value.
-    void Normalise();                                     // Removes floating-point drift before conversion to matrices or solver rows.
+    void Identity();                                                  // Resets orientation to the no-rotation value.
+    void Normalise();                                                 // Removes floating-point drift before conversion to matrices or solver rows.
 
-    // Treats xyz radians as one angular-displacement vector.
-    void
-    RotateAboutAxis( const Vector::Vector3& axis,
-                     float angle );                       // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
+    // Precondition: axis is normalized. Debug asserts on misuse; Release keeps
+    // the existing unchecked arithmetic and post-composition normalization.
+    void RotateAboutAxis( const Vector::Vector3& axis, float angle ); // Applies angle radians about a world-space axis.
 
     // Returns the active-rotation matrix for this Hamilton quaternion.
     Transformation::RotationMatrix GetOrientationMatrix() const;
 
-    // Rotate by angular-displacement components without Euler decomposition
-
     // Standard Hamilton order: lhs * rhs applies rhs first, then lhs.
     Quaternion operator*( const Quaternion& q ) const;
-    Quaternion& operator*=( const Quaternion& q );        // In-place rotation composition; caller normalizes if drift matters.
+    Quaternion& operator*=( const Quaternion& q );                    // In-place rotation composition; caller normalizes if drift matters.
     void GetComponents( float& x, float& y, float& z,
-                        float& w ) const;                 // Exposes raw components for deterministic serialization.
+                        float& w ) const;                             // Exposes raw components for deterministic serialization.
 
   private:
-    float m_x, m_y, m_z, m_w;                             // Stored as vector part xyz plus scalar w.
-
-    // Builds an X-axis delta rotation in radians.
-    // Builds a Y-axis delta rotation in radians.
-    // Builds a Z-axis delta rotation in radians.
+    float m_x, m_y, m_z, m_w;                                         // Stored as vector part xyz plus scalar w.
 };
 
 // One program-wide no-rotation value shared by every including translation unit.

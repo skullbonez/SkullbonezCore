@@ -69,7 +69,7 @@ CollisionShape MakeBox( const Vector3& halfExtents = Vector3( 1.0f, 1.0f, 1.0f )
     return CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
 }
 
-ObjectContactBodyView MakeBody( const Vector3& position, const Vector3& rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
+ObjectContactBodyView MakeBody( const Vector3& position, Vector3 rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
                                 float rotationRadians = 0.0f )
 {
     ObjectContactBodyView body;
@@ -77,6 +77,9 @@ ObjectContactBodyView MakeBody( const Vector3& position, const Vector3& rotation
 
     if ( rotationRadians != 0.0f )
     {
+        // Invariant: tilted manifold fixtures describe a direction, not an
+        // angle scale. Normalize arbitrary diagonals before axis-angle rotation.
+        rotationAxis.Normalise();
         body.orientation.RotateAboutAxis( rotationAxis, rotationRadians );
     }
 
@@ -291,8 +294,8 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     const CollisionShape sphere = SphereShape( 2.0f );
     const CollisionShape box = BoxShape( Vector3( 2.0f, 2.0f, 2.0f ) );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hullShape;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
-        diagnostics, "SkullbonezData/hulls/pyramid.hull", hullShape ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull",
+                                                                     hullShape ) );
     const CollisionShape hull = hullShape;
 
     ObjectContactBodyView a;

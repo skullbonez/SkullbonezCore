@@ -1,7 +1,7 @@
 # Runtime Contract Hygiene
 
 Date: 2026-07-31
-Status: IN PROGRESS — 1/3 phases complete
+Status: IN PROGRESS — 2/3 phases complete
 Impact area: Application exit reporting, Quaternion public contract, Physics fixed-list unwind path
 Owner: Runtime
 Priority: Medium
@@ -71,7 +71,7 @@ header describe the code that exists, and make the zero-throw claim true.
   passes 1 case / 5 assertions; the full repository gate and independent
   ownership review pass.
 
-- [ ] **CH1 — Correct the Quaternion public contract.** Delete the orphan
+- [x] **CH1 — Correct the Quaternion public contract.** Delete the orphan
   comments at `Quaternion.h:68` and `:79-81`. State the normalized-axis
   precondition of `RotateAboutAxis` in the header and add the Debug assert that
   makes a violation visible, matching the existing `Vector3::Normalise`
@@ -80,6 +80,10 @@ header describe the code that exists, and make the zero-throw claim true.
   is comment-and-assert work; keep the diff free of arithmetic changes so it
   stays documentation-only for validation purposes. Evidence:
   `Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch1-quaternion.md`.
+  Completed with Release production arithmetic unchanged. The caller audit
+  corrected the plan's provisional census: all production callers were valid,
+  while two test helper boundaries normalized four arbitrary-axis fixtures.
+  Debug build and 28 focused cases / 2,302 assertions pass.
 
 - [ ] **CH2 — Make the zero-throw inventory true.** Remove the rethrow at
   `PhysicsFixedList.h:581`. Preferred repair is to require nothrow-move-
