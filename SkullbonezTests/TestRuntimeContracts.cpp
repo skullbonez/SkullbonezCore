@@ -38,6 +38,8 @@
 //     the canonical prediction working set.
 //   - Spatial-grid backing reserves only during SceneLoad; fixed-step
 //     exhaustion reports the exact owner, capacity, high-water, and phase.
+//   - Pipeline batch counting rejects full-record mode so retained row count
+//     cannot diverge from the recorder's canonical event count.
 //   - DX12 retirement accounting records a real below-capacity peak, resets at
 //     device boundaries, and reports release/fence facts at exhaustion.
 //
@@ -69,6 +71,7 @@
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsFixedList.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.h"
 #include "../SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h"
 #include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "../SkullbonezSource/Runtime/Interaction/OperatorCommandTransaction.h"
@@ -355,6 +358,13 @@ struct WorkerFatalProbe
 
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    if ( std::strcmp( caseName, "physics-pipeline-batch-full-mode" ) == 0 )
+    {
+        SkullbonezCore::Physics::PhysicsPipelineTraceRecorder recorder;
+        recorder.BeginStep( true );
+        recorder.RecordEvents( 1u );
+    }
+
     if ( std::strcmp( caseName, "dx12-retirement-release-snapshot" ) == 0 )
     {
         SkullbonezCore::Rendering::Dx12RetirementDiagnosticState retirementDiagnostics;
@@ -1301,6 +1311,10 @@ TEST_CASE( "SbDiagnosticStore bound capacity and lease misuse terminate in child
 
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
 {
+    ExpectFatalCase( "physics-pipeline-batch-full-mode",
+                     { "FATAL[Physics/PhysicsStepDiagnostics]",
+                       "Count-only pipeline event batches cannot be recorded while full payload retention is active" } );
+
     ExpectFatalCase( "physics-fixed-list-runtime-capacity",
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=fatal.physics-fixed-list.runtime", "requested=2",
                        "runtime_capacity=1", "compile_capacity=4", "ceiling=runtime_reservation" } );

@@ -107,11 +107,11 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
-      "signature": "void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int pairIndex, ObjectNarrowphaseEvent& event )",
       "owner": "PhysicsNarrowphaseStage",
       "disposition": "retain-owner",
-      "reason": "One pair-scoped operation owns contact and wake-event production from explicit stores, policy, scratch, pair index, and output.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "reason": "One pair-scoped operation owns contact, wake-event, and optional trace-payload production from explicit stores, policy, scratch, pair index, and output; the compile-time lane avoids a courier or sink abstraction.",
+      "evidence": "Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md"
     },
     {
       "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",

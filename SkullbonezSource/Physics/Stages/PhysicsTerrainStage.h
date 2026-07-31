@@ -34,6 +34,7 @@ Related:
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 
 #include "../../Core/SceneCapacity.h"
@@ -75,7 +76,9 @@ struct PreparedTerrainCandidateCommit
 
     // Value transaction split around sequencer-owned diagnostics. This keeps
     // Record -> Emit -> manifold/sleep -> visual -> clock ordering unchanged.
-    PhysicsPipelineRecord pipelineRecord;
+    // The count-only specialization leaves the optional disengaged and never
+    // constructs a diagnostic payload.
+    std::optional<PhysicsPipelineRecord> pipelineRecord;
     TerrainContactManifold manifold;
     float collisionTime = 0.0f;
     float availableTime = 0.0f;
@@ -117,13 +120,14 @@ class PhysicsTerrainStage
 
     // Invariant: prepare performs body integration and manifold construction;
     // commit performs only the serial manifold/sleep publication after the
-    // PhysicsWorld diagnostic gap.
-    PreparedTerrainCandidateCommit PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                                           PhysicsTerrainView terrain,
-                                                           std::span<BuoyancyBodyFacts> buoyancyFacts,
-                                                           const PhysicsRuntimeSettings& settings, Core::Profiler* profiler,
-                                                           int bodyIndex, float availableTime,
-                                                           const TerrainContactSweepResult& sweep );
+    // PhysicsWorld diagnostic gap. The template lane makes the trace payload
+    // absent from count-only code while preserving the same hit event.
+    template <bool RetainPipelineRecords>
+    PreparedTerrainCandidateCommit
+    PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
+                            std::span<BuoyancyBodyFacts> buoyancyFacts, const PhysicsRuntimeSettings& settings,
+                            Core::Profiler* profiler, int bodyIndex, float availableTime,
+                            const TerrainContactSweepResult& sweep );
     void CommitCandidate( const PreparedTerrainCandidateCommit& commit, std::span<uint8_t> sleepSupportedThisFrame,
                           std::span<uint8_t> sleepInhibitedThisFrame );
 

@@ -68,6 +68,22 @@ void PhysicsPipelineTraceRecorder::Record( const PhysicsPipelineRecord& record )
     }
 }
 
+void PhysicsPipelineTraceRecorder::RecordEvents( std::size_t eventCount )
+{
+
+    if ( m_retainFullRecords )
+    {
+        SB_FATAL( "Physics/PhysicsStepDiagnostics",
+                  "Count-only pipeline event batches cannot be recorded while full payload retention is active." );
+    }
+
+    // Invariant: this is algebraically identical to eventCount successful
+    // count-only Record attempts, including saturation, but does not require a
+    // row value. Rejecting full mode keeps Records().size() == Count().
+    const std::size_t remaining = static_cast<std::size_t>( RemainingRecordCapacity() );
+    m_recordCount += static_cast<uint32_t>( (std::min)( eventCount, remaining ) );
+}
+
 void PhysicsPipelineTraceRecorder::RestoreFullRecords( std::span<const PhysicsPipelineRecord> records )
 {
 
@@ -86,6 +102,11 @@ void PhysicsPipelineTraceRecorder::RestoreFullRecords( std::span<const PhysicsPi
 
     m_recordCount = static_cast<uint32_t>( records.size() );
     m_retainFullRecords = true;
+}
+
+bool PhysicsPipelineTraceRecorder::RetainsFullRecords() const
+{
+    return m_retainFullRecords;
 }
 
 bool PhysicsPipelineTraceRecorder::CanRecord() const
@@ -182,6 +203,16 @@ void PhysicsStepDiagnostics::SetPipelineTraceFullRecordConsumerActive( bool acti
 void PhysicsStepDiagnostics::RecordPipelineStage( const PhysicsPipelineRecord& record )
 {
     m_pipelineTrace.Record( record );
+}
+
+void PhysicsStepDiagnostics::RecordPipelineEvents( std::size_t eventCount )
+{
+    m_pipelineTrace.RecordEvents( eventCount );
+}
+
+bool PhysicsStepDiagnostics::RetainsFullPipelineRecords() const
+{
+    return m_pipelineTrace.RetainsFullRecords();
 }
 
 

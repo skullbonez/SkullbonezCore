@@ -26,6 +26,8 @@ Invariants:
     solver-visible order.
   - Sleep-only pairs never enter the production candidate vector; Debug records
     the old geometric-admission evidence at the emission skip.
+  - Count-only tracing batches admitted pair cardinality without loading body
+    positions; full tracing preserves the canonical sorted payload order.
   - No hot-path list operation may exceed its scene-load reservation.
 
 Related:
@@ -764,42 +766,58 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordCandidates" );
+
+        // Why: every retained candidate already passed the pair-validity gate,
+        // so count-only mode can batch the canonical event cardinality without
+        // loading either body's position or comparing capacity per pair.
+
+        if ( !physicsPipelineTrace.RetainsFullRecords() )
+        {
+            std::size_t pipelineEventCount = m_candidatePairs.size();
+#if defined( _DEBUG )
+            pipelineEventCount += m_sleepPrunedPairs.size();
+#endif
+            physicsPipelineTrace.RecordEvents( pipelineEventCount );
+        }
+        else
+        {
 #if defined( _DEBUG )
 
-        // Compatibility invariant: P2 recorded the canonical geometrically
-        // admitted stream before removing sleep-only pairs. Reconstruct that
-        // Debug trace by merging the two retained sorted lists; this does not
-        // restore dormant solver work to the production candidate vector.
-        std::sort( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end() );
-        const size_t diagnosticCandidateCount = m_candidatePairs.size() + m_sleepPrunedPairs.size();
-        auto visible = m_candidatePairs.begin();
-        auto pruned = m_sleepPrunedPairs.begin();
+            // Compatibility invariant: P2 recorded the canonical geometrically
+            // admitted stream before removing sleep-only pairs. Reconstruct that
+            // Debug trace by merging the two retained sorted lists; this does not
+            // restore dormant solver work to the production candidate vector.
+            std::sort( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end() );
+            const size_t diagnosticCandidateCount = m_candidatePairs.size() + m_sleepPrunedPairs.size();
+            auto visible = m_candidatePairs.begin();
+            auto pruned = m_sleepPrunedPairs.begin();
 
-        while ( visible != m_candidatePairs.end() || pruned != m_sleepPrunedPairs.end() )
-        {
-            const bool takePruned = visible == m_candidatePairs.end() ||
-                                    ( pruned != m_sleepPrunedPairs.end() && *pruned < *visible );
-
-            const std::pair<int, int>& pair = takePruned ? *pruned++ : *visible++;
-
-            if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace, hotFields, modelCount, pair,
-                                                    diagnosticCandidateCount ) )
+            while ( visible != m_candidatePairs.end() || pruned != m_sleepPrunedPairs.end() )
             {
-                break;
+                const bool takePruned = visible == m_candidatePairs.end() ||
+                                        ( pruned != m_sleepPrunedPairs.end() && *pruned < *visible );
+
+                const std::pair<int, int>& pair = takePruned ? *pruned++ : *visible++;
+
+                if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace, hotFields, modelCount, pair,
+                                                        diagnosticCandidateCount ) )
+                {
+                    break;
+                }
             }
-        }
 #else
 
-        for ( const auto& pair : m_candidatePairs )
-        {
-
-            if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace, hotFields, modelCount, pair,
-                                                    m_candidatePairs.size() ) )
+            for ( const auto& pair : m_candidatePairs )
             {
-                break;
+
+                if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace, hotFields, modelCount, pair,
+                                                        m_candidatePairs.size() ) )
+                {
+                    break;
+                }
             }
-        }
 #endif
+        }
     }
 #if defined( _DEBUG )
     {
@@ -809,9 +827,17 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // old diagnostic evidence at the earlier emission skip instead of
         // paying for a solver-visible list followed by a prune pass.
 
-        for ( const std::pair<int, int>& pair : m_sleepPrunedPairs )
+        if ( !physicsPipelineTrace.RetainsFullRecords() )
         {
-            TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, hotFields, pair );
+            physicsPipelineTrace.RecordEvents( m_sleepPrunedPairs.size() );
+        }
+        else
+        {
+
+            for ( const std::pair<int, int>& pair : m_sleepPrunedPairs )
+            {
+                TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, hotFields, pair );
+            }
         }
     }
 #endif

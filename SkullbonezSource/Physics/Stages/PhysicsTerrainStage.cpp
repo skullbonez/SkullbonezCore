@@ -19,6 +19,8 @@ Invariants:
   - Worker scheduling never changes candidate slot identity.
   - Body integration and manifold construction occur before diagnostics.
   - Manifold/sleep writes occur after diagnostics and before clock completion.
+  - Full and count-only lanes observe the same hit; only the full lane samples
+    the diagnostic position/manifold payload.
   - Dormant and fixed bodies never enter terrain-detection dispatch.
 
 Related:
@@ -167,6 +169,7 @@ void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore, const Colli
     }
 }
 
+template <bool RetainPipelineRecords>
 PreparedTerrainCandidateCommit
 PhysicsTerrainStage::PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                              PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts,
@@ -191,19 +194,23 @@ PhysicsTerrainStage::PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const 
                                                                            .shape,
                                                                        bodyIndex, sweep, availableTime, commit.manifold );
 
-        Physics::PhysicsPipelineRecord record;
-        record.stage = Physics::PhysicsPipelineStage::TerrainHit;
-        record.bodyA = bodyIndex;
-        record.bodyB = TERRAIN_BODY_INDEX;
-        record.point = hasManifold ? commit.manifold.points[0].point
-                                   : PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
+        if constexpr ( RetainPipelineRecords )
+        {
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::TerrainHit;
+            record.bodyA = bodyIndex;
+            record.bodyB = TERRAIN_BODY_INDEX;
+            record.point = hasManifold ? commit.manifold.points[0].point
+                                       : PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
 
-        record.normal = hasManifold ? commit.manifold.normal : ZERO_VECTOR;
-        record.scalarA = colTime;
-        record.scalarB = hasManifold && commit.manifold.supportsRestingPolicy ? 1.0f : 0.0f;
-        record.scalarC = hasManifold ? static_cast<float>( commit.manifold.pointCount ) : 0.0f;
+            record.normal = hasManifold ? commit.manifold.normal : ZERO_VECTOR;
+            record.scalarA = colTime;
+            record.scalarB = hasManifold && commit.manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+            record.scalarC = hasManifold ? static_cast<float>( commit.manifold.pointCount ) : 0.0f;
 
-        commit.pipelineRecord = record;
+            commit.pipelineRecord = record;
+        }
+
         commit.collisionTime = colTime;
         commit.availableTime = availableTime;
         commit.remainingTime = remainingTime;
@@ -214,6 +221,15 @@ PhysicsTerrainStage::PrepareCandidateCommit( PhysicsBodyStore& bodyStore, const 
 
     return commit;
 }
+
+template PreparedTerrainCandidateCommit
+PhysicsTerrainStage::PrepareCandidateCommit<true>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView,
+                                                   std::span<BuoyancyBodyFacts>, const PhysicsRuntimeSettings&,
+                                                   Core::Profiler*, int, float, const TerrainContactSweepResult& );
+template PreparedTerrainCandidateCommit
+PhysicsTerrainStage::PrepareCandidateCommit<false>( PhysicsBodyStore&, const ColliderStore&, PhysicsTerrainView,
+                                                    std::span<BuoyancyBodyFacts>, const PhysicsRuntimeSettings&,
+                                                    Core::Profiler*, int, float, const TerrainContactSweepResult& );
 
 void PhysicsTerrainStage::CommitCandidate( const PreparedTerrainCandidateCommit& commit,
                                            std::span<uint8_t> sleepSupportedThisFrame,

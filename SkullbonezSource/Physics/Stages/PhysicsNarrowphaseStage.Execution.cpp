@@ -16,6 +16,8 @@ Glossary:
 Invariants:
   - Union/find and final sort preserve ascending minimum candidate-pair order.
   - Worker islands never share a dynamic body.
+  - Each worker selects its compile-time payload lane before entering an
+    island's pair loop.
   - Steady-play lists cannot exceed their scene and candidate-pair reservations.
 
 Related:
@@ -52,6 +54,7 @@ template <typename T> uint64_t ListCapacityBytes( const T& values )
 }
 } // namespace
 
+template <bool RetainPipelineRecords>
 void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain,
                                                               std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs,
                                                               PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining,
@@ -64,9 +67,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& 
     for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
     {
         const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
-        ProcessObjectNarrowphasePair( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs, wakeAccess,
-                                      timeRemaining, persistentContactCache, policy, profiler, pairIndex,
-                                      m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
+        ProcessObjectNarrowphasePair<RetainPipelineRecords>( bodyStore, colliderStore, terrain, buoyancyFacts,
+                                                             candidatePairs, wakeAccess, timeRemaining,
+                                                             persistentContactCache, policy, profiler, pairIndex,
+                                                             m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
     }
 }
 
@@ -233,8 +237,22 @@ void PhysicsNarrowphaseStage::Clear()
 
 void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int islandIndex ) const
 {
-    stage.ProcessObjectNarrowphaseIsland( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs, wakeAccess,
-                                          timeRemaining, persistentContactCache, policy, profiler, islandIndex );
+
+    // Why: the worker selects once per island so the pair loop contains no
+    // runtime diagnostic-mode branch.
+
+    if ( policy.retainPipelineRecords )
+    {
+        stage.ProcessObjectNarrowphaseIsland<true>( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs,
+                                                    wakeAccess, timeRemaining, persistentContactCache, policy, profiler,
+                                                    islandIndex );
+    }
+    else
+    {
+        stage.ProcessObjectNarrowphaseIsland<false>( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs,
+                                                     wakeAccess, timeRemaining, persistentContactCache, policy, profiler,
+                                                     islandIndex );
+    }
 }
 
 bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,

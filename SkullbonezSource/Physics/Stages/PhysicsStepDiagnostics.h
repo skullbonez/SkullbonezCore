@@ -77,7 +77,12 @@ class PhysicsPipelineTraceRecorder
         m_retainFullRecords = retainFullRecords;
     }
     void Record( const PhysicsPipelineRecord& record );
+
+    // Count a batch of canonical events without constructing payload rows.
+    // Saturation exactly matches repeated Record calls at the fixed trace cap.
+    void RecordEvents( std::size_t eventCount );
     void RestoreFullRecords( std::span<const PhysicsPipelineRecord> records );
+    bool RetainsFullRecords() const;
     bool CanRecord() const;
     uint32_t Count() const;
     int RemainingRecordCapacity() const;
@@ -113,6 +118,11 @@ class PhysicsStepDiagnostics
     // Replay, pipeline presentation, and Debug SkullScope request full rows.
     void SetPipelineTraceFullRecordConsumerActive( bool active );
     void RecordPipelineStage( const PhysicsPipelineRecord& record );
+
+    // Count-only producers use this batch seam after their runtime mode branch
+    // has been hoisted outside the hot row loop.
+    void RecordPipelineEvents( std::size_t eventCount );
+    bool RetainsFullPipelineRecords() const;
     int RemainingPipelineRecordCapacity() const;
     void EmitCollisionTime( bool diagnosticsSuppressed, const char* type, int bodyA, int bodyB, float collisionTime,
                             float availableTime );

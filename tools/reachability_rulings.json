@@ -84,11 +84,11 @@
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
-      "signature": "void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
+      "signature": "template <bool RetainPipelineRecords> void PhysicsNarrowphaseStage::ProcessObjectNarrowphaseIsland( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, PhysicsTerrainView terrain, std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<const std::pair<int, int>> candidatePairs, PhysicsNarrowphaseWakeAccess wakeAccess, std::span<float> timeRemaining, std::span<const PersistentContactCacheEntry> persistentContactCache, const ObjectNarrowphaseStepPolicy& policy, Core::Profiler* profiler, int islandIndex )",
       "owner": "Physics::PhysicsNarrowphaseStage island work item",
       "disposition": "retain-owner",
       "reason": "Each dispatched island delegates its bounded pair range to this operation.",
-      "evidence": "ObjectNarrowphaseIslandStage::operator() calls it; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=?ProcessObjectNarrowphaseIsland@PhysicsNarrowphaseStage@Physics@SkullbonezCore@@AEAAXAEAVPhysicsBodyStore@23@AEBVColliderStore@23@UPhysicsTerrainView@23@V?$span@UBuoyancyBodyFacts@Physics@SkullbonezCore@@$0?0@std@@V?$span@$$CBU?$pair@HH@std@@$0?0@8@VPhysicsNarrowphaseWakeAccess@23@V?$span@M$0?0@8@V?$span@$$CBUPersistentContactCacheEntry@Physics@SkullbonezCore@@$0?0@8@AEBUObjectNarrowphaseStepPolicy@23@PEAVProfiler@Core@3@H@Z",
+      "evidence": "ObjectNarrowphaseIslandStage::operator() selects the full/count specialization once per island; WorkerPool::ParallelForNoAlloc dispatches that typed work item. 2026-07-31 synchronized Automation/Debug/Profile census: classification=no-reference; mapping=specialization-set; own_tu_calls=0; test_calls=0; ambiguous_production_calls=0; required_arity=11/11; symbols=ProcessObjectNarrowphaseIsland<true>, ProcessObjectNarrowphaseIsland<false>",
       "plan": ""
     },
     {

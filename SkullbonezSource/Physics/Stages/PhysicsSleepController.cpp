@@ -18,7 +18,8 @@ Glossary:
 Invariants:
   - Fixed bodies never enter dynamic sleep state.
   - Underwater-locked bodies reject ordinary wake fan-out.
-  - Pipeline records retain their former call positions and bounded cap.
+  - Pipeline events retain their former call positions and bounded cap; payload
+    records exist only when the step has a full-record consumer.
   - Ordinary fixed steps update awake indices only at explicit transitions;
     full rebuilds are limited to topology/replay/config cold boundaries.
 
@@ -73,10 +74,6 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const Po
     return false;
 }
 
-void RecordPipelineStage( PhysicsPipelineTraceRecorder& trace, const PhysicsPipelineRecord& record )
-{
-    trace.Record( record );
-}
 } // namespace
 
 void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t requested, std::size_t reservedCapacity,
@@ -531,14 +528,15 @@ void PhysicsSleepController::WakePointJointConnectedBodies( PhysicsBodyStore& bo
     }
 }
 
-void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                             const PhysicsWorldForces& worldForces,
-                                             std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                             std::span<const PersistentContact> persistentContacts,
-                                             std::span<const uint16_t> persistentRestingContactCounts,
-                                             std::span<const PointJointConstraint> pointJointConstraints,
-                                             PhysicsPipelineTraceRecorder& physicsPipelineTrace,
-                                             const PhysicsSleepStepPolicy& sleepPolicy )
+template <bool RetainPipelineRecords>
+void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                                 const PhysicsWorldForces& worldForces,
+                                                 std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
+                                                 std::span<const PersistentContact> persistentContacts,
+                                                 std::span<const uint16_t> persistentRestingContactCounts,
+                                                 std::span<const PointJointConstraint> pointJointConstraints,
+                                                 PhysicsPipelineTraceRecorder& physicsPipelineTrace,
+                                                 const PhysicsSleepStepPolicy& sleepPolicy )
 {
 
     // Invariant: contact rows, point joints, and persisted visual ids are
@@ -684,6 +682,14 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
     // performs the same per-body arithmetic in the same order while skipping
     // fixed and sleeping guard reads entirely.
 
+    // Why: the count lane records the known awake-row cardinality once; the
+    // compile-time branch removes all payload work from the following loop.
+
+    if constexpr ( !RetainPipelineRecords )
+    {
+        physicsPipelineTrace.RecordEvents( awakeBodyIndices.size() );
+    }
+
     for ( int x : awakeBodyIndices )
     {
 #if defined( _DEBUG )
@@ -742,15 +748,18 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
             m_sleepIslandEligible[root] = 0;
         }
 
-        PhysicsPipelineRecord record;
-        record.stage = PhysicsPipelineStage::SleepIslandDecision;
-        record.bodyA = x;
-        record.bodyB = root;
-        record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
-        record.scalarA = quiet ? 1.0f : 0.0f;
-        record.scalarB = supported ? 1.0f : 0.0f;
-        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
-        RecordPipelineStage( physicsPipelineTrace, record );
+        if constexpr ( RetainPipelineRecords )
+        {
+            PhysicsPipelineRecord record;
+            record.stage = PhysicsPipelineStage::SleepIslandDecision;
+            record.bodyA = x;
+            record.bodyB = root;
+            record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
+            record.scalarA = quiet ? 1.0f : 0.0f;
+            record.scalarB = supported ? 1.0f : 0.0f;
+            record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
+            physicsPipelineTrace.Record( record );
+        }
     }
 
     if ( !m_sleepEnabled )
@@ -762,15 +771,17 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
         return;
     }
 
-    ApplyTransitions( bodyStore, colliderStore, worldForces, buoyancyFacts, timeRemaining, physicsPipelineTrace, sleepPolicy,
-                      sleepIslands );
+    ApplyTransitionsMode<RetainPipelineRecords>( bodyStore, colliderStore, worldForces, buoyancyFacts, timeRemaining,
+                                                 physicsPipelineTrace, sleepPolicy, sleepIslands );
 }
 
-void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                               const PhysicsWorldForces& worldForces,
-                                               std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
-                                               PhysicsPipelineTraceRecorder& physicsPipelineTrace,
-                                               const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
+template <bool RetainPipelineRecords>
+void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                                   const PhysicsWorldForces& worldForces,
+                                                   std::span<BuoyancyBodyFacts> buoyancyFacts,
+                                                   std::span<float> timeRemaining,
+                                                   PhysicsPipelineTraceRecorder& physicsPipelineTrace,
+                                                   const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
 {
 
     // Invariant: RunIslandStage has already populated eligibility and support;
@@ -832,6 +843,8 @@ void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, cons
     // skipped; non-transition rows advance normally. This retains ascending
     // model order without copying or allocating a second list.
 
+    std::size_t countOnlyTransitionEvents = 0;
+
     for ( std::size_t awakeSlot = 0; awakeSlot < m_awakeBodyIndices.size(); )
     {
         const int x = m_awakeBodyIndices[awakeSlot];
@@ -853,16 +866,25 @@ void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, cons
             m_sleepState[x] = 1;
             RemoveAwakeBodyIndex( x );
             m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
-            PhysicsPipelineRecord record;
-            record.stage = PhysicsPipelineStage::SleepIslandDecision;
-            record.bodyA = x;
-            record.bodyB = root;
-            record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
 
-            record.scalarA = 1.0f;
-            record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
-            record.scalarC = static_cast<float>( m_sleepCounter[x] );
-            RecordPipelineStage( physicsPipelineTrace, record );
+            if constexpr ( RetainPipelineRecords )
+            {
+                PhysicsPipelineRecord record;
+                record.stage = PhysicsPipelineStage::SleepIslandDecision;
+                record.bodyA = x;
+                record.bodyB = root;
+                record.point = PhysicsBodyPosition( ConstPhysicsBodyHotFields( hotFields ), static_cast<size_t>( x ) );
+
+                record.scalarA = 1.0f;
+                record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
+                record.scalarC = static_cast<float>( m_sleepCounter[x] );
+                physicsPipelineTrace.Record( record );
+            }
+            else
+            {
+                ++countOnlyTransitionEvents;
+            }
+
             const size_t bodyIndex = static_cast<size_t>( x );
             hotFields.linearVelocityX[bodyIndex] = 0.0f;
             hotFields.linearVelocityY[bodyIndex] = 0.0f;
@@ -879,5 +901,36 @@ void PhysicsSleepController::ApplyTransitions( PhysicsBodyStore& bodyStore, cons
         ++awakeSlot;
     }
 
+    if constexpr ( !RetainPipelineRecords )
+    {
+        physicsPipelineTrace.RecordEvents( countOnlyTransitionEvents );
+    }
+
     m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+}
+
+void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
+                                             const PhysicsWorldForces& worldForces,
+                                             std::span<BuoyancyBodyFacts> buoyancyFacts, std::span<float> timeRemaining,
+                                             std::span<const PersistentContact> persistentContacts,
+                                             std::span<const uint16_t> persistentRestingContactCounts,
+                                             std::span<const PointJointConstraint> pointJointConstraints,
+                                             PhysicsPipelineTraceRecorder& physicsPipelineTrace,
+                                             const PhysicsSleepStepPolicy& sleepPolicy )
+{
+
+    // Why: select once per step so count-only execution has no per-body
+    // diagnostic branch or payload construction.
+
+    if ( physicsPipelineTrace.RetainsFullRecords() )
+    {
+        RunIslandStageMode<true>( bodyStore, colliderStore, worldForces, buoyancyFacts, timeRemaining, persistentContacts,
+                                  persistentRestingContactCounts, pointJointConstraints, physicsPipelineTrace, sleepPolicy );
+    }
+    else
+    {
+        RunIslandStageMode<false>( bodyStore, colliderStore, worldForces, buoyancyFacts, timeRemaining, persistentContacts,
+                                   persistentRestingContactCounts, pointJointConstraints, physicsPipelineTrace,
+                                   sleepPolicy );
+    }
 }

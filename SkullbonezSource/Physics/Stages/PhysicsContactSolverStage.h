@@ -32,6 +32,8 @@ Invariants:
     exits may terminate only from entry/setup or terrain-row completion.
   - The solve transaction owns solver-body scratch and impulse application; it
     retains no borrowed store, span, stage, or world pointer.
+  - Pipeline event counts remain exact in both payload modes; count-only
+    specializations leave the consequence record list empty.
   - The stage retains no pointer or reference to PhysicsWorld or borrowed rows.
   - Wake propagation receives only a cache-invalidation capability, never the
     concrete contact-solver owner.
@@ -204,24 +206,27 @@ class PersistentContactSolveTransaction
 
     void SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState, int modelCount,
                       Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
                          std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState,
                          PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity,
                          Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void BuildTerrainRows( PhysicsContactSolverStage& stage,
                            PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
                            std::span<const uint8_t> sleepState, int modelCount, std::size_t pipelineRecordCapacity,
                            Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                          const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy,
                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler );
-    template <bool CollectConvergenceDiagnostics>
+    template <bool CollectConvergenceDiagnostics, bool RetainPipelineRecords>
     void SolveRowsIterations( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                               const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity );
     void SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                    const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity,
-                    Core::Profiler* profiler );
+                    const PersistentContactSolverStepPolicy& stepPolicy, bool retainPipelineRecords,
+                    std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
     void ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                                        const ColliderStore& colliderStore,
                                        const PersistentContactSolverStepPolicy& stepPolicy,
@@ -232,13 +237,16 @@ class PersistentContactSolveTransaction
                                  PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
                                  std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount,
                                  float dt, Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
                     int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
     void PublishDebugContacts( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                                PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
                            const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
                            std::size_t pipelineRecordCapacity, Core::Profiler* profiler );
+    template <bool RetainPipelineRecords>
     void StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, std::size_t pipelineRecordCapacity,
                      Core::Profiler* profiler );
     void ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore, int modelCount,
@@ -254,8 +262,12 @@ struct PersistentContactSolverSideEffects
 
     // These are values, not callbacks: the sequencer applies them in the same
     // deterministic order after Solve returns.
+    // Invariant: a step publishes either ordered pipelineRecords or their
+    // equivalent pipelineEventCount. Count-only mode leaves the record list
+    // empty so no payload can be mistaken for live diagnostic output.
     PhysicsPipelineRecordList pipelineRecords { "PhysicsContactSolverStage.pipelineRecords",
                                                 PhysicsCapacityReason::PipelineRecords };
+    std::size_t pipelineEventCount = 0;
     PhysicsCollisionVisualBodyList collisionVisualBodies { "PhysicsContactSolverStage.collisionVisualBodies",
                                                            PhysicsCapacityReason::CollisionVisualBodies };
     PhysicsContactBodyList fixedContactBodies { "PhysicsContactSolverStage.fixedContactBodies",

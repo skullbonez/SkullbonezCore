@@ -1,7 +1,7 @@
 # Solver Diagnostic Hot-Path Cost
 
 Date: 2026-07-31
-Status: IN PROGRESS — 2/4 phases complete
+Status: IN PROGRESS — 3/4 phases complete
 Impact area: Physics contact solver, step diagnostics, replay sample identity
 Owner: Physics
 Priority: High
@@ -119,7 +119,7 @@ Profile replay hashes if later extended.
   `validate_fast` passes 455 cases / 2,423,400 assertions with clean ownership
   and reachability inventories.
 
-- [ ] **HP2 — Eliminate payload construction on the counting path.** On the
+- [x] **HP2 — Eliminate payload construction on the counting path.** On the
   counting path there must be no `PhysicsBodyPosition` load, no `sqrtf`, no
   record fill, and no per-row capacity compare against a bound that cannot
   change within a step. Mode selection follows the existing
@@ -128,6 +128,14 @@ Profile replay hashes if later extended.
   introduce a callback, sink interface, or service bag on the hot path — a
   counting recorder is a value, not a polymorphic consumer. Evidence:
   `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md`.
+  Complete 2026-07-31: all producer mode decisions are compile-time or hoisted
+  outside their row loops. Count-only narrowphase and terrain slots hold
+  disengaged payload optionals, stage counts are submitted in batches, and the
+  persistent solver omits trace-only body-position loads and the diagnostic
+  tangent-magnitude `sqrtf`. `RecordEvents` rejects full mode through Lane F.
+  Focused equivalence and fatal-contract coverage, synchronized
+  Automation/Debug/Profile reachability, 456 cases / 2,424,707 assertions,
+  `validate_fast`, a 17/17 comment audit, and independent re-review pass.
 
 - [ ] **HP3 — Prove exactness and record the measured win.** Physics CSV
   byte-exact against committed baselines. Replay sample hashes and the

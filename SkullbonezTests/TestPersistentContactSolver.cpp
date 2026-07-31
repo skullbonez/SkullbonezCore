@@ -35,6 +35,8 @@
 //   - Raw stamped settings normalize once at the solver boundary; direct value
 //     tests pin every lower and upper bound used by contact rows.
 //   - Diagnostic samples observe solver work but never enter replay state.
+//   - Full and count-only pipeline lanes produce identical logical event counts
+//     and byte-identical body writeback; only full mode retains payload rows.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -219,7 +221,7 @@ struct SolverFixture
         collider.boundingRadius = radius;
         collider.restitution = restitution;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -256,7 +258,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.material.terrainFrictionCoefficient;
-        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, shape  );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, shape );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
         sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -330,9 +332,10 @@ struct SolverFixture
         solver.RestoreReplayState( snapshot );
     }
 
-    void Solve( bool collectConvergenceDiagnostics = true )
+    void Solve( bool collectConvergenceDiagnostics = true, bool retainPipelineRecords = true )
     {
         worldForces.gravity = config.worldForces.gravity;
+        diagnostics.SetPipelineTraceFullRecordConsumerActive( retainPipelineRecords );
         diagnostics.BeginStep( bodyStore.Count() );
         auto policy = PhysicsContactSolverStage::ResolveStepPolicy( config, worldForces );
         policy.collectConvergenceDiagnostics = collectConvergenceDiagnostics;
@@ -408,8 +411,8 @@ TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and 
     SkullbonezCore::Physics::PersistentContactConvergenceTrace trace;
     SkullbonezCore::Physics::PersistentContactIterationDiagnostics sample;
 
-    for ( std::size_t iteration = 0u;
-          iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u; ++iteration )
+    for ( std::size_t iteration = 0u; iteration < SkullbonezCore::Physics::PersistentContactConvergenceTrace::CAPACITY + 3u;
+          ++iteration )
     {
         sample.iteration = static_cast<int>( iteration + 1u );
         trace.Append( sample );
@@ -448,6 +451,36 @@ TEST_CASE( "Persistent contact solver: convergence diagnostics stay bounded and 
     CHECK( disabled.solver.GetConvergenceTrace().Samples().empty() );
 }
 
+TEST_CASE( "Persistent contact solver: count-only specialization matches the full-record event count" )
+{
+    SolverFixture full;
+    full.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.1f, -0.2f, 0.3f ) );
+    full.AddTerrainContact( 0, 91u, 0.08f );
+    full.Solve( true, true );
+
+    const auto& fullEffects = full.solver.GetSideEffects();
+    REQUIRE_FALSE( fullEffects.pipelineRecords.empty() );
+    CHECK( fullEffects.pipelineEventCount == 0u );
+    const std::size_t fullEventCount = fullEffects.pipelineRecords.size();
+    const auto fullHotFields = full.bodyStore.HotFields();
+    const Vector3 fullPosition = PhysicsBodyPosition( fullHotFields, 0u );
+    const Vector3 fullLinearVelocity = PhysicsBodyLinearVelocity( fullHotFields, 0u );
+    const Vector3 fullAngularVelocity = PhysicsBodyAngularVelocity( fullHotFields, 0u );
+
+    SolverFixture countOnly;
+    countOnly.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.1f, -0.2f, 0.3f ) );
+    countOnly.AddTerrainContact( 0, 91u, 0.08f );
+    countOnly.Solve( true, false );
+
+    const auto& countOnlyEffects = countOnly.solver.GetSideEffects();
+    CHECK( countOnlyEffects.pipelineRecords.empty() );
+    CHECK( countOnlyEffects.pipelineEventCount == fullEventCount );
+    const auto countOnlyHotFields = countOnly.bodyStore.HotFields();
+    CHECK( PhysicsBodyPosition( countOnlyHotFields, 0u ) == fullPosition );
+    CHECK( PhysicsBodyLinearVelocity( countOnlyHotFields, 0u ) == fullLinearVelocity );
+    CHECK( PhysicsBodyAngularVelocity( countOnlyHotFields, 0u ) == fullAngularVelocity );
+}
+
 
 TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching terrain row" )
 {
@@ -482,9 +515,13 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( second.solver.GetPersistentContacts()[0].terrainWarmStart > reducedCachedNormalImpulse );
 
     const auto& pipeline = second.solver.GetSideEffects().pipelineRecords;
-    const auto warmStart = std::find_if(
-        pipeline.begin(), pipeline.end(), []( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
-        { return record.stage == SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart && record.featureId == 42u; } );
+    const auto warmStart = std::find_if( pipeline.begin(), pipeline.end(),
+                                         []( const SkullbonezCore::Physics::PhysicsPipelineRecord& record )
+                                         {
+                                             return record.stage ==
+                                                        SkullbonezCore::Physics::PhysicsPipelineStage::WarmStart &&
+                                                    record.featureId == 42u;
+                                         } );
     REQUIRE( warmStart != pipeline.end() );
     CHECK( warmStart->scalarB == doctest::Approx( reducedCachedNormalImpulse ).epsilon( 0.00001 ) );
 }
@@ -858,12 +895,9 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     CHECK( contact.terrainWarmStart == doctest::Approx( 0.5f ).epsilon( 0.00001 ) );
     CHECK( contact.bias == doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
     CHECK( cached.accN == doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
-    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse ==
-           doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
-    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] ==
-           doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
-    CHECK( fixture.bodyStore.HotFields().positionY[0] ==
-           doctest::Approx( 1.0f ).epsilon( 0.00001 ) );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse == doctest::Approx( 21.0f ).epsilon( 0.00001 ) );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] == doctest::Approx( 4.5f ).epsilon( 0.00001 ) );
+    CHECK( fixture.bodyStore.HotFields().positionY[0] == doctest::Approx( 1.0f ).epsilon( 0.00001 ) );
 }
 
 
