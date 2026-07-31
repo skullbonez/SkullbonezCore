@@ -592,6 +592,16 @@ comment audit, and independent re-review pass. The active/future ledger is
 therefore 3/16 (19%). Evidence is in
 `../Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md`.
 
+Solver Diagnostic Hot-Path Cost HP3 completed on 2026-07-31. Physics and every
+approved Replay visual/causal value remain exact without a golden refresh; the
+enabled 348,925,625-byte diagnostic trace matches HP0 byte-for-byte. Allocation
+policy and the two bounded 4,096-row full-record reserves remain unchanged. The
+same two-pass Profile workload improves mean `Frame/Physics` by 6.71%,
+persistent contacts by 33.65%, and `SolveRows` by 40.90%. Tests, Physics,
+Replay visual, allocation, performance, and full validation pass. The
+active/future ledger is therefore 4/16 (25%). Evidence is in
+`../Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1174,8 +1184,8 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 3/16 (19%).**
-Run its four plans in the listed order: solver diagnostic hot-path cost (3/4),
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 4/16 (25%).**
+Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
 runtime contract hygiene (0/3), engine glossary consolidation (0/4), then
 angular impulse frame correctness (0/5).
 
@@ -2963,8 +2973,8 @@ Dependency barriers:
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | In progress | 3/4 | HP0-HP2 complete; HP3 must prove exact artifacts and record the measured win |
-| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | TODO | 0/3 | Ready; no barrier in either direction |
+| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
+| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | TODO | 0/3 | Binding next; no barrier in either direction |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Ready; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |
 

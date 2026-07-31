@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-30th-JUL-26`, tracking `origin/nightrunner-30th-JUL-26`. |
 | Current baseline | Main tip `161d83dc`; PR #138 merged the 29 July takeover branch. |
-| Current objective | Complete the Gate Blind Spot Campaign in binding order; Solver Diagnostic Hot-Path Cost HP3 is next. |
-| Active/future progress | 3/16 (19%). Solver Diagnostic Hot-Path Cost is 3/4; Runtime Contract Hygiene 0/3; Engine Glossary Consolidation 0/4; Angular Impulse Frame Correctness 0/5. |
+| Current objective | Complete the Gate Blind Spot Campaign in binding order; Runtime Contract Hygiene CH0 is next. |
+| Active/future progress | 4/16 (25%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 0/3; Engine Glossary Consolidation 0/4; Angular Impulse Frame Correctness 0/5. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -22,6 +22,7 @@ plan inventory.
 | Solver diagnostic hot-path cost HP0 | The complete producer/consumer census finds all 16 pipeline stages live in Debug/Profile/Release, corrects the provisional record size from 44 to 56 bytes, and proves full ordered records remain required by solver Replay snapshots/hash/artifacts, prediction, SkullScope, and the pipeline overlay. A bounded two-run `perf_1000` trace retained 296,714 records per 180-frame run with zero saturation and 866 pipeline-only `sqrtf` calls; the complete two-pass Profile scene measured `SolveRows` at 0.120002 ms mean. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp0-census.md`. |
 | Solver diagnostic hot-path cost HP1 | One Physics-owned recorder now preserves the exact saturated 4,096-event count while retaining ordered payloads only for Replay capture, the pipeline overlay, Debug SkullScope, and default direct/prediction engines. The original reserve identity and 229,376-byte backing remain unchanged. Focused Profile/Debug mode equality and field-faithfulness coverage passes; `validate_fast` passes 455 cases / 2,423,400 assertions with clean dependency, ownership, and reachability inventories. Comment audit is 13/13. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp1-recorder.md`. |
 | Solver diagnostic hot-path cost HP2 | Count-only execution now constructs no pipeline payload: stage mode dispatch is compile-time or hoisted, narrowphase/terrain payload optionals stay disengaged, counts submit in stage batches, and the solver omits trace-only position loads and its diagnostic `sqrtf`. Automation/Debug/Profile reachability, 456 cases / 2,424,707 assertions, `validate_fast`, 17/17 comment audit, and independent re-review pass. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md`. |
+| Solver diagnostic hot-path cost closure | Physics and every approved Replay visual/causal value remain exact without a golden refresh; the enabled 348,925,625-byte trace matches HP0 byte-for-byte. Allocation policy and both bounded 4,096-row full-record reserves remain unchanged. The same Profile workload improves mean `Frame/Physics` 6.71%, persistent contacts 33.65%, and `SolveRows` 40.90%. Tests, Physics, Replay visual, allocation, performance, and full validation pass. Evidence: `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
@@ -89,10 +90,10 @@ plan inventory.
 
 ## Live Queue
 
-The Gate Blind Spot Campaign is active at 3/16 (19%). Solver Diagnostic
-Hot-Path Cost HP0-HP2 are complete; HP3 is binding next and must prove exact
-artifacts and record the measured Profile win without refreshing a golden. Runtime
-Contract Hygiene remains 0/3, Engine Glossary Consolidation remains 0/4, and
+The Gate Blind Spot Campaign is active at 4/16 (25%). Solver Diagnostic
+Hot-Path Cost HP0-HP3 are complete with exact artifacts and a recorded Profile
+win without refreshing a golden. Runtime Contract Hygiene CH0 is binding next.
+Engine Glossary Consolidation remains 0/4, and
 Angular Impulse Frame Correctness remains 0/5 with its owner gate at AI4.
 
 The Claim Integrity Campaign is complete. Build Configuration Parity, Maths
@@ -804,24 +805,21 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
-Blind Spot Campaign is active at **3/16 (19%)**. Solver Diagnostic Hot-Path Cost
-HP0 completed the producer/consumer and current-cost census; HP1 introduced one
-Physics-owned count-versus-record owner with exact 4,096-row saturation and
-focused equality/full-record coverage. HP2 eliminated payload construction,
-trace-only vector loads, the diagnostic `sqrtf`, and row-local capacity compares
-from count-only execution. HP3 is binding: prove artifact exactness, validate
-consumer fidelity and allocation policy, and record the measured Profile win.
+Blind Spot Campaign is active at **4/16 (25%)**. Solver Diagnostic Hot-Path Cost
+HP0-HP3 are complete: count-only execution avoids payload construction,
+trace-only vector loads, the diagnostic `sqrtf`, and row-local capacity
+compares; Physics, Replay, overlay/SkullScope, and allocation evidence remain
+exact; the same Profile workload records a 40.90% mean `SolveRows` reduction.
+Runtime Contract Hygiene CH0 is binding next.
 
 The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
 source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
-agree the active/future ledger is now **3/16 (19%)**. Run the four plans in
+agree the active/future ledger is now **4/16 (25%)**. Run the four plans in
 order:
 
-1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (3/4, HP0-HP3) — HP0
-   confirms all 16 stage producers and the count/full-record consumer split;
-   HP1 preserves exact saturation and full-consumer payloads; HP2 removes
-   construction cost from count-only execution. HP3 must prove exactness and
-   measure the final Profile result; a moved replay hash means the task is wrong.
+1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (4/4, HP0-HP3) — complete;
+   exact Physics, Replay, and enabled diagnostic artifacts are preserved without
+   refresh, allocation ownership is unchanged, and the Profile win is recorded.
 2. `Plans/TODO/runtime-contract-hygiene.md` (0/3, CH0-CH2) — a frame phase that
    returns Lane R failure without latching it exits `0`; orphan `Quaternion.h`
    comments; the last `throw` in engine source.

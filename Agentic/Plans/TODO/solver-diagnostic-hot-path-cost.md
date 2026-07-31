@@ -1,7 +1,7 @@
 # Solver Diagnostic Hot-Path Cost
 
 Date: 2026-07-31
-Status: IN PROGRESS — 3/4 phases complete
+Status: COMPLETE — 4/4 phases complete
 Impact area: Physics contact solver, step diagnostics, replay sample identity
 Owner: Physics
 Priority: High
@@ -137,7 +137,7 @@ Profile replay hashes if later extended.
   Automation/Debug/Profile reachability, 456 cases / 2,424,707 assertions,
   `validate_fast`, a 17/17 comment audit, and independent re-review pass.
 
-- [ ] **HP3 — Prove exactness and record the measured win.** Physics CSV
+- [x] **HP3 — Prove exactness and record the measured win.** Physics CSV
   byte-exact against committed baselines. Replay sample hashes and the
   visual-fidelity golden unchanged **without refresh**. Overlay and SkullScope
   output identical when enabled. Allocation policy unchanged, including whether
@@ -145,6 +145,14 @@ Profile replay hashes if later extended.
   before/after Profile solver-inclusive and Physics-frame timings from HP0's
   scene. Evidence:
   `Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`.
+  Complete 2026-07-31: Physics remains byte-exact; every approved Replay
+  visual/causal value and the enabled 348,925,625-byte SkullScope trace remain
+  exact without a golden refresh. The strict two-generation allocation proof
+  passes, and both 4,096-row reservations remain required for consumers that
+  may activate full recording after scene load. On the same 1,940-row Profile
+  workload, mean `Frame/Physics` improved 6.71%, persistent contacts improved
+  33.65%, and `SolveRows` improved 40.90%. Tests, Physics, Replay visual,
+  allocation, performance, and full validation pass.
 
 ## Acceptance
 
