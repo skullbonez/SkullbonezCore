@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-1st-AUG-26`; push target `origin/nightrunner-1st-AUG-26`. |
 | Current baseline | Main tip `b314480e`; PR #141 merged the 30 July Night Runner branch. |
-| Current objective | Execute Vector Frame Contract Closure VF1's rotated anisotropic angular-drag clamp correction against VF0's zero-byte artifact prediction. |
-| Active/future progress | 17/21 (81%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 3/3; Engine Glossary Consolidation 4/4; Angular Impulse Frame Correctness 5/5; Vector Frame Contract Closure 1/5. |
+| Current objective | Execute Vector Frame Contract Closure VF2's explicit center-relative authored impulse-offset schema and correct the unmapped `ragdoll_playground` outlier. |
+| Active/future progress | 18/21 (86%). Solver Diagnostic Hot-Path Cost is 4/4; Runtime Contract Hygiene 3/3; Engine Glossary Consolidation 4/4; Angular Impulse Frame Correctness 5/5; Vector Frame Contract Closure 2/5. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -36,6 +36,7 @@ plan inventory.
 | Angular impulse frame correctness AI3 | The investigation-only sweep found no remaining incorrect direct inertia division and confirmed current public descriptor consumers agree on their coordinate frames. It registered Vector Frame Contract Closure for the mixed-frame anisotropic angular-drag clamp, ambiguous authored impulse-offset schema and sole absolute-position outlier, test-only `VectorReflect` convention, and explicit public frame documentation. No source or artifact changed. Evidence: `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`. |
 | Angular impulse frame correctness closure | AI0-AI4 are complete with explicit owner acceptance. Unit, Physics/deep-Physics, performance, allocation, interaction, DX12 screenshot, existing-generation Replay visual/causal, all seven strict inventories, and the post-acceptance 494.8-second full gate support AI0's prediction with no committed baseline refresh. Independent review found no blocker and the owner accepted the known Replay CRLF/LF provenance limitation plus the shared-helper test-isolation caveat. Evidence: `Agentic/Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`. |
 | Vector frame contract closure VF0 | Every public Physics vector/quaternion/shape field states its coordinate frame. Rotated shape-query and point-joint tests reject plausible wrong-frame inputs, and Ragdoll shares the anisotropic inertia conversion without changing its isotropic branch. VF1-VF3 predict zero committed artifact movement because mapped scenes have zero effective angular-drag density, the offset outlier is in unmapped `ragdoll_playground`, and `VectorReflect` has no production caller. Profile build, 2 focused cases / 43 assertions, strict glossary/build-config inventories, 455 cases / 2,422,964 assertions, and the two-run 44,401-line byte-exact Physics lane pass; comment audit is 3/3. Evidence: `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf0-frame-matrix.md`. |
+| Vector frame contract closure VF1 | General angular drag clamps in body-principal axes for rotated anisotropic records and returns changed torque to world space without double-transforming `ApplyWorldImpulse`; no-clamp world values and an actively saturated isotropic sphere retain exact prior arithmetic. The old implementation fails the focused cross-frame oracle, while the correction passes 2 cases / 13 assertions. Fast passes 457 cases / 2,422,977 assertions; core/deep Physics, signatures, and query output remain exact with no baseline refresh; comment audit is 2/2. Evidence: `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf1-angular-drag.md`. |
 | Persistent-contact convergence closure | CE0-CE3 are complete. The owner approved retaining the current stopping criterion because the fixed-capacity per-iteration trace and controlled object-only chain prove honest row-level non-convergence rather than stale accounting. Three 1,200-frame wall traces are byte-identical; focused Profile tests, all four ownership inventories, format, 465 cases / 2,423,885 assertions, byte-exact and deep Physics, performance, full validation, 9/9 comment audit, exact query regression, and independent review pass. No behavior or baseline changed. Evidence: `Agentic/Reports/2026-07-30/persistent-contact-convergence-early-out-closure.md`. |
 | Validation-gate integrity closure | V0-V5 are complete at 6/6 and the TODO left the live inventory under rule 4. Exact-commit hosted run 30505659321 passes on `47a95da0` with pinned LLVM tooling, 465 cases / 2,423,885 assertions, coverage, and the full CPU umbrella. `main` strictly requires `Mandatory CPU lane (Windows hosted)`. Owner rulings: merge queues and repository-ownership changes are retired, and anything needing a graphics card is local-only validation. The GitHub DX12 workflow and runner infrastructure are removed. Evidence: `Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md`. |
 | Persistent-contact convergence CE0 | The post-Box wall remains at 12 iterations in 1,000/1,000 measured frames. Existing diagnostics describe 565,635 final rows but export only 23.8325% of required iteration records before the pipeline cap and omit their scalar deltas. CE1 needs one bounded per-iteration aggregate; no uncapped row trace is justified. Evidence: `Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce0.md`. |
@@ -103,14 +104,14 @@ plan inventory.
 
 ## Live Queue
 
-The Gate Blind Spot Campaign is active at 17/21 (81%). Solver Diagnostic
+The Gate Blind Spot Campaign is active at 18/21 (86%). Solver Diagnostic
 Hot-Path Cost HP0-HP3 are complete with exact artifacts and a recorded Profile
 win without refreshing a golden. Runtime Contract Hygiene CH0-CH2 are complete
 with its exit, Quaternion, and zero-throw contracts closed. Engine Glossary
 Consolidation is complete at 4/4 with the 575-file checklist closed and zero
 basename-led summaries. Angular Impulse Frame Correctness is complete at 5/5
 with owner acceptance and a zero-delta closure rerun. Vector Frame Contract
-Closure is active at 1/5; VF1 is the binding next phase.
+Closure is active at 2/5; VF2 is the binding next phase.
 
 The Claim Integrity Campaign is complete. Build Configuration Parity, Maths
 Surface Reachability, Inverse-Trig Domain Guards, Retirement Diagnostic
@@ -821,7 +822,7 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
-Blind Spot Campaign is active at **17/21 (81%)**. Solver Diagnostic Hot-Path Cost
+Blind Spot Campaign is active at **18/21 (86%)**. Solver Diagnostic Hot-Path Cost
 HP0-HP3 are complete: count-only execution avoids payload construction,
 trace-only vector loads, the diagnostic `sqrtf`, and row-local capacity
 compares; Physics, Replay, overlay/SkullScope, and allocation evidence remain
@@ -850,10 +851,13 @@ AI4 is owner-accepted and closed with a zero-delta post-acceptance rerun.
 VF0 pins every public Physics frame, rejects wrong-frame query and joint inputs,
 and routes Ragdoll's anisotropic response through the shared inertia helper.
 Its reachability census predicts zero committed VF1-VF3 artifact bytes.
+VF1 corrects the anisotropic angular-drag clamp in body-principal axes while
+preserving no-clamp and saturated isotropic arithmetic exactly; core and deep
+Physics confirm VF0's zero-byte prediction.
 
 The owner registered the **Gate Blind Spot Campaign (2026-07-31)** from a
 source-and-tests-only engine review at tip `1967a863`. MASTER and SessionState
-agree the active/future ledger is now **17/21 (81%)**. Run the five plans in
+agree the active/future ledger is now **18/21 (86%)**. Run the five plans in
 order:
 
 1. `Plans/TODO/solver-diagnostic-hot-path-cost.md` (4/4, HP0-HP3) — complete;
@@ -870,10 +874,10 @@ order:
 4. `Plans/TODO/angular-impulse-frame-correctness.md` (5/5, AI0-AI4) — complete
    with explicit owner acceptance, a no-blocker independent review, and zero
    artifact movement; retained until aggregate campaign closure.
-5. `Plans/TODO/vector-frame-contract-closure.md` (1/5, VF0-VF4) — **the current
-   plan.** VF0's frame/caller census and zero-byte prediction are complete; VF1
-   owns the rotated anisotropic angular-drag clamp correction. No phase carries
-   baseline-refresh authority.
+5. `Plans/TODO/vector-frame-contract-closure.md` (2/5, VF0-VF4) — **the current
+   plan.** VF0's frame/caller census and VF1's byte-neutral drag correction are
+   complete; VF2 owns the explicit center-relative authored impulse-offset
+   schema and outlier repair. No phase carries baseline-refresh authority.
 
 Plans 1-3 landed without an owner decision. Plan 4's owner gate is accepted and
 Plan 5 may proceed. No plan in this campaign carries bounded-divergence

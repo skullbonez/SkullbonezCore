@@ -6,17 +6,19 @@ Purpose:
 Summary:
   These tests use rotated bodies and deliberately non-origin offsets so a
   plausible body/world-frame mix cannot pass through zero or identity values.
-  Query output and point-joint behavior provide independent observable oracles
-  for the frame matrix documented by PhysicsApi.h.
+  Query, point-joint, and angular-drag behavior provide independent observable
+  oracles for the frame matrix documented by PhysicsApi.h.
 
 Invariants:
   - Shape centers and point-joint anchors are body-local values.
   - Body pose and velocity, ray/AABB inputs, and hit point/normal are world-space.
   - A non-unit ray direction changes no reported world-space distance.
   - Ragdoll point-joint solving rotates local anchors before applying inertia.
+  - Angular drag clamps in body-principal axes and returns a world-space torque.
 
 Related:
   - SkullbonezSource/Physics/PhysicsApi.h
+  - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.cpp
   - SkullbonezSource/Physics/Ragdoll.cpp
 */
@@ -25,18 +27,31 @@ Related:
 
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #include "../SkullbonezSource/Core/Common.h"
+#include "../SkullbonezSource/Physics/BoundingBox.h"
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
+#include "../SkullbonezSource/Physics/BuoyancySystem.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/Ragdoll.h"
+#include "TestColliderStoreFixtures.h"
 
+#include <algorithm>
 #include <array>
 
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BuoyancyBodyFacts;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
@@ -50,6 +65,7 @@ using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PhysicsRayCastDesc;
 using SkullbonezCore::Physics::PhysicsRayCastHit;
+using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Physics::Ragdoll;
 
@@ -62,6 +78,66 @@ void CheckVectorApprox( const Vector3& actual, const Vector3& expected )
     CHECK( actual.x == doctest::Approx( expected.x ).epsilon( 0.00001 ) );
     CHECK( actual.y == doctest::Approx( expected.y ).epsilon( 0.00001 ) );
     CHECK( actual.z == doctest::Approx( expected.z ).epsilon( 0.00001 ) );
+}
+
+void CheckVectorExact( const Vector3& actual, const Vector3& expected )
+{
+    CHECK( actual.x == expected.x );
+    CHECK( actual.y == expected.y );
+    CHECK( actual.z == expected.z );
+}
+
+Vector3 RunAngularDragCase( const CollisionShape& shape, const Vector3& bodyPrincipalInertia,
+                            const Quaternion& orientation, const Vector3& worldAngularVelocity,
+                            float dragCoefficient, float gasDensity, float deltaSeconds, bool usesWorldInertia )
+{
+    PhysicsBodyStore bodies;
+    ColliderStore colliders;
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodies.ReserveCapacity( 1u );
+        colliders.ReserveCapacity( 1u );
+        colliders.ReserveShapeCapacity( 1u, 1u, 0u );
+    }
+
+    PhysicsBodyCreateRecord body;
+    body.cold.sceneObjectId = MakePhysicsSceneObjectId( 71u );
+    body.cold.mass = 1.0f;
+    body.cold.rotationalInertia = bodyPrincipalInertia;
+    body.cold.angularVelocityLimit = 100.0f;
+    body.cold.usesWorldInertia = usesWorldInertia;
+    body.hot.orientation = orientation;
+    body.hot.angularVelocity = worldAngularVelocity;
+    body.hot.inverseMass = 1.0f;
+    body.hot.inverseRotationalInertia = Vector3( 1.0f / bodyPrincipalInertia.x, 1.0f / bodyPrincipalInertia.y,
+                                                 1.0f / bodyPrincipalInertia.z );
+    body.hot.boundingRadius = GetShapeBoundingRadius( shape );
+    const auto bodyHandle = bodies.CreateBodyRecord( body );
+    REQUIRE( bodyHandle.IsValid() );
+
+    ColliderRecord collider;
+    collider.body = bodyHandle;
+    collider.sceneObjectId = body.cold.sceneObjectId;
+    collider.shapeKind = std::holds_alternative<BoundingBox>( shape ) ? ColliderShapeKind::Box : ColliderShapeKind::Sphere;
+    collider.boundingRadius = body.hot.boundingRadius;
+    collider.dragCoefficient = dragCoefficient;
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape ).IsValid() );
+
+    BuoyancyBodyFacts buoyancyFacts;
+    buoyancyFacts.dragCoefficient = dragCoefficient;
+    PhysicsWorldForces forces;
+    forces.fluidSurfaceHeight = -1000.0f;
+    forces.gasDensity = gasDensity;
+    REQUIRE( bodies.ApplyForces( forces, colliders, {}, buoyancyFacts, 0, deltaSeconds ) );
+    return SkullbonezCore::Physics::PhysicsBodyAngularVelocity( bodies.HotFields(), 0u );
+}
+
+float ClampDragAxisReference( float bodyTorque, float bodyAngularVelocity, float bodyInertia, float deltaSeconds )
+{
+    const float maxDampingTorque = fabsf( bodyAngularVelocity ) * bodyInertia / deltaSeconds;
+    return (std::clamp)( bodyTorque, -maxDampingTorque, maxDampingTorque );
 }
 
 PhysicsBodyHotState SolveAnchorCase( const Vector3& anchorForBodyA )
@@ -188,4 +264,69 @@ TEST_CASE( "Physics API frames: point-joint anchors are body-local rather than w
     const PhysicsBodyHotState wrongFrameResult = SolveAnchorCase( Vector3( 10.0f, 24.0f, 30.0f ) );
     CHECK( SkullbonezCore::Math::Vector::VectorMag( wrongFrameResult.position - dynamicStart ) > 0.01f );
     CHECK( SkullbonezCore::Math::Vector::VectorMag( wrongFrameResult.angularVelocity ) > 0.01f );
+}
+
+TEST_CASE( "Physics API frames: anisotropic angular drag clamps in body-principal axes" )
+{
+    constexpr float deltaSeconds = 0.5f;
+    constexpr float dragCoefficient = 10.0f;
+    constexpr float gasDensity = 1.0f;
+    const Vector3 bodyPrincipalInertia( 1.0f, 10.0f, 100.0f );
+    const Vector3 initialWorldAngularVelocity( 1.0f, 2.0f, 0.5f );
+    const CollisionShape shape = BoundingBox( Vector3( 1.0f, 0.5f, 0.25f ), Vector3() );
+    Quaternion orientation;
+    orientation.RotateAboutAxis( Vector3( 0.0f, 0.0f, 1.0f ), 0.7853981633974483f );
+    const RotationMatrix rotation = orientation.GetOrientationMatrix();
+
+    const float radius = GetShapeBoundingRadius( shape );
+    const float dragScale = dragCoefficient * gasDensity * radius * radius * radius;
+    const Vector3 initialBodyAngularVelocity = rotation.TransposeMultiply( initialWorldAngularVelocity );
+    Vector3 bodyTorque = initialBodyAngularVelocity * ( -dragScale );
+    bodyTorque.x = ClampDragAxisReference( bodyTorque.x, initialBodyAngularVelocity.x, bodyPrincipalInertia.x,
+                                           deltaSeconds );
+    bodyTorque.y = ClampDragAxisReference( bodyTorque.y, initialBodyAngularVelocity.y, bodyPrincipalInertia.y,
+                                           deltaSeconds );
+    bodyTorque.z = ClampDragAxisReference( bodyTorque.z, initialBodyAngularVelocity.z, bodyPrincipalInertia.z,
+                                           deltaSeconds );
+    const Vector3 expectedBodyAngularVelocity =
+        initialBodyAngularVelocity + Vector3( bodyTorque.x * deltaSeconds / bodyPrincipalInertia.x,
+                                              bodyTorque.y * deltaSeconds / bodyPrincipalInertia.y,
+                                              bodyTorque.z * deltaSeconds / bodyPrincipalInertia.z );
+    const Vector3 expectedWorldAngularVelocity = rotation * expectedBodyAngularVelocity;
+
+    const Vector3 actual = RunAngularDragCase( shape, bodyPrincipalInertia, orientation, initialWorldAngularVelocity,
+                                               dragCoefficient, gasDensity, deltaSeconds, true );
+    CheckVectorApprox( actual, expectedWorldAngularVelocity );
+    CHECK( fabsf( rotation.TransposeMultiply( actual ).x ) < 0.00001f );
+}
+
+TEST_CASE( "Physics API frames: isotropic angular drag retains exact world-path arithmetic" )
+{
+    constexpr float deltaSeconds = 0.25f;
+    constexpr float dragCoefficient = 20.0f;
+    constexpr float gasDensity = 2.0f;
+    const Vector3 isotropicInertia( 4.0f, 4.0f, 4.0f );
+    const Vector3 initialWorldAngularVelocity( 1.25f, -0.5f, 0.75f );
+    const CollisionShape shape = BoundingSphere( 1.0f, Vector3(), 0.0f );
+    Quaternion orientation;
+    orientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.6f );
+    const RotationMatrix rotation = orientation.GetOrientationMatrix();
+
+    const float radius = GetShapeBoundingRadius( shape );
+    const float dragScale = dragCoefficient * gasDensity * radius * radius * radius;
+    Vector3 worldTorque = initialWorldAngularVelocity * ( -dragScale );
+    worldTorque.x = ClampDragAxisReference( worldTorque.x, initialWorldAngularVelocity.x, isotropicInertia.x,
+                                            deltaSeconds );
+    worldTorque.y = ClampDragAxisReference( worldTorque.y, initialWorldAngularVelocity.y, isotropicInertia.y,
+                                            deltaSeconds );
+    worldTorque.z = ClampDragAxisReference( worldTorque.z, initialWorldAngularVelocity.z, isotropicInertia.z,
+                                            deltaSeconds );
+    const Vector3 bodyImpulse = rotation.TransposeMultiply( worldTorque * deltaSeconds );
+    const Vector3 bodyDelta( bodyImpulse.x / isotropicInertia.x, bodyImpulse.y / isotropicInertia.y,
+                             bodyImpulse.z / isotropicInertia.z );
+    const Vector3 expected = initialWorldAngularVelocity + rotation * bodyDelta;
+
+    const Vector3 actual = RunAngularDragCase( shape, isotropicInertia, orientation, initialWorldAngularVelocity,
+                                               dragCoefficient, gasDensity, deltaSeconds, false );
+    CheckVectorExact( actual, expected );
 }

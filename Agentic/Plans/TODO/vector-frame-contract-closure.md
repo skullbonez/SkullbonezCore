@@ -1,7 +1,7 @@
 # Vector Frame Contract Closure
 
 Date: 2026-08-01
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Physics force integration, public Physics descriptors, Scene authoring, Maths vector semantics
 Owner: Physics, Scene, Maths
 Priority: High
@@ -57,7 +57,7 @@ all unaffected committed artifacts exact.
   Evidence:
   `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf0-frame-matrix.md`.
 
-- [ ] **VF1 — Correct anisotropic angular-drag clamping.** Establish a rotated
+- [x] **VF1 — Correct anisotropic angular-drag clamping.** Establish a rotated
   anisotropic-body oracle that independently derives the no-reversal clamp in
   body axes and returns the response to world space. Correct
   `ClampAngularDragTorqueAxis` integration without double-transforming the
@@ -65,6 +65,8 @@ all unaffected committed artifacts exact.
   Before accepting any artifact movement, map whether a committed scene reaches
   the active clamp; unexplained movement blocks the phase and no regeneration
   is authorized.
+  Evidence:
+  `Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf1-angular-drag.md`.
 
 - [ ] **VF2 — Repair the authored impulse-offset schema.** Replace the ambiguous
   `forcePosition`/`forcePos*` vocabulary with an explicit world-space

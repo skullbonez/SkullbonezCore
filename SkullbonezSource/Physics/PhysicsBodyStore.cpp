@@ -362,6 +362,43 @@ float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float ine
     return (std::clamp)( torque, -maxDampingTorque, maxDampingTorque );
 }
 
+Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& worldTorque,
+                                float deltaSeconds )
+{
+
+    if ( !record.usesWorldInertia )
+    {
+        return Vector3( ClampAngularDragTorqueAxis( worldTorque.x, hot.angularVelocity.x, record.rotationalInertia.x,
+                                                    deltaSeconds ),
+                        ClampAngularDragTorqueAxis( worldTorque.y, hot.angularVelocity.y, record.rotationalInertia.y,
+                                                    deltaSeconds ),
+                        ClampAngularDragTorqueAxis( worldTorque.z, hot.angularVelocity.z, record.rotationalInertia.z,
+                                                    deltaSeconds ) );
+    }
+
+    const RotationMatrix rotation = hot.orientation.GetOrientationMatrix();
+    const Vector3 bodyAngularVelocity = rotation.TransposeMultiply( hot.angularVelocity );
+    const Vector3 bodyTorque = rotation.TransposeMultiply( worldTorque );
+    const Vector3 clampedBodyTorque( ClampAngularDragTorqueAxis( bodyTorque.x, bodyAngularVelocity.x,
+                                                                 record.rotationalInertia.x, deltaSeconds ),
+                                     ClampAngularDragTorqueAxis( bodyTorque.y, bodyAngularVelocity.y,
+                                                                 record.rotationalInertia.y, deltaSeconds ),
+                                     ClampAngularDragTorqueAxis( bodyTorque.z, bodyAngularVelocity.z,
+                                                                 record.rotationalInertia.z, deltaSeconds ) );
+
+    // Invariant: the no-clamp path returns the original world value so the
+    // body/world round trip cannot perturb an otherwise unaffected artifact.
+    // A changed value returns to world space because ApplyWorldImpulse owns the
+    // one world-to-body conversion used for velocity response.
+
+    if ( clampedBodyTorque.x == bodyTorque.x && clampedBodyTorque.y == bodyTorque.y && clampedBodyTorque.z == bodyTorque.z )
+    {
+        return worldTorque;
+    }
+
+    return rotation * clampedBodyTorque;
+}
+
 float CalculateGravityForce( const PhysicsWorldForces& worldForces, float objectMass )
 {
     return objectMass * worldForces.gravity;
@@ -958,18 +995,8 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
                                  ( worldForces.fluidDensity * submergedVolumePercent * worldForces.angularDragMultiplier );
 
         const float angularDragCoeff = buoyancyFacts.dragCoefficient * avgDensity * radius * radius * radius;
-        Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
-
-        angularDragTorque.x = ClampAngularDragTorqueAxis( angularDragTorque.x, hot.angularVelocity.x,
-                                                          record.rotationalInertia.x, deltaSeconds );
-
-        angularDragTorque.y = ClampAngularDragTorqueAxis( angularDragTorque.y, hot.angularVelocity.y,
-                                                          record.rotationalInertia.y, deltaSeconds );
-
-        angularDragTorque.z = ClampAngularDragTorqueAxis( angularDragTorque.z, hot.angularVelocity.z,
-                                                          record.rotationalInertia.z, deltaSeconds );
-
-        worldTorque += angularDragTorque;
+        const Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
+        worldTorque += ClampAngularDragTorque( record, hot, angularDragTorque, deltaSeconds );
     }
 
     ApplyWorldImpulse( record, hot, worldForce * deltaSeconds, worldTorque * deltaSeconds );
