@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "9294e1f47989bc6e5343adda9d09c3838d54bc4a41338728a3b706c8f30a1247",
+      "body_sha256": "17a89a16060f9ad5f7fa47411a91c03cef55f8ea176b876c41d4ea7b81ea108f",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing and command production; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
       "plan": ""
     },
     {
@@ -144,12 +144,12 @@
     },
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
-      "signature": "SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "7790325e5d93bcd78d036f554abc90ee7bab23da37c5e469e593b3979c40e467",
+      "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
+      "body_sha256": "02ce093a30ab9b8de3250ddf541713d1b76030dd917f4aed74fac5ff69b87879",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
-      "reason": "One composition-root phase projects render-model and presentation facts, runs the active operator UI, and submits its typed result in frame order; all borrows share that synchronous lifetime.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "reason": "One composition-root phase projects render-model and presentation facts, runs the active operator UI, submits its commands, and latches any process failure before returning; all borrows share that synchronous frame lifetime.",
+      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
       "plan": ""
     },
     {

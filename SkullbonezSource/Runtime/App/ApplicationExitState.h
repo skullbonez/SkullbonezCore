@@ -21,6 +21,8 @@ Glossary:
 Invariants:
   - The first owned failure wins; later failures and normal exits cannot replace
     its diagnostics.
+  - A frame phase reports failure only through RequestPhaseFailure; its public
+    phase result contains no status that Run::Execute can drop.
   - A nonzero message exit code becomes a Lane R failure only when no richer
     owned failure exists.
   - All retained state is fixed-size; requesting or resolving exit allocates no
@@ -52,6 +54,10 @@ class ApplicationExitState
     // Records a subsystem-attributed Lane R failure and requests exit. Success
     // values are ignored, and only the first failure is retained.
     void RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept;
+
+    // Latches a non-success frame-phase result. Status-free frame signatures
+    // make this the only failure signal that Run::Execute can observe.
+    void RequestPhaseFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept;
 
     [[nodiscard]] bool ExitRequested() const noexcept;
     [[nodiscard]] bool HasOwnedFailure() const noexcept;

@@ -19,6 +19,8 @@ Glossary:
 
 Invariants:
   - RequestOwnedFailure never mutates state for an SkullbonezCore::Core::SbResult success value.
+  - RequestPhaseFailure rejects success and always leaves a retained failure
+    plus an exit request.
   - Once m_hasOwnedFailure is true, the retained lease and its immutable owner
     and message never change.
 
@@ -27,6 +29,8 @@ Related:
   - SkullbonezTests/TestApplicationExitState.cpp covers precedence and bounds.
 */
 #include "ApplicationExitState.h"
+
+#include "../../Core/FatalError.h"
 
 namespace SkullbonezCore
 {
@@ -60,6 +64,20 @@ void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbRe
     m_failure = failure;
     m_hasOwnedFailure = true;
     m_exitRequested = true;
+}
+
+
+void ApplicationExitState::RequestPhaseFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
+{
+
+    if ( failure.Ok() )
+    {
+        SB_FATAL( "Runtime/ApplicationExit", "RequestPhaseFailure requires a non-success frame-phase result" );
+    }
+
+    // Invariant: status-free frame phases have one failure channel. Once this
+    // call returns, resolving message exit code 0 must still return failure.
+    RequestOwnedFailure( failure );
 }
 
 

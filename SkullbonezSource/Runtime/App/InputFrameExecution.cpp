@@ -116,7 +116,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         if ( !submitStatus.Ok() )
         {
-            m_applicationExit.RequestOwnedFailure( submitStatus );
+            m_applicationExit.RequestPhaseFailure( submitStatus );
         }
     }
 #else
@@ -292,7 +292,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     {
         ReportRuntimeInputFailure( deviceCaptureResult );
         std::fflush( stderr );
-        applicationExit.RequestOwnedFailure( deviceCaptureResult );
+        applicationExit.RequestPhaseFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
         return CompleteInputPhase();
     }
@@ -369,7 +369,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         if ( !pointerResult.Ok() )
         {
             ReportRuntimeInputFailure( pointerResult );
-            applicationExit.RequestOwnedFailure( pointerResult );
+            applicationExit.RequestPhaseFailure( pointerResult );
             PostQuitMessage( 1 );
         }
     };
@@ -402,7 +402,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             // rebuild path. End the run before returning to the frame loop.
             ReportRuntimeInputFailure( stressResult );
             std::fflush( stderr );
-            applicationExit.RequestOwnedFailure( stressResult );
+            applicationExit.RequestPhaseFailure( stressResult );
             PostQuitMessage( 1 );
         }
 
@@ -1065,7 +1065,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         // Stop this frame and end the run before any later world/input mutation.
         ReportRuntimeInputFailure( uiFrameResult.status );
         std::fflush( stderr );
-        applicationExit.RequestOwnedFailure( uiFrameResult.status );
+        applicationExit.RequestPhaseFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         commitPointerPresentation();
         return CompleteInputPhase();

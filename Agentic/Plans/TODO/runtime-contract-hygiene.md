@@ -1,7 +1,7 @@
 # Runtime Contract Hygiene
 
 Date: 2026-07-31
-Status: TODO — 0/3 phases complete
+Status: IN PROGRESS — 1/3 phases complete
 Impact area: Application exit reporting, Quaternion public contract, Physics fixed-list unwind path
 Owner: Runtime
 Priority: Medium
@@ -56,7 +56,7 @@ header describe the code that exists, and make the zero-throw claim true.
 
 ## Phases
 
-- [ ] **CH0 — Make a silently successful failure exit unrepresentable.**
+- [x] **CH0 — Make a silently successful failure exit unrepresentable.**
   Choose and implement one enforcement: either `Resolve` becomes lane-F fatal
   when exit was requested by a failing phase and no owned failure was latched,
   or the phase signature stops returning a status the caller can drop, so
@@ -66,6 +66,10 @@ header describe the code that exists, and make the zero-throw claim true.
   `SkullbonezTests/TestApplicationExitState.cpp` proving a failing phase cannot
   produce process exit `0`. Evidence:
   `Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md`.
+  Completed with status-free direct frame-phase boundaries and
+  `RequestPhaseFailure` as the sole frame failure channel. Focused coverage
+  passes 1 case / 5 assertions; the full repository gate and independent
+  ownership review pass.
 
 - [ ] **CH1 — Correct the Quaternion public contract.** Delete the orphan
   comments at `Quaternion.h:68` and `:79-81`. State the normalized-axis

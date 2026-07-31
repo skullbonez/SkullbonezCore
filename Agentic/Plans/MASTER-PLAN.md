@@ -602,6 +602,17 @@ Replay visual, allocation, performance, and full validation pass. The
 active/future ledger is therefore 4/16 (25%). Evidence is in
 `../Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md`.
 
+Runtime Contract Hygiene CH0 completed on 2026-07-31. Direct
+`Run::Execute` phase boundaries no longer return a failure status that a caller
+can drop: their results are `void` or contain control/presentation values only,
+and frame failures use the first-failure `ApplicationExitState` latch.
+`RequestPhaseFailure` rejects success through Lane F, while focused coverage
+proves a latched phase failure cannot resolve message exit code zero as success.
+Profile compilation, the complete repository gate, a 7/7 comment audit, and
+independent ownership review pass. The active/future ledger is therefore 5/16
+(31%). Evidence is in
+`../Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md`.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1184,9 +1195,9 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is the active work at 4/16 (25%).**
+**The Gate Blind Spot Campaign (2026-07-31) is the active work at 5/16 (31%).**
 Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
-runtime contract hygiene (0/3), engine glossary consolidation (0/4), then
+runtime contract hygiene (1/3), engine glossary consolidation (0/4), then
 angular impulse frame correctness (0/5).
 
 Plans 1-3 are strictly byte-exact or documentation-only and require no owner
@@ -2974,7 +2985,7 @@ Dependency barriers:
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
-| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | TODO | 0/3 | Binding next; no barrier in either direction |
+| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | In progress | 1/3 | CH0 complete; CH1 Quaternion contract correction is binding next |
 | 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | TODO | 0/4 | Ready; GC0 must build the per-file checklist from `git ls-files` before any file is edited |
 | 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | TODO | 0/5 | Starts after plan 1; **stops at AI4 for owner sign-off before any baseline regeneration** |
 

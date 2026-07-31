@@ -216,8 +216,8 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
 
 using namespace OperatorEditorFrameComposer;
 
-SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
-                                                           const FramePresentationFacts& presentationFacts )
+void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels,
+                                 const FramePresentationFacts& presentationFacts )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -232,8 +232,8 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( viewportCapture );
-            return viewportCapture;
+            m_applicationExit.RequestPhaseFailure( viewportCapture );
+            return;
         }
     }
 #endif
@@ -719,8 +719,8 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         {
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
-            m_applicationExit.RequestOwnedFailure( imguiResult.status );
-            return imguiResult.status;
+            m_applicationExit.RequestPhaseFailure( imguiResult.status );
+            return;
         }
 
         if ( imguiResult.commands.requestSurfaceSwap )
@@ -749,7 +749,6 @@ SkullbonezCore::Core::SbResult Run::RenderOperatorUiPhase( const RuntimeRenderMo
         }
     }
 #endif
-    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
