@@ -45,6 +45,13 @@ Do not claim to be a separate model or independent process unless you actually i
    definition needs an exact current reachability ruling; distinguish dynamic
    invocation and deliberate test seams from dead surface, and require a live
    plan for every repair disposition.
+   For comment-learning-header or glossary changes, inspect the seventh
+   inventory. A term defined in exactly one tracked source file remains local;
+   a term defined in more than one belongs in
+   `Agentic/Reference/engine-glossary.md` and source files cite it rather than
+   copying it. Require every current multi-file definition set to match an exact
+   migration ruling, reject stale rulings, and reject a `Summary:` that merely
+   restates its filename. Counts are evidence, never an allowance.
 5. Report findings by severity:
    - `Blocking`: must be fixed or answered before continuing.
    - `Non-blocking`: worth addressing, but not fatal to the task.
@@ -96,8 +103,8 @@ phases are one cohesive operation. Compare that answer with
 called once immediately is not decomposition when the same authority and phase
 order remain in the caller; follow that helper before accepting the ruling.
 
-Cite evidence rather than asserting a conclusion. Six repeatable inventories
-produce it, and all six are read-only:
+Cite evidence rather than asserting a conclusion. Seven repeatable inventories
+produce it, and all seven are read-only:
 
 ```bash
 python tools/check_build_config_consistency.py --repo .
@@ -106,6 +113,7 @@ python tools/inventory_authority_free_aggregates.py --repo .
 python tools/inventory_extraction_scars.py --repo .
 python tools/inventory_wide_signatures.py --repo . --strict
 python tools/inventory_function_complexity.py --repo . --strict
+python tools/inventory_glossary_terms.py --repo . --strict
 ```
 
 Verdicts for the aggregate and extraction-scar inventories live in
@@ -119,6 +127,10 @@ Build-configuration rulings live in `tools/build_config_rulings.json` and match
 the complete current cross-project variant set for one file/setting pair;
 reachability rulings live in `tools/reachability_rulings.json` and match the
 current definition file/signature while every repair row names a live plan.
+Glossary rulings live in
+`tools/glossary_term_rulings.json` and match the exact term plus the complete
+current file/line/wording fingerprint; every row names the live consolidation
+plan that owns removal of the copied source definitions.
 Prior dispositions do not satisfy any gate. None of these tools is a count
 budget — do not report a number as a finding, report the unowned operation or
 invariant, unreachable seam, or build-contract divergence.

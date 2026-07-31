@@ -1,7 +1,7 @@
 # Engine Glossary Consolidation
 
 Date: 2026-07-31
-Status: IN PROGRESS — 1/4 phases complete
+Status: IN PROGRESS — 2/4 phases complete
 Impact area: Comment standard, shared engine vocabulary, per-file learning headers
 Owner: Documentation standard
 Priority: Medium
@@ -105,7 +105,7 @@ not decide them.
   wording drift. The 575-row checklist is
   `Agentic/Plans/engine-glossary-consolidation-comment-checklist.md`.
 
-- [ ] **GC1 — Author the shared glossary and update the standard.** Write
+- [x] **GC1 — Author the shared glossary and update the standard.** Write
   `Agentic/Reference/engine-glossary.md` with one adjudicated definition per
   shared term, resolving every drift GC0 found. Update
   `Agentic/Reference/comment-style-guide.md` to state the split rule, retain
@@ -119,6 +119,13 @@ not decide them.
   five inventories, and introduces no threshold. Register it in
   `tools/README.md` and the `AGENTS.md` file-to-validation mapping. Evidence:
   `Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md`.
+  Completed with all 321 GC0 adjudications reproduced exactly in the shared
+  glossary. The new strict inventory reproduces the complete 575-file,
+  2,172-definition, 1,285-term census, reports all 321 multi-file terms and 264
+  wording drifts, and matches 321 exact current migration rulings with zero
+  unruled or stale evidence. Reviewer rules and `validate_fast` now enforce the
+  split. Direct self-test/strict scans, the complete 457-case / 2,424,712-
+  assertion fast gate, a 2/2 tool comment audit, and independent re-review pass.
 
 - [ ] **GC2 — Execute the per-file consolidation pass.** Working the GC0
   checklist, remove shared-term definitions from per-file glossaries and add the

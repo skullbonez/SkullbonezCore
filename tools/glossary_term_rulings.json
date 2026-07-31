@@ -1,0 +1,2895 @@
+{
+  "schema_version": 1,
+  "description": "Exact current-source migration rulings for multi-file learning-header glossary definitions. Remove a row when GC2 removes its final duplicate source definition.",
+  "rulings": [
+    {
+      "term": "AABB (Axis-Aligned Bounding Box)",
+      "fingerprint": "5c6d1d2e0e72a8373bee19dcd495cc9c8deea9934a53dafe5e66d15257ab3f6b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "ABI (Application Binary Interface)",
+      "fingerprint": "352125b89a21c6d2b127d4e7cb404bf301a47dca146250c80cebe466afaa4f0d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Acceptance ledger",
+      "fingerprint": "0b475c63521167505ef2afdd812d5e07552e1b2c47c0d97bf33d376ee315d7ea",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Accumulator",
+      "fingerprint": "3c3364702a7b78bd73e72339593625f003bcab4058058fbdfe0f56f78b586a1f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Active cell",
+      "fingerprint": "f525feb4220657ae1b03c4db33e993a5adb02e58c07b484d8d4a669d2c1e4151",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Active rotation",
+      "fingerprint": "b9fd3a8fd6a3eecc2a9411907b001faa7c4aaabc5480f0fe3979ef956f2f89b5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Active vortex",
+      "fingerprint": "42bd15edbfbff025b42d1ac48552fdbce843ddfe7b7a71ddb83a55fccecab20c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "All-body trajectory",
+      "fingerprint": "8fe64fa7a877affa1bccd2329c63921edfc521dd3addeb6181e6319f7abb3674",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Amortized build",
+      "fingerprint": "6efdd2b44c03b9a10ef9b61dbadb9dd65687bfe59278d1e87bb2fdf59e25ca62",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Antiparallel normal",
+      "fingerprint": "b887b902bc59208efd4134bd3fefa5bd8072e4992566d50204553d580696eb6c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Artifact",
+      "fingerprint": "b3dfdb9e0cf84046102800f0d51991d375c582bb6d62a49d75bbf4cf03b87b54",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Artifact path",
+      "fingerprint": "f543f5727d6f132125c761734ac8245ce0d9fca90b62ddb418907f13c2a9ffb9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Asset affiliation",
+      "fingerprint": "21ca2153283ebf6466f42749b168804067c5f5fed33ad2adb7c7d82ec4d27bea",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Asset primitive",
+      "fingerprint": "1faba06207ea6aca71236582024cfbdc23615255b7ab489a511576ee4cee8c40",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Asset system",
+      "fingerprint": "3d096288f007524eaf6bcee73041626257b798c03e46b683aca5e60076f40ce8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Authored hull",
+      "fingerprint": "73b10f20bd580d3356414bd626c72717a1bb3d4d958cfefde697c5db2b4f6185",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Authored path colour",
+      "fingerprint": "376e6c41bcd8dd2bcdeee75ae42c58256b84dcd3370ffec6306f359722a63dbe",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Authored scene",
+      "fingerprint": "71e446b839cacb10c657c6f6f8282244c1e6699127d3cb5f23652c802aa8d02b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Authoring row",
+      "fingerprint": "a6d72541a776d4d32be2738f2c677c08343c09235c5a7f8f9aadbbda05041a65",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Auto-cycle",
+      "fingerprint": "5736607d96a5e0579b01bec46ca13aa5259c744205746df204150ce323ff092f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Automation scene",
+      "fingerprint": "fd60c66435ae80274c85e2910a61c50323641feaa5f4f545f8b075ca96b27cb8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Awake index list",
+      "fingerprint": "43ef03484490b10c100b40c2f41b614199694a22f8c1a65ac54b2a53ef45f2cd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Awake slot",
+      "fingerprint": "37e5de423f386e44b6af8aa4b863ae51b705d1b20eb02113608216f5486b9456",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Back buffer",
+      "fingerprint": "9ac9e6f36fd0d946854677c9b3da676a621ae7e6612420e480c0e9516a0cba85",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Backdrop",
+      "fingerprint": "7d82b3c1197f3a5888cf5400bb63a080268aaf8d94060baf17f7536217f52c8e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Billboard",
+      "fingerprint": "18e95f36a2ffbaf036c4da5b203c7cb223b6678da51b0d225b82f52b0b467b28",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "BLAS (Bottom-Level Acceleration Structure)",
+      "fingerprint": "d637be16d3daccfecd31fe82a70548f163e59ba1d26119529f69e2c1437e9c0b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Body",
+      "fingerprint": "69559c3bd6013f129505e0fe3e7757daaf79323e802e667b1025ad5351bae189",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Body record",
+      "fingerprint": "1a0906df418bb736aefb224f7b078ed64486a2675e7aeacffd9434dc7e52ef34",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Body simulation limit",
+      "fingerprint": "6c4834a1ef21219db8c5bdedd8928c3285a9b09c9b1e9a4acb38cb20f476ce27",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Body store",
+      "fingerprint": "e70a9537f2e6b5304ae9ba7d375946ccb6ca3d7f44d1c978de9a0b50b9ed6c60",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Broadphase",
+      "fingerprint": "ca0f2a3a185c83c387eaf8ee9ae372a5e89ac860d2fac359fb5b1ed4889bc0de",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Buoyancy",
+      "fingerprint": "a7682190db1d3916bf0864d1163f72937d879c276d6fb95687f95f25e51a6324",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Callback bridge",
+      "fingerprint": "52953d0660f68198f5cd6e03b0747f7950d292f8d139c6fec1e8e53c2c1945fe",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Candidate",
+      "fingerprint": "d774428d8caa4924da79e4b28bf2f8c238421eb4fece61adb8b6a5e0edc5aa96",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Candidate pair",
+      "fingerprint": "95b7cb33598ae33c50382f39e186f0176ce63002d1589670765e83cb5d2dbd6a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Canonical pair order",
+      "fingerprint": "29a6d24f71af917bc7f302df4dfc6a0245b83c7e629641fdfd6767739ddf43df",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Canonical publisher",
+      "fingerprint": "c3046dc7f9e6544b4e975c98728e8e28ce50ac4eca614650adee2e4479ab99c3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capacity bytes",
+      "fingerprint": "60fd1cd9f81fca996fd23cb80f8b7ef481fde2f72ad008d8c3141cce230dc4d9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capacity row",
+      "fingerprint": "4ebe1b49d698ca2a3f1a79063ca7b08bbdf61925a5453f46d3f12871a0cce4ae",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capacity session",
+      "fingerprint": "210cd770e8dbee57bbaba1db7599100e5d552b8be39aa251028648f6eefa6e64",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capacity snapshot",
+      "fingerprint": "7e51b7a58b0dad59dd21be47e310b276b1de41e7b48dec072ea8dce6b7f0652f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capture owner",
+      "fingerprint": "52e3cf1684c6addba6ba91ff94c3f27c987e724e9b8c1031799093bab71e5174",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capture result",
+      "fingerprint": "76bf9cbc1dc77faa3f591b7f63189792a7f53f32835f80e1e2667248bb9ef1da",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Capture state",
+      "fingerprint": "4cf6e2cf359cfa46bec8810054d1f951ccd312cea25451cea0b44ccd55c6fcb0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cause row",
+      "fingerprint": "7a674303976739d7225cac920571c7dea647b778e5cae4a71fe3914392393921",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cause tree",
+      "fingerprint": "2d7bba98145a2037a1d576d9892cb7adb0a8996b2e04a5b6c1b8ca9a1a07d899",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cause window",
+      "fingerprint": "1cdab4f44b5c5002d8dc00bf936e776e52f7c58bd6e43ebb5c6d3dc1ee85a6d6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "CBV (Constant Buffer View)",
+      "fingerprint": "79a1504099f1f272f25c05f9ff156e79f5248e6e702afd05fbde91020ffaad34",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "CCD (Continuous Collision Detection)",
+      "fingerprint": "a3640d8dd7ae3d0ebc473f89d3a47df5b0cc0ab707a1284e1c0ad0b2b64eef41",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cinematic deck",
+      "fingerprint": "547798c40eda85dc6dd374081372a7d7d5e5fbdb7a0ace1412a9a3e4c562a742",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cinematic override",
+      "fingerprint": "565822f981b7ab791f8cbcc8fad1643b4ed50b06e2cf8e5e23d32be758c15b48",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "CLI (Command-Line Interface)",
+      "fingerprint": "516fe69ded3593ec2dcc812559b2820b846f344efed0ca381140d4791c9eac8b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cold flush",
+      "fingerprint": "55976846485d4d3bf2e44ce97d324d84dac1dafa1e8aa9bedd9deb564a08eb51",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Collider",
+      "fingerprint": "b968719ab623ba2b28083d50487aec8383cdcf5b1a34de15e9003730f5a15bbb",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Collider authoring row",
+      "fingerprint": "04a36dbbc35663c2507cc3d77f4da0d810641b5c2125a2092560f717404146cf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Collider descriptor",
+      "fingerprint": "9805c4344c03532fd37539194fd1b5926644c435ec23844b4ba2edd333ea5871",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Collider store",
+      "fingerprint": "21f6fd3660180a296528198ad9e6be141921edb539a9cc9635f32f3f89d97141",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "COM (Component Object Model)",
+      "fingerprint": "18a1988609cbbfb81ad1d891e1e0b2ae1bd3ddef1ef6d7f885906e8894e53caf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Commit count",
+      "fingerprint": "52b6332dd167ef2af14577262aeea66df3327a6bece387fbebc44f1acafe2616",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Compiled transition",
+      "fingerprint": "285cd06c36509d3d66a365a528b17d651b6095e83e1a5981d02fe613ddd80cd7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact body view",
+      "fingerprint": "0a370b77c1f37fc8d92ead72b813dd51b84997283779464b16e986b7ddf40466",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact highlight",
+      "fingerprint": "c22b2c84e5be61552d48865c04e44183fd77da79a41ba78b51b3019a02c7682b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact policy",
+      "fingerprint": "998b2379afcc9f5229f56f4c6f676473e33a58b6fa9a0c808c40b641d30b1f23",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact release",
+      "fingerprint": "00fd7a1cd6b6cd835b87742b0d7095f0a6bf1ea5c8a7072893c4e32b044bc3db",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact row",
+      "fingerprint": "dcf182c4276d26db9ac5603cfa249330d2452de33b5d555f4e0c91febe3c53c0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Contact sweep",
+      "fingerprint": "d105194754e316c86da8252f0558037674c5453cf928ab794a12c86080a95640",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Content signature",
+      "fingerprint": "bd1270593037fc1febe7931ac26d2fa0cf7312ba282f3774df42b2cebbd45be4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Control surface",
+      "fingerprint": "84f951d99759c83c44eb1b0b405ab22b1b04578fd071dba517aff06bc75daf1f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Convergence trace",
+      "fingerprint": "9670071a9253e5f9d47d385cfdb4ee437c9019358fdcc39cc5c0cbacb03b3b45",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Convex hull",
+      "fingerprint": "e374ee2df6a5ee4dfe62bc0f98ddf932e27de47a98acf3ffa47c22f4c8b299d3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Covering fence",
+      "fingerprint": "0b7df0da3a11a9cc77a039f9421dafcffb7b9c9b285f04375f1eb58b22ac3c17",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Cross-scene pause lock",
+      "fingerprint": "71168719523fd565157531e820eb3a90d02a663396036faa87149d2a4499cde3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "CSV (Comma-Separated Values)",
+      "fingerprint": "3f5f3843eb066d5890630b8812c67b5ab9e65d41f79b909531b8655745a27442",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Debug build",
+      "fingerprint": "10620fbc5536947d4db4adb23a788d3605d1a9512ae91e2277dfde3413d13f84",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Dense row",
+      "fingerprint": "778bbdeb8d04dc4fdc4dcbadf5a641745411006c28acf49b78ac70c9ce9eeb2e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Descriptor",
+      "fingerprint": "2e2f6e717f1a46c83a6a5be010358974b306cd19e110fed18dc0250f50cef6e1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Descriptor heap",
+      "fingerprint": "c46195d7e4109480f68515319b3e1bd4c18ef45cd275a75937d9ccf8ccefb83d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Development tool owner",
+      "fingerprint": "95618db4c10f2d0a8b7105cd98aa3db0cd91e723de21700de3f277e5d6aa94d8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Development UI command",
+      "fingerprint": "df68b6d3cdfd71f4cd0135a93ff76d59597b83703560fe4f2dd166f02971d534",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Diagnostic-name table",
+      "fingerprint": "f7c4f2ef041fdd0a118c9052747bd47e4661986d339a2e3af663af8389dbad65",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Diagnostics artifact",
+      "fingerprint": "1ea2f3593e29ed5ff47f5e4e82c628b1cf81be3606ee387c619d9d8e8a3adf55",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Diagnostics view",
+      "fingerprint": "91a31b3630725bf520a41344f8255ccf3f357fbca30f1546ffdf77c392707909",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Director playback",
+      "fingerprint": "dea5095cfef77542536d06cab79f62ab999323ba55a50d6a628d58cb040cc7cd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Draw command",
+      "fingerprint": "b1fd9d96d435d89bf8c8194aab68baaa9585006f80dddda2ff55121b41309631",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "DRED (Device Removed Extended Data)",
+      "fingerprint": "206b6cbf7798ec9dafb0eb7bb3bb86097cc1f6139a047ad6e2a838d7722c2cf5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "DSV (Depth Stencil View)",
+      "fingerprint": "04eefdf81199f4d310229cb7597b0a5d455f1b8b1a1e82c76818c1e95ccd3341",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "DTO (Data Transfer Object)",
+      "fingerprint": "abdeb197144266ec5b0f231e1c2cb64ad2f219eba409513e0979f4b8e936d7f1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Durable artifact",
+      "fingerprint": "763ea67911fffbf15e1a9b622ba852306cba5f02ab5d6d8486b965c97a097d7e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "DXR (DirectX Raytracing)",
+      "fingerprint": "03a8b5492e0cbd994645b65ab25b690ca71260b5e799f433f3ee80aee302a148",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Early-exit probe",
+      "fingerprint": "b8a8519ab920b53ad763a3a3dc9247491249f69bcaf72ba0294a07953a3c2c63",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Editor command",
+      "fingerprint": "39dd5a688bb8b6f40941de0051ddec83108d41171fd10ecd36993b5efac20776",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Engine module",
+      "fingerprint": "f168ad9450ee5c805c6f6dc51ab87b1335b03cbb034c30e6fc1ab6eb765b8323",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Event cursor",
+      "fingerprint": "638360e11c593ae990cdf0cf3b8c83fa86c48fa823690e4d436d275a6278c0f7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fault injection",
+      "fingerprint": "3d6f01118deae0870a2e907ecc68b3d199fbb883a3b117c48e183e2a849558bd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "FBO (Framebuffer Object)",
+      "fingerprint": "cde3b3b8bf0ad111d3b1438055568a3ac21ec54341e458657cdaaad44c5baca2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Feature ID",
+      "fingerprint": "ae34aae04b59b38c99c668fce33dcfd4672a7d9c3b881635a0326d48ff2e13e6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fence",
+      "fingerprint": "71d6bd777b8af261cd8152a8113c8b677d57c91301d389330944aa201eefa915",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fixed-step",
+      "fingerprint": "6a40db84499e4e8c8d88e08da3c3008cb6b348ee7a46414f05a7bafb6b91951a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fixed-tree release",
+      "fingerprint": "716b6221edb7b372aeeb13d8835c3882335e445d3864fb0817d417eaa90e39a6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fluid surface",
+      "fingerprint": "8fd8179769422ba099ee947400d3054520136ddf6e4dc982782a98728a26279b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fluid surface adjustment",
+      "fingerprint": "d8ad773f99ba9e153c48461efb962fa4c66cc45dc63d559cda43395552b11215",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Flyout",
+      "fingerprint": "9de5af78eaa88b512f9786e367ebd4cf80a6c5cd7692e0e6a001b0866af27692",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "FNV (Fowler-Noll-Vo)",
+      "fingerprint": "80640db74fd74d6190e5135617255a52c45f1402ff23361c4f70f6d8171feead",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "FNV-1a",
+      "fingerprint": "8ff902884046f360c173c04513dadd3855564614662916ac85285765f6309166",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Focus mask",
+      "fingerprint": "571e12221c6ac4fd1a1516ccb657068b1b9bc7e538231952406e7336ba60bd2c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Force frame",
+      "fingerprint": "e298c3bd82a3bb8d9b8706cbd0093cac7ff8126fac087056fe57e47bc6ee4ad4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Fork-join",
+      "fingerprint": "f0a61359261f6c31fca12295d4cf6e4616c4dc8f6234fc9df16743f703a0b163",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Frame publication",
+      "fingerprint": "dca1be5d5a60b1af9d412c2953fdebe2c51ed58bf47e7c9e86d1d4864edbd9e3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Freshness manifest",
+      "fingerprint": "4c35a185c740d752229f3cbbb66ec50e457e6170a16d680f18b2903b71edc111",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Future node",
+      "fingerprint": "e49031c7d16d9b5f5dd50dd057e84add8ac0917fde877a4830337fcdcb832621",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Generated scene",
+      "fingerprint": "7ca62161f4ef14a185d7e607d54cb912f76b3cd0728efbdd29d7f73f0ee96424",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Generation",
+      "fingerprint": "eb52abbb93fbe1dfb76427880c5619d57017b39d4f353fe3b8ca22cf09520147",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Geometry owner",
+      "fingerprint": "3e72b5c1d7946602d2ca6e4a7891f73fd0a10e3cf569c4326f023b0f17740f92",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Gesture",
+      "fingerprint": "92444abf3671d9d6f1e9e2a2520a9cc7f17f6dc7bbbb4ea18940a01c460a9daa",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Ghost request",
+      "fingerprint": "6f2b493e41fb0d6aba3b1e68ed9105b350d7925da5faa4158fab42cda9c66800",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Gizmo",
+      "fingerprint": "5cd1b7b30291322262d5ca1288fecdb9efafbb87d880c94e49c1132a2d3f2d0f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Glyph advance",
+      "fingerprint": "156f02457fb8544f262838498835e45da1b3a08c1f950ed75d4e7de417360ba0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "GPU (Graphics Processing Unit)",
+      "fingerprint": "f40a7e70878c7b29d5f8c8f0e759ffe785a4eed246d86a2c294bf45a5e0a2dae",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "GPU drain",
+      "fingerprint": "677bc926e0b25eb6f5b1955cc9159032f9a3502ffe7f104400821adeff248ac6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "GPU timing sample",
+      "fingerprint": "07956056bd8aae14e6dd0ce0e7d4ef09bea0c6a84a4196045010615e2b860e84",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Graphics stress",
+      "fingerprint": "07020c017918e95a2354e5eb4b6fc4dc71e1702c584bf5435508a672edfba5f7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "HDC (Handle to Device Context)",
+      "fingerprint": "045d6964c5169f6fdbce95361ee2ff2f746682a178099ee863d4d8c75555082c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "HDR (High Dynamic Range)",
+      "fingerprint": "beed11a4c828dc6d8f4aaf71c18fd70c5add6143c10d38a309cfcedfdcbea1ff",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Heat",
+      "fingerprint": "7a9d964297b66a303504d54dea65e97ce4aba0d0c59bc74c209cc7bc72cf45ba",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hit box",
+      "fingerprint": "edbd96970f6114c1ceac5b63edd00bab8662505ea7d6f728721cd0024ee94d56",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hitch event",
+      "fingerprint": "d20102574c068c37b123e235625d43506d28373c9a2a5db6cc71050249a6b781",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hold mode",
+      "fingerprint": "98fa571f2b9bd07d3fa542fd3c4f27fea8306050bcc0ebe7da67c9fdecbea4a8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hot body fields",
+      "fingerprint": "4c24dc4c937690086dbb5e9cbf83c9575eff90e433d867d96eda271edb7c8a85",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hot control",
+      "fingerprint": "903eef0f99f5b842512adb1efdefab2f9976ba4dbbe710aa1f1df25b9446e469",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hot reload",
+      "fingerprint": "4af2c68584b2afbcf163721d6df24625897529137630e028526fb780a0dd83fb",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "HUD (Heads-Up Display)",
+      "fingerprint": "f190bb90d736343532fe89f75e534bd238d91c0fcf9bef4dfa3797e38e159c22",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hull identity",
+      "fingerprint": "c7b8a64536c1f3812a424c001709ea324d1d842a68aeb78a729e1b6c75211603",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Hull scale",
+      "fingerprint": "09af9c3231b44304fc1dee7b27ec164c0e0324778cad2d72e99721add2b5bb30",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "HWND (Window Handle)",
+      "fingerprint": "df64006f14430c6dae2240f808b930ea6a6fde846ee3729bf47dbaac7560facc",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Input edge",
+      "fingerprint": "1ae9ff89989ca64063fadb949d8be99faf0f8a10eb89a7941f0a6f10dee28ee8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Input turn",
+      "fingerprint": "2b2b8fb37cd30504ee8192ced0fda9e45e9914ccfb9b7460af4cfbb76095929f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Input turn result",
+      "fingerprint": "8a93488b9824aee8e744543bb857e30e8b51a2694b98ccabc5c714273963035f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Instant build",
+      "fingerprint": "a6b2e4a8afdaf6e06f5e11472ce488b672a99b24b3edfec573e41cbfbb694a34",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Interaction owner",
+      "fingerprint": "021b226db9293b0d4b030e3f69dc945985fdef720e3aa43797da3f617e26c68d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Interaction signature",
+      "fingerprint": "11d0426c392c9e944bd53fa1dfdbb87db0d1f25ca83a089c8045f165701f335a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Intercept assertion",
+      "fingerprint": "1497bf7568996766650d209401e43db88f0b0dcbec7ccd5b0bcc19a56d4201be",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "JSON (JavaScript Object Notation)",
+      "fingerprint": "12ed27eac69fddeb5957af012bc489fe161ff7af5c8420c793ee9053bf3bcc01",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Lane F",
+      "fingerprint": "567c845db30d6ed7a3112040bbdd14d50ddcb82f5a8583f6bc1165863216fce3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Lane R",
+      "fingerprint": "88b1ff2a7ee4bb0ad67f0dda90d73cb1ac0c339e34591f7e154c3ad7ec45d415",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Lane R result",
+      "fingerprint": "ff054f22b8fe0e94bceb4f0c5b19e0d342447afe92fbb2909835578fdbb5cf65",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Lifecycle generation",
+      "fingerprint": "5858d146f195fde2771acceb6469711bb85234232de61296355bff18570f0d7c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Live edge",
+      "fingerprint": "7f59c7167c1cb4dfea0af41953e944a67fe37ef99d3d36dc9cb53d0144074005",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Live graph",
+      "fingerprint": "660fd8efda52261d8bda58c6720340795f4d924c842205d02f0bc7247d227701",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Live style",
+      "fingerprint": "ded1aef246000abbfd98b2fb92a6b08394959ddf3687e24908bca71510d36a03",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Load preparation",
+      "fingerprint": "18530d73bd2d5a9b0c9a38ff8b3f3009a0e1984d870376b13d747b0240e28617",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Load request",
+      "fingerprint": "4568f0a737acedbf5aac19662dc46aea1d45a9360df7552348057f31f85935ff",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Manifold",
+      "fingerprint": "820245899adb0e62bbeee0fa8832bc65b5e5346433df10c17c0f74cfd8377f46",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Marker epoch",
+      "fingerprint": "aa9bff217d2cc77bd9106d1fa43f15b2c553d71b5cca812c1f30f7e6b57af224",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Material intent",
+      "fingerprint": "6b1f82bb14f3bd8d22363794a9550101181a9050977dde756972d1485f46a97e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Material table",
+      "fingerprint": "2e5bfbe95b0fd897866131ca09ba15045b4398c666ddfce748924ce2d3d79ac2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Memory waterline",
+      "fingerprint": "37a65c27262577a82e2ec73913256d30fb462b8feeda39130d56e2b7501f73aa",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Mini palette",
+      "fingerprint": "f1056842e3327cb64595b6ca602c83c78bbe293a3db9e5af360371a6596a08d0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Model capacity",
+      "fingerprint": "12fd53da266d5ef1c180c83a20be5a580f549bc24449f295e8100fc02f7047b5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Model frame view",
+      "fingerprint": "0b999644ceb225cd9199a51ea5032cf626c3633f43c3705aedec614f80dbaefa",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Model row hint",
+      "fingerprint": "ee319712815e4ac82c4402f498169708fd6a014a3182c6ca96f89cdbd7136650",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Mutual-gravity pair scratch",
+      "fingerprint": "532f65af98230e6d779edbf4e2a47df3b5fb1fd3a2fad979010d5c57249c1626",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Narrowphase",
+      "fingerprint": "16b16e615c862819b4fe7dfb193c1f2fa8d64d732a523be71acd5a5c1658bf4c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Numbered path",
+      "fingerprint": "c7e2209ec0ccba7435521af637f428ff9498e84373b384e463461bca95a32322",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "OBB (Oriented Bounding Box)",
+      "fingerprint": "52ba718bb909a013b27554c6371c490bca0158989e56b8ad9bb37d946702caf9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Operator-owned state",
+      "fingerprint": "020a5961e56865f97e11240595ad7c4a566e9b5e9899fe58a682c54bc420cd31",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Orthogonal basis",
+      "fingerprint": "41346c2105f3cf8292a3be7caabc02da2241789f05198267a84fcd094aa5ebe7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Overlay state view",
+      "fingerprint": "b83be7d110eb8577e6380c21532481de43bf5c031bb2b1925d937ad498180665",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Overlay viewport",
+      "fingerprint": "257d5bc047948c47e2d3b2bf848da2119563931137380b02437308b93bdea668",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Override mask",
+      "fingerprint": "3aeb0fdc74ee522596689bbac9211dd7c7d99d1c787f4aafaca5f3fa1e38747d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Owner",
+      "fingerprint": "b1245463c1de9aeb14ec1943215a0516ba1d4229a1809c7bff176f0c2e2cb682",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Owner event",
+      "fingerprint": "fc804d52c3a208124748cff923c46b923fb440c3575bff5709156af65cbb4811",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Owner view",
+      "fingerprint": "54e5e729422a2acb306b3c5d84377dd506eb491b64d1e7ab0e102262207b2bf8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pair island",
+      "fingerprint": "c405b65c108dc48850fb1681504ab567bb24a5b143de2d21e80e884f9edf068b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pair-source cell",
+      "fingerprint": "967f46ecbdbb117aaa489d39593e0d86876d18f1941a1380f38c0278f8ddf8c9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pair-source stamp",
+      "fingerprint": "bf61f796ba3fa2c85602de6f3d469a02cb5cd63b621fbab9120adb5d47580f9d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Parent directory",
+      "fingerprint": "e80d3b7b8effd9eef0400e63162ef92d2a8d237b5dcdabe05d5770c846192aaf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pending awake queue",
+      "fingerprint": "69c625d9fa258d6c3f6125d139b390c728f6c6f9e89c12b3be4903f5695f4cd5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Perf log",
+      "fingerprint": "0f1a57829bcb4df84d9a0681e8ce045cd145a7a62ae8bee54c59a2af60c580c7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Persistent contact",
+      "fingerprint": "8babeaba609dd523f32ef5a68c8641d606de34db66142f64f8da8becb151c7f1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Persistent membership",
+      "fingerprint": "c3a2429b24498d18e1dfc433a91929a129664909fc7a6ceb5fe18c7983d0a31e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Persistent tail",
+      "fingerprint": "de48ae543cf7fa4e19785e9fb9d51f725dd3845a0dd2ed56d8a1c7d63f4dda44",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "PGS (Projected Gauss-Seidel)",
+      "fingerprint": "3bd4de3dd8b9f05010015cadccebc7513fd0fdc15cec51cc84e98eb452511ea9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Phase cursor",
+      "fingerprint": "f2c14587c6642b47aa6a851bb35a846bf225999d91876f1585513eda73c3f0ca",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Physics body handle",
+      "fingerprint": "8964cacba213db67ae9ffd98bda565d67bebf3e1c9639a71fc96f19a6a6d1577",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Physics diagnostic command",
+      "fingerprint": "b81e80d438a9097df69e31673e14579e4682cd953ce47df0db3481d295797044",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Physics material",
+      "fingerprint": "1160f9fb006694c1e814d22982b0f7291cd248ed2c31ccb459352b170c0a7c7a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Physics-debug override",
+      "fingerprint": "6984727712ad05950140b2c6b3b5ec5e0bb75b7a5f656c87f521a3be38d2a1da",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pick purpose",
+      "fingerprint": "28afed35f65dc5ad965a9e6e5590a455591443c4978b6e4b6b566d6bd9d70ebc",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pipeline cursor",
+      "fingerprint": "94dba7ae322cab7db76ae7ef4cebb5e82fdec0b931f8c3b21a6b0dfda80d4d49",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "PIX",
+      "fingerprint": "ac183eccb5d43d4ca5277057fdadde9ef4e0a8ad941b7d3962164e5bdb150b14",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Placement gesture",
+      "fingerprint": "f862439f6f304d4e6af232ec98bad5262c0cfb6adfcd26a7adce556ace445e4e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Placement recipe",
+      "fingerprint": "9cb5526bde326b9be650e9d55128447519d4f2b2d56cfd2b264c907bcd92093d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Platform profiler GPU stack",
+      "fingerprint": "95799c5b769a80cc1de4362c24fe248bbf212f531d1a11edfff8d1933cba8b79",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "POD (Plain Old Data)",
+      "fingerprint": "d709922f216e758f96acaa314e7ba4357907b09e842c136b782df0202a9a0bea",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Point joint",
+      "fingerprint": "bd3704fed51655e34c11b446bfc0ac0d82d58cac4c01b32ee7ef0ae82ea6661a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pointer arbitration",
+      "fingerprint": "587503463f957d25c888a7a82267decc094a3028d774a9ada9703e48d6a4debc",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Pool slot",
+      "fingerprint": "0d240253b9d31c9c2afa183d49ac993a47e8567e33dc8b307e53698e6dfd0ba1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Post-step output",
+      "fingerprint": "7f15a17f09a03cfc51c51d22db14ae68e7f51eef16ded89537f8f8adc1f19109",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Prefix digest",
+      "fingerprint": "b1172e4c89603b4202efb4d1b8443b30049e399654268d84c29d89c13932609c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Prepared prefix",
+      "fingerprint": "c44035f927cf15f4a52489bc085700a58f22fa0110289bc6edb3ed6619169833",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Presentation alpha",
+      "fingerprint": "b333dd240294aef09e7c066fe0eda132390dde39fea33a1fd5597ca0ef9f68f2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Presentation sample",
+      "fingerprint": "48ce002c87dff06fa20e3e2484dc2669bf41a42280a9f21d66d1c06126f70b31",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Presentation state",
+      "fingerprint": "9fab1a9afacb20f6bfc4cc5b5804db68a2ce5fb574821ced91c5004e6d6a6c42",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Presentation track",
+      "fingerprint": "b2832747ed4cb895614b1dc969ab2a691781dfa24866a02ad4042e05835a5fc8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Presented generation",
+      "fingerprint": "1a933b777e43b0b520a2c4251d08b340c96bc9b0238754ae9853078b412608f6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Preview catalog",
+      "fingerprint": "36bf57d8976329ec31377e436c9fb42c776c9204e764af54701d57c4d94e4dad",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Private working set",
+      "fingerprint": "9d3840a5ad5558ccdb70f74216086f86fb07fd37a6c848561cecd2a33316f4b1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Probe failure",
+      "fingerprint": "0c6dcdf98d74d5769f504ed67b8301fcbdd10243eba8b9fc3375875e4ecdc7c3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Proceed policy",
+      "fingerprint": "68514f31b61496b54ed74bf4d76cdb570360196b1bfd649d2b307edc1d9c55f9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Profiler connection snapshot",
+      "fingerprint": "bdc8443a4e12f0bdd1b80898f3366425a6cdc2f015330c1a9c86a1913fcf1eab",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Projection",
+      "fingerprint": "21ce53b07ab2f928d8aeb50348ccf15f46e6a73b9a568acc98b0d3c6f640927c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "PSO (Pipeline State Object)",
+      "fingerprint": "a66684bcc2b6f3605a416691e20945fb60e2336477d0b4f4aeaffa6eb5a70e20",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Publication",
+      "fingerprint": "494ba2acabcda9b44377a64de390b9999231773458c3f4e75a03664b716ffa46",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Published prefix",
+      "fingerprint": "141691552246cef359107a11d851aa702ce908166605976b88b846ea4bdd44a2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Ragdoll part",
+      "fingerprint": "a3c32ccb671883cbd998094ce46c0c9c8ed99d87c14d5e79cb0eed4537fca4eb",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "RayT",
+      "fingerprint": "9015a6e9d311f384d80b2448f45248b86bfb02975b19469634609776d66e868a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Readback buffer",
+      "fingerprint": "0848200ccb14e3ce990500d6fe66e620bc32db7181340a12953c1b13dfbcb034",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Record version",
+      "fingerprint": "f8b6dcc2989623c427125fee2af474bf06138d82d01968b3fc3922fc1ed84ab5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Recording epoch",
+      "fingerprint": "c2660e0d6484cb1f7e9003fe9bcec4e80fe517856d4ac7f8cc59b1bd4e3e62bd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Render command context",
+      "fingerprint": "bad11a2db0cd5e0ed477bca896858cafa5e03fb5efad1e3178dfb87bf5e57bb3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Render diagnostics",
+      "fingerprint": "6a35c1947da4e08d9d46f69739efd3b164ada4af550a001d4a96acb92f64d138",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Render instance",
+      "fingerprint": "97cbcaad39496297c2a2712e98e08e5a5c3517690f8c9b3755bc6c9e541438b4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Render pass",
+      "fingerprint": "04be6c0333e02c20a8fa110242e0261e7efb14c2dc2e7ed14c9c1eb14e80406f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Render pose",
+      "fingerprint": "216b22073e51ded5ad60ed54f941b69c21d3141b1c54f635a3c9c5ac08c1bb79",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Replay probe",
+      "fingerprint": "ab4b9b6884832017a45d2bc8da3978bf335cc84bc300d55342a2e844d0f7e2f8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Replay ribbon",
+      "fingerprint": "19ea170f6902a32c234713007d8043365103323e0ca9884309d7e128e6b14cb6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Replay target marker",
+      "fingerprint": "a4cd7bf7b42b37cc9696636d0b7f575aa30c7a538d4710ad83fde36ab846be77",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Replay transfer",
+      "fingerprint": "d732af0a10cb3db473a4d681dbba99d1f329c671183686257e87446ddfaa5aa6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Replay visual sample",
+      "fingerprint": "9e57db8dc5b8519efc554420024b4ddaff41f39500db4667c4e40d52531f8676",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Request batch",
+      "fingerprint": "fb51825fdb9fb0ad89162c8072142536d4af98f7fc1a1dd0322fa70d921d4aaf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Required contact",
+      "fingerprint": "00905b1d50fe7bfa2eb8f8f18545b7db86362b8d0d107ab012ef3d64cb5c9ad2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Reset snapshot",
+      "fingerprint": "b740ce36d3f7c14adc7e9be569e4922e5a0b6c8fa0f95f77d83cba80ec041344",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Resource builder",
+      "fingerprint": "24603cf779ae4dd950b8c833daa5faa403e3875660c304300f3ece713ae18006",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Resource context",
+      "fingerprint": "286cf6dd0cd92e8dc70bc81397746ddefa9fdbd94ff3df9bbf1b4425df8ba32d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Resource state",
+      "fingerprint": "66588eda01b716b5e632bd5fd507b0cf78f85a1955f6c64fd52f8f6a049822cf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Restitution",
+      "fingerprint": "b204aa8e93465e6f5ac6b5513979ecaed331261a42e8dfc2d9e03aa08327cc48",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Retained draw stream",
+      "fingerprint": "4c6abec94c9de49b7703a149c154695b0949ce2750ae2434cfbb28575f6fdbe6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Retained ribbon chunk",
+      "fingerprint": "58b31e56ee6e7781f8a06d9be3023052154a14b129219be084f059160e268e3e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Retention window",
+      "fingerprint": "c34d6d7c8de6cd9855b1ab0e252975b291e30c1748dcd80609c41f5f68fe173a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Retirement quarantine",
+      "fingerprint": "062765223ab8599cec681d08c6de5a4e04126f5109f8eb746f6ddf615ea102b5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Reveal cursor",
+      "fingerprint": "8337890c8ec5d8c4ec721f34608ebf671ec1344692d7ac2d34ccc58f22273ec9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Ribbon",
+      "fingerprint": "f0ade37317be16f6ce64d73835714c132c1b3fa7c85b93549f93e70e4d3456ca",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Ring buffer",
+      "fingerprint": "ba0ac63de4b95d7c7acb48f550364d0bc146eb5d15e86f5cfd34b51603469ee8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Root signature",
+      "fingerprint": "d2fa945ad084980c2d89e52fa174d2210d5df1bad896e006f2109c6ff76469d8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "RTV (Render Target View)",
+      "fingerprint": "ce8bda055b01b55c42cbafa6fd40a9b93c7e9888b857b51ad994c7e8c90e8da1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Run-value directive",
+      "fingerprint": "69281accdad2a1716c471baefc005249e575e3d46fe29aa9085d090808b85640",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "RVIS",
+      "fingerprint": "42e46ef51518bda2ac008af8e0589b31230068b7bd335395064f85b4c18dee2e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "RVPD",
+      "fingerprint": "0f486d0a6a5b73af02dedadedef36ea17231d68af15ad5ac0772bfa9e358af7f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Save publication",
+      "fingerprint": "a796abae16641755f8947885880ebc17099508c7a4f8cabcd7af2729cc8ffdb2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "SBT (Shader Binding Table)",
+      "fingerprint": "edcf516dd325937ac50980a4ed8d210ee2cefe26153fe52ff3f3f568f977ffc8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scale lock",
+      "fingerprint": "fe41673b89f08a6368595a361450fe80e2e43dd53136fe2f413969ae7568d52d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene browser",
+      "fingerprint": "9be6b3c95f17ff8a89da721244f0f7efcee01ea22418a528b63d3ef32acddd01",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene capacity",
+      "fingerprint": "02f3f169e6fc39084eb15ea1f752e44b63d716cbd1f0e437152f27effc9b9521",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene entity",
+      "fingerprint": "ea58fbe3579c7cd9018a3f9cf518c3ad029f40a7dc6a0f075661439035a7b761",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene object group",
+      "fingerprint": "ae43faeaa1adecd7fc3f52278e979a91314388dee36311dd9d9d12a2ee7412cd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene object id",
+      "fingerprint": "8a3b01b3f6df36852f946050c34e6c435927484ff8137aebde108b39853e6558",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene queue",
+      "fingerprint": "157b724a1ae7de5dec992c14cc31967a00537f088801d49bb9dc38b6e00ec588",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene request",
+      "fingerprint": "630774926373cd1a6b9f2b337e819ee3b0cab0d175cf54a06e140d90d571168d",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene session",
+      "fingerprint": "5fabf025b52bed5ef8248c1b9a60f4b1c558625e4020de671401e9e8ce1e0992",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scene-object group",
+      "fingerprint": "b27f7f26ad47d17e5ebf67d002fe1fdb3c8b68c74f836a8a7144ae19b5c2f9d0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Schema domain",
+      "fingerprint": "2e8618ec2c54177017ee24df8806b97580fa56f5cd86892dc38f79a4b07f167a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Screenshot request",
+      "fingerprint": "ce7e3fbaf1331ddf8c1f043f3c3120376fce3ecd04e4431a42ac22fc9dc2cdb6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Scrubber",
+      "fingerprint": "87788fcffed70757b0b7454eedd20630465eb79f2083fe5f1bd50a2a2ed57601",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "SDF (Signed Distance Field)",
+      "fingerprint": "3c96243c9bedf67a8f7e63aaa6a968bb1945f7e96ba2e917b059d336f054a9e0",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "SEH (Structured Exception Handling)",
+      "fingerprint": "e4ff6451cce7b2b890e22c072c7a7aae0b6c4c9f4f755c29ff355481aa28e8b9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Semantic action",
+      "fingerprint": "67dd0ff315adf5230f5a6716234acefdbe8e2c0088fdaf240114c61ef0a99463",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Shader handle",
+      "fingerprint": "7f5182fd199cdeff85cbf9ec5f9fd3556d60d1736c378d5af56aa39e18b2248e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Shadow caster stream",
+      "fingerprint": "ed5e7cff1c917f01ec12c6c9686e5a6a34aae6d212f7070503761c9d0867b3d4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Shared editor view",
+      "fingerprint": "e577fc3b24d8c708e50c90fdf43b7fe66ef240fc6823f26be7d1dae176db6748",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "SkullScope",
+      "fingerprint": "eb375936b6cb7f13e0c0ef4b7b1c72636b1f525a382f0a6cffefff643be72330",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sky feature",
+      "fingerprint": "608d0880621516c3f1ff7fe2de2defdca718ce8211b577ad9c3d1c5b51b6b50e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sky slider",
+      "fingerprint": "b910442088120601005665d81f0b6f53775763a9557c21c32f3b27fae1893b7c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Slack",
+      "fingerprint": "c7c0b870f00c27947202ead383d552b6af9d979b113bc88450fedf709a69c74a",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sleep",
+      "fingerprint": "fb76d4047a185caa418151041a9cec9cbeea7dc3d523ff8dec31a9bca9d8579b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sleep island",
+      "fingerprint": "0cae52cfb943d95762ad884b82f15e30f8ad53aa18e212e94f03d69f387c1c4e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Snapshot",
+      "fingerprint": "bed79804b9e3705da83a8b3085cea41d95efb88789817fc9a49f4bea5e02fda5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Solver object",
+      "fingerprint": "296c92f5d72c79fba0d17911cea62a50432c11802245d49435b66799a85993d5",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Solver sample",
+      "fingerprint": "b1cba87d67071a8f087a49f74c1ad6ff790fa25c72ad73e230badbac9e085cce",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Solver snapshot",
+      "fingerprint": "bc9f650397176b81fe31ae222e33d63d1411a321cb46b46751940ef04d9f09e1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sphere cap",
+      "fingerprint": "78b788ef040f7184dda0f23b765574a5e66a227a80bca1d1ef968177d97ffbd9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "SRV (Shader Resource View)",
+      "fingerprint": "646e71da60823de4a7e791de5be743009bc246b465194ee05a688eaf185a8d39",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Step policy",
+      "fingerprint": "d2dff1f21a24e892ebf4fb25b35e2706afc255b1b1624484f05dc9aa92c41a05",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Sticky failure",
+      "fingerprint": "5ea8bebe598e6d2405c5d8818f040ff3d954cea0082261da5aab29753035c128",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Style scene",
+      "fingerprint": "339826a1491a3c2a0d9f782dba54813f4ac94d1de19caebc1a504115f1270f1c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Submission",
+      "fingerprint": "b70a191a42f806d73b9532b9f3fba814854ffcba6fd1446ad47a92e2d250bda1",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Submitted-frame mark",
+      "fingerprint": "1e403321c6c2aeba9929cd268c50517ef2d461dc6f8dd1be097f0c92eed5114e",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Support edge budget",
+      "fingerprint": "763d8440b4a845da346ee2aaabaf0e8752dc822dc4d8eaa38c5c8b2b8073ecbf",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Surface",
+      "fingerprint": "8e25240f3b95170c22e0b9ca967dbc2010923287ed19535db067051f53ce1019",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Swept overlay",
+      "fingerprint": "be5a81a81ca883406a2934c1f9a37cad3285597bcd3f6f194a54a329c2f00694",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Terrain sweep",
+      "fingerprint": "9113830442470a2d8a30784a80e3e7e66d9426aaaacbc8fad73211b090f1e66c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "TLAS (Top-Level Acceleration Structure)",
+      "fingerprint": "1704c8501c20acaa61c1f99db2029de9c79c06f2e93fff660a8366cc2a77b3f3",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Topology drift",
+      "fingerprint": "c5e054638893d570911392a74ac771d68aed2951f706e63817a79fc154ecc4b4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Trajectory lane",
+      "fingerprint": "d506ae06ac135f800fd36cb7033c4e78eaa8d845287f26e675050af3783b5a7f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Transport command",
+      "fingerprint": "42e47ac2d5c1259304397ea58ba148e53bbd94b36ea615e8aced01d2b1160a0f",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Tween",
+      "fingerprint": "849d5fd6827df19396ebb8e183a43144f04bc7a1904ac24b4869a9ca41a023c9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UAV (Unordered Access View)",
+      "fingerprint": "8b83bf5291146df454d5619e3bfa57f6a5e15d56cf9c16c3d1999fd267f30a84",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UI (User Interface)",
+      "fingerprint": "5dc88e25363a7c33fb8897e0b2e261c5e0ee279f421f7768ce8f2b146718dbf6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UI (user interface)",
+      "fingerprint": "bb0442d332c5b358d8001947e10e686ebf86cf88d5d9a86bcab48bf2ee2ddf37",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UI options",
+      "fingerprint": "0c6e357ce026e6fc275764a4392b9f13d6568e1002ec4ec550226ed47a3b77c7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UI override",
+      "fingerprint": "34dcaf3fb8a670bc71fbd251731b9ade760e81a2e16c9d0a06931928afbd4166",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UI stress",
+      "fingerprint": "7199e597265f36c680999c2086916082751175f4d3edb2a9e305fe119b9224ce",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UIRect",
+      "fingerprint": "dca41571f3c0a8d5ab09cd40687a764e875202b545c5a8d844fe55040335e6dd",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Underwater lock",
+      "fingerprint": "5b71a9d81a3efb7c2d015f2314f8a09269a820e8c93929c345c0fa2ea5a14834",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Underwater sleep lock",
+      "fingerprint": "85730b9b6d616d041896593e7edc1fe5faede3141abda61bf59ad567974122b7",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Uniform scale",
+      "fingerprint": "06e80a1855be3dd6f0ecd4a374593b5b324098bc276bd2edf1951b80d0f87799",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Upload arena",
+      "fingerprint": "1f4c5ad4b8b8dfe97447614ff6fdac066b012edbed61667ede06f0376325c3e9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Upload category",
+      "fingerprint": "c3a8f5e2bbd97bac2b7ae02256c4b4faae3bfd70143c89e140ec0de9a9be2f93",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "UV (Texture Coordinates)",
+      "fingerprint": "e685e293dd24d702f8a08165ba28479175d814afd188385b43e8fa61a1690e91",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Velocity drag preview",
+      "fingerprint": "253b96d4d049ad814cac7d60e9679b0f494c075cbb71d1f1747c5af9bb49532c",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Velocity edit",
+      "fingerprint": "f836d60749c5cae689f29748dd0ec383e356cbf542e3365dcfa24966307c51d6",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "View model",
+      "fingerprint": "40477bc063b6e0f26e9b89a47b2a3c88a832781170d4b94efaefb2a6c211c726",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Virtual key",
+      "fingerprint": "c6ff1beabb4f148d5005fb1481fa0c43ce052dd570458a615c283b85beb54204",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Visual-state hash",
+      "fingerprint": "daf7c672e3f31e72bd94d98454c41a48a3d7751bf8d82c9294ae3340845acf84",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Wake fan-out",
+      "fingerprint": "7fad705d0281538cd0cf3777c934d8d639e055378f7e67dc539bee480d30a5f8",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Warmup frame",
+      "fingerprint": "39128a6d88bd1696036e5cd0fba8c2ae407bb451aaa821e269ffae9a4f056d1b",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Widget view",
+      "fingerprint": "7f8e67ae1713666d90e7fb8b907d294b32e71bcf3eee0b2d6f82020a3ab181ee",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Win32",
+      "fingerprint": "4305036720cfdc013e054d940a47affa5a732d2ab11d31308079b13da49df1d4",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "WndProc",
+      "fingerprint": "8d2f2cf5fe63d87941f4ec2f290e44cf49ff9bbd487436ce74e43e8c70b2c7a2",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Worker pool",
+      "fingerprint": "13c95e9794c22c605e5686252c6f7f87463e188d828db717fae6092c1d8f66fa",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    },
+    {
+      "term": "Workspace",
+      "fingerprint": "b4b789b5e9fae81973be6309fc2c361e14727c396136cb9539c117e5345083b9",
+      "owner": "Engine glossary consolidation GC2",
+      "disposition": "repair-plan",
+      "reason": "GC0 classified this repeated definition as shared vocabulary; GC2 removes the source copies and replaces them with the canonical glossary citation.",
+      "evidence": "Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md",
+      "plan": "Agentic/Plans/TODO/engine-glossary-consolidation.md"
+    }
+  ]
+}

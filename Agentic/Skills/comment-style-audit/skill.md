@@ -41,19 +41,31 @@ only after it has been inspected against this skill and the guide.
 4. Ensure each header has:
    - `File`
    - `Purpose`
-   - `Summary`
-   - `Glossary`
+   - `Summary`, with ownership, a decision, or a flow the filename does not
+     already reveal
+   - `Glossary` when the file defines single-file local vocabulary
    - `Invariants` where behavior, lifetime, determinism, or GPU state matters
    - `Related` links where another file or reference doc helps
-5. Replace non-assumed acronym-only comments with concept comments.
-6. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
+5. Apply the glossary split rule:
+   - A term defined in exactly one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
+     `.hlsl` file stays in that file's `Glossary:` block.
+   - A term defined in more than one tracked source file belongs in
+     `Agentic/Reference/engine-glossary.md`; remove source copies and cite that
+     reference from each affected file's `Related:` block.
+   - Run `python tools/inventory_glossary_terms.py --repo . --strict` when the
+     pass changes glossary ownership. Every multi-file finding needs an exact
+     current ruling; a ruled row is migration evidence, not permission to keep
+     the copies indefinitely.
+   - Treat counts as current measurements, never thresholds or budgets.
+6. Replace non-assumed acronym-only comments with concept comments.
+7. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
    `Hazard:` comments.
-7. For any type that aggregates unrelated-owner data or orchestrates
+8. For any type that aggregates unrelated-owner data or orchestrates
    multi-owner sequencing, require a header `Invariant:` block that names the
    rule the type enforces and identify the focused test that exercises it.
    Absence of either artifact is an audit failure; a data-only aggregate that
    merely shortens a signature remains a banned bag.
-8. Verify behavioral claims in every touched file:
+9. Verify behavioral claims in every touched file:
    - Identify sentences that assert ownership, sequencing, or subsystem
      behavior and confirm each against the post-change source and call path.
    - Correct in the same commit every claim falsified by a responsibility move.
@@ -63,15 +75,15 @@ only after it has been inspected against this skill and the guide.
      audit found roughly 55 correct uses that describe runtime state.
    - Require repository-relative `Related:` entries to resolve. Cite permanent
      closure reports, never deletion-bound `Agentic/Plans/TODO/` paths.
-9. Keep comments close to the concept they explain.
-10. Preserve existing useful teaching comments. Do not rewrite good comments
+10. Keep comments close to the concept they explain.
+11. Preserve existing useful teaching comments. Do not rewrite good comments
    just to make them look new.
-11. Tick each checklist item only after the file was inspected. Leave deferred
+12. Tick each checklist item only after the file was inspected. Leave deferred
    files unchecked and record the reason beside the item.
-12. Rerun the scoped `git ls-files` inventory before reporting completion and
+13. Rerun the scoped `git ls-files` inventory before reporting completion and
     confirm every tracked source file in scope appears in the checklist exactly
     once.
-13. Confirm the diff is comment/documentation only before reporting completion.
+14. Confirm the diff is comment/documentation only before reporting completion.
 
 ## Why Claim Verification Exists
 
@@ -84,6 +96,11 @@ post-change source so ownership moves cannot create the same false finding.
 ## Checklist
 
 - No unexplained local, ambiguous, or behavior-sensitive acronyms in comments.
+- Every `Summary:` adds ownership, decision, or flow information beyond the
+  filename; tautological summaries fail the audit.
+- File glossaries contain only exact single-file terms. Multi-file definitions
+  live in `Agentic/Reference/engine-glossary.md`, source headers cite it from
+  `Related:`, and the strict glossary inventory has no unruled current finding.
 - Never add glossary entries that merely define assumed baseline technology
   names such as HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU,
   shader, texture, compiler, or linker.

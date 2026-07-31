@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Runs the inexpensive repository preflight and the primary doctest suite.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Fast validation checks source hygiene, project metadata, staged-file size,
 @rem   and current Profile/Debug build evidence before running the main unit-test
 @rem   executable. The broad gate reuses the preflight and lets the CPU umbrella
@@ -67,10 +67,10 @@ call "%~dp0validate_dependency_graph.bat"
 if errorlevel 1 exit /b 7
 
 echo [4/9] Checking ownership rulings...
-REM Why: the build-config, shape, wide-signature, and function-complexity
-REM inventories report current structure and fail on missing/stale owner
-REM judgements. Their triggers start qualitative review; none is a ceiling or
-REM count budget. Self-tests run first so a scanner regression is
+REM Why: the build-config, shape, signature, complexity, reachability, and
+REM glossary inventories report current structure and fail on missing/stale
+REM owner judgements. Their triggers start qualitative review; none is a
+REM ceiling or count budget. Self-tests run first so a scanner regression is
 REM distinguishable from a source finding.
 python "%~dp0check_build_config_consistency.py" --self-test
 if errorlevel 1 exit /b 8
@@ -84,6 +84,8 @@ python "%~dp0inventory_wide_signatures.py" --self-test
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_function_complexity.py" --self-test
 if errorlevel 1 exit /b 8
+python "%~dp0inventory_glossary_terms.py" --self-test
+if errorlevel 1 exit /b 8
 python "%~dp0inventory_authority_free_aggregates.py" --repo "%~dp0.." --strict
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_extraction_scars.py" --repo "%~dp0.."
@@ -91,6 +93,8 @@ if errorlevel 1 exit /b 8
 python "%~dp0inventory_wide_signatures.py" --repo "%~dp0.." --threshold 12 --format json --strict >nul
 if errorlevel 1 exit /b 8
 python "%~dp0inventory_function_complexity.py" --repo "%~dp0.." --strict
+if errorlevel 1 exit /b 8
+python "%~dp0inventory_glossary_terms.py" --repo "%~dp0.." --strict --format json >nul
 if errorlevel 1 exit /b 8
 python "%~dp0check_build_config_consistency.py" --repo "%~dp0.." --format json >nul
 if errorlevel 1 exit /b 8
