@@ -195,6 +195,9 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestLookLabGenerator.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -320,6 +323,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>

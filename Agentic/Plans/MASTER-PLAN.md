@@ -1398,7 +1398,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 ## Current Execution Priority
 
 **Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-0/7.** F10 rerolls presentation only and F11 writes one ignored root
+2/7.** F10 rerolls presentation only and F11 writes one ignored root
 `LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
@@ -3240,7 +3240,7 @@ diagnostics, and the shipping binary paid for years.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 1/7 | LL1 implements the pure SplitMix64 generator-v1 candidate and its complete deterministic seed matrix |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 2/7 | LL2 adds exact Scene-owned standalone style serialization and atomic writer coverage |
 | 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Look Lab Random Style Authoring (2026-08-01)
@@ -3275,6 +3275,17 @@ recipe families, the exact bundle/output grammar, and current idle/style-apply
 measurements. No production source, style, configuration, or baseline changed.
 The live ledger is therefore 1/14 (7%). Evidence is in
 `../Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`.
+
+LL1 completed on 2026-08-01. Runtime Direction now owns a pure versioned
+SplitMix64 generator, integer-quantized Oklab palette derivation, fourteen typed
+recipes, canonical padding-independent bytes, comprehensive validity checks,
+and three ordered broad material roles. A 4,096-seed matrix yields 4,096 unique
+fingerprints while covering all recipes and supported sky, terrain, object,
+water, and material branches; planted range, version, non-finite,
+incompatibility, black-frame, and shared-RNG controls are sensitive. Debug and
+Profile pin the same fingerprint. The live ledger is therefore 2/14 (14%).
+Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`.
 
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 

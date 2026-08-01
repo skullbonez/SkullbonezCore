@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: ACTIVE — 1/7 phases complete
+Status: ACTIVE — 2/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -175,14 +175,20 @@ these rules:
   grammar, and pre-change input/style behavior are locked in
   `../../Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`.
 
-- [ ] **LL1 — Build the pure deterministic candidate generator.** Introduce the
+- [x] **LL1 — Build the pure deterministic candidate generator.** Introduce the
   detached candidate and focused generator using one explicitly specified 64-bit
   algorithm whose output is compiler/configuration independent. Implement typed
   art-direction recipes, correlated palette derivation, bounded feature and
   scalar variation, and final validity checks. Same seed/version must produce
   identical candidate bytes; a fixed seed matrix must cover every recipe family
   and supported style/material branch; planted invalid-range, incompatible-mode,
-  black-frame, and cross-RNG controls must fail.
+  black-frame, and cross-RNG controls must fail. Complete: Runtime Direction now
+  owns the pure SplitMix64 generator-v1 candidate, Q12 Oklab palette derivation,
+  fourteen typed recipes, explicit canonical byte encoding, comprehensive
+  validity checks, and a 4,096-seed matrix covering every required recipe and
+  supported render branch. Debug and Profile pin the same candidate fingerprint;
+  evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`.
 
 - [ ] **LL2 — Add exact standalone style serialization.** Add the Scene-owned
   writer for a fully resolved schema-current `skullbonez.style.json` document.

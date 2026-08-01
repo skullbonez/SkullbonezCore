@@ -252,6 +252,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
@@ -825,6 +828,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h">
       <Filter>Header Files\Runtime\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
