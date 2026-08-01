@@ -812,6 +812,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\scenes\convex_hull_collision.scene.json" />
     <None Include="SkullbonezData\scenes\convex_hull_stacking.scene.json" />
     <None Include="SkullbonezData\scenes\convex_hull_stress_sleep.scene.json" />
+    <None Include="SkullbonezData\scenes\contact_energy_tower_64.scene.json" />
     <None Include="SkullbonezData\scenes\rolling_shadow_contact.scene.json" />
     <None Include="SkullbonezData\scenes\shadow_contact.scene.json" />
     <None Include="SkullbonezData\scenes\shadow_map_plain.scene.json" />

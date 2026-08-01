@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-01
-Status: ACTIVE — 2/7 phases complete
+Status: ACTIVE — 3/7 phases complete
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -164,7 +164,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   touched-source comment audit pass. Evidence is in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`.
 
-- [ ] **ES2 — Add the giant tower and 200-box semantic gate.** Commit a schema-
+- [x] **ES2 — Add the giant tower and 200-box semantic gate.** Commit a schema-
   current `contact_energy_tower_64.scene.json` containing a fixed foundation and
   64 centered wide slab boxes under unchanged production contact settings. Add
   one semantic checker and compact SkullScope questions for the tower, the
@@ -175,6 +175,13 @@ changes. An expected-output golden is not a substitute for these invariants.
   topple/settling without requiring a particular chaotic final pose. Record the
   current solver's expected failures before arming the corrected result as a
   mandatory gate.
+  Complete: the exact 64-level scene is tracked and runtime-admitted, and one
+  semantic checker owns the tower, four-brick, and wall energy/launch/support/
+  cache/sleep contracts through bounded SkullScope questions. Sensitive planted
+  controls are wired into deep Physics validation. The unchanged solver's exact
+  failure sets are recorded without changing capacity or behavior. Deep Physics,
+  fast validation, and the 2/2 comment audit pass. Evidence is in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
 
 - [ ] **ES3 — Correct fresh-impact versus persistent-contact restitution.** Use
   ES0 attribution to implement the smallest object-only policy that applies

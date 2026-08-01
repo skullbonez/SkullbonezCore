@@ -1,0 +1,1165 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 3,
+  "name": "Contact Energy Tower 64",
+  "cinematic": {},
+  "simulation": {
+    "seed": 20260802,
+    "physics": true,
+    "text": false,
+    "timeScale": 1.0,
+    "world": {
+      "gravity": -50.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "playback": {
+    "frames": 2400,
+    "fixedStep": true,
+    "exitOnComplete": true
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": -1000.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true,
+    "collisionVisualizer": false
+  },
+  "cameras": [
+    {
+      "name": "tower_overview",
+      "position": [
+        422.0,
+        204.8,
+        642.0
+      ],
+      "view": [
+        492.0,
+        188.16,
+        492.0
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "fovDegrees": 58.0
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "foundation",
+      "position": [
+        492.0,
+        0.0,
+        492.0
+      ],
+      "halfExtents": [
+        12.0,
+        2.9,
+        12.0
+      ],
+      "mass": 1000.0,
+      "restitution": 0.08,
+      "fixed": true
+    },
+    {
+      "type": "box",
+      "name": "slab_001",
+      "position": [
+        492.0,
+        5.88,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_002",
+      "position": [
+        492.0,
+        11.76,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_003",
+      "position": [
+        492.0,
+        17.64,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_004",
+      "position": [
+        492.0,
+        23.52,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_005",
+      "position": [
+        492.0,
+        29.4,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_006",
+      "position": [
+        492.0,
+        35.28,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_007",
+      "position": [
+        492.0,
+        41.16,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_008",
+      "position": [
+        492.0,
+        47.04,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_009",
+      "position": [
+        492.0,
+        52.92,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_010",
+      "position": [
+        492.0,
+        58.8,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_011",
+      "position": [
+        492.0,
+        64.68,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_012",
+      "position": [
+        492.0,
+        70.56,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_013",
+      "position": [
+        492.0,
+        76.44,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_014",
+      "position": [
+        492.0,
+        82.32,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_015",
+      "position": [
+        492.0,
+        88.2,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_016",
+      "position": [
+        492.0,
+        94.08,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_017",
+      "position": [
+        492.0,
+        99.96,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_018",
+      "position": [
+        492.0,
+        105.84,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_019",
+      "position": [
+        492.0,
+        111.72,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_020",
+      "position": [
+        492.0,
+        117.6,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_021",
+      "position": [
+        492.0,
+        123.48,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_022",
+      "position": [
+        492.0,
+        129.36,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_023",
+      "position": [
+        492.0,
+        135.24,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_024",
+      "position": [
+        492.0,
+        141.12,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_025",
+      "position": [
+        492.0,
+        147.0,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_026",
+      "position": [
+        492.0,
+        152.88,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_027",
+      "position": [
+        492.0,
+        158.76,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_028",
+      "position": [
+        492.0,
+        164.64,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_029",
+      "position": [
+        492.0,
+        170.52,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_030",
+      "position": [
+        492.0,
+        176.4,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_031",
+      "position": [
+        492.0,
+        182.28,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_032",
+      "position": [
+        492.0,
+        188.16,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_033",
+      "position": [
+        492.0,
+        194.04,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_034",
+      "position": [
+        492.0,
+        199.92,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_035",
+      "position": [
+        492.0,
+        205.8,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_036",
+      "position": [
+        492.0,
+        211.68,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_037",
+      "position": [
+        492.0,
+        217.56,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_038",
+      "position": [
+        492.0,
+        223.44,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_039",
+      "position": [
+        492.0,
+        229.32,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_040",
+      "position": [
+        492.0,
+        235.2,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_041",
+      "position": [
+        492.0,
+        241.08,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_042",
+      "position": [
+        492.0,
+        246.96,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_043",
+      "position": [
+        492.0,
+        252.84,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_044",
+      "position": [
+        492.0,
+        258.72,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_045",
+      "position": [
+        492.0,
+        264.6,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_046",
+      "position": [
+        492.0,
+        270.48,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_047",
+      "position": [
+        492.0,
+        276.36,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_048",
+      "position": [
+        492.0,
+        282.24,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_049",
+      "position": [
+        492.0,
+        288.12,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_050",
+      "position": [
+        492.0,
+        294.0,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_051",
+      "position": [
+        492.0,
+        299.88,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_052",
+      "position": [
+        492.0,
+        305.76,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_053",
+      "position": [
+        492.0,
+        311.64,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_054",
+      "position": [
+        492.0,
+        317.52,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_055",
+      "position": [
+        492.0,
+        323.4,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_056",
+      "position": [
+        492.0,
+        329.28,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_057",
+      "position": [
+        492.0,
+        335.16,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_058",
+      "position": [
+        492.0,
+        341.04,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_059",
+      "position": [
+        492.0,
+        346.92,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_060",
+      "position": [
+        492.0,
+        352.8,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_061",
+      "position": [
+        492.0,
+        358.68,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_062",
+      "position": [
+        492.0,
+        364.56,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_063",
+      "position": [
+        492.0,
+        370.44,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    },
+    {
+      "type": "box",
+      "name": "slab_064",
+      "position": [
+        492.0,
+        376.32,
+        492.0
+      ],
+      "halfExtents": [
+        10.0,
+        2.9,
+        10.0
+      ],
+      "mass": 30.0,
+      "restitution": 0.08,
+      "fixed": false
+    }
+  ]
+}

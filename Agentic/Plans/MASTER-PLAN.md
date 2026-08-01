@@ -1403,7 +1403,7 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 2/7.** Its
+**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 3/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
@@ -3241,7 +3241,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 2/7 | ES2 commits the giant tower and semantic gates, recording current failures before any production behavior change |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 3/7 | ES3 corrects fresh-impact versus persistent-contact restitution without changing terrain support or solver settings |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3390,6 +3390,17 @@ Baumgarte work. Oversized-impulse, stale-geometry, and over-restitution
 controls all fail the positive oracle. The complete fast gate and 3/3 source
 comment audit pass. The live ledger is therefore 9/14 (64%). Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`.
+
+ES2 completed on 2026-08-02 without changing production solver behavior or
+capacity. The exact 64-level tower is tracked and runtime-admitted, and one
+bounded semantic checker now owns the tower, four-brick, and 200-box energy,
+launch, penetration, cache, support, sleep, retention, and completeness gates.
+Its planted controls, project/filter check, hidden DX12 scene load,
+`validate_physics_deep`, `validate_fast`, and 2/2 source comment audit pass.
+The existing candidate-list ceiling remains unchanged because the current
+tower reaches it only after destabilization; increasing it would hide a solver
+symptom. The live ledger is therefore 10/14 (71%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
 
 ## Features
 
