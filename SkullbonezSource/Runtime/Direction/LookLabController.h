@@ -5,13 +5,15 @@ Purpose:
 
 Summary:
   LookLabController resolves one deterministic presentation candidate against
-  the active scene's non-randomizable geometry and quality values. App borrows
-  the resulting detached snapshot to SceneController. A save retains that exact
-  snapshot and receipt facts until Capture returns its post-render token.
+  the active scene's non-randomizable geometry, quality, and shadow-participation
+  values. App borrows the resulting detached snapshot to SceneController. A
+  save retains that exact snapshot and receipt facts until Capture returns its
+  post-render token.
 
 Glossary:
   Resolved candidate: Generator output after scene-scale, basin-mask, water,
-    and shadow-quality facts have been copied from the active presentation.
+    shadow-quality, and shadow-participation facts have been copied from the
+    active presentation.
   Look Lab status: Fixed-capacity facts describing the latest owner transition;
     UI consumers borrow a detached value and never gain candidate authority.
   Save transaction: One style/receipt publication plus a token-matched Capture
@@ -19,11 +21,14 @@ Glossary:
 
 Invariants:
   - Only the private Look Lab generator stream chooses randomized values.
-  - Scene-coordinate basin values and resource-quality shadow values are copied
-    exactly from the active presentation before publication.
+  - Scene-coordinate basin values, resource-quality shadow values, and
+    cast/receive participation policy are copied exactly from the active
+    presentation before publication.
   - A scene clear discards the candidate so it cannot cross scene lifetimes.
   - Reroll and another save are rejected while one screenshot is pending.
-  - The owner retains no Scene, UI, renderer, filesystem, or Capture pointer.
+  - The owner retains no Scene, UI, renderer, Capture, or live filesystem-state
+    pointer; its one process-lifetime publication port exposes only the cohesive
+    three-step bundle transaction.
 
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabController.cpp
@@ -92,6 +97,23 @@ struct LookLabSaveStartResult
     std::array<char, 512> screenshotPath = {};
 };
 
+// Publication port: the controller owns transaction state while this cohesive
+// dependency owns directory/style/receipt filesystem effects. Tests substitute
+// it to prove failure transitions without timing-sensitive filesystem races.
+class LookLabBundlePublication
+{
+  public:
+    virtual ~LookLabBundlePublication() = default;
+    virtual Core::SbResult CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const LookLabSaveRequest& request,
+                                                  uint64_t seed, LookLabBundlePaths& output ) = 0;
+    virtual Core::SbResult SaveStyleAtomic( Core::SbDiagnosticStore& diagnostics,
+                                            const Scene::StandaloneStyleSnapshot& snapshot,
+                                            const LookLabBundlePaths& paths ) = 0;
+    virtual Core::SbResult SaveReceiptAtomic( Core::SbDiagnosticStore& diagnostics, const LookLabReceiptFacts& facts,
+                                              const Scene::StandaloneStyleSnapshot& snapshot,
+                                              const LookLabBundlePaths& paths ) = 0;
+};
+
 // Produces the exact detached value consumed by live application and later
 // bundle serialization. This seam is public so deterministic tests can prove
 // the retained-value boundary without constructing a renderer or window.
@@ -103,6 +125,8 @@ Scene::StandaloneStyleSnapshot BuildLookLabStyleSnapshot( const LookLabCandidate
 class LookLabController
 {
   public:
+    LookLabController();
+    explicit LookLabController( LookLabBundlePublication& publication );
 
     // Replaces the current candidate only when scene resolution and final
     // validation both succeed; rejection preserves the prior candidate.
@@ -151,6 +175,10 @@ class LookLabController
     // metadata belongs beside it in this owner rather than in an input context.
     std::optional<LookLabCandidate> m_candidate;
     std::optional<PendingSave> m_pendingSave;
+
+    // Lifetime: production binds the process-lifetime filesystem publisher;
+    // focused tests must keep their injected publisher alive with the controller.
+    LookLabBundlePublication* m_publication = nullptr;
     LookLabStatusView m_status;
     uint64_t m_authoringSequence = 0;
     uint64_t m_nextSaveToken = 1;

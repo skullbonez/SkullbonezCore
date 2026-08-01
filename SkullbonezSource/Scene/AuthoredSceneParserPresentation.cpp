@@ -563,6 +563,25 @@ void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std
 {
     SkullbonezCore::Core::CinematicRenderConfig& c = m_scene.m_sceneOptions.cinematicRender;
 
+    if ( const Json* shadowParticipation = FindMember( cinematic, "shadowParticipation" ) )
+    {
+        RequireArray( *shadowParticipation, path, "cinematic.shadowParticipation" );
+
+        if ( shadowParticipation->size() != 4 )
+        {
+            Fail( path, "cinematic.shadowParticipation must contain exactly 4 booleans" );
+        }
+
+        // Invariant: shadow participation is one grouped override. Parsing all
+        // four atoms before publishing its bit prevents omitted members from
+        // silently borrowing process defaults during standalone-style reload.
+        c.shadow.terrainCasts = ReadBool( ( *shadowParticipation )[0], path, "cinematic.shadowParticipation[0]" );
+        c.shadow.objectsCast = ReadBool( ( *shadowParticipation )[1], path, "cinematic.shadowParticipation[1]" );
+        c.shadow.terrainReceives = ReadBool( ( *shadowParticipation )[2], path, "cinematic.shadowParticipation[2]" );
+        c.shadow.objectsReceive = ReadBool( ( *shadowParticipation )[3], path, "cinematic.shadowParticipation[3]" );
+        m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_SHADOW_PARTICIPATION;
+    }
+
     if ( const Json* styleModes = FindMember( cinematic, "styleModes" ) )
     {
         RequireArray( *styleModes, path, "cinematic.styleModes" );

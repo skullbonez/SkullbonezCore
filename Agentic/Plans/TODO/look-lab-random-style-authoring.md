@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: ACTIVE — 6/7 phases complete
+Status: COMPLETE — 7/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -169,7 +169,8 @@ these rules:
   effects, randomize/derive/retain/exclude ruling, and reason. Measure idle input
   and style-apply behavior before implementation. Lock the recipe families,
   coupled safety constraints, generator version, filename grammar, and exact
-  output field set before production edits. Complete: the 80 cinematic atoms,
+  output field set before production edits. Corrected during LL6 closure: the 84
+  cinematic atoms,
   14 material kinds, targeting rules, 23-style catalog, current merge/reset and
   capture flow, SplitMix64 generator-v1 contract, 14 recipes, exact output
   grammar, and pre-change input/style behavior are locked in
@@ -255,7 +256,7 @@ these rules:
   passes and guarded idle runs exit cleanly; evidence is in
   `../../Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`.
 
-- [ ] **LL6 — Perform visible validation and close.** In one waited interactive
+- [x] **LL6 — Perform visible validation and close.** In one waited interactive
   DX12 session, demonstrate repeated visibly distinct F10 looks and save a chosen
   F11 bundle. Inspect the complete JSON, text receipt, and PNG, reload the style
   in a fresh run, and compare the reapplied image/state. Run focused tests,
@@ -268,6 +269,11 @@ these rules:
   and obtain an independent read-only review of ownership, randomness,
   serialization, bundle/receipt failure atomicity, capture timing, input
   conflicts, idle cost, and test sensitivity.
+  Complete: three visibly distinct scheduled F10 looks, one exact F11 bundle,
+  byte-identical fresh-process reapplication, exhaustive Debug/Profile coverage,
+  all ownership inventories and required gates, a 14/14 touched-source comment
+  audit, and final independent CLEAN review are recorded in
+  `../../Reports/2026-08-02/look-lab-random-style-authoring-closure.md`.
 
 ## Dependencies And Decisions
 

@@ -229,10 +229,30 @@ Color3 OklabToLinearRgb( OklabQ12 color )
              static_cast<float>( blue ) / Q12_ONE };
 }
 
+int Q12RangeValue( int minimum, int maximum, SplitMix64& rng )
+{
+    return minimum + static_cast<int>( ( static_cast<int64_t>( maximum - minimum ) * rng.NextQ12() ) >> 12 );
+}
+
+float Q12ToFloat( int value )
+{
+    return static_cast<float>( value ) / Q12_ONE;
+}
+
 float Q12Range( int minimum, int maximum, SplitMix64& rng )
 {
-    const int value = minimum + static_cast<int>( ( static_cast<int64_t>( maximum - minimum ) * rng.NextQ12() ) >> 12 );
-    return static_cast<float>( value ) / Q12_ONE;
+    return Q12ToFloat( Q12RangeValue( minimum, maximum, rng ) );
+}
+
+int MinimumFogSpanQ12( int fogStartQ12 )
+{
+
+    // Why: integer ceiling preserves the 15-percent publication boundary on
+    // the Q12 grid without compiler-dependent float multiply/rounding.
+    constexpr int PERCENT_DENOMINATOR = 100;
+    constexpr int MINIMUM_PERCENT = 15;
+    const int percentage = static_cast<int>( ( static_cast<int64_t>( fogStartQ12 ) * MINIMUM_PERCENT + PERCENT_DENOMINATOR - 1 ) / PERCENT_DENOMINATOR );
+    return std::max( 32 * Q12_ONE, percentage );
 }
 
 float Luminance( float r, float g, float b )
@@ -314,9 +334,10 @@ void AppendFloat( std::vector<uint8_t>& bytes, float value )
 void AppendCinematic( std::vector<uint8_t>& bytes, const Core::CinematicRenderConfig& c )
 {
 
-    // Invariant: this is the LL0 80-atom field order, not an in-memory dump.
-    // Insertions belong in a new generator version because changing this order
-    // invalidates fingerprints and later reproducibility receipts.
+    // Invariant: this is the LL6-corrected 84-atom prerelease version-1 field
+    // order, not an in-memory dump. After LL6 closure, insertions belong in a
+    // new generator version because changing this order invalidates
+    // fingerprints and later reproducibility receipts.
     const bool toggles[] = { c.enabled,        c.skyAtmosphereEnabled,      c.cloudsEnabled,
                              c.godRaysEnabled, c.volumetricLightingEnabled, c.bloomEnabled,
                              c.fogEnabled,     c.terrainReliefEnabled };
@@ -349,6 +370,10 @@ void AppendCinematic( std::vector<uint8_t>& bytes, const Core::CinematicRenderCo
     }
 
     bytes.push_back( c.shadow.enabled ? 1u : 0u );
+    bytes.push_back( c.shadow.terrainCasts ? 1u : 0u );
+    bytes.push_back( c.shadow.objectsCast ? 1u : 0u );
+    bytes.push_back( c.shadow.terrainReceives ? 1u : 0u );
+    bytes.push_back( c.shadow.objectsReceive ? 1u : 0u );
     AppendInteger( bytes, c.shadow.mapSize );
     AppendInteger( bytes, c.shadow.pcfRadius );
     AppendFloat( bytes, c.shadow.strength );
@@ -463,15 +488,15 @@ LookLabCandidate GenerateLookLabCandidate( uint64_t seed, uint32_t generatorVers
     c.shadow.strength = c.shadow.enabled ? Q12Range( 820, 4096, rng ) : 0.0f;
     c.shadow.softness = Q12Range( 2048, 10240, rng );
     AssignColor( c.fogColorR, c.fogColorG, c.fogColorB, fog );
-    c.fogStart = Q12Range( 983040, 3686400, rng );
-    c.fogEnd = c.fogStart + Q12Range( 524288, 4915200, rng );
+    const int fogStartQ12 = Q12RangeValue( 983040, 3686400, rng );
+    const int fogSpanQ12 = Q12RangeValue( 524288, 4915200, rng );
+    c.fogStart = Q12ToFloat( fogStartQ12 );
+    c.fogEnd = Q12ToFloat( fogStartQ12 + std::max( fogSpanQ12, MinimumFogSpanQ12( fogStartQ12 ) ) );
 
     // Invariant: a generated candidate must pass the same fog-separation rule
     // used at publication. Preserve the version-1 draw schedule and every
     // already-valid byte; only previously rejected high-start/short-span seeds
     // are lifted to the exact validator boundary.
-    const float minimumFogEnd = c.fogStart + std::max( 32.0f, 0.15f * c.fogStart );
-    c.fogEnd = std::max( c.fogEnd, minimumFogEnd );
     c.fogDensity = c.fogEnabled ? Q12Range( 1, 49, rng ) : 0.0f;
     c.fogMaxOpacity = c.fogEnabled ? Q12Range( 410, 3359, rng ) : 0.0f;
     c.styleSaturation = Q12Range( recipe.highKey ? 2867 : 2253, 7578, rng );
@@ -600,7 +625,9 @@ LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidat
          !inRange( c.basinDepth, 0.0f, 96.0f ) || !inRange( c.basinRimLift, 0.0f, 96.0f ) ||
          !inRange( c.shadow.strength, 0.0f, 1.0f ) || !inRange( c.shadow.softness, 0.5f, 2.5f ) ||
          !colorInRange( c.fogColorR, c.fogColorG, c.fogColorB, 2.2f ) || !inRange( c.fogDensity, 0.0f, 0.012f ) ||
-         !inRange( c.fogMaxOpacity, 0.0f, 0.82f ) || c.fogEnd < c.fogStart + std::max( 32.0f, 0.15f * c.fogStart ) ||
+         !inRange( c.fogStart, 0.0f, 10000.0f ) || !inRange( c.fogEnd, 0.0f, 20000.0f ) ||
+         !inRange( c.fogMaxOpacity, 0.0f, 0.82f ) ||
+         c.fogEnd < c.fogStart + Q12ToFloat( MinimumFogSpanQ12( static_cast<int>( c.fogStart * Q12_ONE ) ) ) ||
          !inRange( c.styleSaturation, 0.55f, 1.85f ) || !inRange( c.styleContrast, 0.70f, 1.75f ) ||
          !inRange( c.styleVignette, 0.0f, 0.62f ) || !colorInRange( c.terrainTintR, c.terrainTintG, c.terrainTintB, 2.2f ) ||
          !colorInRange( c.terrainAccentR, c.terrainAccentG, c.terrainAccentB, 2.2f ) ||
@@ -616,9 +643,14 @@ LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidat
     if ( c.shadow.mapSize != retainedDefaults.shadow.mapSize || c.shadow.pcfRadius != retainedDefaults.shadow.pcfRadius ||
          c.shadow.depthBias != retainedDefaults.shadow.depthBias ||
          c.shadow.slopeBias != retainedDefaults.shadow.slopeBias ||
-         c.shadow.maxDistance != retainedDefaults.shadow.maxDistance || c.basinCenterX != retainedDefaults.basinCenterX ||
-         c.basinCenterZ != retainedDefaults.basinCenterZ || c.basinRadiusX != retainedDefaults.basinRadiusX ||
-         c.basinRadiusZ != retainedDefaults.basinRadiusZ || c.basinFeather != retainedDefaults.basinFeather )
+         c.shadow.maxDistance != retainedDefaults.shadow.maxDistance ||
+         c.shadow.terrainCasts != retainedDefaults.shadow.terrainCasts ||
+         c.shadow.objectsCast != retainedDefaults.shadow.objectsCast ||
+         c.shadow.terrainReceives != retainedDefaults.shadow.terrainReceives ||
+         c.shadow.objectsReceive != retainedDefaults.shadow.objectsReceive ||
+         c.basinCenterX != retainedDefaults.basinCenterX || c.basinCenterZ != retainedDefaults.basinCenterZ ||
+         c.basinRadiusX != retainedDefaults.basinRadiusX || c.basinRadiusZ != retainedDefaults.basinRadiusZ ||
+         c.basinFeather != retainedDefaults.basinFeather )
     {
         return LookLabCandidateIssue::ValueOutOfRange;
     }

@@ -50,6 +50,7 @@ struct LookLabLargeCensus
     uint64_t streamHash = 14695981039346656037ull;
     std::size_t uniqueFingerprints = 0;
     uint32_t invalidCount = 0;
+    uint32_t offQ12GridCount = 0;
     int paletteMinimumQ1e6 = INT_MAX;
     int paletteMaximumQ1e6 = INT_MIN;
     int luminanceMinimumQ1e6 = INT_MAX;
@@ -78,6 +79,62 @@ void MixFingerprint( uint64_t& hash, uint64_t fingerprint )
     }
 }
 
+bool IsCanonicalQ12( float value )
+{
+    return std::isfinite( value ) && value * 4096.0f == std::trunc( value * 4096.0f );
+}
+
+bool GeneratedFloatsUseCanonicalQ12( const Runtime::LookLabCandidate& candidate )
+{
+    const Core::CinematicRenderConfig& c = candidate.cinematic;
+    const float cinematicValues[] = {
+        c.exposure,                c.gamma,                   c.sunAzimuth,
+        c.sunElevation,            c.sunColorR,               c.sunColorG,
+        c.sunColorB,               c.sunIntensity,            c.skyHorizonR,
+        c.skyHorizonG,             c.skyHorizonB,             c.skyZenithR,
+        c.skyZenithG,              c.skyZenithB,              c.skyGlowStrength,
+        c.cloudCoverage,           c.cloudSoftness,           c.cloudScale,
+        c.cloudIntensity,          c.sunShaftStrength,        c.sunShaftFalloff,
+        c.volumetricStrength,      c.volumetricDensity,       c.volumetricDecay,
+        c.bloomThreshold,          c.bloomKnee,               c.bloomStrength,
+        c.bloomRadius,             c.terrainRelief,           c.basinDepth,
+        c.basinRimLift,            c.shadow.strength,         c.shadow.softness,
+        c.fogColorR,               c.fogColorG,               c.fogColorB,
+        c.fogStart,                c.fogEnd,                  c.fogDensity,
+        c.fogMaxOpacity,           c.styleSaturation,         c.styleContrast,
+        c.styleVignette,           c.terrainTintR,            c.terrainTintG,
+        c.terrainTintB,            c.terrainAccentR,          c.terrainAccentG,
+        c.terrainAccentB,          c.terrainGridScale,        c.terrainGridStrength,
+        c.waterTintR,              c.waterTintG,              c.waterTintB,
+        c.waterAlpha,              c.waterReflectionStrength, c.waterGlintStrength,
+    };
+
+    if ( !std::all_of( std::begin( cinematicValues ), std::end( cinematicValues ), IsCanonicalQ12 ) )
+    {
+        return false;
+    }
+
+    for ( const Runtime::LookLabMaterialRule& rule : candidate.materialRules )
+    {
+        const Rendering::RenderMaterial& material = rule.material;
+        const float materialValues[] = { material.baseColor[0],     material.baseColor[1],
+                                         material.baseColor[2],     material.baseColor[3],
+                                         material.emissiveColor[0], material.emissiveColor[1],
+                                         material.emissiveColor[2], material.emissiveStrength,
+                                         material.roughness,        material.metallic,
+                                         material.specular,         material.transmission,
+                                         material.stylization,      material.textureMode,
+                                         material.contactFlashAlpha };
+
+        if ( !std::all_of( std::begin( materialValues ), std::end( materialValues ), IsCanonicalQ12 ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 LookLabLargeCensus BuildLookLabLargeCensus()
 {
     LookLabLargeCensus census;
@@ -88,6 +145,7 @@ LookLabLargeCensus BuildLookLabLargeCensus()
         const Runtime::LookLabCandidate candidate = Runtime::GenerateLookLabCandidate( seed );
         const Runtime::LookLabCandidateIssue issue = Runtime::ValidateLookLabCandidate( candidate );
         census.invalidCount += issue == Runtime::LookLabCandidateIssue::None ? 0u : 1u;
+        census.offQ12GridCount += GeneratedFloatsUseCanonicalQ12( candidate ) ? 0u : 1u;
 
         if ( issue != Runtime::LookLabCandidateIssue::None )
         {
@@ -171,7 +229,15 @@ TEST_CASE( "Look Lab generator is byte-exact for a seed and version" )
     CHECK( Runtime::ValidateLookLabCandidate( first ) == Runtime::LookLabCandidateIssue::None );
     CHECK( Runtime::EncodeLookLabCandidateCanonical( first ) == Runtime::EncodeLookLabCandidateCanonical( second ) );
     CHECK( Runtime::FingerprintLookLabCandidate( first ) == Runtime::FingerprintLookLabCandidate( second ) );
-    CHECK( Runtime::FingerprintLookLabCandidate( first ) == 0xc3b6fad6b7b4defaull );
+    CHECK( Runtime::FingerprintLookLabCandidate( first ) == 0x709160cd850d1846ull );
+    CHECK( GeneratedFloatsUseCanonicalQ12( first ) );
+}
+
+TEST_CASE( "Look Lab Q12 census detector catches an off-grid control" )
+{
+    Runtime::LookLabCandidate candidate = Runtime::GenerateLookLabCandidate( 17 );
+    candidate.cinematic.fogEnd += 0.0001f;
+    CHECK_FALSE( GeneratedFloatsUseCanonicalQ12( candidate ) );
 }
 
 TEST_CASE( "Look Lab fixed seed matrix covers every supported branch" )
@@ -223,7 +289,8 @@ TEST_CASE( "Look Lab large deterministic census has useful bounded breadth" )
     CHECK( first.invalidCount == 0 );
     CHECK( first.uniqueFingerprints == LARGE_CENSUS_SEED_COUNT );
     CHECK( first.streamHash == repeated.streamHash );
-    CHECK( first.streamHash == 0x3d8c96ba5b80788dull );
+    CHECK( first.streamHash == 0x3f5d4c4608cca5a2ull );
+    CHECK( first.offQ12GridCount == 0 );
     CHECK( first.recipes == repeated.recipes );
     CHECK( first.features == repeated.features );
     CHECK( std::all_of( first.recipes.begin(), first.recipes.end(), []( uint32_t count ) { return count > 4000; } ) );
@@ -298,6 +365,17 @@ TEST_CASE( "Look Lab validator rejects planted defects" )
     Runtime::LookLabCandidate invalidRange = valid;
     invalidRange.cinematic.exposure = 99.0f;
     CHECK( Runtime::ValidateLookLabCandidate( invalidRange ) == Runtime::LookLabCandidateIssue::ValueOutOfRange );
+
+    Runtime::LookLabCandidate hugeFiniteFog = valid;
+    hugeFiniteFog.cinematic.fogStart = 1.0e30f;
+    hugeFiniteFog.cinematic.fogEnd = 1.0e30f;
+    CHECK( Runtime::ValidateLookLabCandidate( hugeFiniteFog ) == Runtime::LookLabCandidateIssue::ValueOutOfRange );
+
+    Runtime::LookLabCandidate mutatedRetainedShadowPolicy = valid;
+    mutatedRetainedShadowPolicy.cinematic.shadow.terrainCasts =
+        !mutatedRetainedShadowPolicy.cinematic.shadow.terrainCasts;
+    CHECK( Runtime::ValidateLookLabCandidate( mutatedRetainedShadowPolicy ) ==
+           Runtime::LookLabCandidateIssue::ValueOutOfRange );
 
     Runtime::LookLabCandidate unsupportedVersion = valid;
     unsupportedVersion.generatorVersion = Runtime::LOOK_LAB_GENERATOR_VERSION + 1;

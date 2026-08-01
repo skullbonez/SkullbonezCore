@@ -1397,13 +1397,13 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-6/7.** F10 rerolls presentation only and F11 writes one ignored root
+**Look Lab Random Style Authoring (2026-08-01) is complete at 7/7.** F10
+rerolls presentation only and F11 writes one ignored root
 `LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is second at 0/7.** Its
+**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 0/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
@@ -3240,8 +3240,8 @@ diagnostics, and the shipping binary paid for years.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 6/7 | LL6 performs the waited visible DX12 proof, exhaustive gates, and independent closure review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 0/7 | ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3268,7 +3268,8 @@ Binding owner directions:
   reapplication, paired-save failure honesty, zero idle cost, visible DX12 proof,
   unchanged default baselines, comment audit, inventories, and independent review.
 
-LL0 completed on 2026-08-01. The current-source census locks all 80 cinematic
+LL0 completed on 2026-08-01. The LL6-corrected current-source census locks all
+84 cinematic
 atoms, 14 material kinds and their targeting surface, all 23 tracked schema-v1
 styles, the live merge/reset/capture path, SplitMix64 generator version 1, 14
 recipe families, the exact bundle/output grammar, and current idle/style-apply
@@ -3290,7 +3291,7 @@ Evidence is in
 LL2 completed on 2026-08-01. Scene now owns a fully resolved ordered schema-v1
 style snapshot/writer; Core owns flushed temporary-sibling replacement; and
 Runtime Direction owns exclusive timestamp/seed bundle naming plus derived
-atomic receipt revisions. The production parser reconstructs all eighty
+atomic receipt revisions. The production parser reconstructs all 84
 cinematic atoms and complete material rules byte-identically, Debug/Profile pin
 the same JSON fingerprint, collisions and invalid paths fail boundedly, and the
 root `/LookLab/` output is ignored. The live ledger is therefore 3/14 (21%).
@@ -3330,6 +3331,16 @@ polling from idle composition, four matching-condition input means remain below
 LL0, guarded runs exit cleanly, and fast/full validation passes. The live ledger
 is therefore 6/14 (42%). Evidence is in
 `../Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`.
+
+LL6 completed on 2026-08-02. Three waited scheduled F10 actions produced visibly
+distinct DX12 captures, and the chosen F11 style reloaded in a fresh Automation
+process to the byte-identical image. The corrected schema and application path
+preserve all 84 cinematic atoms, including four explicit shadow-participation
+values, plus complete material rules. Debug/Profile focused matrices, all seven
+inventories, the 14/14 comment audit, every required validation gate, and the
+independent source/evidence/allocation review are clean. No baseline changed.
+The live ledger is therefore 7/14 (50%). Evidence is in
+`../Reports/2026-08-02/look-lab-random-style-authoring-closure.md`.
 
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 

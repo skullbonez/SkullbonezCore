@@ -12,8 +12,9 @@ Summary:
 Glossary:
   Scene scale: Shadow coverage distance used to proportion generator-v1 fog
     distances without borrowing physics or scene topology.
-  Quality carry: Exact copy of shadow allocation/filter/bias fields that a
-    live presentation reroll is forbidden to change.
+  Shadow policy carry: Exact copy of shadow allocation/filter/bias and
+    cast/receive participation fields that a live presentation reroll is
+    forbidden to change.
   Pending bundle: Style and first receipt are durable, while look.png still
     awaits the post-render Capture owner.
 
@@ -48,6 +49,36 @@ namespace
 {
 constexpr float GENERATOR_FOG_REFERENCE_DISTANCE = 1500.0f;
 constexpr const char* OWNER = "Runtime/Direction/LookLabController";
+
+class FilesystemLookLabBundlePublication final : public LookLabBundlePublication
+{
+  public:
+    Core::SbResult CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const LookLabSaveRequest& request,
+                                          uint64_t seed, LookLabBundlePaths& output ) override
+    {
+        return LookLabBundleWriter::CreateBundleDirectory( diagnostics, request.lookLabRoot, request.localTimestamp, seed,
+                                                           output );
+    }
+
+    Core::SbResult SaveStyleAtomic( Core::SbDiagnosticStore& diagnostics, const Scene::StandaloneStyleSnapshot& snapshot,
+                                    const LookLabBundlePaths& paths ) override
+    {
+        return Scene::StandaloneStyleWriter::SaveAtomic( diagnostics, snapshot, paths.style.data() );
+    }
+
+    Core::SbResult SaveReceiptAtomic( Core::SbDiagnosticStore& diagnostics, const LookLabReceiptFacts& facts,
+                                      const Scene::StandaloneStyleSnapshot& snapshot,
+                                      const LookLabBundlePaths& paths ) override
+    {
+        return LookLabBundleWriter::SaveReceiptAtomic( diagnostics, facts, snapshot, paths );
+    }
+};
+
+LookLabBundlePublication& DefaultBundlePublication()
+{
+    static FilesystemLookLabBundlePublication publication;
+    return publication;
+}
 
 template <std::size_t Capacity> void CopyBounded( std::array<char, Capacity>& output, const char* value )
 {
@@ -105,6 +136,14 @@ void ResolveRetainedPresentationValues( LookLabCandidate& candidate, const Core:
     resolved.shadow.maxDistance = activePresentation.shadow.maxDistance;
 }
 } // namespace
+
+LookLabController::LookLabController() : m_publication( &DefaultBundlePublication() )
+{
+}
+
+LookLabController::LookLabController( LookLabBundlePublication& publication ) : m_publication( &publication )
+{
+}
 
 LookLabCandidate ResolveLookLabCandidateForScene( uint64_t seed, const Core::CinematicRenderConfig& activePresentation )
 {
@@ -283,9 +322,8 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
     CopyBounded( pending.facts.sourceScenePath, request.sourceScenePath );
     CopyBounded( pending.facts.sourceSceneDisplayName, request.sourceSceneDisplayName );
 
-    Core::SbResult directoryResult = LookLabBundleWriter::CreateBundleDirectory( diagnostics, request.lookLabRoot,
-                                                                                 request.localTimestamp, m_candidate->seed,
-                                                                                 pending.paths );
+    Core::SbResult directoryResult = m_publication->CreateBundleDirectory( diagnostics, request, m_candidate->seed,
+                                                                           pending.paths );
 
     if ( !directoryResult.Ok() )
     {
@@ -295,8 +333,7 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
     }
 
     PublishBundlePath( pending.paths.directory.data() );
-    Core::SbResult styleResult = Scene::StandaloneStyleWriter::SaveAtomic( diagnostics, pending.snapshot,
-                                                                           pending.paths.style.data() );
+    Core::SbResult styleResult = m_publication->SaveStyleAtomic( diagnostics, pending.snapshot, pending.paths );
 
     if ( !styleResult.Ok() )
     {
@@ -304,8 +341,8 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
         pending.facts.screenshotStatus = LookLabArtifactStatus::Cancelled;
         CopyBounded( pending.facts.styleDiagnostic, styleResult.ErrorMessage() );
         CopyBounded( pending.facts.screenshotDiagnostic, "capture not requested because style publication failed" );
-        const Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts,
-                                                                                     pending.snapshot, pending.paths );
+        const Core::SbResult receiptResult = m_publication->SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                               pending.paths );
 
         PublishStatus( LookLabStatusKind::BundlePartialFailure,
                        receiptResult.Ok() ? styleResult.ErrorMessage() : receiptResult.ErrorMessage() );
@@ -316,8 +353,8 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
 
     pending.facts.styleStatus = LookLabArtifactStatus::Saved;
     pending.facts.screenshotStatus = LookLabArtifactStatus::Pending;
-    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
-                                                                           pending.paths );
+    Core::SbResult receiptResult = m_publication->SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                     pending.paths );
 
     if ( !receiptResult.Ok() )
     {
@@ -359,8 +396,8 @@ Core::SbResult LookLabController::CompleteSaveCapture( Core::SbDiagnosticStore& 
         CopyBounded( pending.facts.screenshotDiagnostic, captureResult.ErrorMessage() );
     }
 
-    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
-                                                                           pending.paths );
+    Core::SbResult receiptResult = m_publication->SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                     pending.paths );
 
     if ( !receiptResult.Ok() )
     {
@@ -386,8 +423,8 @@ Core::SbResult LookLabController::CancelPendingSave( Core::SbDiagnosticStore& di
     m_pendingSave.reset();
     pending.facts.screenshotStatus = LookLabArtifactStatus::Cancelled;
     CopyBounded( pending.facts.screenshotDiagnostic, reason ? reason : "Look Lab save cancelled" );
-    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
-                                                                           pending.paths );
+    Core::SbResult receiptResult = m_publication->SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                     pending.paths );
 
     PublishStatus( receiptResult.Ok() ? LookLabStatusKind::BundleCancelled : LookLabStatusKind::BundlePartialFailure,
                    receiptResult.Ok() ? pending.facts.screenshotDiagnostic.data() : receiptResult.ErrorMessage() );

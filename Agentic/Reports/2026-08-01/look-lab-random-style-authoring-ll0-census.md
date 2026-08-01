@@ -13,9 +13,9 @@ presentation values, preserve scene- and resource-quality values, apply through
 `SceneController::ApplyLiveStyle`, and save the exact applied value rather than
 reconstructing it from recipe defaults.
 
-The current source exposes 80 atomic `CinematicRenderConfig` values: 8 top-level
-booleans, 64 top-level numeric/mode values, and 8 nested shadow values. They map
-to 62 live override bits plus one reserved bit. The standalone material surface
+The LL6-corrected current source exposes 84 atomic `CinematicRenderConfig`
+values: 8 top-level booleans, 64 top-level numeric/mode values, and 12 nested
+shadow values. They map to 63 live override bits. The standalone material surface
 adds 14 material kinds, six target forms, and eleven optional material payload
 fields. All 23 tracked `*.style.json` files parse as schema v1.
 
@@ -93,6 +93,7 @@ palette/light facts rather than drawing it independently.
 | `waterAlpha`, `waterReflectionStrength`, `waterGlintStrength` | numeric vec3 | Water blend, reflection mix, and sun glint. | Derived: alpha 0.25..1, reflection 0..1, glint 0..2.5. |
 | `basinCenterX/Z`, `basinRadiusX/Z`, `basinFeather` | numeric vec5 | World-space water/terrain basin mask. Radius is clamped to at least 1 in shader. | Retain exactly. These are scene-coordinate presentation geometry, not art-direction randomness. |
 | `shadow.enabled` (`shadows`) | bool | Shadow pass visibility; existing resources remain owned by renderer. | Randomized/derived only for recipes; disabling shadows must preserve readable grounding by palette/ambient contrast. |
+| `shadow.terrainCasts`, `shadow.objectsCast`, `shadow.terrainReceives`, `shadow.objectsReceive` | bool each | Controls cast/receive participation for terrain and object geometry. | Retain exactly from the active presentation and serialize as one four-atom grouped override. |
 | `shadow.mapSize` | 256..8192 | Allocates/resizes shadow-map resources. | Retain exactly: resource-quality policy. |
 | `shadow.pcfRadius` | 0..3 | Shadow filter work/quality. | Retain exactly: resource-quality policy. |
 | `shadow.strength` | 0..1 | Shadow visibility multiplier. | Derived 0.2..1.0. |
@@ -200,7 +201,7 @@ rendering, and any mutation outside the detached presentation value.
    `basinMask`, and all shadow fields in parser-table order; and
 3. `objectMaterials` in the generator’s stable role order.
 
-Every one of the 80 atomic cinematic values is written, including retained
+Every one of the 84 atomic cinematic values is written, including retained
 quality and basin-mask values, so reload cannot inherit a changed default.
 `objectMaterials` carries the full resolved payload described above. JSON uses
 locale-independent shortest round-trip decimal formatting and `\n` line endings.

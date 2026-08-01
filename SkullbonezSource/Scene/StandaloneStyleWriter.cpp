@@ -4,7 +4,7 @@ Purpose:
   Serializes complete detached presentation values as schema-v1 style JSON.
 
 Summary:
-  One ordered document builder writes all eighty cinematic atoms and every
+  One ordered document builder writes the complete cinematic value and every
   material field using the parser's established vocabulary. JSON output and
   the receipt listing are projections of that same document.
 
@@ -323,6 +323,7 @@ Json BuildDocument( const StandaloneStyleSnapshot& snapshot )
     cinematic["shadowDepthBias"] = c.shadow.depthBias;
     cinematic["shadowSlopeBias"] = c.shadow.slopeBias;
     cinematic["shadowMaxDistance"] = c.shadow.maxDistance;
+    cinematic["shadowParticipation"] = Json::array( { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
     root["cinematic"] = std::move( cinematic );
     root["objectMaterials"] = Json::array();
 

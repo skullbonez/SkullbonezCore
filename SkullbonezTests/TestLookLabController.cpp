@@ -27,6 +27,7 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Direction/LookLabController.h"
+#include "../SkullbonezSource/Runtime/Automation/InteractionAutomationController.h"
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Scene/StandaloneStyleWriter.h"
 
@@ -66,6 +67,63 @@ std::string ReadText( const std::filesystem::path& path )
 {
     std::ifstream input( path, std::ios::binary );
     return std::string( std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() );
+}
+
+class FailingLookLabPublication final : public Runtime::LookLabBundlePublication
+{
+  public:
+    bool failStyle = false;
+    int failReceiptCall = 0;
+    int receiptCalls = 0;
+
+    Core::SbResult CreateBundleDirectory( Core::SbDiagnosticStore&, const Runtime::LookLabSaveRequest&, uint64_t,
+                                          Runtime::LookLabBundlePaths& output ) override
+    {
+        strcpy_s( output.directory.data(), output.directory.size(), "TestOutput/injected_look_lab_bundle" );
+        strcpy_s( output.style.data(), output.style.size(), "TestOutput/injected_look_lab_bundle/look.style.json" );
+        strcpy_s( output.receipt.data(), output.receipt.size(), "TestOutput/injected_look_lab_bundle/look.txt" );
+        strcpy_s( output.screenshot.data(), output.screenshot.size(), "TestOutput/injected_look_lab_bundle/look.png" );
+        return Core::SbResult::Success();
+    }
+
+    Core::SbResult SaveStyleAtomic( Core::SbDiagnosticStore& diagnostics, const Scene::StandaloneStyleSnapshot&,
+                                    const Runtime::LookLabBundlePaths& ) override
+    {
+        return failStyle ? diagnostics.Failure( "Test/LookLabPublication", "injected style failure" )
+                         : Core::SbResult::Success();
+    }
+
+    Core::SbResult SaveReceiptAtomic( Core::SbDiagnosticStore& diagnostics, const Runtime::LookLabReceiptFacts&,
+                                      const Scene::StandaloneStyleSnapshot&,
+                                      const Runtime::LookLabBundlePaths& ) override
+    {
+        ++receiptCalls;
+        return receiptCalls == failReceiptCall
+                   ? diagnostics.Failure( "Test/LookLabPublication", "injected receipt failure" )
+                   : Core::SbResult::Success();
+    }
+};
+
+Runtime::LookLabSaveRequest InjectedSaveRequest()
+{
+    Runtime::LookLabSaveRequest request;
+    request.lookLabRoot = "TestOutput";
+    request.localTimestamp = "2026-08-02_05-00-00";
+    request.utcOffsetMinutes = 600;
+    request.sourceScenePath = "SkullbonezData/scenes/varied.scene.json";
+    request.sourceSceneDisplayName = "Varied";
+    return request;
+}
+
+TEST_CASE( "Look Lab interaction key parser covers reroll and save authoring keys" )
+{
+    int virtualKey = 0;
+    CHECK( Runtime::TryParseInteractionAutomationVirtualKey( "F10", virtualKey ) );
+    CHECK( virtualKey == VK_F10 );
+    CHECK( Runtime::TryParseInteractionAutomationVirtualKey( "F11", virtualKey ) );
+    CHECK( virtualKey == VK_F11 );
+    CHECK_FALSE( Runtime::TryParseInteractionAutomationVirtualKey( "F12", virtualKey ) );
+    CHECK_FALSE( Runtime::TryParseInteractionAutomationVirtualKey( nullptr, virtualKey ) );
 }
 
 TEST_CASE( "Look Lab scene resolution retains geometry quality and process RNG" )
@@ -242,5 +300,43 @@ TEST_CASE( "Look Lab save transaction publishes pending final failed and cancell
 
     fs::remove_all( root, filesystemError );
     CHECK_FALSE( filesystemError );
+}
+
+TEST_CASE( "Look Lab controller reports style initial receipt and final receipt publication failures" )
+{
+    Core::SbDiagnosticStore diagnostics;
+
+    FailingLookLabPublication stylePublication;
+    stylePublication.failStyle = true;
+    Runtime::LookLabController styleController( stylePublication );
+    REQUIRE( styleController.ResolveSeed( 1, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult styleFailure = styleController.BeginSave( diagnostics, InjectedSaveRequest() );
+    CHECK_FALSE( styleFailure.status.Ok() );
+    CHECK_FALSE( styleFailure.captureRequested );
+    CHECK( styleController.Status().kind == Runtime::LookLabStatusKind::BundlePartialFailure );
+    CHECK( stylePublication.receiptCalls == 1 );
+
+    FailingLookLabPublication initialReceiptPublication;
+    initialReceiptPublication.failReceiptCall = 1;
+    Runtime::LookLabController initialReceiptController( initialReceiptPublication );
+    REQUIRE( initialReceiptController.ResolveSeed( 2, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult initialReceiptFailure =
+        initialReceiptController.BeginSave( diagnostics, InjectedSaveRequest() );
+    CHECK_FALSE( initialReceiptFailure.status.Ok() );
+    CHECK_FALSE( initialReceiptFailure.captureRequested );
+    CHECK( initialReceiptController.Status().kind == Runtime::LookLabStatusKind::BundlePartialFailure );
+
+    FailingLookLabPublication finalReceiptPublication;
+    finalReceiptPublication.failReceiptCall = 2;
+    Runtime::LookLabController finalReceiptController( finalReceiptPublication );
+    REQUIRE( finalReceiptController.ResolveSeed( 3, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult pending = finalReceiptController.BeginSave( diagnostics, InjectedSaveRequest() );
+    REQUIRE( pending.status.Ok() );
+    REQUIRE( pending.captureRequested );
+    CHECK_FALSE( finalReceiptController.CompleteSaveCapture( diagnostics, pending.captureToken,
+                                                             Core::SbResult::Success() )
+                     .Ok() );
+    CHECK_FALSE( finalReceiptController.HasPendingSave() );
+    CHECK( finalReceiptController.Status().kind == Runtime::LookLabStatusKind::BundlePartialFailure );
 }
 } // namespace

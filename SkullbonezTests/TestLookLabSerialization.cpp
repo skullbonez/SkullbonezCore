@@ -29,6 +29,7 @@ Related:
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h"
 #include "../SkullbonezSource/Runtime/Direction/LookLabGenerator.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h"
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/Scene/StandaloneStyleWriter.h"
 
@@ -40,6 +41,7 @@ Related:
 #include <limits>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace
@@ -122,18 +124,226 @@ template <size_t Capacity> void CopyText( std::array<char, Capacity>& output, co
     strncpy_s( output.data(), output.size(), text, _TRUNCATE );
 }
 
+template <typename Value> Value DifferentValue( Value value )
+{
+    if constexpr ( std::is_same_v<Value, bool> )
+    {
+        return !value;
+    }
+    else if constexpr ( std::is_integral_v<Value> )
+    {
+        return value + 1;
+    }
+    else
+    {
+        return value + 0.123046875f;
+    }
+}
+
+void CheckCinematicApplication( const Runtime::AuthoredScene& parsed )
+{
+    const Core::CinematicRenderConfig& source = parsed.GetCinematicRenderConfig();
+    const uint64_t mask = parsed.GetCinematicOverrideMask();
+    Core::CinematicRenderConfig applied = source;
+
+    // Test sensitivity: every field begins different from the parsed source.
+    // A set bit must restore its source value; an unset bit must preserve the
+    // perturbed inherited value. This mirrors the complete production surface.
+#define PERTURB( field ) applied.field = DifferentValue( source.field );
+    PERTURB( enabled )
+    PERTURB( skyAtmosphereEnabled )
+    PERTURB( cloudsEnabled )
+    PERTURB( godRaysEnabled )
+    PERTURB( volumetricLightingEnabled )
+    PERTURB( bloomEnabled )
+    PERTURB( fogEnabled )
+    PERTURB( terrainReliefEnabled )
+    PERTURB( exposure )
+    PERTURB( gamma )
+    PERTURB( sunAzimuth )
+    PERTURB( sunElevation )
+    PERTURB( sunColorR )
+    PERTURB( sunColorG )
+    PERTURB( sunColorB )
+    PERTURB( sunIntensity )
+    PERTURB( skyHorizonR )
+    PERTURB( skyHorizonG )
+    PERTURB( skyHorizonB )
+    PERTURB( skyZenithR )
+    PERTURB( skyZenithG )
+    PERTURB( skyZenithB )
+    PERTURB( skyGlowStrength )
+    PERTURB( cloudCoverage )
+    PERTURB( cloudSoftness )
+    PERTURB( cloudScale )
+    PERTURB( cloudIntensity )
+    PERTURB( sunShaftStrength )
+    PERTURB( sunShaftFalloff )
+    PERTURB( volumetricStrength )
+    PERTURB( volumetricDensity )
+    PERTURB( volumetricDecay )
+    PERTURB( bloomThreshold )
+    PERTURB( bloomKnee )
+    PERTURB( bloomStrength )
+    PERTURB( bloomRadius )
+    PERTURB( terrainRelief )
+    PERTURB( basinDepth )
+    PERTURB( basinRimLift )
+    PERTURB( shadow.enabled )
+    PERTURB( shadow.terrainCasts )
+    PERTURB( shadow.objectsCast )
+    PERTURB( shadow.terrainReceives )
+    PERTURB( shadow.objectsReceive )
+    PERTURB( shadow.mapSize )
+    PERTURB( shadow.pcfRadius )
+    PERTURB( shadow.strength )
+    PERTURB( shadow.softness )
+    PERTURB( shadow.depthBias )
+    PERTURB( shadow.slopeBias )
+    PERTURB( shadow.maxDistance )
+    PERTURB( fogColorR )
+    PERTURB( fogColorG )
+    PERTURB( fogColorB )
+    PERTURB( fogStart )
+    PERTURB( fogEnd )
+    PERTURB( fogDensity )
+    PERTURB( fogMaxOpacity )
+    PERTURB( skyMode )
+    PERTURB( terrainMode )
+    PERTURB( objectStyle )
+    PERTURB( waterMode )
+    PERTURB( styleSaturation )
+    PERTURB( styleContrast )
+    PERTURB( styleVignette )
+    PERTURB( terrainTintR )
+    PERTURB( terrainTintG )
+    PERTURB( terrainTintB )
+    PERTURB( terrainAccentR )
+    PERTURB( terrainAccentG )
+    PERTURB( terrainAccentB )
+    PERTURB( terrainGridScale )
+    PERTURB( terrainGridStrength )
+    PERTURB( waterTintR )
+    PERTURB( waterTintG )
+    PERTURB( waterTintB )
+    PERTURB( waterAlpha )
+    PERTURB( waterReflectionStrength )
+    PERTURB( waterGlintStrength )
+    PERTURB( basinCenterX )
+    PERTURB( basinCenterZ )
+    PERTURB( basinRadiusX )
+    PERTURB( basinRadiusZ )
+    PERTURB( basinFeather )
+#undef PERTURB
+
+    const Core::CinematicRenderConfig inherited = applied;
+    Runtime::ApplyCinematicSceneOverrides( applied, mask, source );
+
+#define CHECK_OVERRIDE( bit, field )                                                                                       \
+    CHECK( applied.field == ( ( mask & ( bit ) ) != 0 ? source.field : inherited.field ) );
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_RENDERING, enabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_ATMOSPHERE, skyAtmosphereEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_CLOUDS, cloudsEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_GOD_RAYS, godRaysEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_VOLUMETRIC_LIGHTING, volumetricLightingEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BLOOM, bloomEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG, fogEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_RELIEF_ENABLED, terrainReliefEnabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_EXPOSURE, exposure )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_GAMMA, gamma )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_AZIMUTH, sunAzimuth )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_ELEVATION, sunElevation )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_COLOR_R, sunColorR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_COLOR_G, sunColorG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_COLOR_B, sunColorB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_INTENSITY, sunIntensity )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_HORIZON_R, skyHorizonR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_HORIZON_G, skyHorizonG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_HORIZON_B, skyHorizonB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_ZENITH_R, skyZenithR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_ZENITH_G, skyZenithG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_ZENITH_B, skyZenithB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SKY_GLOW_STRENGTH, skyGlowStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_CLOUD_COVERAGE, cloudCoverage )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_CLOUD_SOFTNESS, cloudSoftness )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_CLOUD_SCALE, cloudScale )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_CLOUD_INTENSITY, cloudIntensity )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_SHAFT_STRENGTH, sunShaftStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SUN_SHAFT_FALLOFF, sunShaftFalloff )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_VOLUMETRIC_STRENGTH, volumetricStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_VOLUMETRIC_DENSITY, volumetricDensity )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_VOLUMETRIC_DECAY, volumetricDecay )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BLOOM_THRESHOLD, bloomThreshold )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BLOOM_KNEE, bloomKnee )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BLOOM_STRENGTH, bloomStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BLOOM_RADIUS, bloomRadius )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_RELIEF, terrainRelief )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_DEPTH, basinDepth )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_RIM_LIFT, basinRimLift )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOWS, shadow.enabled )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_PARTICIPATION, shadow.terrainCasts )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_PARTICIPATION, shadow.objectsCast )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_PARTICIPATION, shadow.terrainReceives )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_PARTICIPATION, shadow.objectsReceive )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_MAP_SIZE, shadow.mapSize )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_PCF_RADIUS, shadow.pcfRadius )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_STRENGTH, shadow.strength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_SOFTNESS, shadow.softness )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_DEPTH_BIAS, shadow.depthBias )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_SLOPE_BIAS, shadow.slopeBias )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_SHADOW_MAX_DISTANCE, shadow.maxDistance )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_COLOR_R, fogColorR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_COLOR_G, fogColorG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_COLOR_B, fogColorB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_START, fogStart )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_END, fogEnd )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_DENSITY, fogDensity )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_FOG_MAX_OPACITY, fogMaxOpacity )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_MODES, skyMode )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_MODES, terrainMode )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_MODES, objectStyle )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_MODES, waterMode )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_GRADE, styleSaturation )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_GRADE, styleContrast )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_STYLE_GRADE, styleVignette )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_TINT, terrainTintR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_TINT, terrainTintG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_TINT, terrainTintB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_ACCENT, terrainAccentR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_ACCENT, terrainAccentG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_ACCENT, terrainAccentB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_GRID, terrainGridScale )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_TERRAIN_GRID, terrainGridStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_TINT, waterTintR )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_TINT, waterTintG )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_TINT, waterTintB )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_PROFILE, waterAlpha )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_PROFILE, waterReflectionStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_WATER_PROFILE, waterGlintStrength )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_MASK, basinCenterX )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_MASK, basinCenterZ )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_MASK, basinRadiusX )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_MASK, basinRadiusZ )
+    CHECK_OVERRIDE( Runtime::SCENE_CINE_BASIN_MASK, basinFeather )
+#undef CHECK_OVERRIDE
+}
+
 TEST_CASE( "Look Lab standalone style is complete stable and parser exact" )
 {
     TemporaryLookLabOutput cleanup;
     Core::SbDiagnosticStore diagnostics;
     const Runtime::LookLabCandidate candidate = Runtime::GenerateLookLabCandidate( 0x0123456789abcdefull );
-    const Scene::StandaloneStyleSnapshot snapshot = SnapshotFromCandidate( candidate );
+    Scene::StandaloneStyleSnapshot snapshot = SnapshotFromCandidate( candidate );
+    snapshot.cinematic.shadow.terrainCasts = false;
+    snapshot.cinematic.shadow.objectsCast = true;
+    snapshot.cinematic.shadow.terrainReceives = false;
+    snapshot.cinematic.shadow.objectsReceive = true;
     std::string first;
     std::string second;
     REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, snapshot, first ).Ok() );
     REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, snapshot, second ).Ok() );
     CHECK( first == second );
-    CHECK( FingerprintText( first ) == 0xc31502d6333e241bull );
+    CHECK( FingerprintText( first ) == 0xa79343801bda3d50ull );
     CHECK( first.back() == '\n' );
 
     const size_t format = first.find( "\"format\"" );
@@ -156,9 +366,15 @@ TEST_CASE( "Look Lab standalone style is complete stable and parser exact" )
 
     Runtime::AuthoredScene parsed;
     REQUIRE( Runtime::AuthoredScene::TryLoadStyleFromFile( diagnostics, stylePath.c_str(), parsed ).Ok() );
-    constexpr uint64_t allResolvedMask = ( ( 1ull << 63 ) - 1ull ) & ~( 1ull << 55 );
+    constexpr uint64_t allResolvedMask = ( 1ull << 63 ) - 1ull;
     CHECK( parsed.GetCinematicOverrideMask() == allResolvedMask );
     REQUIRE( parsed.GetObjectMaterialOverrideCount() == static_cast<int>( snapshot.materialRules.size() ) );
+
+    const Core::ShadowQualityConfig& parsedShadow = parsed.GetCinematicRenderConfig().shadow;
+    CHECK_FALSE( parsedShadow.terrainCasts );
+    CHECK( parsedShadow.objectsCast );
+    CHECK_FALSE( parsedShadow.terrainReceives );
+    CHECK( parsedShadow.objectsReceive );
 
     std::string reparsed;
     REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, SnapshotFromParsedStyle( parsed ), reparsed ).Ok() );
@@ -181,8 +397,10 @@ TEST_CASE( "Look Lab fresh-process output reloads without generator or catalog i
 
     if ( std::strcmp( phase.data(), "produce" ) == 0 )
     {
-        const Scene::StandaloneStyleSnapshot snapshot =
+        Scene::StandaloneStyleSnapshot snapshot =
             SnapshotFromCandidate( Runtime::GenerateLookLabCandidate( 0x5eedf11a11c0ffeeull ) );
+        snapshot.cinematic.shadow.terrainCasts = false;
+        snapshot.cinematic.shadow.objectsReceive = false;
         REQUIRE( Scene::StandaloneStyleWriter::SaveAtomic( diagnostics, snapshot, stylePath.c_str() ).Ok() );
         REQUIRE( std::filesystem::exists( stylePath ) );
         return;
@@ -192,8 +410,10 @@ TEST_CASE( "Look Lab fresh-process output reloads without generator or catalog i
     REQUIRE( std::filesystem::exists( stylePath ) );
     Runtime::AuthoredScene parsed;
     REQUIRE( Runtime::AuthoredScene::TryLoadStyleFromFile( diagnostics, stylePath.c_str(), parsed ).Ok() );
-    constexpr uint64_t allResolvedMask = ( ( 1ull << 63 ) - 1ull ) & ~( 1ull << 55 );
+    constexpr uint64_t allResolvedMask = ( 1ull << 63 ) - 1ull;
     CHECK( parsed.GetCinematicOverrideMask() == allResolvedMask );
+    CHECK_FALSE( parsed.GetCinematicRenderConfig().shadow.terrainCasts );
+    CHECK_FALSE( parsed.GetCinematicRenderConfig().shadow.objectsReceive );
     REQUIRE( parsed.GetObjectMaterialOverrideCount() == static_cast<int>( Runtime::LOOK_LAB_MATERIAL_RULE_COUNT ) );
     std::string reserialized;
     REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, SnapshotFromParsedStyle( parsed ), reserialized ).Ok() );
@@ -223,6 +443,7 @@ TEST_CASE( "Look Lab keeps every tracked curated style parser-compatible" )
         Runtime::AuthoredScene parsed;
         REQUIRE( Runtime::AuthoredScene::TryLoadStyleFromFile( diagnostics, style.generic_string().c_str(), parsed ).Ok() );
         CHECK( parsed.GetSchemaVersion() == 1 );
+        CheckCinematicApplication( parsed );
     }
 }
 

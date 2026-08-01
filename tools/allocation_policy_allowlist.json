@@ -1319,6 +1319,44 @@
       "reason": "Debug and tool visualizers use reviewed staging vectors for diagnostics and editor/tool overlays; they are not new gameplay allocation exceptions.",
       "cap": "Bounded by scene/model counts, debug line budgets, or replay ribbon staging limits validated by replay/perf gates.",
       "removal_or_wrapper_plan": "Replace staging vectors with fixed debug/tool buffers when those tools are converted to strict static storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Capture/CaptureSystem.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "CaptureSystem explicit PNG artifact encoder",
+      "phase": "explicit_post_render_capture",
+      "reason": "PNG byte growth occurs only after an accepted screenshot request has synchronously read back one completed frame; the ordinary frame path never enters the encoder, and CaptureSystem releases every temporary buffer before returning the result.",
+      "cap": "One readback-sized scanline buffer, one uncompressed zlib payload, and one PNG output for the current backbuffer extent; dimension and uint32 PNG payload checks reject invalid or unrepresentable artifacts.",
+      "removal_or_wrapper_plan": "Replace the temporary PNG vectors with a streaming chunk encoder when Capture adopts an allocation-free artifact sink; do not move screenshot bytes into retained frame state."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Direction/LookLabController.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "LookLabController detached style publication",
+      "phase": "explicit_look_lab_authoring_action",
+      "reason": "A successful F10/F11 authoring action copies the candidate's fixed material-rule set into one detached Scene snapshot; no idle or ordinary gameplay frame constructs this value.",
+      "cap": "Exactly LOOK_LAB_MATERIAL_RULE_COUNT (3) material rules per detached snapshot.",
+      "removal_or_wrapper_plan": "Replace StandaloneStyleSnapshot material storage with a schema-owned fixed-capacity value when standalone style authoring gains an explicit material-rule cap."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp",
+      "patterns": [
+        ".insert(",
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Look Lab canonical candidate encoder",
+      "phase": "explicit_look_lab_authoring_action_and_validation",
+      "reason": "Canonical bytes are built only while resolving, fingerprinting, or validating an explicit Look Lab candidate; the idle frame path never calls the generator or encoder.",
+      "cap": "Exactly 649 canonical bytes for generator version 1: fixed candidate metadata, 84 cinematic atoms, and three complete material rules.",
+      "removal_or_wrapper_plan": "Replace the vector return with a version-sized fixed canonical byte value before generator version 2 changes the field contract."
     }
   ]
 }

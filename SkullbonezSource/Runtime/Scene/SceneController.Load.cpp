@@ -310,6 +310,12 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
     writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "shadowDepthBias", c.shadow.depthBias );
     writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "shadowSlopeBias", c.shadow.slopeBias );
     writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "shadowMaxDistance", c.shadow.maxDistance );
+
+    if ( ( touchedMask & SCENE_CINE_SHADOW_PARTICIPATION ) != 0 )
+    {
+        cinematic["shadowParticipation"] = Json::array( { c.shadow.terrainCasts, c.shadow.objectsCast, c.shadow.terrainReceives, c.shadow.objectsReceive } );
+    }
+
     writeFloat( SCENE_CINE_FOG_COLOR_R, "fogColorR", c.fogColorR );
     writeFloat( SCENE_CINE_FOG_COLOR_G, "fogColorG", c.fogColorG );
     writeFloat( SCENE_CINE_FOG_COLOR_B, "fogColorB", c.fogColorB );
