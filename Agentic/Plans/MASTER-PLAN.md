@@ -796,6 +796,13 @@ Spot Campaign completed 21/21 and left the active/future ledger under rule 4;
 the ledger is empty (0%). Evidence is in
 `../Reports/2026-07-31/vector-frame-contract-closure.md`.
 
+The denominator grew 0 -> 7 on 2026-08-01 when the owner registered Contact
+Energy And Warm-Start Integrity. The plan retains the working terrain support
+seed, installs complete-solve and scene-level energy invariants before changing
+behavior, isolates object-contact restitution from any conditional identity
+repair, and requires a 64-level tower plus the existing 200-box topple. The live
+ledger is 0/7 (0%); no baseline-refresh authority is granted.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -3204,6 +3211,34 @@ pipeline trace sit in the same loop with the same purpose; one was designed with
 an explicit comment about not spending simulation budget on observational work,
 and the other was not. Nothing enforced consistency between two sibling
 diagnostics, and the shipping binary paid for years.
+
+## Contact Energy And Warm-Start Integrity (2026-08-01)
+
+Source: owner review of the rejected Box Vibration And Warm-Start Integrity
+transition and the standing energy coverage. The current four-brick fixture
+already fails to settle, while the rejected cumulative transition visibly
+launched boxes and was correctly restored. The new plan treats collision energy
+as an independent physical invariant rather than accepting a deterministic
+replacement oracle.
+
+Binding owner directions:
+
+- retain the working terrain support seed; correctness-only cleanup is not a
+  reason to replace it;
+- install energy/momentum oracles and the giant tower/200-box semantic gate
+  before changing production contact behavior;
+- keep the 12-iteration cap, gravity, timestep, friction, restitution, damping,
+  and sleep settings unchanged while measuring the correction;
+- authorize only the object-contact restitution correction initially; any
+  warm-start identity repair is conditional on residual attributed evidence;
+- require 32 levels as the corrected floor, 64 levels as the giant-scene
+  acceptance target, and report 128 levels as a stretch measurement; and
+- permit no physics, SkullScope, Replay, or visual golden transition without
+  explicit owner acceptance of the exact final visible and semantic evidence.
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Features
 
