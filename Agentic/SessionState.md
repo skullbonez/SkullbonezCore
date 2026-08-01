@@ -10,10 +10,11 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-1st-AUG-26-contact-energy`; push target `origin/nightrunner-1st-AUG-26-contact-energy`. |
-| Current baseline | Main tip `03d23879`; PR #142 merged the 1 August Night Runner branch. |
-| Current objective | Contact Energy And Warm-Start Integrity is registered; ES0 must measure the current solver before any behavior change. |
-| Active/future progress | 0/7 (0%). One live plan is registered. |
+| Branch | `main`; owner authorized direct local planning commits. `origin/main` remains at `03d23879`; no direct push is authorized. |
+| Current baseline | `origin/main` tip `03d23879`; local `main` carries planning documentation only. PR #142 merged the 1 August Night Runner branch. |
+| Current objective | Look Lab Random Style Authoring is first; LL0 must census and classify every live style option before source changes. Contact Energy And Warm-Start Integrity remains registered second. |
+| Active/future progress | 0/14 (0%). Two seven-phase plans are registered. |
+| Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values; F11 automatically writes the exact resolved schema-current style to `SkullbonezData/styles/generated/` with a timestamp/seed filename and saves a matching screenshot. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
@@ -108,7 +109,14 @@ plan inventory.
 
 ## Live Queue
 
-Contact Energy And Warm-Start Integrity is the sole live plan at 0/7. ES0 owns
+Look Lab Random Style Authoring is first at 0/7. LL0 owns the exhaustive current-
+source presentation census and the randomized/derived/retained/excluded rulings.
+F10 rerolls a deterministic coherent style without camera or simulation changes;
+F11 saves one timestamp/seed standalone style and matching screenshot without
+touching the active scene. Existing F5/F6 profiler bindings and all default
+baselines remain exact.
+
+Contact Energy And Warm-Start Integrity is second at 0/7. ES0 owns
 the current-source four-brick, 200-box, and 4/8/16/32/64/128-level tower census,
 including energy, launch, convergence, cache, sleep, determinism, and negative-
 control evidence before any solver edit. The plan retains the working terrain
@@ -829,15 +837,15 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start ES0 from
-`Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md` through the
-repository orchestrator skill. Do not edit solver behavior first. Measure the
-authoritative four-brick reproduction, existing 200-box topple, and temporary
-4/8/16/32/64/128 tower sweep; lock energy/launch/settling tolerances with
-negative controls; then continue through ES6 without waiting for owner input.
-Ask for baseline permission only after the implementation, candidate artifacts,
-complete comparisons, independent review, and all baseline-independent evidence
-are finished.
+Start LL0 from `Agentic/Plans/TODO/look-lab-random-style-authoring.md` through
+the repository orchestrator skill. Inventory and classify the complete style
+surface before source changes, then run LL1-LL6 without an owner pause. Preserve
+F5/F6, camera/simulation state, curated styles, active scenes, and all default
+baselines. After Look Lab closes, start ES0 from
+`Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`; continue through
+ES6 and ask for physics-baseline permission only after its implementation,
+candidate artifacts, complete comparisons, independent review, and every
+baseline-independent proof are finished.
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
 Blind Spot Campaign completed **21/21** and left the active/future ledger under

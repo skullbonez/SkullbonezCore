@@ -806,6 +806,14 @@ all seven implementation phases to completion and prepare exact candidate
 artifacts before asking the owner the sole terminal question: whether those
 reviewed candidates may replace the tracked baselines.
 
+The denominator grew 7 -> 14 on 2026-08-01 when the owner registered Look Lab
+Random Style Authoring and placed it first in execution order. F10 rerolls one
+deterministic coherent presentation-only look; F11 saves the fully resolved
+schema-current style plus a matching timestamp/seed screenshot. F5/F6 remain
+the profiler diagnostics, camera/lenses are excluded, and the existing scene,
+simulation, shader source, resource-quality policy, and validation baselines
+remain untouched. The live ledger is 0/14 (0%) across two plans.
+
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
 7/7 and monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the
@@ -1388,8 +1396,13 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is the sole live plan at
-0/7.** Its agent runs ES0-ES6 without an owner pause, leaves tracked baselines
+**Look Lab Random Style Authoring (2026-08-01) is first in the live order at
+0/7.** F10 rerolls presentation only and F11 writes one timestamp/seed standalone
+style plus matching screenshot. F5/F6 remain unchanged, lenses/camera are out of
+scope, and no default visual baseline may move.
+
+**Contact Energy And Warm-Start Integrity (2026-08-01) is second at 0/7.** Its
+agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
 decision evidence, not an engineering blocker.
@@ -3221,6 +3234,36 @@ an explicit comment about not spending simulation budget on observational work,
 and the other was not. Nothing enforced consistency between two sibling
 diagnostics, and the shipping binary paid for years.
 
+## Active Plans (2026-08-01)
+
+| # | Plan | State | Verified phase count | Start condition / next action |
+|---:|---|---|---:|---|
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Registered | 0/7 | LL0 inventories every live style consumer and locks randomized/derived/retained/excluded rulings before source edits |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
+
+## Look Lab Random Style Authoring (2026-08-01)
+
+Source: owner request for an engine-native visual exploration workflow that does
+not require a predetermined art direction. The existing standalone style schema
+and live application path already expose the right presentation vocabulary, but
+there is no coherent random candidate owner or exact paired style/screenshot
+save transaction.
+
+Binding owner directions:
+
+- preserve F5 performance-histogram and F6 memory-overlay behavior exactly;
+- bind F10 to a deterministic presentation-only reroll and F11 to automatic
+  timestamp/seed style-plus-screenshot saving;
+- write reusable standalone styles under `SkullbonezData/styles/generated/`
+  without modifying the active scene or existing curated styles;
+- randomize supported cinematic, lighting, sky, fog, volumetric, bloom, grading,
+  terrain, water, object-style, color, and material presentation coherently;
+- exclude lenses, FOV, camera pose/motion, simulation, assets, transforms, shader
+  source/recompilation, renderer resource-quality policy, and debug settings; and
+- require deterministic generation, exact full-field round-trip, fresh-process
+  reapplication, paired-save failure honesty, zero idle cost, visible DX12 proof,
+  unchanged default baselines, comment audit, inventories, and independent review.
+
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 
 Source: owner review of the rejected Box Vibration And Warm-Start Integrity
@@ -3246,10 +3289,6 @@ Binding owner directions:
   explicit owner acceptance of the exact final visible and semantic evidence;
   implementation, candidate generation, complete comparison, and every
   baseline-independent validation must finish before that terminal request.
-
-| # | Plan | State | Verified phase count | Start condition / next action |
-|---:|---|---|---:|---|
-| 1 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Features
 
