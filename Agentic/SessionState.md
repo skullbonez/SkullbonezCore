@@ -12,11 +12,12 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-1st-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `e19cdb63` was fast-forwarded into the Night Runner branch before implementation. |
-| Current objective | Look Lab Random Style Authoring is first; LL0-LL1 are complete and LL2 adds exact Scene-owned standalone style serialization. Contact Energy And Warm-Start Integrity remains registered second. |
-| Active/future progress | 2/14 (14%). Look Lab is 2/7; Contact Energy is 0/7. |
+| Current objective | Look Lab Random Style Authoring is first; LL0-LL2 are complete and LL3 adds the focused live controller plus exact presentation-only application/reset behavior. Contact Energy And Warm-Start Integrity remains registered second. |
+| Active/future progress | 3/14 (21%). Look Lab is 3/7; Contact Energy is 0/7. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The report locks 80 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
+| Look Lab LL2 | Complete. Scene owns the fully resolved ordered schema-v1 snapshot/writer, Core owns flushed temporary-sibling replacement, and Runtime Direction owns exclusive timestamp/seed bundle naming plus derived atomic receipt revisions. The production parser reconstructs every cinematic/material value byte-identically; collision, replacement, invalid-path/text, and partial-status tests pass in Debug/Profile. Fast passes in 379 seconds, full in 591.1 seconds, and comment audit is 10/10. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`. |
 | Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
@@ -111,12 +112,12 @@ plan inventory.
 
 ## Live Queue
 
-Look Lab Random Style Authoring is first at 2/7. LL0 locked the exhaustive
-current-source presentation census and LL1 completed the pure SplitMix64
-generator-v1 candidate, fourteen typed recipes, canonical bytes, validity
-checks, and complete deterministic seed matrix. LL2 now adds the Scene-owned
-standalone style value/writer, exact full-field round-trip, stable output, and
-atomic failure-path coverage.
+Look Lab Random Style Authoring is first at 3/7. LL0 locked the exhaustive
+current-source presentation census, LL1 completed the pure SplitMix64 generator,
+and LL2 completed exact Scene-owned schema-v1 serialization, Core atomic text
+replacement, collision-safe bundle naming, and derived atomic receipt revisions.
+LL3 now adds the focused live controller and exact presentation-only
+application/reset behavior.
 F10 rerolls a deterministic coherent style without camera or simulation changes;
 F11 saves one ignored root `LookLab/<datetime>_<seed>/` bundle containing the
 standalone style, human-readable receipt, and matching screenshot without
@@ -844,9 +845,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue LL2 from `Agentic/Plans/TODO/look-lab-random-style-authoring.md` through
-the repository orchestrator skill. The LL0 source census and LL1 generator are
-locked in their dated reports; run LL2-LL6 without an owner pause. Preserve
+Continue LL3 from `Agentic/Plans/TODO/look-lab-random-style-authoring.md` through
+the repository orchestrator skill. The LL0 census, LL1 generator, and LL2 exact
+serialization/bundle boundary are locked in their dated reports; run LL3-LL6
+without an owner pause. Preserve
 F5/F6, camera/simulation state, curated styles, active scenes, and all default
 baselines. After Look Lab closes, start ES0 from
 `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`; continue through

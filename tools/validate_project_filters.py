@@ -93,6 +93,7 @@ JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
         "Scene/AuthoredSceneParserPresentation.cpp",
         "Scene/AuthoredSceneParserRuntime.cpp",
         "Scene/SceneSnapshotWriter.cpp",
+        "Scene/StandaloneStyleWriter.cpp",
     }
 )
 LOCAL_INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*["<]([^">]+)[">]', re.MULTILINE)
@@ -279,6 +280,7 @@ RENDERING_PREFIXES = (
 SCENE_PREFIXES = (
     "SceneRequestExecution",
     "SceneSnapshotWriter",
+    "StandaloneStyleWriter",
     "AuthoredScene",
     "AuthoredTornadoConfig",
     "AuthoredSceneParser",
@@ -365,6 +367,7 @@ RUNTIME_INTERACTION_PREFIXES = (
 
 RUNTIME_SETTINGS_PREFIXES = (
     "LiveStyleController",
+    "LookLabBundleWriter",
     "LookLabGenerator",
     "OperatorCommandTransaction",
 )
@@ -531,6 +534,7 @@ RUNTIME_UI_PREFIXES = (
 
 CORE_PREFIXES = (
     "AmortizedTask",
+    "AtomicTextFileWriter",
     "ByteView",
     "Common",
     "Config",

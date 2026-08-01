@@ -1398,7 +1398,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 ## Current Execution Priority
 
 **Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-2/7.** F10 rerolls presentation only and F11 writes one ignored root
+3/7.** F10 rerolls presentation only and F11 writes one ignored root
 `LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
@@ -3240,7 +3240,7 @@ diagnostics, and the shipping binary paid for years.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 2/7 | LL2 adds exact Scene-owned standalone style serialization and atomic writer coverage |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 3/7 | LL3 adds the focused live controller and exact presentation-only application/reset boundary |
 | 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Look Lab Random Style Authoring (2026-08-01)
@@ -3286,6 +3286,16 @@ incompatibility, black-frame, and shared-RNG controls are sensitive. Debug and
 Profile pin the same fingerprint. The live ledger is therefore 2/14 (14%).
 Evidence is in
 `../Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`.
+
+LL2 completed on 2026-08-01. Scene now owns a fully resolved ordered schema-v1
+style snapshot/writer; Core owns flushed temporary-sibling replacement; and
+Runtime Direction owns exclusive timestamp/seed bundle naming plus derived
+atomic receipt revisions. The production parser reconstructs all eighty
+cinematic atoms and complete material rules byte-identically, Debug/Profile pin
+the same JSON fingerprint, collisions and invalid paths fail boundedly, and the
+root `/LookLab/` output is ignored. The live ledger is therefore 3/14 (21%).
+Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`.
 
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 

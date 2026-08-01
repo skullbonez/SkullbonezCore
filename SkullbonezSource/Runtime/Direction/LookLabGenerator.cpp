@@ -275,7 +275,11 @@ void BuildMaterialRule( LookLabMaterialRule& rule, const char* target, Rendering
     rule.material.specular = Q12Range( 819, 3686, rng );
     rule.material.transmission = kind == Rendering::RenderMaterialKind::Glass ? Q12Range( 2458, 4096, rng ) : 0.0f;
     rule.material.stylization = Q12Range( 0, 4096, rng );
-    rule.material.textureMode = static_cast<float>( static_cast<uint8_t>( kind ) );
+
+    // Invariant: the style parser's canonical "textured" spelling resolves to
+    // the legacy -1 sentinel. Store that same bridge value in the detached
+    // candidate so serialize/parse equality also holds for textured recipes.
+    rule.material.textureMode = Rendering::RenderMaterialKindLegacyMode( kind );
     rule.material.contactFlashAlpha = 0.0f;
     rule.material.flags = 0;
 }
@@ -697,7 +701,8 @@ LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidat
              !colorInRange( material.baseColor[0], material.baseColor[1], material.baseColor[2], 2.2f ) ||
              !colorInRange( material.emissiveColor[0], material.emissiveColor[1], material.emissiveColor[2], 4.0f ) ||
              !inRange( material.emissiveStrength, 0.0f, 8.0f ) || material.flags != 0 ||
-             material.contactFlashAlpha != 0.0f || material.textureMode != static_cast<float>( kind ) )
+             material.contactFlashAlpha != 0.0f ||
+             material.textureMode != Rendering::RenderMaterialKindLegacyMode( material.kind ) )
         {
             return LookLabCandidateIssue::ValueOutOfRange;
         }

@@ -198,6 +198,9 @@
     <ClCompile Include="SkullbonezTests\TestLookLabGenerator.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestLookLabSerialization.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -288,6 +291,9 @@
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\AtomicTextFileWriter.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -323,6 +329,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
@@ -445,6 +454,9 @@
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp">

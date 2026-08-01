@@ -38,7 +38,7 @@ TEST_CASE( "Look Lab generator is byte-exact for a seed and version" )
     CHECK( Runtime::ValidateLookLabCandidate( first ) == Runtime::LookLabCandidateIssue::None );
     CHECK( Runtime::EncodeLookLabCandidateCanonical( first ) == Runtime::EncodeLookLabCandidateCanonical( second ) );
     CHECK( Runtime::FingerprintLookLabCandidate( first ) == Runtime::FingerprintLookLabCandidate( second ) );
-    CHECK( Runtime::FingerprintLookLabCandidate( first ) == 0xa4f9bcb64731071dull );
+    CHECK( Runtime::FingerprintLookLabCandidate( first ) == 0xc3b6fad6b7b4defaull );
 }
 
 TEST_CASE( "Look Lab fixed seed matrix covers every supported branch" )

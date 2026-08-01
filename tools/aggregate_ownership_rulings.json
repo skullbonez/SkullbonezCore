@@ -216,6 +216,15 @@
                            "destructures_at_entry":  "no"
                        },
                        {
+                           "key":  "LookLabReceiptFacts",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:64",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "LL2 / Runtime Direction Look Lab receipt revision",
+                           "reason":  "Timestamp/offset, generator identity, source-scene identity, and per-artifact status/diagnostic pairs are one immutable receipt revision; splitting them permits a receipt to combine statuses with a different candidate or source scene. TestLookLabSerialization proves pending-to-failed revision and rejects malformed detached text.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
                            "key":  "ObjectGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:363",
                            "members":  2,

@@ -711,6 +711,87 @@
       "reason": "It exposes the configuration retained by the terrain owner to its rendering collaborators.",
       "evidence": "Live terrain shader/render paths call it. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=25; required_arity=0/0; symbols=?Config@Terrain@Geometry@SkullbonezCore@@AEBAAEBVEngineConfig@Core@3@XZ",
       "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp",
+      "signature": "Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const char* lookLabRoot, const char* localTimestamp, uint64_t seed, LookLabBundlePaths& output )",
+      "owner": "Runtime Direction Look Lab bundle reservation",
+      "disposition": "repair-plan",
+      "reason": "LL2 introduces the collision-safe bundle seam before LL4 wires the F11 transaction that production-roots it.",
+      "evidence": "TestLookLabSerialization directly proves exact names, nested root creation, and collision rejection. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp",
+      "signature": "Core::SbResult LookLabBundleWriter::BuildReceipt( Core::SbDiagnosticStore& diagnostics, const LookLabReceiptFacts& facts, const Scene::StandaloneStyleSnapshot& snapshot, const LookLabBundlePaths& paths, std::string& output )",
+      "owner": "Runtime Direction Look Lab receipt projection",
+      "disposition": "repair-plan",
+      "reason": "LL2 introduces the derived receipt projection before LL4 production-roots pending and final receipt revisions.",
+      "evidence": "TestLookLabSerialization directly proves complete flattened facts, status transitions, and malformed-text rejection. 2026-08-01 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp",
+      "signature": "Core::SbResult LookLabBundleWriter::SaveReceiptAtomic( Core::SbDiagnosticStore& diagnostics, const LookLabReceiptFacts& facts, const Scene::StandaloneStyleSnapshot& snapshot, const LookLabBundlePaths& paths )",
+      "owner": "Runtime Direction Look Lab receipt publication",
+      "disposition": "repair-plan",
+      "reason": "LL2 introduces atomic receipt publication before LL4 production-roots the F11 save transaction.",
+      "evidence": "TestLookLabSerialization directly proves pending receipt publication and atomic failed-capture revision. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp",
+      "signature": "LookLabCandidate GenerateLookLabCandidate( uint64_t seed, uint32_t generatorVersion )",
+      "owner": "Runtime Direction Look Lab deterministic generation",
+      "disposition": "repair-plan",
+      "reason": "LL1 introduces the pure generator before LL3 production-roots it through the focused live controller.",
+      "evidence": "TestLookLabGenerator directly proves deterministic generation, complete branch breadth, and process-RNG isolation. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp",
+      "signature": "LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidate )",
+      "owner": "Runtime Direction Look Lab candidate validity",
+      "disposition": "repair-plan",
+      "reason": "LL1 introduces final candidate validation before LL3 production-roots candidate acceptance.",
+      "evidence": "TestLookLabGenerator directly exercises valid matrices and planted range, version, compatibility, finite-value, and black-frame defects. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp",
+      "signature": "std::vector<uint8_t> EncodeLookLabCandidateCanonical( const LookLabCandidate& candidate )",
+      "owner": "Runtime Direction Look Lab reproducibility encoding",
+      "disposition": "repair-plan",
+      "reason": "LL1 exposes canonical bytes for deterministic proof before later production receipt/state owners consume the candidate contract.",
+      "evidence": "FingerprintLookLabCandidate and TestLookLabGenerator consume the explicit padding-independent encoding. 2026-08-01 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp",
+      "signature": "uint64_t FingerprintLookLabCandidate( const LookLabCandidate& candidate )",
+      "owner": "Runtime Direction Look Lab deterministic fingerprint",
+      "disposition": "repair-plan",
+      "reason": "LL1 exposes the fingerprint proof seam before later Look Lab production diagnostics consume reproducibility facts.",
+      "evidence": "TestLookLabGenerator pins Debug/Profile equality and 4,096 unique seed fingerprints. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Scene/StandaloneStyleWriter.cpp",
+      "signature": "Core::SbResult StandaloneStyleWriter::Serialize( Core::SbDiagnosticStore& diagnostics, const StandaloneStyleSnapshot& snapshot, std::string& output )",
+      "owner": "Scene standalone style schema serialization",
+      "disposition": "repair-plan",
+      "reason": "LL2 introduces exact schema serialization before LL4 production-roots bundle publication.",
+      "evidence": "SaveAtomic and TestLookLabSerialization consume the stable JSON bytes; the focused test reparses and reserializes every field exactly. 2026-08-01 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
+      "file": "SkullbonezSource/Scene/StandaloneStyleWriter.cpp",
+      "signature": "Core::SbResult StandaloneStyleWriter::SaveAtomic( Core::SbDiagnosticStore& diagnostics, const StandaloneStyleSnapshot& snapshot, const char* path )",
+      "owner": "Scene standalone style artifact publication",
+      "disposition": "repair-plan",
+      "reason": "LL2 introduces atomic style publication before LL4 production-roots the F11 bundle transaction.",
+      "evidence": "TestLookLabSerialization directly proves parent creation, exact replacement, preserved prior target on validation failure, and bounded invalid-path diagnostics. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
     }
   ]
 }

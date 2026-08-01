@@ -19,7 +19,11 @@ padding and library layout are outside the contract. Instead,
 `EncodeLookLabCandidateCanonical` writes every typed field in an explicit
 little-endian order and `FingerprintLookLabCandidate` hashes those bytes with
 FNV-1a. Seed `0x0123456789abcdef`, generator version 1, pins fingerprint
-`0xa4f9bcb64731071d` in both Debug and Profile.
+`0xc3b6fad6b7b4defa` in both Debug and Profile. LL2 corrected the
+canonical textured-material bridge from numeric kind zero to the parser's
+established `-1` legacy sentinel before standalone serialization was admitted;
+the deterministic pin moved with that source contract and no random draw or
+recipe changed.
 
 ## Generator Contract
 
