@@ -1,8 +1,8 @@
 # Look Lab Random Style Authoring — LL0 Census
 
-Date: 2026-08-01  
-Branch: `nightrunner-1st-AUG-26`  
-Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`  
+Date: 2026-08-01
+Branch: `nightrunner-1st-AUG-26`
+Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`
 Phase: LL0 — complete
 
 ## Decision
