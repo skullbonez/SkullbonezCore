@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "4f8711317f7a2b467c8dfd20329bc2c5d8ae3ec1cc618c95abd9ce9a9c2cfc91",
+      "body_sha256": "be90de48dc598854ed96dcdf385f7b1a45bd6289d2d0ea804dfa6815c4434cfd",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes two detached frame views; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab status; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
       "plan": ""
     },
     {
@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "a7b2883387f83e8ada7eac6ce27ac0d142175b1d0b4068cb7504e6821bcc1fe6",
+      "body_sha256": "8d03f55f562751dc3c3d96dbfa620eafd040965a0c334f65f6058828412fbd9f",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from lifecycle-sensitive owner clearing and automation sampling through device routing and command production; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md",
+      "reason": "One ordered input turn runs from lifecycle-sensitive owner clearing and automation sampling through device routing and typed command production, including F10/F11 authoring dispatch; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
       "plan": ""
     },
     {
@@ -145,11 +145,11 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "02ce093a30ab9b8de3250ddf541713d1b76030dd917f4aed74fac5ff69b87879",
+      "body_sha256": "ead37651cd8a927a9afb591d3dc04a01a9a3a1fc7abc64513880f18091beb5ec",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
-      "reason": "One composition-root phase projects render-model and presentation facts, runs the active operator UI, submits its commands, and latches any process failure before returning; all borrows share that synchronous frame lifetime.",
-      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
+      "reason": "One composition-root phase projects render-model, presentation, and bounded Look Lab status facts, runs the active operator UI, submits its commands, and latches any process failure before returning; all borrows share that synchronous frame lifetime.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
       "plan": ""
     },
     {

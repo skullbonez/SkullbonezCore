@@ -10,7 +10,7 @@ Summary:
   before projecting one canonical packet into established owner command paths.
 
 Glossary:
-  Domain view: Read-only scene, property, rendering, diagnostics,
+  Domain view: Read-only scene, property, rendering, diagnostics, authoring,
     replay, or tool values
     copied for one presentation frame.
   Tool command: One-frame edit-mode, history, pause, or step intent applied by
@@ -41,6 +41,7 @@ Related:
 
 #include "../Core/SbResult.h"
 
+#include <array>
 #include <cstdint>
 
 namespace SkullbonezCore::UI
@@ -286,6 +287,18 @@ struct OperatorEditorToolView
     int redoDepth = 0;
 };
 
+struct OperatorEditorLookLabView
+{
+
+    // Invariant: this is detached status only; Runtime retains candidate and
+    // transaction authority. TestOwnerRequestQueues.cpp pins its fingerprint.
+    uint64_t seed = 0;
+    bool hasCandidate = false;
+    bool savePending = false;
+    std::array<char, 128> detail = {};
+    std::array<char, 512> bundleDirectory = {};
+};
+
 struct OperatorEditorFrameView
 {
     OperatorEditorSceneView scene;
@@ -295,6 +308,7 @@ struct OperatorEditorFrameView
     OperatorEditorReplayView replay;
     OperatorEditorSurfaceView surfaces;
     OperatorEditorToolView tools;
+    OperatorEditorLookLabView lookLab;
     OperatorEditorHierarchyView hierarchy;
     OperatorEditorAssetView assets;
     OperatorEditorInspectorView inspector;

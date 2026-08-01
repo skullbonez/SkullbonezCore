@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   CPU-only tests resolve deterministic candidates against sentinel scene values,
-  publish the exact detached Scene snapshot, and verify bounded controller state
-  and lifecycle clearing without constructing simulation or renderer owners.
+  publish the exact detached Scene snapshot, and drive bundle transactions in a
+  temporary root without constructing simulation or renderer owners.
 
 Glossary:
   Preservation sentinel: Deliberately unusual live value used to detect whether
@@ -16,6 +16,8 @@ Invariants:
   - Tests compare typed values; candidate padding is never inspected.
   - The resolution API can receive only cinematic presentation values, so it
     cannot read camera, topology, asset, physics, clock, path, or scene RNG state.
+  - Transaction tests inspect atomic receipt revisions and remove their bounded
+    TestOutput root before returning.
 
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabController.cpp
@@ -25,10 +27,15 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Direction/LookLabController.h"
+#include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Scene/StandaloneStyleWriter.h"
 
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 namespace
 {
@@ -53,6 +60,12 @@ Core::CinematicRenderConfig SentinelPresentation()
     presentation.shadow.slopeBias = 0.0013f;
     presentation.shadow.maxDistance = 3000.0f;
     return presentation;
+}
+
+std::string ReadText( const std::filesystem::path& path )
+{
+    std::ifstream input( path, std::ios::binary );
+    return std::string( std::istreambuf_iterator<char>( input ), std::istreambuf_iterator<char>() );
 }
 
 TEST_CASE( "Look Lab scene resolution retains geometry quality and process RNG" )
@@ -105,17 +118,15 @@ TEST_CASE( "Look Lab controller publishes one candidate and clears it on scene l
 
     REQUIRE( lookLab.ResolveSeed( 0xabc123ull, active ) );
     REQUIRE( lookLab.HasCandidate() );
-    const Runtime::LookLabCandidate* candidate = lookLab.CurrentCandidate();
-    REQUIRE( candidate != nullptr );
-    CHECK( Runtime::EncodeLookLabCandidateCanonical( *candidate ) ==
-           Runtime::EncodeLookLabCandidateCanonical( Runtime::ResolveLookLabCandidateForScene( 0xabc123ull,
-                                                                                               SentinelPresentation() ) ) );
+    const Runtime::LookLabCandidate expected =
+        Runtime::ResolveLookLabCandidateForScene( 0xabc123ull, SentinelPresentation() );
+    CHECK( lookLab.BuildCurrentSnapshot().cinematic.exposure == expected.cinematic.exposure );
     CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::Resolved );
     CHECK( lookLab.Status().seed == 0xabc123ull );
-    CHECK( lookLab.Status().fingerprint == Runtime::FingerprintLookLabCandidate( *candidate ) );
+    CHECK( lookLab.Status().fingerprint == Runtime::FingerprintLookLabCandidate( expected ) );
 
     const Scene::StandaloneStyleSnapshot snapshot = lookLab.BuildCurrentSnapshot();
-    CHECK( snapshot.cinematic.exposure == candidate->cinematic.exposure );
+    CHECK( snapshot.cinematic.exposure == expected.cinematic.exposure );
     CHECK( snapshot.cinematic.basinCenterX == active.basinCenterX );
     REQUIRE( snapshot.materialRules.size() == Runtime::LOOK_LAB_MATERIAL_RULE_COUNT );
     lookLab.MarkApplied();
@@ -127,8 +138,7 @@ TEST_CASE( "Look Lab controller publishes one candidate and clears it on scene l
     invalidActive.shadow.mapSize = 1;
     const uint64_t acceptedFingerprint = lookLab.Status().fingerprint;
     CHECK_FALSE( lookLab.ResolveSeed( 22, invalidActive ) );
-    REQUIRE( lookLab.CurrentCandidate() != nullptr );
-    CHECK( Runtime::FingerprintLookLabCandidate( *lookLab.CurrentCandidate() ) == acceptedFingerprint );
+    CHECK( lookLab.Status().fingerprint == acceptedFingerprint );
     CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::Rejected );
     CHECK( lookLab.Status().hasCandidate );
 
@@ -150,5 +160,101 @@ TEST_CASE( "Look Lab controller publishes one candidate and clears it on scene l
     // Repeated observations of one generation are inert.
     lookLab.ObserveSceneLifecycle( cleared );
     CHECK_FALSE( lookLab.HasCandidate() );
+}
+
+TEST_CASE( "Look Lab save transaction publishes pending final failed and cancelled receipts" )
+{
+    namespace fs = std::filesystem;
+    Core::SbDiagnosticStore diagnostics;
+    const fs::path root = fs::current_path() / "TestOutput" / "look_lab_controller_transactions";
+    std::error_code filesystemError;
+    fs::remove_all( root, filesystemError );
+    REQUIRE_FALSE( filesystemError );
+
+    const auto request = [&]( const char* timestamp )
+    {
+        Runtime::LookLabSaveRequest value;
+        static std::string rootText = root.string();
+        value.lookLabRoot = rootText.c_str();
+        value.localTimestamp = timestamp;
+        value.utcOffsetMinutes = 600;
+        value.sourceScenePath = "SkullbonezData/scenes/varied.scene.json";
+        value.sourceSceneDisplayName = "Varied";
+        return value;
+    };
+
+    Runtime::LookLabController lookLab;
+    const Runtime::LookLabSaveStartResult beforeCandidate = lookLab.BeginSave( diagnostics, request( "2026-08-01_12-00-00" ) );
+    CHECK_FALSE( beforeCandidate.status.Ok() );
+    CHECK_FALSE( fs::exists( root ) );
+
+    REQUIRE( lookLab.ResolveSeed( 0x1234ull, SentinelPresentation() ) );
+    const uint64_t originalFingerprint = lookLab.Status().fingerprint;
+    const Runtime::LookLabSaveStartResult pending = lookLab.BeginSave( diagnostics, request( "2026-08-01_12-00-01" ) );
+    REQUIRE( pending.status.Ok() );
+    REQUIRE( pending.captureRequested );
+    CHECK( pending.captureToken != 0 );
+    CHECK( lookLab.HasPendingSave() );
+    CHECK( lookLab.Status().savePending );
+    const fs::path bundle = lookLab.Status().bundleDirectory.data();
+    CHECK( fs::exists( bundle / "look.style.json" ) );
+    CHECK( fs::exists( bundle / "look.txt" ) );
+    CHECK_FALSE( fs::exists( bundle / "look.png" ) );
+    CHECK( ReadText( bundle / "look.txt" ).find( "screenshot_status=pending\n" ) != std::string::npos );
+
+    const Runtime::LookLabSaveStartResult duplicate = lookLab.BeginSave( diagnostics, request( "2026-08-01_12-00-02" ) );
+    CHECK_FALSE( duplicate.status.Ok() );
+    CHECK_FALSE( fs::exists( root / "2026-08-01_12-00-02_seed_0000000000001234" ) );
+    CHECK_FALSE( lookLab.ResolveSeed( 99, SentinelPresentation() ) );
+    CHECK( lookLab.Status().fingerprint == originalFingerprint );
+
+    const Core::SbResult mismatched =
+        lookLab.CompleteSaveCapture( diagnostics, pending.captureToken + 1u, Core::SbResult::Success() );
+    CHECK_FALSE( mismatched.Ok() );
+    CHECK( lookLab.HasPendingSave() );
+    {
+        std::ofstream screenshot( bundle / "look.png", std::ios::binary );
+        screenshot.write( "PNG", 3 );
+    }
+
+    REQUIRE( lookLab.CompleteSaveCapture( diagnostics, pending.captureToken, Core::SbResult::Success() ).Ok() );
+    CHECK_FALSE( lookLab.HasPendingSave() );
+    CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::BundleSaved );
+    CHECK( ReadText( bundle / "look.txt" ).find( "screenshot_status=saved\n" ) != std::string::npos );
+
+    Runtime::LookLabController failedCapture;
+    REQUIRE( failedCapture.ResolveSeed( 0x2234ull, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult failing = failedCapture.BeginSave( diagnostics, request( "2026-08-01_12-00-03" ) );
+    REQUIRE( failing.status.Ok() );
+    const Core::SbResult captureFailure = diagnostics.Failure( "Test/Capture", "readback failed" );
+    const Core::SbResult failureCompletion =
+        failedCapture.CompleteSaveCapture( diagnostics, failing.captureToken, captureFailure );
+    CHECK_FALSE( failureCompletion.Ok() );
+    CHECK( failedCapture.Status().kind == Runtime::LookLabStatusKind::BundlePartialFailure );
+    CHECK( fs::exists( fs::path( failedCapture.Status().bundleDirectory.data() ) / "look.style.json" ) );
+    CHECK_FALSE( fs::exists( fs::path( failedCapture.Status().bundleDirectory.data() ) / "look.png" ) );
+    CHECK( ReadText( fs::path( failedCapture.Status().bundleDirectory.data() ) / "look.txt" )
+               .find( "screenshot_status=failed\n" ) != std::string::npos );
+
+    Runtime::LookLabController cancelled;
+    REQUIRE( cancelled.ResolveSeed( 0x3234ull, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult cancelling = cancelled.BeginSave( diagnostics, request( "2026-08-01_12-00-04" ) );
+    REQUIRE( cancelling.status.Ok() );
+    REQUIRE( cancelled.CancelPendingSave( diagnostics, "scene transition cancelled screenshot" ).Ok() );
+    CHECK( cancelled.Status().kind == Runtime::LookLabStatusKind::BundleCancelled );
+    CHECK( ReadText( fs::path( cancelled.Status().bundleDirectory.data() ) / "look.txt" )
+               .find( "screenshot_status=cancelled\n" ) != std::string::npos );
+
+    Runtime::LookLabController collision;
+    REQUIRE( collision.ResolveSeed( 0x3234ull, SentinelPresentation() ) );
+    const Runtime::LookLabSaveStartResult collided = collision.BeginSave( diagnostics, request( "2026-08-01_12-00-04" ) );
+    CHECK_FALSE( collided.status.Ok() );
+
+    Runtime::LookLabController seedSource;
+    const uint64_t firstAuthoringSeed = seedSource.NextAuthoringSeed();
+    CHECK( seedSource.NextAuthoringSeed() != firstAuthoringSeed );
+
+    fs::remove_all( root, filesystemError );
+    CHECK_FALSE( filesystemError );
 }
 } // namespace

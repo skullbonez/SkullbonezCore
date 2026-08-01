@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: ACTIVE — 4/7 phases complete
+Status: ACTIVE — 5/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -219,7 +219,7 @@ these rules:
   focused cases and 4,240 assertions; evidence is in
   `../../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
 
-- [ ] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
+- [x] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
   input actions and exact binding tests while pinning F5/F6 to their existing
   diagnostics. F11 creates one ignored timestamp/seed directory, writes the
   exact style and pending receipt first, requests one screenshot for the applied
@@ -228,7 +228,15 @@ these rules:
   focus edges, repeated presses, F11-before-F10, F10-during-pending-save, path
   collision, style/receipt failure, screenshot failure, shutdown/scene-load
   cancellation, and one complete bundle per accepted F11 action without
-  duplicate writes or captures.
+  duplicate writes or captures. Complete: Input owns exact keyboard-unblocked
+  F10/F11 press actions while preserving F5/F6; App sequences one scene-local
+  candidate and one save transaction; Capture owns a bounded typed post-render
+  PNG queue executed after world/UI drawing and before Present. Pending saves
+  reject rerolls and duplicate saves, scene transition/shutdown cancel the
+  matching token, and receipt revisions publish final, partial-failure, or
+  cancelled status only after Capture responds. Debug/Profile pass the focused
+  transaction, PNG, and binding matrix; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`.
 
 - [ ] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
   deterministic large seed census and report recipe/mode/feature distribution,

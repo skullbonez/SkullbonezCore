@@ -1398,7 +1398,7 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 ## Current Execution Priority
 
 **Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-3/7.** F10 rerolls presentation only and F11 writes one ignored root
+5/7.** F10 rerolls presentation only and F11 writes one ignored root
 `LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
@@ -3240,7 +3240,7 @@ diagnostics, and the shipping binary paid for years.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 4/7 | LL4 wires F10/F11 and the exact bundle/capture transaction |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 5/7 | LL5 proves useful breadth, reusable fresh-process output, and zero idle cost |
 | 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Look Lab Random Style Authoring (2026-08-01)
@@ -3306,6 +3306,17 @@ scene lifecycle clearing idempotently. Debug/Profile each pass 11 focused cases
 and 4,240 assertions; all seven inventories and the 13/13 comment audit are
 clean. The live ledger is therefore 4/14 (28%). Evidence is in
 `../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
+
+LL4 completed on 2026-08-01. Exact keyboard-unblocked F10/F11 press actions now
+reroll and save through the focused owner while F5/F6 remain unchanged. The
+save transaction writes the exact style and pending receipt before submitting
+one bounded typed PNG request to Capture; Capture runs after world/UI drawing
+and before Present, then atomically finalizes success, partial-failure, or
+cancelled receipt state. Debug/Profile pass the focused transaction, PNG, and
+binding matrix, all seven inventories are current, reachability closes at 79/79
+without the temporary Look Lab repair rulings, and the 19/19 touched-source
+comment audit is clean. The live ledger is therefore 5/14 (35%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`.
 
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 

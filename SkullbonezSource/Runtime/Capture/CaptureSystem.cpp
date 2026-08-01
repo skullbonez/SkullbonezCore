@@ -6,16 +6,20 @@ Purpose:
 Summary:
   Runtime code decides when a screenshot should happen, then borrows the
   concrete DX12 capture owner. CaptureSystem validates the readback contract,
-  writes BMP bytes, and returns automation decisions without owning renderer
-  resources.
+  writes BMP or PNG bytes, and returns automation decisions without owning
+  renderer resources.
 
 Glossary:
   BMP (Bitmap): Simple image file format used by validation backbuffer captures.
+  PNG (Portable Network Graphics): Bundle image format encoded from the same
+    padded bottom-up BGR readback without changing renderer ownership.
 
 Invariants:
   - Capture succeeds only when the concrete owner reports valid dimensions.
   - SaveBackbufferBmp receives only the capture/readback surface, not the full
     render device.
+  - PNG conversion flips rows and swaps BGR to RGB before building valid zlib
+    and chunk checksums; CPU tests pin the exact orientation and channel order.
   - Capture automation reports the completion action separately from the side
     effect so Run can decide whether to quit, advance, or hold.
 
@@ -33,9 +37,12 @@ Related:
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
 #endif
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -43,6 +50,148 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+namespace
+{
+void AppendBigEndian32( std::vector<uint8_t>& output, uint32_t value )
+{
+    output.push_back( static_cast<uint8_t>( value >> 24 ) );
+    output.push_back( static_cast<uint8_t>( value >> 16 ) );
+    output.push_back( static_cast<uint8_t>( value >> 8 ) );
+    output.push_back( static_cast<uint8_t>( value ) );
+}
+
+uint32_t PngCrc32( std::span<const uint8_t> bytes )
+{
+    uint32_t crc = 0xffffffffu;
+
+    for ( uint8_t byte : bytes )
+    {
+        crc ^= byte;
+
+        for ( int bit = 0; bit < 8; ++bit )
+        {
+            crc = ( crc >> 1 ) ^ ( 0xedb88320u & ( 0u - ( crc & 1u ) ) );
+        }
+    }
+
+    return crc ^ 0xffffffffu;
+}
+
+uint32_t ZlibAdler32( std::span<const uint8_t> bytes )
+{
+    constexpr uint32_t MODULUS = 65521u;
+    uint32_t a = 1u;
+    uint32_t b = 0u;
+
+    for ( uint8_t byte : bytes )
+    {
+        a = ( a + byte ) % MODULUS;
+        b = ( b + a ) % MODULUS;
+    }
+
+    return ( b << 16 ) | a;
+}
+
+void AppendPngChunk( std::vector<uint8_t>& output, const char type[4], std::span<const uint8_t> payload )
+{
+    AppendBigEndian32( output, static_cast<uint32_t>( payload.size() ) );
+    const size_t crcStart = output.size();
+    output.insert( output.end(), type, type + 4 );
+    output.insert( output.end(), payload.begin(), payload.end() );
+    AppendBigEndian32( output, PngCrc32( std::span<const uint8_t>( output ).subspan( crcStart ) ) );
+}
+} // namespace
+
+SkullbonezCore::Core::SbResult CaptureSystem::BuildPngBytes( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             std::span<const uint8_t> bottomUpBgr, int width, int height,
+                                                             std::vector<uint8_t>& output )
+{
+    output.clear();
+
+    if ( width <= 0 || height <= 0 || static_cast<size_t>( width ) > ( std::numeric_limits<size_t>::max )() / 3u )
+    {
+        return diagnostics.Failure( "Runtime/CaptureSystem", "PNG dimensions are invalid: %dx%d", width, height );
+    }
+
+    const size_t sourceRowStride = ( static_cast<size_t>( width ) * 3u + 3u ) & ~size_t { 3u };
+    const size_t scanlineStride = static_cast<size_t>( width ) * 3u + 1u;
+
+    if ( static_cast<size_t>( height ) > ( std::numeric_limits<size_t>::max )() / sourceRowStride ||
+         static_cast<size_t>( height ) > ( std::numeric_limits<size_t>::max )() / scanlineStride ||
+         bottomUpBgr.size() < sourceRowStride * static_cast<size_t>( height ) )
+    {
+        return diagnostics.Failure( "Runtime/CaptureSystem", "PNG source pixels do not cover %dx%d BGR rows.", width,
+                                    height );
+    }
+
+    std::vector<uint8_t> scanlines( scanlineStride * static_cast<size_t>( height ) );
+
+    for ( int y = 0; y < height; ++y )
+    {
+        const uint8_t* source = bottomUpBgr.data() + static_cast<size_t>( height - 1 - y ) * sourceRowStride;
+        uint8_t* destination = scanlines.data() + static_cast<size_t>( y ) * scanlineStride;
+        destination[0] = 0u;
+
+        for ( int x = 0; x < width; ++x )
+        {
+            destination[1 + x * 3 + 0] = source[x * 3 + 2];
+            destination[1 + x * 3 + 1] = source[x * 3 + 1];
+            destination[1 + x * 3 + 2] = source[x * 3 + 0];
+        }
+    }
+
+    // Concept: PNG permits a zlib stream made from uncompressed DEFLATE blocks.
+    // Capture is a cold path, so a tiny self-contained encoder avoids adding a
+    // process-wide image dependency while retaining exact RGB bytes.
+    std::vector<uint8_t> zlib;
+    zlib.reserve( scanlines.size() + scanlines.size() / 65535u * 5u + 11u );
+    zlib.push_back( 0x78u );
+    zlib.push_back( 0x01u );
+    size_t cursor = 0;
+
+    while ( cursor < scanlines.size() )
+    {
+        const size_t blockSize = (std::min)( size_t { 65535u }, scanlines.size() - cursor );
+        const bool finalBlock = cursor + blockSize == scanlines.size();
+        const uint16_t length = static_cast<uint16_t>( blockSize );
+        const uint16_t inverseLength = static_cast<uint16_t>( ~length );
+        zlib.push_back( finalBlock ? 0x01u : 0x00u );
+        zlib.push_back( static_cast<uint8_t>( length ) );
+        zlib.push_back( static_cast<uint8_t>( length >> 8 ) );
+        zlib.push_back( static_cast<uint8_t>( inverseLength ) );
+        zlib.push_back( static_cast<uint8_t>( inverseLength >> 8 ) );
+        zlib.insert( zlib.end(), scanlines.begin() + static_cast<std::ptrdiff_t>( cursor ),
+                     scanlines.begin() + static_cast<std::ptrdiff_t>( cursor + blockSize ) );
+
+        cursor += blockSize;
+    }
+
+    AppendBigEndian32( zlib, ZlibAdler32( scanlines ) );
+
+    if ( zlib.size() > ( std::numeric_limits<uint32_t>::max )() )
+    {
+        return diagnostics.Failure( "Runtime/CaptureSystem", "PNG IDAT payload exceeds the format limit." );
+    }
+
+    constexpr uint8_t signature[] = { 0x89u, 'P', 'N', 'G', 0x0du, 0x0au, 0x1au, 0x0au };
+    output.insert( output.end(), std::begin( signature ), std::end( signature ) );
+    std::array<uint8_t, 13> header = {};
+    header[0] = static_cast<uint8_t>( static_cast<uint32_t>( width ) >> 24 );
+    header[1] = static_cast<uint8_t>( static_cast<uint32_t>( width ) >> 16 );
+    header[2] = static_cast<uint8_t>( static_cast<uint32_t>( width ) >> 8 );
+    header[3] = static_cast<uint8_t>( width );
+    header[4] = static_cast<uint8_t>( static_cast<uint32_t>( height ) >> 24 );
+    header[5] = static_cast<uint8_t>( static_cast<uint32_t>( height ) >> 16 );
+    header[6] = static_cast<uint8_t>( static_cast<uint32_t>( height ) >> 8 );
+    header[7] = static_cast<uint8_t>( height );
+    header[8] = 8u;
+    header[9] = 2u;
+    AppendPngChunk( output, "IHDR", header );
+    AppendPngChunk( output, "IDAT", zlib );
+    AppendPngChunk( output, "IEND", {} );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
 #if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 namespace
 {
@@ -77,8 +226,7 @@ SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticSto
 
     if ( written != bytes.size() )
     {
-        return diagnostics.Failure( "Runtime/CaptureSystem",
-                                    "Failed to write screenshot file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
+        return diagnostics.Failure( "Runtime/CaptureSystem", "Failed to write screenshot file: %s", path );
     }
 
     return SkullbonezCore::Core::SbResult::Success();
@@ -218,6 +366,47 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
     }
 
     return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferPng( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                                 Rendering::Dx12BackbufferCapture& backend,
+                                                                 const char* path )
+{
+
+    if ( !backend.SupportsBackbufferCapture() )
+    {
+        return diagnostics.Failure( "Runtime/CaptureSystem", "Renderer does not support PNG backbuffer capture: %s", path );
+    }
+
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+    SkullbonezCore::Core::SbResult result = backend.CaptureBackbuffer( pixels, width, height );
+
+    if ( !result.Ok() )
+    {
+        return result;
+    }
+
+    std::vector<uint8_t> png;
+    result = BuildPngBytes( diagnostics, pixels, width, height, png );
+
+    if ( !result.Ok() )
+    {
+        return result;
+    }
+
+    FILE* rawFile = nullptr;
+    const errno_t error = fopen_s( &rawFile, path, "wb" );
+
+    if ( error != 0 || !rawFile )
+    {
+        return diagnostics.Failure( "Runtime/CaptureSystem", "Failed to open PNG screenshot file: %s", path );
+    }
+
+    FileHandle file( rawFile );
+    return WriteExact( diagnostics, file.get(), png, path );
 }
 #endif
 

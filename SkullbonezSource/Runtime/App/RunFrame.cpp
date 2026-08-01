@@ -494,6 +494,12 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
 
 void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 {
+
+    // Invariant: the F11 request was formed during input after its candidate was
+    // applied. Draining after world/UI draw and before Present captures that
+    // exact frame without lending renderer authority to LookLabController.
+    CompleteLookLabPostRenderCaptures();
+
     PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
@@ -534,6 +540,41 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 #else
     (void)legacyDevelopmentUiActive;
 #endif
+}
+
+void Run::CompleteLookLabPostRenderCaptures()
+{
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+
+    if ( capture.PendingPostRenderCount() == 0 )
+    {
+        return;
+    }
+
+    PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LookLabCapture" );
+    {
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
+        PostRenderCaptureBatchResult batch = capture.DrainPostRenderRequests( BackbufferCapture() );
+
+        for ( std::size_t index = 0; index < batch.count; ++index )
+        {
+            const PostRenderCaptureResult& captured = batch.results[index];
+
+            if ( captured.request.owner != PostRenderCaptureOwner::LookLab )
+            {
+                continue;
+            }
+
+            const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, captured.request.token,
+                                                                             captured.status );
+
+            if ( !completion.Ok() )
+            {
+                std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );
+            }
+        }
+    }
+    PROFILE_END( m_profiler, "Frame/PostDraw/LookLabCapture" );
 }
 
 void Run::FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy )

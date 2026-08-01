@@ -1,24 +1,28 @@
 /*
 File: SkullbonezSource/Runtime/Direction/LookLabController.cpp
 Purpose:
-  Resolves, reports, snapshots, and clears live Look Lab candidates.
+  Owns live Look Lab candidates and their save transaction lifecycle.
 
 Summary:
   The controller combines pure generator output with the current scene's
   non-randomizable presentation facts and retains only the validated candidate
-  plus fixed-capacity status facts. App sequences its detached snapshot into
-  the SceneController-owned application boundary.
+  plus fixed-capacity status facts. During a save it retains the exact snapshot,
+  artifact facts, and capture token until App returns Capture's completion.
 
 Glossary:
   Scene scale: Shadow coverage distance used to proportion generator-v1 fog
     distances without borrowing physics or scene topology.
   Quality carry: Exact copy of shadow allocation/filter/bias fields that a
     live presentation reroll is forbidden to change.
+  Pending bundle: Style and first receipt are durable, while look.png still
+    awaits the post-render Capture owner.
 
 Invariants:
   - Candidate resolution performs no filesystem, shader, Capture, or simulation
     operation and reads no SceneSession random state.
   - The current candidate is published only after final validity succeeds.
+  - A pending bundle blocks reroll and duplicate save so one accepted action
+    produces one directory containing one internally consistent candidate.
   - Lifecycle clearing is generation-idempotent.
 
 Related:
@@ -29,9 +33,11 @@ Related:
 */
 #include "LookLabController.h"
 
+#include "../../Core/SbDiagnosticStore.h"
 #include "../../Scene/StandaloneStyleWriter.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 
@@ -40,6 +46,20 @@ namespace SkullbonezCore::Runtime
 namespace
 {
 constexpr float GENERATOR_FOG_REFERENCE_DISTANCE = 1500.0f;
+constexpr const char* OWNER = "Runtime/Direction/LookLabController";
+
+template <std::size_t Capacity> void CopyBounded( std::array<char, Capacity>& output, const char* value )
+{
+    strncpy_s( output.data(), output.size(), value ? value : "", _TRUNCATE );
+}
+
+uint64_t MixAuthoringSeed( uint64_t value )
+{
+    value += 0x9e3779b97f4a7c15ull;
+    value = ( value ^ ( value >> 30u ) ) * 0xbf58476d1ce4e5b9ull;
+    value = ( value ^ ( value >> 27u ) ) * 0x94d049bb133111ebull;
+    return value ^ ( value >> 31u );
+}
 
 void ResolveRetainedPresentationValues( LookLabCandidate& candidate, const Core::CinematicRenderConfig& activePresentation )
 {
@@ -180,6 +200,13 @@ Scene::StandaloneStyleSnapshot BuildLookLabStyleSnapshot( const LookLabCandidate
 
 bool LookLabController::ResolveSeed( uint64_t seed, const Core::CinematicRenderConfig& activePresentation )
 {
+
+    if ( m_pendingSave )
+    {
+        PublishStatus( LookLabStatusKind::Rejected, "save pending; reroll ignored" );
+        return false;
+    }
+
     LookLabCandidate candidate = ResolveLookLabCandidateForScene( seed, activePresentation );
 
     if ( ValidateResolvedLookLabCandidate( candidate, activePresentation ) != LookLabCandidateIssue::None )
@@ -193,8 +220,27 @@ bool LookLabController::ResolveSeed( uint64_t seed, const Core::CinematicRenderC
     m_status.generatorVersion = m_candidate->generatorVersion;
     m_status.recipe = m_candidate->recipe;
     m_status.fingerprint = FingerprintLookLabCandidate( *m_candidate );
+    PublishBundlePath( "" );
     PublishStatus( LookLabStatusKind::Resolved, LookLabRecipeFamilyName( m_candidate->recipe ) );
     return true;
+}
+
+uint64_t LookLabController::NextAuthoringSeed()
+{
+    const uint64_t clockBits = static_cast<uint64_t>( std::chrono::high_resolution_clock::now().time_since_epoch().count() );
+    const uint64_t sequence = ++m_authoringSequence;
+    const uint64_t current = m_candidate ? m_candidate->seed : 0;
+    uint64_t seed = MixAuthoringSeed( clockBits ^ ( sequence * 0x9e3779b97f4a7c15ull ) ^ current );
+
+    // Invariant: even a coarse or frozen host clock cannot repeat the currently
+    // visible candidate because the private authoring sequence still advances.
+
+    if ( m_candidate && seed == m_candidate->seed )
+    {
+        seed = m_candidate->seed + 1u;
+    }
+
+    return seed;
 }
 
 void LookLabController::MarkApplied()
@@ -206,6 +252,148 @@ void LookLabController::MarkApplied()
     }
 }
 
+LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& diagnostics,
+                                                     const LookLabSaveRequest& request )
+{
+    LookLabSaveStartResult output;
+
+    if ( !m_candidate )
+    {
+        output.status = diagnostics.Failure( OWNER, "save requires a resolved Look Lab candidate" );
+        PublishStatus( LookLabStatusKind::Rejected, output.status.ErrorMessage() );
+        return output;
+    }
+
+    if ( m_pendingSave )
+    {
+        output.status = diagnostics.Failure( OWNER, "one Look Lab bundle is already pending capture" );
+        PublishStatus( LookLabStatusKind::Rejected, output.status.ErrorMessage() );
+        return output;
+    }
+
+    PendingSave pending;
+    PublishBundlePath( "" );
+    pending.snapshot = BuildLookLabStyleSnapshot( *m_candidate );
+    pending.facts.seed = m_candidate->seed;
+    pending.facts.generatorVersion = m_candidate->generatorVersion;
+    pending.facts.recipe = m_candidate->recipe;
+    pending.facts.utcOffsetMinutes = request.utcOffsetMinutes;
+    CopyBounded( pending.facts.localTimestamp, request.localTimestamp );
+    CopyBounded( pending.facts.sourceScenePath, request.sourceScenePath );
+    CopyBounded( pending.facts.sourceSceneDisplayName, request.sourceSceneDisplayName );
+
+    Core::SbResult directoryResult = LookLabBundleWriter::CreateBundleDirectory( diagnostics, request.lookLabRoot,
+                                                                                 request.localTimestamp, m_candidate->seed,
+                                                                                 pending.paths );
+
+    if ( !directoryResult.Ok() )
+    {
+        PublishStatus( LookLabStatusKind::Rejected, directoryResult.ErrorMessage() );
+        output.status = std::move( directoryResult );
+        return output;
+    }
+
+    PublishBundlePath( pending.paths.directory.data() );
+    Core::SbResult styleResult = Scene::StandaloneStyleWriter::SaveAtomic( diagnostics, pending.snapshot,
+                                                                           pending.paths.style.data() );
+
+    if ( !styleResult.Ok() )
+    {
+        pending.facts.styleStatus = LookLabArtifactStatus::Failed;
+        pending.facts.screenshotStatus = LookLabArtifactStatus::Cancelled;
+        CopyBounded( pending.facts.styleDiagnostic, styleResult.ErrorMessage() );
+        CopyBounded( pending.facts.screenshotDiagnostic, "capture not requested because style publication failed" );
+        const Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts,
+                                                                                     pending.snapshot, pending.paths );
+
+        PublishStatus( LookLabStatusKind::BundlePartialFailure,
+                       receiptResult.Ok() ? styleResult.ErrorMessage() : receiptResult.ErrorMessage() );
+
+        output.status = receiptResult.Ok() ? std::move( styleResult ) : receiptResult;
+        return output;
+    }
+
+    pending.facts.styleStatus = LookLabArtifactStatus::Saved;
+    pending.facts.screenshotStatus = LookLabArtifactStatus::Pending;
+    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                           pending.paths );
+
+    if ( !receiptResult.Ok() )
+    {
+        PublishStatus( LookLabStatusKind::BundlePartialFailure, receiptResult.ErrorMessage() );
+        output.status = std::move( receiptResult );
+        return output;
+    }
+
+    pending.token = m_nextSaveToken++;
+
+    if ( m_nextSaveToken == 0 )
+    {
+        m_nextSaveToken = 1;
+    }
+
+    output.captureRequested = true;
+    output.captureToken = pending.token;
+    output.screenshotPath = pending.paths.screenshot;
+    m_pendingSave = std::move( pending );
+    PublishStatus( LookLabStatusKind::BundlePending, "style saved; screenshot pending" );
+    return output;
+}
+
+Core::SbResult LookLabController::CompleteSaveCapture( Core::SbDiagnosticStore& diagnostics, uint64_t token,
+                                                       const Core::SbResult& captureResult )
+{
+
+    if ( !m_pendingSave || token == 0 || m_pendingSave->token != token )
+    {
+        return diagnostics.Failure( OWNER, "capture completion token does not match the pending Look Lab bundle" );
+    }
+
+    PendingSave pending = std::move( *m_pendingSave );
+    m_pendingSave.reset();
+    pending.facts.screenshotStatus = captureResult.Ok() ? LookLabArtifactStatus::Saved : LookLabArtifactStatus::Failed;
+
+    if ( !captureResult.Ok() )
+    {
+        CopyBounded( pending.facts.screenshotDiagnostic, captureResult.ErrorMessage() );
+    }
+
+    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                           pending.paths );
+
+    if ( !receiptResult.Ok() )
+    {
+        PublishStatus( LookLabStatusKind::BundlePartialFailure, receiptResult.ErrorMessage() );
+        return receiptResult;
+    }
+
+    PublishStatus( captureResult.Ok() ? LookLabStatusKind::BundleSaved : LookLabStatusKind::BundlePartialFailure,
+                   captureResult.Ok() ? "Look Lab bundle saved" : captureResult.ErrorMessage() );
+
+    return captureResult;
+}
+
+Core::SbResult LookLabController::CancelPendingSave( Core::SbDiagnosticStore& diagnostics, const char* reason )
+{
+
+    if ( !m_pendingSave )
+    {
+        return Core::SbResult::Success();
+    }
+
+    PendingSave pending = std::move( *m_pendingSave );
+    m_pendingSave.reset();
+    pending.facts.screenshotStatus = LookLabArtifactStatus::Cancelled;
+    CopyBounded( pending.facts.screenshotDiagnostic, reason ? reason : "Look Lab save cancelled" );
+    Core::SbResult receiptResult = LookLabBundleWriter::SaveReceiptAtomic( diagnostics, pending.facts, pending.snapshot,
+                                                                           pending.paths );
+
+    PublishStatus( receiptResult.Ok() ? LookLabStatusKind::BundleCancelled : LookLabStatusKind::BundlePartialFailure,
+                   receiptResult.Ok() ? pending.facts.screenshotDiagnostic.data() : receiptResult.ErrorMessage() );
+
+    return receiptResult;
+}
+
 void LookLabController::ClearForSceneTransition()
 {
     m_candidate.reset();
@@ -213,6 +401,7 @@ void LookLabController::ClearForSceneTransition()
     m_status.fingerprint = 0;
     m_status.generatorVersion = 0;
     m_status.recipe = LookLabRecipeFamily::GoldenRealism;
+    PublishBundlePath( "" );
     PublishStatus( LookLabStatusKind::ClearedForSceneLoad, "scene transition cleared Look Lab" );
 }
 
@@ -232,9 +421,14 @@ bool LookLabController::HasCandidate() const
     return m_candidate.has_value();
 }
 
-const LookLabCandidate* LookLabController::CurrentCandidate() const
+bool LookLabController::HasPendingSave() const
 {
-    return m_candidate ? &*m_candidate : nullptr;
+    return m_pendingSave.has_value();
+}
+
+uint64_t LookLabController::PendingSaveToken() const
+{
+    return m_pendingSave ? m_pendingSave->token : 0;
 }
 
 Scene::StandaloneStyleSnapshot LookLabController::BuildCurrentSnapshot() const
@@ -251,6 +445,12 @@ void LookLabController::PublishStatus( LookLabStatusKind kind, const char* detai
 {
     m_status.kind = kind;
     m_status.hasCandidate = m_candidate.has_value();
+    m_status.savePending = m_pendingSave.has_value();
     strncpy_s( m_status.detail.data(), m_status.detail.size(), detail ? detail : "", _TRUNCATE );
+}
+
+void LookLabController::PublishBundlePath( const char* path )
+{
+    CopyBounded( m_status.bundleDirectory, path );
 }
 } // namespace SkullbonezCore::Runtime

@@ -37,7 +37,7 @@
                        },
                        {
                            "key":  "CaptureRequest",
-                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:38",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:43",
                            "members":  1,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Capture",
@@ -225,6 +225,15 @@
                            "destructures_at_entry":  "no"
                        },
                        {
+                           "key":  "LookLabSaveRequest",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabController.h:75",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "LL4 / Runtime Direction Look Lab save transaction",
+                           "reason":  "Root, timestamp/offset, and source-scene identity name one bundle revision sampled synchronously by App; splitting them permits the receipt and directory to describe different save actions. LookLabController copies every borrow before return, and TestLookLabController proves the transaction lifecycle.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
                            "key":  "ObjectGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:363",
                            "members":  2,
@@ -267,6 +276,15 @@
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
                            "reason":  "Editor and replay capture/look flags are evaluated as one policy snapshot to choose exactly one pointer presentation; independent reads could expose a cursor during an owned-look gesture.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PostRenderCaptureRequest",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:53",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "LL4 / Runtime Capture post-render queue",
+                           "reason":  "A bounded PNG path, transaction owner, and nonzero token are one queued capture command; Capture must return the exact correlation identity on both image-write success and failure. TestOwnerRequestQueues proves validation, retention, and cancellation.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -586,7 +604,7 @@
                        },
                        {
                            "key":  "RuntimeCameraMovementInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:274",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:276",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -595,7 +613,7 @@
                        },
                        {
                            "key":  "RuntimeInputContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:296",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:298",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",

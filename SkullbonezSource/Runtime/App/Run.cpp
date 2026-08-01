@@ -340,6 +340,7 @@ Run::BindRenderBackend( Rendering::Dx12RenderDevice& renderDevice, Rendering::Dx
 Run::~Run()
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
+    CancelPendingLookLabSave( "shutdown cancelled screenshot" );
     const std::string* currentScenePath = m_sceneController.CurrentPath();
     m_diagnosticsRuntime.ReportStoreCapacityRows( m_sceneController.State(),
                                                   currentScenePath ? currentScenePath->c_str() : nullptr, "process_end" );

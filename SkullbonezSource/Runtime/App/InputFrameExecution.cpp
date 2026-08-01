@@ -75,6 +75,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
@@ -109,8 +110,99 @@ bool Run::ApplyLookLabSeed( uint64_t seed )
     return true;
 }
 
+void Run::BeginLookLabSave()
+{
+    std::time_t now = std::time( nullptr );
+    std::tm localTime {};
+    std::tm utcTime {};
+
+    if ( now == static_cast<std::time_t>( -1 ) || localtime_s( &localTime, &now ) != 0 || gmtime_s( &utcTime, &now ) != 0 )
+    {
+        std::fprintf( stderr, "Runtime/Direction/LookLabController: local time unavailable; bundle not created\n" );
+        return;
+    }
+
+    char timestamp[20] = {};
+
+    if ( std::strftime( timestamp, sizeof( timestamp ), "%Y-%m-%d_%H-%M-%S", &localTime ) == 0 )
+    {
+        std::fprintf( stderr,
+                      "Runtime/Direction/LookLabController: local timestamp formatting failed; bundle not created\n" );
+
+        return;
+    }
+
+    const std::time_t localAsUtc = _mkgmtime( &localTime );
+    const std::time_t utcAsUtc = _mkgmtime( &utcTime );
+    const int utcOffsetMinutes = localAsUtc == static_cast<std::time_t>( -1 ) || utcAsUtc == static_cast<std::time_t>( -1 )
+                                     ? 0
+                                     : static_cast<int>( std::difftime( localAsUtc, utcAsUtc ) / 60.0 );
+
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    const UI::RunSceneBrowserState& browser = m_operatorUi->SceneNavigation().browser;
+    const int browserIndex = browser.CurrentIndexForPath( scenePath );
+    const char* displayName = "Generated Demo";
+
+    if ( browserIndex >= 0 && static_cast<std::size_t>( browserIndex ) < browser.names.size() )
+    {
+        displayName = browser.names[static_cast<std::size_t>( browserIndex )].c_str();
+    }
+    else if ( scenePath )
+    {
+        displayName = scenePath->c_str();
+    }
+
+    const LookLabSaveRequest request { "LookLab", timestamp, utcOffsetMinutes, scenePath ? scenePath->c_str() : "",
+                                       displayName };
+
+    LookLabSaveStartResult start = m_lookLab.BeginSave( m_resultDiagnostics, request );
+
+    if ( !start.status.Ok() )
+    {
+        std::fprintf( stderr, "%s: %s\n", start.status.ErrorOwner(), start.status.ErrorMessage() );
+        return;
+    }
+
+    if ( !start.captureRequested )
+    {
+        return;
+    }
+
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    Core::SbResult queueResult = capture.QueuePostRenderPng( start.screenshotPath.data(), PostRenderCaptureOwner::LookLab,
+                                                             start.captureToken );
+
+    if ( !queueResult.Ok() )
+    {
+        const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, start.captureToken,
+                                                                         queueResult );
+
+        std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );
+    }
+}
+
+void Run::CancelPendingLookLabSave( const char* reason )
+{
+
+    if ( !m_lookLab.HasPendingSave() )
+    {
+        return;
+    }
+
+    const uint64_t token = m_lookLab.PendingSaveToken();
+    (void)m_diagnosticsRuntime.Capture().CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, token );
+    const Core::SbResult result = m_lookLab.CancelPendingSave( m_resultDiagnostics, reason );
+
+    if ( !result.Ok() )
+    {
+        std::fprintf( stderr, "%s: %s\n", result.ErrorOwner(), result.ErrorMessage() );
+    }
+}
+
 void Run::PrepareLookLabForSceneTransition()
 {
+
+    CancelPendingLookLabSave( "scene transition cancelled screenshot" );
 
     if ( !m_lookLab.HasCandidate() )
     {
@@ -561,6 +653,21 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         switch ( event.action )
         {
+        case RuntimeInputAction::RerollLookLab:
+        {
+            const uint64_t seed = m_lookLab.NextAuthoringSeed();
+
+            if ( !ApplyLookLabSeed( seed ) )
+            {
+                const LookLabStatusView status = m_lookLab.Status();
+                std::fprintf( stderr, "Runtime/Direction/LookLabController: %s\n", status.detail.data() );
+            }
+
+            break;
+        }
+        case RuntimeInputAction::SaveLookLabBundle:
+            BeginLookLabSave();
+            break;
         case RuntimeInputAction::ToggleEditor:
 
             // Backtick is captured early but applied after UI command processing.

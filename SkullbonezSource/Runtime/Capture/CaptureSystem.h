@@ -5,13 +5,14 @@ Purpose:
 
 Summary:
   Runtime code owns screenshot trigger state, while renderer code owns pixel
-  readback. Pure trigger and result-folding rules remain value seams so tests
-
-  do not need to impersonate a renderer.
+  readback. Pure trigger, PNG encoding, and result-folding rules remain value
+  seams so tests do not need to impersonate a renderer.
 
 Glossary:
   Due predictor: Side-effect-free trigger query used before simulation so the
     eventual captured frame can pin presentation to committed solver state.
+  Post-render PNG: A capture encoded after UI/world draw submission so an
+    authoring bundle contains the presentation applied during that input turn.
 
 Invariants:
   - Screenshot state is per-run state; interval counters and one-shot flags are
@@ -30,6 +31,9 @@ Related:
 #include "../../Core/SbResult.h"
 
 #include <cassert>
+#include <cstdint>
+#include <span>
+#include <vector>
 
 namespace SkullbonezCore
 {
@@ -85,6 +89,11 @@ class CaptureSystem
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
                                                    double elapsedMs );
     static SkullbonezCore::Core::SbResult SaveBackbufferBmp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                             Rendering::Dx12BackbufferCapture& backend, const char* path );
+    static SkullbonezCore::Core::SbResult BuildPngBytes( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
+                                                         std::span<const uint8_t> bottomUpBgr, int width, int height,
+                                                         std::vector<uint8_t>& output );
+    static SkullbonezCore::Core::SbResult SaveBackbufferPng( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              Rendering::Dx12BackbufferCapture& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot, bool isSceneMode, bool isInteractiveRun,
                                                  int currentFrame, double elapsedMs, const char* currentScenePath,

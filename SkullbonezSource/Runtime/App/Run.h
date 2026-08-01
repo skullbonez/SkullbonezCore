@@ -248,6 +248,9 @@ class Run
     RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
                                                   const RuntimeInputFrameFacts& facts );
     bool ApplyLookLabSeed( uint64_t seed );                                                      // Resolves and applies one presentation-only candidate.
+    void BeginLookLabSave();                                                                     // Starts one style/receipt/capture transaction for the current candidate.
+    void CompleteLookLabPostRenderCaptures();                                                    // Returns Capture results to the matching Look Lab transaction.
+    void CancelPendingLookLabSave( const char* reason );                                         // Finalizes a pending receipt before scene or process teardown.
     void PrepareLookLabForSceneTransition();                                                     // Clears the candidate and restores process presentation defaults.
     SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
 

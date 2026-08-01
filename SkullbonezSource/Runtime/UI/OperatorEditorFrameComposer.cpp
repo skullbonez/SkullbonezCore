@@ -238,6 +238,12 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     }
 #endif
     SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
+    const LookLabStatusView lookLabStatus = m_lookLab.Status();
+    operatorEditorView.lookLab.seed = lookLabStatus.seed;
+    operatorEditorView.lookLab.hasCandidate = lookLabStatus.hasCandidate;
+    operatorEditorView.lookLab.savePending = lookLabStatus.savePending;
+    operatorEditorView.lookLab.detail = lookLabStatus.detail;
+    operatorEditorView.lookLab.bundleDirectory = lookLabStatus.bundleDirectory;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
 #endif

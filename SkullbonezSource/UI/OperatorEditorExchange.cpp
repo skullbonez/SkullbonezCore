@@ -1434,6 +1434,11 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.tools.autoTerrainAlign );
     HashValue( hash, view.tools.undoDepth );
     HashValue( hash, view.tools.redoDepth );
+    HashValue( hash, view.lookLab.seed );
+    HashValue( hash, view.lookLab.hasCandidate );
+    HashValue( hash, view.lookLab.savePending );
+    HashBytes( hash, view.lookLab.detail.data(), std::strlen( view.lookLab.detail.data() ) );
+    HashBytes( hash, view.lookLab.bundleDirectory.data(), std::strlen( view.lookLab.bundleDirectory.data() ) );
     const uint32_t hierarchyCount = view.hierarchy.rowCount <= OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY
                                         ? view.hierarchy.rowCount
                                         : OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY;
