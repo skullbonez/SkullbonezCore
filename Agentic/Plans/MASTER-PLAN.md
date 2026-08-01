@@ -1403,7 +1403,7 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 1/7.** Its
+**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 2/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
@@ -3241,7 +3241,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 1/7 | ES1 installs complete-solve energy, momentum, and explicit bias-work oracles before production behavior changes |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 2/7 | ES2 commits the giant tower and semantic gates, recording current failures before any production behavior change |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3380,6 +3380,16 @@ work, scene-energy, launch, penetration, cache, support, sleep, body-retention,
 and repeat requirements are now fixed with sensitive planted controls. The live
 ledger is therefore 8/14 (57%). Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`.
+
+ES1 completed on 2026-08-02 without changing production solver behavior.
+Physics now owns allocation-free complete-solve energy and world-momentum
+measurement using the production mass and inertia-frame contracts. Five cases
+and 87 assertions pass in both Debug and Profile across restitution, friction,
+box rotation, anisotropic inertia, matching cache reuse, and explicit
+Baumgarte work. Oversized-impulse, stale-geometry, and over-restitution
+controls all fail the positive oracle. The complete fast gate and 3/3 source
+comment audit pass. The live ledger is therefore 9/14 (64%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`.
 
 ## Features
 

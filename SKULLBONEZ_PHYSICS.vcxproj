@@ -231,6 +231,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSceneVectorReserve.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\ContactEnergyOracle.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />

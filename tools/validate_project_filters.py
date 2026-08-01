@@ -149,6 +149,7 @@ PHYSICS_CORE_PREFIXES = (
 )
 
 PHYSICS_BODY_PREFIXES = (
+    "ContactEnergyOracle",
     "PhysicsBodyStore",
     "PhysicsHandles",
     "PhysicsMass",

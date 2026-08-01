@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-01
-Status: ACTIVE — 1/7 phases complete
+Status: ACTIVE — 2/7 phases complete
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -147,7 +147,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   accounting are in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`.
 
-- [ ] **ES1 — Install complete-solve energy and momentum oracles.** Add a
+- [x] **ES1 — Install complete-solve energy and momentum oracles.** Add a
   Physics-owned test calculation for total translational and rotational kinetic
   energy using the same mass and world-inertia contracts as the solver. Cover
   dynamic/dynamic and dynamic/fixed sphere, box face, off-center box, friction,
@@ -157,6 +157,12 @@ changes. An expected-output golden is not a substitute for these invariants.
   within their explicit separation-work budget. Include negative controls that
   fail for an oversized normal impulse, stale cached impulse applied through
   incompatible geometry, and restitution above one.
+  Complete: Physics owns allocation-free total kinetic-energy and world
+  momentum measurement using the production mass and world-inertia frames.
+  Five Debug/Profile cases (87 assertions each) cover every required collision,
+  cache, bias, and planted-failure branch. The complete fast gate and 3/3
+  touched-source comment audit pass. Evidence is in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`.
 
 - [ ] **ES2 — Add the giant tower and 200-box semantic gate.** Commit a schema-
   current `contact_energy_tower_64.scene.json` containing a fixed foundation and
