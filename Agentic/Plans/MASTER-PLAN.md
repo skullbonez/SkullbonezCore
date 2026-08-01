@@ -809,10 +809,11 @@ reviewed candidates may replace the tracked baselines.
 The denominator grew 7 -> 14 on 2026-08-01 when the owner registered Look Lab
 Random Style Authoring and placed it first in execution order. F10 rerolls one
 deterministic coherent presentation-only look; F11 saves the fully resolved
-schema-current style plus a matching timestamp/seed screenshot. F5/F6 remain
-the profiler diagnostics, camera/lenses are excluded, and the existing scene,
-simulation, shader source, resource-quality policy, and validation baselines
-remain untouched. The live ledger is 0/14 (0%) across two plans.
+schema-current style, human-readable receipt, and matching screenshot inside one
+ignored root `LookLab/<datetime>_<seed>/` directory. F5/F6 remain the profiler
+diagnostics, camera/lenses are excluded, and the existing scene, simulation,
+shader source, resource-quality policy, and validation baselines remain
+untouched. The live ledger is 0/14 (0%) across two plans.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1397,9 +1398,10 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 ## Current Execution Priority
 
 **Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-0/7.** F10 rerolls presentation only and F11 writes one timestamp/seed standalone
-style plus matching screenshot. F5/F6 remain unchanged, lenses/camera are out of
-scope, and no default visual baseline may move.
+0/7.** F10 rerolls presentation only and F11 writes one ignored root
+`LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
+and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
+and no default visual baseline may move.
 
 **Contact Energy And Warm-Start Integrity (2026-08-01) is second at 0/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
@@ -3253,9 +3255,11 @@ Binding owner directions:
 
 - preserve F5 performance-histogram and F6 memory-overlay behavior exactly;
 - bind F10 to a deterministic presentation-only reroll and F11 to automatic
-  timestamp/seed style-plus-screenshot saving;
-- write reusable standalone styles under `SkullbonezData/styles/generated/`
-  without modifying the active scene or existing curated styles;
+  root `LookLab/<datetime>_<seed>/` bundle saving;
+- write `look.style.json`, a human-readable `look.txt` containing metadata,
+  complete resolved settings and final status, and `look.png` inside that
+  ignored directory without modifying the active scene or existing curated
+  styles;
 - randomize supported cinematic, lighting, sky, fog, volumetric, bloom, grading,
   terrain, water, object-style, color, and material presentation coherently;
 - exclude lenses, FOV, camera pose/motion, simulation, assets, transforms, shader

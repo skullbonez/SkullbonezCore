@@ -37,9 +37,10 @@ changes, and combinations that are surprising only because they are broken.
 Pressing F10 produces a new, broad, coherent, deterministic presentation look
 for the active scene without reloading or changing simulation. Pressing F11
 automatically writes the exact resolved look to a reusable schema-current style
-file with a timestamp/seed filename and saves a matching screenshot. The output
-round-trips in a fresh process, the active scene file remains untouched, and the
-saved result does not depend on future generator behavior or inherited defaults.
+inside a timestamp/seed directory, writes a human-readable text receipt, and
+saves a matching screenshot. The output round-trips in a fresh process, the
+active scene file remains untouched, and the saved result does not depend on
+future generator behavior or inherited defaults.
 
 ## Binding Interaction Contract
 
@@ -48,26 +49,37 @@ saved result does not depend on future generator behavior or inherited defaults.
 | F5 | Continue toggling the performance histogram exactly as today. |
 | F6 | Continue toggling the memory overlay exactly as today. |
 | F10 | On one keyboard-unblocked press edge, choose a new 64-bit authoring seed, resolve one coherent Look Lab candidate, and apply it live. |
-| F11 | On one keyboard-unblocked press edge after F10, atomically save the exact candidate as a standalone style and request one matching screenshot. |
+| F11 | On one keyboard-unblocked press edge after F10, create one repository-root Look Lab bundle containing the exact standalone style, a text receipt, and one matching screenshot. |
 
 F10 never polls or recompiles shader source. “Shader randomization” means
 selecting only renderer-supported style/material branches already represented
 by typed engine values. It does not create HLSL, alter shader bytecode, reload
 assets, rebuild the scene, or mutate physics.
 
-F11 writes under `SkullbonezData/styles/generated/` using this collision-safe
-stem:
+F11 writes one ignored directory below the repository-root `LookLab/` folder
+using this collision-safe, Windows-safe name:
 
 ```text
-look_YYYYMMDD_HHMMSS_seed_<16-lowercase-hex-digits>
+LookLab/YYYY-MM-DD_HH-mm-ss_seed_<16-lowercase-hex-digits>/
+  look.style.json
+  look.txt
+  look.png
 ```
 
-The paired outputs are `<stem>.style.json` and `<stem>.png`. The JSON is written
-through a temporary sibling and renamed only after serialization succeeds. The
-screenshot is captured after a completed rendered frame containing that exact
-candidate. A screenshot failure does not delete or misreport the valid style;
-the user receives a precise partial-success path and diagnostic. F11 before a
-successful F10 performs no write and reports that there is no candidate.
+`look.style.json` is the machine-authoritative reusable engine style; `look.txt`
+is a human-readable receipt containing local timestamp and UTC offset, seed,
+generator version, recipe, source scene path/display name, output filenames,
+the complete flattened resolved cinematic/material key-value listing, and final
+style/screenshot status. The text receipt is derived inspection output, not a
+second reload parser; JSON remains authoritative. The JSON and receipt are
+written through temporary siblings and renamed only after serialization
+succeeds. The screenshot is captured after a completed rendered frame containing
+that exact candidate, then the receipt is atomically updated with the final
+capture result. A screenshot failure does not delete or misreport the valid
+style; the folder remains with an honest partial-success receipt and diagnostic.
+F11 before a successful F10 creates no directory and reports that there is no
+candidate. The implementation adds root `LookLab/` to `.gitignore` so
+exploration output never dirties the repository.
 
 ## Randomization Contract
 
@@ -121,8 +133,8 @@ these rules:
 - SceneController continues to own live application to cinematic state and
   object-material presentation. Look Lab does not reach into render stores.
 - Capture owns screenshot execution. Look Lab submits a typed request and waits
-  for the existing post-render completion result before reporting the paired
-  output.
+  for the existing post-render completion result before finalizing the bundle
+  receipt.
 - Input publishes F10/F11 action values; App sequences them to the Direction
   owner. UI receives detached status text/value data and owns no authoring state.
 
@@ -137,7 +149,8 @@ these rules:
   identity, UI layout, debug overlays, resource capacities, or renderer quality
   budgets.
 - No write to the currently loaded `.scene.json`, `engine.cfg`, existing curated
-  style files, or tracked validation baselines.
+  style files, or tracked validation baselines. Generated output is confined to
+  ignored root `LookLab/` directories.
 - No prompt, modal naming dialog, or editor dependency on F11; saving is one key
   press with an automatic timestamp/seed name.
 - No claim that every random look is aesthetically desirable. The contract is
@@ -150,7 +163,8 @@ these rules:
   Inventory every field in `CinematicRenderConfig`, every supported sky/terrain/
   object/water and material mode, all object-material targeting semantics, all
   23 tracked styles, live-style application, scene-style merge/reset behavior,
-  screenshot timing, save-path policy, and F5/F6/F10/F11 bindings. For every
+  screenshot timing, root `LookLab/` bundle policy, receipt contents, and
+  F5/F6/F10/F11 bindings. For every
   option record its actual consumer, valid parser range, runtime resource side
   effects, randomize/derive/retain/exclude ruling, and reason. Measure idle input
   and style-apply behavior before implementation. Lock the recipe families,
@@ -170,9 +184,10 @@ these rules:
   writer for a fully resolved schema-current `skullbonez.style.json` document.
   Preserve the established key vocabulary and parser bounds; do not bump the
   schema merely to record generator metadata because timestamp and seed already
-  live in the filename and diagnostics. Prove serialize/parse equality for every
-  field and material rule, stable key order/float formatting, byte-identical
-  same-candidate output, collision-safe names, directory creation, atomic replace
+  live in the directory name and receipt. Add the root `LookLab/` ignore rule.
+  Prove serialize/parse equality for every field and material rule, stable key
+  order/float formatting, byte-identical same-candidate output, exact receipt
+  facts, collision-safe directory names, directory creation, atomic replace
   semantics, and bounded diagnostics for unwritable/invalid paths.
 
 - [ ] **LL3 — Add the focused live Look Lab owner.** Compose `LookLabController`
@@ -183,14 +198,16 @@ these rules:
   exact preservation of camera, scene topology, transforms, assets, physics,
   clocks, and the authored scene path/content.
 
-- [ ] **LL4 — Wire F10 reroll and the F11 paired-save transaction.** Add explicit
+- [ ] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
   input actions and exact binding tests while pinning F5/F6 to their existing
-  diagnostics. F11 writes the style first, requests one screenshot for the exact
-  applied candidate, and publishes success/partial-failure paths only after the
-  capture owner responds. Cover keyboard capture/focus edges, repeated presses,
-  F11-before-F10, F10-during-pending-save, path collision, style failure,
-  screenshot failure, shutdown/scene-load cancellation, and one screenshot per
-  accepted F11 action without duplicate writes or captures.
+  diagnostics. F11 creates one ignored timestamp/seed directory, writes the
+  exact style and pending receipt first, requests one screenshot for the applied
+  candidate, atomically finalizes `look.txt`, and publishes success/partial-
+  failure paths only after the capture owner responds. Cover keyboard capture/
+  focus edges, repeated presses, F11-before-F10, F10-during-pending-save, path
+  collision, style/receipt failure, screenshot failure, shutdown/scene-load
+  cancellation, and one complete bundle per accepted F11 action without
+  duplicate writes or captures.
 
 - [ ] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
   deterministic large seed census and report recipe/mode/feature distribution,
@@ -203,16 +220,17 @@ these rules:
 
 - [ ] **LL6 — Perform visible validation and close.** In one waited interactive
   DX12 session, demonstrate repeated visibly distinct F10 looks and save a chosen
-  F11 pair. Inspect the complete JSON and PNG, reload the style in a fresh run,
-  and compare the reapplied image/state. Run focused tests, style/parser and
+  F11 bundle. Inspect the complete JSON, text receipt, and PNG, reload the style
+  in a fresh run, and compare the reapplied image/state. Run focused tests,
+  style/parser and
   snapshot coverage, `validate_tests`, `validate_fast`, dependency validation,
   `validate_physics`, `validate_dx12_renderer`, the bounded graphics-stress gate,
   `validate_perf`, and `validate_full`. Existing Physics, DX12, Replay, and visual
   baselines must remain unchanged because no validated workload presses F10/F11.
   Audit every touched source-bearing file, run all seven ownership inventories,
   and obtain an independent read-only review of ownership, randomness,
-  serialization, failure atomicity, capture timing, input conflicts, idle cost,
-  and test sensitivity.
+  serialization, bundle/receipt failure atomicity, capture timing, input
+  conflicts, idle cost, and test sensitivity.
 
 ## Dependencies And Decisions
 
@@ -225,7 +243,8 @@ these rules:
 - LL2 precedes F11 wiring; the key handler never owns JSON or filesystem policy.
 - LL3 precedes LL4; input dispatch cannot become the retained authoring owner.
 - LL4 uses the existing Capture owner and one post-render completion. It may not
-  add another backbuffer or file-writing owner.
+  add another backbuffer or file-writing owner. The receipt records the result;
+  it does not own or duplicate the style values.
 - No phase carries baseline-refresh authority. Any default, no-input visual or
   physics movement is a defect to repair, not a golden to normalize.
 
@@ -234,11 +253,14 @@ these rules:
 The plan closes when F5/F6 remain exact, each F10 press applies a valid and
 visibly useful deterministic presentation candidate without changing camera or
 simulation, F11 creates one unique timestamp/seed `.style.json` and matching PNG
-without touching the active scene, saved styles round-trip and reapply exactly
-in a fresh process, failures are atomic and honestly reported, idle cost is
-zero within measurement resolution, existing style content remains compatible,
-all mapped gates pass without baseline refresh, touched comments are complete,
-and independent review finds no blocking ownership or false-pass defect.
+simulation, F11 creates one unique ignored root `LookLab/<datetime>_<seed>/`
+bundle containing `look.style.json`, a complete human-readable settings/status
+`look.txt`, and matching `look.png` without touching the active scene, saved
+styles round-trip and reapply exactly in a fresh process, failures are atomic
+and honestly reported, idle cost is zero within measurement resolution,
+existing style content remains compatible, all mapped gates pass without
+baseline refresh, touched comments are complete, and independent review finds
+no blocking ownership or false-pass defect.
 
 ## Validation
 
@@ -246,7 +268,8 @@ and independent review finds no blocking ownership or false-pass defect.
 - Pure generator same-seed, diversity, range, coupling, and negative controls
 - Large deterministic seed census with zero invalid candidates
 - Full-field style serialize/parse/reapply round-trip
-- Atomic path, collision, partial screenshot, cancellation, and repeat-press tests
+- Atomic directory/JSON/receipt, collision, partial screenshot, cancellation,
+  and repeat-press tests
 - Simulation RNG/state, camera, scene topology, and source-file non-mutation tests
 - Existing 23-style parser/application compatibility census
 - Fresh-process saved-style reload and one waited F10/F11 DX12 demonstration
