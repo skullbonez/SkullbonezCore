@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-1st-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `e19cdb63` was fast-forwarded into the Night Runner branch before implementation. |
-| Current objective | Contact Energy And Warm-Start Integrity is active; ES3 corrects fresh-impact versus persistent-contact restitution without changing terrain support or solver settings. Look Lab Random Style Authoring is complete. |
-| Active/future progress | 10/14 (71%). Look Lab is 7/7; Contact Energy is 3/7. |
+| Current objective | Contact Energy And Warm-Start Integrity is active; ES4 attributes and repairs only residual object warm-start identity or geometry-validity defects. Look Lab Random Style Authoring is complete. |
+| Active/future progress | 11/14 (78%). Look Lab is 7/7; Contact Energy is 4/7. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -26,6 +26,7 @@ plan inventory.
 | Contact energy ES0 | Complete. The exact four-brick defect reproduces; 4/8-level towers complete awake, 16/32/64 hit deterministic candidate-list fatals, and 128 exhausts its spatial-entry reservation before frame zero. Two byte-identical 6,800-frame 200-box runs leave one striker below terrain and exceed the locked scene-energy envelope. Precision, launch, penetration, cache, support, sleep, body-retention, determinism, and negative-control acceptance rules are fixed without production edits or baseline movement. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`. |
 | Contact energy ES1 | Complete. Physics owns allocation-free complete-solve energy and world-momentum measurement using production mass and inertia-frame contracts. Five focused cases / 87 assertions pass in Debug and Profile across the required restitution, friction, box, anisotropic, cache, bias-work, and planted-failure matrix. The complete fast gate and 3/3 touched-source comment audit pass without production solver or baseline movement. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`. |
 | Contact energy ES2 | Complete. The exact 64-level tower is tracked and runtime-admitted. One bounded semantic checker owns the tower, four-brick, and 200-box energy, launch, penetration, cache, support, sleep, body-retention, and completeness gates, with exact current-failure witnesses and planted controls. Candidate and spatial capacities remain unchanged because the current fatal follows solver destabilization. Deep and fast validation plus the 2/2 source comment audit pass. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`. |
+| Contact energy ES3 | Complete. Object restitution follows loaded object-pair lifetime while exact feature identity remains the warm-start key; no-contact reset and elastic mutual-gravity behavior are pinned. Four bricks fall from 566 meaningful vertical reversals to zero, leave the iteration cap, and sleep permanently at frame 294; terrain is byte-exact. Tower-64 advances to frame 41 before the unchanged candidate ceiling, and the 6,800-frame wall run reduces post-settle upward launch speed while retaining attributed ES4 residuals. Focused coverage passes 6 cases / 101 assertions; complete tests, fast validation, and the 2/2 comment audit pass. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -134,14 +135,16 @@ standalone style, human-readable receipt, and matching screenshot without
 touching the active scene. Existing F5/F6 profiler bindings and all default
 baselines remain exact.
 
-Contact Energy And Warm-Start Integrity is active at 3/7. ES0 locked the exact
+Contact Energy And Warm-Start Integrity is active at 4/7. ES0 locked the exact
 four-brick, 200-box, and 4/8/16/32/64/128-level current-state evidence plus the
 precision, energy, launch, penetration, cache, support, sleep, body-retention,
 determinism, and negative-control envelope. ES1 installed the complete-solve
 energy, momentum, and explicit bias-work oracles with sensitive planted
 failures. ES2 committed the giant tower and semantic gates while recording the
-unchanged current solver's expected failures before any solver edit. ES3 now
-corrects fresh-impact versus persistent-contact restitution. The
+unchanged current solver's expected failures before any solver edit. ES3 made
+fresh-impact restitution follow loaded object-pair lifetime and left exact
+feature compatibility plus changed-geometry validity as the attributed ES4
+work. The
 plan retains the working terrain support seed and grants no baseline-refresh
 authority.
 The agent continues through all seven phases without an owner pause and reaches
@@ -860,12 +863,13 @@ targeted Automation and final full passes.
 
 | `tools\validate_fast.bat` (Contact Energy ES1 final) | PASS | Formatting, project metadata, dependencies, ownership inventories, Debug/Profile builds, and tests complete; focused energy oracle is 5 cases / 87 assertions in each configuration. |
 | `tools\validate_physics_deep.bat` and `tools\validate_fast.bat` (Contact Energy ES2 final) | PASS | Exact tower scene, bounded semantic controls/current-failure witnesses, byte-exact broad Physics, project metadata, dependencies, ownership inventories, Debug/Profile builds, and tests complete; source comment audit is 2/2. |
+| `tools\validate_tests.bat` and `tools\validate_fast.bat` (Contact Energy ES3 final) | PASS | Loaded-pair restitution coverage passes 6 cases / 101 assertions with the ES1 energy matrix; terrain is byte-exact; four-brick, tower-64, and wall-200 measurements are complete; formatting, metadata, dependencies, ownership inventories, compiled-symbol reachability, builds, and tests pass; source comment audit is 2/2. |
 
 ## Next Handoff
 
-Continue ES3 from
+Continue ES4 from
 `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md` through the
-repository orchestrator skill. Look Lab LL0-LL6 and Contact Energy ES0-ES2 are
+repository orchestrator skill. Look Lab LL0-LL6 and Contact Energy ES0-ES3 are
 locked in their dated reports. Continue Contact Energy through ES6 and ask for
 physics-baseline
 permission only after its implementation,

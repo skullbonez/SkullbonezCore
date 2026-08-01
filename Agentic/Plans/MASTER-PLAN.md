@@ -1403,7 +1403,7 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 3/7.** Its
+**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 4/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
@@ -3241,7 +3241,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 3/7 | ES3 corrects fresh-impact versus persistent-contact restitution without changing terrain support or solver settings |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 4/7 | ES4 attributes and repairs only residual object warm-start identity or geometry-validity defects |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3401,6 +3401,20 @@ The existing candidate-list ceiling remains unchanged because the current
 tower reaches it only after destabilization; increasing it would hide a solver
 symptom. The live ledger is therefore 10/14 (71%). Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
+
+ES3 completed on 2026-08-02. Object restitution now follows the loaded
+object-pair lifecycle independently of exact feature warm-start compatibility;
+a no-contact solve resets that lifecycle, and elastic mutual-gravity contacts
+retain their explicit response. The four-brick fixture falls from 566 vertical
+reversals and 900 cap-bound frames to zero reversals, leaves the cap, and sleeps
+permanently at frame 294. Terrain is byte-exact. Tower-64 advances from frame 37
+to frame 41 before the unchanged candidate ceiling, and the completed wall run
+reduces post-settle upward launch speed from 12.125853 to 9.090012 while retaining
+the same attributed residual energy/body-support failures for ES4. Focused
+coverage passes 6 cases / 101 assertions; complete tests, fast validation, and
+the 2/2 comment audit pass. The live ledger is therefore 11/14 (78%). Evidence
+is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
 
 ## Features
 

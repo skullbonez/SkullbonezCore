@@ -906,6 +906,91 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
 }
 
+TEST_CASE( "Persistent contact solver: restitution follows loaded object-pair lifetime" )
+{
+    auto buildImpact = []( SolverFixture& fixture )
+    {
+        constexpr float restitution = 0.75f;
+        fixture.config.solver.slop = 0.0f;
+        fixture.config.solver.baumgarteBeta = 0.2f;
+        fixture.AddDynamicSphere( Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), restitution, true );
+        fixture.AddDynamicSphere( Vector3( 0.0f, 1.99f, 0.0f ), Vector3( 0.0f, -6.0f, 0.0f ), restitution );
+        fixture.candidatePairs.emplace_back( 0, 1 );
+    };
+
+    SolverFixture fresh;
+    buildImpact( fresh );
+    fresh.Solve();
+
+    REQUIRE( fresh.solver.GetPersistentContactCache().size() == 1u );
+    REQUIRE( fresh.solver.GetPersistentContacts().size() == 1u );
+    CHECK( fresh.bodyStore.HotFields().linearVelocityY[1] > 0.0f );
+    const float freshSeparatingSpeed = fresh.bodyStore.HotFields().linearVelocityY[1];
+
+    PhysicsSolverSnapshot changedFeatureSnapshot;
+    fresh.solver.CaptureReplayState( changedFeatureSnapshot );
+    REQUIRE( changedFeatureSnapshot.persistentContactCache.size() == 1u );
+    changedFeatureSnapshot.persistentContactCache[0].key ^= 0x5a5a5a5a;
+
+    SolverFixture persistent;
+    buildImpact( persistent );
+    persistent.solver.RestoreReplayState( changedFeatureSnapshot );
+    persistent.Solve();
+
+    // Invariant: an exact feature miss may not make a continuously loaded body
+    // pair look like a fresh collision. The pair prefix suppresses restitution,
+    // while the changed feature correctly prevents stale impulse reuse.
+    REQUIRE( persistent.solver.GetStats().cacheHits == 0 );
+    REQUIRE( persistent.solver.GetStats().cacheMisses == 1 );
+    REQUIRE( persistent.solver.GetPersistentContacts().size() == 1u );
+    const auto& persistentContact = persistent.solver.GetPersistentContacts()[0];
+    const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta * persistentContact.penetration / kSolverDt;
+    CHECK( persistentContact.bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
+           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
+
+    SolverFixture gap;
+    buildImpact( gap );
+    gap.CopySolverStateFrom( fresh );
+    gap.candidatePairs.clear();
+    gap.Solve();
+    CHECK( gap.solver.GetPersistentContactCache().empty() );
+
+    SolverFixture reimpact;
+    buildImpact( reimpact );
+    reimpact.CopySolverStateFrom( gap );
+    reimpact.Solve();
+
+    // A complete no-contact frame ends the pair lifetime. Restitution is
+    // therefore available again when the same body identities genuinely meet.
+    CHECK( reimpact.bodyStore.HotFields().linearVelocityY[1] == doctest::Approx( freshSeparatingSpeed ).epsilon( 0.0001 ) );
+
+    auto buildElasticImpact = [&]( SolverFixture& fixture )
+    {
+        buildImpact( fixture );
+        fixture.worldForces.mutualGravity.enabled = true;
+        fixture.worldForces.mutualGravity.elasticCollisions = true;
+    };
+
+    SolverFixture elasticFresh;
+    buildElasticImpact( elasticFresh );
+    elasticFresh.Solve();
+    const float elasticFreshSpeed = elasticFresh.bodyStore.HotFields().linearVelocityY[1];
+
+    SolverFixture elasticPersistent;
+    buildElasticImpact( elasticPersistent );
+    elasticPersistent.CopySolverStateFrom( elasticFresh );
+    elasticPersistent.Solve();
+
+    // Mutual-gravity elastic space intentionally has no resting warm-start
+    // policy. Its repeated contact solve remains perfectly elastic even when a
+    // prior cache row exists for replay continuity.
+    CHECK( elasticPersistent.solver.GetStats().cacheHits == 0 );
+    CHECK( elasticPersistent.bodyStore.HotFields().linearVelocityY[1] ==
+           doctest::Approx( elasticFreshSpeed ).epsilon( 0.0001 ) );
+}
+
 
 TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame resting sink" )
 {

@@ -68,6 +68,57 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 constexpr float TERRAIN_RESTING_SUPPORT_SEED_SCALE = 1.0f;
 constexpr float TERRAIN_SHORELINE_SUPPORT_SEED_SCALE = 0.35f;
 
+struct PreviousObjectPairLookup
+{
+    const PersistentContactCacheEntry* exactFeature = nullptr;
+    bool carriedLoad = false;
+};
+
+PreviousObjectPairLookup InspectPreviousObjectPair( const PersistentContactCacheList& cache, int bodyA, int bodyB,
+                                                    int64_t exactKey )
+{
+    const int lo = ( bodyA < bodyB ) ? bodyA : bodyB;
+    const int hi = ( bodyA < bodyB ) ? bodyB : bodyA;
+
+    // Invariant: feature identity owns warm-start compatibility, but the body-
+    // pair prefix owns contact lifetime. Any loaded row under this prefix means
+    // the current manifold continues a pair that was already carrying support
+    // last frame, even when rocking selects a different face feature.
+    const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 47 ) |
+                                ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & PERSISTENT_CONTACT_BODY_MASK )
+                                  << 32 );
+
+    const int64_t firstKey = static_cast<int64_t>( pairPrefix );
+    auto cachedIt = std::lower_bound( cache.begin(), cache.end(), firstKey,
+                                      []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+                                      { return entry.key < lookupKey; } );
+
+    PreviousObjectPairLookup result;
+
+    while ( cachedIt != cache.end() && ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix )
+    {
+
+        // Hazard: malformed or colliding manifold feature IDs can leave
+        // duplicate cache keys. Preserve lower_bound's historical first-match
+        // choice until the manifold-identity owner eliminates that ambiguity.
+
+        if ( !result.exactFeature && cachedIt->key == exactKey )
+        {
+            result.exactFeature = cachedIt;
+        }
+
+        if ( cachedIt->accN > 0.0f || fabsf( cachedIt->accT1 ) > TOLERANCE || fabsf( cachedIt->accT2 ) > TOLERANCE )
+        {
+            result.carriedLoad = true;
+        }
+
+        ++cachedIt;
+    }
+
+    return result;
+}
+
 // Why: the ordinary specialization must not construct or even contain a
 // convergence record. The attributed specialization remains available to
 // Profile tests, while production worlds select the empty specialization
@@ -908,6 +959,10 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     {
         const SolverBodyState& bodyA = Body( static_cast<std::size_t>( c.bodyA ) );
         const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : Body( static_cast<std::size_t>( c.bodyB ) );
+        const PreviousObjectPairLookup previousObjectPair = c.isTerrain
+                                                                ? PreviousObjectPairLookup()
+                                                                : InspectPreviousObjectPair( stage.m_persistentContactCache,
+                                                                                             c.bodyA, c.bodyB, c.key );
 
         // CATTO REF:
         //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
@@ -1010,30 +1065,43 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
                 c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
             }
         }
-        else if ( vn < -restitutionThreshold )
+        else
         {
-            float restitution = 1.0f;
+            const bool continuesLoadedPair = !elasticCollisions && previousObjectPair.carriedLoad;
 
-            if ( !elasticCollisions )
+            if ( vn < -restitutionThreshold && !continuesLoadedPair )
             {
-                const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
-                const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
-                restitution = sqrtf( restitutionA * restitutionB );
-            }
+                float restitution = 1.0f;
 
-            c.bias = -restitution * vn;
-        }
-        else if ( vn >= -restitutionThreshold )
-        {
-            float penetrationError = c.penetration - contactSlop;
-
-            if ( penetrationError > 0.0f )
-            {
-                c.bias = baumgarteBeta * penetrationError * invDt;
-
-                if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                if ( !elasticCollisions )
                 {
-                    c.bias = maxBaumgarteBias;
+                    const float restitutionA = colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                    const float restitutionB = colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
+                    restitution = sqrtf( restitutionA * restitutionB );
+                }
+
+                c.bias = -restitution * vn;
+            }
+            else
+            {
+
+                // Concept: restitution belongs to a new impact, not to rocking
+                // inside a manifold that already carried support. Pair lifetime
+                // deliberately differs from exact feature reuse: feature IDs
+                // still guard cached impulse geometry, while any loaded row for
+                // the pair suppresses renewed bounce. A full frame without the
+                // pair clears the cache and admits restitution on the next hit.
+                // Terrain and mutual-gravity elastic policy never enter here.
+                float penetrationError = c.penetration - contactSlop;
+
+                if ( penetrationError > 0.0f )
+                {
+                    c.bias = baumgarteBeta * penetrationError * invDt;
+
+                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                    {
+                        c.bias = maxBaumgarteBias;
+                    }
                 }
             }
         }
@@ -1059,18 +1127,38 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // Why: warm-start cache is a stack-support tool. In elastic space it
         // can preserve last frame's push and make grazing bodies look glued.
         const bool canUseCachedWarmStart = c.supportsRestingPolicy && !elasticCollisions;
-        auto cachedIt = canUseCachedWarmStart
-                            ? std::lower_bound( stage.m_persistentContactCache.begin(), stage.m_persistentContactCache.end(),
-                                                c.key, []( const PersistentContactCacheEntry& entry, int64_t key )
-                                                { return entry.key < key; } )
-                            : stage.m_persistentContactCache.end();
+        const PersistentContactCacheEntry* cachedEntry = nullptr;
 
-        if ( canUseCachedWarmStart && cachedIt != stage.m_persistentContactCache.end() && cachedIt->key == c.key )
+        if ( canUseCachedWarmStart )
+        {
+
+            if ( c.isTerrain )
+            {
+                auto cachedIt = std::lower_bound( stage.m_persistentContactCache.begin(),
+                                                  stage.m_persistentContactCache.end(), c.key,
+                                                  []( const PersistentContactCacheEntry& entry, int64_t key )
+                                                  { return entry.key < key; } );
+
+                if ( cachedIt != stage.m_persistentContactCache.end() && cachedIt->key == c.key )
+                {
+                    cachedEntry = cachedIt;
+                }
+            }
+            else
+            {
+
+                // Why: the pair-prefix walk above owns both lifecycle and exact
+                // feature lookup, avoiding a second binary search per object row.
+                cachedEntry = previousObjectPair.exactFeature;
+            }
+        }
+
+        if ( cachedEntry )
         {
             ++stage.m_persistentContactSolverStats.cacheHits;
-            c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
-            c.accT1 = cachedIt->accT1;
-            c.accT2 = cachedIt->accT2;
+            c.accN = ( cachedEntry->accN > 0.0f ) ? cachedEntry->accN : 0.0f;
+            c.accT1 = cachedEntry->accT1;
+            c.accT2 = cachedEntry->accT2;
             const float cachedFrictionLimit = ( elasticCollisions || !c.allowsTangentFriction )
                                                   ? 0.0f
                                                   : ( c.isTerrain

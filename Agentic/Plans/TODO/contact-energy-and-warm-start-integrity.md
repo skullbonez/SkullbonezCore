@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-01
-Status: ACTIVE — 3/7 phases complete
+Status: ACTIVE — 4/7 phases complete
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -183,7 +183,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   fast validation, and the 2/2 comment audit pass. Evidence is in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
 
-- [ ] **ES3 — Correct fresh-impact versus persistent-contact restitution.** Use
+- [x] **ES3 — Correct fresh-impact versus persistent-contact restitution.** Use
   ES0 attribution to implement the smallest object-only policy that applies
   restitution to a genuine new impact and never repeatedly to a loaded resting
   contact whose closing speed comes from rocking or `omega × r`. Re-evaluate the
@@ -193,6 +193,17 @@ changes. An expected-output golden is not a substitute for these invariants.
   correction, or iteration change in this phase. ES1, the four-brick metric,
   the tower sweep, and the 200-box energy query must all improve or remain
   bounded before ES3 can close.
+  Complete: object restitution now follows the loaded object-pair lifecycle
+  while exact feature identity remains the warm-start compatibility key. A
+  no-contact solve resets the lifecycle, and elastic mutual-gravity contacts
+  retain their explicit response. Four bricks lose every meaningful vertical
+  flip, leave the iteration cap, and sleep permanently at frame 294; terrain is
+  byte-exact. The tower advances before the unchanged candidate ceiling and the
+  wall reduces launch severity, while their exact residual cache/energy defects
+  remain attributed to ES4. Focused coverage passes 6 cases / 101 assertions,
+  complete tests and fast validation pass, and the comment audit is 2/2.
+  Evidence is in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
 
 - [ ] **ES4 — Repair only residual warm-start identity or validity defects.** If
   ES3 leaves material cache churn or energy gain, attribute the exact rows and

@@ -25,11 +25,11 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
-      "body_sha256": "c3dd3a0bf41e820fcab1ccca8b5601b94a19c26e3a0754f94964127c5c316ea0",
+      "body_sha256": "e7e3cb438156a93442be91f237e0917ae9b9ca5be3ba8d2a8829d66eb24a1e03",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
-      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, bias, friction bounds, warm-start impulses, and optional trace values; compile-time trace retention preserves that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md",
+      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, fresh-impact bias, friction bounds, warm-start impulses, and optional trace values; the fused object-pair lifecycle/feature lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
+      "evidence": "Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md",
       "plan": ""
     },
     {
