@@ -319,6 +319,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
@@ -530,6 +531,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />

@@ -227,6 +227,7 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestLookLabController.cpp" />
     <ClCompile Include="SkullbonezTests\TestLookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezTests\TestLookLabSerialization.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
@@ -276,6 +277,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />

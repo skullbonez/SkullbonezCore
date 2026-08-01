@@ -3240,7 +3240,7 @@ diagnostics, and the shipping binary paid for years.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 3/7 | LL3 adds the focused live controller and exact presentation-only application/reset boundary |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Active | 4/7 | LL4 wires F10/F11 and the exact bundle/capture transaction |
 | 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
 
 ## Look Lab Random Style Authoring (2026-08-01)
@@ -3296,6 +3296,16 @@ the same JSON fingerprint, collisions and invalid paths fail boundedly, and the
 root `/LookLab/` output is ignored. The live ledger is therefore 3/14 (21%).
 Evidence is in
 `../Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`.
+
+LL3 completed on 2026-08-01. Runtime Direction now owns one focused live
+candidate and bounded status, resolves generator output against retained scene
+geometry/quality facts, and publishes a complete detached style snapshot. App
+applies it through a no-reload SceneController seam, restores the process
+presentation baseline before every runtime scene transition, and observes
+scene lifecycle clearing idempotently. Debug/Profile each pass 11 focused cases
+and 4,240 assertions; all seven inventories and the 13/13 comment audit are
+clean. The live ledger is therefore 4/14 (28%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
 
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 

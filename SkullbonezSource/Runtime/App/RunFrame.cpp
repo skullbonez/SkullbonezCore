@@ -4,8 +4,9 @@ Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
 Summary:
-  Runs one frame of input, simulation,
-  rendering, profiling, and presentation.
+  Run sequences frame-scoped owner borrows in a fixed order, carries only small
+  phase results between them, and performs scene-transition cleanup before any
+  load can replace the active world.
 
 Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches
@@ -367,6 +368,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
 
         if ( stressLoad.request.accepted )
         {
+            PrepareLookLabForSceneTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -978,6 +980,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
         if ( request.HasLoad() )
         {
+            PrepareLookLabForSceneTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -1110,6 +1113,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.loadRequest.HasLoad() )
     {
+        PrepareLookLabForSceneTransition();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                          m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),

@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "17a89a16060f9ad5f7fa47411a91c03cef55f8ea176b876c41d4ea7b81ea108f",
+      "body_sha256": "a7b2883387f83e8ada7eac6ce27ac0d142175b1d0b4068cb7504e6821bcc1fe6",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing and command production; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
+      "reason": "One ordered input turn runs from lifecycle-sensitive owner clearing and automation sampling through device routing and command production; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md",
       "plan": ""
     },
     {

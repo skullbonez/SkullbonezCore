@@ -4,9 +4,9 @@ Purpose:
   Implements SceneController-owned live style and cinematic state changes.
 
 Summary:
-  Live style changes are scene-runtime behavior: they retint/reset existing
-  renderable objects, apply material overrides, and merge authored cinematic
-  fields over engine defaults without rebuilding the current scene.
+  SceneController retints existing renderable objects and updates cinematic
+  presentation without rebuilding the scene. Partial authored styles merge over
+  defaults, while a standalone snapshot replaces the complete authored surface.
 
 Glossary:
   Material override: Authored material/tint applied to matching live models.
@@ -14,6 +14,8 @@ Glossary:
 Invariants:
   - Style application mutates render-facing state only; it does not rebuild
     physics bodies or scene queues.
+  - A standalone style clears curated-browser selection because its candidate
+    is not a browser catalog row.
   - Ragdoll part matching uses suffix names and must stay compatible with
     authored generated ragdolls.
 
@@ -30,6 +32,7 @@ Related:
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
+#include "../../Scene/StandaloneStyleWriter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -125,46 +128,46 @@ bool IsBroadMaterialTarget( const char* target )
            strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName,
-                                 bool simpleRagdollPart, ColliderShapeKind shapeKind )
+bool SceneMaterialTargetMatches( const char* target, const char* displayName, bool simpleRagdollPart,
+                                 ColliderShapeKind shapeKind )
 {
 
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.
 
-    if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
+    if ( simpleRagdollPart && IsBroadMaterialTarget( target ) )
     {
         return false;
     }
 
-    if ( strcmp( material.target, "all" ) == 0 )
+    if ( strcmp( target, "all" ) == 0 )
     {
         return true;
     }
 
-    if ( strcmp( material.target, "balls" ) == 0 )
+    if ( strcmp( target, "balls" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::Sphere;
     }
 
-    if ( strcmp( material.target, "boxes" ) == 0 )
+    if ( strcmp( target, "boxes" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::Box;
     }
 
-    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
+    if ( strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::ConvexHull;
     }
 
-    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
+    if ( strncmp( target, "prefix:", 7 ) == 0 )
     {
-        const char* prefix = material.target + 7;
+        const char* prefix = target + 7;
         return prefix[0] != '\0' && strncmp( displayName, prefix, strlen( prefix ) ) == 0;
     }
 
-    return strcmp( material.target, displayName ) == 0;
+    return strcmp( target, displayName ) == 0;
 }
 
 void ResetObjectMaterials( SceneWorld& world )
@@ -198,7 +201,31 @@ void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
 
-            if ( SceneMaterialTargetMatches( material, entities.At( modelIndex ).displayName,
+            if ( SceneMaterialTargetMatches( material.target, entities.At( modelIndex ).displayName,
+                                             entities.IsSimpleRagdollPart( modelIndex ), shapeKind ) )
+            {
+                entities.MutableAt( modelIndex ).renderMaterial = material.material;
+            }
+        }
+    }
+}
+
+void ApplyObjectMaterials( SceneWorld& world, const SkullbonezCore::Scene::StandaloneStyleSnapshot& style )
+{
+    SceneEntityStore& entities = world.Entities();
+    ResetObjectMaterials( world );
+    const auto colliders = world.Colliders().Records();
+
+    for ( const SkullbonezCore::Scene::StandaloneStyleMaterialRule& material : style.materialRules )
+    {
+
+        for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
+        {
+            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
+                                                    ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
+                                                    : ColliderShapeKind::Sphere;
+
+            if ( SceneMaterialTargetMatches( material.target.data(), entities.At( modelIndex ).displayName,
                                              entities.IsSimpleRagdollPart( modelIndex ), shapeKind ) )
             {
                 entities.MutableAt( modelIndex ).renderMaterial = material.material;
@@ -403,6 +430,38 @@ void SceneController::ApplyLiveStyle( RunLaunchOptions& launchOptions,
         scene.uiCinematicOverrideMask = 0;
     }
 
+    sceneBrowser.selectedCineModeSceneIndex = -1;
+}
+
+
+void SceneController::ApplyStandaloneStyle( RunLaunchOptions& launchOptions,
+                                            SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                            SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                            const SkullbonezCore::Scene::StandaloneStyleSnapshot& style )
+{
+    SceneSessionState& scene = State();
+    launchOptions.hasCinematicRenderingOverride = false;
+    ApplyObjectMaterials( Scene(), style );
+    activeCinematic = style.cinematic;
+
+    if ( scene.isSceneMode )
+    {
+        scene.hasCinematicRenderingOverride = true;
+        scene.isCinematicRenderingEnabled = activeCinematic.enabled;
+        scene.hasCinematicExposure = true;
+        scene.cinematicExposure = activeCinematic.exposure;
+        scene.hasCinematicGamma = true;
+        scene.cinematicGamma = activeCinematic.gamma;
+
+        // Invariant: standalone styles carry every authorable cinematic field.
+        // Reserved bit 55 is excluded so later persistence cannot mistake it
+        // for a parser-owned value.
+        scene.cinematicOverrideMask = ( ( 1ull << 63 ) - 1ull ) & ~SCENE_CINE_RESERVED_55;
+        scene.uiCinematicOverrideMask = 0;
+    }
+
+    // UI coherence: a generated Look Lab candidate is not one of the curated
+    // browser rows, so no stale catalog selection may remain highlighted.
     sceneBrowser.selectedCineModeSceneIndex = -1;
 }
 

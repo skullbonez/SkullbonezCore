@@ -255,6 +255,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
@@ -839,6 +842,9 @@
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h">
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h">

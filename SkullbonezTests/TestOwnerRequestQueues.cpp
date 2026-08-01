@@ -926,11 +926,13 @@ TEST_CASE( "Capture request batches preserve concrete readback failure ownership
 TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded create text" )
 {
     SceneRequestQueue queue;
+    CHECK_FALSE( queue.HasTransition() );
     SceneRequest reset;
     reset.type = SceneRequestType::ResetCurrentScene;
     reset.preserveUIState = false;
     reset.preserveRuntimeState = false;
     REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
+    CHECK( queue.HasTransition() );
 
     SceneRequest save;
     save.type = SceneRequestType::SaveCurrentDefaults;
@@ -949,6 +951,7 @@ TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded creat
     CHECK_FALSE( batch.requests[0].preserveRuntimeState );
     CHECK( batch.requests[1].type == SceneRequestType::SaveCurrentDefaults );
     CHECK( queue.Size() == 0 );
+    CHECK_FALSE( queue.HasTransition() );
 }
 
 TEST_CASE( "SceneRequestQueue accepts at most one transition per checkpoint" )

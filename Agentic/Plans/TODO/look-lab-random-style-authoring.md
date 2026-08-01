@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: ACTIVE — 3/7 phases complete
+Status: ACTIVE — 4/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -206,13 +206,18 @@ these rules:
   field/material rule exactly; evidence is in
   `../../Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`.
 
-- [ ] **LL3 — Add the focused live Look Lab owner.** Compose `LookLabController`
+- [x] **LL3 — Add the focused live Look Lab owner.** Compose `LookLabController`
   in Runtime Direction, resolve F10 candidates, and apply them through the
   existing Scene style seam without reload. Retain only the current candidate and
   bounded status/save metadata. Prove immediate application, scene-reset/load
   clearing, UI/browser style-selection coherence, zero simulation-RNG reads, and
   exact preservation of camera, scene topology, transforms, assets, physics,
-  clocks, and the authored scene path/content.
+  clocks, and the authored scene path/content. Complete: Runtime Direction owns
+  validated scene-resolved candidates and bounded status; App applies detached
+  snapshots through a no-reload SceneController seam and restores process
+  presentation before every runtime scene transition. Debug/Profile pass 11
+  focused cases and 4,240 assertions; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
 
 - [ ] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
   input actions and exact binding tests while pinning F5/F6 to their existing

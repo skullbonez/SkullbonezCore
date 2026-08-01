@@ -77,6 +77,10 @@ class SceneRequestQueue
     SkullbonezCore::Core::SbResult Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                            const SceneRequest& request );
     SceneRequestBatch TakePending();
+
+    // Lets App cancel scene-local sibling state before ExecutePending begins a
+    // queued transition; the queue and request values remain owned here.
+    bool HasTransition() const;
     std::size_t Size() const;
 
   private:

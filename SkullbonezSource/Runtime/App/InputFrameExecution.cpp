@@ -38,6 +38,7 @@ Related:
 #endif
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
+#include "../../Scene/StandaloneStyleWriter.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -93,6 +94,37 @@ using SkullbonezCore::UI::InGameUITab;
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: the Run coordinator reaches composed owners only for this ordered
 // input turn; delegated operations receive concrete operands and retain none.
+bool Run::ApplyLookLabSeed( uint64_t seed )
+{
+    SkullbonezCore::Core::CinematicRenderConfig& active = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
+
+    if ( !m_lookLab.ResolveSeed( seed, active ) )
+    {
+        return false;
+    }
+
+    const SkullbonezCore::Scene::StandaloneStyleSnapshot snapshot = m_lookLab.BuildCurrentSnapshot();
+    m_sceneController.ApplyStandaloneStyle( m_launchOptions, m_operatorUi->SceneNavigation().browser, active, snapshot );
+    m_lookLab.MarkApplied();
+    return true;
+}
+
+void Run::PrepareLookLabForSceneTransition()
+{
+
+    if ( !m_lookLab.HasCandidate() )
+    {
+        return;
+    }
+
+    // Invariant: generated scenes render from the process config. Restore its
+    // startup presentation before loading so a candidate cannot leak into the
+    // next scene; that load may then apply its own authored or hero style.
+    m_config.cinematicRender = m_renderDefaults.CinematicBaseline();
+    m_lookLab.ClearForSceneTransition();
+}
+
+
 Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
     UiInputCaptureIntent externalUiCapture;
@@ -154,6 +186,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto CompleteInputPhase = [&]()
     {
+
+        // Lifetime: Look Lab candidates are scene-local presentation values.
+        // Sampling here clears a prior scene's candidate before input dispatch
+        // can accept another authoring action.
+        m_lookLab.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
         if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
@@ -474,6 +511,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             return false;
         }
 
+        PrepareLookLabForSceneTransition();
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
@@ -1160,6 +1198,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     const bool processedCapture = DrainCaptureRequests();
     presentationEdit.Commit();
     const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( ui.SceneNavigation() );
+
+    if ( sceneController.HasPendingTransition() )
+    {
+        PrepareLookLabForSceneTransition();
+    }
 
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),

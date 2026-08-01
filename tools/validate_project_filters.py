@@ -368,6 +368,7 @@ RUNTIME_INTERACTION_PREFIXES = (
 RUNTIME_SETTINGS_PREFIXES = (
     "LiveStyleController",
     "LookLabBundleWriter",
+    "LookLabController",
     "LookLabGenerator",
     "OperatorCommandTransaction",
 )

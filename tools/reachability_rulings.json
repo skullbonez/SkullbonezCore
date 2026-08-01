@@ -713,6 +713,15 @@
       "plan": ""
     },
     {
+      "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
+      "signature": "bool Run::ApplyLookLabSeed( uint64_t seed )",
+      "owner": "Runtime App Look Lab apply sequencing",
+      "disposition": "repair-plan",
+      "reason": "LL3 composes the exact Direction-to-Scene application checkpoint before LL4 binds the F10 input edge that production-roots it.",
+      "evidence": "TestLookLabController proves resolved publication and lifecycle clearing; synchronized Automation/Debug/Profile census classifies the pre-binding checkpoint as no-reference.",
+      "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
+    },
+    {
       "file": "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp",
       "signature": "Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticStore& diagnostics, const char* lookLabRoot, const char* localTimestamp, uint64_t seed, LookLabBundlePaths& output )",
       "owner": "Runtime Direction Look Lab bundle reservation",
@@ -744,8 +753,8 @@
       "signature": "LookLabCandidate GenerateLookLabCandidate( uint64_t seed, uint32_t generatorVersion )",
       "owner": "Runtime Direction Look Lab deterministic generation",
       "disposition": "repair-plan",
-      "reason": "LL1 introduces the pure generator before LL3 production-roots it through the focused live controller.",
-      "evidence": "TestLookLabGenerator directly proves deterministic generation, complete branch breadth, and process-RNG isolation. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "reason": "LL3 now routes the pure generator through the focused controller and App apply checkpoint; LL4 owns production-rooting that checkpoint from F10.",
+      "evidence": "TestLookLabGenerator and TestLookLabController prove deterministic generation, live resolution, and process-RNG isolation. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
       "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
     },
     {
@@ -753,8 +762,8 @@
       "signature": "LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidate )",
       "owner": "Runtime Direction Look Lab candidate validity",
       "disposition": "repair-plan",
-      "reason": "LL1 introduces final candidate validation before LL3 production-roots candidate acceptance.",
-      "evidence": "TestLookLabGenerator directly exercises valid matrices and planted range, version, compatibility, finite-value, and black-frame defects. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "reason": "LL3 keeps pure validation beneath resolved-candidate validation; LL4 owns production-rooting their App checkpoint from F10.",
+      "evidence": "TestLookLabGenerator and TestLookLabController exercise pure and scene-resolved validity plus planted defects. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
       "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
     },
     {
@@ -762,8 +771,8 @@
       "signature": "std::vector<uint8_t> EncodeLookLabCandidateCanonical( const LookLabCandidate& candidate )",
       "owner": "Runtime Direction Look Lab reproducibility encoding",
       "disposition": "repair-plan",
-      "reason": "LL1 exposes canonical bytes for deterministic proof before later production receipt/state owners consume the candidate contract.",
-      "evidence": "FingerprintLookLabCandidate and TestLookLabGenerator consume the explicit padding-independent encoding. 2026-08-01 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only.",
+      "reason": "The controller fingerprint consumes canonical bytes, but LL4 still owns production-rooting the enclosing App checkpoint from F10.",
+      "evidence": "FingerprintLookLabCandidate, TestLookLabGenerator, and TestLookLabController consume the padding-independent encoding. 2026-08-01 synchronized Automation/Debug/Profile census: classification=own-tu-and-test-only.",
       "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
     },
     {
@@ -771,8 +780,8 @@
       "signature": "uint64_t FingerprintLookLabCandidate( const LookLabCandidate& candidate )",
       "owner": "Runtime Direction Look Lab deterministic fingerprint",
       "disposition": "repair-plan",
-      "reason": "LL1 exposes the fingerprint proof seam before later Look Lab production diagnostics consume reproducibility facts.",
-      "evidence": "TestLookLabGenerator pins Debug/Profile equality and 4,096 unique seed fingerprints. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
+      "reason": "LL3 records the fingerprint in bounded live status, but LL4 still owns production-rooting the enclosing App checkpoint from F10.",
+      "evidence": "TestLookLabGenerator pins 4,096 unique seeds and TestLookLabController pins status publication. 2026-08-01 synchronized Automation/Debug/Profile census: classification=test-only.",
       "plan": "Agentic/Plans/TODO/look-lab-random-style-authoring.md"
     },
     {

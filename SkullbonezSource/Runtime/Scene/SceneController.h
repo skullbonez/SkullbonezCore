@@ -82,6 +82,10 @@ namespace UI
 class InGameUI;
 struct SceneNavigationModel;
 } // namespace UI
+namespace Scene
+{
+struct StandaloneStyleSnapshot;
+}
 namespace Runtime
 {
 class AuthoredScene;
@@ -185,6 +189,9 @@ class SceneController : public SceneSession
                          SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                          const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic,
                          const AuthoredScene& styleScene );
+    void ApplyStandaloneStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
+                               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                               const SkullbonezCore::Scene::StandaloneStyleSnapshot& style );
     bool ApplyDemoHeroStyle( RunLaunchOptions& launchOptions, UI::RunSceneBrowserState& sceneBrowser,
                              const Assets::AssetSystem& assets, SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                              const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic );
@@ -210,6 +217,10 @@ class SceneController : public SceneSession
     SceneLoadRequest CreateScene( const char* requestedName );
     void SubmitSaveCurrentDefaults();
     SceneUICommandSubmissionResult SubmitUIRequests( const UI::UISceneCommands& commands );
+
+    // Reports whether the next checkpoint can replace the scene so App can
+    // clear its sibling owners before entering the load transaction.
+    bool HasPendingTransition() const;
     SceneRequestBatch TakePendingRequests();
 
   private:
