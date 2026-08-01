@@ -23,7 +23,8 @@ Invariants:
   - The current candidate is published only after final validity succeeds.
   - A pending bundle blocks reroll and duplicate save so one accepted action
     produces one directory containing one internally consistent candidate.
-  - Lifecycle clearing is generation-idempotent.
+  - App explicitly clears before every scene replacement; clearing drops all
+    scene-local candidate and pending-save state without polling a frame packet.
 
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabController.h
@@ -403,17 +404,6 @@ void LookLabController::ClearForSceneTransition()
     m_status.recipe = LookLabRecipeFamily::GoldenRealism;
     PublishBundlePath( "" );
     PublishStatus( LookLabStatusKind::ClearedForSceneLoad, "scene transition cleared Look Lab" );
-}
-
-void LookLabController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
-{
-
-    if ( !m_sceneClearObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
-    {
-        return;
-    }
-
-    ClearForSceneTransition();
 }
 
 bool LookLabController::HasCandidate() const

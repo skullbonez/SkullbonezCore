@@ -6,7 +6,9 @@ Purpose:
 Summary:
   InGameUI composes one bounded draw frame around a concrete
   UIWindowInteractionOwner. Callers keep the stable InGameUI API while window,
-  widget, tab-input, gesture, and cache authority live in that owner.
+  widget, tab-input, gesture, and cache authority live in that owner. Detached
+  Look Lab status is republished only at authoring transitions and read from a
+  UI-owned cache during idle composition.
 
 Glossary:
   Scene navigation model: UI-owned browser rows and generated-scene overrides
@@ -20,6 +22,8 @@ Invariants:
   - The interaction owner has no InGameUI backpointer, friend edge, callback
     pack, or unrelated runtime context.
   - Draw returns backend-neutral values and never requires a renderer owner.
+  - Runtime App republishes detached Look Lab status only after an authoring or
+    scene transition; idle UI composition reads the cache without an upward edge.
   - Capacity-row labels live in Runtime's detached fixed snapshot; UI borrows
     them only for the synchronous draw and retains no allocator span.
 
@@ -280,6 +284,18 @@ class InGameUI
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
 
+    // UI retains only the last detached Look Lab presentation value. App
+    // republishes it at authoring transitions, so idle frame composition never
+    // polls the Runtime Direction owner.
+    void SetLookLabView( const OperatorEditorLookLabView& view )
+    {
+        m_lookLabView = view;
+    }
+    const OperatorEditorLookLabView& LookLabView() const
+    {
+        return m_lookLabView;
+    }
+
     // Clears UI-owned layout/backdrop caches after presentation invalidation;
     // GPU resource release belongs exclusively to Runtime/Render.
     void ResetPresentationState();
@@ -310,6 +326,7 @@ class InGameUI
     // draw paths borrow it without resolving process-global diagnostics state.
     Core::Profiler* m_profiler = nullptr;
     SceneNavigationModel m_sceneNavigation;
+    OperatorEditorLookLabView m_lookLabView;
 
     // Lifetime: the interaction owner holds every widget and gesture record
     // shared by hit testing and drawing. It never retains an InGameUI reach-back.

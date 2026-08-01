@@ -35,7 +35,6 @@ Related:
 
 #include "LookLabBundleWriter.h"
 #include "LookLabGenerator.h"
-#include "../Scene/SceneLifecycle.h"
 
 #include <array>
 #include <cstdint>
@@ -124,9 +123,6 @@ class LookLabController
     // presentation; App separately restores its startup cinematic baseline.
     void ClearForSceneTransition();
 
-    // Clears scene-local authoring state once per lifecycle generation.
-    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet );
-
     bool HasCandidate() const;
     bool HasPendingSave() const;
     uint64_t PendingSaveToken() const;
@@ -156,7 +152,6 @@ class LookLabController
     std::optional<LookLabCandidate> m_candidate;
     std::optional<PendingSave> m_pendingSave;
     LookLabStatusView m_status;
-    SceneLifecycleGenerationObserver m_sceneClearObserver;
     uint64_t m_authoringSequence = 0;
     uint64_t m_nextSaveToken = 1;
 };

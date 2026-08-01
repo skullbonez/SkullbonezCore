@@ -247,6 +247,7 @@ class Run
     // domain operations they call receive concrete operands only.
     RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
                                                   const RuntimeInputFrameFacts& facts );
+    void PublishLookLabStatusView();                                                             // Pushes one changed detached status into the UI cache.
     bool ApplyLookLabSeed( uint64_t seed );                                                      // Resolves and applies one presentation-only candidate.
     void BeginLookLabSave();                                                                     // Starts one style/receipt/capture transaction for the current candidate.
     void CompleteLookLabPostRenderCaptures();                                                    // Returns Capture results to the matching Look Lab transaction.

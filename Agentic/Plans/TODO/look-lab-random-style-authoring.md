@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: ACTIVE — 5/7 phases complete
+Status: ACTIVE — 6/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -238,7 +238,7 @@ these rules:
   transaction, PNG, and binding matrix; evidence is in
   `../../Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`.
 
-- [ ] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
+- [x] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
   deterministic large seed census and report recipe/mode/feature distribution,
   palette/luminance/contrast envelopes, invalid count, and exact repeat hashes.
   Load saved output in a fresh process and prove it resolves the same cinematic
@@ -246,6 +246,14 @@ these rules:
   input/render baseline with Look Lab idle and require no per-frame polling,
   filesystem access, allocation, shader compilation, scene reload, or material
   churn. Exercise all existing curated style files to prove compatibility.
+  Complete: a 65,536-seed census produces 65,536 unique valid candidates with
+  one exact Debug/Profile stream hash and reported recipe/mode/feature and
+  palette envelopes. A distinct-process producer/consumer round-trip preserves
+  complete style bytes without generator/catalog/default input, all 23 curated
+  styles parse, and event-driven UI status publication removes Look Lab owner
+  polling from the idle frame. Matching-condition timing is below LL0 in four
+  passes and guarded idle runs exit cleanly; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`.
 
 - [ ] **LL6 — Perform visible validation and close.** In one waited interactive
   DX12 session, demonstrate repeated visibly distinct F10 looks and save a chosen

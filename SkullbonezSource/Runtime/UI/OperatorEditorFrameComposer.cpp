@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   The composer synchronously samples scene, physics, replay, rendering, tools,
-  diagnostics, and input owners into one bounded OperatorEditorFrameView before
-  either development UI surface consumes it.
+  diagnostics, and input owners, then combines those facts with detached
+  UI-owned caches in one bounded OperatorEditorFrameView before either
+  development UI surface consumes it.
 
 Mental model:
   Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
@@ -238,12 +239,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     }
 #endif
     SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
-    const LookLabStatusView lookLabStatus = m_lookLab.Status();
-    operatorEditorView.lookLab.seed = lookLabStatus.seed;
-    operatorEditorView.lookLab.hasCandidate = lookLabStatus.hasCandidate;
-    operatorEditorView.lookLab.savePending = lookLabStatus.savePending;
-    operatorEditorView.lookLab.detail = lookLabStatus.detail;
-    operatorEditorView.lookLab.bundleDirectory = lookLabStatus.bundleDirectory;
+    operatorEditorView.lookLab = m_operatorUi->LookLabView();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
 #endif

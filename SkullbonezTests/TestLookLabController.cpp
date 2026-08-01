@@ -111,7 +111,7 @@ TEST_CASE( "Look Lab scene resolution retains geometry quality and process RNG" 
     }
 }
 
-TEST_CASE( "Look Lab controller publishes one candidate and clears it on scene load" )
+TEST_CASE( "Look Lab controller publishes one candidate and clears it for scene transition" )
 {
     const Core::CinematicRenderConfig active = SentinelPresentation();
     Runtime::LookLabController lookLab;
@@ -146,20 +146,6 @@ TEST_CASE( "Look Lab controller publishes one candidate and clears it on scene l
     CHECK_FALSE( lookLab.HasCandidate() );
     CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::ClearedForSceneLoad );
     CHECK( lookLab.Status().recipe == Runtime::LookLabRecipeFamily::GoldenRealism );
-
-    REQUIRE( lookLab.ResolveSeed( 0xabc123ull, active ) );
-
-    Runtime::SceneLifecyclePacket cleared;
-    cleared.generation = 1;
-    cleared.event = Runtime::SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    lookLab.ObserveSceneLifecycle( cleared );
-    CHECK_FALSE( lookLab.HasCandidate() );
-    CHECK( lookLab.Status().kind == Runtime::LookLabStatusKind::ClearedForSceneLoad );
-    CHECK( lookLab.Status().seed == 0 );
-
-    // Repeated observations of one generation are inert.
-    lookLab.ObserveSceneLifecycle( cleared );
-    CHECK_FALSE( lookLab.HasCandidate() );
 }
 
 TEST_CASE( "Look Lab save transaction publishes pending final failed and cancelled receipts" )

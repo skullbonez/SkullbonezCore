@@ -465,6 +465,13 @@ LookLabCandidate GenerateLookLabCandidate( uint64_t seed, uint32_t generatorVers
     AssignColor( c.fogColorR, c.fogColorG, c.fogColorB, fog );
     c.fogStart = Q12Range( 983040, 3686400, rng );
     c.fogEnd = c.fogStart + Q12Range( 524288, 4915200, rng );
+
+    // Invariant: a generated candidate must pass the same fog-separation rule
+    // used at publication. Preserve the version-1 draw schedule and every
+    // already-valid byte; only previously rejected high-start/short-span seeds
+    // are lifted to the exact validator boundary.
+    const float minimumFogEnd = c.fogStart + std::max( 32.0f, 0.15f * c.fogStart );
+    c.fogEnd = std::max( c.fogEnd, minimumFogEnd );
     c.fogDensity = c.fogEnabled ? Q12Range( 1, 49, rng ) : 0.0f;
     c.fogMaxOpacity = c.fogEnabled ? Q12Range( 410, 3359, rng ) : 0.0f;
     c.styleSaturation = Q12Range( recipe.highKey ? 2867 : 2253, 7578, rng );

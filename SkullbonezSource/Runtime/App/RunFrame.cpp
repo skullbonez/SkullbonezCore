@@ -568,6 +568,8 @@ void Run::CompleteLookLabPostRenderCaptures()
             const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, captured.request.token,
                                                                              captured.status );
 
+            PublishLookLabStatusView();
+
             if ( !completion.Ok() )
             {
                 std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );

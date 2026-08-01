@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Tests serialize deterministic candidates, reload them through the production
-  style parser, and serialize the parsed values again byte-for-byte. Filesystem
-  cases cover parent creation, replacement, collisions, and bounded failures.
+  style parser, and serialize the parsed values again byte-for-byte, including
+  a two-process producer/consumer mode. Filesystem cases cover parent creation,
+  replacement, collisions, curated compatibility, and bounded failures.
 
 Glossary:
   Reconstructed snapshot: Detached style rebuilt exclusively from parser
@@ -31,17 +32,21 @@ Related:
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
 #include "../SkullbonezSource/Scene/StandaloneStyleWriter.h"
 
+#include <algorithm>
 #include <cstring>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace
 {
 using namespace SkullbonezCore;
 constexpr const char* ROOT = "TestOutput/look_lab_serialization";
+constexpr const char* FRESH_PROCESS_ROOT = "TestOutput/look_lab_fresh_process";
 
 struct TemporaryLookLabOutput
 {
@@ -158,6 +163,67 @@ TEST_CASE( "Look Lab standalone style is complete stable and parser exact" )
     std::string reparsed;
     REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, SnapshotFromParsedStyle( parsed ), reparsed ).Ok() );
     CHECK( reparsed == first );
+}
+
+TEST_CASE( "Look Lab fresh-process output reloads without generator or catalog input" )
+{
+    std::array<char, 16> phase = {};
+    std::size_t phaseLength = 0;
+    getenv_s( &phaseLength, phase.data(), phase.size(), "SKULLBONEZ_LOOK_LAB_FRESH_PROCESS" );
+
+    if ( phaseLength == 0 )
+    {
+        return;
+    }
+
+    Core::SbDiagnosticStore diagnostics;
+    const std::string stylePath = std::string( FRESH_PROCESS_ROOT ) + "/look.style.json";
+
+    if ( std::strcmp( phase.data(), "produce" ) == 0 )
+    {
+        const Scene::StandaloneStyleSnapshot snapshot =
+            SnapshotFromCandidate( Runtime::GenerateLookLabCandidate( 0x5eedf11a11c0ffeeull ) );
+        REQUIRE( Scene::StandaloneStyleWriter::SaveAtomic( diagnostics, snapshot, stylePath.c_str() ).Ok() );
+        REQUIRE( std::filesystem::exists( stylePath ) );
+        return;
+    }
+
+    REQUIRE( std::strcmp( phase.data(), "consume" ) == 0 );
+    REQUIRE( std::filesystem::exists( stylePath ) );
+    Runtime::AuthoredScene parsed;
+    REQUIRE( Runtime::AuthoredScene::TryLoadStyleFromFile( diagnostics, stylePath.c_str(), parsed ).Ok() );
+    constexpr uint64_t allResolvedMask = ( ( 1ull << 63 ) - 1ull ) & ~( 1ull << 55 );
+    CHECK( parsed.GetCinematicOverrideMask() == allResolvedMask );
+    REQUIRE( parsed.GetObjectMaterialOverrideCount() == static_cast<int>( Runtime::LOOK_LAB_MATERIAL_RULE_COUNT ) );
+    std::string reserialized;
+    REQUIRE( Scene::StandaloneStyleWriter::Serialize( diagnostics, SnapshotFromParsedStyle( parsed ), reserialized ).Ok() );
+    CHECK( reserialized == ReadText( stylePath.c_str() ) );
+}
+
+TEST_CASE( "Look Lab keeps every tracked curated style parser-compatible" )
+{
+    namespace fs = std::filesystem;
+    Core::SbDiagnosticStore diagnostics;
+    std::vector<fs::path> styles;
+
+    for ( const fs::directory_entry& entry : fs::directory_iterator( "SkullbonezData/styles" ) )
+    {
+        if ( entry.is_regular_file() && entry.path().filename().generic_string().ends_with( ".style.json" ) )
+        {
+            styles.push_back( entry.path() );
+        }
+    }
+
+    std::sort( styles.begin(), styles.end() );
+    REQUIRE( styles.size() == 23 );
+
+    for ( const fs::path& style : styles )
+    {
+        INFO( "style=" << style.generic_string() );
+        Runtime::AuthoredScene parsed;
+        REQUIRE( Runtime::AuthoredScene::TryLoadStyleFromFile( diagnostics, style.generic_string().c_str(), parsed ).Ok() );
+        CHECK( parsed.GetSchemaVersion() == 1 );
+    }
 }
 
 TEST_CASE( "Look Lab style publication replaces atomically and fails boundedly" )

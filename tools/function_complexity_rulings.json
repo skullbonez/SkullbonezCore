@@ -35,11 +35,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "8d03f55f562751dc3c3d96dbfa620eafd040965a0c334f65f6058828412fbd9f",
+      "body_sha256": "8d4973fb94f1708f7266c22951a0c7c2313fe0561f76e2595c05f8ecabda1ce1",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from lifecycle-sensitive owner clearing and automation sampling through device routing and typed command production, including F10/F11 authoring dispatch; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
+      "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
       "plan": ""
     },
     {
@@ -145,11 +145,11 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "ead37651cd8a927a9afb591d3dc04a01a9a3a1fc7abc64513880f18091beb5ec",
+      "body_sha256": "04375a35565967422d85a48fc9ffb49ebca85aa9de29ad63b09a05eac7006e44",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
-      "reason": "One composition-root phase projects render-model, presentation, and bounded Look Lab status facts, runs the active operator UI, submits its commands, and latches any process failure before returning; all borrows share that synchronous frame lifetime.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
+      "reason": "One composition-root phase projects render-model, presentation, and the UI-owned detached Look Lab cache, runs the active operator UI, submits its commands, and latches any process failure before returning; Runtime Direction is not polled on the idle path and all borrows share that synchronous frame lifetime.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
       "plan": ""
     },
     {

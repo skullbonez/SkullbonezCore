@@ -95,18 +95,32 @@ using SkullbonezCore::UI::InGameUITab;
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: the Run coordinator reaches composed owners only for this ordered
 // input turn; delegated operations receive concrete operands and retain none.
+void Run::PublishLookLabStatusView()
+{
+    const LookLabStatusView status = m_lookLab.Status();
+    SkullbonezCore::UI::OperatorEditorLookLabView view;
+    view.seed = status.seed;
+    view.hasCandidate = status.hasCandidate;
+    view.savePending = status.savePending;
+    view.detail = status.detail;
+    view.bundleDirectory = status.bundleDirectory;
+    m_operatorUi->SetLookLabView( view );
+}
+
 bool Run::ApplyLookLabSeed( uint64_t seed )
 {
     SkullbonezCore::Core::CinematicRenderConfig& active = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
 
     if ( !m_lookLab.ResolveSeed( seed, active ) )
     {
+        PublishLookLabStatusView();
         return false;
     }
 
     const SkullbonezCore::Scene::StandaloneStyleSnapshot snapshot = m_lookLab.BuildCurrentSnapshot();
     m_sceneController.ApplyStandaloneStyle( m_launchOptions, m_operatorUi->SceneNavigation().browser, active, snapshot );
     m_lookLab.MarkApplied();
+    PublishLookLabStatusView();
     return true;
 }
 
@@ -156,6 +170,7 @@ void Run::BeginLookLabSave()
                                        displayName };
 
     LookLabSaveStartResult start = m_lookLab.BeginSave( m_resultDiagnostics, request );
+    PublishLookLabStatusView();
 
     if ( !start.status.Ok() )
     {
@@ -177,6 +192,8 @@ void Run::BeginLookLabSave()
         const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, start.captureToken,
                                                                          queueResult );
 
+        PublishLookLabStatusView();
+
         std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );
     }
 }
@@ -192,6 +209,7 @@ void Run::CancelPendingLookLabSave( const char* reason )
     const uint64_t token = m_lookLab.PendingSaveToken();
     (void)m_diagnosticsRuntime.Capture().CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, token );
     const Core::SbResult result = m_lookLab.CancelPendingSave( m_resultDiagnostics, reason );
+    PublishLookLabStatusView();
 
     if ( !result.Ok() )
     {
@@ -214,6 +232,7 @@ void Run::PrepareLookLabForSceneTransition()
     // next scene; that load may then apply its own authored or hero style.
     m_config.cinematicRender = m_renderDefaults.CinematicBaseline();
     m_lookLab.ClearForSceneTransition();
+    PublishLookLabStatusView();
 }
 
 
@@ -279,10 +298,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     const auto CompleteInputPhase = [&]()
     {
 
-        // Lifetime: Look Lab candidates are scene-local presentation values.
-        // Sampling here clears a prior scene's candidate before input dispatch
-        // can accept another authoring action.
-        m_lookLab.ObserveSceneLifecycle( sceneController.LifecyclePacket() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
         if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
