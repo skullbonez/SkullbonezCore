@@ -94,8 +94,10 @@ expectations rather than an assertion about an inherently unstable needle.
   external-work ledger.
 - Do not replace the solver with TGS, a block solver, shock propagation, soft
   constraints, or a general constraint-graph rewrite.
-- Do not regenerate or accept a physics, SkullScope, Replay, or visual golden
-  without the owner's explicit approval of the exact final transition.
+- Do not replace a tracked physics, SkullScope, Replay, or visual golden without
+  the owner's explicit approval of the exact final transition. Generating,
+  inspecting, hashing, and retaining candidate artifacts outside their tracked
+  destinations is authorized and required before that decision.
 
 ## Energy Contract
 
@@ -187,20 +189,57 @@ changes. An expected-output golden is not a substitute for these invariants.
   energy envelope without changing solver iterations or settings. Report 128
   honestly whether it passes or fails. Run the 200-box topple to completion and
   prove it dissipates without popcorn launches, body loss, non-finite state, or
-  unexplained energy. Present a waited visible DX12 run of the 64-level tower and
-  200-box topple to the owner before requesting any oracle transition.
+  unexplained energy. Capture waited visible DX12 evidence of the 64-level tower
+  and 200-box topple for the final decision packet; no owner interaction is
+  required to finish this phase.
 
-- [ ] **ES6 — Validate, obtain owner acceptance, and close.** Run focused tests,
-  the new semantic gate, `validate_tests`, `validate_fast`,
+- [ ] **ES6 — Finish engineering and prepare the owner baseline decision.** Run
+  focused tests, the new semantic gate, `validate_tests`, `validate_fast`,
   `validate_physics`, `validate_physics_deep`, `validate_perf`, the single
   required `validate_replay_visual_fidelity` generation for the 200-box scene,
-  and `validate_full`. Compare every changed artifact completely. Physics and
-  SkullScope goldens remain untouched unless the owner explicitly accepts the
-  exact final behavior after the visible evidence; if approval is withheld,
-  repair the implementation against the existing oracle rather than normalizing
-  the delta. Audit every touched source-bearing file, run all seven ownership
-  inventories, and obtain an independent read-only review covering energy math,
-  cache validity, test sensitivity, hot-path cost, and baseline governance.
+  and `validate_full`. A baseline-sensitive command that reaches only the exact
+  expected old-oracle mismatch is evidence for the decision packet, not an
+  unfinished engineering blocker. If such a command exits early, run its
+  remaining baseline-independent constituent gates directly so the mismatch
+  cannot conceal another failure. Generate every candidate baseline into a
+  separate retained staging location, compare every changed artifact completely,
+  and keep tracked goldens untouched. Audit every touched source-bearing file,
+  run all seven ownership inventories, and obtain an independent read-only
+  review covering energy math, cache validity, test sensitivity, hot-path cost,
+  and baseline governance. Finish all source, test, scene, diagnostic, comment,
+  review, performance, determinism, and visible-evidence work before asking the
+  owner whether the exact staged baseline transition may replace the tracked
+  artifacts.
+
+## Terminal Owner Checkpoint
+
+The implementation agent is expected to work through ES0-ES6 without waiting
+for a baseline decision. When it contacts the owner, the correction is already
+engineering-complete: no source, test, scene, checker, comment, review, or
+measurement work remains, every baseline-independent gate passes, and every
+baseline-sensitive failure is reduced to the enumerated old-versus-candidate
+artifact transition.
+
+The decision packet must contain the exact changed-artifact list, old and
+candidate hashes, complete semantic/line-difference summaries, four-brick,
+32/64/128-tower and 200-box energy evidence, deterministic repeats,
+performance results, waited visible captures, and the independent review. The
+single question is whether those exact staged candidates may replace the
+tracked baselines.
+
+- If approved, replace only the reviewed tracked artifacts, rerun the
+  baseline-sensitive and final gates, commit the closure report, and remove the
+  completed plan under inventory rule 4.
+- If approval is withheld, leave the tracked baselines untouched and preserve
+  the completed implementation branch plus its decision packet for owner
+  disposition. Do not roll back or distort the demonstrated correction merely
+  to reproduce the old oracle; any requested physics change is new owner
+  direction.
+
+ES6 may be checked and reported as **7/7 implementation complete — owner
+baseline decision pending** once that packet is presented. This state is not a
+technical blocker and does not authorize a baseline write. Repository closure
+still waits for the owner's decision and the corresponding short follow-through.
 
 ## Dependencies And Decisions
 
@@ -217,19 +256,23 @@ changes. An expected-output golden is not a substitute for these invariants.
   plan. Diagnostic vocabulary may distinguish `cachedWarmStart` from
   `terrainSupportSeed`, but any such change must preserve simulation bytes.
 - No phase carries standing bounded-divergence or baseline-refresh authority.
-  The owner decides the exact final oracle transition after ES5 visible and
-  semantic evidence.
+  ES0-ES6 nevertheless run to engineering completion without owner interaction;
+  the owner decides only the exact staged oracle transition presented at the
+  terminal checkpoint.
 
 ## Acceptance
 
-The plan closes only when isolated contact solves prove momentum conservation
+Engineering is complete before the terminal owner checkpoint when isolated
+contact solves prove momentum conservation
 and bounded kinetic energy, biased solves account for their permitted work, the
 four-brick fixture has no sustained velocity reversals and reaches sleep, the
 32- and 64-level towers settle without unexplained energy or upward launch, the
 200-box topple dissipates without popcorn behavior, 128-level behavior is
-reported honestly, and all deterministic/performance/baseline governance gates
-pass. Passing by retuning the scene, solver cap, material values, sleep policy,
-or baseline is forbidden.
+reported honestly, all baseline-independent gates pass, and the only remaining
+baseline-sensitive differences are the exact reviewed candidate transition.
+The plan closes after the owner rules on that transition and the matching short
+follow-through completes. Passing by retuning the scene, solver cap, material
+values, sleep policy, or baseline is forbidden.
 
 ## Validation
 
