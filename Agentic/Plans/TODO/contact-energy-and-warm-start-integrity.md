@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-01
-Status: REGISTERED — 0/7 phases complete
+Status: ACTIVE — 1/7 phases complete
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -126,7 +126,7 @@ changes. An expected-output golden is not a substitute for these invariants.
 
 ## Phases
 
-- [ ] **ES0 — Measure the authoritative solver and lock the acceptance
+- [x] **ES0 — Measure the authoritative solver and lock the acceptance
   envelope.** From the current owner-approved executable, rerun the exact
   four-brick BV0 trace and the existing 200-box topple. Generate a temporary
   same-geometry tower sweep at 4, 8, 16, 32, 64, and 128 dynamic levels without
@@ -138,6 +138,14 @@ changes. An expected-output golden is not a substitute for these invariants.
   lock the local and scene-level acceptance tolerances, and prove with planted
   over-restitution/over-impulse controls that the proposed checks fail when
   energy is injected. No production solver source changes in ES0.
+  Complete: no measured tower height settles; 4/8 complete awake, 16/32/64
+  fail deterministic candidate-list capacity contracts, and 128 fails its
+  spatial-entry reservation before frame zero. Four-brick and 6,800-frame
+  200-box repeats are byte-identical, while the wall exposes one lost striker
+  and a mechanical-energy gain above the locked precision envelope. Exact
+  metrics, hashes, tolerances, sensitive planted controls, and SkullScope
+  accounting are in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`.
 
 - [ ] **ES1 — Install complete-solve energy and momentum oracles.** Add a
   Physics-owned test calculation for total translational and rotational kinetic

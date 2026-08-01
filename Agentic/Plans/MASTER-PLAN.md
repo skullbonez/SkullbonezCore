@@ -1403,7 +1403,7 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 0/7.** Its
+**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 1/7.** Its
 agent runs ES0-ES6 without an owner pause, leaves tracked baselines
 untouched, and presents a completed implementation plus exact staged transition
 for the owner's terminal baseline decision. An expected old-oracle mismatch is
@@ -3241,7 +3241,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 0/7 | ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 1/7 | ES1 installs complete-solve energy, momentum, and explicit bias-work oracles before production behavior changes |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3367,6 +3367,19 @@ Binding owner directions:
   explicit owner acceptance of the exact final visible and semantic evidence;
   implementation, candidate generation, complete comparison, and every
   baseline-independent validation must finish before that terminal request.
+
+ES0 completed on 2026-08-02 without production edits. Four and eight wide-slab
+towers complete 2,400 frames but never sleep; eight levels exceeds the locked
+mechanical-energy envelope. Sixteen, 32, and 64 levels deterministically exhaust
+the scene-committed candidate list, while 128 exhausts its spatial-entry
+reservation before frame zero. The four-brick trace exactly reproduces 566
+velocity reversals and 900/900 cap-bound measured frames. Two byte-identical
+6,800-frame 200-box runs expose one striker leaving terrain, 210/211 sleepers,
+and peak mechanical gain above the precision envelope. Closed-solve, biased-
+work, scene-energy, launch, penetration, cache, support, sleep, body-retention,
+and repeat requirements are now fixed with sensitive planted controls. The live
+ledger is therefore 8/14 (57%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`.
 
 ## Features
 

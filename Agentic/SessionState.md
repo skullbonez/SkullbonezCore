@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-1st-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `e19cdb63` was fast-forwarded into the Night Runner branch before implementation. |
-| Current objective | Contact Energy And Warm-Start Integrity is active; ES0 performs the authoritative pre-edit census and measurement sweep. Look Lab Random Style Authoring is complete. |
-| Active/future progress | 7/14 (50%). Look Lab is 7/7; Contact Energy is 0/7. |
+| Current objective | Contact Energy And Warm-Start Integrity is active; ES1 installs complete-solve energy, momentum, and explicit bias-work oracles before any production behavior change. Look Lab Random Style Authoring is complete. |
+| Active/future progress | 8/14 (57%). Look Lab is 7/7; Contact Energy is 1/7. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -23,6 +23,7 @@ plan inventory.
 | Look Lab LL5 | Complete. The 65,536-seed census is fully valid and unique with exact Debug/Profile stream hash `3d8c96ba5b80788d`; all recipe/mode/feature distributions and palette envelopes are reported. Distinct producer/consumer processes preserve the complete standalone style SHA-256 without generator/catalog/default input, all 23 curated styles parse, and event-driven detached status publication removes Look Lab owner polling from idle frames. Four matching-condition input means remain below LL0, two guarded runs exit cleanly, fast passes in 384.9 seconds, full in 605.3 seconds, all seven inventories are current, and the touched-source comment audit is 12/12. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`. |
 | Look Lab LL6 | Complete. Three waited scheduled F10 actions produced distinct DX12 captures; one exact F11 bundle reloaded in a fresh Automation process to a byte-identical image. The corrected 84-atom schema preserves all four shadow-participation values and complete material rules. Debug/Profile focused suites, all seven inventories, 14/14 comment audit, allocation policy, every required gate, and independent review are clean; no baseline changed. Evidence: `Agentic/Reports/2026-08-02/look-lab-random-style-authoring-closure.md`. |
 | Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
+| Contact energy ES0 | Complete. The exact four-brick defect reproduces; 4/8-level towers complete awake, 16/32/64 hit deterministic candidate-list fatals, and 128 exhausts its spatial-entry reservation before frame zero. Two byte-identical 6,800-frame 200-box runs leave one striker below terrain and exceed the locked scene-energy envelope. Precision, launch, penetration, cache, support, sleep, body-retention, determinism, and negative-control acceptance rules are fixed without production edits or baseline movement. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -131,11 +132,13 @@ standalone style, human-readable receipt, and matching screenshot without
 touching the active scene. Existing F5/F6 profiler bindings and all default
 baselines remain exact.
 
-Contact Energy And Warm-Start Integrity is active at 0/7. ES0 owns
-the current-source four-brick, 200-box, and 4/8/16/32/64/128-level tower census,
-including energy, launch, convergence, cache, sleep, determinism, and negative-
-control evidence before any solver edit. The plan retains the working terrain
-support seed and grants no baseline-refresh authority.
+Contact Energy And Warm-Start Integrity is active at 1/7. ES0 locked the exact
+four-brick, 200-box, and 4/8/16/32/64/128-level current-state evidence plus the
+precision, energy, launch, penetration, cache, support, sleep, body-retention,
+determinism, and negative-control envelope. ES1 now installs complete-solve
+energy, momentum, and explicit bias-work oracles before any solver edit. The
+plan retains the working terrain support seed and grants no baseline-refresh
+authority.
 The agent continues through all seven phases without an owner pause and reaches
 7/7 implementation complete with exact staged candidates and a decision packet
 before requesting permission to replace any tracked baseline.
@@ -852,10 +855,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start ES0 from
+Continue ES1 from
 `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md` through the
-repository orchestrator skill. Look Lab LL0-LL6 are locked in their dated
-reports at 7/7. Continue Contact Energy through ES6 and ask for physics-baseline
+repository orchestrator skill. Look Lab LL0-LL6 and Contact Energy ES0 are
+locked in their dated reports. Continue Contact Energy through ES6 and ask for
+physics-baseline
 permission only after its implementation,
 candidate artifacts, complete comparisons, independent review, and every
 baseline-independent proof are finished.
