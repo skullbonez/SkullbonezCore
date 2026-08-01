@@ -10,11 +10,11 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-1st-AUG-26-contact-energy`; no push yet. |
+| Branch | `nightrunner-1st-AUG-26-contact-energy`; push target `origin/nightrunner-1st-AUG-26-contact-energy`. |
 | Current baseline | Main tip `03d23879`; PR #142 merged the 1 August Night Runner branch. |
 | Current objective | Contact Energy And Warm-Start Integrity is registered; ES0 must measure the current solver before any behavior change. |
 | Active/future progress | 0/7 (0%). One live plan is registered. |
-| Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
+| Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -113,6 +113,9 @@ the current-source four-brick, 200-box, and 4/8/16/32/64/128-level tower census,
 including energy, launch, convergence, cache, sleep, determinism, and negative-
 control evidence before any solver edit. The plan retains the working terrain
 support seed and grants no baseline-refresh authority.
+The agent continues through all seven phases without an owner pause and reaches
+7/7 implementation complete with exact staged candidates and a decision packet
+before requesting permission to replace any tracked baseline.
 
 The Gate Blind Spot Campaign completed 21/21 phases and left the ledger under
 rule 4. Its five completed TODO plans were deleted; permanent evidence ends at
@@ -831,7 +834,10 @@ Start ES0 from
 repository orchestrator skill. Do not edit solver behavior first. Measure the
 authoritative four-brick reproduction, existing 200-box topple, and temporary
 4/8/16/32/64/128 tower sweep; lock energy/launch/settling tolerances with
-negative controls; then report the highest current tower that actually settles.
+negative controls; then continue through ES6 without waiting for owner input.
+Ask for baseline permission only after the implementation, candidate artifacts,
+complete comparisons, independent review, and all baseline-independent evidence
+are finished.
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
 Blind Spot Campaign completed **21/21** and left the active/future ledger under

@@ -801,7 +801,10 @@ Energy And Warm-Start Integrity. The plan retains the working terrain support
 seed, installs complete-solve and scene-level energy invariants before changing
 behavior, isolates object-contact restitution from any conditional identity
 repair, and requires a 64-level tower plus the existing 200-box topple. The live
-ledger is 0/7 (0%); no baseline-refresh authority is granted.
+ledger is 0/7 (0%); no baseline-refresh authority is granted. The agent must run
+all seven implementation phases to completion and prepare exact candidate
+artifacts before asking the owner the sole terminal question: whether those
+reviewed candidates may replace the tracked baselines.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1385,12 +1388,18 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left
-the active/future ledger under rule 4. The ledger is empty (0%).**
+**Contact Energy And Warm-Start Integrity (2026-08-01) is the sole live plan at
+0/7.** Its agent runs ES0-ES6 without an owner pause, leaves tracked baselines
+untouched, and presents a completed implementation plus exact staged transition
+for the owner's terminal baseline decision. An expected old-oracle mismatch is
+decision evidence, not an engineering blocker.
+
+The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
+active/future ledger under rule 4.
 
 Its five plans closed in order with permanent reports and no unauthorized
-baseline refresh. No active or future implementation plan is currently
-registered.
+baseline refresh. Their completion predates the current contact-energy plan and
+carries no remaining live work.
 
 The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
 `persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
@@ -3234,7 +3243,9 @@ Binding owner directions:
 - require 32 levels as the corrected floor, 64 levels as the giant-scene
   acceptance target, and report 128 levels as a stretch measurement; and
 - permit no physics, SkullScope, Replay, or visual golden transition without
-  explicit owner acceptance of the exact final visible and semantic evidence.
+  explicit owner acceptance of the exact final visible and semantic evidence;
+  implementation, candidate generation, complete comparison, and every
+  baseline-independent validation must finish before that terminal request.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
