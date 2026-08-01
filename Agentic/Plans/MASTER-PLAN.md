@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-30
+Date: 2026-08-01
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -700,48 +700,101 @@ ms to 0.079943 ms and median from 0.0924 ms to 0.0780 ms. The active/future
 ledger is therefore 13/16 (81%). Evidence is in
 `../Reports/2026-07-31/angular-impulse-frame-correctness-ai1-gravity-reduce.md`.
 
-The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle.
-The uncommitted AI2 implementation is preserved in the named local stash
-`paused AI2 world-inertia correction before restoring pre-536 physics` and must
-not be resumed without a new owner instruction. The BV1/BV2/BV3/BV5 behavior
-and all four goldens changed by `536e0a60` are superseded; the restored Debug
-solver produces two identical 44,401-line varied runs that match the pre-`536`
-oracle on every line. This corrective work does not change the 13/16 ledger.
+The owner halted AI2 on 2026-07-31 to restore the last approved physics oracle;
+that restoration remains authoritative. Owner direction on 2026-08-01 resumed
+AI2 and removed the proposed extra `at_rest` all-asleep-frame prerequisite
+because the existing deep lane already hashes the complete CSV byte-for-byte.
+The generated 7,649,427-byte / 54,001-line artifact retains committed SHA-256
+`0a46651405e181428aabb5cc5081bd0d90ac6ca73e3a0c2786353f00cf55a984`.
+
+Angular Impulse Frame Correctness AI2 completed on 2026-08-01. One shared
+inertia-frame helper now serves pending gameplay, world-force, and contact
+impulses while preserving each path's diagonal operation and the historical
+world-force order. The rotated anisotropic-box test is green and the rotated
+isotropic-sphere path is component-exact. Public and retained-state vocabulary
+now exposes the application value as a world-space center-relative offset.
+Unit, core Physics, and deep Physics
+gates pass with no baseline refresh. The active/future ledger is therefore
+14/16 (88%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai2-impulse.md`.
+
+Angular Impulse Frame Correctness AI3 completed on 2026-08-01 without changing
+source or artifacts. The sweep found the anisotropic angular-drag clamp mixes
+world components with body-axis inertia, the authored `forcePosition` schema
+contains one absolute-position outlier, and test-only `VectorReflect` leaves an
+axis-versus-plane convention ambiguous. It also confirmed all current
+`PhysicsApi.h` descriptor consumers agree on their frames, although the public
+fields do not state that matrix. AI3 registered the five-phase Vector Frame
+Contract Closure follow-up, growing the denominator 16 -> 21; the active/future
+ledger is therefore 15/21 (71%). Evidence is in
+`../Reports/2026-07-31/angular-impulse-frame-correctness-ai3-convention-sweep.md`.
+
+Angular Impulse Frame Correctness AI4 completed with explicit owner acceptance
+on 2026-08-01. Unit, core Physics, deep Physics, performance, DX12 screenshot,
+Replay visual/causal, strict ownership-inventory, and full-composition evidence
+support AI0's zero-byte prediction without changing a committed baseline. The
+accepted packet discloses the known CRLF/LF Replay-manifest provenance
+limitation and the shared-helper test-isolation caveat; independent review found
+no blocker. The post-acceptance rerun passed 453 cases / 2,422,921 assertions,
+core and deep Physics exactness, an idle-host performance comparison, all
+accepted offline Replay controls against the existing single generation, and
+the 494.8-second full gate. The active/future ledger is therefore 16/21 (76%).
 Evidence is in
-`../Reports/2026-07-31/pre-536-physics-oracle-restoration.md`.
+`../Reports/2026-07-31/angular-impulse-frame-correctness-closure.md`.
 
-### Next-Agent Handover: AI2 Resting-State Prerequisite
+Vector Frame Contract Closure VF0 completed on 2026-08-01. Every public
+Physics vector/quaternion/shape field now states its frame, rotated query and
+point-joint tests reject plausible wrong-frame inputs, and Ragdoll's
+anisotropic inverse-inertia path shares the AI2 conversion without changing
+its isotropic branch. The pre-change VF1-VF3 artifact prediction is zero bytes:
+mapped scenes have zero effective angular-drag density, the authored offset
+outlier belongs only to unmapped `ragdoll_playground`, and `VectorReflect` has
+no production caller. The active/future ledger is therefore 17/21 (81%).
+Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure-vf0-frame-matrix.md`.
 
-Before applying or reworking the AI2 stash, add one cheap `at_rest` sleep-
-transition assertion to `tools\validate_physics_deep.bat`. Reuse the existing
-`Debug/physics_known_at_rest.csv` lane rather than launching the scene a second
-time. The check must pin the exact first fixed physics frame where all six
-dynamic bodies are sleeping, prove the immediately preceding frame is not yet
-fully asleep, and prove no body wakes again through the final recorded frame.
-This is an AI2 prerequisite, not a new campaign phase, so the ledger remains
-13/16.
+Vector Frame Contract Closure VF1 completed on 2026-08-01. General angular
+drag now clamps torque and velocity in body-principal axes for rotated
+anisotropic records, returns changed torque to world space, and preserves the
+original world value when no clamp activates. The defect oracle fails the old
+mixed-frame result and passes the correction; an actively saturated isotropic
+sphere remains component-exact to the previous arithmetic. Core and deep
+Physics artifacts remain exact without a golden refresh, and the complete fast
+gate passes 457 cases / 2,422,977 assertions. The active/future ledger is
+therefore 18/21 (86%). Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure-vf1-angular-drag.md`.
 
-Do not encode the owner's approximate frame `1800` as a guess. A fresh
-post-restoration SkullScope census ran scene playback frames `0..1799` at the
-authored `timeScale: 10`, producing fixed physics frames `0..8999`, and found
-no frame with `awake_count == 0` and `sleeping_count == body_count`. The boxes
-first sleep at fixed frames `1326` (`box_a`), `1765` (`box_c`), and `1870`
-(`box_b`); `ball_a`, `ball_b`, and `ball_c` remain awake through frame `8999`.
-The existing deep CSV independently reports the same transitions and no all-
-asleep frame. The next agent must treat that result as a red resting-state
-finding, determine why the balls never settle, and establish the owner-accepted
-exact all-asleep frame before pinning the deep assertion. No physics golden
-refresh is authorized by this prerequisite.
+Vector Frame Contract Closure VF2 completed on 2026-08-01. The authored ball
+schema now carries the explicit `impulseWorldOffsetFromCenter` name through all
+56 values in 23 schema-v4 scenes, parsed storage, and runtime setup. The
+version-gated legacy parser accepts the historical key for versions 1-3, the
+cold tool migrates it deterministically, and v4 rejects it rather than hiding
+a compatibility alias. `ragdoll_playground`'s
+`wake_ball` absolute-position outlier converts to the correct zero
+center-relative offset, and a real `PhysicsEngine` handoff test pins the queued
+world impulse and center offset. The complete unit suite, core/deep Physics,
+and strict ownership/reachability checks pass with no golden refresh. The
+active/future ledger is therefore 19/21 (90%). Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md`.
 
-The paused stash contains only the four-file AI2 world/body inertia-frame
-correction: `PhysicsBodyStore.h`, `PhysicsBodyStore.cpp`,
-`PersistentContactSolver.cpp`, and `TestPersistentContactSolver.cpp` (99
-insertions, 16 deletions at stash time). It adds a shared inertia-frame helper,
-routes pending gameplay and contact angular impulses through it, turns the
-rotated-anisotropic-box characterization into a passing test, and adds an
-isotropic-sphere exactness case. Expect conflicts in the solver and test after
-the pre-`536` restoration; inspect and reapply the intent instead of blindly
-popping the stash.
+Vector Frame Contract Closure VF3 completed on 2026-08-01. `VectorReflect`
+now implements the conventional surface-plane formula
+`incident - 2 * dot(normal, incident) * normal`: tangent components remain
+unchanged and the normal component reverses. One focused case pins both oblique
+and normal incidence. The zero-production-caller census remains true, and core
+plus deep Physics artifacts are exact without a golden refresh. The
+active/future ledger is therefore 20/21 (95%). Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure-vf3-vector-reflect.md`.
+
+Vector Frame Contract Closure VF4 completed on 2026-08-01. Final focused tests
+pass 9 cases / 653 assertions; the complete suite passes 460 cases / 2,423,070
+assertions. Core/deep Physics remain exact, performance passes without refresh,
+the accepted existing-generation Replay controls pass, and the 560.3-second
+full gate reports matching DX12 captures and byte-exact Physics. The aggregate
+comment audit is 18/18 and independent closure review is clear. The Gate Blind
+Spot Campaign completed 21/21 and left the active/future ledger under rule 4;
+the ledger is empty (0%). Evidence is in
+`../Reports/2026-07-31/vector-frame-contract-closure.md`.
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. Scene-controller ownership closed at
@@ -1325,20 +1378,12 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**The Gate Blind Spot Campaign (2026-07-31) remains at 13/16 (81%), with AI2
-paused by owner direction after the pre-`536` physics oracle restoration.**
-Run its four plans in the listed order: solver diagnostic hot-path cost (4/4),
-runtime contract hygiene (3/3), engine glossary consolidation (4/4), then
-angular impulse frame correctness (2/5).
+**The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left
+the active/future ledger under rule 4. The ledger is empty (0%).**
 
-Plans 1-3 are strictly byte-exact or documentation-only and require no owner
-decision. Plan 4 is sequenced last on owner instruction because it is the only
-plan with a behavioral correction and it **stops at AI4 for explicit owner
-sign-off** before closure. AI0's census predicts zero committed artifact
-movement because no mapped baseline reaches the defect; AI1 and AI2 must both
-prove zero-byte movement. Any changed artifact reopens AI0/AI2 and blocks
-closure rather than authorizing regeneration. No plan in this campaign carries
-bounded-divergence authority, and plan 1 must not move a replay hash.
+Its five plans closed in order with permanent reports and no unauthorized
+baseline refresh. No active or future implementation plan is currently
+registered.
 
 The Fresh-Read Engine Review Campaign (2026-07-29) is complete. Plan 9
 `persistent-contact-convergence-early-out` closed CE2-CE3 on the owner's
@@ -3075,8 +3120,8 @@ Binding owner directions:
 - Plans 1, 2, and 3 are strictly byte-exact and land without an owner decision.
   Plan 1 must not move a replay hash, plan 2 must not move a physics byte, and
   plan 3 is documentation-only.
-- Plan 4 is the only plan carrying an owner gate. AI4 stops for explicit owner
-  sign-off before closure. It does **not** receive task-scoped
+- Plan 4's AI4 owner gate was accepted on 2026-08-01 after its zero-delta proof.
+  It did **not** receive task-scoped
   bounded-divergence authority: AI0 proved the existing artifacts do not reach
   the defect, so AI1 and AI2 must leave them byte-exact. Any movement blocks
   closure and reopens the census or implementation; no regeneration is
@@ -3099,6 +3144,8 @@ Binding owner directions:
   it is an allowance, budget, or ratchet.
 - Plan 4 AI3 is investigation-only and registers follow-up plans rather than
   changing behavior, preserving AI0's zero-delta oracle through AI4.
+- Plan 5 was the registered AI3 follow-up. It completed without reaching a
+  committed artifact or exercising baseline-refresh authority.
 
 Dependency barriers:
 
@@ -3113,13 +3160,17 @@ Dependency barriers:
   strictly-neutral change first means plan 4's AI1 neutrality proof is measured
   against a settled tree.
 - Plans 2 and 3 have no barrier in either direction and may run at any point.
+- Plan 4 AI4 before plan 5 — the original pending-impulse zero-delta correction
+  must be accepted independently before any newly discovered convention is
+  changed.
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [solver-diagnostic-hot-path-cost](TODO/solver-diagnostic-hot-path-cost.md) | Complete | 4/4 | HP0-HP3 complete; exact artifacts and the measured Profile win are recorded |
-| 2 | [runtime-contract-hygiene](TODO/runtime-contract-hygiene.md) | Complete | 3/3 | CH0-CH2 complete; exit, Quaternion, and zero-throw contracts are closed |
-| 3 | [engine-glossary-consolidation](TODO/engine-glossary-consolidation.md) | Complete | 4/4 | GC0-GC3 complete; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
-| 4 | [angular-impulse-frame-correctness](TODO/angular-impulse-frame-correctness.md) | Paused by owner | 2/5 | AI0 and AI1 remain complete; before AI2 resumes, land the red `at_rest` exact all-asleep-frame deep check described in the next-agent handover, then reapply the named stash by intent; **no baseline regeneration is authorized** |
+| 1 | [solver-diagnostic-hot-path-cost](../Reports/2026-07-31/solver-diagnostic-hot-path-cost-closure.md) | Complete | 4/4 | Closed and removed from the live ledger under rule 4; exact artifacts and the measured Profile win are recorded |
+| 2 | [runtime-contract-hygiene](../Reports/2026-07-31/runtime-contract-hygiene-closure.md) | Complete | 3/3 | Closed and removed from the live ledger under rule 4; exit, Quaternion, and zero-throw contracts are closed |
+| 3 | [engine-glossary-consolidation](../Reports/2026-07-31/engine-glossary-consolidation-closure.md) | Complete | 4/4 | Closed and removed from the live ledger under rule 4; canonical glossary, strict inventory, 575-file source pass, and non-tautological summaries are closed |
+| 4 | [angular-impulse-frame-correctness](../Reports/2026-07-31/angular-impulse-frame-correctness-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4; owner accepted the zero-delta proof and post-acceptance gates passed without refresh |
+| 5 | [vector-frame-contract-closure](../Reports/2026-07-31/vector-frame-contract-closure.md) | Complete | 5/5 | Closed and removed from the live ledger under rule 4; explicit frames, corrected conventions, unchanged artifacts, final gates, and independent review are clear |
 
 ### Governance Gap This Campaign Closes
 
@@ -3142,6 +3193,11 @@ not exist: no regex distinguishes a correct frame conversion from an incorrect
 one. The counterweight to "deterministic" is a second independent derivation of
 the same quantity, which is what AI0's cross-path equivalence test installs and
 what future physics work should imitate.
+
+That sweep registered plan 5 for the mixed-frame anisotropic angular-drag
+clamp, authored impulse-offset schema, ambiguous test-only vector reflection,
+and explicit public descriptor frame matrix. Registration grows this campaign
+from 16 to 21 tasks; AI4 acceptance is complete and plan 5 may begin.
 
 Plan 1 records the matching cost lesson. The convergence diagnostics and the
 pipeline trace sit in the same loop with the same purpose; one was designed with

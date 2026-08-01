@@ -82,6 +82,7 @@ using SkullbonezCore::Physics::PhysicsHandleAssignmentMask;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsTerrainView;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Physics::TryApplyWorldInertiaResponse;
 
 namespace
 {
@@ -314,7 +315,7 @@ void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const Ph
 
         PreservedRefreshState& state = preserved[static_cast<std::size_t>( record.handle.index )];
         state.pendingImpulse = record.pendingImpulse;
-        state.pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
+        state.pendingImpulseWorldOffset = record.pendingImpulseWorldOffset;
         state.hasPendingImpulse = record.hasPendingImpulse;
         state.isSleeping = hotFields.awake[bodyIndex] == 0u;
         state.hasState = true;
@@ -359,6 +360,43 @@ float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float ine
 
     const float maxDampingTorque = fabsf( angularVelocity ) * inertia / deltaSeconds;
     return (std::clamp)( torque, -maxDampingTorque, maxDampingTorque );
+}
+
+Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& worldTorque,
+                                float deltaSeconds )
+{
+
+    if ( !record.usesWorldInertia )
+    {
+        return Vector3( ClampAngularDragTorqueAxis( worldTorque.x, hot.angularVelocity.x, record.rotationalInertia.x,
+                                                    deltaSeconds ),
+                        ClampAngularDragTorqueAxis( worldTorque.y, hot.angularVelocity.y, record.rotationalInertia.y,
+                                                    deltaSeconds ),
+                        ClampAngularDragTorqueAxis( worldTorque.z, hot.angularVelocity.z, record.rotationalInertia.z,
+                                                    deltaSeconds ) );
+    }
+
+    const RotationMatrix rotation = hot.orientation.GetOrientationMatrix();
+    const Vector3 bodyAngularVelocity = rotation.TransposeMultiply( hot.angularVelocity );
+    const Vector3 bodyTorque = rotation.TransposeMultiply( worldTorque );
+    const Vector3 clampedBodyTorque( ClampAngularDragTorqueAxis( bodyTorque.x, bodyAngularVelocity.x,
+                                                                 record.rotationalInertia.x, deltaSeconds ),
+                                     ClampAngularDragTorqueAxis( bodyTorque.y, bodyAngularVelocity.y,
+                                                                 record.rotationalInertia.y, deltaSeconds ),
+                                     ClampAngularDragTorqueAxis( bodyTorque.z, bodyAngularVelocity.z,
+                                                                 record.rotationalInertia.z, deltaSeconds ) );
+
+    // Invariant: the no-clamp path returns the original world value so the
+    // body/world round trip cannot perturb an otherwise unaffected artifact.
+    // A changed value returns to world space because ApplyWorldImpulse owns the
+    // one world-to-body conversion used for velocity response.
+
+    if ( clampedBodyTorque.x == bodyTorque.x && clampedBodyTorque.y == bodyTorque.y && clampedBodyTorque.z == bodyTorque.z )
+    {
+        return worldTorque;
+    }
+
+    return rotation * clampedBodyTorque;
 }
 
 float CalculateGravityForce( const PhysicsWorldForces& worldForces, float objectMass )
@@ -789,11 +827,17 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
     }
 
     const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
-    Vector3 localAngularImpulse;
+    Vector3 angularImpulseDelta;
+    const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
+    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
 
-    if ( orientation.TransposeMultiply( worldTorqueImpulse ).TryDivided( record.rotationalInertia, localAngularImpulse ) )
+    // Invariant: the world-force path historically rotates every shape. Passing
+    // true preserves its byte-exact baseline arithmetic while sharing the frame
+    // conversion with pending and contact impulses.
+
+    if ( TryApplyWorldInertiaResponse( orientation, true, worldTorqueImpulse, tryDivideByBodyInertia, angularImpulseDelta ) )
     {
-        hot.angularVelocity += orientation * localAngularImpulse;
+        hot.angularVelocity += angularImpulseDelta;
     }
 }
 
@@ -814,16 +858,23 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
         hot.linearVelocity += linearImpulseDelta;
     }
 
-    const Vector3 torque = CrossProduct( record.pendingImpulseApplicationPoint, record.pendingImpulse );
+    // Invariant: the application point is a world-space center-relative offset,
+    // so this cross product and the resulting torque both remain in world space
+    // until the shared inertia-frame conversion.
+    const Vector3 worldTorqueImpulse = CrossProduct( record.pendingImpulseWorldOffset, record.pendingImpulse );
     Vector3 angularImpulseDelta;
+    const RotationMatrix orientation = hot.orientation.GetOrientationMatrix();
+    const auto tryDivideByBodyInertia = [&]( const Vector3& bodyImpulse, Vector3& outBodyDelta )
+    { return bodyImpulse.TryDivided( record.rotationalInertia, outBodyDelta ); };
 
-    if ( torque.TryDivided( record.rotationalInertia, angularImpulseDelta ) )
+    if ( TryApplyWorldInertiaResponse( orientation, record.usesWorldInertia, worldTorqueImpulse, tryDivideByBodyInertia,
+                                       angularImpulseDelta ) )
     {
         hot.angularVelocity += angularImpulseDelta;
     }
 
     record.pendingImpulse = ZERO_VECTOR;
-    record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record.pendingImpulseWorldOffset = ZERO_VECTOR;
     record.hasPendingImpulse = false;
 }
 
@@ -944,18 +995,8 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
                                  ( worldForces.fluidDensity * submergedVolumePercent * worldForces.angularDragMultiplier );
 
         const float angularDragCoeff = buoyancyFacts.dragCoefficient * avgDensity * radius * radius * radius;
-        Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
-
-        angularDragTorque.x = ClampAngularDragTorqueAxis( angularDragTorque.x, hot.angularVelocity.x,
-                                                          record.rotationalInertia.x, deltaSeconds );
-
-        angularDragTorque.y = ClampAngularDragTorqueAxis( angularDragTorque.y, hot.angularVelocity.y,
-                                                          record.rotationalInertia.y, deltaSeconds );
-
-        angularDragTorque.z = ClampAngularDragTorqueAxis( angularDragTorque.z, hot.angularVelocity.z,
-                                                          record.rotationalInertia.z, deltaSeconds );
-
-        worldTorque += angularDragTorque;
+        const Vector3 angularDragTorque = hot.angularVelocity * ( -angularDragCoeff );
+        worldTorque += ClampAngularDragTorque( record, hot, angularDragTorque, deltaSeconds );
     }
 
     ApplyWorldImpulse( record, hot, worldForce * deltaSeconds, worldTorque * deltaSeconds );
@@ -1453,13 +1494,13 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
         if ( preservedState && preservedState->hasPendingImpulse )
         {
             record.pendingImpulse = preservedState->pendingImpulse;
-            record.pendingImpulseApplicationPoint = preservedState->pendingImpulseApplicationPoint;
+            record.pendingImpulseWorldOffset = preservedState->pendingImpulseWorldOffset;
             record.hasPendingImpulse = true;
         }
         else
         {
             record.pendingImpulse = ZERO_VECTOR;
-            record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+            record.pendingImpulseWorldOffset = ZERO_VECTOR;
             record.hasPendingImpulse = false;
         }
 
@@ -1576,7 +1617,7 @@ void PhysicsBodyStore::ClearPendingImpulses()
     for ( PhysicsBodyRecord& record : m_bodies )
     {
         record.pendingImpulse = ZERO_VECTOR;
-        record.pendingImpulseApplicationPoint = ZERO_VECTOR;
+        record.pendingImpulseWorldOffset = ZERO_VECTOR;
         record.hasPendingImpulse = false;
     }
 }
@@ -1651,7 +1692,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& re
     hot.inverseRotationalInertia = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertia;
     hot.fixed = restore.fixed;
     record->pendingImpulse = ZERO_VECTOR;
-    record->pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record->pendingImpulseWorldOffset = ZERO_VECTOR;
     record->hasPendingImpulse = false;
     StoreHotStateAt( modelIndex, hot );
     return true;
@@ -2092,7 +2133,7 @@ bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body, const Vector3& l
 
 
 bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse,
-                                              const Vector3& localApplicationPoint )
+                                              const Vector3& worldApplicationOffset )
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( body );
 
@@ -2102,7 +2143,7 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vect
     }
 
     record->pendingImpulse = impulse;
-    record->pendingImpulseApplicationPoint = localApplicationPoint;
+    record->pendingImpulseWorldOffset = worldApplicationOffset;
     record->hasPendingImpulse = true;
     return true;
 }

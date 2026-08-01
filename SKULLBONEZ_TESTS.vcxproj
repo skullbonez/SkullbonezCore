@@ -221,6 +221,7 @@
     <ClCompile Include="SkullbonezTests\TestSceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
@@ -242,6 +243,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
     <ClCompile Include="SkullbonezTests\TestSceneParserUnit.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSceneAuthoredImpulseSetup.cpp" />
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />

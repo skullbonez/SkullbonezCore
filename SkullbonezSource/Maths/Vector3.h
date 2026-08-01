@@ -57,7 +57,7 @@ class Vector3
 {
 
   public:
-    float x, y, z;                                                  // Public POD-style components; math hot paths access them directly.
+    float x, y, z;                                                 // Public POD-style components; math hot paths access them directly.
 
     Vector3()
     {
@@ -81,7 +81,7 @@ class Vector3
         x = y = z = 0.0f;
     }
 
-    void Normalise()                                                // Debug-asserts on zero; Release propagates IEEE inf/NaN.
+    void Normalise()                                               // Debug-asserts on zero; Release propagates IEEE inf/NaN.
     {
         float magSq = x * x + y * y + z * z;
 
@@ -124,20 +124,20 @@ class Vector3
         return true;
     }
 
-    void Absolute()                                                 // Component-wise absolute value; mutates this vector.
+    void Absolute()                                                // Component-wise absolute value; mutates this vector.
     {
         x = fabsf( x );
         y = fabsf( y );
         z = fabsf( z );
     }
 
-    bool IsCloseToZero() const                                      // Tolerance check for float noise near zero.
+    bool IsCloseToZero() const                                     // Tolerance check for float noise near zero.
     {
         return x < TOLERANCE && x > ZERO_TAKE_TOLERANCE && y < TOLERANCE && y > ZERO_TAKE_TOLERANCE && z < TOLERANCE &&
                z > ZERO_TAKE_TOLERANCE;
     }
 
-    void Simplify()                                                 // Components within the engine epsilon snap to 0.0f.
+    void Simplify()                                                // Components within the engine epsilon snap to 0.0f.
     {
 
         if ( x < TOLERANCE && x > ZERO_TAKE_TOLERANCE )
@@ -311,7 +311,7 @@ class Vector3
 static_assert( std::is_trivially_copyable_v<Vector3> );
 static_assert( sizeof( Vector3 ) == 12 );
 
-inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };              // Shared origin/no-motion sentinel.
+inline const Vector3 ZERO_VECTOR { 0.0f, 0.0f, 0.0f };             // Shared origin/no-motion sentinel.
 
 // Returns the dot product using the established x/y/z multiply-add order.
 // Invariant: Physics byte-exact validation depends on this arithmetic spelling
@@ -321,10 +321,11 @@ inline float Dot( const Vector3& lhs, const Vector3& rhs )
     return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
-// Reflect incident about a normalized surface normal; callers own normalization.
+// Reflect incident across a plane with a normalized surface normal; callers own normalization.
+// Invariant: the tangent component is preserved and the normal component reverses sign.
 inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )
 {
-    return normal * ( 2 * ( Dot( normal, incident ) ) ) - incident; // Pg 153, Lengyel
+    return incident - normal * ( 2.0f * Dot( normal, incident ) ); // Pg 153, Lengyel
 }
 
 // Component-wise multiplication for scale vectors and basis masks.

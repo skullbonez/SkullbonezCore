@@ -321,7 +321,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
 
     Json scene;
     scene["format"] = "skullbonez.scene.json";
-    scene["version"] = 3;
+    scene["version"] = 4;
     scene["simulation"] = Json::object();
     scene["simulation"]["physics"] = session.physicsOn;
     scene["simulation"]["text"] = session.textOn;

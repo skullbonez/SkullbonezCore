@@ -483,7 +483,7 @@ TEST_CASE( "Physics handles: descriptor reorder preserves handle-owned pending i
     REQUIRE( store.RecordForHandle( second ) != nullptr );
     CHECK( store.RecordForHandle( second )->hasPendingImpulse );
     CHECK( store.RecordForHandle( second )->pendingImpulse == impulse );
-    CHECK( store.RecordForHandle( second )->pendingImpulseApplicationPoint == applicationPoint );
+    CHECK( store.RecordForHandle( second )->pendingImpulseWorldOffset == applicationPoint );
     REQUIRE( store.RecordForHandle( first ) != nullptr );
     CHECK_FALSE( store.RecordForHandle( first )->hasPendingImpulse );
 }
@@ -1359,7 +1359,7 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
         CHECK( sourceBody->sceneObjectId == clonedBody->sceneObjectId );
         CheckVectorBitsEqual( sourceBody->rotationalInertia, clonedBody->rotationalInertia );
         CheckVectorBitsEqual( sourceBody->pendingImpulse, clonedBody->pendingImpulse );
-        CheckVectorBitsEqual( sourceBody->pendingImpulseApplicationPoint, clonedBody->pendingImpulseApplicationPoint );
+        CheckVectorBitsEqual( sourceBody->pendingImpulseWorldOffset, clonedBody->pendingImpulseWorldOffset );
         CHECK( FloatBitsEqual( sourceBody->mass, clonedBody->mass ) );
         CHECK( FloatBitsEqual( sourceBody->contactReleaseImpulseThreshold, clonedBody->contactReleaseImpulseThreshold ) );
         CHECK( FloatBitsEqual( sourceBody->angularVelocityLimit, clonedBody->angularVelocityLimit ) );

@@ -1,7 +1,7 @@
 /*
 File: SkullbonezTests/TestSceneSnapshotWriter.cpp
 Purpose:
-  Verifies version-3 scene snapshots preserve every owner-published save field
+  Verifies version-4 scene snapshots preserve every owner-published save field
   and asset-instance live part state.
 
 Summary:
@@ -22,7 +22,7 @@ Glossary:
 
 Invariants:
   - Asset parts are emitted once in contiguous authored part order.
-  - Direct entities remain in objects[] and retain explicit schema-v3 ids.
+  - Direct entities remain in objects[] and retain explicit schema-v4 ids.
   - Reparse uses live state rather than recomposing the asset recipe transform.
   - Contact-material text survives save/reparse through the cold authoring row.
   - Every runtime save entry serializes all three owner publications.
@@ -180,7 +180,8 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
     static ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveShapeCapacity( 16u, 16u, 16u );
@@ -246,7 +247,8 @@ TEST_CASE( "Scene save entry policies serialize complete owner publications" )
 
     SUBCASE( "editable replacement policy overwrites the active scene with every owner value" )
     {
-        REQUIRE( SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation ).Ok() );
+        REQUIRE(
+            SaveEditableSceneBeforeReplacement( diagnostics, kEditableSnapshotPath, world, session, presentation ).Ok() );
 
         CheckCompleteOwnerPublication( kEditableSnapshotPath, world, session, presentation );
     }
@@ -284,7 +286,7 @@ void AppendEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, Collide
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape, colliderAuthoring  );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = body.cold.sceneObjectId;
@@ -460,12 +462,16 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities, const Physics
                    doctest::Approx( sourceBody->contactReleaseImpulseThreshold ) );
         }
 
-        const PhysicsColliderHandle sourceColliderHandle = sourceColliders.HandleForSceneObjectId( sourceEntity.sceneObjectId );
-        const PhysicsColliderHandle recreatedColliderHandle = recreatedColliders.HandleForSceneObjectId( recreatedEntity.sceneObjectId );
+        const PhysicsColliderHandle sourceColliderHandle = sourceColliders.HandleForSceneObjectId(
+            sourceEntity.sceneObjectId );
+        const PhysicsColliderHandle recreatedColliderHandle = recreatedColliders.HandleForSceneObjectId(
+            recreatedEntity.sceneObjectId );
         const ColliderRecord* sourceCollider = sourceColliders.RecordForHandle( sourceColliderHandle );
         const ColliderRecord* recreatedCollider = recreatedColliders.RecordForHandle( recreatedColliderHandle );
-        const ColliderAuthoringRecord* sourceColliderAuthoring = sourceColliders.AuthoringRecordForHandle( sourceColliderHandle );
-        const ColliderAuthoringRecord* recreatedColliderAuthoring = recreatedColliders.AuthoringRecordForHandle( recreatedColliderHandle );
+        const ColliderAuthoringRecord* sourceColliderAuthoring = sourceColliders.AuthoringRecordForHandle(
+            sourceColliderHandle );
+        const ColliderAuthoringRecord* recreatedColliderAuthoring = recreatedColliders.AuthoringRecordForHandle(
+            recreatedColliderHandle );
         REQUIRE( sourceCollider );
         REQUIRE( recreatedCollider );
         REQUIRE( sourceColliderAuthoring );
@@ -552,7 +558,7 @@ void AppendParsedEntity( SceneEntityStore& entities, PhysicsBodyStore& bodies, C
     collider.restitution = restitution;
     ColliderAuthoringRecord colliderAuthoring;
     strncpy_s( colliderAuthoring.contactMaterialName, contactMaterial, _TRUNCATE );
-    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape, colliderAuthoring  );
+    (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape, colliderAuthoring );
 
     SceneEntityCreateDesc entity;
     entity.sceneObjectId = id;
@@ -623,7 +629,7 @@ void RecreateParsedOwners( const AuthoredScene& scene, SceneEntityStore& entitie
 }
 } // namespace
 
-TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritative live state" )
+TEST_CASE( "SceneSnapshotWriter: schema-v4 asset parts reparse from authoritative live state" )
 {
     const TemporarySnapshotFiles cleanup;
     WriteAssetLibrary();
@@ -633,7 +639,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritativ
     static ColliderStore colliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         bodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         colliders.ReserveShapeCapacity( 16u, 16u, 16u );
@@ -645,7 +652,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritativ
     colliders.Clear();
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         AppendEntity( entities, bodies, colliders, 300u, "saved_box",
                       BoundingBox( Vector3( 2.0f, 3.0f, 4.0f ), ZERO_VECTOR ), Vector3( 10.0f, 11.0f, 12.0f ),
                       Vector3( 1.0f, 2.0f, 3.0f ), Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 7.0f, 8.0f, 9.0f ), 12.0f, 0.25f,
@@ -700,7 +708,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritativ
 
     AuthoredScene saved;
     REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadAuthoredScene( diagnostics, kSnapshotPath, saved ) );
-    CHECK( saved.GetSchemaVersion() == 3u );
+    CHECK( saved.GetSchemaVersion() == 4u );
     CHECK( saved.IsPhysicsEnabled() );
     CHECK_FALSE( saved.IsTextEnabled() );
     CHECK( saved.IsEditableScene() );
@@ -765,7 +773,8 @@ TEST_CASE( "SceneSnapshotWriter: schema-v3 asset parts reparse from authoritativ
     static ColliderStore recreatedColliders;
 
     {
-        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         recreatedBodies.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         recreatedColliders.ReserveCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
         recreatedColliders.ReserveShapeCapacity( 16u, 16u, 16u );

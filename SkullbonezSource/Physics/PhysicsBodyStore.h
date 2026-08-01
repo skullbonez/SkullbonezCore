@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Physics-facing body data has an explicit owner. Scene/model authoring code
   submits descriptor values at creation and topology-repair boundaries, while
-  standalone creation owns dense body rows directly.
+  standalone creation owns dense body rows directly. The shared inertia-frame
+  conversion keeps gameplay, world-force, and contact impulses consistent.
 
 Glossary:
   Inverse mass: Reciprocal mass value; zero means an immovable body.
@@ -82,7 +83,7 @@ struct PhysicsBodyRecord
     uint32_t vectorAlignmentPadding = 0;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR;                      // World-space offset from the center of mass.
     float mass = 0.0f;                                                                                // Authoring mass; fixed bodies still report mass.
     float contactReleaseImpulseThreshold = 1.0f;                                                      // Minimum contact impulse before authored fixed props release.
     float angularVelocityLimit = 5.0f;                                                                // Per-body spin cap applied before force integration.
@@ -110,6 +111,34 @@ struct PhysicsBodyHotState
     bool awake = true;
 };
 
+// Concept: world-space torque crosses body-diagonal inertia through one frame
+// conversion shared by force, gameplay impulse, and contact-solver paths.
+//
+// Invariant: `usesWorldInertia` selects either the exact direct diagonal
+// operation or the ordered R^T -> diagonal operation -> R transform. The
+// callable is a synchronous arithmetic borrow; it is never retained. Keeping
+// the diagonal operation caller-supplied preserves the established division
+// semantics for authored inertia and multiplication semantics for cached
+// inverse inertia. World-force callers retain their historical rotated path so
+// byte-exact physics baselines see no operation-order change outside the
+// corrected pending-impulse case.
+template <typename TryApplyBodyDiagonal>
+bool TryApplyWorldInertiaResponse( const Math::Transformation::RotationMatrix& orientation, bool usesWorldInertia,
+                                   const Math::Vector::Vector3& worldValue, const TryApplyBodyDiagonal& tryApplyBodyDiagonal,
+                                   Math::Vector::Vector3& outWorldResult )
+{
+    const Math::Vector::Vector3 bodyValue = usesWorldInertia ? orientation.TransposeMultiply( worldValue ) : worldValue;
+    Math::Vector::Vector3 bodyResult;
+
+    if ( !tryApplyBodyDiagonal( bodyValue, bodyResult ) )
+    {
+        return false;
+    }
+
+    outWorldResult = usesWorldInertia ? orientation * bodyResult : bodyResult;
+    return true;
+}
+
 struct PhysicsBodyCreateRecord
 {
     PhysicsBodyRecord cold;
@@ -122,7 +151,7 @@ struct PhysicsBodyCreateRecord
 struct PhysicsBodyPreservedRefreshState
 {
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 pendingImpulseWorldOffset = Math::Vector::ZERO_VECTOR;
     bool hasPendingImpulse = false;
     bool isSleeping = false;
     bool hasState = false;
@@ -404,7 +433,7 @@ class PhysicsBodyStore
     bool SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector::Vector3& linearVelocity,
                           const Math::Vector::Vector3& angularVelocity );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body, const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
+                                const Math::Vector::Vector3& worldApplicationOffset );
 
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has

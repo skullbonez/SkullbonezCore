@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 4,
   "simulation": {
     "physics": true,
     "text": false,
@@ -98,10 +98,10 @@
         0,
         120
       ],
-      "forcePosition": [
-        515,
-        28,
-        492
+      "impulseWorldOffsetFromCenter": [
+        0,
+        0,
+        0
       ],
       "fixed": false
     }

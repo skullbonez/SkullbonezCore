@@ -731,7 +731,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCo
                                              reorderedHotFields.awake[static_cast<std::size_t>( reorderedBodyAIndex )] ==
                                                  0u &&
                                              fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
-                                             fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x -
+                                             fabsf( reorderedBodyARecord->pendingImpulseWorldOffset.x -
                                                     pendingImpulsePoint.x ) < 0.0001f;
 
     const PhysicsBodyRecord* bodyBBeforeDelete = collection->Scene().BodyStore().RecordForHandle( bodyB );

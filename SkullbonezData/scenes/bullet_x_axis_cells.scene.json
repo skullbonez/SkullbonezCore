@@ -1,6 +1,6 @@
 {
   "format": "skullbonez.scene.json",
-  "version": 1,
+  "version": 4,
   "cinematic": {},
   "simulation": {
     "seed": 424242,
@@ -71,7 +71,7 @@
         0,
         0
       ],
-      "forcePosition": [
+      "impulseWorldOffsetFromCenter": [
         0,
         0,
         0

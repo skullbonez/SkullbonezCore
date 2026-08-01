@@ -4,8 +4,8 @@ Purpose:
   Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  Stores parsed authored-scene JSON
-  and applies it to runtime scene state.
+  AuthoredScene owns the cold, parsed values that cross from scene JSON into
+  deterministic runtime setup without retaining parser state or live stores.
 
 Glossary:
   Asset provenance: Cold scene-file records that retain which library, asset,
@@ -73,7 +73,8 @@ struct SceneBall
     float moment;
     float restitution;
     float forceX, forceY, forceZ;
-    float forcePosX, forcePosY, forcePosZ;
+    float impulseWorldOffsetFromCenterX, impulseWorldOffsetFromCenterY,
+        impulseWorldOffsetFromCenterZ;                           // World-axis lever arm from the body's center of mass.
     float eulerX, eulerY, eulerZ;                                // Initial orientation in degrees (optional, default 0)
     char contactMaterial[32];                                    // Optional gameplay contact material token.
     bool hasInitOrient;                                          // False means use default identity orientation.
