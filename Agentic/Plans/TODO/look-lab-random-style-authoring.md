@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: REGISTERED — 0/7 phases complete
+Status: ACTIVE — 1/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -159,7 +159,7 @@ these rules:
 
 ## Phases
 
-- [ ] **LL0 — Census the complete live style surface and lock the contract.**
+- [x] **LL0 — Census the complete live style surface and lock the contract.**
   Inventory every field in `CinematicRenderConfig`, every supported sky/terrain/
   object/water and material mode, all object-material targeting semantics, all
   23 tracked styles, live-style application, scene-style merge/reset behavior,
@@ -169,7 +169,11 @@ these rules:
   effects, randomize/derive/retain/exclude ruling, and reason. Measure idle input
   and style-apply behavior before implementation. Lock the recipe families,
   coupled safety constraints, generator version, filename grammar, and exact
-  output field set before production edits.
+  output field set before production edits. Complete: the 80 cinematic atoms,
+  14 material kinds, targeting rules, 23-style catalog, current merge/reset and
+  capture flow, SplitMix64 generator-v1 contract, 14 recipes, exact output
+  grammar, and pre-change input/style behavior are locked in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`.
 
 - [ ] **LL1 — Build the pure deterministic candidate generator.** Introduce the
   detached candidate and focused generator using one explicitly specified 64-bit
