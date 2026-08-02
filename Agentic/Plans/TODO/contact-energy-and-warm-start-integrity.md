@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
-Date: 2026-08-01
-Status: ACTIVE — 4/7 phases complete
+Date: 2026-08-02
+Status: BLOCKED — 4/7 phases complete
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -214,6 +214,26 @@ changes. An expected-output golden is not a substitute for these invariants.
   to raise hit rate. If ES3 already satisfies the evidence, close ES4 as a
   measured no-change decision rather than manufacturing work.
 
+  Blocked on 2026-08-02. The Physics contact-solver owner remains responsible,
+  but the authorized identity/validity surface is exhausted. Canonical body-
+  owned box-face/corner identity plus a cache-stable two-row anchor makes the
+  8-level tower sleep with zero tail churn; the same canonical IDs remain stable
+  with 2-4 warm starts across the formerly flipping loaded 64-level pair. The
+  required 32- and 64-level towers nevertheless collapse with large penetration,
+  launch speed, energy gain, and body loss. Multiple bounded SAT, row-selection,
+  solve-order, friction, positional, and support-seed probes worsened the result.
+  Independent review therefore rejects further identity/cache tuning without a
+  newly observed discontinuity immediately preceding an energy spike. The exact
+  evidence and rejected experimental surface are preserved in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es4-blocker.md`.
+
+  Exact unblock condition: the owner must authorize a separately bounded stack
+  load-propagation/convergence phase beyond ES4 identity/validity, or explicitly
+  revise the binding 32/64 acceptance target. The former is the recommended
+  direction; no target reduction is implied or authorized here. ES5 and ES6
+  remain affected dependents. The verified count stays 4/7, no experimental
+  source is staged, and every tracked baseline remains untouched.
+
 - [ ] **ES5 — Prove scale, determinism, and visible behavior.** Run the final
   4/8/16/32/64/128 tower matrix twice and across the repository's supported
   worker-count witnesses. The 32- and 64-level towers must remain supported,
@@ -244,6 +264,10 @@ changes. An expected-output golden is not a substitute for these invariants.
   artifacts.
 
 ## Terminal Owner Checkpoint
+
+The ES4 blocker above supersedes the no-pause expectation in this section until
+the owner supplies its exact unblock authority. This section remains binding
+after implementation resumes.
 
 The implementation agent is expected to work through ES0-ES6 without waiting
 for a baseline decision. When it contacts the owner, the correction is already
@@ -288,9 +312,10 @@ still waits for the owner's decision and the corresponding short follow-through.
   plan. Diagnostic vocabulary may distinguish `cachedWarmStart` from
   `terrainSupportSeed`, but any such change must preserve simulation bytes.
 - No phase carries standing bounded-divergence or baseline-refresh authority.
-  ES0-ES6 nevertheless run to engineering completion without owner interaction;
-  the owner decides only the exact staged oracle transition presented at the
-  terminal checkpoint.
+  Before the ES4 blocker, ES0-ES6 were expected to run to engineering completion
+  without owner interaction. Resumption now requires only the exact ES4 unblock
+  ruling; baseline authority remains reserved for the staged oracle transition
+  at the terminal checkpoint.
 
 ## Acceptance
 

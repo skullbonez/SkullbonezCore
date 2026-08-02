@@ -1403,11 +1403,15 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is first at 4/7.** Its
-agent runs ES0-ES6 without an owner pause, leaves tracked baselines
-untouched, and presents a completed implementation plus exact staged transition
-for the owner's terminal baseline decision. An expected old-oracle mismatch is
-decision evidence, not an engineering blocker.
+**Contact Energy And Warm-Start Integrity (2026-08-01) is blocked at 4/7.** ES4
+proved the formerly flipping loaded face patch can retain canonical identity and
+warm starts while the required 32/64 towers still collapse catastrophically.
+Further identity/cache tuning lacks an attributed discontinuity and is rejected;
+the adjacent swept-AABB experiment is not contact-energy closure. The exact
+unblock condition is owner authorization for a bounded stack load-propagation/
+convergence phase beyond ES4, or an explicit revision of the binding 32/64
+target. ES5 and ES6 are blocked dependents, tracked baselines remain untouched,
+and no independent live plan remains.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3241,7 +3245,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 4/7 | ES4 attributes and repairs only residual object warm-start identity or geometry-validity defects |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Blocked | 4/7 | Owner authorization for a bounded stack load-propagation/convergence phase, or explicit 32/64 target revision |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3415,6 +3419,18 @@ coverage passes 6 cases / 101 assertions; complete tests, fast validation, and
 the 2/2 comment audit pass. The live ledger is therefore 11/14 (78%). Evidence
 is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
+
+ES4 is blocked on 2026-08-02 with the live ledger unchanged at 11/14 (78%).
+Canonical face/corner identity and a cache-stable anchor eliminate the exact
+loaded role-flip discontinuity and make the 8-level tower sleep, but the 32- and
+64-level towers still collapse with catastrophic launch, penetration, energy,
+and body-retention failures while the observed patch identity remains stable.
+Independent review rejects further identity/cache experimentation without a new
+attributed discontinuity. The owner must authorize bounded stack load-
+propagation/convergence work beyond ES4, or explicitly revise the binding 32/64
+target. ES5/ES6 remain blocked, no experimental source or baseline is staged,
+and no independent live plan remains. Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es4-blocker.md`.
 
 ## Features
 
