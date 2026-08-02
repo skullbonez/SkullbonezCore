@@ -1,7 +1,7 @@
 # Broadphase Pair Dedup Cost
 
 Date: 2026-08-02
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Physics broadphase spatial grid, candidate pair emission, tests
 Owner: Physics broadphase
 Priority: Second
@@ -103,7 +103,7 @@ at BD3.
   its exact capacity derivation, its exhaustion behavior, and why its first-seen
   semantics are identical rather than merely equivalent.
 
-- [ ] **BD2 — Implement behind an exact-equivalence proof.** Land the chosen
+- [x] **BD2 — Implement behind an exact-equivalence proof.** Land the chosen
   mechanism with a temporary debug-only cross-check that runs both the old bitset
   and the new structure and fatals on the first divergence in pair identity,
   pair order, filter invocation, or diagnostic order. Reserve the new structure at
@@ -151,6 +151,15 @@ index. This preserves the exact geometry/sleep first-seen event without an
 N-squared store. Capacity, memory, exhaustion, hash-alias, overlay, and BD2 proof
 requirements are locked in
 `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`.
+
+BD2 completed on 2026-08-02. Scene-reserved per-body active-bucket membership
+slices now make the production first-seen decision while the dense bitset is a
+Debug-only temporary oracle. Complete mode-independent membership is appended
+before restricted/singleton exits, coordinate-hash aliases compact by bucket
+ordinal, and planted exhaustion reports the complete owner/capacity state.
+Focused and full tests, byte-exact Physics, format, Automation, fast validation,
+a 6/6 touched-source comment audit, and independent ACCEPT pass. Evidence is in
+`../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`.
 
 ## Dependencies And Decisions
 
@@ -203,3 +212,4 @@ and independent review finds no ordering or allocation-policy defect.
 - `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`
 - `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`
 - `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`
+- `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`

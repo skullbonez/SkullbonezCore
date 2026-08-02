@@ -81,9 +81,15 @@ inline constexpr char PipelineRecords[] = "Fixed 4096-record physics pipeline tr
 inline constexpr char CollisionVisualBodies[] = "Two body references per bounded candidate pair";
 inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
 inline constexpr char SpatialGridPersistentEntries
-    [] = "Eight cells per scene body plus a fixed 32-row spill covering the measured 19-row oversized-shape excess";
+    [] = "Eight cells per scene body plus a fixed 1024-row spill covering measured oversized-shape stress layouts";
 inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
 inline constexpr char SpatialGridBodyMemberships[] = "Exact scene body count for persistent broadphase membership";
+inline constexpr char SpatialGridPairMembershipOrdinals
+    [] = "Persistent-entry reservation plus the fixed swept-overlay ceiling for sorted per-body active-bucket ordinals";
+inline constexpr char SpatialGridPairMembershipOffsets
+    [] = "Exact scene body count plus one sentinel for per-body candidate-pair membership slices";
+inline constexpr char SpatialGridPairMembershipCounts
+    [] = "Exact scene body count for reusable candidate-pair membership counts and fill cursors";
 inline constexpr char SpatialGridCandidatePairHeads[] = "Exact scene body count for canonical candidate-pair head rows";
 inline constexpr char SpatialGridCellObjectSeen[] = "Exact scene body count for per-cell dedup generation stamps";
 inline constexpr char SpatialGridCandidatePairNodes[] = "Four canonical candidate-pair nodes per scene body";

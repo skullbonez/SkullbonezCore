@@ -1416,11 +1416,11 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 2/20 (10%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 3/20 (15%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 left the active/future ledger under rule 4. Four plans remain, to run in this
 order:
 
-1. `TODO/broadphase-pair-dedup-cost.md` (2/5). BD0 locks uninstrumented Profile
+1. `TODO/broadphase-pair-dedup-cost.md` (3/5). BD0 locks uninstrumented Profile
    cost plus complete five-boundary pair streams across 0/1/4 workers. BD1
    chooses traversal-preserving earliest-shared-bucket membership intersection;
    output-sized hashing and post-sort logs cannot cover legal raw identities.
@@ -3618,6 +3618,16 @@ the old triangular bit first changed. Scene-derived storage is 106,244 bytes at
 4,000 bodies and 206,852 bytes at 8,192, with no pair-identity ceiling. The live
 ledger is therefore 2/20 (10%). Evidence is in
 `../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`.
+
+Broadphase Pair Dedup Cost BD2 completed on 2026-08-02. The production path now
+uses scene-reserved per-body active-bucket membership prefixes and admits a pair
+only from its earliest eligible shared bucket. Complete mode-independent
+membership is appended before restricted and singleton exits, while Debug
+temporarily cross-checks every observation against the dense bitset and its
+geometry count. Focused/full tests, byte-exact Physics, format, Automation, fast
+validation, a 6/6 comment audit, and independent ACCEPT pass. The live ledger
+is therefore 3/20 (15%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`.
 
 ## Features
 

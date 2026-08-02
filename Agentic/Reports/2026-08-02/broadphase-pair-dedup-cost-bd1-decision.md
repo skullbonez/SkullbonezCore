@@ -92,16 +92,35 @@ bounded canonical sort.
 
 ### Index construction
 
-Immediately before pair traversal, `SpatialGrid` builds one private detached
+Immediately before pair traversal, `SpatialGrid` preflights one private detached
 index from current persistent entries and current-generation swept-overlay
-entries:
+entries, then completes it monotonically in authoritative active-bucket order:
 
 1. count source rows for each admitted body;
 2. prefix-sum `uint32_t` body offsets;
-3. fill `uint16_t` active-bucket ordinals through dedicated `uint32_t`
-   count/cursor rows;
-4. sort each body slice by active ordinal and collapse duplicate bucket aliases;
-5. retain the slices synchronously through that candidate-collection call.
+3. resize the `uint16_t` ordinal store to the exact raw-row count and reset the
+   dedicated `uint32_t` unique-length rows;
+4. walk `activeBuckets` in ascending ordinal order and append every bucket's
+   alias-compacted bodies before that bucket can skip or evaluate pair work;
+5. use the current body length as the fill cursor, so each slice is already
+   sorted and duplicate bucket aliases collapse without a per-body sort; and
+6. retain the completed slices synchronously through that candidate-collection
+   call.
+
+**BD2 owner addendum — accepted implementation refinement.** The original BD1
+wording required a separate complete fill, per-body sort, and compaction before
+traversal. BD2 proved and adopts the fused construction above instead. At outer
+ordinal `k`, every body's slice is the complete sorted unique projection of all
+source buckets in `[0,k]`; future traversal can append only ordinals greater than
+`k`, so it cannot change whether the current pair shared an earlier eligible
+bucket. Every bucket, including an unstamped bucket in restricted mode and a
+singleton bucket, contributes membership before any pair evaluation or early
+exit. After traversal the same complete mode-independent detached index exists
+for diagnostics and tests. This refinement changes neither identity, capacity,
+exhaustion, eligibility, nor first-seen authority; it removes a redundant entry-
+chain pass and sorting work. The broadphase plan implementation owner therefore
+approves it as the binding construction and supersedes only the original
+separate-fill/sort scheduling.
 
 The identity is a `Bucket::activeIndex`, not `(ix,iy,iz)`. `SpatialCellKey` is a
 hash and `FindBucket` compares the hash key; different coordinates can
@@ -118,8 +137,9 @@ There is no generation counter and no rollover path.
 ### First-seen proof
 
 The outer `activeBuckets` traversal and the two nested `cellIndices` loops remain
-byte-for-byte authoritative. For the current normalized pair, intersect the two
-sorted ordinal slices and find the first common eligible ordinal. When
+byte-for-byte authoritative. The current bucket is appended to both bodies before
+its normalized pair is evaluated. Intersect the two sorted prefixes before that
+current tail and reject only when an earlier common eligible ordinal exists. When
 pair-source restriction is enabled, a common bucket is eligible only if its
 `pairSourceGeneration` is current.
 
@@ -182,7 +202,9 @@ tests the diagnostic without imposing a new legal-scene ceiling.
 
 ## Performance Risk And BD2/BD3 Proof
 
-Index construction costs `O(M + sum(m_i log m_i))` for current membership rows.
+Index construction costs `O(B + M)` for admitted bodies and current membership
+rows: raw counts and prefixes are linear, and authoritative active-bucket order
+produces sorted unique slices without per-body sorting.
 Each raw co-bucket event replaces one bit test with an intersection bounded by
 the two bodies' membership lengths. Ordinary persistent membership is expected
 to remain at or below eight rows; dense single-cell scenes stop on the first
@@ -193,11 +215,12 @@ correct but modest gain may close, while an unmeasured change may not.
 BD2 will keep the dense bitset only as temporary Debug cross-check state. For
 each occurrence it will compare old first-seen and new earliest-bucket decisions
 before geometry, then compare complete geometry counts, raw/final candidate
-lists, and raw/final sleep lists. Focused tests will cover traversal-first order,
-an earlier unstamped shared bucket, deliberate spatial-hash aliasing, persistent
-plus swept membership, duplicate bucket aliases, exact reservation, and planted
-index exhaustion. The old bitset and its ruling disappear only after BD3 proves
-all permanent streams byte-identical across 0, 1, and 4 workers.
+lists, and raw/final sleep lists. Focused tests cover traversal-first order, an
+earlier unstamped shared bucket in both unfiltered and production-filtered
+restricted collection, deliberate spatial-hash aliasing, persistent plus swept
+membership, duplicate bucket aliases, exact reservation, and planted index
+exhaustion. The old bitset and its ruling disappear only after BD3 proves all
+permanent streams byte-identical across 0, 1, and 4 workers.
 
 ## Ownership And Change Boundary
 
