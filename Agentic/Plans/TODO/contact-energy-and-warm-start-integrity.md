@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-02
-Status: ACTIVE — 6/7 phases complete; ES6 validation and owner baseline decision remain
+Status: ACTIVE — 7/7 implementation complete; owner baseline decision pending
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -286,7 +286,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   transient-invalid-state, and repeated-early-relaunch controls. Evidence is in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`.
 
-- [ ] **ES6 — Finish engineering and prepare the owner baseline decision.** Run
+- [x] **ES6 — Finish engineering and prepare the owner baseline decision.** Run
   focused tests, the new semantic gate, `validate_tests`, `validate_fast`,
   `validate_physics`, `validate_physics_deep`, `validate_perf`, the single
   required `validate_replay_visual_fidelity` generation for the 200-box scene,
@@ -303,6 +303,18 @@ changes. An expected-output golden is not a substitute for these invariants.
   review, performance, determinism, and visible-evidence work before asking the
   owner whether the exact staged baseline transition may replace the tracked
   artifacts.
+
+  Complete: every baseline-independent gate passes. `validate_physics` and the
+  Physics phase of `validate_full` stop only at the enumerated old-oracle
+  transition; the remaining deep constituents pass directly. The single
+  200-box replay generation passes the complete oracle and every offline
+  false-pass control against staged candidates, while the tracked manifest
+  rejects only the authorized scene-provenance change. Performance passes, all
+  seven ownership inventories are current, the touched-source comment audit is
+  7/7, and independent review is CLEAN. Five exact candidates remain outside
+  tracked destinations. The complete hashes, semantic differences, energy,
+  determinism, visual, performance, and validation evidence are in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es6.md`.
 
 ## Terminal Owner Checkpoint
 

@@ -1403,13 +1403,15 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is active at 6/7.** ES5
-proves the four bricks settle and the 200-box workload retains all 211 bodies,
-stays finite and within attributed energy, avoids repeated popcorn cycles, and
-sleeps under the unchanged 12-iteration cap. The owner-authorized fixed catcher
-retains only the post-demo striker beyond the impact area. Stacking remains
-parked for later Bullet/Box2D experimentation. ES6 now owns exhaustive gates and
-the exact owner baseline-decision packet; tracked baselines remain untouched.
+**Contact Energy And Warm-Start Integrity (2026-08-01) is implementation-complete
+at 7/7; the owner baseline decision is pending.** The four bricks settle and the
+200-box workload retains all 211 bodies, stays finite and within attributed
+energy, avoids repeated popcorn cycles, and sleeps under the unchanged 12-
+iteration cap. The owner-authorized fixed catcher retains only the post-demo
+striker beyond the impact area. Stacking remains parked for later Bullet/Box2D
+experimentation. Exhaustive gates, candidate comparison, comment audit, and
+independent review are complete; five exact candidates are staged while tracked
+baselines remain untouched.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3243,7 +3245,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 6/7 | Run ES6 exhaustive validation, candidate comparison, and owner baseline-decision preparation |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Owner checkpoint | 7/7 | Approve or withhold the exact five-artifact baseline transition |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3468,6 +3470,18 @@ captures were inspected. The hardened SQL subtracts only explicit separation-
 bias work and plants initial-loss masking, transient invalid state, and repeated
 early relaunch failures. The live ledger advances to 13/14 (93%). Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`.
+
+ES6 completed on 2026-08-02. Focused tests, semantic controls, tests, fast,
+performance, and every baseline-independent deep/full constituent pass. The
+single replay visual generation preserves all 2,401 visual ticks, all 200 causal
+nodes, and the complete final state against a staged candidate; the tracked
+manifest rejects only the catcher scene hash. Physics and full validation stop
+only at the enumerated 14,534-row old-oracle mismatch. All seven inventories,
+the 7/7 touched-source comment audit, and independent CLEAN review are complete.
+Five exact candidate artifacts remain outside tracked destinations. The live
+ledger advances to 14/14 (100%) implementation complete, with only the owner
+baseline ruling and its short follow-through pending. Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es6.md`.
 
 ## Features
 
