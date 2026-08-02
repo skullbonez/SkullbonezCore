@@ -1416,17 +1416,19 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/26 (12%).** Five plans registered from a current-tree source and test
+work at 4/26 (15%).** Five plans registered from a current-tree source and test
 review, to run in this order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (3/6). NM0 records every
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (4/6). NM0 records every
    object/terrain path, feature and reduction rule, sleep transition, current
    test reach, and exact coverage gap. NM1 pins hand-derived geometry for every
    ordered object family and repairs the reverse-support hull edge tie it
    exposed. NM2 pins sub-slop feature lifetime, the 45-degree face boundary,
    every reducer rule across all 720 candidate permutations, and the resulting
-   warm-start cache miss. NM3 is next: prove those assertions reject planted
-   faults.
+   warm-start cache miss. NM3 proves the same predicates reject inverted
+   normal, flipped depth, truncated patch, unstable identity, and neighboring-
+   point reduction plants. NM4 is next: pin the sleep state machine and every
+   direct wake path.
 2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3570,6 +3572,15 @@ tangent-spread, and invalid-input behavior. Holding body ids fixed while the
 narrowphase feature changes produces a real persistent-cache miss. The live
 ledger is therefore 3/26 (12%). Evidence is in
 `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`.
+
+Narrowphase Manifold And Sleep Coverage NM3 completed on 2026-08-02. The NM1
+geometry and NM2 identity/reduction fixtures now share pure predicates with a
+13-assertion negative-control case. Isolated plants invert the normal, flip
+penetration sign, truncate the four-row patch, churn one feature bit, and choose
+a nearby row instead of tangent spread; every corresponding positive predicate
+rejects its plant. The complete object-manifold family passes 17 cases / 1,447
+assertions. The live ledger is therefore 4/26 (15%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`.
 
 ## Features
 

@@ -1,7 +1,7 @@
 # Narrowphase Manifold And Sleep Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 3/6 phases complete
+Status: IN PROGRESS — 4/6 phases complete
 Impact area: Physics narrowphase manifolds, sleep controller and island system, tests
 Owner: Physics narrowphase and sleep
 Priority: First
@@ -140,13 +140,21 @@ reachable from a focused test.
   with body ids held fixed. Evidence:
   `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`.
 
-- [ ] **NM3 — Add negative controls.** Following the pattern already established
+- [x] **NM3 — Add negative controls.** Following the pattern already established
   by "Contact energy oracle: planted restitution impulse and stale-geometry
   controls fail", prove the new assertions can fail: plant an inverted normal, a
   sign-flipped penetration, a truncated point count, an unstable feature ID, and
   a reduction that selects neighboring rather than spread points, and require each
   new assertion to reject it. An assertion that cannot be made to fail is not
   coverage and does not close its NM1/NM2 item.
+
+  Complete 2026-08-02. Positive geometry, temporal identity, and reducer tests
+  now share pure pass/fail predicates with one 13-assertion planted-control
+  case. It independently rejects an inverted normal, sign-flipped penetration,
+  truncated four-row patch, one-bit feature churn, and the exact neighboring-
+  point selection a next-deepest reducer would choose. The full object-manifold
+  family passes 17 cases / 1,447 assertions. Evidence:
+  `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`.
 
 - [ ] **NM4 — Pin the sleep controller state machine and wake propagation.** Add
   `TestSleepController.cpp` reaching every wake entry point named in NM0 directly:

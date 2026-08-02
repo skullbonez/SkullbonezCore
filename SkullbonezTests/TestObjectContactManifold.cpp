@@ -9,7 +9,8 @@
 //   produce more candidates than the four-row solver budget, so reduction must
 //   also retain the deepest row, useful patch coverage, and stable feature ids.
 //   Frame-pair and cache fixtures make that identity lifetime visible through
-//   the solver boundary rather than treating it as an encoding detail.
+//   the solver boundary rather than treating it as an encoding detail. Planted
+//   faults prove the same geometry and identity predicates reject bad output.
 //
 // Glossary:
 //   Contact candidate: A clipped point that is eligible for a solver row.
@@ -27,6 +28,8 @@
 //     change misses the persistent-contact cache.
 //   - Candidate selection is insertion-order independent: deepest geometry,
 //     then tangent spread, then feature identity owns every tie.
+//   - Every geometry/identity predicate used by a positive fixture also rejects
+//     a focused planted fault; negative controls do not substitute a second oracle.
 //   - Every sphere, box, and convex-hull pairing publishes finite contacts,
 //     while a separated pair remains contact-free.
 //
@@ -35,6 +38,7 @@
 //   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md
 //   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
 //   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md
+//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md
 //   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
@@ -83,10 +87,17 @@ using SkullbonezTests::CollisionShapeFixtures::SphereShape;
 namespace
 {
 constexpr float kContactSkin = 0.001f;
+constexpr std::array<uint32_t, 4> kSpreadReductionFeatureIds = { 100u, 20u, 30u, 40u };
 
 CollisionShape MakeBox( const Vector3& halfExtents = Vector3( 1.0f, 1.0f, 1.0f ) )
 {
     return CollisionShape( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+}
+
+std::array<Vector3, 4> UnitBoxFacePatch( float contactPlaneX )
+{
+    return { Vector3( contactPlaneX, -1.0f, -1.0f ), Vector3( contactPlaneX, -1.0f, 1.0f ),
+             Vector3( contactPlaneX, 1.0f, -1.0f ), Vector3( contactPlaneX, 1.0f, 1.0f ) };
 }
 
 ObjectContactBodyView MakeBody( const Vector3& position, Vector3 rotationAxis = Vector3( 1.0f, 0.0f, 0.0f ),
@@ -117,90 +128,145 @@ ObjectContactManifold BuildManifold( const ObjectContactBodyView& a, const Colli
     return manifold;
 }
 
-void CheckVectorNear( const Vector3& actual, const Vector3& expected, float tolerance = 2.0e-4f )
-{
-    CHECK( fabsf( actual.x - expected.x ) <= tolerance );
-    CHECK( fabsf( actual.y - expected.y ) <= tolerance );
-    CHECK( fabsf( actual.z - expected.z ) <= tolerance );
-}
-
 bool VectorNear( const Vector3& actual, const Vector3& expected, float tolerance = 2.0e-4f )
 {
     return fabsf( actual.x - expected.x ) <= tolerance && fabsf( actual.y - expected.y ) <= tolerance &&
            fabsf( actual.z - expected.z ) <= tolerance;
 }
 
-template <std::size_t PointCount>
-void CheckPointSet( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected,
-                    float tolerance = 2.0e-4f )
+void CheckVectorNear( const Vector3& actual, const Vector3& expected, float tolerance = 2.0e-4f )
 {
-    REQUIRE( manifold.pointCount == PointCount );
+    CHECK( VectorNear( actual, expected, tolerance ) );
+}
+
+template <std::size_t PointCount>
+bool PointSetMatches( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected,
+                      float tolerance = 2.0e-4f )
+{
+
+    if ( static_cast<std::size_t>( manifold.pointCount ) != PointCount )
+    {
+        return false;
+    }
+
     std::array<bool, PointCount> matched = {};
 
     for ( const Vector3& expectedPoint : expected )
     {
-        INFO( "expected point = (" << expectedPoint.x << ", " << expectedPoint.y << ", " << expectedPoint.z << ")" );
-        INFO( "actual points = (" << manifold.points[0].point.x << ", " << manifold.points[0].point.y << ", "
-                                  << manifold.points[0].point.z << ") | (" << manifold.points[1].point.x << ", "
-                                  << manifold.points[1].point.y << ", " << manifold.points[1].point.z << ") | ("
-                                  << manifold.points[2].point.x << ", " << manifold.points[2].point.y << ", "
-                                  << manifold.points[2].point.z << ") | (" << manifold.points[3].point.x << ", "
-                                  << manifold.points[3].point.y << ", " << manifold.points[3].point.z << ")" );
-
-        int match = -1;
+        bool found = false;
 
         for ( std::size_t actualIndex = 0; actualIndex < PointCount; ++actualIndex )
         {
 
             if ( !matched[actualIndex] && VectorNear( manifold.points[actualIndex].point, expectedPoint, tolerance ) )
             {
-                match = static_cast<int>( actualIndex );
+                matched[actualIndex] = true;
+                found = true;
                 break;
             }
         }
 
-        REQUIRE( match >= 0 );
-        matched[static_cast<std::size_t>( match )] = true;
+        if ( !found )
+        {
+            return false;
+        }
     }
+
+    return true;
+}
+
+template <std::size_t PointCount>
+void CheckPointSet( const ObjectContactManifold& manifold, const std::array<Vector3, PointCount>& expected,
+                    float tolerance = 2.0e-4f )
+{
+    CHECK( PointSetMatches( manifold, expected, tolerance ) );
+}
+
+bool UniformPenetrationMatches( const ObjectContactManifold& manifold, float expected, float tolerance = 2.0e-4f )
+{
+
+    if ( manifold.pointCount == 0 )
+    {
+        return false;
+    }
+
+    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+    {
+
+        if ( fabsf( manifold.points[pointIndex].penetration - expected ) > tolerance )
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void CheckUniformPenetration( const ObjectContactManifold& manifold, float expected, float tolerance = 2.0e-4f )
 {
+    CHECK( UniformPenetrationMatches( manifold, expected, tolerance ) );
+}
 
-    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+bool FeatureIdsEqual( const ObjectContactManifold& first, const ObjectContactManifold& second )
+{
+
+    if ( first.pointCount == 0 || first.pointCount != second.pointCount )
     {
-        CHECK( fabsf( manifold.points[pointIndex].penetration - expected ) <= tolerance );
+        return false;
     }
+
+    for ( uint8_t pointIndex = 0; pointIndex < first.pointCount; ++pointIndex )
+    {
+
+        if ( first.points[pointIndex].featureId != second.points[pointIndex].featureId )
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void CheckFeatureIdsEqual( const ObjectContactManifold& first, const ObjectContactManifold& second )
 {
-    REQUIRE( first.pointCount == second.pointCount );
+    CHECK( FeatureIdsEqual( first, second ) );
+}
 
-    for ( uint8_t pointIndex = 0; pointIndex < first.pointCount; ++pointIndex )
-    {
-        CHECK( first.points[pointIndex].featureId == second.points[pointIndex].featureId );
-    }
+std::array<ObjectContactCandidate, 6> MakeSpreadReductionCandidates()
+{
+    return {
+        ObjectContactCandidate { Vector3( 0.0f, 0.0f, 0.0f ), 0.40f, 100u },
+        ObjectContactCandidate { Vector3( 2.0f, 0.0f, 0.0f ), 0.20f, 20u },
+        ObjectContactCandidate { Vector3( -2.0f, 0.0f, 0.0f ), 0.20f, 30u },
+        ObjectContactCandidate { Vector3( 0.0f, 2.0f, 0.0f ), 0.20f, 40u },
+        ObjectContactCandidate { Vector3( 0.0f, -2.0f, 0.0f ), 0.20f, 50u },
+        ObjectContactCandidate { Vector3( 1.9f, 0.1f, 0.0f ), 0.30f, 10u },
+    };
 }
 
 template <std::size_t CandidateCount>
-std::array<uint32_t, 4> SelectedFeatureIds( const std::array<ObjectContactCandidate, CandidateCount>& candidates,
-                                            const Vector3& normal )
+bool SelectionMatchesFeatureIds( const std::array<ObjectContactCandidate, CandidateCount>& candidates,
+                                 const ObjectContactCandidateSelection& selection,
+                                 const std::array<uint32_t, 4>& expectedFeatureIds )
 {
-    const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( candidates.data(),
-                                                                                           static_cast<int>( candidates.size() ),
-                                                                                           normal );
 
-    REQUIRE( selection.count == 4 );
-
-    std::array<uint32_t, 4> featureIds = {};
+    if ( static_cast<std::size_t>( selection.count ) != expectedFeatureIds.size() )
+    {
+        return false;
+    }
 
     for ( uint8_t selectedIndex = 0; selectedIndex < selection.count; ++selectedIndex )
     {
-        featureIds[selectedIndex] = candidates[selection.indices[selectedIndex]].featureId;
+        const int candidateIndex = selection.indices[selectedIndex];
+
+        if ( candidateIndex < 0 || candidateIndex >= static_cast<int>( CandidateCount ) ||
+             candidates[static_cast<std::size_t>( candidateIndex )].featureId != expectedFeatureIds[selectedIndex] )
+        {
+            return false;
+        }
     }
 
-    return featureIds;
+    return true;
 }
 
 std::array<Vector3, 3> WorldAxes( const ObjectContactBodyView& body )
@@ -622,8 +688,7 @@ TEST_CASE( "Object contact manifold geometry: box face patches and deep overlap 
     const ObjectContactManifold face = BuildManifold( bodyA, box, bodyB, box );
     CheckVectorNear( face.normal, Vector3( 1.0f, 0.0f, 0.0f ) );
     CheckUniformPenetration( face, 0.2f );
-    CheckPointSet( face, std::array<Vector3, 4> { Vector3( 0.9f, -1.0f, -1.0f ), Vector3( 0.9f, -1.0f, 1.0f ),
-                                                  Vector3( 0.9f, 1.0f, -1.0f ), Vector3( 0.9f, 1.0f, 1.0f ) } );
+    CheckPointSet( face, UnitBoxFacePatch( 0.9f ) );
 
     // Coincident unit boxes overlap by their full two-unit width. Box SAT
     // inspects A's +X axis first among the tied minimum axes, so the centered
@@ -631,8 +696,7 @@ TEST_CASE( "Object contact manifold geometry: box face patches and deep overlap 
     const ObjectContactManifold deep = BuildManifold( bodyA, box, bodyA, box );
     CheckVectorNear( deep.normal, Vector3( 1.0f, 0.0f, 0.0f ) );
     CheckUniformPenetration( deep, 2.0f );
-    CheckPointSet( deep, std::array<Vector3, 4> { Vector3( 0.0f, -1.0f, -1.0f ), Vector3( 0.0f, -1.0f, 1.0f ),
-                                                  Vector3( 0.0f, 1.0f, -1.0f ), Vector3( 0.0f, 1.0f, 1.0f ) } );
+    CheckPointSet( deep, UnitBoxFacePatch( 0.0f ) );
 }
 
 
@@ -891,20 +955,12 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
     REQUIRE( tieSelection.count == 2 );
     CHECK( tieCandidates[tieSelection.indices[0]].featureId == 7u );
 
-    const std::array<ObjectContactCandidate, 6> candidates = {
-        ObjectContactCandidate { Vector3( 0.0f, 0.0f, 0.0f ), 0.40f, 100u },
-        ObjectContactCandidate { Vector3( 2.0f, 0.0f, 0.0f ), 0.20f, 20u },
-        ObjectContactCandidate { Vector3( -2.0f, 0.0f, 0.0f ), 0.20f, 30u },
-        ObjectContactCandidate { Vector3( 0.0f, 2.0f, 0.0f ), 0.20f, 40u },
-        ObjectContactCandidate { Vector3( 0.0f, -2.0f, 0.0f ), 0.20f, 50u },
-        ObjectContactCandidate { Vector3( 1.9f, 0.1f, 0.0f ), 0.30f, 10u },
-    };
+    const std::array<ObjectContactCandidate, 6> candidates = MakeSpreadReductionCandidates();
 
     // The center is deepest. Four radius-two points tie on first-step spread
     // and therefore choose feature 20; the opposite and orthogonal points then
     // maximize minimum spread. Feature 10 is deliberately a near neighbor of
     // feature 20, so a neighboring-point reducer would select the wrong set.
-    const std::array<uint32_t, 4> expected = { 100u, 20u, 30u, 40u };
     std::array<int, 6> order = { 0, 1, 2, 3, 4, 5 };
     int permutationCount = 0;
 
@@ -917,7 +973,11 @@ TEST_CASE( "Object contact manifold reduction: deepest feature tie spread and pe
             permuted[candidateIndex] = candidates[static_cast<std::size_t>( order[candidateIndex] )];
         }
 
-        CHECK( SelectedFeatureIds( permuted, normal ) == expected );
+        const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( permuted.data(),
+                                                                                               static_cast<int>( permuted.size() ),
+                                                                                               normal );
+
+        CHECK( SelectionMatchesFeatureIds( permuted, selection, kSpreadReductionFeatureIds ) );
         ++permutationCount;
     } while ( std::next_permutation( order.begin(), order.end() ) );
 
@@ -950,6 +1010,68 @@ TEST_CASE( "Object contact manifold identity: a changed narrowphase feature miss
 
     CHECK( PersistentContactSolveTransaction::HasCachedImpulse( cache, faceX.bodyA, faceX.bodyB, faceX.points[0].featureId ) );
     CHECK_FALSE( PersistentContactSolveTransaction::HasCachedImpulse( cache, faceY.bodyA, faceY.bodyB, faceY.points[0].featureId ) );
+}
+
+
+TEST_CASE( "Object contact manifold oracles: planted geometry identity and reduction controls fail" )
+{
+    const CollisionShape box = MakeBox();
+    const ObjectContactBodyView origin = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    const ObjectContactManifold face = BuildManifold( origin, box, MakeBody( Vector3( 1.8f, 0.0f, 0.0f ) ), box );
+    const Vector3 expectedNormal( 1.0f, 0.0f, 0.0f );
+    const std::array<Vector3, 4> expectedPoints = UnitBoxFacePatch( 0.9f );
+
+    REQUIRE( VectorNear( face.normal, expectedNormal ) );
+    REQUIRE( UniformPenetrationMatches( face, 0.2f ) );
+    REQUIRE( PointSetMatches( face, expectedPoints ) );
+
+    // Hazard: each copy changes only the named manifold contract. The same
+    // predicates used by NM1's positive geometry fixtures must reject it, so a
+    // passing control cannot be attributed to an unrelated assertion.
+    ObjectContactManifold invertedNormal = face;
+    invertedNormal.normal = -invertedNormal.normal;
+    CHECK_FALSE( VectorNear( invertedNormal.normal, expectedNormal ) );
+
+    ObjectContactManifold signFlippedPenetration = face;
+
+    for ( uint8_t pointIndex = 0; pointIndex < signFlippedPenetration.pointCount; ++pointIndex )
+    {
+        signFlippedPenetration.points[pointIndex].penetration *= -1.0f;
+    }
+
+    CHECK_FALSE( UniformPenetrationMatches( signFlippedPenetration, 0.2f ) );
+
+    ObjectContactManifold truncatedPatch = face;
+    --truncatedPatch.pointCount;
+    CHECK_FALSE( PointSetMatches( truncatedPatch, expectedPoints ) );
+
+    const ObjectContactManifold stableFrame = BuildManifold( origin, box, MakeBody( Vector3( 0.0f, 1.50f, 0.0f ) ), box );
+    const ObjectContactManifold stableFrameN1 = BuildManifold( origin, box, MakeBody( Vector3( 0.0f, 1.50001f, 0.0f ) ),
+                                                               box );
+
+    REQUIRE( FeatureIdsEqual( stableFrame, stableFrameN1 ) );
+    ObjectContactManifold unstableFeature = stableFrameN1;
+    unstableFeature.points[0].featureId ^= 1u;
+    CHECK_FALSE( FeatureIdsEqual( stableFrame, unstableFeature ) );
+
+    const Vector3 reductionNormal( 0.0f, 0.0f, 1.0f );
+    const std::array<ObjectContactCandidate, 6> candidates = MakeSpreadReductionCandidates();
+    const ObjectContactCandidateSelection productionSelection = SelectObjectContactCandidateIndices( candidates.data(),
+                                                                                                     static_cast<int>( candidates.size() ),
+                                                                                                     reductionNormal );
+
+    REQUIRE( SelectionMatchesFeatureIds( candidates, productionSelection, kSpreadReductionFeatureIds ) );
+
+    // A next-deepest reducer would keep feature 10 immediately beside feature
+    // 20 instead of feature 40's orthogonal spread. Plant that exact neighboring
+    // selection while preserving the deepest and first spread rows.
+    ObjectContactCandidateSelection neighboringSelection;
+    neighboringSelection.count = 4;
+    neighboringSelection.indices[0] = 0;
+    neighboringSelection.indices[1] = 1;
+    neighboringSelection.indices[2] = 5;
+    neighboringSelection.indices[3] = 2;
+    CHECK_FALSE( SelectionMatchesFeatureIds( candidates, neighboringSelection, kSpreadReductionFeatureIds ) );
 }
 
 
