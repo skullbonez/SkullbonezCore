@@ -1,7 +1,7 @@
 # Narrowphase Manifold And Sleep Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 4/6 phases complete
+Status: IN PROGRESS — 5/6 phases complete
 Impact area: Physics narrowphase manifolds, sleep controller and island system, tests
 Owner: Physics narrowphase and sleep
 Priority: First
@@ -156,7 +156,7 @@ reachable from a focused test.
   family passes 17 cases / 1,447 assertions. Evidence:
   `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`.
 
-- [ ] **NM4 — Pin the sleep controller state machine and wake propagation.** Add
+- [x] **NM4 — Pin the sleep controller state machine and wake propagation.** Add
   `TestSleepController.cpp` reaching every wake entry point named in NM0 directly:
   visual island wake, point-joint island wake, resting-contact island wake,
   explicit wake, underwater sleep lock and release, and awake-list rebuild plus
@@ -165,6 +165,15 @@ reachable from a focused test.
   one hop, that a sleeping body cannot be left in the awake list or the reverse,
   and that support-edge capacity exhaustion fails loudly through
   `ValidateSleepSupportEdgeCount` rather than silently dropping edges.
+
+  Complete 2026-08-02. Seven focused cases / 183 assertions directly pin
+  visual, explicit point-joint, transitive resting-contact, automatic same-step,
+  and underwater wake paths plus sorted awake-list remove/add/rebuild and
+  bidirectional point-joint support. A second fatal child proves reserved-
+  capacity exhaustion below the existing 32,768-edge semantic ceiling. NM0
+  found no one-hop policy, so the tests retain the actual complete-component and
+  transitive bounded fan-out contracts. Evidence:
+  `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`.
 
 - [ ] **NM5 — Validate and close.** Run `tools\validate_tests.bat`, then
   `tools\validate_physics.bat` and `tools\validate_physics_deep.bat` to prove no

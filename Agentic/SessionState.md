@@ -12,13 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-2nd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `d26163ed` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Narrowphase Manifold And Sleep Coverage NM0-NM3 are complete; NM4 sleep state and wake-path coverage is binding next. |
-| Active/future progress | 4/26 (15%): NM0-NM3 are complete; the remaining five-plan campaign stays in binding order. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Narrowphase Manifold And Sleep Coverage NM0-NM4 are complete; NM5 exhaustive validation and independent closure review is binding next. |
+| Active/future progress | 5/26 (19%): NM0-NM4 are complete; the remaining five-plan campaign stays in binding order. The parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Five plans / 26 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
 | Narrowphase NM2 | Complete. Sub-slop box and brick-hull frame pairs retain ordered feature ids, a 41-pose sweep crosses the incident-face boundary once, and the production reducer proves deepest/tie/spread/invalid behavior across all 720 insertion permutations. A feature-only change misses the persistent cache. Comment audit is 3/3. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`. |
 | Narrowphase NM3 | Complete. Shared positive/negative predicates reject isolated inverted-normal, flipped-depth, truncated-patch, unstable-feature, and neighboring-reducer plants. The focused control passes 13/13 assertions and the full object-manifold family passes 17 cases / 1,447 assertions. Comment audit is 1/1. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`. |
+| Narrowphase NM4 | Complete. Seven focused cases / 183 assertions directly pin every visual/joint/resting/automatic/explicit/underwater wake family, sorted awake-list transitions, and bidirectional support. Runtime fatal coverage now proves both the two-row reservation and 32,768-row semantic ceiling. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -128,13 +129,13 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 4/26 (15%). Binding order is
+Fresh-Read Coverage And Convention is active at 5/26 (19%). Binding order is
 Narrowphase Manifold And Sleep Coverage, Broadphase Pair Dedup Cost, Render
 Graph Transition Coverage, Comment Vocabulary Audit, then Source Modernization
-Sweep. Narrowphase NM0-NM3 are complete at 4/6; NM4 is next and must directly
-reach visual-island, point-joint, resting-contact, explicit, and underwater
-wake policy plus awake-list rebuild/add/remove and support-edge capacity failure.
-No baseline movement is authorized.
+Sweep. Narrowphase NM0-NM4 are complete at 5/6; NM5 is next and must run tests,
+core/deep Physics, direct coverage, fast, touched-source comment audit, all six
+ownership inventories required by the orchestrator, and independent assertion/
+wake-path closure review. No baseline movement is authorized.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -894,12 +895,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/narrowphase-manifold-sleep-coverage.md` at NM4 on
-`nightrunner-2nd-AUG-26`. Use the NM0 transition census to add the focused
-`TestSleepController.cpp` owner and directly reach every visual/joint/contact/
-explicit/underwater wake path, awake-list rebuild/add/remove invariant, symmetric
-support membership, one-hop policy, and loud capacity failure. The active/future
-ledger is 4/26 (15%) in both MASTER-PLAN and this SessionState.
+Continue `Agentic/Plans/TODO/narrowphase-manifold-sleep-coverage.md` at NM5 on
+`nightrunner-2nd-AUG-26`. Run every mapped closure gate and six orchestrator
+inventories, reconcile the complete touched-source comment audit, then obtain a
+fresh read-only review of derived expectations, planted controls, direct wake
+reachability, and any non-emptiness-only assertion. A credible finding reopens
+the owning phase. The active/future ledger is 5/26 (19%) in both MASTER-PLAN and
+this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,

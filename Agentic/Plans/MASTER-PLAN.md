@@ -1416,10 +1416,10 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 4/26 (15%).** Five plans registered from a current-tree source and test
+work at 5/26 (19%).** Five plans registered from a current-tree source and test
 review, to run in this order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (4/6). NM0 records every
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (5/6). NM0 records every
    object/terrain path, feature and reduction rule, sleep transition, current
    test reach, and exact coverage gap. NM1 pins hand-derived geometry for every
    ordered object family and repairs the reverse-support hull edge tie it
@@ -1427,8 +1427,10 @@ review, to run in this order:
    every reducer rule across all 720 candidate permutations, and the resulting
    warm-start cache miss. NM3 proves the same predicates reject inverted
    normal, flipped depth, truncated patch, unstable identity, and neighboring-
-   point reduction plants. NM4 is next: pin the sleep state machine and every
-   direct wake path.
+   point reduction plants. NM4 directly pins every visual, joint, resting,
+   automatic, explicit, and underwater wake family plus awake-list/support
+   ownership and both support-edge limits. NM5 is next: exhaustive validation,
+   comment audit, and independent closure review.
 2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3581,6 +3583,16 @@ a nearby row instead of tangent spread; every corresponding positive predicate
 rejects its plant. The complete object-manifold family passes 17 cases / 1,447
 assertions. The live ledger is therefore 4/26 (15%). Evidence is in
 `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`.
+
+Narrowphase Manifold And Sleep Coverage NM4 completed on 2026-08-02. Seven
+focused cases / 183 assertions directly cover visual-island, explicit joint,
+transitive resting-contact, automatic same-step, ordinary explicit, and
+underwater refusal/release paths. Sorted awake membership survives remove/add
+and same-count rebuild; point-joint support is bidirectional and reaches a fixed
+point. A new fatal child proves the actual two-row reservation fails on request
+three, complementing the existing 32,769 semantic-ceiling probe. The live ledger
+is therefore 5/26 (19%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`.
 
 ## Features
 

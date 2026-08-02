@@ -38,6 +38,8 @@
 //     the canonical prediction working set.
 //   - Spatial-grid backing reserves only during SceneLoad; fixed-step
 //     exhaustion reports the exact owner, capacity, high-water, and phase.
+//   - Sleep support edges fail before either the scene-committed reservation or
+//     the semantic ceiling can be exceeded.
 //   - Pipeline batch counting rejects full-record mode so retained row count
 //     cannot diverge from the recorder's canonical event count.
 //   - DX12 retirement accounting records a real below-capacity peak, resets at
@@ -50,6 +52,7 @@
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
 //   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
+//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -866,6 +869,26 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+    if ( std::strcmp( caseName, "sleep-support-edge-reserved-capacity" ) == 0 )
+    {
+        static SkullbonezCore::Physics::PhysicsCandidatePairList
+            edges { "TestRuntimeContracts.sleepSupportEdgesReserved",
+                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            edges.Reserve( 2u );
+        }
+        edges.clear();
+        AppendSleepSupportEdge( edges, 0, 1 );
+        AppendSleepSupportEdge( edges, 1, 2 );
+
+        // Hazard: requested=3 is far below the semantic ceiling. The owner must
+        // still fail before PhysicsFixedList can silently exceed the actual
+        // scene-committed reservation of two rows.
+        AppendSleepSupportEdge( edges, 2, 3 );
+        return true;
+    }
+
     if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
     {
         static SkullbonezCore::Physics::PhysicsCandidatePairList
@@ -1386,6 +1409,10 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
+
+    ExpectFatalCase( "sleep-support-edge-reserved-capacity",
+                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=3",
+                       "capacity=32768", "reserved_capacity=2", "high_water=2", "phase=steady_gameplay" } );
 
     ExpectFatalCase( "sleep-support-edge-capacity",
                      { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769",

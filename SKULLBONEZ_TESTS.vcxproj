@@ -224,6 +224,7 @@
     <ClCompile Include="SkullbonezTests\TestPhysicsApi.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
+    <ClCompile Include="SkullbonezTests\TestSleepController.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
