@@ -1,7 +1,7 @@
 # Narrowphase Manifold And Sleep Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 2/6 phases complete
+Status: IN PROGRESS — 3/6 phases complete
 Impact area: Physics narrowphase manifolds, sleep controller and island system, tests
 Owner: Physics narrowphase and sleep
 Priority: First
@@ -120,7 +120,7 @@ reachable from a focused test.
   no baseline refresh. Evidence:
   `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`.
 
-- [ ] **NM2 — Pin feature-ID lifetime and reduction determinism.** Prove that a
+- [x] **NM2 — Pin feature-ID lifetime and reduction determinism.** Prove that a
   resting box/box and hull/hull contact produces the same feature IDs across
   consecutive frames under sub-slop perturbation, that the reference/incident
   face choice does not oscillate across a 45-degree sweep, and that
@@ -130,6 +130,15 @@ reachable from a focused test.
   Prove that a feature ID which changes produces a warm-start cache miss, so the
   coupling between narrowphase identity and solver behavior is visible in a test
   rather than only in a stack that settles badly.
+
+  Complete 2026-08-02. Resting box and brick-hull frame pairs retain ordered
+  feature ids across a one-hundredth-skin movement; a 41-pose quarter-degree
+  sweep changes incident face exactly once. The production reducer now has a
+  Physics-owned allocation-free value seam exercised across all 720 input
+  permutations, deepest-first, feature-id tie, tangent spread, and invalid
+  input. A changed narrowphase feature produces a real persistent-cache miss
+  with body ids held fixed. Evidence:
+  `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`.
 
 - [ ] **NM3 — Add negative controls.** Following the pattern already established
   by "Contact energy oracle: planted restitution impulse and stale-geometry

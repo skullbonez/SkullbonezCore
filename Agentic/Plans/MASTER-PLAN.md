@@ -1416,14 +1416,17 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 2/26 (8%).** Five plans registered from a current-tree source and test
+work at 3/26 (12%).** Five plans registered from a current-tree source and test
 review, to run in this order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (2/6). NM0 records every
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (3/6). NM0 records every
    object/terrain path, feature and reduction rule, sleep transition, current
    test reach, and exact coverage gap. NM1 pins hand-derived geometry for every
    ordered object family and repairs the reverse-support hull edge tie it
-   exposed. NM2 is next: pin feature-id lifetime and reduction determinism.
+   exposed. NM2 pins sub-slop feature lifetime, the 45-degree face boundary,
+   every reducer rule across all 720 candidate permutations, and the resulting
+   warm-start cache miss. NM3 is next: prove those assertions reject planted
+   faults.
 2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3557,6 +3560,16 @@ retains the opposing support pair consistent with the final A-to-B normal.
 Tests, direct coverage, and byte-exact Physics pass without baseline refresh.
 The live ledger is therefore 2/26 (8%). Evidence is in
 `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`.
+
+Narrowphase Manifold And Sleep Coverage NM2 completed on 2026-08-02. Resting
+box and brick-hull rows retain ordered feature ids across sub-slop frame pairs;
+a 41-pose sweep crosses the 45-degree incident-face boundary exactly once. The
+production allocation-free reducer is insertion-order independent across all
+720 candidate permutations and directly proves deepest-first, feature-id tie,
+tangent-spread, and invalid-input behavior. Holding body ids fixed while the
+narrowphase feature changes produces a real persistent-cache miss. The live
+ledger is therefore 3/26 (12%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`.
 
 ## Features
 
