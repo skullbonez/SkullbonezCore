@@ -1397,17 +1397,54 @@ layer-agnostic rather than Runtime-only, which changes no current finding.
 
 ## Current Execution Priority
 
-**Look Lab Random Style Authoring (2026-08-01) is first in the live order at
-0/7.** F10 rerolls presentation only and F11 writes one ignored root
+**Look Lab Random Style Authoring (2026-08-01) is complete at 7/7.** F10
+rerolls presentation only and F11 writes one ignored root
 `LookLab/<datetime>_<seed>/` bundle containing the standalone style, text receipt,
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is second at 0/7.** Its
-agent runs ES0-ES6 without an owner pause, leaves tracked baselines
-untouched, and presents a completed implementation plus exact staged transition
-for the owner's terminal baseline decision. An expected old-oracle mismatch is
-decision evidence, not an engineering blocker.
+**Contact Energy And Warm-Start Integrity (2026-08-01) is complete at 7/7.**
+The owner approved the exact five-golden transition after accepting the wall's
+materially reduced bounce and improved stack stability over the marginal ground-
+settling regression. The four bricks settle and the
+200-box workload retains all 211 bodies, stays finite and within attributed
+energy, avoids repeated popcorn cycles, and sleeps under the unchanged 12-
+iteration cap. The owner-authorized fixed catcher retains only the post-demo
+striker beyond the impact area. Stacking remains parked for later Bullet/Box2D
+experimentation. The approved Physics, SkullScope, Replay visual, and Replay
+causal goldens are committed closure evidence. The completed plan left the
+active/future ledger under rule 4.
+
+**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
+work at 0/26 (0%).** Five plans registered from a current-tree source and test
+review, to run in this order:
+
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (0/6). The contact solver has
+   20 cases with an energy oracle and negative controls; the 2,133-line manifold
+   that feeds it has 5, and the only hull-pair coverage asserts non-emptiness.
+   Feature-ID lifetime, which warm starting depends on, is unpinned. The sleep
+   controller has no test file of its own. Pure test addition, no behavior change.
+2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
+   an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
+   4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
+   emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
+   and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
+   contract and a naive sort-and-unique is rejected at BD1.
+3. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
+   a hand-written ordinary frame-pass barrier is a defect; that invariant is
+   review-only today. `Compile()` is pure CPU and returns the full derived
+   transition set, so this is device-free coverage inside `validate_tests`.
+4. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+   same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
+   files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
+   is undocumented. The governance review dialect has correctly not leaked into
+   source and must not be imported by this plan.
+5. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+   across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
+   constants. Touches physics hot paths, so byte-exactness is the closing proof.
+
+Stacking remains parked for later Bullet/Box2D experimentation and is not part
+of this campaign.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3236,12 +3273,12 @@ an explicit comment about not spending simulation budget on observational work,
 and the other was not. Nothing enforced consistency between two sibling
 diagnostics, and the shipping binary paid for years.
 
-## Active Plans (2026-08-01)
+## Completed Plan Outcomes (2026-08-01)
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
-| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Registered | 0/7 | LL0 inventories every live style consumer and locks randomized/derived/retained/excluded rulings before source edits |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Registered | 0/7 | After Look Lab closes, ES0 measures the authoritative 4/8/16/32/64/128 tower sweep, four-brick reproduction, and 200-box topple before any solver edit |
+| 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
+| 2 | [contact-energy-and-warm-start-integrity](../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md) | Complete | 7/7 | Owner-approved five-golden transition applied; final gates and closure evidence complete |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3268,6 +3305,80 @@ Binding owner directions:
   reapplication, paired-save failure honesty, zero idle cost, visible DX12 proof,
   unchanged default baselines, comment audit, inventories, and independent review.
 
+LL0 completed on 2026-08-01. The LL6-corrected current-source census locks all
+84 cinematic
+atoms, 14 material kinds and their targeting surface, all 23 tracked schema-v1
+styles, the live merge/reset/capture path, SplitMix64 generator version 1, 14
+recipe families, the exact bundle/output grammar, and current idle/style-apply
+measurements. No production source, style, configuration, or baseline changed.
+The live ledger is therefore 1/14 (7%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`.
+
+LL1 completed on 2026-08-01. Runtime Direction now owns a pure versioned
+SplitMix64 generator, integer-quantized Oklab palette derivation, fourteen typed
+recipes, canonical padding-independent bytes, comprehensive validity checks,
+and three ordered broad material roles. A 4,096-seed matrix yields 4,096 unique
+fingerprints while covering all recipes and supported sky, terrain, object,
+water, and material branches; planted range, version, non-finite,
+incompatibility, black-frame, and shared-RNG controls are sensitive. Debug and
+Profile pin the same fingerprint. The live ledger is therefore 2/14 (14%).
+Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`.
+
+LL2 completed on 2026-08-01. Scene now owns a fully resolved ordered schema-v1
+style snapshot/writer; Core owns flushed temporary-sibling replacement; and
+Runtime Direction owns exclusive timestamp/seed bundle naming plus derived
+atomic receipt revisions. The production parser reconstructs all 84
+cinematic atoms and complete material rules byte-identically, Debug/Profile pin
+the same JSON fingerprint, collisions and invalid paths fail boundedly, and the
+root `/LookLab/` output is ignored. The live ledger is therefore 3/14 (21%).
+Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`.
+
+LL3 completed on 2026-08-01. Runtime Direction now owns one focused live
+candidate and bounded status, resolves generator output against retained scene
+geometry/quality facts, and publishes a complete detached style snapshot. App
+applies it through a no-reload SceneController seam, restores the process
+presentation baseline and explicitly clears Look Lab before every runtime scene
+transition. Debug/Profile each pass 11 focused cases
+and 4,240 assertions; all seven inventories and the 13/13 comment audit are
+clean. The live ledger is therefore 4/14 (28%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
+
+LL4 completed on 2026-08-01. Exact keyboard-unblocked F10/F11 press actions now
+reroll and save through the focused owner while F5/F6 remain unchanged. The
+save transaction writes the exact style and pending receipt before submitting
+one bounded typed PNG request to Capture; Capture runs after world/UI drawing
+and before Present, then atomically finalizes success, partial-failure, or
+cancelled receipt state. Debug/Profile pass the focused transaction, PNG, and
+binding matrix, all seven inventories are current, reachability closes at 79/79
+without the temporary Look Lab repair rulings, and the 19/19 touched-source
+comment audit is clean. The live ledger is therefore 5/14 (35%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`.
+
+LL5 completed on 2026-08-01. A deterministic 65,536-seed census yields 65,536
+unique valid candidates and the same `3d8c96ba5b80788d` ordered stream hash in
+Debug and Profile while reporting complete recipe, mode, feature, palette,
+luminance, and contrast distributions. Distinct producer and consumer processes
+round-trip one complete saved style with SHA-256
+`9dbbe38c56938c99563dc8fabce413ac8b82ad4a1cd9c2892b3ffebcfe052f52`
+without generator, catalog, or defaults input; all 23 curated styles remain
+compatible. Event-driven detached status publication removes Look Lab owner
+polling from idle composition, four matching-condition input means remain below
+LL0, guarded runs exit cleanly, and fast/full validation passes. The live ledger
+is therefore 6/14 (42%). Evidence is in
+`../Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`.
+
+LL6 completed on 2026-08-02. Three waited scheduled F10 actions produced visibly
+distinct DX12 captures, and the chosen F11 style reloaded in a fresh Automation
+process to the byte-identical image. The corrected schema and application path
+preserve all 84 cinematic atoms, including four explicit shadow-participation
+values, plus complete material rules. Debug/Profile focused matrices, all seven
+inventories, the 14/14 comment audit, every required validation gate, and the
+independent source/evidence/allocation review are clean. No baseline changed.
+The live ledger is therefore 7/14 (50%). Evidence is in
+`../Reports/2026-08-02/look-lab-random-style-authoring-closure.md`.
+
 ## Contact Energy And Warm-Start Integrity (2026-08-01)
 
 Source: owner review of the rejected Box Vibration And Warm-Start Integrity
@@ -3293,6 +3404,140 @@ Binding owner directions:
   explicit owner acceptance of the exact final visible and semantic evidence;
   implementation, candidate generation, complete comparison, and every
   baseline-independent validation must finish before that terminal request.
+
+ES0 completed on 2026-08-02 without production edits. Four and eight wide-slab
+towers complete 2,400 frames but never sleep; eight levels exceeds the locked
+mechanical-energy envelope. Sixteen, 32, and 64 levels deterministically exhaust
+the scene-committed candidate list, while 128 exhausts its spatial-entry
+reservation before frame zero. The four-brick trace exactly reproduces 566
+velocity reversals and 900/900 cap-bound measured frames. Two byte-identical
+6,800-frame 200-box runs expose one striker leaving terrain, 210/211 sleepers,
+and peak mechanical gain above the precision envelope. Closed-solve, biased-
+work, scene-energy, launch, penetration, cache, support, sleep, body-retention,
+and repeat requirements are now fixed with sensitive planted controls. The live
+ledger is therefore 8/14 (57%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`.
+
+ES1 completed on 2026-08-02 without changing production solver behavior.
+Physics now owns allocation-free complete-solve energy and world-momentum
+measurement using the production mass and inertia-frame contracts. Five cases
+and 87 assertions pass in both Debug and Profile across restitution, friction,
+box rotation, anisotropic inertia, matching cache reuse, and explicit
+Baumgarte work. Oversized-impulse, stale-geometry, and over-restitution
+controls all fail the positive oracle. The complete fast gate and 3/3 source
+comment audit pass. The live ledger is therefore 9/14 (64%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`.
+
+ES2 completed on 2026-08-02 without changing production solver behavior or
+capacity. The exact 64-level tower is tracked and runtime-admitted, and one
+bounded semantic checker now owns the tower, four-brick, and 200-box energy,
+launch, penetration, cache, support, sleep, retention, and completeness gates.
+Its planted controls, project/filter check, hidden DX12 scene load,
+`validate_physics_deep`, `validate_fast`, and 2/2 source comment audit pass.
+The existing candidate-list ceiling remains unchanged because the current
+tower reaches it only after destabilization; increasing it would hide a solver
+symptom. The live ledger is therefore 10/14 (71%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
+
+ES3 completed on 2026-08-02. Object restitution now follows the loaded exact-
+contact-feature lifecycle, which also owns warm-start compatibility; a no-
+contact solve resets that lifecycle, and elastic mutual-gravity contacts retain
+their explicit response. The four-brick fixture falls from 566 vertical
+reversals and 900 cap-bound frames to zero reversals, leaves the cap, and sleeps
+permanently at frame 294. Terrain is byte-exact. Tower-64 advances from frame 37
+to frame 41 before the unchanged candidate ceiling, and the completed wall run
+reduces post-settle upward launch speed from 12.125853 to 9.090012 while retaining
+the same attributed residual energy/body-support failures for ES4. Focused
+coverage passes 6 cases / 101 assertions; complete tests, fast validation, and
+the 2/2 comment audit pass. The live ledger is therefore 11/14 (78%). Evidence
+is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
+
+ES4 is blocked on 2026-08-02 with the live ledger unchanged at 11/14 (78%).
+Canonical face/corner identity and a cache-stable anchor eliminate the exact
+loaded role-flip discontinuity and make the 8-level tower sleep, but the 32- and
+64-level towers still collapse with catastrophic launch, penetration, energy,
+and body-retention failures while the observed patch identity remains stable.
+Independent review rejects further identity/cache experimentation without a new
+attributed discontinuity. The owner must authorize bounded stack load-
+propagation/convergence work beyond ES4, or explicitly revise the binding 32/64
+target. ES5/ES6 remain blocked, no experimental source or baseline is staged,
+and no independent live plan remains. Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es4-blocker.md`.
+
+The owner then authorized investigation only, kept the global cap at 12, and
+required comparison with the actual Bullet and Box2D implementations before any
+more tuning. The reduced normal-chain check shows the favorable 32/64-level
+cold-start problems retain about 96%/99% relative support-impulse error after 12
+sweeps, while stable production identities already fail to rescue those towers.
+Bullet's split penetration channel/island boundary and Box2D's coupled patch or
+substep/relaxation designs confirm that established engines do more than repeat
+the same scalar loop. Identity, SAT, row-retention, seed, friction, and global-
+order tuning are therefore closed for this target. The owner is open to hearing
+about, but has not authorized implementing, one hard-budget experiment that
+keeps 12 sweeps globally and extends only an anchored deep contact island with a
+material island-local residual. The ledger remains 11/14 (78%); no production
+source or baseline changed. Evidence is in
+`../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
+
+Binding owner disposition on 2026-08-02 supersedes the tower-acceptance direction
+above for this plan only. Stacking is left alone for now and its Bullet/Box2D
+technique experiments are preserved in owner-parked
+`WNF/contact-stack-stability-techniques.md`, which is excluded from the live
+queue under inventory rule 9. ES4 closes as the planned measured no-change
+decision: the identity experiment was removed, no new discontinuity supports
+more cache work, and ES3 remains the only production behavior change. The live
+ledger advances to 12/14 (86%). ES5 resumes with the four-brick and 200-box
+determinism, energy, retention, and visible-behavior evidence; it must not claim
+that 32/64/128 stacking was fixed.
+
+ES5 completed on 2026-08-02. A broad body-pair lifetime probe was rejected after
+same-machine controls exposed a real hot-path regression; one exact-feature
+lookup now supplies both lifetime and warm start without raising the 12-
+iteration cap. Four bricks have zero post-300 reversals and sleep 4/4 by frame
+132. The wall retains all 211 dynamic bodies, has zero invalid samples and zero
+repeated full-height popcorn cycles, and sleeps completely by frame 3286. The
+owner-authorized fixed far-edge catcher stops only the post-demo striker.
+Automatic and worker-zero CSV witnesses are byte-identical, and waited DX12
+captures were inspected. The hardened SQL subtracts only explicit separation-
+bias work and plants initial-loss masking, transient invalid state, and repeated
+early relaunch failures. The live ledger advances to 13/14 (93%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`.
+
+ES6 completed on 2026-08-02. Focused tests, semantic controls, tests, fast,
+performance, and every baseline-independent deep/full constituent pass. The
+single replay visual generation preserves all 2,401 visual ticks, all 200 causal
+nodes, and the complete final state against a staged candidate; the tracked
+manifest rejects only the catcher scene hash. Physics and full validation stop
+only at the enumerated 14,534-row old-oracle mismatch. All seven inventories,
+the 7/7 touched-source comment audit, and independent CLEAN review are complete.
+Five exact candidate artifacts remain outside tracked destinations. The live
+ledger reached 14/14 (100%) implementation complete at the owner checkpoint.
+Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es6.md`.
+
+The owner approved the five-golden transition on 2026-08-02 after accepting
+the reduced-bounce wall and improved stack stability over the marginal ground-
+settling regression. Core and deep Physics pass against the approved Physics,
+known-issue, and SkullScope goldens. A fresh authoritative Automation run binds
+the Replay pair to the final `0.8/0.8` configuration while preserving all 2,401
+visual ticks, all 200 causal nodes, and every offline false-pass control. The
+completed plan leaves the active/future ledger under rule 4; closure evidence
+is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md`.
+
+The denominator grew 0 → 26 on 2026-08-02 when the owner registered the
+five-plan Fresh-Read Coverage And Convention Campaign from a current-tree
+source and test review: narrowphase manifold and sleep coverage (6 tasks),
+broadphase pair dedup cost (5), render graph transition coverage (5), comment
+vocabulary and banner convention audit (5), and source modernization sweep (5).
+Three of the five are pure test or documentation additions and carry no
+behavioral risk. The broadphase plan carries an explicit owner ruling that it is
+behavior-preserving only: it must produce a byte-identical candidate pair list
+and sleep-pruned diagnostic list, and it holds no divergence or baseline-refresh
+authority. The modernization plan records that the measured legacy residue is
+already small and that a smaller closing scope is a valid outcome rather than a
+cue to find additional work.
 
 ## Features
 

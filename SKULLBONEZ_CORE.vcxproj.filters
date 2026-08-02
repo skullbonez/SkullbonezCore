@@ -252,6 +252,15 @@
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp">
+      <Filter>Source Files\Runtime\Settings</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
@@ -259,6 +268,9 @@
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp">
@@ -783,6 +795,9 @@
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\AtomicTextFileWriter.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\BLASDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -826,6 +841,15 @@
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h">
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h">
+      <Filter>Header Files\Runtime\Settings</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -857,6 +881,9 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\StandaloneStyleWriter.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\StringHash.h">
@@ -929,6 +956,9 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SbResult.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h">
@@ -1771,6 +1801,9 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\convex_hull_stress_sleep.scene.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\contact_energy_tower_64.scene.json">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\float_snap_test.scene.json">

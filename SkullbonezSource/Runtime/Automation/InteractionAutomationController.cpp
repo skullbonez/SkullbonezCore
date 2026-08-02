@@ -442,21 +442,12 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
         }
     }
 
-    if ( value == "F5" )
-    {
-        outVirtualKey = VK_F5;
-        return true;
-    }
+    // Why: visible Look Lab acceptance must hold the same F10/F11 keys across
+    // sampled frames instead of relying on an OS tap that can fall between
+    // Input polls.
 
-    if ( value == "F6" )
+    if ( TryParseInteractionAutomationVirtualKey( value.c_str(), outVirtualKey ) )
     {
-        outVirtualKey = VK_F6;
-        return true;
-    }
-
-    if ( value == "F9" )
-    {
-        outVirtualKey = VK_F9;
         return true;
     }
 

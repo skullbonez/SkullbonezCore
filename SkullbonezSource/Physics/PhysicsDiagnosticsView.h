@@ -22,6 +22,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
+  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -67,6 +68,10 @@ struct PersistentContact
     float tangentMass1 = 0.0f;
     float tangentMass2 = 0.0f;
     float bias = 0.0f;
+
+    // Portion of bias owned by overlap separation. Restitution velocity targets
+    // stay excluded so diagnostic energy accounting cannot waive bounce energy.
+    float separationBias = 0.0f;
     float frictionLimit = 0.0f;
     float accN = 0.0f;
     float accT1 = 0.0f;

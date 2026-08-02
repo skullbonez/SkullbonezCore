@@ -83,6 +83,7 @@ Related:
 #include "../SkullbonezSource/UI/UICommands.h"
 #include "../SkullbonezSource/UI/UITabPhysics.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -92,6 +93,7 @@ Related:
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <vector>
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 
 namespace
@@ -899,6 +901,50 @@ TEST_CASE( "CaptureController owns a fixed request budget" )
     CHECK( capture.PendingScreenshotCount() == CAPTURE_REQUEST_QUEUE_CAPACITY );
 }
 
+TEST_CASE( "CaptureController owns bounded typed post-render PNG requests" )
+{
+    CaptureController capture( diagnostics );
+    CHECK_FALSE( capture.QueuePostRenderPng( "LookLab\\look.bmp", PostRenderCaptureOwner::LookLab, 1 ).Ok() );
+    CHECK_FALSE( capture.QueuePostRenderPng( "LookLab\\look.png", PostRenderCaptureOwner::LookLab, 0 ).Ok() );
+    REQUIRE( capture.QueuePostRenderPng( "LookLab\\look.png", PostRenderCaptureOwner::LookLab, 71 ).Ok() );
+    CHECK( capture.PendingPostRenderCount() == 1 );
+    CHECK_FALSE( capture.CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, 70 ) );
+    CHECK( capture.CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, 71 ) );
+    CHECK( capture.PendingPostRenderCount() == 0 );
+
+    for ( int index = 0; index < POST_RENDER_CAPTURE_REQUEST_CAPACITY; ++index )
+    {
+        REQUIRE( capture.QueuePostRenderPng( "LookLab\\bounded.png", PostRenderCaptureOwner::LookLab,
+                                             static_cast<uint64_t>( index + 1 ) )
+                     .Ok() );
+    }
+
+    CHECK( capture.PendingPostRenderCount() == POST_RENDER_CAPTURE_REQUEST_CAPACITY );
+}
+
+TEST_CASE( "PNG encoder preserves top-down RGB pixels from padded bottom-up BGR" )
+{
+    const std::array<uint8_t, 16> bottomUpBgr = {
+        0, 0, 255, 0, 255, 0, 0, 0,       // red, green, row padding
+        255, 0, 0, 255, 255, 255, 0, 0    // blue, white, row padding
+    };
+    std::vector<uint8_t> png;
+    REQUIRE( CaptureSystem::BuildPngBytes( diagnostics, bottomUpBgr, 2, 2, png ).Ok() );
+    const std::array<uint8_t, 8> signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
+    REQUIRE( png.size() > signature.size() );
+    CHECK( std::equal( signature.begin(), signature.end(), png.begin() ) );
+
+    const std::array<uint8_t, 14> expectedScanlines = {
+        0, 0, 0, 255, 255, 255, 255,       // top: blue, white
+        0, 255, 0, 0, 0, 255, 0            // bottom: red, green
+    };
+    CHECK( std::search( png.begin(), png.end(), expectedScanlines.begin(), expectedScanlines.end() ) != png.end() );
+
+    std::vector<uint8_t> invalidOutput { 1, 2, 3 };
+    CHECK_FALSE( CaptureSystem::BuildPngBytes( diagnostics, std::span<const uint8_t> {}, 2, 2, invalidOutput ).Ok() );
+    CHECK( invalidOutput.empty() );
+}
+
 TEST_CASE( "Capture request batches return only successful requests as accepted events" )
 {
     CaptureRequest request;
@@ -926,11 +972,13 @@ TEST_CASE( "Capture request batches preserve concrete readback failure ownership
 TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded create text" )
 {
     SceneRequestQueue queue;
+    CHECK_FALSE( queue.HasTransition() );
     SceneRequest reset;
     reset.type = SceneRequestType::ResetCurrentScene;
     reset.preserveUIState = false;
     reset.preserveRuntimeState = false;
     REQUIRE( queue.Submit( diagnostics, reset ).Ok() );
+    CHECK( queue.HasTransition() );
 
     SceneRequest save;
     save.type = SceneRequestType::SaveCurrentDefaults;
@@ -949,6 +997,7 @@ TEST_CASE( "SceneRequestQueue preserves domain order and rejects unbounded creat
     CHECK_FALSE( batch.requests[0].preserveRuntimeState );
     CHECK( batch.requests[1].type == SceneRequestType::SaveCurrentDefaults );
     CHECK( queue.Size() == 0 );
+    CHECK_FALSE( queue.HasTransition() );
 }
 
 TEST_CASE( "SceneRequestQueue accepts at most one transition per checkpoint" )
@@ -1586,6 +1635,12 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
 
     changed = first;
     changed.rendering.cinematicParameters[static_cast<int>( UICinematicParam::Exposure )] = 1.25f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.lookLab.seed = 0x1234ull;
+    changed.lookLab.hasCandidate = true;
+    strcpy_s( changed.lookLab.detail.data(), changed.lookLab.detail.size(), "style saved; screenshot pending" );
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }
 

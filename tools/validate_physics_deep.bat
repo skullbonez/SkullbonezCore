@@ -21,6 +21,7 @@
 @rem
 @rem Related:
 @rem   - tools/validate_physics.bat
+@rem   - tools/check_contact_energy_scenes.py
 @rem   - AGENTS.md
 @rem
 @echo off
@@ -158,6 +159,13 @@ if errorlevel 1 (
     echo FAIL: SkullScope query regression detected.
     echo       Baseline: TestOutput\baselines\physics_query_varied.json
     echo       Trace:    Debug\physics_query_varied.physicsdiag.ndjson
+    exit /b 3
+)
+
+echo   Checking contact-energy semantic controls...
+"%PYTHON_EXE%" "%~dp0check_contact_energy_scenes.py" --self-test
+if errorlevel 1 (
+    echo FAIL: Contact-energy semantic checker planted controls failed.
     exit /b 3
 )
 

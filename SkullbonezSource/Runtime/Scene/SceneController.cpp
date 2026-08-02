@@ -215,6 +215,12 @@ SceneRequestBatch SceneController::TakePendingRequests()
 }
 
 
+bool SceneController::HasPendingTransition() const
+{
+    return m_requests.HasTransition();
+}
+
+
 SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates, bool proceedAllowed,
                                                        bool perfTestActive, bool screenshotSaved, bool manualCameraActive,
                                                        double elapsedSeconds )

@@ -224,6 +224,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\ContactEnergyOracle.h">
+      <Filter>Header Files\Bodies</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>

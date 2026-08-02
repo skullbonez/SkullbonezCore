@@ -5,15 +5,17 @@ Purpose:
 
 Summary:
   Run supplies frame context and the concrete capture owner. CaptureController
-  owns mutable screenshot automation plus the fixed input-triggered request ring,
-  then delegates pixel writing to CaptureSystem.
+  owns mutable screenshot automation plus fixed input-checkpoint and post-render
+  request stores, then delegates pixel writing to CaptureSystem.
 
 Glossary:
   Request ring: Fixed FIFO storage drained at the input-frame capture checkpoint.
+  Post-render request: Typed PNG path and transaction token drained after draw.
 
 Invariants:
   - CaptureController owns trigger state but not backbuffer readback.
   - Failed or rejected requests never appear in the accepted result batch.
+  - Post-render completion preserves every request token even when capture fails.
   - Tick methods must be deterministic for suite and screenshot automation.
 
 Related:
@@ -129,6 +131,64 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
 }
 
 
+SkullbonezCore::Core::SbResult CaptureController::QueuePostRenderPng( const char* path, PostRenderCaptureOwner owner,
+                                                                      uint64_t token )
+{
+    const std::size_t pathLength = path ? strnlen_s( path, CAPTURE_REQUEST_PATH_CAPACITY ) : 0;
+    const char* extension = path ? strrchr( path, '.' ) : nullptr;
+
+    if ( pathLength == 0 || pathLength >= CAPTURE_REQUEST_PATH_CAPACITY || !extension ||
+         _stricmp( extension, ".png" ) != 0 || token == 0 )
+    {
+        return m_diagnostics.Failure( "Runtime/CaptureController",
+                                      "Post-render capture requires a bounded PNG path and nonzero token." );
+    }
+
+    if ( m_postRenderRequestCount >= POST_RENDER_CAPTURE_REQUEST_CAPACITY )
+    {
+        SB_FATAL( "Runtime/CaptureController",
+                  "Post-render capture capacity exhausted. capacity=%d high_water=%d phase=post_render",
+                  POST_RENDER_CAPTURE_REQUEST_CAPACITY, m_postRenderRequestCount );
+    }
+
+    PostRenderCaptureRequest& request = m_postRenderRequests[m_postRenderRequestCount++];
+    strcpy_s( request.path, path );
+    request.owner = owner;
+    request.token = token;
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+bool CaptureController::CancelPostRenderRequest( PostRenderCaptureOwner owner, uint64_t token )
+{
+
+    for ( int index = 0; index < m_postRenderRequestCount; ++index )
+    {
+
+        if ( m_postRenderRequests[index].owner != owner || m_postRenderRequests[index].token != token )
+        {
+            continue;
+        }
+
+        for ( int moveIndex = index + 1; moveIndex < m_postRenderRequestCount; ++moveIndex )
+        {
+            m_postRenderRequests[moveIndex - 1] = m_postRenderRequests[moveIndex];
+        }
+
+        m_postRenderRequests[--m_postRenderRequestCount] = {};
+        return true;
+    }
+
+    return false;
+}
+
+
+std::size_t CaptureController::PendingPostRenderCount() const
+{
+    return static_cast<std::size_t>( m_postRenderRequestCount );
+}
+
+
 void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const CaptureRequest& request,
                                      const SkullbonezCore::Core::SbResult& requestResult )
 {
@@ -168,6 +228,28 @@ CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering:
     m_requestHead = 0;
     return result;
 }
+
+
+PostRenderCaptureBatchResult CaptureController::DrainPostRenderRequests( Rendering::Dx12BackbufferCapture& backend )
+{
+    PostRenderCaptureBatchResult batch;
+
+    while ( m_postRenderRequestCount > 0 )
+    {
+        PostRenderCaptureResult& completed = batch.results[batch.count++];
+        completed.request = m_postRenderRequests[0];
+
+        for ( int moveIndex = 1; moveIndex < m_postRenderRequestCount; ++moveIndex )
+        {
+            m_postRenderRequests[moveIndex - 1] = m_postRenderRequests[moveIndex];
+        }
+
+        m_postRenderRequests[--m_postRenderRequestCount] = {};
+        completed.status = SaveScreenshot( backend, completed.request.path );
+    }
+
+    return batch;
+}
 #endif
 
 
@@ -182,7 +264,22 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx1
                                                                   const char* path )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
-    const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
+    const char* extension = path ? strrchr( path, '.' ) : nullptr;
+    SkullbonezCore::Core::SbResult captureResult;
+
+    if ( extension && _stricmp( extension, ".bmp" ) == 0 )
+    {
+        captureResult = CaptureSystem::SaveBackbufferBmp( m_diagnostics, backend, path );
+    }
+    else if ( extension && _stricmp( extension, ".png" ) == 0 )
+    {
+        captureResult = CaptureSystem::SaveBackbufferPng( m_diagnostics, backend, path );
+    }
+    else
+    {
+        captureResult = m_diagnostics.Failure( "Runtime/CaptureController", "Unsupported screenshot extension: %s",
+                                               path ? path : "<null>" );
+    }
 
     if ( !captureResult.Ok() )
     {

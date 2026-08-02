@@ -3159,6 +3159,11 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                          view.tools.editorModeEnabled ? "EDIT" : "PLAY", view.tools.placementModeEnabled ? "/PLACE" : "",
                          view.scene.modelCount, view.tools.undoDepth, view.tools.redoDepth, framesPerSecond,
                          m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+
+            ImGui::Text( "Look Lab: F10 reroll | F11 save | %s%s%s%s", view.lookLab.detail.data(),
+                         view.lookLab.savePending ? " | capture pending" : "",
+                         view.lookLab.bundleDirectory[0] != '\0' ? " | " : "",
+                         view.lookLab.bundleDirectory[0] != '\0' ? view.lookLab.bundleDirectory.data() : "" );
         }
 
         ImGui::End();

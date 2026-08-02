@@ -126,6 +126,8 @@ enum class RuntimeInputAction
     ToggleUIVisibility,
     TogglePerformanceHistogram,
     ToggleMemoryOverlay,
+    RerollLookLab,
+    SaveLookLabBundle,
     NavigateScenePrevious,
     NavigateSceneNext,
     DismissOrExitUI,

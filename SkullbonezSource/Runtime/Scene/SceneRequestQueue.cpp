@@ -93,6 +93,22 @@ SceneRequestBatch SceneRequestQueue::TakePending()
     return batch;
 }
 
+bool SceneRequestQueue::HasTransition() const
+{
+
+    for ( int offset = 0; offset < m_count; ++offset )
+    {
+        const int index = ( m_head + offset ) % SCENE_REQUEST_QUEUE_CAPACITY;
+
+        if ( SceneRequestIsTransition( m_requests[index].type ) )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 std::size_t SceneRequestQueue::Size() const
 {

@@ -38,6 +38,7 @@ Related:
 #endif
 #include "../Diagnostics/RuntimeOverlayDiagnostics.h"
 #include "../Automation/RuntimeValidationHarness.h"
+#include "../../Scene/StandaloneStyleWriter.h"
 #include "../Camera/AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
@@ -74,6 +75,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
@@ -93,6 +95,147 @@ using SkullbonezCore::UI::InGameUITab;
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: the Run coordinator reaches composed owners only for this ordered
 // input turn; delegated operations receive concrete operands and retain none.
+void Run::PublishLookLabStatusView()
+{
+    const LookLabStatusView status = m_lookLab.Status();
+    SkullbonezCore::UI::OperatorEditorLookLabView view;
+    view.seed = status.seed;
+    view.hasCandidate = status.hasCandidate;
+    view.savePending = status.savePending;
+    view.detail = status.detail;
+    view.bundleDirectory = status.bundleDirectory;
+    m_operatorUi->SetLookLabView( view );
+}
+
+bool Run::ApplyLookLabSeed( uint64_t seed )
+{
+    SkullbonezCore::Core::CinematicRenderConfig& active = ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
+
+    if ( !m_lookLab.ResolveSeed( seed, active ) )
+    {
+        PublishLookLabStatusView();
+        return false;
+    }
+
+    const SkullbonezCore::Scene::StandaloneStyleSnapshot snapshot = m_lookLab.BuildCurrentSnapshot();
+    m_sceneController.ApplyStandaloneStyle( m_launchOptions, m_operatorUi->SceneNavigation().browser, active, snapshot );
+    m_lookLab.MarkApplied();
+    PublishLookLabStatusView();
+    return true;
+}
+
+void Run::BeginLookLabSave()
+{
+    std::time_t now = std::time( nullptr );
+    std::tm localTime {};
+    std::tm utcTime {};
+
+    if ( now == static_cast<std::time_t>( -1 ) || localtime_s( &localTime, &now ) != 0 || gmtime_s( &utcTime, &now ) != 0 )
+    {
+        std::fprintf( stderr, "Runtime/Direction/LookLabController: local time unavailable; bundle not created\n" );
+        return;
+    }
+
+    char timestamp[20] = {};
+
+    if ( std::strftime( timestamp, sizeof( timestamp ), "%Y-%m-%d_%H-%M-%S", &localTime ) == 0 )
+    {
+        std::fprintf( stderr,
+                      "Runtime/Direction/LookLabController: local timestamp formatting failed; bundle not created\n" );
+
+        return;
+    }
+
+    const std::time_t localAsUtc = _mkgmtime( &localTime );
+    const std::time_t utcAsUtc = _mkgmtime( &utcTime );
+    const int utcOffsetMinutes = localAsUtc == static_cast<std::time_t>( -1 ) || utcAsUtc == static_cast<std::time_t>( -1 )
+                                     ? 0
+                                     : static_cast<int>( std::difftime( localAsUtc, utcAsUtc ) / 60.0 );
+
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    const UI::RunSceneBrowserState& browser = m_operatorUi->SceneNavigation().browser;
+    const int browserIndex = browser.CurrentIndexForPath( scenePath );
+    const char* displayName = "Generated Demo";
+
+    if ( browserIndex >= 0 && static_cast<std::size_t>( browserIndex ) < browser.names.size() )
+    {
+        displayName = browser.names[static_cast<std::size_t>( browserIndex )].c_str();
+    }
+    else if ( scenePath )
+    {
+        displayName = scenePath->c_str();
+    }
+
+    const LookLabSaveRequest request { "LookLab", timestamp, utcOffsetMinutes, scenePath ? scenePath->c_str() : "",
+                                       displayName };
+
+    LookLabSaveStartResult start = m_lookLab.BeginSave( m_resultDiagnostics, request );
+    PublishLookLabStatusView();
+
+    if ( !start.status.Ok() )
+    {
+        std::fprintf( stderr, "%s: %s\n", start.status.ErrorOwner(), start.status.ErrorMessage() );
+        return;
+    }
+
+    if ( !start.captureRequested )
+    {
+        return;
+    }
+
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+    Core::SbResult queueResult = capture.QueuePostRenderPng( start.screenshotPath.data(), PostRenderCaptureOwner::LookLab,
+                                                             start.captureToken );
+
+    if ( !queueResult.Ok() )
+    {
+        const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, start.captureToken,
+                                                                         queueResult );
+
+        PublishLookLabStatusView();
+
+        std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );
+    }
+}
+
+void Run::CancelPendingLookLabSave( const char* reason )
+{
+
+    if ( !m_lookLab.HasPendingSave() )
+    {
+        return;
+    }
+
+    const uint64_t token = m_lookLab.PendingSaveToken();
+    (void)m_diagnosticsRuntime.Capture().CancelPostRenderRequest( PostRenderCaptureOwner::LookLab, token );
+    const Core::SbResult result = m_lookLab.CancelPendingSave( m_resultDiagnostics, reason );
+    PublishLookLabStatusView();
+
+    if ( !result.Ok() )
+    {
+        std::fprintf( stderr, "%s: %s\n", result.ErrorOwner(), result.ErrorMessage() );
+    }
+}
+
+void Run::PrepareLookLabForSceneTransition()
+{
+
+    CancelPendingLookLabSave( "scene transition cancelled screenshot" );
+
+    if ( !m_lookLab.HasCandidate() )
+    {
+        return;
+    }
+
+    // Invariant: generated scenes render from the process config. Restore its
+    // startup presentation before loading so a candidate cannot leak into the
+    // next scene; that load may then apply its own authored or hero style.
+    m_config.cinematicRender = m_renderDefaults.CinematicBaseline();
+    m_lookLab.ClearForSceneTransition();
+    PublishLookLabStatusView();
+}
+
+
 Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )
 {
     UiInputCaptureIntent externalUiCapture;
@@ -154,6 +297,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto CompleteInputPhase = [&]()
     {
+
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
         if ( launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
@@ -474,6 +618,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             return false;
         }
 
+        PrepareLookLabForSceneTransition();
         presentationEdit.Commit();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ), debug,
@@ -523,6 +668,21 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
         switch ( event.action )
         {
+        case RuntimeInputAction::RerollLookLab:
+        {
+            const uint64_t seed = m_lookLab.NextAuthoringSeed();
+
+            if ( !ApplyLookLabSeed( seed ) )
+            {
+                const LookLabStatusView status = m_lookLab.Status();
+                std::fprintf( stderr, "Runtime/Direction/LookLabController: %s\n", status.detail.data() );
+            }
+
+            break;
+        }
+        case RuntimeInputAction::SaveLookLabBundle:
+            BeginLookLabSave();
+            break;
         case RuntimeInputAction::ToggleEditor:
 
             // Backtick is captured early but applied after UI command processing.
@@ -1160,6 +1320,11 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     const bool processedCapture = DrainCaptureRequests();
     presentationEdit.Commit();
     const SceneLoadNavigationState sceneLoadNavigation = CaptureSceneLoadNavigationState( ui.SceneNavigation() );
+
+    if ( sceneController.HasPendingTransition() )
+    {
+        PrepareLookLabForSceneTransition();
+    }
 
     SceneLoadTransaction sceneLoad;
     sceneLoad.CaptureSubmittedState( camera, sceneLoadNavigation, debug, renderer.RendererName(),

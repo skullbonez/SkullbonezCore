@@ -82,6 +82,7 @@ dx12_validation.txt
 # To keep a specific screenshot, move it to a deliberate tracked data folder
 /Scenes/
 /Screenshots/
+/LookLab/
 /replays/
 /imgui_editor_layout_v*.ini
 /imgui_editor_preferences_v*.cfg

@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "4f8711317f7a2b467c8dfd20329bc2c5d8ae3ec1cc618c95abd9ce9a9c2cfc91",
+      "body_sha256": "be90de48dc598854ed96dcdf385f7b1a45bd6289d2d0ea804dfa6815c4434cfd",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
-      "reason": "One immediate-mode development-shell composition pass consumes two detached frame views; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab status; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
       "plan": ""
     },
     {
@@ -25,21 +25,21 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
-      "body_sha256": "c3dd3a0bf41e820fcab1ccca8b5601b94a19c26e3a0754f94964127c5c316ea0",
+      "body_sha256": "546fe81f1cab7d20868d04b5f8f35c0247db836b9af366b3bf1b26c438270346",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
-      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, bias, friction bounds, warm-start impulses, and optional trace values; compile-time trace retention preserves that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md",
+      "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, exact-feature lifetime bias, friction bounds, warm-start impulses, and optional trace values; the fused exact-feature lifecycle/warm-start lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
+      "evidence": "Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "17a89a16060f9ad5f7fa47411a91c03cef55f8ea176b876c41d4ea7b81ea108f",
+      "body_sha256": "8d4973fb94f1708f7266c22951a0c7c2313fe0561f76e2595c05f8ecabda1ce1",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
-      "reason": "One ordered input turn runs from automation sampling through device routing and command production; every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
+      "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
       "plan": ""
     },
     {
@@ -55,11 +55,11 @@
     {
       "file": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "signature": "void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )",
-      "body_sha256": "4fa3c7f4c668aeaf8daccb011a7ea2c6fc3735d972666a041d9956efca20f80c",
+      "body_sha256": "d8fc890561d60606db5130f827be528f90074f0353f94eabe888a2f6544e980c",
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
-      "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order; splitting field families would fragment the format invariant and byte-exact validation contract.",
-      "evidence": "Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md",
+      "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution distinct from restitution; splitting field families would fragment the format invariant and byte-exact validation contract.",
+      "evidence": "Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md",
       "plan": ""
     },
     {
@@ -145,11 +145,11 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "02ce093a30ab9b8de3250ddf541713d1b76030dd917f4aed74fac5ff69b87879",
+      "body_sha256": "04375a35565967422d85a48fc9ffb49ebca85aa9de29ad63b09a05eac7006e44",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
-      "reason": "One composition-root phase projects render-model and presentation facts, runs the active operator UI, submits its commands, and latches any process failure before returning; all borrows share that synchronous frame lifetime.",
-      "evidence": "Agentic/Reports/2026-07-31/runtime-contract-hygiene-ch0-exit-contract.md",
+      "reason": "One composition-root phase projects render-model, presentation, and the UI-owned detached Look Lab cache, runs the active operator UI, submits its commands, and latches any process failure before returning; Runtime Direction is not polled on the idle path and all borrows share that synchronous frame lifetime.",
+      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
       "plan": ""
     },
     {

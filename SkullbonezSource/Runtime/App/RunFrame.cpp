@@ -4,8 +4,9 @@ Purpose:
   Runs one frame of input, simulation, rendering, profiling, and presentation.
 
 Summary:
-  Runs one frame of input, simulation,
-  rendering, profiling, and presentation.
+  Run sequences frame-scoped owner borrows in a fixed order, carries only small
+  phase results between them, and performs scene-transition cleanup before any
+  load can replace the active world.
 
 Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches
@@ -367,6 +368,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiAct
 
         if ( stressLoad.request.accepted )
         {
+            PrepareLookLabForSceneTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -492,6 +494,12 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
 
 void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 {
+
+    // Invariant: the F11 request was formed during input after its candidate was
+    // applied. Draining after world/UI draw and before Present captures that
+    // exact frame without lending renderer authority to LookLabController.
+    CompleteLookLabPostRenderCaptures();
+
     PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
@@ -532,6 +540,43 @@ void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 #else
     (void)legacyDevelopmentUiActive;
 #endif
+}
+
+void Run::CompleteLookLabPostRenderCaptures()
+{
+    CaptureController& capture = m_diagnosticsRuntime.Capture();
+
+    if ( capture.PendingPostRenderCount() == 0 )
+    {
+        return;
+    }
+
+    PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LookLabCapture" );
+    {
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
+        PostRenderCaptureBatchResult batch = capture.DrainPostRenderRequests( BackbufferCapture() );
+
+        for ( std::size_t index = 0; index < batch.count; ++index )
+        {
+            const PostRenderCaptureResult& captured = batch.results[index];
+
+            if ( captured.request.owner != PostRenderCaptureOwner::LookLab )
+            {
+                continue;
+            }
+
+            const Core::SbResult completion = m_lookLab.CompleteSaveCapture( m_resultDiagnostics, captured.request.token,
+                                                                             captured.status );
+
+            PublishLookLabStatusView();
+
+            if ( !completion.Ok() )
+            {
+                std::fprintf( stderr, "%s: %s\n", completion.ErrorOwner(), completion.ErrorMessage() );
+            }
+        }
+    }
+    PROFILE_END( m_profiler, "Frame/PostDraw/LookLabCapture" );
 }
 
 void Run::FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy )
@@ -978,6 +1023,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
         if ( request.HasLoad() )
         {
+            PrepareLookLabForSceneTransition();
             SceneLoadTransaction sceneLoad;
             sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                              m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),
@@ -1110,6 +1156,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.loadRequest.HasLoad() )
     {
+        PrepareLookLabForSceneTransition();
         SceneLoadTransaction sceneLoad;
         sceneLoad.CaptureSubmittedState( m_camera, CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ),
                                          m_overlayDiagnostics->PresentationSnapshot(), Renderer().RendererName(),

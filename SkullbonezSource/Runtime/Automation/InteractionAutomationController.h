@@ -61,6 +61,7 @@ Related:
 #include "../../UI/OperatorEditorExchange.h"
 
 #include <string>
+#include <string_view>
 #include <array>
 #include <vector>
 
@@ -362,6 +363,41 @@ struct InteractionAutomationFrameResult
 
 SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutomationController& state,
                                                                const char* scriptPath, const char* reportPath );
+
+// Converts script function-key labels to the Win32 value held by the input
+// driver. Keeping this value-only mapping inline lets CPU tests pin the same
+// branch used by the full script parser without linking a live Window graph.
+inline bool TryParseInteractionAutomationVirtualKey( const char* value, int& outVirtualKey )
+{
+    const std::string_view key = value ? value : "";
+
+    if ( key == "F5" )
+    {
+        outVirtualKey = VK_F5;
+    }
+    else if ( key == "F6" )
+    {
+        outVirtualKey = VK_F6;
+    }
+    else if ( key == "F9" )
+    {
+        outVirtualKey = VK_F9;
+    }
+    else if ( key == "F10" )
+    {
+        outVirtualKey = VK_F10;
+    }
+    else if ( key == "F11" )
+    {
+        outVirtualKey = VK_F11;
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& window, const SkullbonezCore::Core::EngineConfig& config,

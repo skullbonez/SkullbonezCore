@@ -3,10 +3,10 @@
 # Purpose:
 #   Documents and runs the physics_query.py developer/validation helper script.
 #
-# Mental model:
-#   Tools are command-line guardrails around builds, validation, screenshots,
-#   diagnostics, and artifact handling. They make the safe path repeatable and
-#   keep output bounded for humans and agents.
+# Summary:
+#   This tool imports append-only physics diagnostics into a sibling SQLite
+#   cache, then answers bounded developer and validation questions without
+#   loading the raw trace into a review conversation.
 #
 # Glossary:
 #   SQLite: Local embedded database used as a bounded query cache for large
@@ -19,12 +19,15 @@
 # Invariants:
 #   - Tool output should be bounded and readable because agents and humans use
 #   it for decisions.
+#   - Any SQLite table or column change increments `SCHEMA_VERSION`; otherwise
+#   an older sibling cache can be mistaken for a current query contract.
 #   - Solver convergence queries import only the engine-capped iteration trace;
 #     the query layer never reconstructs missing row-level history.
 #
 # Related:
 #   - AGENTS.md
 #   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+#   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
 #   - Agentic/Reference/comment-style-guide.md
 #
 #
@@ -46,7 +49,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -261,6 +264,7 @@ def create_schema(conn):
             normal_z real,
             penetration real,
             normal_impulse real,
+            separation_bias real,
             pre_solve_normal_speed real,
             pre_solve_closing_speed real,
             pre_solve_slip_speed real,
@@ -761,10 +765,11 @@ def insert_contact(conn, item):
         insert or replace into contacts(
             run_id, frame, contact_id, body_a, body_b, contact_type, feature_id,
             point_count, normal_x, normal_y, normal_z, penetration, normal_impulse,
+            separation_bias,
             pre_solve_normal_speed, pre_solve_closing_speed, pre_solve_slip_speed,
             tangent_impulse, slip_speed, rolling_residual, warm_started, supports_sleep
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             item.get("run"),
@@ -780,6 +785,7 @@ def insert_contact(conn, item):
             normal[2],
             as_float(item.get("penetration")),
             as_float(item.get("normal_impulse")),
+            as_float(item.get("separation_bias")),
             as_float(item.get("pre_solve_normal_speed")),
             as_float(item.get("pre_solve_closing_speed")),
             as_float(item.get("pre_solve_slip_speed")),

@@ -1,7 +1,7 @@
 # Look Lab Random Style Authoring
 
 Date: 2026-08-01
-Status: REGISTERED — 0/7 phases complete
+Status: COMPLETE — 7/7 phases complete
 Impact area: Runtime input and direction, Scene style values/serialization, Capture, UI status, tests, and style data
 Owner: Runtime Direction look authoring
 Priority: First
@@ -159,7 +159,7 @@ these rules:
 
 ## Phases
 
-- [ ] **LL0 — Census the complete live style surface and lock the contract.**
+- [x] **LL0 — Census the complete live style surface and lock the contract.**
   Inventory every field in `CinematicRenderConfig`, every supported sky/terrain/
   object/water and material mode, all object-material targeting semantics, all
   23 tracked styles, live-style application, scene-style merge/reset behavior,
@@ -169,18 +169,29 @@ these rules:
   effects, randomize/derive/retain/exclude ruling, and reason. Measure idle input
   and style-apply behavior before implementation. Lock the recipe families,
   coupled safety constraints, generator version, filename grammar, and exact
-  output field set before production edits.
+  output field set before production edits. Corrected during LL6 closure: the 84
+  cinematic atoms,
+  14 material kinds, targeting rules, 23-style catalog, current merge/reset and
+  capture flow, SplitMix64 generator-v1 contract, 14 recipes, exact output
+  grammar, and pre-change input/style behavior are locked in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`.
 
-- [ ] **LL1 — Build the pure deterministic candidate generator.** Introduce the
+- [x] **LL1 — Build the pure deterministic candidate generator.** Introduce the
   detached candidate and focused generator using one explicitly specified 64-bit
   algorithm whose output is compiler/configuration independent. Implement typed
   art-direction recipes, correlated palette derivation, bounded feature and
   scalar variation, and final validity checks. Same seed/version must produce
   identical candidate bytes; a fixed seed matrix must cover every recipe family
   and supported style/material branch; planted invalid-range, incompatible-mode,
-  black-frame, and cross-RNG controls must fail.
+  black-frame, and cross-RNG controls must fail. Complete: Runtime Direction now
+  owns the pure SplitMix64 generator-v1 candidate, Q12 Oklab palette derivation,
+  fourteen typed recipes, explicit canonical byte encoding, comprehensive
+  validity checks, and a 4,096-seed matrix covering every required recipe and
+  supported render branch. Debug and Profile pin the same candidate fingerprint;
+  evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`.
 
-- [ ] **LL2 — Add exact standalone style serialization.** Add the Scene-owned
+- [x] **LL2 — Add exact standalone style serialization.** Add the Scene-owned
   writer for a fully resolved schema-current `skullbonez.style.json` document.
   Preserve the established key vocabulary and parser bounds; do not bump the
   schema merely to record generator metadata because timestamp and seed already
@@ -188,17 +199,28 @@ these rules:
   Prove serialize/parse equality for every field and material rule, stable key
   order/float formatting, byte-identical same-candidate output, exact receipt
   facts, collision-safe directory names, directory creation, atomic replace
-  semantics, and bounded diagnostics for unwritable/invalid paths.
+  semantics, and bounded diagnostics for unwritable/invalid paths. Complete:
+  Scene owns the self-contained ordered schema-v1 snapshot/writer, Core owns
+  flushed temporary-sibling replacement, and Runtime Direction owns exclusive
+  bundle naming plus derived atomic receipt revisions. Debug/Profile pin the
+  same full JSON bytes and the production parser reconstructs every resolved
+  field/material rule exactly; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll2-serialization.md`.
 
-- [ ] **LL3 — Add the focused live Look Lab owner.** Compose `LookLabController`
+- [x] **LL3 — Add the focused live Look Lab owner.** Compose `LookLabController`
   in Runtime Direction, resolve F10 candidates, and apply them through the
   existing Scene style seam without reload. Retain only the current candidate and
   bounded status/save metadata. Prove immediate application, scene-reset/load
   clearing, UI/browser style-selection coherence, zero simulation-RNG reads, and
   exact preservation of camera, scene topology, transforms, assets, physics,
-  clocks, and the authored scene path/content.
+  clocks, and the authored scene path/content. Complete: Runtime Direction owns
+  validated scene-resolved candidates and bounded status; App applies detached
+  snapshots through a no-reload SceneController seam and restores process
+  presentation before every runtime scene transition. Debug/Profile pass 11
+  focused cases and 4,240 assertions; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll3-live-owner.md`.
 
-- [ ] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
+- [x] **LL4 — Wire F10 reroll and the F11 bundle transaction.** Add explicit
   input actions and exact binding tests while pinning F5/F6 to their existing
   diagnostics. F11 creates one ignored timestamp/seed directory, writes the
   exact style and pending receipt first, requests one screenshot for the applied
@@ -207,9 +229,17 @@ these rules:
   focus edges, repeated presses, F11-before-F10, F10-during-pending-save, path
   collision, style/receipt failure, screenshot failure, shutdown/scene-load
   cancellation, and one complete bundle per accepted F11 action without
-  duplicate writes or captures.
+  duplicate writes or captures. Complete: Input owns exact keyboard-unblocked
+  F10/F11 press actions while preserving F5/F6; App sequences one scene-local
+  candidate and one save transaction; Capture owns a bounded typed post-render
+  PNG queue executed after world/UI drawing and before Present. Pending saves
+  reject rerolls and duplicate saves, scene transition/shutdown cancel the
+  matching token, and receipt revisions publish final, partial-failure, or
+  cancelled status only after Capture responds. Debug/Profile pass the focused
+  transaction, PNG, and binding matrix; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`.
 
-- [ ] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
+- [x] **LL5 — Prove useful breadth, no idle cost, and reusable output.** Run a
   deterministic large seed census and report recipe/mode/feature distribution,
   palette/luminance/contrast envelopes, invalid count, and exact repeat hashes.
   Load saved output in a fresh process and prove it resolves the same cinematic
@@ -217,8 +247,16 @@ these rules:
   input/render baseline with Look Lab idle and require no per-frame polling,
   filesystem access, allocation, shader compilation, scene reload, or material
   churn. Exercise all existing curated style files to prove compatibility.
+  Complete: a 65,536-seed census produces 65,536 unique valid candidates with
+  one exact Debug/Profile stream hash and reported recipe/mode/feature and
+  palette envelopes. A distinct-process producer/consumer round-trip preserves
+  complete style bytes without generator/catalog/default input, all 23 curated
+  styles parse, and event-driven UI status publication removes Look Lab owner
+  polling from the idle frame. Matching-condition timing is below LL0 in four
+  passes and guarded idle runs exit cleanly; evidence is in
+  `../../Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`.
 
-- [ ] **LL6 — Perform visible validation and close.** In one waited interactive
+- [x] **LL6 — Perform visible validation and close.** In one waited interactive
   DX12 session, demonstrate repeated visibly distinct F10 looks and save a chosen
   F11 bundle. Inspect the complete JSON, text receipt, and PNG, reload the style
   in a fresh run, and compare the reapplied image/state. Run focused tests,
@@ -231,6 +269,11 @@ these rules:
   and obtain an independent read-only review of ownership, randomness,
   serialization, bundle/receipt failure atomicity, capture timing, input
   conflicts, idle cost, and test sensitivity.
+  Complete: three visibly distinct scheduled F10 looks, one exact F11 bundle,
+  byte-identical fresh-process reapplication, exhaustive Debug/Profile coverage,
+  all ownership inventories and required gates, a 14/14 touched-source comment
+  audit, and final independent CLEAN review are recorded in
+  `../../Reports/2026-08-02/look-lab-random-style-authoring-closure.md`.
 
 ## Dependencies And Decisions
 

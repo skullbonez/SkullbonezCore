@@ -7939,6 +7939,45 @@
       ],
       "fixed": false,
       "sleeping": true
+    },
+    {
+      "type": "boxState",
+      "name": "prediction_striker_catcher_wall",
+      "position": [
+        1008.0,
+        25.0,
+        500.0
+      ],
+      "velocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "angularVelocity": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orientation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "halfExtents": [
+        2.0,
+        25.0,
+        64.0
+      ],
+      "mass": 1.0,
+      "restitution": 0.0,
+      "inertia": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "fixed": true,
+      "sleeping": true
     }
   ]
 }

@@ -318,14 +318,19 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\AtomicTextFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
@@ -525,6 +530,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Camera\Camera.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Direction\DemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorPlacementAssets.h" />
@@ -544,6 +552,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
+    <ClInclude Include="SkullbonezSource\Scene\StandaloneStyleWriter.h" />
     <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Capture\GraphicsStressController.h" />
@@ -564,6 +573,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
     <ClInclude Include="SkullbonezSource\Core\SbDiagnosticStore.h" />
     <ClInclude Include="SkullbonezSource\Core\SbResult.h" />
+    <ClInclude Include="SkullbonezSource\Core\AtomicTextFileWriter.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\App\Run.h" />
@@ -802,6 +812,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\scenes\convex_hull_collision.scene.json" />
     <None Include="SkullbonezData\scenes\convex_hull_stacking.scene.json" />
     <None Include="SkullbonezData\scenes\convex_hull_stress_sleep.scene.json" />
+    <None Include="SkullbonezData\scenes\contact_energy_tower_64.scene.json" />
     <None Include="SkullbonezData\scenes\rolling_shadow_contact.scene.json" />
     <None Include="SkullbonezData\scenes\shadow_contact.scene.json" />
     <None Include="SkullbonezData\scenes\shadow_map_plain.scene.json" />

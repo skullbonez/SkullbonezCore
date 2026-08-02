@@ -37,7 +37,7 @@
                        },
                        {
                            "key":  "CaptureRequest",
-                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:38",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:43",
                            "members":  1,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Capture",
@@ -145,7 +145,7 @@
                        },
                        {
                            "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:201",
+                           "site":  "SkullbonezSource/Runtime/App/Run.h:204",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/App",
@@ -216,6 +216,24 @@
                            "destructures_at_entry":  "no"
                        },
                        {
+                           "key":  "LookLabReceiptFacts",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:64",
+                           "members":  11,
+                           "verdict":  "retain",
+                           "owner":  "LL2 / Runtime Direction Look Lab receipt revision",
+                           "reason":  "Timestamp/offset, generator identity, source-scene identity, and per-artifact status/diagnostic pairs are one immutable receipt revision; splitting them permits a receipt to combine statuses with a different candidate or source scene. TestLookLabSerialization proves pending-to-failed revision and rejects malformed detached text.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "LookLabSaveRequest",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabController.h:79",
+                           "members":  5,
+                           "verdict":  "retain",
+                           "owner":  "LL4 / Runtime Direction Look Lab save transaction",
+                           "reason":  "Root, timestamp/offset, and source-scene identity name one bundle revision sampled synchronously by App; splitting them permits the receipt and directory to describe different save actions. LookLabController copies every borrow before return, and TestLookLabController proves the transaction lifecycle.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
                            "key":  "ObjectGraphInputs",
                            "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:363",
                            "members":  2,
@@ -258,6 +276,15 @@
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
                            "reason":  "Editor and replay capture/look flags are evaluated as one policy snapshot to choose exactly one pointer presentation; independent reads could expose a cursor during an owned-look gesture.",
+                           "destructures_at_entry":  "no"
+                       },
+                       {
+                           "key":  "PostRenderCaptureRequest",
+                           "site":  "SkullbonezSource/Runtime/Capture/CaptureController.h:53",
+                           "members":  3,
+                           "verdict":  "retain",
+                           "owner":  "LL4 / Runtime Capture post-render queue",
+                           "reason":  "A bounded PNG path, transaction owner, and nonzero token are one queued capture command; Capture must return the exact correlation identity on both image-write success and failure. TestOwnerRequestQueues proves validation, retention, and cancellation.",
                            "destructures_at_entry":  "no"
                        },
                        {
@@ -577,7 +604,7 @@
                        },
                        {
                            "key":  "RuntimeCameraMovementInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:274",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:276",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -586,7 +613,7 @@
                        },
                        {
                            "key":  "RuntimeInputContext",
-                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:296",
+                           "site":  "SkullbonezSource/Runtime/Input/InputController.h:298",
                            "members":  9,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",

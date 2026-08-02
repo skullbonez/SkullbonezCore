@@ -4,7 +4,8 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Coordinates the main game loop and high-level runtime lifecycle.
+  Run constructs process-lifetime owners, sequences their fixed frame phases,
+  and passes typed values between them without absorbing domain business state.
 
 Mental model:
   Run is the process composition root and frame sequencer. Its ordered
@@ -54,6 +55,7 @@ Related:
 #include "ApplicationExitState.h"
 #include "InputFrame.h"
 #include "../Camera/AttachedCameraController.h"
+#include "../Direction/LookLabController.h"
 #include "../Input/InputRouter.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Render/RenderDefaultsStore.h"
@@ -166,6 +168,7 @@ class Run
 #endif
     CameraControlState m_camera;                                                                 // Camera/input state and ball-tracking settings
     AttachedCameraController m_attachedCamera;                                                   // Owns non-serialized Attach target/orbit/follow state.
+    LookLabController m_lookLab;                                                                 // Owns the current presentation-only authoring candidate.
     SimulationSystem m_simulation;                                                               // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                                               // Constructs and sequences the concrete replay domain owners.
     RuntimeTools m_runtimeTools;                                                                 // Launcher, editor, manipulator state, and transient render feedback.
@@ -244,6 +247,12 @@ class Run
     // domain operations they call receive concrete operands only.
     RuntimeUIFrameResult ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode,
                                                   const RuntimeInputFrameFacts& facts );
+    void PublishLookLabStatusView();                                                             // Pushes one changed detached status into the UI cache.
+    bool ApplyLookLabSeed( uint64_t seed );                                                      // Resolves and applies one presentation-only candidate.
+    void BeginLookLabSave();                                                                     // Starts one style/receipt/capture transaction for the current candidate.
+    void CompleteLookLabPostRenderCaptures();                                                    // Returns Capture results to the matching Look Lab transaction.
+    void CancelPendingLookLabSave( const char* reason );                                         // Finalizes a pending receipt before scene or process teardown.
+    void PrepareLookLabForSceneTransition();                                                     // Clears the candidate and restores process presentation defaults.
     SkullbonezCore::Core::SbResult RunUIStressActions( RunCameraMode replayRestoreCameraMode );
 
     void Render( const RuntimeRenderModelFrameView& renderModels,

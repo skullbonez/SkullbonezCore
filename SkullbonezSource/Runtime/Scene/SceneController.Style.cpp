@@ -4,9 +4,9 @@ Purpose:
   Implements SceneController-owned live style and cinematic state changes.
 
 Summary:
-  Live style changes are scene-runtime behavior: they retint/reset existing
-  renderable objects, apply material overrides, and merge authored cinematic
-  fields over engine defaults without rebuilding the current scene.
+  SceneController retints existing renderable objects and updates cinematic
+  presentation without rebuilding the scene. Partial authored styles merge over
+  defaults, while a standalone snapshot replaces the complete authored surface.
 
 Glossary:
   Material override: Authored material/tint applied to matching live models.
@@ -14,6 +14,8 @@ Glossary:
 Invariants:
   - Style application mutates render-facing state only; it does not rebuild
     physics bodies or scene queues.
+  - A standalone style clears curated-browser selection because its candidate
+    is not a browser catalog row.
   - Ragdoll part matching uses suffix names and must stay compatible with
     authored generated ragdolls.
 
@@ -30,6 +32,7 @@ Related:
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/AuthoredScene.h"
+#include "../../Scene/StandaloneStyleWriter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -125,46 +128,46 @@ bool IsBroadMaterialTarget( const char* target )
            strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const char* displayName,
-                                 bool simpleRagdollPart, ColliderShapeKind shapeKind )
+bool SceneMaterialTargetMatches( const char* target, const char* displayName, bool simpleRagdollPart,
+                                 ColliderShapeKind shapeKind )
 {
 
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.
 
-    if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
+    if ( simpleRagdollPart && IsBroadMaterialTarget( target ) )
     {
         return false;
     }
 
-    if ( strcmp( material.target, "all" ) == 0 )
+    if ( strcmp( target, "all" ) == 0 )
     {
         return true;
     }
 
-    if ( strcmp( material.target, "balls" ) == 0 )
+    if ( strcmp( target, "balls" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::Sphere;
     }
 
-    if ( strcmp( material.target, "boxes" ) == 0 )
+    if ( strcmp( target, "boxes" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::Box;
     }
 
-    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
+    if ( strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0 )
     {
         return shapeKind == ColliderShapeKind::ConvexHull;
     }
 
-    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
+    if ( strncmp( target, "prefix:", 7 ) == 0 )
     {
-        const char* prefix = material.target + 7;
+        const char* prefix = target + 7;
         return prefix[0] != '\0' && strncmp( displayName, prefix, strlen( prefix ) ) == 0;
     }
 
-    return strcmp( material.target, displayName ) == 0;
+    return strcmp( target, displayName ) == 0;
 }
 
 void ResetObjectMaterials( SceneWorld& world )
@@ -198,7 +201,31 @@ void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
 
-            if ( SceneMaterialTargetMatches( material, entities.At( modelIndex ).displayName,
+            if ( SceneMaterialTargetMatches( material.target, entities.At( modelIndex ).displayName,
+                                             entities.IsSimpleRagdollPart( modelIndex ), shapeKind ) )
+            {
+                entities.MutableAt( modelIndex ).renderMaterial = material.material;
+            }
+        }
+    }
+}
+
+void ApplyObjectMaterials( SceneWorld& world, const SkullbonezCore::Scene::StandaloneStyleSnapshot& style )
+{
+    SceneEntityStore& entities = world.Entities();
+    ResetObjectMaterials( world );
+    const auto colliders = world.Colliders().Records();
+
+    for ( const SkullbonezCore::Scene::StandaloneStyleMaterialRule& material : style.materialRules )
+    {
+
+        for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
+        {
+            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
+                                                    ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
+                                                    : ColliderShapeKind::Sphere;
+
+            if ( SceneMaterialTargetMatches( material.target.data(), entities.At( modelIndex ).displayName,
                                              entities.IsSimpleRagdollPart( modelIndex ), shapeKind ) )
             {
                 entities.MutableAt( modelIndex ).renderMaterial = material.material;
@@ -207,103 +234,6 @@ void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
     }
 }
 } // namespace
-
-
-void ApplyCinematicSceneOverrides( SkullbonezCore::Core::CinematicRenderConfig& target, uint64_t mask,
-                                   const SkullbonezCore::Core::CinematicRenderConfig& source )
-{
-
-    // Concept: The mask is the compatibility boundary for authored cinematic
-    // scenes; unset fields continue to inherit engine/default UI state.
-#define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                              \
-    if ( ( mask & ( bit ) ) != 0 )                                                                                          \
-    {                                                                                                                       \
-        target.field = source.field;                                                                                        \
-    }
-
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_RENDERING, enabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ATMOSPHERE, skyAtmosphereEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUDS, cloudsEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GOD_RAYS, godRaysEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_LIGHTING, volumetricLightingEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM, bloomEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG, fogEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF_ENABLED, terrainReliefEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_EXPOSURE, exposure )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GAMMA, gamma )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_AZIMUTH, sunAzimuth )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_ELEVATION, sunElevation )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_R, sunColorR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_G, sunColorG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_B, sunColorB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_INTENSITY, sunIntensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_R, skyHorizonR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_G, skyHorizonG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_B, skyHorizonB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_R, skyZenithR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_G, skyZenithG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_B, skyZenithB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_GLOW_STRENGTH, skyGlowStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_COVERAGE, cloudCoverage )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SOFTNESS, cloudSoftness )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SCALE, cloudScale )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_INTENSITY, cloudIntensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_STRENGTH, sunShaftStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_FALLOFF, sunShaftFalloff )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_STRENGTH, volumetricStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DENSITY, volumetricDensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DECAY, volumetricDecay )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_THRESHOLD, bloomThreshold )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_KNEE, bloomKnee )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_STRENGTH, bloomStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_RADIUS, bloomRadius )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF, terrainRelief )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_DEPTH, basinDepth )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_RIM_LIFT, basinRimLift )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOWS, shadow.enabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_MAP_SIZE, shadow.mapSize )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_PCF_RADIUS, shadow.pcfRadius )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_STRENGTH, shadow.strength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_SOFTNESS, shadow.softness )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_DEPTH_BIAS, shadow.depthBias )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_SLOPE_BIAS, shadow.slopeBias )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_MAX_DISTANCE, shadow.maxDistance )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_R, fogColorR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_G, fogColorG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_B, fogColorB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_START, fogStart )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_END, fogEnd )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_DENSITY, fogDensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_MAX_OPACITY, fogMaxOpacity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, skyMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, terrainMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, objectStyle )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, waterMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleSaturation )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleContrast )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleVignette )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridScale )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterAlpha )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterReflectionStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterGlintStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterX )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterZ )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusX )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusZ )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinFeather )
-
-#undef APPLY_CINEMATIC_OVERRIDE
-}
 
 
 bool SceneController::ApplyCinematicBrowserStyle( RunLaunchOptions& launchOptions,
@@ -403,6 +333,37 @@ void SceneController::ApplyLiveStyle( RunLaunchOptions& launchOptions,
         scene.uiCinematicOverrideMask = 0;
     }
 
+    sceneBrowser.selectedCineModeSceneIndex = -1;
+}
+
+
+void SceneController::ApplyStandaloneStyle( RunLaunchOptions& launchOptions,
+                                            SkullbonezCore::UI::RunSceneBrowserState& sceneBrowser,
+                                            SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
+                                            const SkullbonezCore::Scene::StandaloneStyleSnapshot& style )
+{
+    SceneSessionState& scene = State();
+    launchOptions.hasCinematicRenderingOverride = false;
+    ApplyObjectMaterials( Scene(), style );
+    activeCinematic = style.cinematic;
+
+    if ( scene.isSceneMode )
+    {
+        scene.hasCinematicRenderingOverride = true;
+        scene.isCinematicRenderingEnabled = activeCinematic.enabled;
+        scene.hasCinematicExposure = true;
+        scene.cinematicExposure = activeCinematic.exposure;
+        scene.hasCinematicGamma = true;
+        scene.cinematicGamma = activeCinematic.gamma;
+
+        // Invariant: standalone styles carry every authorable cinematic field,
+        // including the grouped shadow-participation value at bit 55.
+        scene.cinematicOverrideMask = ( 1ull << 63 ) - 1ull;
+        scene.uiCinematicOverrideMask = 0;
+    }
+
+    // UI coherence: a generated Look Lab candidate is not one of the curated
+    // browser rows, so no stale catalog selection may remain highlighted.
     sceneBrowser.selectedCineModeSceneIndex = -1;
 }
 

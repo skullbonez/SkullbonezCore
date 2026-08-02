@@ -227,6 +227,9 @@
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
+    <ClCompile Include="SkullbonezTests\TestLookLabController.cpp" />
+    <ClCompile Include="SkullbonezTests\TestLookLabGenerator.cpp" />
+    <ClCompile Include="SkullbonezTests\TestLookLabSerialization.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestSbResult.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
@@ -257,6 +260,7 @@
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SbResult.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\AtomicTextFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
@@ -272,6 +276,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Direction\DemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabBundleWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Direction\LookLabGenerator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Simulation\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\App\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Input\InputController.Bindings.cpp" />
@@ -314,6 +321,7 @@
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\StandaloneStyleWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>
