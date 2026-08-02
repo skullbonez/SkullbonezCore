@@ -18,6 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.h
+  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
@@ -1262,9 +1263,18 @@ bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a, const PolytopeWorld& b, const
         return false;
     }
 
-    const Vector3 axis = axisRaw / sqrtf( magSq );
-    return ( EdgeSupportsAxis( a, edgeA, axis ) && EdgeSupportsAxis( b, edgeB, -axis ) ) ||
-           ( EdgeSupportsAxis( a, edgeA, -axis ) && EdgeSupportsAxis( b, edgeB, axis ) );
+    Vector3 axis = axisRaw / sqrtf( magSq );
+
+    if ( Dot( b.center - a.center, axis ) < 0.0f )
+    {
+        axis = -axis;
+    }
+
+    // Invariant: a saved edge-axis candidate must name the two support edges
+    // that face one another along the final A-to-B normal. Accepting the reverse
+    // support pair tests the same SAT line but later builds a contact between
+    // back-side edges when parallel authored edges tie on overlap.
+    return EdgeSupportsAxis( a, edgeA, axis ) && EdgeSupportsAxis( b, edgeB, -axis );
 }
 
 bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vector3& axisRaw, int axisType, int axisA,

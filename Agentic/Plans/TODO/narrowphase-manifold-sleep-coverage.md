@@ -1,7 +1,7 @@
 # Narrowphase Manifold And Sleep Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 1/6 phases complete
+Status: IN PROGRESS — 2/6 phases complete
 Impact area: Physics narrowphase manifolds, sleep controller and island system, tests
 Owner: Physics narrowphase and sleep
 Priority: First
@@ -103,7 +103,7 @@ reachable from a focused test.
   sleep/wake transition, and exact NM1/NM2/NM4 gaps. Evidence:
   `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`.
 
-- [ ] **NM1 — Pin geometric correctness for every shape pair.** For each pair,
+- [x] **NM1 — Pin geometric correctness for every shape pair.** For each pair,
   add cases with hand-computed expected values: contact normal direction and
   magnitude, penetration depth, point count, and point placement relative to the
   known configuration. Cover face-face, face-edge, edge-edge, vertex-face, and
@@ -111,6 +111,14 @@ reachable from a focused test.
   configurations for sphere/box and sphere/hull. Include the mixed box/hull path,
   which currently has no geometric assertion at all. Every expectation is derived
   from the configuration, not captured from current output.
+
+  Complete 2026-08-02. Eight focused cases / 251 assertions pin all ordered
+  object-family geometry and the complete box/hull topology matrix. The
+  hand-derived hull edge/edge oracle exposed a reverse-support SAT tie defect;
+  edge eligibility now retains the opposing support edges consistent with the
+  final A-to-B normal. Tests, direct coverage, and byte-exact Physics pass with
+  no baseline refresh. Evidence:
+  `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`.
 
 - [ ] **NM2 — Pin feature-ID lifetime and reduction determinism.** Prove that a
   resting box/box and hull/hull contact produces the same feature IDs across

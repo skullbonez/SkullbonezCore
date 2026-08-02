@@ -1416,13 +1416,14 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 1/26 (4%).** Five plans registered from a current-tree source and test
+work at 2/26 (8%).** Five plans registered from a current-tree source and test
 review, to run in this order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (1/6). NM0 records every
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (2/6). NM0 records every
    object/terrain path, feature and reduction rule, sleep transition, current
-   test reach, and exact coverage gap. NM1 is next: add hand-derived geometric
-   assertions for every shape-pair family. Pure test addition, no behavior change.
+   test reach, and exact coverage gap. NM1 pins hand-derived geometry for every
+   ordered object family and repairs the reverse-support hull edge tie it
+   exposed. NM2 is next: pin feature-id lifetime and reduction determinism.
 2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3545,6 +3546,17 @@ cases, thirteen named sleep cases plus the omnibus capacity probe, and every
 sleep/wake transition. It identifies the exact NM1/NM2/NM4 gaps without source
 or test behavior changes. The live ledger is therefore 1/26 (4%). Evidence is
 in `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`.
+
+Narrowphase Manifold And Sleep Coverage NM1 completed on 2026-08-02. Eight
+focused cases / 251 assertions derive normals, penetration, row counts, and
+world-space points from authored sphere, box, and brick-hull configurations
+across all ordered families and face/edge/vertex/deep topology. The hull
+edge/edge oracle exposed a reverse-support SAT tie whose plausible normal and
+depth hid a contact point between back-side edges; edge-axis eligibility now
+retains the opposing support pair consistent with the final A-to-B normal.
+Tests, direct coverage, and byte-exact Physics pass without baseline refresh.
+The live ledger is therefore 2/26 (8%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`.
 
 ## Features
 
