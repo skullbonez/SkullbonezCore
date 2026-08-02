@@ -1416,15 +1416,17 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/15 (0%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 1/15 (7%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
 under rule 4. Three plans remain, to run in this
 order:
 
-1. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
-   a hand-written ordinary frame-pass barrier is a defect; that invariant is
-   review-only today. `Compile()` is pure CPU and returns the full derived
-   transition set, so this is device-free coverage inside `validate_tests`.
+1. `TODO/render-graph-transition-coverage.md` (1/5). Sixteen pure RenderGraph
+   tests already run through the merge-gated standalone DX12 architecture lane,
+   covering representative derivation, transient, callback, and fatal behavior.
+   They do not run in `validate_tests` or instrumented coverage. RG0 maps the
+   exact structured compiler contract, all Lane-F boundaries, and the residual
+   RG1-RG4 matrix; RG1 is binding next.
 2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
@@ -3641,6 +3643,19 @@ and read-only. The independent closure review returned ACCEPT after all seven
 governance inventories passed and the touched-source audit closed 9/9 with zero
 deferrals. The completed plan leaves the live ledger at 0/15 (0%). Evidence is
 in `../Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`.
+
+Render Graph Transition Coverage RG0 completed on 2026-08-02. The census
+corrects the provisional no-test model: 16 pure RenderGraph tests already run
+through the merge-gated DX12 architecture executable, but not through
+`validate_tests` or instrumented coverage. The exact compiler output is
+transitions, resource lifetimes, transient allocations, and transient
+diagnostics; builder/compiler failures are Lane-F fatals, while the frame
+execution contract returns structured counts and booleans. Hand-derived
+structured assertions plus child-process fatal probes are selected and
+`DumpText()` goldens are rejected. All six ceilings, public failure modes,
+review-only backend properties, and RG1-RG4 residual gaps are fixed. The live
+ledger is therefore 1/15 (7%). Evidence is in
+`../Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`.
 
 ## Features
 

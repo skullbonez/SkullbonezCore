@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-2nd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `d26163ed` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Broadphase Pair Dedup Cost is complete; Render Graph Transition Coverage RG0 is binding next. |
-| Active/future progress | 0/15 (0%): Broadphase and narrowphase are complete and excluded under rule 4; three plans remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0 is complete; RG1 ordinary transition coverage is binding next. |
+| Active/future progress | 1/15 (7%): Broadphase and narrowphase are complete and excluded under rule 4; three plans remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Five plans / 26 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
@@ -26,6 +26,7 @@ plan inventory.
 | Broadphase BD2 | Complete. Scene-reserved membership prefixes now own production first-seen decisions; every bucket appends complete mode-independent membership before restricted/singleton exits, and Debug temporarily checks every observation against the dense oracle. Focused/full tests, byte-exact Physics, format, Automation, fast validation, 6/6 comment audit, and independent ACCEPT pass. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`. |
 | Broadphase BD3 | Complete. Eligibility-projected prefixes supersede the BD2 construction detail while preserving every BD0 pair, sleep, and geometry byte across all workloads and 0/1/4 workers. The temporary decision cross-check is removed. The unmodified performance gate passes; sparse 4,000 improves Broadphase/CandidatePairs 28.7%/41.9% and sleepy 5,000 improves 14.2%/66.7%, with smaller-scene tradeoffs recorded. Core/deep Physics, full tests, format, fast validation, 3/3 comments, and independent ACCEPT pass. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`. |
 | Broadphase BD4 | Complete. The deletion-bound Debug dense store, legacy driver, pair-stream writer, geometry counter, scratch owners, reserve rows, and exact repair rulings are removed. Production membership, canonical ordering, permanent sleep diagnostics, capacity-fatal behavior, all 23 historical artifacts, and the read-only v2 decoder remain. Independent review returned ACCEPT; comment audit is 9/9. Closure: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`. |
+| Render Graph RG0 | Complete. The exact public input/result/derivation/failure census corrects the stale no-test model: 16 pure graph cases are merge-gated through the standalone DX12 architecture lane but absent from `validate_tests` and instrumented coverage. Hand-derived structured assertions and child-process Lane-F probes are selected; `DumpText()` goldens are rejected. All six ceilings, review-only properties, and RG1-RG4 residual gaps are fixed. Evidence: `Agentic/Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -135,12 +136,14 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 0/15 (0%). Narrowphase
+Fresh-Read Coverage And Convention is active at 1/15 (7%). Narrowphase
 Manifold And Sleep Coverage and Broadphase Pair Dedup Cost are complete and
 excluded under rule 4. Binding remaining order is Render Graph Transition
 Coverage, Comment Vocabulary Audit, then Source Modernization Sweep. Render
-Graph RG0 must census the current pure compile contract and select hand-derived
-structured oracle forms before test implementation begins.
+Graph RG0 completed the exact current compile, failure, test-routing, and
+review-only census. RG1 must now add the main-lane subsystem test integration
+and pin the residual hand-derived ordinary transition matrix without replacing
+the 16 existing standalone architecture tests.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -902,15 +905,15 @@ targeted Automation and final full passes.
 | Broadphase Pair Dedup BD2 | COMPLETE | Production uses complete scene-reserved membership prefixes; Debug cross-checks the dense oracle. Focused/full tests, byte-exact Physics, format, Automation, fast validation, 6/6 comments, and independent ACCEPT pass. |
 | Broadphase Pair Dedup BD3 | COMPLETE | All 12 final streams and four worker comparisons are byte-exact; performance, core/deep Physics, full tests, format, fast validation, 3/3 comments, and independent ACCEPT pass. Exact large-scene timing and memory deltas are in the phase report. |
 | Broadphase Pair Dedup BD4 | COMPLETE | All deletion-bound Debug instrumentation and exact repair rulings are gone; 23 historical artifacts and the read-only decoder remain; 9/9 comments and all seven inventories pass; independent review returned ACCEPT. Closing gate details are in the closure report. |
+| Render Graph Transition Coverage RG0 | COMPLETE | Documentation-only exact compile/test/gate census. No repository validation, build, test launch, coverage run, baseline refresh, or touched-source comment audit was required. |
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/render-graph-transition-coverage.md` at RG0 on
-`nightrunner-2nd-AUG-26`. Census the actual pure compile and execution-contract
-surface, reconcile the existing DX12 architecture tests with the main doctest
-and coverage gaps, choose structured assertions plus Lane-F child probes, and
-record review-only backend properties. The active/future ledger is 0/15 (0%) in
-both MASTER-PLAN and this SessionState.
+Continue `Agentic/Plans/TODO/render-graph-transition-coverage.md` at RG1 on
+`nightrunner-2nd-AUG-26`. Add the main-lane subsystem test/project integration
+and pin the residual ordinary transition matrix with hand-derived structured
+assertions, while preserving the 16 existing standalone architecture cases.
+The active/future ledger is 1/15 (7%) in both MASTER-PLAN and this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,
