@@ -1,7 +1,7 @@
 # Broadphase Pair Dedup Cost
 
 Date: 2026-08-02
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Physics broadphase spatial grid, candidate pair emission, tests
 Owner: Physics broadphase
 Priority: Second
@@ -67,6 +67,26 @@ candidate mechanism that would require an owner-approved baseline transition is
 out of scope and must be rejected at BD1 rather than implemented and argued for
 at BD3.
 
+### BD3 Owner Refinement — Eligibility-Projected Prefixes
+
+BD3 supersedes one construction detail in the BD1 addendum and BD2 phase record:
+the final per-body ordinal prefixes are intentionally eligibility-projected per
+query, not complete and mode-independent. Let `M(x)` be the active buckets that
+contain body `x`, and let `E` be the buckets eligible for the current pair-source
+mode. First-seen ownership is
+`min(M(a) intersection M(b) intersection E)`, which is identical to
+`min((M(a) intersection E) intersection (M(b) intersection E))`. An unstamped
+bucket therefore cannot own or change restricted work and does not need an
+ordinal write.
+
+The same refinement omits buckets with fewer than two unique bodies because no
+distinct pair can share them. Raw slice capacity remains conservatively derived
+from every retained persistent and overlay row, and Debug still walks projected
+raw chains for integrity accounting. This refinement changes neither pair order,
+geometry invocation order, sleep diagnostics, exhaustion behavior, nor the BD1
+replacement family; it removes only membership work that cannot participate in
+the earliest-eligible intersection.
+
 ## Non-Goals
 
 - No change to pair membership, pair order, geometric filtering, sleep pruning,
@@ -113,7 +133,7 @@ at BD3.
   pinning first-seen semantics, generation rollover if the chosen mechanism has
   one, and capacity exhaustion.
 
-- [ ] **BD3 — Prove byte-exactness and measure the gain.** Compare against the
+- [x] **BD3 — Prove byte-exactness and measure the gain.** Compare against the
   BD0 oracle: pair lists byte-identical, `sleepPrunedPairs` byte-identical, filter
   invocation counts identical, across every BD0 scene and across 0, 1, and 4
   worker counts. Run `tools\validate_physics.bat` and
@@ -160,6 +180,16 @@ ordinal, and planted exhaustion reports the complete owner/capacity state.
 Focused and full tests, byte-exact Physics, format, Automation, fast validation,
 a 6/6 touched-source comment audit, and independent ACCEPT pass. Evidence is in
 `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`.
+
+BD3 completed on 2026-08-02. The final eligibility-projected prefixes preserve
+every BD0 pair, sleep, and geometry-count byte across all four workloads and
+0/1/4 workers while omitting unstamped and singleton-only ordinal writes. The
+unmodified performance gate passes without baseline refresh; exact sparse 4,000
+improves Broadphase/CandidatePairs by 28.7%/41.9%, and sleeping-heavy 5,000 by
+14.2%/66.7%, while the report records the smaller-scene tradeoff plainly. Core
+and deep Physics, full tests, format, fast validation, a 3/3 touched-source audit,
+and independent ACCEPT pass. Evidence is in
+`../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`.
 
 ## Dependencies And Decisions
 

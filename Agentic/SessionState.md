@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-2nd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `d26163ed` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Broadphase Pair Dedup Cost BD2 is complete; BD3 byte-exact oracle, scale, deep-physics, and performance proof is binding next. |
-| Active/future progress | 3/20 (15%): Broadphase BD0-BD2 are complete; four plans remain in binding order. The completed narrowphase plan is excluded under rule 4, and the parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Broadphase Pair Dedup Cost BD3 is complete; BD4 removal and closure are binding next. |
+| Active/future progress | 4/20 (20%): Broadphase BD0-BD3 are complete; four plans remain in binding order. The completed narrowphase plan is excluded under rule 4, and the parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Five plans / 26 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
@@ -24,6 +24,7 @@ plan inventory.
 | Broadphase BD0 | Complete. Exact dense-bitset clear/memory spans, uninstrumented 37–5,000-body Profile artifacts, and complete 360-pass raw/augmented/final candidate plus raw/final sleep streams are locked. All four workloads are byte-identical across 0/1/4 workers; geometry invocation counts and first-seen sleep order are pinned. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`. |
 | Broadphase BD1 | Complete. Output-sized generation hashing and post-sort logs are rejected because raw pre-filter identities/observations can legally approach N-squared. The chosen per-body sorted active-bucket membership index retains the existing traversal and admits only from the earliest eligible shared bucket, preserving the exact geometry/sleep first-seen event with 106,244 bytes at 4,000 bodies and 206,852 bytes at 8,192. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`. |
 | Broadphase BD2 | Complete. Scene-reserved membership prefixes now own production first-seen decisions; every bucket appends complete mode-independent membership before restricted/singleton exits, and Debug temporarily checks every observation against the dense oracle. Focused/full tests, byte-exact Physics, format, Automation, fast validation, 6/6 comment audit, and independent ACCEPT pass. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`. |
+| Broadphase BD3 | Complete. Eligibility-projected prefixes supersede the BD2 construction detail while preserving every BD0 pair, sleep, and geometry byte across all workloads and 0/1/4 workers. The temporary decision cross-check is removed. The unmodified performance gate passes; sparse 4,000 improves Broadphase/CandidatePairs 28.7%/41.9% and sleepy 5,000 improves 14.2%/66.7%, with smaller-scene tradeoffs recorded. Core/deep Physics, full tests, format, fast validation, 3/3 comments, and independent ACCEPT pass. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -133,14 +134,14 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 3/20 (15%). Narrowphase
+Fresh-Read Coverage And Convention is active at 4/20 (20%). Narrowphase
 Manifold And Sleep Coverage is complete at 6/6 and excluded under rule 4.
 Binding remaining order is Broadphase Pair Dedup Cost, Render Graph Transition
 Coverage, Comment Vocabulary Audit, then Source Modernization Sweep. Broadphase
-BD0-BD2 are complete. BD3 must compare the final membership implementation
-against every BD0 stream across 0/1/4 workers, run scale, deep Physics, and
-performance evidence, and remove the Debug cross-check only after byte-exact
-proof. No baseline movement is authorized.
+BD0-BD3 are complete. BD4 must remove the deletion-bound Debug dense store,
+legacy same-state driver, pair-stream writer, geometry counter, scratch owners,
+and exact repair rulings while retaining permanent BD0-BD3 evidence and the v2
+decoder. No baseline movement is authorized.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -900,16 +901,17 @@ targeted Automation and final full passes.
 | Broadphase Pair Dedup BD0 | COMPLETE | Exact clear/memory and Profile timing artifacts; 12/12 v2 streams structurally valid; all four 0/1/4 worker groups byte-identical; 5/5 touched-source audit; independent findings resolved. Commit-preparation gate details are in the phase report. |
 | Broadphase Pair Dedup BD1 | COMPLETE | Three independent candidate reviews converge on earliest-eligible-shared-bucket membership intersection. Exact first-seen proof, hash-alias/overlay rules, 24B+10,244-byte storage formula, invariant-only exhaustion, and BD2 cross-check scope are locked in the phase report. |
 | Broadphase Pair Dedup BD2 | COMPLETE | Production uses complete scene-reserved membership prefixes; Debug cross-checks the dense oracle. Focused/full tests, byte-exact Physics, format, Automation, fast validation, 6/6 comments, and independent ACCEPT pass. |
+| Broadphase Pair Dedup BD3 | COMPLETE | All 12 final streams and four worker comparisons are byte-exact; performance, core/deep Physics, full tests, format, fast validation, 3/3 comments, and independent ACCEPT pass. Exact large-scene timing and memory deltas are in the phase report. |
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/broadphase-pair-dedup-cost.md` at BD3 on
-`nightrunner-2nd-AUG-26`. Compare the final membership implementation with all
-BD0 pair, sleep-pruned, and geometry-count streams across 0/1/4 workers; run the
-scale matrix, `validate_physics_deep`, and `validate_perf`; report exact memory
-and timing deltas; then remove the temporary Debug cross-check only after the
-proof passes. The active/future ledger is 3/20 (15%) in both MASTER-PLAN and
-this SessionState.
+Continue `Agentic/Plans/TODO/broadphase-pair-dedup-cost.md` at BD4 on
+`nightrunner-2nd-AUG-26`. Remove the remaining Debug dense bitset, legacy
+same-state driver, temporary pair-stream writer, geometry counter, scratch
+owners, test census rows, and stale reachability rulings. Retain permanent
+BD0-BD3 artifacts and the historical v2 decoder, run the closing validation and
+independent ownership review, and report exact deletion/memory results. The
+active/future ledger is 4/20 (20%) in both MASTER-PLAN and this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,

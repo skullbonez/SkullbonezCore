@@ -6,9 +6,8 @@ Purpose:
 Summary:
   Persistent per-body integer ranges own ordinary cell membership across fixed
   steps. Fixed hash chains and intrusive back-links make changed cells reusable
-  without allocation, while a separately stamped overlay carries swept motion
-
-  for one step only. Canonical emission hides all storage-history ordering.
+  without allocation. A separately stamped overlay carries swept motion for one
+  step only, while canonical emission hides all storage-history ordering.
 
 Glossary:
   Intrusive back-link: Index stored in pooled rows so removal can unlink both
@@ -21,9 +20,9 @@ Invariants:
     cannot recover while preserving the frame's broadphase contract.
   - Persistent membership is a pure function of current integer ranges; only
     storage order carries history, and canonical pair emission removes it.
-  - Production pair work may skip unstamped sleep-only cells only after their
-    retained memberships are appended; Debug also checks first-seen decisions
-    against the temporary dense oracle.
+  - Production pair work projects unstamped sleep-only cells out of its ordinal
+    slices. Debug still walks those raw chains for integrity accounting; the
+    legacy same-state oracle remains an explicit path outside production filtering.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -231,9 +230,6 @@ void SpatialGrid::Clear()
 #if defined( _DEBUG )
     pairSeen.clear();
     pairMembershipLogicalCapacityForTest = ( std::numeric_limits<std::size_t>::max )();
-    pairDedupObservationOrdinal = 0u;
-    pairMembershipFirstCount = 0u;
-    pairDenseFirstCount = 0u;
 #endif
     candidatePairHeads.clear();
     candidatePairNodes.clear();
@@ -1141,11 +1137,12 @@ void SpatialGrid::MarkPairSourceCells( int index )
 //
 // Each live body receives one slice of active-bucket ordinals. This preflight
 // derives bounded raw slices from retained sources; the already-ascending pair
-// traversal fills their unique prefixes as it collects each bucket's occupants.
+// traversal fills their unique prefixes only for eligible buckets with at least
+// two unique occupants.
 // Persistent and swept rows may name different exact cells that hash to the same
-// Bucket, so CollectBucketObjects owns alias compaction before one ordinal is
-// appended per body. The slices live only until the next collection and borrow
-// no authority from PhysicsBodyRecord or another hot store.
+// Bucket, so CollectBucketObjects owns alias compaction before at most one ordinal
+// is appended per participating body. The slices live only until the next
+// collection and borrow no authority from PhysicsBodyRecord or another hot store.
 void SpatialGrid::BuildPairMembershipIndex()
 {
     assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS && "objectCount OOB" );
@@ -1156,8 +1153,16 @@ void SpatialGrid::BuildPairMembershipIndex()
     }
 
     const std::size_t liveBodyCount = static_cast<std::size_t>( objectCount );
-    pairMembershipOffsets.resize( liveBodyCount + 1u );
-    pairMembershipCounts.resize( liveBodyCount );
+
+    if ( pairMembershipOffsets.size() < liveBodyCount + 1u )
+    {
+        pairMembershipOffsets.ExtendDefaultTo( liveBodyCount + 1u );
+    }
+
+    if ( pairMembershipCounts.size() < liveBodyCount )
+    {
+        pairMembershipCounts.ExtendDefaultTo( liveBodyCount );
+    }
 
     // Concept: a live persistent membership owns one Entry for every exact cell
     // in its retained inclusive range. Counting that range is O(1) per body and
@@ -1329,7 +1334,16 @@ void SpatialGrid::BuildPairMembershipIndex()
                   RuntimeReservePhaseName( GetRuntimeAllocationPhase() ) );
     }
 
-    pairMembershipOrdinals.resize( requestedRows );
+    // Lifetime: keep the fixed lists at their observed high-water instead of
+    // clearing value storage every query. This pass overwrites every live
+    // offset/count and later reads ordinals only through those fresh bounds, so
+    // rows beyond the current raw prefix carry no authority. The guard also
+    // avoids republishing unchanged owner usage on every broadphase pass.
+
+    if ( pairMembershipOrdinals.size() < requestedRows )
+    {
+        pairMembershipOrdinals.ExtendDefaultTo( requestedRows );
+    }
 
     // Lifetime: counts now describe empty unique prefixes. Ascending bucket
     // traversal uses offset + count as each body's write cursor, so future
@@ -1338,35 +1352,23 @@ void SpatialGrid::BuildPairMembershipIndex()
 }
 
 
-void SpatialGrid::AppendPairMembershipOrdinal( int bodyIndex, int activeIndex )
+void SpatialGrid::AppendUniquePairMembershipOrdinal( int bodyIndex, int activeIndex )
 {
+
+    // Why: eligible collection already proves each body appears once in this
+    // pair-bearing bucket. Bypassing a redundant prior-ordinal alias scan keeps
+    // the hot path smaller; all builds still guard owner/range exhaustion and
+    // Debug additionally proves strict order.
 
     if ( bodyIndex < 0 || bodyIndex >= objectCount || activeIndex < 0 || activeIndex >= activeBucketCount )
     {
         SB_FATAL( "Physics/SpatialGrid",
-                  "Pair membership append is invalid: body=%d admitted=%d ordinal=%d active_count=%d.", bodyIndex,
+                  "Unique pair membership append is invalid: body=%d admitted=%d ordinal=%d active_count=%d.", bodyIndex,
                   objectCount, activeIndex, activeBucketCount );
     }
 
-    const uint32_t rawBegin = pairMembershipOffsets[bodyIndex];
     const uint32_t uniqueCount = pairMembershipCounts[bodyIndex];
-    const uint32_t writeIndex = rawBegin + uniqueCount;
-
-    if ( uniqueCount > 0u )
-    {
-        const int previousOrdinal = static_cast<int>( pairMembershipOrdinals[writeIndex - 1u] );
-
-        if ( previousOrdinal == activeIndex )
-        {
-            return;
-        }
-
-        if ( previousOrdinal > activeIndex )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "Pair membership fill lost strict ordinal order: body=%d previous=%d next=%d.",
-                      bodyIndex, previousOrdinal, activeIndex );
-        }
-    }
+    const uint32_t writeIndex = pairMembershipOffsets[bodyIndex] + uniqueCount;
 
     if ( writeIndex >= pairMembershipOffsets[bodyIndex + 1] )
     {
@@ -1375,17 +1377,25 @@ void SpatialGrid::AppendPairMembershipOrdinal( int bodyIndex, int activeIndex )
                   writeIndex, pairMembershipOffsets[bodyIndex + 1], activeIndex );
     }
 
+#if defined( _DEBUG )
+
+    if ( uniqueCount > 0u && pairMembershipOrdinals[writeIndex - 1u] >= activeIndex )
+    {
+        SB_FATAL( "Physics/SpatialGrid",
+                  "Unique pair membership fill lost strict ordinal order: body=%d previous=%u next=%d.", bodyIndex,
+                  static_cast<unsigned int>( pairMembershipOrdinals[writeIndex - 1u] ), activeIndex );
+    }
+#endif
+
     pairMembershipOrdinals[writeIndex] = static_cast<PairMembershipOrdinal>( activeIndex );
     pairMembershipCounts[bodyIndex] = uniqueCount + 1u;
 }
 
 
-void SpatialGrid::AppendPairBucketMemberships( const Bucket& bucket, int bucketIndex, int activeIndex,
-                                               std::size_t& observedRawRows )
+#if defined( _DEBUG )
+void SpatialGrid::ObservePairBucketRows( const Bucket& bucket, int bucketIndex, int activeIndex,
+                                         std::size_t& observedRawRows )
 {
-#if !defined( _DEBUG )
-    static_cast<void>( bucketIndex );
-#endif
     std::size_t bucketRows = 0u;
 
     for ( int entryIndex = bucket.head; entryIndex != -1; entryIndex = entries[entryIndex].nextInBucket )
@@ -1397,21 +1407,15 @@ void SpatialGrid::AppendPairBucketMemberships( const Bucket& bucket, int bucketI
                       activeIndex );
         }
 
-#if defined( _DEBUG )
-
         if ( entries[entryIndex].bucketIndex != bucketIndex )
         {
             SB_FATAL( "Physics/SpatialGrid",
                       "Pair membership persistent bucket owner mismatch: bucket=%d entry=%d entry_bucket=%d.", bucketIndex,
                       entryIndex, entries[entryIndex].bucketIndex );
         }
-#endif
 
-        AppendPairMembershipOrdinal( entries[entryIndex].objectIndex, activeIndex );
         ++bucketRows;
     }
-
-    const int currentOverlayCount = bucket.overlayGeneration == overlayGeneration ? bucket.overlayCount : 0;
 
     if ( bucket.overlayGeneration == overlayGeneration )
     {
@@ -1425,11 +1429,11 @@ void SpatialGrid::AppendPairBucketMemberships( const Bucket& bucket, int bucketI
                           entryIndex, activeIndex );
             }
 
-            AppendPairMembershipOrdinal( overlayEntries[entryIndex].objectIndex, activeIndex );
             ++bucketRows;
         }
     }
 
+    const int currentOverlayCount = bucket.overlayGeneration == overlayGeneration ? bucket.overlayCount : 0;
     const int rawCount = bucket.count + currentOverlayCount;
 
     if ( bucket.count < 0 || currentOverlayCount < 0 || bucketRows != static_cast<std::size_t>( rawCount ) )
@@ -1441,6 +1445,7 @@ void SpatialGrid::AppendPairBucketMemberships( const Bucket& bucket, int bucketI
 
     observedRawRows += bucketRows;
 }
+#endif
 
 
 int SpatialGrid::CollectPairBucketObjects( const Bucket& bucket, int bucketIndex, int activeIndex, int* outIndices,
@@ -1456,14 +1461,38 @@ int SpatialGrid::CollectPairBucketObjects( const Bucket& bucket, int bucketIndex
 
     const int rawCount = bucket.count + currentOverlayCount;
 
+    // Hazard: omitting a singleton ordinal is an optimization, not permission to
+    // hide corrupt owner or reserve state. Prove the same all-configuration slot
+    // that an append would have consumed before taking either singleton exit.
+    const auto requireOmittedOrdinalSlot = [&]( int bodyIndex )
+    {
+
+        if ( bodyIndex < 0 || bodyIndex >= objectCount || activeIndex < 0 || activeIndex >= activeBucketCount )
+        {
+            SB_FATAL( "Physics/SpatialGrid",
+                      "Omitted singleton pair membership is invalid: body=%d admitted=%d ordinal=%d active_count=%d.",
+                      bodyIndex, objectCount, activeIndex, activeBucketCount );
+        }
+
+        const uint32_t writeIndex = pairMembershipOffsets[bodyIndex] + pairMembershipCounts[bodyIndex];
+
+        if ( writeIndex >= pairMembershipOffsets[bodyIndex + 1] )
+        {
+            SB_FATAL( "Physics/SpatialGrid",
+                      "Omitted singleton pair membership exceeded its counted slice: body=%d write=%u end=%u ordinal=%d.",
+                      bodyIndex, writeIndex, pairMembershipOffsets[bodyIndex + 1], activeIndex );
+        }
+    };
+
     if ( rawCount == 0 )
     {
         return 0;
     }
 
-    // Why: persistent grids retain many singleton cells. Preserve their cheap
-    // exit while still appending the one ordinal needed by a later shared-cell
-    // decision; multi-row buckets reuse the traversal's alias-deduped staging.
+    // Why: persistent grids retain many singleton cells, but an ordinal owned by
+    // only one body cannot be a shared first-seen witness. Preserve that cheap
+    // exit without touching the membership slices; multi-row buckets reuse the
+    // traversal's alias-deduped staging.
 
     if ( rawCount == 1 )
     {
@@ -1510,12 +1539,17 @@ int SpatialGrid::CollectPairBucketObjects( const Bucket& bucket, int bucketIndex
             bodyIndex = overlayEntries[entryIndex].objectIndex;
         }
 
-        AppendPairMembershipOrdinal( bodyIndex, activeIndex );
+        requireOmittedOrdinalSlot( bodyIndex );
         outIndices[0] = bodyIndex;
+#if defined( _DEBUG )
         ++observedRawRows;
+#else
+        static_cast<void>( observedRawRows );
+#endif
         return 1;
     }
 
+#if defined( _DEBUG )
     std::size_t bucketRows = 0u;
     const int count = CollectBucketObjects( bucket, outIndices, capacity, &bucketRows, bucketIndex );
 
@@ -1527,10 +1561,33 @@ int SpatialGrid::CollectPairBucketObjects( const Bucket& bucket, int bucketIndex
     }
 
     observedRawRows += bucketRows;
+#else
+    static_cast<void>( bucketIndex );
+    static_cast<void>( observedRawRows );
+    const int count = CollectBucketObjects( bucket, outIndices, capacity );
+#endif
+
+    // Invariant: only buckets containing at least two unique bodies can own or
+    // precede a candidate-pair decision. Omitting singleton-only ordinals leaves
+    // every possible list intersection unchanged while avoiding hot writes for
+    // the grid's common sparse-cell case.
+
+    if ( count < 2 )
+    {
+
+        if ( count == 0 )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "Non-empty pair bucket produced no unique body: ordinal=%d raw_rows=%d.",
+                      activeIndex, rawCount );
+        }
+
+        requireOmittedOrdinalSlot( outIndices[0] );
+        return count;
+    }
 
     for ( int index = 0; index < count; ++index )
     {
-        AppendPairMembershipOrdinal( outIndices[index], activeIndex );
+        AppendUniquePairMembershipOrdinal( outIndices[index], activeIndex );
     }
 
     return count;
@@ -1539,6 +1596,7 @@ int SpatialGrid::CollectPairBucketObjects( const Bucket& bucket, int bucketIndex
 
 void SpatialGrid::RequirePairMembershipRowsObserved( std::size_t observedRows ) const
 {
+#if defined( _DEBUG )
     const std::size_t expectedRows = static_cast<std::size_t>( pairMembershipOffsets[objectCount] );
 
     if ( observedRows != expectedRows )
@@ -1546,6 +1604,9 @@ void SpatialGrid::RequirePairMembershipRowsObserved( std::size_t observedRows ) 
         SB_FATAL( "Physics/SpatialGrid", "Pair membership bucket rows diverged: observed=%zu counted=%zu.", observedRows,
                   expectedRows );
     }
+#else
+    static_cast<void>( observedRows );
+#endif
 }
 
 
@@ -1554,15 +1615,22 @@ bool SpatialGrid::IsEarliestEligibleSharedBucket( int a, int b, int currentActiv
 {
     assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
 
+#if defined( _DEBUG )
+
     if ( a < 0 || a >= b || b >= objectCount || currentActiveIndex < 0 || currentActiveIndex >= activeBucketCount )
     {
         SB_FATAL( "Physics/SpatialGrid",
                   "Pair membership query is invalid: pair=(%d,%d) active_ordinal=%d admitted=%d active_count=%d.", a, b,
                   currentActiveIndex, objectCount, activeBucketCount );
     }
+#else
+    static_cast<void>( currentActiveIndex );
+#endif
 
     const uint32_t aCount = pairMembershipCounts[a];
     const uint32_t bCount = pairMembershipCounts[b];
+
+#if defined( _DEBUG )
 
     if ( aCount == 0u || bCount == 0u )
     {
@@ -1571,16 +1639,19 @@ bool SpatialGrid::IsEarliestEligibleSharedBucket( int a, int b, int currentActiv
                   "b_count=%u.",
                   a, b, currentActiveIndex, restrictToPairSourceCells ? 1 : 0, aCount, bCount );
     }
+#endif
 
-    uint32_t aCursor = pairMembershipOffsets[a];
-    uint32_t bCursor = pairMembershipOffsets[b];
-    const uint32_t aCurrent = aCursor + aCount - 1u;
-    const uint32_t bCurrent = bCursor + bCount - 1u;
+    const uint32_t aBegin = pairMembershipOffsets[a];
+    const uint32_t bBegin = pairMembershipOffsets[b];
+    const uint32_t aCurrent = aBegin + aCount - 1u;
+    const uint32_t bCurrent = bBegin + bCount - 1u;
 
     // Invariant: traversal appends the current eligible bucket before testing
     // its pairs. It is therefore the last ordinal in both prefixes; only the
     // earlier prefixes need intersection and future buckets cannot affect the
     // answer.
+
+#if defined( _DEBUG )
 
     if ( pairMembershipOrdinals[aCurrent] != currentActiveIndex || pairMembershipOrdinals[bCurrent] != currentActiveIndex )
     {
@@ -1590,31 +1661,52 @@ bool SpatialGrid::IsEarliestEligibleSharedBucket( int a, int b, int currentActiv
                   a, b, currentActiveIndex, static_cast<unsigned int>( pairMembershipOrdinals[aCurrent] ),
                   static_cast<unsigned int>( pairMembershipOrdinals[bCurrent] ), restrictToPairSourceCells ? 1 : 0 );
     }
+#endif
 
-    while ( aCursor < aCurrent && bCursor < bCurrent )
+    // Why: repeated co-cell observations usually share a recent prior bucket.
+    // Walk backward from the current tails so the common case returns after
+    // one comparison; first observations still perform the same bounded merge.
+    uint32_t aCursor = aCurrent;
+    uint32_t bCursor = bCurrent;
+
+    if ( aCursor == aBegin || bCursor == bBegin )
     {
-        const int aOrdinal = static_cast<int>( pairMembershipOrdinals[aCursor] );
-        const int bOrdinal = static_cast<int>( pairMembershipOrdinals[bCursor] );
+        return true;
+    }
 
-        if ( aOrdinal < bOrdinal )
+    if ( pairMembershipOrdinals[aCursor - 1u] < pairMembershipOrdinals[bBegin] ||
+         pairMembershipOrdinals[bCursor - 1u] < pairMembershipOrdinals[aBegin] )
+    {
+        return true;
+    }
+
+    while ( aCursor > aBegin && bCursor > bBegin )
+    {
+        const int aOrdinal = static_cast<int>( pairMembershipOrdinals[aCursor - 1u] );
+        const int bOrdinal = static_cast<int>( pairMembershipOrdinals[bCursor - 1u] );
+
+        if ( aOrdinal > bOrdinal )
         {
-            ++aCursor;
+            --aCursor;
             continue;
         }
 
-        if ( bOrdinal < aOrdinal )
+        if ( bOrdinal > aOrdinal )
         {
-            ++bCursor;
+            --bCursor;
             continue;
         }
 
         const int sharedOrdinal = aOrdinal;
+
+#if defined( _DEBUG )
 
         if ( sharedOrdinal < 0 || sharedOrdinal >= currentActiveIndex )
         {
             SB_FATAL( "Physics/SpatialGrid", "Pair membership earlier prefix is stale: pair=(%d,%d) shared=%d current=%d.",
                       a, b, sharedOrdinal, currentActiveIndex );
         }
+#endif
 
         if ( restrictToPairSourceCells )
         {
@@ -1622,8 +1714,8 @@ bool SpatialGrid::IsEarliestEligibleSharedBucket( int a, int b, int currentActiv
 
             if ( buckets[bucketIndex].pairSourceGeneration != pairSourceGeneration )
             {
-                ++aCursor;
-                ++bCursor;
+                --aCursor;
+                --bCursor;
                 continue;
             }
         }
@@ -1637,29 +1729,7 @@ bool SpatialGrid::IsEarliestEligibleSharedBucket( int a, int b, int currentActiv
 
 bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b, int currentActiveIndex, bool restrictToPairSourceCells )
 {
-    const bool membershipFirst = IsEarliestEligibleSharedBucket( a, b, currentActiveIndex, restrictToPairSourceCells );
-
-#if defined( _DEBUG )
-    const bool denseFirst = MarkDensePairFirstSeen( a, b );
-    const uint64_t observationOrdinal = pairDedupObservationOrdinal++;
-    pairMembershipFirstCount += membershipFirst ? 1u : 0u;
-    pairDenseFirstCount += denseFirst ? 1u : 0u;
-
-    if ( membershipFirst != denseFirst )
-    {
-        const int bucketIndex = activeBuckets[currentActiveIndex];
-        const Bucket& bucket = buckets[bucketIndex];
-        SB_FATAL( "Physics/SpatialGrid",
-                  "Pair first-seen cross-check diverged: pair=(%d,%d) observation=%llu active_ordinal=%d bucket=%d "
-                  "restrict=%d bucket_stamp=%u current_stamp=%u membership_first=%d dense_first=%d a_count=%u "
-                  "b_count=%u.",
-                  a, b, static_cast<unsigned long long>( observationOrdinal ), currentActiveIndex, bucketIndex,
-                  restrictToPairSourceCells ? 1 : 0, bucket.pairSourceGeneration, pairSourceGeneration,
-                  membershipFirst ? 1 : 0, denseFirst ? 1 : 0, pairMembershipCounts[a], pairMembershipCounts[b] );
-    }
-#endif
-
-    return membershipFirst;
+    return IsEarliestEligibleSharedBucket( a, b, currentActiveIndex, restrictToPairSourceCells );
 }
 
 
@@ -1680,10 +1750,6 @@ void SpatialGrid::ResetDensePairCrossCheck()
     {
         memset( pairSeen.data(), 0, static_cast<std::size_t>( wordsNeeded ) * sizeof( uint64_t ) );
     }
-
-    pairDedupObservationOrdinal = 0u;
-    pairMembershipFirstCount = 0u;
-    pairDenseFirstCount = 0u;
 }
 
 
@@ -1716,21 +1782,6 @@ bool SpatialGrid::MarkDensePairFirstSeen( int a, int b )
     return true;
 }
 
-
-void SpatialGrid::RequireDensePairCrossCheckComplete( const char* collectionName ) const
-{
-
-    if ( pairMembershipFirstCount != pairDenseFirstCount )
-    {
-        SB_FATAL( "Physics/SpatialGrid",
-                  "Pair first-seen cross-check totals diverged: collection=%s observations=%llu membership_first=%llu "
-                  "dense_first=%llu.",
-                  collectionName ? collectionName : "unknown",
-                  static_cast<unsigned long long>( pairDedupObservationOrdinal ),
-                  static_cast<unsigned long long>( pairMembershipFirstCount ),
-                  static_cast<unsigned long long>( pairDenseFirstCount ) );
-    }
-}
 #endif
 
 
@@ -1788,6 +1839,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     outPairs.clear();
     BuildPairMembershipIndex();
 #if defined( _DEBUG )
+
+    // Lifetime: unfiltered tooling keeps the legacy dense store initialized so
+    // its capacity/high-water evidence remains valid through BD3. It does not
+    // participate in, or compare against, the membership-index decision.
     ResetDensePairCrossCheck();
 #endif
     candidatePairHeads.ResetFill( static_cast<std::size_t>( objectCount ), -1 );
@@ -1830,7 +1885,13 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
 
         if ( restrictToPairSourceCells && bucket.pairSourceGeneration != pairSourceGeneration )
         {
-            AppendPairBucketMemberships( bucket, bucketIndex, activeIndex, observedPairMembershipRows );
+#if defined( _DEBUG )
+
+            // Why: an unstamped bucket is outside the eligible set E and cannot
+            // affect min(M(a) intersection M(b) intersection E). Debug still
+            // walks its chains so the raw-row accounting proof is not weakened.
+            ObservePairBucketRows( bucket, bucketIndex, activeIndex, observedPairMembershipRows );
+#endif
             continue;
         }
 
@@ -1884,10 +1945,6 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     }
 
     RequirePairMembershipRowsObserved( observedPairMembershipRows );
-
-#if defined( _DEBUG )
-    RequireDensePairCrossCheckComplete( "GetCandidatePairs" );
-#endif
 
     for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
     {
@@ -1974,10 +2031,6 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
     }
 
     BuildPairMembershipIndex();
-#if defined( _DEBUG )
-    ResetDensePairCrossCheck();
-    const uint64_t geometryInvocationCountBefore = SkullbonezCore::Physics::BroadphaseCandidateGeometryInvocationCount();
-#endif
     candidatePairHeads.ResetFill( static_cast<std::size_t>( objectCount ), -1 );
     candidatePairNodes.clear();
     int candidatePairNodeCount = 0;
@@ -2018,7 +2071,13 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
 
         if ( restrictToPairSourceCells && b.pairSourceGeneration != pairSourceGeneration )
         {
-            AppendPairBucketMemberships( b, bi, activeIndex, observedPairMembershipRows );
+#if defined( _DEBUG )
+
+            // Why: project each per-body prefix to eligible pair-source buckets.
+            // Unstamped rows cannot own filtering, while Debug traversal retains
+            // the raw bucket-chain integrity proof without production writes.
+            ObservePairBucketRows( b, bi, activeIndex, observedPairMembershipRows );
+#endif
             continue;
         }
 
@@ -2085,21 +2144,6 @@ void SpatialGrid::GetFilteredCandidatePairsImpl( SkullbonezCore::Physics::Physic
     }
 
     RequirePairMembershipRowsObserved( observedPairMembershipRows );
-
-#if defined( _DEBUG )
-    RequireDensePairCrossCheckComplete( "GetFilteredCandidatePairs" );
-    const uint64_t geometryInvocationCountAfter = SkullbonezCore::Physics::BroadphaseCandidateGeometryInvocationCount();
-    const uint64_t geometryInvocationDelta = geometryInvocationCountAfter - geometryInvocationCountBefore;
-
-    if ( geometryInvocationDelta != pairMembershipFirstCount )
-    {
-        SB_FATAL( "Physics/SpatialGrid",
-                  "Pair filter invocation cross-check diverged: observations=%llu first_seen=%llu geometry_calls=%llu.",
-                  static_cast<unsigned long long>( pairDedupObservationOrdinal ),
-                  static_cast<unsigned long long>( pairMembershipFirstCount ),
-                  static_cast<unsigned long long>( geometryInvocationDelta ) );
-    }
-#endif
 
     // Two stable radix passes cover the complete derived body-index width.
     // Total work is proportional to bodies plus accepted pairs and uses only

@@ -1416,11 +1416,11 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/20 (15%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 4/20 (20%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 left the active/future ledger under rule 4. Four plans remain, to run in this
 order:
 
-1. `TODO/broadphase-pair-dedup-cost.md` (3/5). BD0 locks uninstrumented Profile
+1. `TODO/broadphase-pair-dedup-cost.md` (4/5). BD0 locks uninstrumented Profile
    cost plus complete five-boundary pair streams across 0/1/4 workers. BD1
    chooses traversal-preserving earliest-shared-bucket membership intersection;
    output-sized hashing and post-sort logs cannot cover legal raw identities.
@@ -3628,6 +3628,17 @@ geometry count. Focused/full tests, byte-exact Physics, format, Automation, fast
 validation, a 6/6 comment audit, and independent ACCEPT pass. The live ledger
 is therefore 3/20 (15%). Evidence is in
 `../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`.
+
+Broadphase Pair Dedup Cost BD3 completed on 2026-08-02. Eligibility-projected
+membership prefixes are byte-identical to every BD0 pair, sleep, and geometry
+stream across all four workloads and 0/1/4 workers. The temporary decision
+cross-check is removed; Debug retains only the deletion-bound BD4 oracle/store.
+The final performance gate passes without baseline refresh. Exact sparse 4,000
+improves Broadphase/CandidatePairs by 28.7%/41.9%, sleeping-heavy 5,000 improves
+them by 14.2%/66.7%, and the phase report records the smaller-scene tradeoff.
+Core/deep Physics, full tests, format, fast validation, a 3/3 comment audit, and
+independent ACCEPT pass. The live ledger is therefore 4/20 (20%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`.
 
 ## Features
 

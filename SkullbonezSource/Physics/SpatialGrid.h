@@ -6,9 +6,11 @@ Purpose:
 Summary:
   Persistent current-position membership and a one-step swept overlay feed one
   fixed hash-bucket topology. Pair collection builds sorted per-body slices of
-  active-bucket ordinals, so the earliest eligible shared bucket owns filtering
-  without retaining one bit for every possible body pair. During BD2/BD3 only,
-  Debug compares each membership decision with the retired dense-bit decision.
+  eligible shared-bucket ordinals, omitting cells that cannot witness a pair, so
+  the earliest eligible shared bucket owns filtering without retaining one bit
+
+  for every possible body pair. A Debug-only legacy
+  same-state oracle remains isolated until BD4 removes it.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -72,10 +74,10 @@ namespace CollisionDetection
 
     Zero-allocation uniform spatial grid for broadphase collision detection. Persistent body membership uses a
     fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
-    occupancy uses a separate per-frame stamped overlay. Sorted per-body active-bucket memberships assign each pair to
-    its earliest eligible shared bucket; fixed radix staging then emits ascending normalized pairs independent of
-    discovery order. Debug temporarily checks those decisions against the old triangular bit array. Unchanged integer
-    ranges touch no cells. SceneLoad reservation establishes retained backing; fixed-step work performs no heap allocation.
+    occupancy uses a separate per-frame stamped overlay. Sorted per-body eligible shared-bucket memberships assign each pair
+    to its earliest eligible shared bucket; fixed radix staging then emits ascending normalized pairs independent of
+    discovery order. The Debug legacy same-state oracle is separate from production filtering. Unchanged integer ranges
+    touch no cells. SceneLoad reservation establishes retained backing; fixed-step work performs no heap allocation.
 
     Layman version:
       Instead of asking every object about every other object, the world is cut
@@ -232,9 +234,6 @@ class SpatialGrid
     Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
                                                                Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
     std::size_t pairMembershipLogicalCapacityForTest = ( std::numeric_limits<std::size_t>::max )();
-    uint64_t pairDedupObservationOrdinal = 0u;
-    uint64_t pairMembershipFirstCount = 0u;
-    uint64_t pairDenseFirstCount = 0u;
 #endif
 
     // Canonical pair staging is scene-reserved storage owned by the grid. Cell
@@ -277,8 +276,7 @@ class SpatialGrid
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity, std::size_t* observedRawRows = nullptr,
                               int expectedBucketIndex = -1 );
     void BuildPairMembershipIndex();
-    void AppendPairMembershipOrdinal( int bodyIndex, int activeIndex );
-    void AppendPairBucketMemberships( const Bucket& bucket, int bucketIndex, int activeIndex, std::size_t& observedRawRows );
+    void AppendUniquePairMembershipOrdinal( int bodyIndex, int activeIndex );
     int CollectPairBucketObjects( const Bucket& bucket, int bucketIndex, int activeIndex, int* outIndices, int capacity,
                                   std::size_t& observedRawRows );
     void RequirePairMembershipRowsObserved( std::size_t observedRows ) const;
@@ -289,9 +287,9 @@ class SpatialGrid
                                             float dt, float contactSkin,
                                             Physics::PhysicsCandidatePairList* sleepPrunedPairs );
 #if defined( _DEBUG )
+    void ObservePairBucketRows( const Bucket& bucket, int bucketIndex, int activeIndex, std::size_t& observedRawRows );
     void ResetDensePairCrossCheck();
     bool MarkDensePairFirstSeen( int a, int b );
-    void RequireDensePairCrossCheckComplete( const char* collectionName ) const;
 #endif
     void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,

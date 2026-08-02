@@ -9,8 +9,8 @@
 //   pairs are emitted once even when two objects share multiple cells. Focused
 //   fixtures also preserve the traversal-first diagnostic order and exact
 //   once-per-identity geometry admission count. Focused alias cases prove the
-//   per-body active-bucket membership index, while Debug checks every decision
-//   against the temporary dense-bit oracle.
+//   per-body eligible shared-bucket membership index; the separate Debug same-state
+//   oracle preserves the transition comparison without taxing production filtering.
 //
 // Glossary:
 //   Cell: Integer grid bucket covering one cube of world space.
@@ -80,24 +80,29 @@ std::vector<std::pair<int, int>> CandidatePairs( SpatialGrid& grid, int reserveC
 
 bool HasPair( const std::vector<std::pair<int, int>>& pairs, int a, int b )
 {
+
     if ( a > b )
     {
         const int tmp = a;
         a = b;
         b = tmp;
     }
+
     for ( const auto& pair : pairs )
     {
+
         if ( pair.first == a && pair.second == b )
         {
             return true;
         }
     }
+
     return false;
 }
 
 SpatialGrid& TestGrid()
 {
+
     // Why: fixed hash topology remains too large for the test thread stack.
     // Reserve the supported ceiling once so behavior tests can choose arbitrary
     // dense body indices without each case restating scene admission.
@@ -116,6 +121,7 @@ SpatialGrid& TestGrid()
 
 PhysicsBodyStore& CeilingBodyStore()
 {
+
     // Why: the production-filtered ceiling proof needs dense rows through
     // index 8,191. Static owner storage keeps that capacity off the test stack.
     static PhysicsBodyStore store;
@@ -132,6 +138,7 @@ PhysicsBodyStore& CeilingBodyStore()
 
 ColliderStore& CeilingColliderStore()
 {
+
     // Why: filtered broadphase consumes the collider row at every candidate
     // index, so this owner must mirror the body's complete dense prefix.
     static ColliderStore store;
@@ -264,6 +271,7 @@ TEST_CASE( "SpatialGrid: scene reserve covers dense ordinary occupancy plus one 
     }
 
     grid->BeginFrame( totalBodyCount );
+
     for ( int bodyIndex = 0; bodyIndex < ordinaryBodyCount; ++bodyIndex )
     {
         const float separatedCellBoundary = static_cast<float>( bodyIndex * 100 );
@@ -532,8 +540,8 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
 #if defined( _DEBUG )
     CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 1u );
     CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 1u );
-    CHECK( grid.GetPairMembershipUniqueCountForTest( 2 ) == 1u );
-    CHECK( grid.GetPairMembershipUniqueCountForTest( 3 ) == 1u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 2 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 3 ) == 0u );
 #endif
 
     // Membership persists into the next frame; changing only the stamp selects
@@ -543,18 +551,24 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
     grid.GetCandidatePairs( pairs, true );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 2, 3 ) );
+#if defined( _DEBUG )
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 2 ) == 1u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 3 ) == 1u );
+#endif
 }
 
 
-TEST_CASE( "SpatialGrid: earliest eligible shared bucket skips an earlier unstamped membership" )
+TEST_CASE( "SpatialGrid: earliest eligible shared bucket projects out an earlier unstamped bucket" )
 {
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     grid.BeginFrame( 2 );
 
     // Both bodies retain the unstamped start cell. Their swept overlay stamps
-    // cells one and two, so the membership intersection must advance past the
-    // earlier ineligible shared ordinal before assigning first-seen ownership.
+    // cells one and two, so the membership index must omit the earlier
+    // ineligible shared ordinal before assigning first-seen ownership.
     grid.InsertSwept( 0, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2.0f, 0.0f, 0.0f ), 0.0f );
     grid.InsertSwept( 1, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2.0f, 0.0f, 0.0f ), 0.0f );
     std::vector<std::pair<int, int>> pairs;
@@ -564,8 +578,8 @@ TEST_CASE( "SpatialGrid: earliest eligible shared bucket skips an earlier unstam
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 #if defined( _DEBUG )
-    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 3u );
-    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 3u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 2u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 2u );
 #endif
 
     auto bodyStore = std::make_unique<PhysicsBodyStore>();
@@ -713,6 +727,7 @@ TEST_CASE( "SpatialGrid: persistent entry and bucket slots reuse across long tra
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     grid.BeginFrame( 1 );
+
     for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS + 256; ++cell )
     {
         grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
@@ -801,7 +816,7 @@ TEST_CASE( "SpatialGrid: exact coordinate hash aliases share one conservative bu
 }
 
 
-TEST_CASE( "SpatialGrid: swept coordinate aliases compact to unique bucket memberships" )
+TEST_CASE( "SpatialGrid: swept coordinate aliases retain only pair-bearing bucket memberships" )
 {
     auto grid = std::make_unique<SpatialGrid>( 1.0f );
 
@@ -823,7 +838,7 @@ TEST_CASE( "SpatialGrid: swept coordinate aliases compact to unique bucket membe
     CHECK( grid->GetActiveCellCount() == 7 );
     CHECK( grid->GetPairMembershipOrdinalHighWater() == 10u );
 #if defined( _DEBUG )
-    CHECK( grid->GetPairMembershipUniqueCountForTest( 0 ) == 7u );
+    CHECK( grid->GetPairMembershipUniqueCountForTest( 0 ) == 1u );
     CHECK( grid->GetPairMembershipUniqueCountForTest( 1 ) == 1u );
 #endif
 }
@@ -833,6 +848,7 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
 {
     SpatialGrid& grid = TestGrid();
     constexpr int kBodyCount = 4;
+
     for ( int body = 0; body < kBodyCount; ++body )
     {
         grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
@@ -843,8 +859,10 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
     // Hazard: a single crowded cell is the documented O(n^2) broadphase
     // case. The contract is complete, deduplicated output—not hidden pruning.
     CHECK( pairs.size() == 6u );
+
     for ( int a = 0; a < kBodyCount; ++a )
     {
+
         for ( int b = a + 1; b < kBodyCount; ++b )
         {
             CHECK( HasPair( pairs, a, b ) );
@@ -857,6 +875,7 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
 {
     SpatialGrid& grid = TestGrid();
     constexpr int insertionOrder[] = { 3, 1, 4, 0, 2 };
+
     for ( int body : insertionOrder )
     {
         grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
@@ -885,6 +904,7 @@ TEST_CASE( "SpatialGrid: filtered first-seen order and geometry call count stay 
         "TestSpatialGrid.firstSeenCandidates",
         SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
     };
+
     SkullbonezCore::Physics::PhysicsCandidatePairList sleepPrunedPairs {
         "TestSpatialGrid.firstSeenSleepPruned",
         SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
@@ -905,6 +925,7 @@ TEST_CASE( "SpatialGrid: filtered first-seen order and geometry call count stay 
         Vector3( 0.25f, 100.25f, 0.25f ),
         Vector3( 0.49f, 100.49f, 0.49f ),
     };
+
     const CollisionShape sphere( BoundingSphere( 0.25f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
 
     for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
@@ -1015,6 +1036,7 @@ TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     constexpr int kPersistentCells = SpatialGrid::MAX_BUCKETS / 2;
+
     for ( int cell = 0; cell < kPersistentCells; ++cell )
     {
         grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
@@ -1046,6 +1068,7 @@ TEST_CASE( "Property invariant: identical sphere insert/query round-trips includ
 
     // Invariant: two identical sphere bounds always share at least one cell,
     // including the degenerate zero-radius case on a cell boundary.
+
     for ( int sample = 0; sample < 64; ++sample )
     {
         grid.Clear();
