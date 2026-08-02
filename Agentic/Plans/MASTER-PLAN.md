@@ -1403,15 +1403,13 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is blocked at 4/7.** ES4
+**Contact Energy And Warm-Start Integrity (2026-08-01) is active at 5/7.** ES4
 proved the formerly flipping loaded face patch can retain canonical identity and
-warm starts while the required 32/64 towers still collapse catastrophically.
-Further identity/cache tuning lacks an attributed discontinuity and is rejected;
-the adjacent swept-AABB experiment is not contact-energy closure. The exact
-unblock condition is owner authorization for a bounded stack load-propagation/
-convergence phase beyond ES4, or an explicit revision of the binding 32/64
-target. ES5 and ES6 are blocked dependents, tracked baselines remain untouched,
-and no independent live plan remains.
+warm starts while 32/64 towers still collapse. The owner explicitly deferred
+stacking and its Bullet/Box2D experiments to rule-9 WNF work, so ES4 closes as a
+measured no-change decision without claiming the towers are fixed. ES5 now owns
+the four-brick and 200-box determinism, energy, retention, and waited visible-
+behavior evidence. Tracked baselines remain untouched.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3245,7 +3243,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Blocked | 4/7 | Owner ruling on the documented hard-budget, island-local depth/residual experiment; do not resume scalar 12-sweep tuning |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 5/7 | Run ES5 non-stacking determinism, energy, body-retention, and visible-behavior proof |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3446,6 +3444,17 @@ keeps 12 sweeps globally and extends only an anchored deep contact island with a
 material island-local residual. The ledger remains 11/14 (78%); no production
 source or baseline changed. Evidence is in
 `../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
+
+Binding owner disposition on 2026-08-02 supersedes the tower-acceptance direction
+above for this plan only. Stacking is left alone for now and its Bullet/Box2D
+technique experiments are preserved in owner-parked
+`WNF/contact-stack-stability-techniques.md`, which is excluded from the live
+queue under inventory rule 9. ES4 closes as the planned measured no-change
+decision: the identity experiment was removed, no new discontinuity supports
+more cache work, and ES3 remains the only production behavior change. The live
+ledger advances to 12/14 (86%). ES5 resumes with the four-brick and 200-box
+determinism, energy, retention, and visible-behavior evidence; it must not claim
+that 32/64/128 stacking was fixed.
 
 ## Features
 

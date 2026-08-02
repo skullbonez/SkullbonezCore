@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-02
-Status: BLOCKED — 4/7 phases complete; feasibility investigation complete, implementation owner-held
+Status: ACTIVE — 5/7 phases complete; stacking deferred to owner-parked follow-up
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -46,10 +46,11 @@ Authoritative evidence:
 ## Goal
 
 Correct object-contact persistence and restitution so contact solving cannot
-create unexplained translational or rotational energy, stable stacks retain
-their prior-frame support solution, deliberate topples dissipate rather than
-relaunch, and the result proves itself on isolated collisions, the four-brick
-reproduction, a new giant tower, and the existing 200-box topple workload.
+create unexplained translational or rotational energy, deliberate topples
+dissipate rather than relaunch, and the result proves itself on isolated
+collisions, the four-brick reproduction, and the existing 200-box topple
+workload. Deep serial stack convergence is now owned by the parked follow-up
+plan rather than this plan's acceptance.
 
 ## Tower-Height Ruling
 
@@ -67,12 +68,13 @@ The pre-implementation forecast is deliberately separated from acceptance:
 | Corrected solver, giant-scene target | A centered 64-level slab tower settles under the unchanged production gravity, friction, restitution, timestep, and 12-iteration cap. |
 | Stretch measurement | 128 levels are measured and reported, but are not a closure requirement unless ES0 evidence justifies promoting them before implementation. |
 
-ES0 replaces the forecasts with current executable measurements. No later phase
-may lower the 32/64 targets or widen its energy tolerance merely to admit the
-implementation. A physically induced topple is not itself a failure, but the
-required centered 32- and 64-level fixtures are authored with a wide, stable
-footprint and no disturbance so remaining upright and reaching sleep are valid
-expectations rather than an assertion about an inherently unstable needle.
+ES0 replaced the forecasts with current executable measurements. On 2026-08-02
+the owner explicitly deferred stacking so the non-stacking energy work can
+continue. The 32/64/128 fixtures, checker, and reports remain diagnostic assets,
+but they are no longer acceptance gates for this plan and their failure must not
+be described as fixed. Future stack work is parked in
+`../WNF/contact-stack-stability-techniques.md` and may resume only by explicit
+owner decision.
 
 ## Non-Goals
 
@@ -94,6 +96,9 @@ expectations rather than an assertion about an inherently unstable needle.
   external-work ledger.
 - Do not replace the solver with TGS, a block solver, shock propagation, soft
   constraints, or a general constraint-graph rewrite.
+- Do not perform stack-specific solver work in this plan. Bullet split impulse,
+  Box2D patch/position solving, Soft Step, and island-local adaptive iterations
+  belong to the owner-parked stacking follow-up.
 - Do not replace a tracked physics, SkullScope, Replay, or visual golden without
   the owner's explicit approval of the exact final transition. Generating,
   inspecting, hashing, and retaining candidate artifacts outside their tracked
@@ -113,7 +118,7 @@ kinetic energy as universally monotonic:
    bounded separation work. Diagnostics must report that explicit budget
    separately from restitution, friction, cached impulse reuse, and synthetic
    terrain support; unexplained positive work is a failure.
-3. **Gravity scene.** The four-brick, giant-tower, and 200-box workloads use
+3. **Gravity scene.** The four-brick and 200-box workloads use
    total mechanical energy—kinetic plus gravitational potential—and explicit
    authored/external work. Contact response may dissipate energy or exchange
    kinetic and potential energy, but may not create an unattributed positive
@@ -205,7 +210,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   Evidence is in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
 
-- [ ] **ES4 — Repair only residual warm-start identity or validity defects.** If
+- [x] **ES4 — Close residual warm-start identity or validity work.** If
   ES3 leaves material cache churn or energy gain, attribute the exact rows and
   decide whether the defect is feature identity, cache admission, or cached
   impulse compatibility with changed normals/contact arms. Prefer a local
@@ -214,7 +219,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   to raise hit rate. If ES3 already satisfies the evidence, close ES4 as a
   measured no-change decision rather than manufacturing work.
 
-  Blocked on 2026-08-02. The Physics contact-solver owner remains responsible,
+  Initially blocked on 2026-08-02. The Physics contact-solver owner remains responsible,
   but the authorized identity/validity surface is exhausted. Canonical body-
   owned box-face/corner identity plus a cache-stable two-row anchor makes the
   8-level tower sleep with zero tail churn; the same canonical IDs remain stable
@@ -253,20 +258,23 @@ changes. An expected-output golden is not a substitute for these invariants.
   findings, reduced-chain feasibility evidence, source comparison, design
   boundary, and stop condition are preserved in
   `../../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
-  The verified count and baseline authority remain unchanged. The next action is
-  an owner implementation ruling on that narrow diagnostic/experiment, not
-  autonomous solver tuning.
+  Owner disposition on 2026-08-02: stacking is deferred to
+  `../WNF/contact-stack-stability-techniques.md`; the current plan continues
+  without a 32/64/128 acceptance requirement. ES4 therefore closes as a measured
+  no-change decision. The production identity experiment was removed, no new
+  discontinuity justifies more cache work, and the ES3 restitution correction
+  remains the only behavior change. The verified count advances to 5/7 without
+  source or baseline movement.
 
-- [ ] **ES5 — Prove scale, determinism, and visible behavior.** Run the final
-  4/8/16/32/64/128 tower matrix twice and across the repository's supported
-  worker-count witnesses. The 32- and 64-level towers must remain supported,
-  enter sleep, avoid upward-launch cycles, and satisfy the locked mechanical-
-  energy envelope without changing solver iterations or settings. Report 128
-  honestly whether it passes or fails. Run the 200-box topple to completion and
-  prove it dissipates without popcorn launches, body loss, non-finite state, or
-  unexplained energy. Capture waited visible DX12 evidence of the 64-level tower
-  and 200-box topple for the final decision packet; no owner interaction is
-  required to finish this phase.
+- [ ] **ES5 — Prove non-stacking determinism and visible behavior.** Repeat the
+  four-brick reproduction and 200-box topple across the repository's supported
+  worker-count witnesses. Prove the four bricks retain zero sustained launch
+  reversals and reach sleep. Run the 200-box topple to completion and prove it
+  dissipates without popcorn launches, body loss, non-finite state, or
+  unexplained energy; do not require a particular chaotic final pose. Capture
+  waited visible DX12 evidence of the four-brick settled state and 200-box topple
+  for the final decision packet. Tower fixtures may be reported only as explicit
+  deferred diagnostics and cannot pass or fail ES5.
 
 - [ ] **ES6 — Finish engineering and prepare the owner baseline decision.** Run
   focused tests, the new semantic gate, `validate_tests`, `validate_fast`,
@@ -288,9 +296,8 @@ changes. An expected-output golden is not a substitute for these invariants.
 
 ## Terminal Owner Checkpoint
 
-The ES4 blocker above supersedes the no-pause expectation in this section until
-the owner supplies its exact unblock authority. This section remains binding
-after implementation resumes.
+The 2026-08-02 owner disposition closes ES4 as a measured no-change phase,
+parks stacking separately, and restores the no-pause expectation for ES5/ES6.
 
 The implementation agent is expected to work through ES0-ES6 without waiting
 for a baseline decision. When it contacts the owner, the correction is already
@@ -300,8 +307,8 @@ baseline-sensitive failure is reduced to the enumerated old-versus-candidate
 artifact transition.
 
 The decision packet must contain the exact changed-artifact list, old and
-candidate hashes, complete semantic/line-difference summaries, four-brick,
-32/64/128-tower and 200-box energy evidence, deterministic repeats,
+candidate hashes, complete semantic/line-difference summaries, four-brick and
+200-box energy evidence, deterministic repeats,
 performance results, waited visible captures, and the independent review. The
 single question is whether those exact staged candidates may replace the
 tracked baselines.
@@ -335,10 +342,9 @@ still waits for the owner's decision and the corresponding short follow-through.
   plan. Diagnostic vocabulary may distinguish `cachedWarmStart` from
   `terrainSupportSeed`, but any such change must preserve simulation bytes.
 - No phase carries standing bounded-divergence or baseline-refresh authority.
-  Before the ES4 blocker, ES0-ES6 were expected to run to engineering completion
-  without owner interaction. Resumption now requires only the exact ES4 unblock
-  ruling; baseline authority remains reserved for the staged oracle transition
-  at the terminal checkpoint.
+  The owner has supplied the exact ES4 disposition: stack work is parked and
+  ES5/ES6 resume. Baseline authority remains reserved for the staged oracle
+  transition at the terminal checkpoint.
 
 ## Acceptance
 
@@ -346,9 +352,8 @@ Engineering is complete before the terminal owner checkpoint when isolated
 contact solves prove momentum conservation
 and bounded kinetic energy, biased solves account for their permitted work, the
 four-brick fixture has no sustained velocity reversals and reaches sleep, the
-32- and 64-level towers settle without unexplained energy or upward launch, the
-200-box topple dissipates without popcorn behavior, 128-level behavior is
-reported honestly, all baseline-independent gates pass, and the only remaining
+200-box topple dissipates without popcorn behavior or body loss, all baseline-
+independent gates pass, and the only remaining
 baseline-sensitive differences are the exact reviewed candidate transition.
 The plan closes after the owner rules on that transition and the matching short
 follow-through completes. Passing by retuning the scene, solver cap, material
@@ -357,9 +362,9 @@ values, sleep policy, or baseline is forbidden.
 ## Validation
 
 - Focused collision-energy, restitution, friction, warm-start, and inertia tests
-- New tower/contact-energy semantic checker with planted negative controls
+- Contact-energy semantic checker with planted negative controls; tower lanes
+  remain deferred diagnostics rather than acceptance
 - Exact four-brick BV0 SkullScope query
-- 4/8/16/32/64/128 tower sweep, two repeats and supported worker counts
 - Existing 200-box topple with mechanical-energy and launch queries
 - `tools\validate_tests.bat`
 - `tools\validate_fast.bat`
