@@ -1412,8 +1412,39 @@ energy, avoids repeated popcorn cycles, and sleeps under the unchanged 12-
 iteration cap. The owner-authorized fixed catcher retains only the post-demo
 striker beyond the impact area. Stacking remains parked for later Bullet/Box2D
 experimentation. The approved Physics, SkullScope, Replay visual, and Replay
-causal goldens are committed closure evidence. The active/future ledger is now
-empty under rule 4 (0%).
+causal goldens are committed closure evidence. The completed plan left the
+active/future ledger under rule 4.
+
+**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
+work at 0/26 (0%).** Five plans registered from a current-tree source and test
+review, to run in this order:
+
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (0/6). The contact solver has
+   20 cases with an energy oracle and negative controls; the 2,133-line manifold
+   that feeds it has 5, and the only hull-pair coverage asserts non-emptiness.
+   Feature-ID lifetime, which warm starting depends on, is unpinned. The sleep
+   controller has no test file of its own. Pure test addition, no behavior change.
+2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
+   an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
+   4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
+   emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
+   and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
+   contract and a naive sort-and-unique is rejected at BD1.
+3. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
+   a hand-written ordinary frame-pass barrier is a defect; that invariant is
+   review-only today. `Compile()` is pure CPU and returns the full derived
+   transition set, so this is device-free coverage inside `validate_tests`.
+4. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+   same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
+   files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
+   is undocumented. The governance review dialect has correctly not leaked into
+   source and must not be imported by this plan.
+5. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+   across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
+   constants. Touches physics hot paths, so byte-exactness is the closing proof.
+
+Stacking remains parked for later Bullet/Box2D experimentation and is not part
+of this campaign.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3494,6 +3525,19 @@ visual ticks, all 200 causal nodes, and every offline false-pass control. The
 completed plan leaves the active/future ledger under rule 4; closure evidence
 is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md`.
+
+The denominator grew 0 → 26 on 2026-08-02 when the owner registered the
+five-plan Fresh-Read Coverage And Convention Campaign from a current-tree
+source and test review: narrowphase manifold and sleep coverage (6 tasks),
+broadphase pair dedup cost (5), render graph transition coverage (5), comment
+vocabulary and banner convention audit (5), and source modernization sweep (5).
+Three of the five are pure test or documentation additions and carry no
+behavioral risk. The broadphase plan carries an explicit owner ruling that it is
+behavior-preserving only: it must produce a byte-identical candidate pair list
+and sleep-pruned diagnostic list, and it holds no divergence or baseline-refresh
+authority. The modernization plan records that the measured legacy residue is
+already small and that a smaller closing scope is a valid outcome rather than a
+cue to find additional work.
 
 ## Features
 
