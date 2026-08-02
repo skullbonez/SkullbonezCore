@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-02
-Status: ACTIVE — 5/7 phases complete; stacking deferred to owner-parked follow-up
+Status: ACTIVE — 6/7 phases complete; ES6 validation and owner baseline decision remain
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -198,15 +198,14 @@ changes. An expected-output golden is not a substitute for these invariants.
   correction, or iteration change in this phase. ES1, the four-brick metric,
   the tower sweep, and the 200-box energy query must all improve or remain
   bounded before ES3 can close.
-  Complete: object restitution now follows the loaded object-pair lifecycle
-  while exact feature identity remains the warm-start compatibility key. A
-  no-contact solve resets the lifecycle, and elastic mutual-gravity contacts
-  retain their explicit response. Four bricks lose every meaningful vertical
-  flip, leave the iteration cap, and sleep permanently at frame 294; terrain is
-  byte-exact. The tower advances before the unchanged candidate ceiling and the
-  wall reduces launch severity, while their exact residual cache/energy defects
-  remain attributed to ES4. Focused coverage passes 6 cases / 101 assertions,
-  complete tests and fast validation pass, and the comment audit is 2/2.
+  Complete: object restitution now follows the loaded exact-contact-feature
+  lifecycle, which is also the warm-start compatibility key. A no-contact solve
+  resets the lifecycle, and elastic mutual-gravity contacts retain their
+  explicit response. Four bricks lose every meaningful vertical flip, leave the
+  iteration cap, and sleep permanently. A later broad body-pair probe was
+  rejected because repeatable performance evidence showed it retained excess
+  rows; the exact-feature lookup restores the pre-change hot-path cost while
+  preserving the correction. Terrain remains byte-exact.
   Evidence is in
   `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`.
 
@@ -266,7 +265,7 @@ changes. An expected-output golden is not a substitute for these invariants.
   remains the only behavior change. The verified count advances to 5/7 without
   source or baseline movement.
 
-- [ ] **ES5 — Prove non-stacking determinism and visible behavior.** Repeat the
+- [x] **ES5 — Prove non-stacking determinism and visible behavior.** Repeat the
   four-brick reproduction and 200-box topple across the repository's supported
   worker-count witnesses. Prove the four bricks retain zero sustained launch
   reversals and reach sleep. Run the 200-box topple to completion and prove it
@@ -275,6 +274,17 @@ changes. An expected-output golden is not a substitute for these invariants.
   waited visible DX12 evidence of the four-brick settled state and 200-box topple
   for the final decision packet. Tower fixtures may be reported only as explicit
   deferred diagnostics and cannot pass or fail ES5.
+
+  Complete: four bricks have zero post-frame-300 reversals and sleep 4/4 by
+  frame 132. The 200-box workload remains within 12 iterations, retains all 211
+  dynamic bodies, records zero invalid samples and zero repeated full-height
+  popcorn cycles, and sleeps 211/211 by frame 3286. The owner explicitly
+  authorized one fixed catcher beyond the impact area so the post-demo striker
+  cannot leave the terrain; it changes no dynamic count or primary impact.
+  Final CSVs match the automatic/worker-zero witnesses byte for byte, waited
+  DX12 captures were inspected, and the semantic SQL now plants masked-energy,
+  transient-invalid-state, and repeated-early-relaunch controls. Evidence is in
+  `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`.
 
 - [ ] **ES6 — Finish engineering and prepare the owner baseline decision.** Run
   focused tests, the new semantic gate, `validate_tests`, `validate_fast`,
@@ -356,8 +366,10 @@ four-brick fixture has no sustained velocity reversals and reaches sleep, the
 independent gates pass, and the only remaining
 baseline-sensitive differences are the exact reviewed candidate transition.
 The plan closes after the owner rules on that transition and the matching short
-follow-through completes. Passing by retuning the scene, solver cap, material
-values, sleep policy, or baseline is forbidden.
+follow-through completes. Passing by retuning the solver cap, impact geometry,
+material values, sleep policy, or baseline is forbidden. The owner-authorized
+fixed far-edge catcher is the sole scene-boundary exception: it retains the
+post-demo striker and may not affect the primary topple or dynamic-body count.
 
 ## Validation
 

@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-1st-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `e19cdb63` was fast-forwarded into the Night Runner branch before implementation. |
-| Current objective | Contact Energy And Warm-Start Integrity is active at ES5. The owner deferred stacking to `Agentic/Plans/WNF/contact-stack-stability-techniques.md`; the current plan must finish four-brick and 200-box determinism, energy, retention, visible evidence, and closure validation without claiming tower stability. Look Lab Random Style Authoring is complete. |
-| Active/future progress | 12/14 (86%). Look Lab is 7/7; Contact Energy is 5/7. The parked stacking plan is excluded under inventory rule 9. |
+| Current objective | Contact Energy And Warm-Start Integrity is active at ES6. ES5 proves the four-brick and 200-box outcomes under the unchanged 12-iteration cap; stacking remains deferred to `Agentic/Plans/WNF/contact-stack-stability-techniques.md`. Finish exhaustive gates and the exact owner baseline-decision packet without claiming tower stability. Look Lab Random Style Authoring is complete. |
+| Active/future progress | 13/14 (93%). Look Lab is 7/7; Contact Energy is 6/7. The parked stacking plan is excluded under inventory rule 9. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -22,12 +22,13 @@ plan inventory.
 | Look Lab LL4 | Complete. Exact keyboard-unblocked F10/F11 press actions preserve F5/F6, apply one new candidate, and submit one save transaction. Runtime Direction writes the exact style plus pending receipt, Capture executes one bounded typed PNG request after world/UI drawing and before Present, and token-matched completion/cancellation atomically publishes final or partial status. Debug/Profile focused Look Lab, PNG, and binding tests pass; fast passes in 397.5 seconds, full in 582.0 seconds, all seven inventories are current, reachability is 79/79 with zero blockers, and the touched-source comment audit is 19/19. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md`. |
 | Look Lab LL5 | Complete. The 65,536-seed census is fully valid and unique with exact Debug/Profile stream hash `3d8c96ba5b80788d`; all recipe/mode/feature distributions and palette envelopes are reported. Distinct producer/consumer processes preserve the complete standalone style SHA-256 without generator/catalog/default input, all 23 curated styles parse, and event-driven detached status publication removes Look Lab owner polling from idle frames. Four matching-condition input means remain below LL0, two guarded runs exit cleanly, fast passes in 384.9 seconds, full in 605.3 seconds, all seven inventories are current, and the touched-source comment audit is 12/12. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md`. |
 | Look Lab LL6 | Complete. Three waited scheduled F10 actions produced distinct DX12 captures; one exact F11 bundle reloaded in a fresh Automation process to a byte-identical image. The corrected 84-atom schema preserves all four shadow-participation values and complete material rules. Debug/Profile focused suites, all seven inventories, 14/14 comment audit, allocation policy, every required gate, and independent review are clean; no baseline changed. Evidence: `Agentic/Reports/2026-08-02/look-lab-random-style-authoring-closure.md`. |
-| Contact energy plan registration | The owner requires collision-energy self-validation, a giant stacked tower in addition to the existing 200-box topple, and no repeat of the rejected popcorn transition. The plan retains the working terrain seed, targets 32 required and 64 giant-scene levels under unchanged settings, measures 128 as a stretch, and grants no baseline-refresh authority. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
+| Contact energy plan registration | The owner requires collision-energy self-validation and no repeat of the rejected popcorn transition. The earlier 32/64/128 tower targets are superseded for this plan by the owner-parked stacking follow-up; no stack failure can pass or fail ES5/ES6. The implementation agent must finish ES0-ES6, stage and inspect exact candidate artifacts outside tracked destinations, and present complete evidence before asking the sole terminal question of whether those candidates may replace the tracked baselines. An expected old-oracle mismatch is not an engineering blocker. Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`. |
 | Contact energy ES0 | Complete. The exact four-brick defect reproduces; 4/8-level towers complete awake, 16/32/64 hit deterministic candidate-list fatals, and 128 exhausts its spatial-entry reservation before frame zero. Two byte-identical 6,800-frame 200-box runs leave one striker below terrain and exceed the locked scene-energy envelope. Precision, launch, penetration, cache, support, sleep, body-retention, determinism, and negative-control acceptance rules are fixed without production edits or baseline movement. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md`. |
 | Contact energy ES1 | Complete. Physics owns allocation-free complete-solve energy and world-momentum measurement using production mass and inertia-frame contracts. Five focused cases / 87 assertions pass in Debug and Profile across the required restitution, friction, box, anisotropic, cache, bias-work, and planted-failure matrix. The complete fast gate and 3/3 touched-source comment audit pass without production solver or baseline movement. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es1.md`. |
 | Contact energy ES2 | Complete. The exact 64-level tower is tracked and runtime-admitted. One bounded semantic checker owns the tower, four-brick, and 200-box energy, launch, penetration, cache, support, sleep, body-retention, and completeness gates, with exact current-failure witnesses and planted controls. Candidate and spatial capacities remain unchanged because the current fatal follows solver destabilization. Deep and fast validation plus the 2/2 source comment audit pass. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`. |
-| Contact energy ES3 | Complete. Object restitution follows loaded object-pair lifetime while exact feature identity remains the warm-start key; no-contact reset and elastic mutual-gravity behavior are pinned. Four bricks fall from 566 meaningful vertical reversals to zero, leave the iteration cap, and sleep permanently at frame 294; terrain is byte-exact. Tower-64 advances to frame 41 before the unchanged candidate ceiling, and the 6,800-frame wall run reduces post-settle upward launch speed while retaining attributed ES4 residuals. Focused coverage passes 6 cases / 101 assertions; complete tests, fast validation, and the 2/2 comment audit pass. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`. |
+| Contact energy ES3 | Complete. Object restitution follows loaded exact-contact-feature lifetime, which also owns warm-start compatibility; no-contact reset and elastic mutual-gravity behavior are pinned. Four bricks fall from 566 meaningful vertical reversals to zero and sleep; terrain is byte-exact. A later broad pair-prefix probe was rejected on measured performance grounds, leaving the exact-feature correction authoritative. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es3.md`. |
 | Contact energy ES4 | Complete as a measured no-change decision; verified count 5/7. The owner deferred stacking to `Agentic/Plans/WNF/contact-stack-stability-techniques.md`, which preserves island-local adaptive work, Bullet split impulse, Box2D 2.4 patch/position solving, and current Box2D substep/relaxation experiments for explicit later reactivation. The removed identity experiment stays removed, no new discontinuity justifies more cache work, ES3 remains the only production behavior change, and no baseline moved. Evidence: `Agentic/Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`. |
+| Contact energy ES5 | Complete; verified count 6/7. Four bricks record zero post-300 reversals and sleep 4/4 by frame 132. The 200-box workload retains all 211 dynamic bodies, records zero invalid samples and repeated full-height popcorn cycles, and sleeps by frame 3286 under at most 12 iterations. The owner-authorized fixed far-edge catcher retains only the post-demo striker. Automatic/worker-zero CSVs are byte-identical, waited DX12 evidence is inspected, and the semantic SQL plants masked-energy, transient-invalid, and repeated-early-relaunch failures. Evidence: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`. |
 | Build configuration parity closure | BP0-BP5 are complete. The five-project census reports 1,640 compile rows, zero dropped inheritance, 122 exact intentional-difference fingerprints, and zero diagnostics. The four shared JSON TUs have no unvalidated external accessor; tests now compile them with production `JSON_NOEXCEPTION` semantics. All seven third-party overrides inherit the FP contract. Fast, direct checker, CPU, and full gates pass byte-exact physics; comment audit is 2/2 and independent review is clear. Evidence: `Agentic/Reports/2026-07-30/build-configuration-parity-closure.md`. |
 | Maths surface reachability closure | MR0-MR3 are complete. `GeometricMath` retains only its two production-reachable operations; eight dead definitions are removed and the triangle-normal helper is internal. The corrected compiler/source inventory reports 407/407 exact repair rulings (299 no-reference, 60 test-only, 41 own-TU-only, 7 both), zero diagnostics, and a registered four-phase remediation owner. Fast, direct reachability, coverage, and full gates pass with 465 cases / 2,423,881 assertions and byte-exact Physics; comment audit is 7/7 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md`. |
 | Inverse-trig domain guards closure | TD0-TD3 are complete. One shared `ClampUnit` policy now guards every reachable inverse-trig domain that is not proven by construction; Camera uses an explicit zero-up fallback, and Matrix/Editor handle antiparallel normals without NaNs. The current reachability inventory is 407/407 exact rows (298 no-reference, 61 test-only, 41 own-TU-only, 7 both) with zero diagnostics. Focused finite-output regressions, 469 cases / 2,423,935 assertions, coverage, full validation, and 44,401-line byte-exact Physics pass; comment audit is 12/12 and final review is clear. Evidence: `Agentic/Reports/2026-07-30/inverse-trig-domain-guards-closure.md`. |
@@ -136,24 +137,27 @@ standalone style, human-readable receipt, and matching screenshot without
 touching the active scene. Existing F5/F6 profiler bindings and all default
 baselines remain exact.
 
-Contact Energy And Warm-Start Integrity is active at 5/7. ES0 locked the exact
+Contact Energy And Warm-Start Integrity is active at 6/7. ES0 locked the exact
 four-brick, 200-box, and 4/8/16/32/64/128-level current-state evidence plus the
 precision, energy, launch, penetration, cache, support, sleep, body-retention,
 determinism, and negative-control envelope. ES1 installed the complete-solve
 energy, momentum, and explicit bias-work oracles with sensitive planted
 failures. ES2 committed the giant tower and semantic gates while recording the
 unchanged current solver's expected failures before any solver edit. ES3 made
-fresh-impact restitution follow loaded object-pair lifetime and left exact
-feature compatibility plus changed-geometry validity as the attributed ES4
-work. The
+fresh-impact restitution follow loaded exact-contact-feature lifetime, which
+also owns warm-start compatibility, and left changed-geometry validity as the
+attributed ES4 work. The
 plan retains the working terrain support seed and grants no baseline-refresh
 authority.
 ES4 exhausted the authorized identity/validity surface: the fixed face-patch
 identity stays stable during the required 32/64 collapse. The owner then
 deferred stacking to the rule-9 WNF plan that preserves Bullet/Box2D technique
 experiments for later explicit reactivation. ES4 closes as a measured no-change
-decision, and ES5 now owns the four-brick and 200-box determinism, energy,
-retention, and visible-behavior proof. No tracked baseline moved.
+decision. ES5 proves the four bricks settle and the wall retains every body,
+stays finite, rejects repeated popcorn cycles, and sleeps completely. The owner-
+authorized far-edge catcher retains only the post-demo striker. ES6 now owns
+exhaustive validation and the exact owner baseline-decision packet. No tracked
+baseline moved.
 
 The Gate Blind Spot Campaign completed 21/21 phases and left the ledger under
 rule 4. Its five completed TODO plans were deleted; permanent evidence ends at
@@ -871,16 +875,15 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Contact Energy ES5 is active at 5/7. Do not resume stack-specific identity/cache,
+Contact Energy ES6 is active at 6/7. Do not resume stack-specific identity/cache,
 SAT, row-retention, seed, friction, global-order, split-impulse, block-solver,
 substep, or island-local iteration work; those experiments are owner-parked in
-`Agentic/Plans/WNF/contact-stack-stability-techniques.md`. Run the four-brick and
-200-box workloads across required deterministic witnesses, prove energy/body
-retention and absence of popcorn behavior, and capture waited visible evidence.
-Then complete ES6's baseline-independent gates, candidate comparison, comment
-audit, inventories, and independent closure review. Look Lab LL0-LL6 and Contact
-Energy ES0-ES4 are locked in their dated evidence. Tracked baselines remain
-untouched pending the terminal decision.
+`Agentic/Plans/WNF/contact-stack-stability-techniques.md`. ES5's four-brick,
+200-box, deterministic, energy, retention, and waited-visible evidence is locked
+in its dated report. Complete ES6's baseline-independent gates, exact candidate
+comparison, comment audit, inventories, and independent closure review. Look Lab
+LL0-LL6 and Contact Energy ES0-ES5 are locked in their dated evidence. Tracked
+baselines remain untouched pending the terminal decision.
 
 The Claim Integrity Campaign is complete and excluded under rule 4. The Gate
 Blind Spot Campaign completed **21/21** and left the active/future ledger under

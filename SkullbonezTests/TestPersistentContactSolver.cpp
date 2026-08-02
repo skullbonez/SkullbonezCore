@@ -47,6 +47,7 @@
 //   - SkullbonezSource/Physics/ContactEnergyOracle.h
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
 //   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
+//   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
 //   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
@@ -906,7 +907,7 @@ TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching 
     CHECK( second.solver.GetStats().solverIterations <= first.solver.GetStats().solverIterations );
 }
 
-TEST_CASE( "Persistent contact solver: restitution follows loaded object-pair lifetime" )
+TEST_CASE( "Persistent contact solver: restitution follows loaded contact-feature lifetime" )
 {
     auto buildImpact = []( SolverFixture& fixture )
     {
@@ -924,31 +925,45 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded object-pair li
 
     REQUIRE( fresh.solver.GetPersistentContactCache().size() == 1u );
     REQUIRE( fresh.solver.GetPersistentContacts().size() == 1u );
+    CHECK( fresh.solver.GetPersistentContacts()[0].separationBias == 0.0f );
     CHECK( fresh.bodyStore.HotFields().linearVelocityY[1] > 0.0f );
     const float freshSeparatingSpeed = fresh.bodyStore.HotFields().linearVelocityY[1];
+
+    SolverFixture persistent;
+    buildImpact( persistent );
+    persistent.CopySolverStateFrom( fresh );
+    persistent.Solve();
+
+    // Invariant: an exact cached feature proves both compatible warm-start
+    // geometry and continuous load. It suppresses renewed restitution while
+    // still allowing Baumgarte bias to repair the deliberate overlap.
+    REQUIRE( persistent.solver.GetStats().cacheHits == 1 );
+    REQUIRE( persistent.solver.GetStats().cacheMisses == 0 );
+    REQUIRE( persistent.solver.GetPersistentContacts().size() == 1u );
+    const auto& persistentContact = persistent.solver.GetPersistentContacts()[0];
+    const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta * persistentContact.penetration / kSolverDt;
+    CHECK( persistentContact.bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistentContact.separationBias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
+           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
+    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
 
     PhysicsSolverSnapshot changedFeatureSnapshot;
     fresh.solver.CaptureReplayState( changedFeatureSnapshot );
     REQUIRE( changedFeatureSnapshot.persistentContactCache.size() == 1u );
     changedFeatureSnapshot.persistentContactCache[0].key ^= 0x5a5a5a5a;
 
-    SolverFixture persistent;
-    buildImpact( persistent );
-    persistent.solver.RestoreReplayState( changedFeatureSnapshot );
-    persistent.Solve();
+    SolverFixture changedFeature;
+    buildImpact( changedFeature );
+    changedFeature.solver.RestoreReplayState( changedFeatureSnapshot );
+    changedFeature.Solve();
 
-    // Invariant: an exact feature miss may not make a continuously loaded body
-    // pair look like a fresh collision. The pair prefix suppresses restitution,
-    // while the changed feature correctly prevents stale impulse reuse.
-    REQUIRE( persistent.solver.GetStats().cacheHits == 0 );
-    REQUIRE( persistent.solver.GetStats().cacheMisses == 1 );
-    REQUIRE( persistent.solver.GetPersistentContacts().size() == 1u );
-    const auto& persistentContact = persistent.solver.GetPersistentContacts()[0];
-    const float expectedBaumgarteBias = persistent.config.solver.baumgarteBeta * persistentContact.penetration / kSolverDt;
-    CHECK( persistentContact.bias == doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] ==
-           doctest::Approx( expectedBaumgarteBias ).epsilon( 0.0001 ) );
-    CHECK( persistent.bodyStore.HotFields().linearVelocityY[1] < freshSeparatingSpeed );
+    // A feature miss is fresh geometry: the solver neither reuses the stale
+    // impulse nor lets another row under the body-pair prefix suppress impact.
+    CHECK( changedFeature.solver.GetStats().cacheHits == 0 );
+    CHECK( changedFeature.solver.GetStats().cacheMisses == 1 );
+    CHECK( changedFeature.bodyStore.HotFields().linearVelocityY[1] ==
+           doctest::Approx( freshSeparatingSpeed ).epsilon( 0.0001 ) );
 
     SolverFixture gap;
     buildImpact( gap );
@@ -962,8 +977,9 @@ TEST_CASE( "Persistent contact solver: restitution follows loaded object-pair li
     reimpact.CopySolverStateFrom( gap );
     reimpact.Solve();
 
-    // A complete no-contact frame ends the pair lifetime. Restitution is
-    // therefore available again when the same body identities genuinely meet.
+    // A complete no-contact frame ends the contact-feature lifetime.
+    // Restitution is therefore available again when the same body identities
+    // genuinely meet.
     CHECK( reimpact.bodyStore.HotFields().linearVelocityY[1] == doctest::Approx( freshSeparatingSpeed ).epsilon( 0.0001 ) );
 
     auto buildElasticImpact = [&]( SolverFixture& fixture )
@@ -1271,6 +1287,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
            fixture.config.body.contactRestitutionThreshold );
 
     CHECK( fixture.diagnostics.GetDebugContacts()[0].normalImpulse > 0.0f );
+    CHECK( fixture.diagnostics.GetDebugContacts()[0].separationBias == 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
 }

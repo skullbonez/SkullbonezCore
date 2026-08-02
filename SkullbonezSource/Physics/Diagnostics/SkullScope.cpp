@@ -20,6 +20,7 @@ Related:
   - SkullbonezSource/Physics/Diagnostics/SkullScope.h
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
+  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -730,14 +731,15 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                      "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,"
                      "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%."
                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,"
+                     "\"separation_bias\":%.6f,"
                      "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f,"
                      "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
                      "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
                      m_physicsDiagnosticsRunId, frame, c.bodyA, c.bodyB, c.featureId, c.bodyA, c.bodyB, contactType,
                      c.featureId, static_cast<unsigned>( c.manifoldPointCount ), diagnosticNormal.x, diagnosticNormal.y,
-                     diagnosticNormal.z, c.penetration, c.accN, c.preSolveNormalSpeed, c.preSolveClosingSpeed,
-                     c.preSolveSlipSpeed, tangentImpulse, slipSpeed, slipSpeed, c.warmStarted ? 1 : 0,
-                     supportsSleep ? 1 : 0 );
+                     diagnosticNormal.z, c.penetration, c.accN, c.separationBias, c.preSolveNormalSpeed,
+                     c.preSolveClosingSpeed, c.preSolveSlipSpeed, tangentImpulse, slipSpeed, slipSpeed,
+                     c.warmStarted ? 1 : 0, supportsSleep ? 1 : 0 );
     }
 
     for ( const auto& edge : sleepSupportEdges )

@@ -1403,13 +1403,13 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is active at 5/7.** ES4
-proved the formerly flipping loaded face patch can retain canonical identity and
-warm starts while 32/64 towers still collapse. The owner explicitly deferred
-stacking and its Bullet/Box2D experiments to rule-9 WNF work, so ES4 closes as a
-measured no-change decision without claiming the towers are fixed. ES5 now owns
-the four-brick and 200-box determinism, energy, retention, and waited visible-
-behavior evidence. Tracked baselines remain untouched.
+**Contact Energy And Warm-Start Integrity (2026-08-01) is active at 6/7.** ES5
+proves the four bricks settle and the 200-box workload retains all 211 bodies,
+stays finite and within attributed energy, avoids repeated popcorn cycles, and
+sleeps under the unchanged 12-iteration cap. The owner-authorized fixed catcher
+retains only the post-demo striker beyond the impact area. Stacking remains
+parked for later Bullet/Box2D experimentation. ES6 now owns exhaustive gates and
+the exact owner baseline-decision packet; tracked baselines remain untouched.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3243,7 +3243,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 5/7 | Run ES5 non-stacking determinism, energy, body-retention, and visible-behavior proof |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Active | 6/7 | Run ES6 exhaustive validation, candidate comparison, and owner baseline-decision preparation |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3404,10 +3404,10 @@ tower reaches it only after destabilization; increasing it would hide a solver
 symptom. The live ledger is therefore 10/14 (71%). Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es2.md`.
 
-ES3 completed on 2026-08-02. Object restitution now follows the loaded
-object-pair lifecycle independently of exact feature warm-start compatibility;
-a no-contact solve resets that lifecycle, and elastic mutual-gravity contacts
-retain their explicit response. The four-brick fixture falls from 566 vertical
+ES3 completed on 2026-08-02. Object restitution now follows the loaded exact-
+contact-feature lifecycle, which also owns warm-start compatibility; a no-
+contact solve resets that lifecycle, and elastic mutual-gravity contacts retain
+their explicit response. The four-brick fixture falls from 566 vertical
 reversals and 900 cap-bound frames to zero reversals, leaves the cap, and sleeps
 permanently at frame 294. Terrain is byte-exact. Tower-64 advances from frame 37
 to frame 41 before the unchanged candidate ceiling, and the completed wall run
@@ -3455,6 +3455,19 @@ more cache work, and ES3 remains the only production behavior change. The live
 ledger advances to 12/14 (86%). ES5 resumes with the four-brick and 200-box
 determinism, energy, retention, and visible-behavior evidence; it must not claim
 that 32/64/128 stacking was fixed.
+
+ES5 completed on 2026-08-02. A broad body-pair lifetime probe was rejected after
+same-machine controls exposed a real hot-path regression; one exact-feature
+lookup now supplies both lifetime and warm start without raising the 12-
+iteration cap. Four bricks have zero post-300 reversals and sleep 4/4 by frame
+132. The wall retains all 211 dynamic bodies, has zero invalid samples and zero
+repeated full-height popcorn cycles, and sleeps completely by frame 3286. The
+owner-authorized fixed far-edge catcher stops only the post-demo striker.
+Automatic and worker-zero CSV witnesses are byte-identical, and waited DX12
+captures were inspected. The hardened SQL subtracts only explicit separation-
+bias work and plants initial-loss masking, transient invalid state, and repeated
+early relaunch failures. The live ledger advances to 13/14 (93%). Evidence is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`.
 
 ## Features
 

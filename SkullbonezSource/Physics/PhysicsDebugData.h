@@ -17,6 +17,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -149,6 +150,10 @@ struct PhysicsDebugContact
     Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
     float penetration = 0.0f;
     float normalImpulse = 0.0f;
+
+    // Velocity target attributable only to overlap separation. Restitution
+    // leaves this zero so energy audits cannot disguise bounce as repair work.
+    float separationBias = 0.0f;
     float preSolveNormalSpeed = 0.0f;
     float preSolveClosingSpeed = 0.0f;
     float preSolveSlipSpeed = 0.0f;
