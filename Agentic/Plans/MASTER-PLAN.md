@@ -1416,12 +1416,14 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 1/20 (5%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 2/20 (10%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 left the active/future ledger under rule 4. Four plans remain, to run in this
 order:
 
-1. `TODO/broadphase-pair-dedup-cost.md` (1/5). BD0 locks uninstrumented Profile
-   cost plus complete five-boundary pair streams across 0/1/4 workers.
+1. `TODO/broadphase-pair-dedup-cost.md` (2/5). BD0 locks uninstrumented Profile
+   cost plus complete five-boundary pair streams across 0/1/4 workers. BD1
+   chooses traversal-preserving earliest-shared-bucket membership intersection;
+   output-sized hashing and post-sort logs cannot cover legal raw identities.
    `ResetCandidatePairDedup` clears an O(N²) triangular bitset every broadphase
    pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3606,6 +3608,16 @@ across 0, 1, and 4 workers. The first-seen fixture pins raw diagnostic order and
 once-per-identity geometry admission. The live ledger is therefore 1/20 (5%).
 Evidence is in
 `../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`.
+
+Broadphase Pair Dedup Cost BD1 completed on 2026-08-02. Three independent
+mechanism reviews reject generation-stamped output-sized hashing and post-sort
+dedup because raw identities/observations are not bounded by emitted pairs. The
+chosen per-body sorted bucket-membership index preserves active-bucket traversal
+and admits each pair only from its earliest eligible shared bucket, exactly where
+the old triangular bit first changed. Scene-derived storage is 106,244 bytes at
+4,000 bodies and 206,852 bytes at 8,192, with no pair-identity ceiling. The live
+ledger is therefore 2/20 (10%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`.
 
 ## Features
 

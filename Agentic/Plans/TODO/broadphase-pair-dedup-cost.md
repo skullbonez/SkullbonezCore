@@ -1,7 +1,7 @@
 # Broadphase Pair Dedup Cost
 
 Date: 2026-08-02
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Physics broadphase spatial grid, candidate pair emission, tests
 Owner: Physics broadphase
 Priority: Second
@@ -91,7 +91,7 @@ at BD3.
   invocation count is part of the contract this plan must preserve. Also record
   the current `CollectPhysicsWorldMemoryBytes` contribution from `pairSeen`.
 
-- [ ] **BD1 — Choose and record the replacement mechanism.** Evaluate at minimum:
+- [x] **BD1 — Choose and record the replacement mechanism.** Evaluate at minimum:
   (a) a generation-stamped open-addressed table sized from `MAX_CANDIDATE_PAIRS`
   rather than from N², cleared by bumping a generation counter instead of memset;
   (b) per-body sorted membership intersection that never produces a duplicate to
@@ -141,6 +141,16 @@ grid/total geometry-call counts. Complete files are byte-identical across 0, 1,
 and 4 workers. Evidence, exact inputs, decoder, hashes, and resolved independent
 review are in
 `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`.
+
+BD1 completed on 2026-08-02. Pure generation-stamped open addressing and
+post-sort dedup are rejected because emitted-pair capacity cannot bound legal
+pre-filter identities or observations. The chosen mechanism keeps the existing
+bucket traversal and admits a pair only from the earliest eligible active bucket
+shared by both bodies, found through a scene-reserved per-body sorted membership
+index. This preserves the exact geometry/sleep first-seen event without an
+N-squared store. Capacity, memory, exhaustion, hash-alias, overlay, and BD2 proof
+requirements are locked in
+`../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`.
 
 ## Dependencies And Decisions
 
@@ -192,3 +202,4 @@ and independent review finds no ordering or allocation-policy defect.
 - `../../../SkullbonezTests/TestSpatialGrid.cpp`
 - `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`
 - `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`
+- `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`
