@@ -1416,37 +1416,26 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 5/26 (19%).** Five plans registered from a current-tree source and test
-review, to run in this order:
+work at 0/20 (0%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+left the active/future ledger under rule 4. Four plans remain, to run in this
+order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (5/6). NM0 records every
-   object/terrain path, feature and reduction rule, sleep transition, current
-   test reach, and exact coverage gap. NM1 pins hand-derived geometry for every
-   ordered object family and repairs the reverse-support hull edge tie it
-   exposed. NM2 pins sub-slop feature lifetime, the 45-degree face boundary,
-   every reducer rule across all 720 candidate permutations, and the resulting
-   warm-start cache miss. NM3 proves the same predicates reject inverted
-   normal, flipped depth, truncated patch, unstable identity, and neighboring-
-   point reduction plants. NM4 directly pins every visual, joint, resting,
-   automatic, explicit, and underwater wake family plus awake-list/support
-   ownership and both support-edge limits. NM5 is next: exhaustive validation,
-   comment audit, and independent closure review.
-2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
+1. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
    emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
    and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
    contract and a naive sort-and-unique is rejected at BD1.
-3. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
+2. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
    a hand-written ordinary frame-pass barrier is a defect; that invariant is
    review-only today. `Compile()` is pure CPU and returns the full derived
    transition set, so this is device-free coverage inside `validate_tests`.
-4. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+3. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-5. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+4. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
@@ -3593,6 +3582,18 @@ point. A new fatal child proves the actual two-row reservation fails on request
 three, complementing the existing 32,769 semantic-ceiling probe. The live ledger
 is therefore 5/26 (19%). Evidence is in
 `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`.
+
+Narrowphase Manifold And Sleep Coverage NM5 completed on 2026-08-02. Tests,
+core and deep Physics, direct coverage, and the final fast repository gate pass
+without baseline refresh. Physics stages and solver coverage is 5,050/5,760
+lines (87.67%). All seven ownership inventories are current, the complete
+five-file comment audit has zero deferrals, and the independent read-only review
+returned ACCEPT with no findings after checking authored expectations, planted
+controls, every direct wake path, and the production-rooted reducer seam. The
+completed six-task plan left the active/future ledger under rule 4, so the
+remaining Fresh-Read Coverage And Convention Campaign is 0/20 (0%). Closure
+evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`.
 
 ## Features
 

@@ -127,9 +127,10 @@ behavior changes, and no baseline moves.
 - Depends on `comment-vocabulary-audit.md` closing CV1 and CV2 first, because MZ2
   edits comments in the same files CV2 reconciles and two plans editing the same
   headers concurrently would produce avoidable conflicts.
-- MZ2 benefits from `narrowphase-manifold-sleep-coverage.md` and
-  `broadphase-pair-dedup-cost.md` having landed, since both add coverage to files
-  MZ2 renames in.
+- MZ2 benefits from the completed Narrowphase Manifold And Sleep Coverage plan
+  (`../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`)
+  and `broadphase-pair-dedup-cost.md` having landed, since both add coverage to
+  files MZ2 renames in.
 - No phase carries baseline-refresh authority. A rename that moves a physics
   baseline is a defect in the rename, not a behavior change to accept. Revert and
   find the slip.

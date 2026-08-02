@@ -135,9 +135,10 @@ at BD3.
 
 ## Dependencies And Decisions
 
-- Runs after `narrowphase-manifold-sleep-coverage.md` so the physics test net is
-  at full strength before a broadphase mechanism changes. The dependency is
-  ordering only; no BD phase consumes an NM artifact.
+- Runs after the completed Narrowphase Manifold And Sleep Coverage plan
+  (`../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`)
+  so the physics test net is at full strength before a broadphase mechanism
+  changes. The dependency is ordering only; no BD phase consumes an NM artifact.
 - The owner ruling above is binding for the whole plan. It is recorded here so a
   later reviewer does not relitigate whether a canonical order change would have
   been acceptable.
@@ -180,4 +181,4 @@ and independent review finds no ordering or allocation-policy defect.
 - `../../../SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp`
 - `../../../SkullbonezSource/Physics/PhysicsStageCapacity.h`
 - `../../../SkullbonezTests/TestSpatialGrid.cpp`
-- `narrowphase-manifold-sleep-coverage.md`
+- `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`
