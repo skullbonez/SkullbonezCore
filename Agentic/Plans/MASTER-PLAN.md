@@ -1403,15 +1403,17 @@ rerolls presentation only and F11 writes one ignored root
 and matching screenshot. F5/F6 remain unchanged, lenses/camera are out of scope,
 and no default visual baseline may move.
 
-**Contact Energy And Warm-Start Integrity (2026-08-01) is implementation-complete
-at 7/7; the owner baseline decision is pending.** The four bricks settle and the
+**Contact Energy And Warm-Start Integrity (2026-08-01) is complete at 7/7.**
+The owner approved the exact five-golden transition after accepting the wall's
+materially reduced bounce and improved stack stability over the marginal ground-
+settling regression. The four bricks settle and the
 200-box workload retains all 211 bodies, stays finite and within attributed
 energy, avoids repeated popcorn cycles, and sleeps under the unchanged 12-
 iteration cap. The owner-authorized fixed catcher retains only the post-demo
 striker beyond the impact area. Stacking remains parked for later Bullet/Box2D
-experimentation. Exhaustive gates, candidate comparison, comment audit, and
-independent review are complete; five exact candidates are staged while tracked
-baselines remain untouched.
+experimentation. The approved Physics, SkullScope, Replay visual, and Replay
+causal goldens are committed closure evidence. The active/future ledger is now
+empty under rule 4 (0%).
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3240,12 +3242,12 @@ an explicit comment about not spending simulation budget on observational work,
 and the other was not. Nothing enforced consistency between two sibling
 diagnostics, and the shipping binary paid for years.
 
-## Active Plans (2026-08-01)
+## Completed Plan Outcomes (2026-08-01)
 
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Owner checkpoint | 7/7 | Approve or withhold the exact five-artifact baseline transition |
+| 2 | [contact-energy-and-warm-start-integrity](../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md) | Complete | 7/7 | Owner-approved five-golden transition applied; final gates and closure evidence complete |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3479,9 +3481,19 @@ manifest rejects only the catcher scene hash. Physics and full validation stop
 only at the enumerated 14,534-row old-oracle mismatch. All seven inventories,
 the 7/7 touched-source comment audit, and independent CLEAN review are complete.
 Five exact candidate artifacts remain outside tracked destinations. The live
-ledger advances to 14/14 (100%) implementation complete, with only the owner
-baseline ruling and its short follow-through pending. Evidence is in
+ledger reached 14/14 (100%) implementation complete at the owner checkpoint.
+Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es6.md`.
+
+The owner approved the five-golden transition on 2026-08-02 after accepting
+the reduced-bounce wall and improved stack stability over the marginal ground-
+settling regression. Core and deep Physics pass against the approved Physics,
+known-issue, and SkullScope goldens. A fresh authoritative Automation run binds
+the Replay pair to the final `0.8/0.8` configuration while preserving all 2,401
+visual ticks, all 200 causal nodes, and every offline false-pass control. The
+completed plan leaves the active/future ledger under rule 4; closure evidence
+is in
+`../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md`.
 
 ## Features
 

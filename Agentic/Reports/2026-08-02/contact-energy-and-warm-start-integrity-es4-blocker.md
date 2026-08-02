@@ -4,7 +4,7 @@ Date: 2026-08-02
 
 Branch: `nightrunner-1st-AUG-26`
 
-Plan: `Agentic/Plans/TODO/contact-energy-and-warm-start-integrity.md`
+Closure: `Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md`
 
 Owner: Physics contact solver
 

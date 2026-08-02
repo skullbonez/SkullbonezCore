@@ -2,9 +2,9 @@
 
 Date: 2026-08-02
 
-Status: 7/7 implementation complete — owner baseline decision pending
+Status: Historical owner checkpoint — approved in the linked closure report
 
-Plan: `../../Plans/TODO/contact-energy-and-warm-start-integrity.md`
+Closure: `contact-energy-and-warm-start-integrity-closure.md`
 
 ## Outcome
 
@@ -120,7 +120,7 @@ The touched-source comment audit is 7/7 with zero deferred files:
 
 ## Exact Baseline Decision Packet
 
-| Tracked artifact | Old SHA-256 | Candidate SHA-256 | Complete difference summary |
+| Tracked artifact | Old SHA-256 | Candidate staging SHA-256 | Complete difference summary |
 |---|---|---|---|
 | `TestOutput/baselines/physics_regression_varied.csv` | `d1e0ec54de218efa4923c1505e0fdab1bd556bfa5e8f3bb595203c5ee6b8f752` | `4dce1be8ad1dde337281c7f37c25fcf3fd7b9268bcfe0b382fefb4f85dfe69aa` | Both are one canonical 44,401-line run. 14,534 lines differ, first at line 5160/frame 139; current runtime emitted two byte-identical passes and the staged candidate uses the checker's canonical single-pass projection. |
 | `TestOutput/baselines/physics_known_issue_signatures.json` | `09bd3ea10a019c628a8e58241b82790c3fd58dd6f1087e92722c989e76d8566a` | `0bb75b38056dcbe02ef08972112f718b0085ec0596c95a240811a5dc5ab8f22c` | Only `stacking_stability_watch` changes: 3,075,201 to 3,082,679 bytes and SHA-256 `325d2275...` to `a95e049e...`; the line count remains 22,501. Stacking remains deferred and this row is diagnostic only. |
@@ -130,6 +130,11 @@ The touched-source comment audit is 7/7 with zero deferred files:
 
 Candidate sizes are respectively 6,328,076; 1,761; 102,322; 4,674,420;
 and 859,356 bytes. The tracked destinations were not written.
+
+The two JSON staging hashes and sizes above describe the retained CRLF
+candidates presented at this historical checkpoint. Owner approval normalized
+them to the repository's required LF form; committed-byte hashes are recorded
+in `contact-energy-and-warm-start-integrity-closure.md`.
 
 ## Owner Checkpoint
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-02
 
-Plan: `../../Plans/TODO/contact-energy-and-warm-start-integrity.md`
+Closure: `contact-energy-and-warm-start-integrity-closure.md`
 
 Outcome: INVESTIGATION COMPLETE; implementation remains owner-held at 4/7
 
