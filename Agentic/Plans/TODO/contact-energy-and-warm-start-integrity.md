@@ -1,7 +1,7 @@
 # Contact Energy And Warm-Start Integrity
 
 Date: 2026-08-02
-Status: BLOCKED — 4/7 phases complete
+Status: BLOCKED — 4/7 phases complete; feasibility investigation complete, implementation owner-held
 Impact area: Physics contact solving, collision diagnostics, tests, and deterministic scenes
 Owner: Physics contact solver
 Priority: High
@@ -233,6 +233,29 @@ changes. An expected-output golden is not a substitute for these invariants.
   direction; no target reduction is implied or authorized here. ES5 and ES6
   remain affected dependents. The verified count stays 4/7, no experimental
   source is staged, and every tracked baseline remains untouched.
+
+  Owner ruling on 2026-08-02: the global production cap remains 12 iterations.
+  The owner authorized a bounded feasibility investigation against the actual
+  Bullet and Box2D implementations and asked that futile scalar-PGS tuning stop
+  if the discrete 32/64-level problem cannot converge within that budget. The
+  investigation concludes that the current 12-sweep scalar path is not a
+  credible cold-start solution at those serial depths; no further identity,
+  SAT, row-retention, seed, friction, or global-order experiment is authorized
+  for the tower target. Bullet separates penetration correction and processes
+  islands; Box2D 2.4 couples two-point patches and iterates position correction;
+  current Box2D uses Soft Step substeps and relaxation. Those behavior changes
+  remain outside this plan's current authorization.
+
+  The owner is open to hearing about, but has not authorized implementing, one
+  deterministic bounded alternative: keep 12 sweeps for every island, then
+  extend only an anchored deep contact island whose own residual remains
+  material, subject to a hard extra row-visit/performance budget. The exact
+  findings, reduced-chain feasibility evidence, source comparison, design
+  boundary, and stop condition are preserved in
+  `../../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
+  The verified count and baseline authority remain unchanged. The next action is
+  an owner implementation ruling on that narrow diagnostic/experiment, not
+  autonomous solver tuning.
 
 - [ ] **ES5 — Prove scale, determinism, and visible behavior.** Run the final
   4/8/16/32/64/128 tower matrix twice and across the repository's supported

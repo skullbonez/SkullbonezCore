@@ -3245,7 +3245,7 @@ diagnostics, and the shipping binary paid for years.
 | # | Plan | State | Verified phase count | Start condition / next action |
 |---:|---|---|---:|---|
 | 1 | [look-lab-random-style-authoring](TODO/look-lab-random-style-authoring.md) | Complete | 7/7 | Closed with exact visible/reload evidence, exhaustive gates, and independent CLEAN review |
-| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Blocked | 4/7 | Owner authorization for a bounded stack load-propagation/convergence phase, or explicit 32/64 target revision |
+| 2 | [contact-energy-and-warm-start-integrity](TODO/contact-energy-and-warm-start-integrity.md) | Blocked | 4/7 | Owner ruling on the documented hard-budget, island-local depth/residual experiment; do not resume scalar 12-sweep tuning |
 
 ## Look Lab Random Style Authoring (2026-08-01)
 
@@ -3431,6 +3431,21 @@ propagation/convergence work beyond ES4, or explicitly revise the binding 32/64
 target. ES5/ES6 remain blocked, no experimental source or baseline is staged,
 and no independent live plan remains. Evidence is in
 `../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es4-blocker.md`.
+
+The owner then authorized investigation only, kept the global cap at 12, and
+required comparison with the actual Bullet and Box2D implementations before any
+more tuning. The reduced normal-chain check shows the favorable 32/64-level
+cold-start problems retain about 96%/99% relative support-impulse error after 12
+sweeps, while stable production identities already fail to rescue those towers.
+Bullet's split penetration channel/island boundary and Box2D's coupled patch or
+substep/relaxation designs confirm that established engines do more than repeat
+the same scalar loop. Identity, SAT, row-retention, seed, friction, and global-
+order tuning are therefore closed for this target. The owner is open to hearing
+about, but has not authorized implementing, one hard-budget experiment that
+keeps 12 sweeps globally and extends only an anchored deep contact island with a
+material island-local residual. The ledger remains 11/14 (78%); no production
+source or baseline changed. Evidence is in
+`../Reports/2026-08-02/contact-energy-stack-stability-reference-investigation.md`.
 
 ## Features
 
