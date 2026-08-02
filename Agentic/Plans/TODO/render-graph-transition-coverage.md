@@ -1,7 +1,7 @@
 # Render Graph Transition Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Rendering render graph, DX12 render graph executor, tests
 Owner: Rendering render graph
 Priority: First — binding remaining campaign plan
@@ -118,14 +118,14 @@ tested boundary behavior.
   owned. Evidence:
   `../../Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`.
 
-- [ ] **RG1 — Pin the residual ordinary transition matrix in the main lane.**
-  Add subsystem-named `TestRenderGraph.cpp` plus the minimum test-project/filter
-  integration for production `RenderGraph.cpp`. Hand-derive all-subresource
-  write-then-read, read-then-write, write-then-write, and read-then-read/no-op
-  cases; include an untouched external resource, Unknown and concrete entry
-  states, and the backbuffer ending at Present. Assert count, order, pass index,
-  resource handle, copied native token where supplied, before/after, and
-  subresource. Preserve the existing standalone tests as complementary proof.
+- [x] **RG1 — Pin the residual ordinary transition matrix in the main lane.**
+  `TestRenderGraph.cpp` now runs production `RenderGraph.cpp` in the main
+  doctest and coverage executable. Four hand-derived cases pin write-then-read,
+  read-then-write, write-then-write, repeated-read/no-op, untouched-resource,
+  Unknown-entry, concrete-entry, copied-native-token, and Present-return facts
+  through exact structured rows. The existing 16 standalone architecture cases
+  remain unchanged. Evidence:
+  `../../Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`.
 
 - [ ] **RG2 — Pin residual subresource state tracking.** Preserve the existing
   independent-subresource, uniform-specific, return-to-all, and mixed-state fatal
@@ -161,7 +161,7 @@ tested boundary behavior.
 
 ## Dependencies And Decisions
 
-- The two physics plans are complete; RG1 is binding next.
+- The two physics plans and RG1 are complete; RG2 is binding next.
 - Use hand-derived structured assertions. RG0 found no required property that the
   structured compile, callback, execution-contract, resource, or pass surfaces
   cannot express, so `DumpText()` goldens are rejected for this plan.

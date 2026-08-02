@@ -242,6 +242,7 @@
     <ClCompile Include="SkullbonezTests\TestReplayPorkchopPanel.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayInterceptReadout.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp" />
+    <ClCompile Include="SkullbonezTests\TestRenderGraph.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayArtifact.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
@@ -267,6 +268,7 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />

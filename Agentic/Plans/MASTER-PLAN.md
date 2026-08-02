@@ -1416,17 +1416,18 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 1/15 (7%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 2/15 (13%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
 under rule 4. Three plans remain, to run in this
 order:
 
-1. `TODO/render-graph-transition-coverage.md` (1/5). Sixteen pure RenderGraph
+1. `TODO/render-graph-transition-coverage.md` (2/5). Sixteen pure RenderGraph
    tests already run through the merge-gated standalone DX12 architecture lane,
    covering representative derivation, transient, callback, and fatal behavior.
    They do not run in `validate_tests` or instrumented coverage. RG0 maps the
    exact structured compiler contract, all Lane-F boundaries, and the residual
-   RG1-RG4 matrix; RG1 is binding next.
+   RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
+   ordinary transition cases / 47 assertions; RG2 is binding next.
 2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
@@ -1435,6 +1436,17 @@ order:
 3. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
+
+Handoff after the RG1 checkpoint: continue on `nightrunner-2nd-AUG-26` at RG2
+only. Start from one external resource whose base is `PixelShaderResource` and
+pin numeric overrides in authored order 5 then 2, all-resource convergence back
+to the base in stored order, and a following all-resource `CopySource` row that
+proves no stale override survived. For the capacity proof, author eight distinct
+numeric overrides in literal order `7,0,6,1,5,2,4,3`, one per pass, then converge
+all eight; a separate child graph adds subresource 8 in a ninth pass and must
+report `Subresource state capacity exceeded. count=8 capacity=8`. Reuse the
+shared child-process harness through a small RenderGraph dispatcher; do not edit
+production Rendering, project integration, or the RG1 build-config ruling.
 
 Stacking remains parked for later Bullet/Box2D experimentation and is not part
 of this campaign.
@@ -3656,6 +3668,18 @@ structured assertions plus child-process fatal probes are selected and
 review-only backend properties, and RG1-RG4 residual gaps are fixed. The live
 ledger is therefore 1/15 (7%). Evidence is in
 `../Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`.
+
+Render Graph Transition Coverage RG1 completed on 2026-08-02. The main doctest
+and instrumented-coverage target now compile production `RenderGraph.cpp` and a
+subsystem-named test translation unit. Four cases / 47 assertions hand-derive
+ordinary read-before-write transition order, Unknown and concrete entry states,
+repeated-use no-ops, untouched-resource exclusion, copied native identity, and
+the Present frame edge. Debug and Profile focused runs pass, the independent
+review returned ACCEPT, and the touched-source comment audit is 1/1. Format,
+full doctests, instrumented coverage, and the 402.3-second fast umbrella pass;
+`RenderGraph.cpp` contributes 143/459 covered lines. The live ledger is 2/15
+(13%). Evidence is in
+`../Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`.
 
 ## Features
 
