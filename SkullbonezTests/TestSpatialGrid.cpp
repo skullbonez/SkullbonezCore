@@ -6,7 +6,9 @@
 // Summary:
 //   SpatialGrid is a fixed-capacity broadphase index. Objects are inserted into
 //   every cell touched by their bounding sphere or swept bounds, and candidate
-//   pairs are emitted once even when two objects share multiple cells.
+//   pairs are emitted once even when two objects share multiple cells. Focused
+//   fixtures also preserve the traversal-first diagnostic order and exact
+//   once-per-identity geometry admission count that pair deduplication owns.
 //
 // Glossary:
 //   Cell: Integer grid bucket covering one cube of world space.
@@ -17,6 +19,8 @@
 //   Swept overlay: Velocity-dependent cells that expire at the next BeginFrame.
 //   Canonical pair order: Ascending `(smaller index, larger index)` order that
 //     is independent of the order in which cells discover the pair.
+//   First-seen order: Traversal order at the first cell that discovers a pair;
+//     Debug sleep-pruned diagnostics preserve this order before later sorting.
 //
 // Invariants:
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
@@ -24,6 +28,8 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
+//   - Geometry admission runs exactly once for each unique first-seen pair even
+//     when overlapping bodies share several cells or fail the predicate.
 //   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
 //     and Clear retain backing/high-water; additional admission also preserves
 //     existing persistent membership and generation state.
@@ -42,6 +48,7 @@
 #include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
 #include <algorithm>
@@ -633,6 +640,74 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
     // Invariant: solver work order is a function of normalized body identity,
     // never the bucket-creation or linked-list order used to discover a pair.
     CHECK( pairs == expected );
+}
+
+
+TEST_CASE( "SpatialGrid: filtered first-seen order and geometry call count stay observable" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( SpatialGrid::MIN_CELL_SIZE );
+    grid.BeginFrame( 3 );
+
+    auto bodyStore = std::make_unique<PhysicsBodyStore>();
+    auto colliderStore = std::make_unique<ColliderStore>();
+    SkullbonezCore::Physics::PhysicsCandidatePairList candidatePairs {
+        "TestSpatialGrid.firstSeenCandidates",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+    SkullbonezCore::Physics::PhysicsCandidatePairList sleepPrunedPairs {
+        "TestSpatialGrid.firstSeenSleepPruned",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore->ReserveCapacity( 3u );
+        colliderStore->ReserveCapacity( 3u );
+        colliderStore->ReserveShapeCapacity( 3u, 0u, 0u );
+        candidatePairs.Reserve( 3u );
+        sleepPrunedPairs.Reserve( 3u );
+    }
+
+    const Vector3 positions[] = {
+        Vector3( 0.01f, 100.01f, 0.01f ),
+        Vector3( 0.25f, 100.25f, 0.25f ),
+        Vector3( 0.49f, 100.49f, 0.49f ),
+    };
+    const CollisionShape sphere( BoundingSphere( 0.25f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = positions[bodyIndex];
+        body.hot.boundingRadius = 0.25f;
+        const auto bodyHandle = bodyStore->CreateBodyRecord( body );
+
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.25f;
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliderStore, collider, sphere );
+        grid.Insert( bodyIndex, positions[bodyIndex], 0.25f );
+    }
+
+    const std::vector<uint8_t> sleepState( 3u, 1u );
+#if defined( _DEBUG )
+    SkullbonezCore::Physics::ResetBroadphaseCandidateGeometryInvocationCount();
+#endif
+    grid.GetFilteredCandidatePairs( candidatePairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, sleepPrunedPairs,
+                                    false );
+
+    CHECK( candidatePairs.empty() );
+    REQUIRE( sleepPrunedPairs.size() == 2u );
+
+    // Hazard: pair (0,2) shares a cell but fails geometry. The other two rows
+    // deliberately pin traversal-first order rather than canonical sort order.
+    CHECK( sleepPrunedPairs[0] == std::make_pair( 1, 2 ) );
+    CHECK( sleepPrunedPairs[1] == std::make_pair( 0, 1 ) );
+#if defined( _DEBUG )
+    CHECK( SkullbonezCore::Physics::BroadphaseCandidateGeometryInvocationCount() == 3u );
+#endif
 }
 
 

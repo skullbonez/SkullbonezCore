@@ -1416,12 +1416,14 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/20 (0%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 1/20 (5%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 left the active/future ledger under rule 4. Four plans remain, to run in this
 order:
 
-1. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
-   an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
+1. `TODO/broadphase-pair-dedup-cost.md` (1/5). BD0 locks uninstrumented Profile
+   cost plus complete five-boundary pair streams across 0/1/4 workers.
+   `ResetCandidatePairDedup` clears an O(N²) triangular bitset every broadphase
+   pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
    emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
    and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
@@ -3594,6 +3596,16 @@ completed six-task plan left the active/future ledger under rule 4, so the
 remaining Fresh-Read Coverage And Convention Campaign is 0/20 (0%). Closure
 evidence is in
 `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`.
+
+Broadphase Pair Dedup Cost BD0 completed on 2026-08-02. Exact triangular clear
+spans and `pairSeen` memory are recorded through the 8,192-body ceiling;
+uninstrumented Profile artifacts cover 37 through 5,000 bodies. Four complete
+360-pass v2 streams preserve raw-grid, augmented, raw sleep, final solver, and
+final sleep lists plus geometry-call counts, and every stream is byte-identical
+across 0, 1, and 4 workers. The first-seen fixture pins raw diagnostic order and
+once-per-identity geometry admission. The live ledger is therefore 1/20 (5%).
+Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`.
 
 ## Features
 

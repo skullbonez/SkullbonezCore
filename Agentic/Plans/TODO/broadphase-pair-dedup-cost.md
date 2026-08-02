@@ -1,7 +1,7 @@
 # Broadphase Pair Dedup Cost
 
 Date: 2026-08-02
-Status: NOT STARTED — 0/5 phases complete
+Status: IN PROGRESS — 1/5 phases complete
 Impact area: Physics broadphase spatial grid, candidate pair emission, tests
 Owner: Physics broadphase
 Priority: Second
@@ -81,7 +81,7 @@ at BD3.
 
 ## Phases
 
-- [ ] **BD0 — Measure the current cost and lock the equivalence oracle.** Record
+- [x] **BD0 — Measure the current cost and lock the equivalence oracle.** Record
   the exact per-pass cleared byte count and measured broadphase time for a fixed
   set of scenes spanning small, default-capacity, and dense-stress body counts,
   from the current Profile binary. Capture the complete current candidate pair
@@ -133,6 +133,15 @@ at BD3.
   an independent read-only review that specifically checks first-seen semantics,
   diagnostic ordering, allocation policy compliance, and exhaustion behavior.
 
+BD0 completed on 2026-08-02. Uninstrumented Profile artifacts lock 37/200/520/
+1,000/2,000/4,000/5,000-body timing, exact clear spans, and exact `pairSeen`
+world-memory contributions. Four 360-pass Debug v2 streams preserve raw-grid,
+post-augmentation, raw first-seen sleep, final solver, and final sleep lists plus
+grid/total geometry-call counts. Complete files are byte-identical across 0, 1,
+and 4 workers. Evidence, exact inputs, decoder, hashes, and resolved independent
+review are in
+`../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`.
+
 ## Dependencies And Decisions
 
 - Runs after the completed Narrowphase Manifold And Sleep Coverage plan
@@ -182,3 +191,4 @@ and independent review finds no ordering or allocation-policy defect.
 - `../../../SkullbonezSource/Physics/PhysicsStageCapacity.h`
 - `../../../SkullbonezTests/TestSpatialGrid.cpp`
 - `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`
+- `../../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`

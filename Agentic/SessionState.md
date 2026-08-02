@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-2nd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `d26163ed` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Narrowphase Manifold And Sleep Coverage is complete at 6/6; Broadphase Pair Dedup Cost BD0 measurement and equivalence-oracle capture is binding next. |
-| Active/future progress | 0/20 (0%): the completed six-task narrowphase plan left the ledger under rule 4; four plans remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Broadphase Pair Dedup Cost BD0 is complete; BD1 replacement-mechanism decision is binding next. |
+| Active/future progress | 1/20 (5%): Broadphase BD0 is complete; four plans remain in binding order. The completed narrowphase plan is excluded under rule 4, and the parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Five plans / 26 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
@@ -21,6 +21,7 @@ plan inventory.
 | Narrowphase NM3 | Complete. Shared positive/negative predicates reject isolated inverted-normal, flipped-depth, truncated-patch, unstable-feature, and neighboring-reducer plants. The focused control passes 13/13 assertions and the full object-manifold family passes 17 cases / 1,447 assertions. Comment audit is 1/1. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`. |
 | Narrowphase NM4 | Complete. Seven focused cases / 183 assertions directly pin every visual/joint/resting/automatic/explicit/underwater wake family, sorted awake-list transitions, and bidirectional support. Runtime fatal coverage now proves both the two-row reservation and 32,768-row semantic ceiling. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`. |
 | Narrowphase NM5 | Complete. Tests, core/deep Physics, direct coverage, and the final fast gate pass without baseline movement; stages/solver coverage is 5,050/5,760 lines (87.67%). All seven inventories are current, the touched-source audit is 5/5, and independent review returned ACCEPT with no findings. Closure: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`. |
+| Broadphase BD0 | Complete. Exact dense-bitset clear/memory spans, uninstrumented 37–5,000-body Profile artifacts, and complete 360-pass raw/augmented/final candidate plus raw/final sleep streams are locked. All four workloads are byte-identical across 0/1/4 workers; geometry invocation counts and first-seen sleep order are pinned. Evidence: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -130,13 +131,13 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 0/20 (0%). Narrowphase
+Fresh-Read Coverage And Convention is active at 1/20 (5%). Narrowphase
 Manifold And Sleep Coverage is complete at 6/6 and excluded under rule 4.
 Binding remaining order is Broadphase Pair Dedup Cost, Render Graph Transition
 Coverage, Comment Vocabulary Audit, then Source Modernization Sweep. Broadphase
-BD0 is next: measure the Profile clear/time/memory cost and capture complete
-candidate-pair, sleep-pruned diagnostic, and geometry-filter invocation oracles
-for the fixed scene/tick matrix. No baseline movement is authorized.
+BD0 is complete. BD1 must evaluate the three
+mandated replacement families against the locked first-seen/list/invocation
+contracts. No baseline movement is authorized.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -893,15 +894,16 @@ targeted Automation and final full passes.
 | `tools\validate_physics_deep.bat` and `tools\validate_fast.bat` (Contact Energy ES2 final) | PASS | Exact tower scene, bounded semantic controls/current-failure witnesses, byte-exact broad Physics, project metadata, dependencies, ownership inventories, Debug/Profile builds, and tests complete; source comment audit is 2/2. |
 | `tools\validate_tests.bat` and `tools\validate_fast.bat` (Contact Energy ES3 final) | PASS | Loaded-pair restitution coverage passes 6 cases / 101 assertions with the ES1 energy matrix; terrain is byte-exact; four-brick, tower-64, and wall-200 measurements are complete; formatting, metadata, dependencies, ownership inventories, compiled-symbol reachability, builds, and tests pass; source comment audit is 2/2. |
 | Contact Energy closure validation | PASS | Owner-approved Physics, known-issue, SkullScope, Replay visual, and Replay causal goldens are installed. Core/deep Physics, the single authoritative Replay generation plus every offline control, format, final clean performance, and the 562.6-second full gate pass. |
+| Broadphase Pair Dedup BD0 | COMPLETE | Exact clear/memory and Profile timing artifacts; 12/12 v2 streams structurally valid; all four 0/1/4 worker groups byte-identical; 5/5 touched-source audit; independent findings resolved. Commit-preparation gate details are in the phase report. |
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/broadphase-pair-dedup-cost.md` at BD0 on
-`nightrunner-2nd-AUG-26`. Measure the current Profile per-pass clear bytes,
-broadphase time, `pairSeen` memory contribution, complete candidate and
-sleep-pruned pair streams, and geometry-filter invocation counts across the
-fixed small/default/dense scene and tick matrix. The active/future ledger is
-0/20 (0%) in both MASTER-PLAN and this SessionState.
+Continue `Agentic/Plans/TODO/broadphase-pair-dedup-cost.md` at BD1 on
+`nightrunner-2nd-AUG-26`. Evaluate generation-stamped open addressing,
+duplicate-free per-body membership intersection, and post-sort dedup against
+the BD0 byte-exact first-seen/list/invocation oracle. Record exact capacity and
+exhaustion behavior, and reject any mechanism that changes a byte. The active/
+future ledger is 1/20 (5%) in both MASTER-PLAN and this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,
