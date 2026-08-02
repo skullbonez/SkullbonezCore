@@ -1416,14 +1416,13 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/26 (0%).** Five plans registered from a current-tree source and test
+work at 1/26 (4%).** Five plans registered from a current-tree source and test
 review, to run in this order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (0/6). The contact solver has
-   20 cases with an energy oracle and negative controls; the 2,133-line manifold
-   that feeds it has 5, and the only hull-pair coverage asserts non-emptiness.
-   Feature-ID lifetime, which warm starting depends on, is unpinned. The sleep
-   controller has no test file of its own. Pure test addition, no behavior change.
+1. `TODO/narrowphase-manifold-sleep-coverage.md` (1/6). NM0 records every
+   object/terrain path, feature and reduction rule, sleep transition, current
+   test reach, and exact coverage gap. NM1 is next: add hand-derived geometric
+   assertions for every shape-pair family. Pure test addition, no behavior change.
 2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
    an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
    4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
@@ -3538,6 +3537,14 @@ and sleep-pruned diagnostic list, and it holds no divergence or baseline-refresh
 authority. The modernization plan records that the measured legacy residue is
 already small and that a smaller closing scope is a valid outcome rather than a
 cue to find additional work.
+
+Narrowphase Manifold And Sleep Coverage NM0 completed on 2026-08-02. The
+current-source census enumerates all nine ordered object-pair paths, three
+terrain paths, feature encodings, reduction policies, five existing manifold
+cases, thirteen named sleep cases plus the omnibus capacity probe, and every
+sleep/wake transition. It identifies the exact NM1/NM2/NM4 gaps without source
+or test behavior changes. The live ledger is therefore 1/26 (4%). Evidence is
+in `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`.
 
 ## Features
 

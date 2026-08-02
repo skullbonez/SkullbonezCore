@@ -1,7 +1,7 @@
 # Narrowphase Manifold And Sleep Coverage
 
 Date: 2026-08-02
-Status: NOT STARTED — 0/6 phases complete
+Status: IN PROGRESS — 1/6 phases complete
 Impact area: Physics narrowphase manifolds, sleep controller and island system, tests
 Owner: Physics narrowphase and sleep
 Priority: First
@@ -86,7 +86,7 @@ reachable from a focused test.
 
 ## Phases
 
-- [ ] **NM0 — Census the narrowphase and sleep contracts.** Enumerate every shape
+- [x] **NM0 — Census the narrowphase and sleep contracts.** Enumerate every shape
   pair path in `ObjectContactManifold.cpp` and `TerrainContactManifold.cpp` with
   its entry condition, normal convention, penetration sign, maximum point count,
   feature-encoding function, and reduction policy. Enumerate every sleep state
@@ -96,6 +96,12 @@ reachable from a focused test.
   sleep-touching cases assert behavior versus assert non-emptiness. The census is
   the phase deliverable and names the exact untested transitions; do not begin
   writing tests from a reading impression.
+
+  Complete 2026-08-02. The current-source matrix covers all nine ordered object
+  pairs, three terrain paths, shared reduction/feature policy, five manifold
+  cases, thirteen named sleep cases plus the omnibus capacity probe, every
+  sleep/wake transition, and exact NM1/NM2/NM4 gaps. Evidence:
+  `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`.
 
 - [ ] **NM1 — Pin geometric correctness for every shape pair.** For each pair,
   add cases with hand-computed expected values: contact normal direction and
