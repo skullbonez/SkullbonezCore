@@ -82,7 +82,6 @@ inline constexpr char CollisionVisualBodies[] = "Two body references per bounded
 inline constexpr char MutualGravityPairs[] = "Pair count for the first min(scene body count, 512) bodies";
 inline constexpr char SpatialGridPersistentEntries
     [] = "Eight cells per scene body plus a fixed 1024-row spill covering measured oversized-shape stress layouts";
-inline constexpr char SpatialGridPairDedupWords[] = "Triangular scene body-pair identities rounded up to 64-bit dedup words";
 inline constexpr char SpatialGridBodyMemberships[] = "Exact scene body count for persistent broadphase membership";
 inline constexpr char SpatialGridPairMembershipOrdinals
     [] = "Persistent-entry reservation plus the fixed swept-overlay ceiling for sorted per-body active-bucket ordinals";

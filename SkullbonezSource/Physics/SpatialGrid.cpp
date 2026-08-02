@@ -21,8 +21,7 @@ Invariants:
   - Persistent membership is a pure function of current integer ranges; only
     storage order carries history, and canonical pair emission removes it.
   - Production pair work projects unstamped sleep-only cells out of its ordinal
-    slices. Debug still walks those raw chains for integrity accounting; the
-    legacy same-state oracle remains an explicit path outside production filtering.
+    slices. Debug still walks those raw chains for integrity accounting.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -38,7 +37,6 @@ Related:
 // large turns into a local O(n^2) pair factory. PhysicsWorld sizes the cell from
 // current scene primitives before insertion; this type only owns hashing,
 // storage, and duplicate-pair suppression.
-
 
 #include "SpatialGrid.h"
 #include "SolverBroadphaseStage.h"
@@ -157,10 +155,6 @@ void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
     const std::size_t persistentEntryCapacity = bodyCapacity * static_cast<std::size_t>( PERSISTENT_ENTRIES_PER_BODY ) +
                                                 PERSISTENT_ENTRY_SPILL_ROWS;
 
-#if defined( _DEBUG )
-    const std::size_t pairIdentities = bodyCapacity > 1u ? bodyCapacity * ( bodyCapacity - 1u ) / 2u : 0u;
-    const std::size_t pairWordCapacity = ( pairIdentities + 63u ) / 64u;
-#endif
     const std::size_t candidatePairCapacity = Physics::PhysicsCandidatePairCapacity( bodyCapacity );
 
     // Why: swept occupancy has its own overlay store. The retired additional
@@ -172,9 +166,6 @@ void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
     pairMembershipOrdinals.Reserve( entries.capacity() + overlayEntries.capacity() );
     pairMembershipOffsets.Reserve( bodyCapacity + 1u );
     pairMembershipCounts.Reserve( bodyCapacity );
-#if defined( _DEBUG )
-    pairSeen.Reserve( pairWordCapacity );
-#endif
     candidatePairHeads.Reserve( bodyCapacity );
     candidatePairNodes.Reserve( candidatePairCapacity );
     candidatePairSortKeys.Reserve( candidatePairCapacity );
@@ -228,7 +219,6 @@ void SpatialGrid::Clear()
     pairMembershipOffsets.clear();
     pairMembershipCounts.clear();
 #if defined( _DEBUG )
-    pairSeen.clear();
     pairMembershipLogicalCapacityForTest = ( std::numeric_limits<std::size_t>::max )();
 #endif
     candidatePairHeads.clear();
@@ -1733,58 +1723,6 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a, int b, int currentActiveInd
 }
 
 
-#if defined( _DEBUG )
-void SpatialGrid::ResetDensePairCrossCheck()
-{
-    const int64_t pairBits = static_cast<int64_t>( objectCount ) * ( objectCount - 1 ) / 2;
-    int wordsNeeded = static_cast<int>( ( pairBits + 63 ) / 64 );
-
-    if ( wordsNeeded > PAIR_WORDS )
-    {
-        wordsNeeded = PAIR_WORDS;
-    }
-
-    pairSeen.ResetDefault( static_cast<std::size_t>( wordsNeeded ) );
-
-    if ( wordsNeeded > 0 )
-    {
-        memset( pairSeen.data(), 0, static_cast<std::size_t>( wordsNeeded ) * sizeof( uint64_t ) );
-    }
-}
-
-
-bool SpatialGrid::MarkDensePairFirstSeen( int a, int b )
-{
-    assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
-
-    if ( a < 0 || a >= b || b >= objectCount )
-    {
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair identity out of bounds" );
-    }
-
-    const int64_t pairIndexWide = static_cast<int64_t>( b ) * ( b - 1 ) / 2 + a;
-    const int pairIndex = static_cast<int>( pairIndexWide );
-    const int word = pairIndex >> 6;
-
-    if ( word < 0 || word >= PAIR_WORDS )
-    {
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid dense pair cross-check index out of bounds" );
-    }
-
-    const uint64_t bit = uint64_t( 1 ) << ( pairIndex & 63 );
-
-    if ( pairSeen[word] & bit )
-    {
-        return false;
-    }
-
-    pairSeen[word] |= bit;
-    return true;
-}
-
-#endif
-
-
 bool SpatialGrid::FilterCandidatePairAfterFirstSeen( int a, int b,
                                                      const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
@@ -1838,13 +1776,6 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     // production overload always receives concrete stores and step values.
     outPairs.clear();
     BuildPairMembershipIndex();
-#if defined( _DEBUG )
-
-    // Lifetime: unfiltered tooling keeps the legacy dense store initialized so
-    // its capacity/high-water evidence remains valid through BD3. It does not
-    // participate in, or compare against, the membership-index decision.
-    ResetDensePairCrossCheck();
-#endif
     candidatePairHeads.ResetFill( static_cast<std::size_t>( objectCount ), -1 );
     candidatePairNodes.clear();
     int candidatePairNodeCount = 0;
@@ -2238,86 +2169,6 @@ void SpatialGrid::GetFilteredCandidatePairs( SkullbonezCore::Physics::PhysicsCan
 }
 
 
-#if defined( _DEBUG )
-void SpatialGrid::GetFilteredCandidatePairsLegacyForOracle( SkullbonezCore::Physics::PhysicsCandidatePairList& outPairs,
-                                                            const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                                            const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                            std::span<const uint8_t> sleepState, float dt,
-                                                            float contactSkin )
-{
-    outPairs.clear();
-    ResetDensePairCrossCheck();
-
-    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
-    {
-        const int bucketIndex = activeBuckets[activeIndex];
-        assert( bucketIndex >= 0 && bucketIndex < TABLE_SIZE && "active bucket index OOB" );
-
-        if ( bucketIndex < 0 || bucketIndex >= TABLE_SIZE )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
-        }
-
-        const Bucket& bucket = buckets[bucketIndex];
-
-        if ( !bucket.occupied )
-        {
-            continue;
-        }
-
-        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
-        const int cellCount = CollectBucketObjects( bucket, cellIndices,
-                                                    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
-
-        if ( cellCount < 2 )
-        {
-            continue;
-        }
-
-        for ( int i = 0; i < cellCount - 1; ++i )
-        {
-
-            for ( int j = i + 1; j < cellCount; ++j )
-            {
-                int a = cellIndices[i];
-                int b = cellIndices[j];
-
-                if ( a == b )
-                {
-                    continue;
-                }
-
-                if ( a > b )
-                {
-                    std::swap( a, b );
-                }
-
-                if ( !MarkDensePairFirstSeen( a, b ) )
-                {
-                    continue;
-                }
-
-                if ( !FilterCandidatePairAfterFirstSeen( a, b, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                         nullptr ) )
-                {
-                    continue;
-                }
-
-                if ( outPairs.size() >= outPairs.capacity() )
-                {
-                    SB_FATAL( "Physics/SpatialGrid",
-                              "Legacy oracle candidate reserve exhausted: capacity=%zu phase=diagnostic.",
-                              outPairs.capacity() );
-                }
-
-                outPairs.emplace_back( a, b );
-            }
-        }
-    }
-}
-#endif
-
-
 // Active cell info is written into the caller-provided array.
 // Each entry contains the grid coordinate (ix, iy, iz) and object count.
 void SpatialGrid::GetActiveCells( Physics::PhysicsBroadphaseActiveCell* outCells, int maxCells ) const
@@ -2345,8 +2196,5 @@ uint64_t SpatialGrid::CollectDynamicMemoryBytes() const
                                             candidatePairNodes.committed_bytes() + candidatePairSortKeys.committed_bytes() +
                                             candidatePairSortScratch.committed_bytes() + cellObjectSeen.committed_bytes() );
 
-#if defined( _DEBUG )
-    bytes += pairSeen.committed_bytes();
-#endif
     return bytes;
 }

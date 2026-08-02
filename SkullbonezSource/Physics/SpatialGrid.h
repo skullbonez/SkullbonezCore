@@ -7,10 +7,8 @@ Summary:
   Persistent current-position membership and a one-step swept overlay feed one
   fixed hash-bucket topology. Pair collection builds sorted per-body slices of
   eligible shared-bucket ordinals, omitting cells that cannot witness a pair, so
-  the earliest eligible shared bucket owns filtering without retaining one bit
-
-  for every possible body pair. A Debug-only legacy
-  same-state oracle remains isolated until BD4 removes it.
+  the earliest eligible shared bucket owns filtering without a retained bit per
+  possible body pair.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -42,11 +40,9 @@ Related:
 */
 #pragma once
 
-
 #include <vector>
 #include <utility>
 #include <cstdint>
-#include <cstring>
 #include <cmath>
 #include <cassert>
 #include <limits>
@@ -76,8 +72,8 @@ namespace CollisionDetection
     fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
     occupancy uses a separate per-frame stamped overlay. Sorted per-body eligible shared-bucket memberships assign each pair
     to its earliest eligible shared bucket; fixed radix staging then emits ascending normalized pairs independent of
-    discovery order. The Debug legacy same-state oracle is separate from production filtering. Unchanged integer ranges
-    touch no cells. SceneLoad reservation establishes retained backing; fixed-step work performs no heap allocation.
+    discovery order. Unchanged integer ranges touch no cells. SceneLoad reservation establishes retained backing;
+    fixed-step work performs no heap allocation.
 
     Layman version:
       Instead of asking every object about every other object, the world is cut
@@ -136,13 +132,6 @@ class SpatialGrid
     static constexpr int MAX_PAIR_MEMBERSHIP_ROWS = MAX_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES;
     static_assert( TABLE_SIZE - 1 <= ( std::numeric_limits<PairMembershipOrdinal>::max )(),
                    "SpatialGrid active-bucket ordinals no longer fit the membership row type." );
-#if defined( _DEBUG )
-    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
-                                                   ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
-    static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
-                   "MAX_SCENE_OBJECTS exceeds the signed candidate-pair identity range." );
-    static constexpr int PAIR_WORDS = static_cast<int>( ( MAX_PAIR_IDENTITIES + 63 ) / 64 );
-#endif
 
     struct CellRange
     {
@@ -231,8 +220,6 @@ class SpatialGrid
         pairMembershipCounts { "SpatialGrid.pairMembershipCounts",
                                Physics::PhysicsCapacityReason::SpatialGridPairMembershipCounts };
 #if defined( _DEBUG )
-    Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
-                                                               Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
     std::size_t pairMembershipLogicalCapacityForTest = ( std::numeric_limits<std::size_t>::max )();
 #endif
 
@@ -288,8 +275,6 @@ class SpatialGrid
                                             Physics::PhysicsCandidatePairList* sleepPrunedPairs );
 #if defined( _DEBUG )
     void ObservePairBucketRows( const Bucket& bucket, int bucketIndex, int activeIndex, std::size_t& observedRawRows );
-    void ResetDensePairCrossCheck();
-    bool MarkDensePairFirstSeen( int a, int b );
 #endif
     void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,
@@ -365,14 +350,6 @@ class SpatialGrid
                                     float dt, float contactSkin, bool restrictToPairSourceCells );
 #if defined( _DEBUG )
 
-    // P1 transition oracle only: emits the pre-transition bucket-history order
-    // from the same grid state so Debug runs can compare work membership without
-    // evolving a second simulation.
-    void GetFilteredCandidatePairsLegacyForOracle( Physics::PhysicsCandidatePairList& outPairs,
-                                                   const Physics::PhysicsBodyStore& bodyStore,
-                                                   const Physics::ColliderStore& colliderStore,
-                                                   std::span<const uint8_t> sleepState, float dt, float contactSkin );
-
     // Debug child-probe seam: valid grids derive enough ordinal capacity from
     // their source stores, so fatal diagnostics need a planted logical ceiling.
     // Keeping this inline avoids manufacturing a production-reachability row.
@@ -426,16 +403,6 @@ class SpatialGrid
     {
         return pairMembershipCounts.capacity();
     }
-#if defined( _DEBUG )
-    std::size_t GetPairDedupWordCapacity() const
-    {
-        return pairSeen.capacity();
-    }
-    std::size_t GetPairDedupWordHighWater() const
-    {
-        return pairSeen.high_water();
-    }
-#endif
     std::size_t GetCandidatePairHeadCapacity() const
     {
         return candidatePairHeads.capacity();

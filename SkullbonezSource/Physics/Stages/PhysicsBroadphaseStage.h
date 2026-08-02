@@ -5,8 +5,7 @@ Purpose:
 
 Summary:
   PhysicsBroadphaseStage incrementally maintains persistent spatial membership
-
-  for one fixed tick, overlays conservative fast sweeps, visits only cells
+  during one fixed tick, overlays conservative fast sweeps, visits only cells
   reached by awake bodies in production, and exposes its retained candidate span
   to later stages. Collision-cell keys share this owner because they use the
   same coordinates.
@@ -15,10 +14,6 @@ Glossary:
   Fast-sweep augmentation: Conservative segment check that protects tiny,
     high-speed bodies from depending only on grid-cell overlap.
   Collision-cell key: Deterministic diagnostic hash of a contact midpoint cell.
-  Same-state oracle: Debug-only comparison that runs legacy and canonical pair
-    construction from one broadphase input state before either can evolve it.
-  Pair-stream oracle: Opt-in Debug evidence stream containing every pair-list
-    boundary and geometry-call count needed for byte-exact dedup comparison.
   Grid maintenance: Adds or removes only cells whose integer body range changed;
     settled bodies retain their entries without per-step reinsertion.
 
@@ -33,8 +28,6 @@ Invariants:
   - Swept occupancy expires every step and never changes persistent membership.
   - Debug full-cell traversal preserves bounded SleepPrunedPair diagnostics;
     Profile/Release never generate sleep-only candidate work.
-  - Pair-stream recording borrows the mutually exclusive same-state scratch,
-    writes explicit little-endian records, and adds no retained list owner.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
@@ -47,12 +40,6 @@ Related:
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <vector>
-
-#if defined( _DEBUG )
-#include <atomic>
-#include <cstdio>
-#endif
 
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
@@ -93,41 +80,10 @@ class PhysicsBroadphaseStage
     // Debug-only bounded evidence for pairs now suppressed at grid emission.
     PhysicsCandidatePairList m_sleepPrunedPairs { "PhysicsBroadphaseStage.sleepPrunedPairs",
                                                   PhysicsCapacityReason::CandidatePairs };
-
-    // Debug oracle scratch. These buffers are scene-load reserved, included in
-    // Debug memory accounting, and absent from Release's canonical production
-    // path. The normalization list belongs to P1 unless the mutually exclusive
-    // BD0 pair-stream oracle borrows it for a raw-grid snapshot.
-    PhysicsCandidatePairList m_pairOracleShadowPairs { "PhysicsBroadphaseStage.pairOracleShadowPairs",
-                                                       PhysicsCapacityReason::CandidatePairs };
-    PhysicsCandidatePairList m_pairOracleNormalizedDriverPairs { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs",
-                                                                 PhysicsCapacityReason::CandidatePairs };
-    bool m_pairOracleEnabled = false;
-    bool m_pairOracleLegacyDrives = false;
-    uint64_t m_pairOracleTickCount = 0;
-
-    // Opt-in exact evidence retained only while the pair-dedup campaign is
-    // active. The already-reserved normalization scratch snapshots raw grid
-    // output before fast-sweep augmentation; the stream also records augmented
-    // and final solver-visible candidates plus raw and final sleep rows. The file
-    // is opened unbuffered at the cold construction boundary so fixed ticks
-    // perform no allocator work.
-    std::FILE* m_pairStreamOracleFile = nullptr;
-    bool m_pairStreamOracleEnabled = false;
-    std::size_t m_pairStreamOracleBodyCapacity = 0;
-    uint64_t m_pairStreamOraclePassCount = 0;
-    uint64_t m_pairStreamOracleGridGeometryInvocations = 0;
-    uint64_t m_pairStreamOracleRecordStartOffset = 0;
-
-    void WritePairStreamOraclePrePruneRecord( int modelCount, uint64_t totalGeometryInvocations );
-    void WritePairStreamOraclePostPruneRecord();
 #endif
 
   public:
     PhysicsBroadphaseStage();
-#if defined( _DEBUG )
-    ~PhysicsBroadphaseStage();
-#endif
 
     void ReserveSceneCapacity( std::size_t bodyCapacity );
     void ApplyRuntimeSettings( const BroadphaseSettings& settings );

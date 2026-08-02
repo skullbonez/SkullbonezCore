@@ -1416,30 +1416,21 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 4/20 (20%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
-left the active/future ledger under rule 4. Four plans remain, to run in this
+work at 0/15 (0%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
+under rule 4. Three plans remain, to run in this
 order:
 
-1. `TODO/broadphase-pair-dedup-cost.md` (4/5). BD0 locks uninstrumented Profile
-   cost plus complete five-boundary pair streams across 0/1/4 workers. BD1
-   chooses traversal-preserving earliest-shared-bucket membership intersection;
-   output-sized hashing and post-sort logs cannot cover legal raw identities.
-   `ResetCandidatePairDedup` clears an O(N²) triangular bitset every broadphase
-   pass — about 1 MB at the default
-   4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
-   emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
-   and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
-   contract and a naive sort-and-unique is rejected at BD1.
-2. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
+1. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
    a hand-written ordinary frame-pass barrier is a defect; that invariant is
    review-only today. `Compile()` is pure CPU and returns the full derived
    transition set, so this is device-free coverage inside `validate_tests`.
-3. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-4. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+3. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
@@ -3639,6 +3630,17 @@ them by 14.2%/66.7%, and the phase report records the smaller-scene tradeoff.
 Core/deep Physics, full tests, format, fast validation, a 3/3 comment audit, and
 independent ACCEPT pass. The live ledger is therefore 4/20 (20%). Evidence is in
 `../Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`.
+
+Broadphase Pair Dedup Cost BD4 completed on 2026-08-02. The deletion-bound
+Debug triangular store, same-state driver, pair-stream writer, geometry counter,
+two oracle scratch lists, three reserve owners, and their two exact repair
+rulings are gone. Production first-seen membership, canonical solver order,
+bounded sleep diagnostics, and fixed-capacity failure policy remain. All 23
+BD0-BD3 evidence files are retained unchanged and the v2 decoder is historical
+and read-only. The independent closure review returned ACCEPT after all seven
+governance inventories passed and the touched-source audit closed 9/9 with zero
+deferrals. The completed plan leaves the live ledger at 0/15 (0%). Evidence is
+in `../Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`.
 
 ## Features
 

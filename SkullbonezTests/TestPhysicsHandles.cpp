@@ -944,7 +944,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 105 );
+    REQUIRE( eventCount == 102 );
 #else
     REQUIRE( eventCount == 101 );
 #endif
@@ -983,9 +983,6 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
         { "SpatialGrid.entries", 17024 },
-#if defined( _DEBUG )
-        { "SpatialGrid.pairSeen", 31235 },
-#endif
         { "SpatialGrid.bodyMemberships", 2000 },
         { "SpatialGrid.pairMembershipOrdinals", 21120 },
         { "SpatialGrid.pairMembershipOffsets", 2001 },
@@ -997,8 +994,6 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "SpatialGrid.cellObjectSeen", 2000 },
 #if defined( _DEBUG )
         { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
-        { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
-        { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs", 8000 },
 #endif
         { "PhysicsNarrowphaseStage.events", 8000 },
         { "PhysicsNarrowphaseStage.islands", 2000 },
@@ -1070,7 +1065,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 110 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 107 );
 #else
     CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 106 );
 #endif
@@ -1140,7 +1135,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 111 );
+    CHECK( physicsCapacityRowCount == 108 );
 #else
     CHECK( physicsCapacityRowCount == 107 );
 #endif
@@ -1168,14 +1163,14 @@ TEST_CASE( "Broadphase owning memory total includes registered grid backing exac
     constexpr uint64_t candidateCapacity = 12u;
     constexpr uint64_t productionStageBytes = candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
 #if defined( _DEBUG )
-    constexpr uint64_t debugOracleBytes = candidateCapacity * sizeof( std::pair<int, int> ) * 3u;
+    constexpr uint64_t debugDiagnosticBytes = candidateCapacity * sizeof( std::pair<int, int> );
 #else
-    constexpr uint64_t debugOracleBytes = 0u;
+    constexpr uint64_t debugDiagnosticBytes = 0u;
 #endif
 
     const uint64_t gridBackingBytes = stage.GetSpatialGrid().CollectDynamicMemoryBytes();
     const uint64_t owningDynamicBytes = stage.CollectDynamicMemoryBytes();
-    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugOracleBytes );
+    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugDiagnosticBytes );
     CHECK( stage.CollectDebugAndBroadphaseMemoryBytes() ==
            static_cast<uint64_t>( sizeof( SkullbonezCore::Math::CollisionDetection::SpatialGrid ) ) + owningDynamicBytes );
 }

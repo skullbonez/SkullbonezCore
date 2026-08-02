@@ -35,9 +35,8 @@ Invariants:
   - The tool is read-only unless --json-out explicitly names an output receipt.
 
 Related:
-  - Agentic/Plans/TODO/broadphase-pair-dedup-cost.md
-  - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
-  - SkullbonezSource/Physics/SpatialGrid.cpp
+  - Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md
+  - Agentic/Reports/2026-08-02/broadphase-pair-dedup-oracles/README.md
 """
 
 from __future__ import annotations

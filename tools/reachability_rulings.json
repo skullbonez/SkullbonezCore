@@ -56,24 +56,6 @@
       "plan": ""
     },
     {
-      "file": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
-      "signature": "void PhysicsBroadphaseStage::WritePairStreamOraclePrePruneRecord( int modelCount, uint64_t totalGeometryInvocations )",
-      "owner": "Physics::PhysicsBroadphaseStage BD0 pair-stream oracle",
-      "disposition": "repair-plan",
-      "reason": "The temporary Debug-only helper owns the complete pre-prune portion of the BD0 byte-exact pair oracle until BD4 removes or adjudicates the instrumentation.",
-      "evidence": "PhysicsBroadphaseStage::Run calls the helper synchronously after the raw-grid snapshot and fast-small-sweep augmentation/canonicalization, immediately before fixed-pair pruning; current no-reference mapping is exact at arity 2/2 for ?WritePairStreamOraclePrePruneRecord@PhysicsBroadphaseStage@Physics@SkullbonezCore@@AEAAXH_K@Z, and the environment-opt-in stream is consumed by the live Broadphase Pair Dedup Cost plan.",
-      "plan": "Agentic/Plans/TODO/broadphase-pair-dedup-cost.md"
-    },
-    {
-      "file": "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
-      "signature": "void PhysicsBroadphaseStage::WritePairStreamOraclePostPruneRecord()",
-      "owner": "Physics::PhysicsBroadphaseStage BD0 pair-stream oracle",
-      "disposition": "repair-plan",
-      "reason": "The temporary Debug-only helper owns the final solver and sleep-diagnostic portion of the BD0 byte-exact pair oracle until BD4 removes or adjudicates the instrumentation.",
-      "evidence": "PhysicsBroadphaseStage::Run calls the helper synchronously after fixed and optional point-joint pruning, immediately before RecordCandidates; current no-reference mapping is exact at arity 0/0 for ?WritePairStreamOraclePostPruneRecord@PhysicsBroadphaseStage@Physics@SkullbonezCore@@AEAAXXZ, and the environment-opt-in stream is consumed by the live Broadphase Pair Dedup Cost plan.",
-      "plan": "Agentic/Plans/TODO/broadphase-pair-dedup-cost.md"
-    },
-    {
       "file": "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
       "signature": "void PersistentContactSolveTransaction::ReserveSceneCapacity( std::size_t bodyCapacity )",
       "owner": "Physics::PersistentContactSolveTransaction body storage",

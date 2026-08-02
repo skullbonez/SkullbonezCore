@@ -6,9 +6,9 @@ Purpose:
 Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
   swept bounding spheres cannot touch during the current fixed tick and rejects
-  dormant/dormant pairs before they enter solver-visible work. Debug can count
-  exact predicate invocations on the owning step thread without changing the
-  Profile/Release predicate.
+  dormant/dormant pairs before they enter solver-visible work. The geometry-only
+  predicate remains explicit so Debug can preserve sleep-pruned diagnostics at
+  the same admission boundary without restoring dormant solver work.
 
 Glossary:
   Contact skin: Extra radius added to a broadphase sphere so near misses still
@@ -25,9 +25,6 @@ Invariants:
     break deterministic physics baselines.
   - The geometry-only predicate remains available to Debug diagnostics so
     SleepPrunedPair retains its pre-P3 admission boundary.
-  - One synchronous broadphase call owns the Debug thread-local counter between
-    reset and sample; concurrently stepped worlds on other threads remain
-    isolated.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
@@ -51,28 +48,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-#if defined( _DEBUG )
-
-// Pair-stream oracle counter. The broadphase owner resets this immediately
-// before grid collection, then samples it at the raw and post-augmentation
-// boundaries. Keeping the increment inside the predicate counts every concrete
-// invocation, including calls that reject before any pair reaches an output.
-// Invariant: one synchronous broadphase stage owns this thread between reset
-// and sample. Thread-local storage isolates concurrently stepped worlds while
-// keeping predicate call sites independent of the stage object.
-inline thread_local uint64_t g_broadphaseCandidateGeometryInvocationCount = 0;
-
-inline void ResetBroadphaseCandidateGeometryInvocationCount()
-{
-    g_broadphaseCandidateGeometryInvocationCount = 0;
-}
-
-inline uint64_t BroadphaseCandidateGeometryInvocationCount()
-{
-    return g_broadphaseCandidateGeometryInvocationCount;
-}
-#endif
-
 inline bool BroadphaseCandidateBothSleeping( std::span<const uint8_t> sleepState, int a, int b )
 {
     return a >= 0 && b >= 0 && a < static_cast<int>( sleepState.size() ) && b < static_cast<int>( sleepState.size() ) &&
@@ -107,9 +82,6 @@ inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> coll
 inline bool BroadphaseCandidateGeometryCanTouch( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                  float dt, float contactSkin, int a, int b )
 {
-#if defined( _DEBUG )
-    ++g_broadphaseCandidateGeometryInvocationCount;
-#endif
     const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
 
     if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )

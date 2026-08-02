@@ -129,8 +129,9 @@ behavior changes, and no baseline moves.
   headers concurrently would produce avoidable conflicts.
 - MZ2 benefits from the completed Narrowphase Manifold And Sleep Coverage plan
   (`../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`)
-  and `broadphase-pair-dedup-cost.md` having landed, since both add coverage to
-  files MZ2 renames in.
+  and Broadphase Pair Dedup Cost plan
+  (`../../Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`) having
+  landed, since both add coverage to files MZ2 renames in.
 - No phase carries baseline-refresh authority. A rename that moves a physics
   baseline is a defect in the rename, not a behavior change to accept. Revert and
   find the slip.
