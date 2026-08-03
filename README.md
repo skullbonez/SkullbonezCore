@@ -10,7 +10,12 @@ core, built to a standard where its physics output is byte-reproducible and ever
 behavioural claim in the repository has a gate behind it.
 
 ![SkullbonezCore](SkullbonezCore.png)
-Fully deterministic solar system with all moons.
+*Fully deterministic solar system with all moons with live CPU and memory widgets (top left), causal event chain (right) and replay/prediction controls (bottom).*
+
+![SkullbonezCore editor](SkullbonezEditor.png)
+*The in-development editor: scene hierarchy, asset placement palette, live world and
+lighting inspectors, the replay transport along the bottom, and a connected Tracy
+session.*
 
 ---
 
@@ -106,11 +111,6 @@ being built out.
 
 **ImGui and Tracy integration are a work in progress.** The editor surface and the
 profiler instrumentation are partially wired and are being completed incrementally.
-
-![SkullbonezCore editor](SkullbonezEditor.png)
-*The in-development editor: scene hierarchy, asset placement palette, live world and
-lighting inspectors, the replay transport along the bottom, and a connected Tracy
-session.*
 
 ## Built for Agentic Development
 
