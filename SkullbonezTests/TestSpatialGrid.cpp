@@ -6,7 +6,11 @@
 // Summary:
 //   SpatialGrid is a fixed-capacity broadphase index. Objects are inserted into
 //   every cell touched by their bounding sphere or swept bounds, and candidate
-//   pairs are emitted once even when two objects share multiple cells.
+//   pairs are emitted once even when two objects share multiple cells. Focused
+//   fixtures also preserve traversal-first diagnostic order and prove the
+//   per-body eligible shared-bucket membership index without retaining one bit
+//   for every possible body pair. The separate runtime-contract harness owns
+//   the planted fixed-capacity exhaustion fatal.
 //
 // Glossary:
 //   Cell: Integer grid bucket covering one cube of world space.
@@ -17,6 +21,8 @@
 //   Swept overlay: Velocity-dependent cells that expire at the next BeginFrame.
 //   Canonical pair order: Ascending `(smaller index, larger index)` order that
 //     is independent of the order in which cells discover the pair.
+//   First-seen order: Traversal order at the first cell that discovers a pair;
+//     Debug sleep-pruned diagnostics preserve this order before later sorting.
 //
 // Invariants:
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
@@ -24,12 +30,15 @@
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
 //   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
+//   - Geometry admission occurs only at the earliest eligible shared bucket,
+//     even when overlapping bodies share several cells or fail the predicate.
 //   - SceneLoad reservation fixes every scene-sized backing store. BeginFrame
 //     and Clear retain backing/high-water; additional admission also preserves
 //     existing persistent membership and generation state.
 //
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
+//   - SkullbonezTests/TestRuntimeContracts.cpp
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 //
@@ -71,24 +80,29 @@ std::vector<std::pair<int, int>> CandidatePairs( SpatialGrid& grid, int reserveC
 
 bool HasPair( const std::vector<std::pair<int, int>>& pairs, int a, int b )
 {
+
     if ( a > b )
     {
         const int tmp = a;
         a = b;
         b = tmp;
     }
+
     for ( const auto& pair : pairs )
     {
+
         if ( pair.first == a && pair.second == b )
         {
             return true;
         }
     }
+
     return false;
 }
 
 SpatialGrid& TestGrid()
 {
+
     // Why: fixed hash topology remains too large for the test thread stack.
     // Reserve the supported ceiling once so behavior tests can choose arbitrary
     // dense body indices without each case restating scene admission.
@@ -107,6 +121,7 @@ SpatialGrid& TestGrid()
 
 PhysicsBodyStore& CeilingBodyStore()
 {
+
     // Why: the production-filtered ceiling proof needs dense rows through
     // index 8,191. Static owner storage keeps that capacity off the test stack.
     static PhysicsBodyStore store;
@@ -123,6 +138,7 @@ PhysicsBodyStore& CeilingBodyStore()
 
 ColliderStore& CeilingColliderStore()
 {
+
     // Why: filtered broadphase consumes the collider row at every candidate
     // index, so this owner must mirror the body's complete dense prefix.
     static ColliderStore store;
@@ -151,15 +167,17 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
     }
 
     CHECK( grid->GetPersistentEntryCapacity() == 1048u );
-    CHECK( grid->GetPairDedupWordCapacity() == 1u );
     CHECK( grid->GetBodyMembershipCapacity() == 3u );
+    CHECK( grid->GetPairMembershipOrdinalCapacity() == 5144u );
+    CHECK( grid->GetPairMembershipOffsetCapacity() == 4u );
+    CHECK( grid->GetPairMembershipCountCapacity() == 3u );
     CHECK( grid->GetCandidatePairHeadCapacity() == 3u );
     CHECK( grid->GetCandidatePairNodeCapacity() == 12u );
     CHECK( grid->GetCandidatePairSortKeyCapacity() == 12u );
     CHECK( grid->GetCandidatePairSortScratchCapacity() == 12u );
     CHECK( grid->GetCellObjectSeenCapacity() == 3u );
     CHECK( grid->GetSweptOverlayEntryCapacity() == 4096u );
-    CHECK( grid->CollectDynamicMemoryBytes() == 124160u );
+    CHECK( grid->CollectDynamicMemoryBytes() == 134468u );
 
     const auto capacityRows = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CapacityRows();
     const auto findRow = [capacityRows]( const char* ownerName )
@@ -175,8 +193,13 @@ TEST_CASE( "SpatialGrid: scene reserve sizes every registered store from its own
     };
     const ExpectedOwner expectedOwners[] = {
         { "SpatialGrid.entries", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPersistentEntries, 1048 },
-        { "SpatialGrid.pairSeen", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairDedupWords, 1 },
         { "SpatialGrid.bodyMemberships", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridBodyMemberships, 3 },
+        { "SpatialGrid.pairMembershipOrdinals",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairMembershipOrdinals, 5144 },
+        { "SpatialGrid.pairMembershipOffsets",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairMembershipOffsets, 4 },
+        { "SpatialGrid.pairMembershipCounts",
+          SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridPairMembershipCounts, 3 },
         { "SpatialGrid.candidatePairHeads", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairHeads,
           3 },
         { "SpatialGrid.candidatePairNodes", SkullbonezCore::Physics::PhysicsCapacityReason::SpatialGridCandidatePairNodes,
@@ -238,6 +261,7 @@ TEST_CASE( "SpatialGrid: scene reserve covers dense ordinary occupancy plus one 
     }
 
     grid->BeginFrame( totalBodyCount );
+
     for ( int bodyIndex = 0; bodyIndex < ordinaryBodyCount; ++bodyIndex )
     {
         const float separatedCellBoundary = static_cast<float>( bodyIndex * 100 );
@@ -280,6 +304,9 @@ TEST_CASE( "SpatialGrid: additional scene reserve preserves live membership and 
     CHECK( pairsAfterReserve[0] == std::make_pair( 0, 1 ) );
     CHECK( grid->GetPersistentEntryHighWater() == entryHighWater );
     CHECK( grid->GetBodyMembershipCapacity() == 4u );
+    CHECK( grid->GetPairMembershipOrdinalCapacity() == 5152u );
+    CHECK( grid->GetPairMembershipOffsetCapacity() == 5u );
+    CHECK( grid->GetPairMembershipCountCapacity() == 4u );
     CHECK( grid->GetCellObjectSeenCapacity() == 4u );
 
     grid->BeginFrame( 4 );
@@ -305,21 +332,25 @@ TEST_CASE( "SpatialGrid: Clear and cell-size reset retain scene backing and high
     REQUIRE( CandidatePairs( *grid ).size() == 1u );
     grid->InsertSwept( 0, Vector3( 5.0f, 5.0f, 5.0f ), Vector3( 20.0f, 0.0f, 0.0f ), 1.0f );
     CHECK( grid->GetPersistentEntryHighWater() == 2u );
-    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetPairMembershipOrdinalHighWater() == 2u );
     CHECK( grid->GetSweptOverlayEntryHighWater() > 0u );
 
     const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
-    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
+    const std::size_t pairMembershipOrdinalCapacity = grid->GetPairMembershipOrdinalCapacity();
+    const std::size_t pairMembershipOffsetCapacity = grid->GetPairMembershipOffsetCapacity();
+    const std::size_t pairMembershipCountCapacity = grid->GetPairMembershipCountCapacity();
     const std::size_t overlayCapacity = grid->GetSweptOverlayEntryCapacity();
     const std::size_t overlayHighWater = grid->GetSweptOverlayEntryHighWater();
     grid->Clear();
     grid->SetCellSize( 5.0f );
 
     CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
-    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
+    CHECK( grid->GetPairMembershipOrdinalCapacity() == pairMembershipOrdinalCapacity );
+    CHECK( grid->GetPairMembershipOffsetCapacity() == pairMembershipOffsetCapacity );
+    CHECK( grid->GetPairMembershipCountCapacity() == pairMembershipCountCapacity );
     CHECK( grid->GetSweptOverlayEntryCapacity() == overlayCapacity );
     CHECK( grid->GetPersistentEntryHighWater() == 2u );
-    CHECK( grid->GetPairDedupWordHighWater() == 1u );
+    CHECK( grid->GetPairMembershipOrdinalHighWater() == 2u );
     CHECK( grid->GetSweptOverlayEntryHighWater() == overlayHighWater );
     CHECK( grid->GetActiveCellCount() == 0 );
 }
@@ -344,8 +375,10 @@ TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backin
     grid->Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
     grid->Insert( 1, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
     const std::size_t entryCapacity = grid->GetPersistentEntryCapacity();
-    const std::size_t pairCapacity = grid->GetPairDedupWordCapacity();
     const std::size_t bodyMembershipCapacity = grid->GetBodyMembershipCapacity();
+    const std::size_t pairMembershipOrdinalCapacity = grid->GetPairMembershipOrdinalCapacity();
+    const std::size_t pairMembershipOffsetCapacity = grid->GetPairMembershipOffsetCapacity();
+    const std::size_t pairMembershipCountCapacity = grid->GetPairMembershipCountCapacity();
     const std::size_t candidatePairHeadCapacity = grid->GetCandidatePairHeadCapacity();
     const std::size_t candidatePairNodeCapacity = grid->GetCandidatePairNodeCapacity();
     const std::size_t candidatePairSortKeyCapacity = grid->GetCandidatePairSortKeyCapacity();
@@ -364,8 +397,10 @@ TEST_CASE( "SpatialGrid: BeginFrame shrinks retained rows without growing backin
 
     CHECK( violations == 0u );
     CHECK( grid->GetPersistentEntryCapacity() == entryCapacity );
-    CHECK( grid->GetPairDedupWordCapacity() == pairCapacity );
     CHECK( grid->GetBodyMembershipCapacity() == bodyMembershipCapacity );
+    CHECK( grid->GetPairMembershipOrdinalCapacity() == pairMembershipOrdinalCapacity );
+    CHECK( grid->GetPairMembershipOffsetCapacity() == pairMembershipOffsetCapacity );
+    CHECK( grid->GetPairMembershipCountCapacity() == pairMembershipCountCapacity );
     CHECK( grid->GetCandidatePairHeadCapacity() == candidatePairHeadCapacity );
     CHECK( grid->GetCandidatePairNodeCapacity() == candidatePairNodeCapacity );
     CHECK( grid->GetCandidatePairSortKeyCapacity() == candidatePairSortKeyCapacity );
@@ -474,6 +509,12 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
     grid.GetCandidatePairs( pairs, true );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+#if defined( _DEBUG )
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 1u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 1u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 2 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 3 ) == 0u );
+#endif
 
     // Membership persists into the next frame; changing only the stamp selects
     // the other occupied cell without reinsertion.
@@ -482,6 +523,91 @@ TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake bo
     grid.GetCandidatePairs( pairs, true );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 2, 3 ) );
+#if defined( _DEBUG )
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 0u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 2 ) == 1u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 3 ) == 1u );
+#endif
+}
+
+
+TEST_CASE( "SpatialGrid: earliest eligible shared bucket projects out an earlier unstamped bucket" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+    grid.BeginFrame( 2 );
+
+    // Both bodies retain the unstamped start cell. Their swept overlay stamps
+    // cells one and two, so the membership index must omit the earlier
+    // ineligible shared ordinal before assigning first-seen ownership.
+    grid.InsertSwept( 0, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2.0f, 0.0f, 0.0f ), 0.0f );
+    grid.InsertSwept( 1, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2.0f, 0.0f, 0.0f ), 0.0f );
+    std::vector<std::pair<int, int>> pairs;
+    pairs.reserve( 1u );
+    grid.GetCandidatePairs( pairs, true );
+
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+#if defined( _DEBUG )
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 0 ) == 2u );
+    CHECK( grid.GetPairMembershipUniqueCountForTest( 1 ) == 2u );
+#endif
+
+    auto bodyStore = std::make_unique<PhysicsBodyStore>();
+    auto colliderStore = std::make_unique<ColliderStore>();
+    SkullbonezCore::Physics::PhysicsCandidatePairList filteredPairs {
+        "TestSpatialGrid.earliestEligibleFilteredPairs",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore->ReserveCapacity( 2u );
+        colliderStore->ReserveCapacity( 2u );
+        colliderStore->ReserveShapeCapacity( 2u, 0u, 0u );
+        filteredPairs.Reserve( 1u );
+    }
+
+    const Vector3 source( 0.25f, 0.25f, 0.25f );
+    const CollisionShape sphere( BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = source;
+        body.hot.boundingRadius = 0.1f;
+        const auto bodyHandle = bodyStore->CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.1f;
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliderStore, collider, sphere );
+    }
+
+    const std::vector<uint8_t> sleepState( 2u, 0u );
+    grid.GetFilteredCandidatePairs( filteredPairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, true );
+    REQUIRE( filteredPairs.size() == 1u );
+    CHECK( filteredPairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: restricted pairing joins persistent and swept membership in one bucket" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 2.25f, 0.25f, 0.25f ), 0.0f );
+    grid.InsertSwept( 1, Vector3( 0.25f, 0.25f, 0.25f ), Vector3( 2.0f, 0.0f, 0.0f ), 0.0f );
+    std::vector<std::pair<int, int>> pairs;
+    pairs.reserve( 1u );
+    grid.GetCandidatePairs( pairs, true );
+
+    // The swept body stamps cell two. That bucket's other occupant is a
+    // persistent row, proving one ordinal prefix merges both source stores
+    // before earliest-shared evaluation.
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }
 
 
@@ -567,6 +693,7 @@ TEST_CASE( "SpatialGrid: persistent entry and bucket slots reuse across long tra
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     grid.BeginFrame( 1 );
+
     for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS + 256; ++cell )
     {
         grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
@@ -592,10 +719,96 @@ TEST_CASE( "SpatialGrid: minimum cell size preserves exact-edge insert and query
 }
 
 
+TEST_CASE( "SpatialGrid: exact coordinate hash aliases share one conservative bucket" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+    grid.BeginFrame( 2 );
+    const Vector3 positions[] = {
+        Vector3( 0.25f, -0.75f, 1.25f ),
+        Vector3( 0.25f, 1.25f, -0.75f ),
+    };
+
+    // Hazard: cells (0,-1,1) and (0,1,-1) both hash to -98,484,010.
+    // Bucket identity intentionally preserves the resulting false positive;
+    // exact-coordinate membership would silently change the broadphase.
+    grid.Insert( 0, positions[0], 0.1f );
+    grid.Insert( 1, positions[1], 0.1f );
+    const auto unfilteredPairs = CandidatePairs( grid, 1 );
+    REQUIRE( unfilteredPairs.size() == 1u );
+    CHECK( unfilteredPairs[0] == std::make_pair( 0, 1 ) );
+    CHECK( grid.GetActiveCellCount() == 1 );
+
+    auto bodyStore = std::make_unique<PhysicsBodyStore>();
+    auto colliderStore = std::make_unique<ColliderStore>();
+    SkullbonezCore::Physics::PhysicsCandidatePairList filteredPairs {
+        "TestSpatialGrid.hashAliasFilteredPairs",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore->ReserveCapacity( 2u );
+        colliderStore->ReserveCapacity( 2u );
+        colliderStore->ReserveShapeCapacity( 2u, 0u, 0u );
+        filteredPairs.Reserve( 1u );
+    }
+
+    const CollisionShape sphere( BoundingSphere( 0.1f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < 2; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = positions[bodyIndex];
+        body.hot.boundingRadius = 0.1f;
+        const auto bodyHandle = bodyStore->CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.1f;
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliderStore, collider, sphere );
+    }
+
+    const std::vector<uint8_t> sleepState( 2u, 0u );
+    grid.MarkPairSourceCells( 0 );
+    grid.GetFilteredCandidatePairs( filteredPairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, true );
+    CHECK( filteredPairs.empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: swept coordinate aliases retain only pair-bearing bucket memberships" )
+{
+    auto grid = std::make_unique<SpatialGrid>( 1.0f );
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        grid->ReserveSceneCapacity( 2u );
+    }
+
+    grid->BeginFrame( 2 );
+    const Vector3 source( 0.25f, -0.75f, 1.25f );
+    const Vector3 displacement( 0.0f, 2.0f, -2.0f );
+    grid->InsertSwept( 0, source, displacement, 0.0f );
+    grid->Insert( 1, source, 0.0f );
+
+    const auto pairs = CandidatePairs( *grid, 1 );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+    CHECK( grid->GetActiveCellCount() == 7 );
+    CHECK( grid->GetPairMembershipOrdinalHighWater() == 10u );
+#if defined( _DEBUG )
+    CHECK( grid->GetPairMembershipUniqueCountForTest( 0 ) == 1u );
+    CHECK( grid->GetPairMembershipUniqueCountForTest( 1 ) == 1u );
+#endif
+}
+
+
 TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
 {
     SpatialGrid& grid = TestGrid();
     constexpr int kBodyCount = 4;
+
     for ( int body = 0; body < kBodyCount; ++body )
     {
         grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
@@ -606,8 +819,10 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
     // Hazard: a single crowded cell is the documented O(n^2) broadphase
     // case. The contract is complete, deduplicated output—not hidden pruning.
     CHECK( pairs.size() == 6u );
+
     for ( int a = 0; a < kBodyCount; ++a )
     {
+
         for ( int b = a + 1; b < kBodyCount; ++b )
         {
             CHECK( HasPair( pairs, a, b ) );
@@ -620,6 +835,7 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
 {
     SpatialGrid& grid = TestGrid();
     constexpr int insertionOrder[] = { 3, 1, 4, 0, 2 };
+
     for ( int body : insertionOrder )
     {
         grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
@@ -633,6 +849,70 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
     // Invariant: solver work order is a function of normalized body identity,
     // never the bucket-creation or linked-list order used to discover a pair.
     CHECK( pairs == expected );
+}
+
+
+TEST_CASE( "SpatialGrid: filtered first-seen order stays observable when geometry rejects a pair" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( SpatialGrid::MIN_CELL_SIZE );
+    grid.BeginFrame( 3 );
+
+    auto bodyStore = std::make_unique<PhysicsBodyStore>();
+    auto colliderStore = std::make_unique<ColliderStore>();
+    SkullbonezCore::Physics::PhysicsCandidatePairList candidatePairs {
+        "TestSpatialGrid.firstSeenCandidates",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    SkullbonezCore::Physics::PhysicsCandidatePairList sleepPrunedPairs {
+        "TestSpatialGrid.firstSeenSleepPruned",
+        SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity,
+    };
+
+    {
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope sceneLoadScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
+        bodyStore->ReserveCapacity( 3u );
+        colliderStore->ReserveCapacity( 3u );
+        colliderStore->ReserveShapeCapacity( 3u, 0u, 0u );
+        candidatePairs.Reserve( 3u );
+        sleepPrunedPairs.Reserve( 3u );
+    }
+
+    const Vector3 positions[] = {
+        Vector3( 0.01f, 100.01f, 0.01f ),
+        Vector3( 0.25f, 100.25f, 0.25f ),
+        Vector3( 0.49f, 100.49f, 0.49f ),
+    };
+
+    const CollisionShape sphere( BoundingSphere( 0.25f, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
+
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.hot.position = positions[bodyIndex];
+        body.hot.boundingRadius = 0.25f;
+        const auto bodyHandle = bodyStore->CreateBodyRecord( body );
+
+        ColliderRecord collider;
+        collider.body = bodyHandle;
+        collider.boundingRadius = 0.25f;
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *colliderStore, collider, sphere );
+        grid.Insert( bodyIndex, positions[bodyIndex], 0.25f );
+    }
+
+    const std::vector<uint8_t> sleepState( 3u, 1u );
+    grid.GetFilteredCandidatePairs( candidatePairs, *bodyStore, *colliderStore, sleepState, 0.0f, 0.0f, sleepPrunedPairs,
+                                    false );
+
+    CHECK( candidatePairs.empty() );
+    REQUIRE( sleepPrunedPairs.size() == 2u );
+
+    // Hazard: pair (0,2) shares a cell but fails geometry. The other two rows
+    // deliberately pin traversal-first order rather than canonical sort order.
+    CHECK( sleepPrunedPairs[0] == std::make_pair( 1, 2 ) );
+    CHECK( sleepPrunedPairs[1] == std::make_pair( 0, 1 ) );
 }
 
 
@@ -680,7 +960,7 @@ TEST_CASE( "SpatialGrid: canonical output reaches the current scene-index ceilin
         ColliderRecord collider;
         collider.body = bodyHandle;
         collider.boundingRadius = 0.1f;
-        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore,  collider, sphere  );
+        (void)SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliderStore, collider, sphere );
     }
 
     std::vector<uint8_t> sleepState( static_cast<size_t>( kSceneCeiling ), 0u );
@@ -710,6 +990,7 @@ TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
     constexpr int kPersistentCells = SpatialGrid::MAX_BUCKETS / 2;
+
     for ( int cell = 0; cell < kPersistentCells; ++cell )
     {
         grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
@@ -741,6 +1022,7 @@ TEST_CASE( "Property invariant: identical sphere insert/query round-trips includ
 
     // Invariant: two identical sphere bounds always share at least one cell,
     // including the degenerate zero-radius case on a cell boundary.
+
     for ( int sample = 0; sample < 64; ++sample )
     {
         grid.Clear();

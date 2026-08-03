@@ -18,6 +18,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.h
+  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
+  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md
   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
@@ -109,17 +111,6 @@ struct ClipVertex
 {
     Vector3 point = ZERO_VECTOR;
     uint16_t id = 0;
-};
-
-struct ContactCandidate
-{
-
-    // Concept: clipping can yield more points than the four-row solver budget.
-    // Keep geometry and its stable warm-start identity together until the
-    // deterministic reduction policy chooses the rows that survive.
-    Vector3 point = ZERO_VECTOR;
-    float penetration = 0.0f;
-    uint32_t featureId = 0;
 };
 
 struct PolyFaceWorld
@@ -292,17 +283,28 @@ void AddContactPoint( const ObjectContactBodyView& a, const ObjectContactBodyVie
     cp.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
     cp.featureId = featureId;
 }
+} // namespace
 
-template <std::size_t CandidateCapacity>
-int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[CandidateCapacity], int candidateCount,
-                                   const Vector3& normal, int ( &selectedIndices )[4] )
+ObjectContactCandidateSelection
+SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContactCandidate* candidates, int candidateCount,
+                                                              const Vector3& normal )
 {
 
     // Invariant: the deepest row is always selected first. The remaining rows
     // maximize their minimum tangent-plane distance from the selected set, so a
     // clipped octagon does not collapse into four neighboring solver points.
-    bool selected[CandidateCapacity] = {};
-    int selectedCount = 0;
+    ObjectContactCandidateSelection selection;
+
+    // Hazard: the selection bitmap is deliberately fixed-capacity for the hot
+    // narrowphase path. Reject an invalid public borrow before indexing it;
+    // production clipping owns 8-row and 32-row buffers under this ceiling.
+
+    if ( !candidates || candidateCount <= 0 || candidateCount > MAX_OBJECT_CONTACT_CANDIDATES )
+    {
+        return selection;
+    }
+
+    bool selected[MAX_OBJECT_CONTACT_CANDIDATES] = {};
 
     auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
     {
@@ -333,11 +335,11 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
 
     if ( deepest < 0 )
     {
-        return 0;
+        return selection;
     }
 
     selected[deepest] = true;
-    selectedIndices[selectedCount++] = deepest;
+    selection.indices[selection.count++] = deepest;
 
     const Vector3 tangentSeed = fabsf( normal.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
     Vector3 tangent0 = CrossProduct( tangentSeed, normal );
@@ -363,7 +365,7 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
         return x * x + y * y;
     };
 
-    while ( selectedCount < 4 && selectedCount < candidateCount )
+    while ( selection.count < 4 && selection.count < candidateCount )
     {
         int bestIndex = -1;
         float bestSpread = -1.0f;
@@ -378,9 +380,10 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
 
             float minDistSq = FLT_MAX;
 
-            for ( int s = 0; s < selectedCount; ++s )
+            for ( uint8_t selectedIndex = 0; selectedIndex < selection.count; ++selectedIndex )
             {
-                const float distSq = tangentDistanceSq( candidates[i].point, candidates[selectedIndices[s]].point );
+                const float distSq = tangentDistanceSq( candidates[i].point,
+                                                        candidates[selection.indices[selectedIndex]].point );
 
                 if ( distSq < minDistSq )
                 {
@@ -415,11 +418,14 @@ int SelectContactCandidateIndices( const ContactCandidate ( &candidates )[Candid
         }
 
         selected[bestIndex] = true;
-        selectedIndices[selectedCount++] = bestIndex;
+        selection.indices[selection.count++] = bestIndex;
     }
 
-    return selectedCount;
+    return selection;
 }
+
+namespace
+{
 
 // CATTO REF:
 //   The result is Catto's simplest contact model: one point, one normal, and one
@@ -867,7 +873,7 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody, const ObjectContac
     uint32_t referenceFace = FaceId( referenceAxis, refSign );
     uint32_t incidentFace = FaceId( incidentAxis, incidentSign );
 
-    ContactCandidate candidates[8];
+    ObjectContactCandidate candidates[8];
     int candidateCount = 0;
 
     for ( int i = 0; i < clippedCount; ++i )
@@ -879,18 +885,18 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody, const ObjectContac
             continue;
         }
 
-        ContactCandidate& candidate = candidates[candidateCount++];
+        ObjectContactCandidate& candidate = candidates[candidateCount++];
         candidate.point = clipped[i].point - refNormal * ( separation * 0.5f );
         candidate.penetration = -separation;
         candidate.featureId = EncodeBoxFaceFeature( referenceIsA, referenceFace, incidentFace, clipped[i].id );
     }
 
-    int selectedIndices[4] = {};
-    const int selectedCount = SelectContactCandidateIndices( candidates, candidateCount, refNormal, selectedIndices );
+    const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( candidates, candidateCount,
+                                                                                           refNormal );
 
-    for ( int i = 0; i < selectedCount; ++i )
+    for ( uint8_t selectedIndex = 0; selectedIndex < selection.count; ++selectedIndex )
     {
-        const ContactCandidate& candidate = candidates[selectedIndices[i]];
+        const ObjectContactCandidate& candidate = candidates[selection.indices[selectedIndex]];
         AddContactPoint( aBody, bBody, out, candidate.point, candidate.penetration, candidate.featureId );
     }
 
@@ -1262,9 +1268,18 @@ bool IsUsefulPolyEdgeAxis( const PolytopeWorld& a, const PolytopeWorld& b, const
         return false;
     }
 
-    const Vector3 axis = axisRaw / sqrtf( magSq );
-    return ( EdgeSupportsAxis( a, edgeA, axis ) && EdgeSupportsAxis( b, edgeB, -axis ) ) ||
-           ( EdgeSupportsAxis( a, edgeA, -axis ) && EdgeSupportsAxis( b, edgeB, axis ) );
+    Vector3 axis = axisRaw / sqrtf( magSq );
+
+    if ( Dot( b.center - a.center, axis ) < 0.0f )
+    {
+        axis = -axis;
+    }
+
+    // Invariant: a saved edge-axis candidate must name the two support edges
+    // that face one another along the final A-to-B normal. Accepting the reverse
+    // support pair tests the same SAT line but later builds a contact between
+    // back-side edges when parallel authored edges tie on overlap.
+    return EdgeSupportsAxis( a, edgeA, axis ) && EdgeSupportsAxis( b, edgeB, -axis );
 }
 
 bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vector3& axisRaw, int axisType, int axisA,
@@ -1658,7 +1673,7 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody, const ObjectConta
         }
     }
 
-    ContactCandidate candidates[MAX_POLY_CLIP_VERTS];
+    ObjectContactCandidate candidates[MAX_POLY_CLIP_VERTS];
     int candidateCount = 0;
     const Vector3 refPlanePoint = ref.vertices[ref.faceIndices[refFace.firstIndex]];
 
@@ -1682,12 +1697,12 @@ bool BuildPolyFaceContact( const ObjectContactBodyView& aBody, const ObjectConta
         }
     }
 
-    int selectedIndices[4] = {};
-    const int selectedCount = SelectContactCandidateIndices( candidates, candidateCount, refNormal, selectedIndices );
+    const ObjectContactCandidateSelection selection = SelectObjectContactCandidateIndices( candidates, candidateCount,
+                                                                                           refNormal );
 
-    for ( int i = 0; i < selectedCount && out.pointCount < 4; ++i )
+    for ( uint8_t selectedIndex = 0; selectedIndex < selection.count && out.pointCount < 4; ++selectedIndex )
     {
-        const ContactCandidate& candidate = candidates[selectedIndices[i]];
+        const ObjectContactCandidate& candidate = candidates[selection.indices[selectedIndex]];
         AddContactPoint( aBody, bBody, out, candidate.point, candidate.penetration, candidate.featureId );
     }
 

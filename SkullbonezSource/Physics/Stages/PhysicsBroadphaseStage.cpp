@@ -14,8 +14,6 @@ Glossary:
   Sleep-pruned pair: Pair of dormant bodies with no awake energy to create work.
 
 Invariants:
-  - P1 changes only pair work order after proving same-state raw and final work
-    membership in both driver directions.
   - `remove_if` predicates preserve their diagnostic side effects in canonical
     solver-visible order.
   - Sleep-only pairs never enter the production candidate vector; Debug records
@@ -34,7 +32,6 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../SolverBroadphaseStage.h"
@@ -43,9 +40,6 @@ Related:
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 
 using SkullbonezCore::Math::Vector::Vector3;
 namespace Physics = SkullbonezCore::Physics;
@@ -344,45 +338,6 @@ bool TryRecordBroadphaseCandidatePair( Physics::PhysicsPipelineTraceRecorder& ph
     return true;
 }
 
-#if defined( _DEBUG )
-void CopyPairsWithoutGrowth( const Physics::PhysicsCandidatePairList& source,
-                             Physics::PhysicsCandidatePairList& destination )
-{
-    destination.clear();
-
-    if ( source.size() > destination.capacity() )
-    {
-        SB_FATAL( "Physics/P1PairOracle", "Oracle normalization capacity exhausted: size=%zu capacity=%zu phase=diagnostic.",
-                  source.size(), destination.capacity() );
-    }
-
-    for ( const std::pair<int, int>& pair : source )
-    {
-        destination.emplace_back( pair );
-    }
-}
-
-void RequireSamePairMembership( const Physics::PhysicsCandidatePairList& driverPairs,
-                                Physics::PhysicsCandidatePairList& shadowPairs,
-                                Physics::PhysicsCandidatePairList& normalizedDriverPairs, const char* boundary,
-                                const char* driverName, uint64_t tick )
-{
-    CopyPairsWithoutGrowth( driverPairs, normalizedDriverPairs );
-    std::sort( normalizedDriverPairs.begin(), normalizedDriverPairs.end() );
-    std::sort( shadowPairs.begin(), shadowPairs.end() );
-
-    if ( normalizedDriverPairs.size() != shadowPairs.size() ||
-         !std::equal( normalizedDriverPairs.begin(), normalizedDriverPairs.end(), shadowPairs.begin() ) )
-    {
-        SB_FATAL( "Physics/P1PairOracle",
-                  "P1 same-state pair membership mismatch: boundary=%s driver=%s tick=%llu "
-                  "driver_count=%zu shadow_count=%zu.",
-                  boundary, driverName, static_cast<unsigned long long>( tick ), normalizedDriverPairs.size(),
-                  shadowPairs.size() );
-    }
-}
-#endif
-
 template <typename T> uint64_t ListCapacityBytes( const T& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
@@ -395,34 +350,8 @@ namespace Physics
 {
 PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADPHASE_CELL )
 {
-#if defined( _DEBUG )
-    char oracleDriver[16] = {};
-    size_t oracleDriverLength = 0;
-    getenv_s( &oracleDriverLength, oracleDriver, sizeof( oracleDriver ), "SKORE_P1_PAIR_DRIVER" );
-
-    if ( oracleDriverLength > sizeof( oracleDriver ) )
-    {
-        SB_FATAL( "Physics/P1PairOracle", "SKORE_P1_PAIR_DRIVER value exceeds the fixed diagnostic buffer." );
-    }
-
-    if ( oracleDriverLength > 0 )
-    {
-        m_pairOracleLegacyDrives = std::strcmp( oracleDriver, "legacy" ) == 0;
-        m_pairOracleEnabled = m_pairOracleLegacyDrives || std::strcmp( oracleDriver, "canonical" ) == 0;
-
-        if ( !m_pairOracleEnabled )
-        {
-            SB_FATAL( "Physics/P1PairOracle", "Unknown SKORE_P1_PAIR_DRIVER value '%s'; expected legacy or canonical.",
-                      oracleDriver );
-        }
-
-        std::fprintf( stderr, "P1_PAIR_ORACLE enabled driver=%s boundaries=raw,final\n",
-                      m_pairOracleLegacyDrives ? "legacy" : "canonical" );
-
-        std::fflush( stderr );
-    }
-#endif
 }
+
 
 void PhysicsBroadphaseStage::ReserveSceneCapacity( std::size_t bodyCapacity )
 {
@@ -432,8 +361,6 @@ void PhysicsBroadphaseStage::ReserveSceneCapacity( std::size_t bodyCapacity )
     m_collisionCellKeys.Reserve( pairCapacity );
 #if defined( _DEBUG )
     m_sleepPrunedPairs.Reserve( pairCapacity );
-    m_pairOracleShadowPairs.Reserve( pairCapacity );
-    m_pairOracleNormalizedDriverPairs.Reserve( pairCapacity );
 #endif
 }
 
@@ -462,9 +389,6 @@ void PhysicsBroadphaseStage::Clear()
     m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
     m_sleepPrunedPairs.clear();
-    m_pairOracleShadowPairs.clear();
-    m_pairOracleNormalizedDriverPairs.clear();
-    m_pairOracleTickCount = 0;
 #endif
 }
 
@@ -500,8 +424,6 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
     m_largestBroadphaseRadiusValid = false;
 #if defined( _DEBUG )
     m_sleepPrunedPairs.clear();
-    m_pairOracleShadowPairs.clear();
-    m_pairOracleNormalizedDriverPairs.clear();
 #endif
 }
 
@@ -623,46 +545,17 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 #if defined( _DEBUG )
         m_sleepPrunedPairs.clear();
 
-        if ( m_pairOracleEnabled )
-        {
-
-            if ( m_pairOracleLegacyDrives )
-            {
-                m_spatialGrid.GetFilteredCandidatePairsLegacyForOracle( m_candidatePairs, bodyStore, colliderStore,
-                                                                        sleepState, dt, contactSkin );
-
-                m_spatialGrid.GetFilteredCandidatePairs( m_pairOracleShadowPairs, bodyStore, colliderStore, sleepState, dt,
-                                                         contactSkin, m_sleepPrunedPairs, false );
-            }
-            else
-            {
-                m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt,
-                                                         contactSkin, m_sleepPrunedPairs, false );
-
-                m_spatialGrid.GetFilteredCandidatePairsLegacyForOracle( m_pairOracleShadowPairs, bodyStore, colliderStore,
-                                                                        sleepState, dt, contactSkin );
-            }
-
-            RequireSamePairMembership( m_candidatePairs, m_pairOracleShadowPairs, m_pairOracleNormalizedDriverPairs, "raw",
-                                       m_pairOracleLegacyDrives ? "legacy" : "canonical", m_pairOracleTickCount );
-        }
-        else
-#endif
-        {
-#if defined( _DEBUG )
-
-            // Debug walks the full retained grid to preserve one bounded
-            // SleepPrunedPair breadcrumb per old sleep-only pair.
-            m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                     m_sleepPrunedPairs, false );
+        // Debug walks the full retained grid to preserve one bounded
+        // SleepPrunedPair breadcrumb per old sleep-only pair.
+        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
+                                                 m_sleepPrunedPairs, false );
 #else
 
-            // Production visits only cells reached by an awake body this step;
-            // sleep-only cells retain membership but emit no candidate work.
-            m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
-                                                     true );
+        // Production visits only cells reached by an awake body this step;
+        // sleep-only cells retain membership but emit no candidate work.
+        m_spatialGrid.GetFilteredCandidatePairs( m_candidatePairs, bodyStore, colliderStore, sleepState, dt, contactSkin,
+                                                 true );
 #endif
-        }
     }
 
     bool fastSmallSweepAppendedPairs = false;
@@ -671,28 +564,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         fastSmallSweepAppendedPairs = AppendFastSmallSweepPairs( m_candidatePairs, bodyStore, colliderStore, sleepState,
                                                                  hotFields, colliderRecords, awakeBodyIndices, dt,
                                                                  contactSkin, contactEpsilon );
-
-#if defined( _DEBUG )
-
-        if ( m_pairOracleEnabled )
-        {
-            AppendFastSmallSweepPairs( m_pairOracleShadowPairs, bodyStore, colliderStore, sleepState, hotFields,
-                                       colliderRecords, awakeBodyIndices, dt, contactSkin, contactEpsilon );
-        }
-#endif
     }
 
-#if defined( _DEBUG )
-
-    if ( ( !m_pairOracleEnabled || !m_pairOracleLegacyDrives ) && fastSmallSweepAppendedPairs )
-#endif
-#if !defined( _DEBUG )
-
-        if ( fastSmallSweepAppendedPairs )
-#endif
-        {
-            CanonicalizeCandidatePairs( m_candidatePairs );
-        }
+    if ( fastSmallSweepAppendedPairs )
+    {
+        CanonicalizeCandidatePairs( m_candidatePairs );
+    }
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
@@ -704,13 +581,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_sleepPrunedPairs.erase( std::remove_if( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end(),
                                                   FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
                                   m_sleepPrunedPairs.end() );
-
-        if ( m_pairOracleEnabled )
-        {
-            m_pairOracleShadowPairs.erase( std::remove_if( m_pairOracleShadowPairs.begin(), m_pairOracleShadowPairs.end(),
-                                                           FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
-                                           m_pairOracleShadowPairs.end() );
-        }
 #endif
     }
 
@@ -722,42 +592,11 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                 m_candidatePairs.end() );
 
 #if defined( _DEBUG )
-
-        if ( m_pairOracleEnabled )
-        {
-            m_pairOracleShadowPairs.erase( std::remove_if( m_pairOracleShadowPairs.begin(), m_pairOracleShadowPairs.end(),
-                                                           PointJointCandidatePairPredicate { bodyStore,
-                                                                                              pointJointConstraints } ),
-                                           m_pairOracleShadowPairs.end() );
-        }
-#endif
-
-#if defined( _DEBUG )
         m_sleepPrunedPairs.erase( std::remove_if( m_sleepPrunedPairs.begin(), m_sleepPrunedPairs.end(),
                                                   PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
                                   m_sleepPrunedPairs.end() );
 #endif
     }
-
-#if defined( _DEBUG )
-
-    if ( m_pairOracleEnabled )
-    {
-        RequireSamePairMembership( m_candidatePairs, m_pairOracleShadowPairs, m_pairOracleNormalizedDriverPairs, "final",
-                                   m_pairOracleLegacyDrives ? "legacy" : "canonical", m_pairOracleTickCount );
-
-        ++m_pairOracleTickCount;
-
-        if ( ( m_pairOracleTickCount % 120u ) == 0u )
-        {
-            std::fprintf( stderr, "P1_PAIR_ORACLE pass driver=%s ticks=%llu boundaries=raw,final\n",
-                          m_pairOracleLegacyDrives ? "legacy" : "canonical",
-                          static_cast<unsigned long long>( m_pairOracleTickCount ) );
-
-            std::fflush( stderr );
-        }
-    }
-#endif
 
     {
         PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordCandidates" );
@@ -903,8 +742,7 @@ uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
                      ListCapacityBytes( m_collisionCellKeys );
 
 #if defined( _DEBUG )
-    bytes += ListCapacityBytes( m_sleepPrunedPairs ) + ListCapacityBytes( m_pairOracleShadowPairs ) +
-             ListCapacityBytes( m_pairOracleNormalizedDriverPairs );
+    bytes += ListCapacityBytes( m_sleepPrunedPairs );
 #endif
     return bytes;
 }

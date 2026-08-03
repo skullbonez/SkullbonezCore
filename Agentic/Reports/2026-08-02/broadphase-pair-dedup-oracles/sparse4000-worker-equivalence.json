@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "oracle_format_version": 2,
+  "require_identical": true,
+  "identical": true,
+  "streams": [
+    {
+      "path": "Agentic/Reports/2026-08-02/broadphase-pair-dedup-oracles/sparse4000.bin",
+      "bytes": 41800,
+      "sha256": "EC8C856F8B80A96375B2781FF125A0EA147A9529E6DE99483EFEFB045D17431D",
+      "version": 2,
+      "pass_count": 360,
+      "ordinal_first": 0,
+      "ordinal_last": 359,
+      "body_counts": [
+        4000
+      ],
+      "reserved_body_capacities": [
+        4000
+      ],
+      "cleared_words": {
+        "sum": 44988840,
+        "min": 124969,
+        "max": 124969
+      },
+      "explicit_memset_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "pair_seen_committed_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "grid_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "total_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "record_content_bytes": {
+        "sum": 33120,
+        "min": 92,
+        "max": 92
+      },
+      "boundaries": {
+        "raw_grid_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "post_augmentation_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "raw_first_seen_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_solver_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "path": "TestOutput/broadphase_pair_dedup_bd0/oracles/sparse4000_w1.0.bin",
+      "bytes": 41800,
+      "sha256": "EC8C856F8B80A96375B2781FF125A0EA147A9529E6DE99483EFEFB045D17431D",
+      "version": 2,
+      "pass_count": 360,
+      "ordinal_first": 0,
+      "ordinal_last": 359,
+      "body_counts": [
+        4000
+      ],
+      "reserved_body_capacities": [
+        4000
+      ],
+      "cleared_words": {
+        "sum": 44988840,
+        "min": 124969,
+        "max": 124969
+      },
+      "explicit_memset_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "pair_seen_committed_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "grid_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "total_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "record_content_bytes": {
+        "sum": 33120,
+        "min": 92,
+        "max": 92
+      },
+      "boundaries": {
+        "raw_grid_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "post_augmentation_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "raw_first_seen_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_solver_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "path": "TestOutput/broadphase_pair_dedup_bd0/oracles/sparse4000_w4.0.bin",
+      "bytes": 41800,
+      "sha256": "EC8C856F8B80A96375B2781FF125A0EA147A9529E6DE99483EFEFB045D17431D",
+      "version": 2,
+      "pass_count": 360,
+      "ordinal_first": 0,
+      "ordinal_last": 359,
+      "body_counts": [
+        4000
+      ],
+      "reserved_body_capacities": [
+        4000
+      ],
+      "cleared_words": {
+        "sum": 44988840,
+        "min": 124969,
+        "max": 124969
+      },
+      "explicit_memset_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "pair_seen_committed_bytes": {
+        "sum": 359910720,
+        "min": 999752,
+        "max": 999752
+      },
+      "grid_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "total_geometry_invocations": {
+        "sum": 1282442,
+        "min": 3210,
+        "max": 3626
+      },
+      "record_content_bytes": {
+        "sum": 33120,
+        "min": 92,
+        "max": 92
+      },
+      "boundaries": {
+        "raw_grid_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "post_augmentation_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "raw_first_seen_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_solver_candidates": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        },
+        "final_sleep_rows": {
+          "sum": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    }
+  ]
+}

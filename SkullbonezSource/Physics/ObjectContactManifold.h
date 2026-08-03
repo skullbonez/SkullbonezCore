@@ -4,8 +4,9 @@ Purpose:
   Builds precise object/object contact manifolds for the persistent solver.
 
 Summary:
-  Builds precise object/object contact
-  manifolds for the persistent solver.
+  Exposes the pose, candidate-reduction, sweep, and final manifold values at the
+  Physics narrowphase boundary. The implementation dispatches shape pairs and
+  publishes deterministic feature identity for persistent solver reuse.
 
 Glossary:
   Baumgarte bias: Positional correction term that turns penetration depth into
@@ -13,10 +14,14 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Candidate reduction accepts at most 32 synchronous rows and returns at most
+    four indices, all into the supplied candidate array.
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
+  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
+  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
@@ -44,6 +49,28 @@ struct ObjectContactBodyView
     // shape from ColliderStore's per-kind payload storage.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation;
+};
+
+inline constexpr int MAX_OBJECT_CONTACT_CANDIDATES = 32;
+
+struct ObjectContactCandidate
+{
+
+    // Concept: clipping can yield more geometry than the four-row solver
+    // budget. Candidate rows keep geometry and warm-start identity together
+    // until the deterministic reducer chooses the rows that survive.
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    float penetration = 0.0f;
+    uint32_t featureId = 0;
+};
+
+struct ObjectContactCandidateSelection
+{
+
+    // Lifetime: indices borrow the caller's synchronous candidate array; this
+    // value retains neither the candidates nor any owner authority.
+    int indices[4] = {};
+    uint8_t count = 0;
 };
 
 // CATTO REF:
@@ -83,6 +110,14 @@ struct ObjectContactSweepResult
     bool hit = false;                                         // Candidate object/object hit occurred in the tested substep.
     float collisionTime = 0.0f;                               // Seconds from the start of the tested substep.
 };
+
+// Reduces transient clipped geometry to the solver's four-row budget. Returned
+// indices borrow the caller's candidate array only for the current synchronous
+// manifold build; the selection retains no pointer or owner authority. Null,
+// non-positive, or over-capacity input returns an empty selection.
+ObjectContactCandidateSelection SelectObjectContactCandidateIndices( const ObjectContactCandidate* candidates,
+                                                                     int candidateCount,
+                                                                     const Math::Vector::Vector3& normal );
 
 // Runs the object/object CCD front-end from body/collider inputs. The result is
 // only a time candidate; exact contact rows still come from BuildObjectContactManifold.

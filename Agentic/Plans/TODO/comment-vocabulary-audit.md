@@ -4,7 +4,7 @@ Date: 2026-08-02
 Status: NOT STARTED — 0/5 phases complete
 Impact area: Source comments across every subsystem, comment style guide, glossary reference
 Owner: Comment Quality Gate
-Priority: Fourth
+Priority: Third
 
 ## Problem And Evidence
 

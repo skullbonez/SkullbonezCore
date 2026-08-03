@@ -38,6 +38,8 @@
 //     the canonical prediction working set.
 //   - Spatial-grid backing reserves only during SceneLoad; fixed-step
 //     exhaustion reports the exact owner, capacity, high-water, and phase.
+//   - Sleep support edges fail before either the scene-committed reservation or
+//     the semantic ceiling can be exceeded.
 //   - Pipeline batch counting rejects full-record mode so retained row count
 //     cannot diverge from the recorder's canonical event count.
 //   - DX12 retirement accounting records a real below-capacity peak, resets at
@@ -50,6 +52,7 @@
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
 //   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
+//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -347,6 +350,28 @@ void ExpectCleanChildCase( const char* caseName, std::initializer_list<const cha
 }
 #endif
 
+#if defined( _DEBUG )
+bool RunSpatialGridPairMembershipCapacityFatalCase()
+{
+    static SpatialGrid grid( 1.0f );
+
+    {
+        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+        grid.ReserveSceneCapacity( 2u );
+    }
+
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 1, Vector3( 2.25f, 0.25f, 0.25f ), 0.0f );
+    grid.SetPairMembershipLogicalCapacityForTest( 1u );
+    std::vector<std::pair<int, int>> pairs;
+    pairs.reserve( 1u );
+    RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
+    grid.GetCandidatePairs( pairs );
+    return true;
+}
+#endif
+
 struct WorkerFatalProbe
 {
     void ExecuteWorkerTask()
@@ -371,9 +396,9 @@ bool RunRuntimeFatalCase( const char* caseName )
         retirementDiagnostics.ObservePendingCount(
             SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
         retirementDiagnostics.ObserveRelease( 9u, 4u, true, 77u );
-        retirementDiagnostics.FatalExhaustion(
-            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
-            SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
+        retirementDiagnostics
+            .FatalExhaustion( SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS,
+                              SkullbonezCore::Rendering::Dx12DeferredReleaseOwner::MAX_PENDING_RETIREMENTS );
     }
 
     const bool resetForDevice = std::strcmp( caseName, "dx12-retirement-reset-live-device" ) == 0;
@@ -837,6 +862,13 @@ bool RunRuntimeFatalCase( const char* caseName )
         return true;
     }
 
+#if defined( _DEBUG )
+    if ( std::strcmp( caseName, "spatial-grid-pair-membership-capacity" ) == 0 )
+    {
+        return RunSpatialGridPairMembershipCapacityFatalCase();
+    }
+#endif
+
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
         static SpatialGrid grid( 1.0f );
@@ -863,6 +895,26 @@ bool RunRuntimeFatalCase( const char* caseName )
         grid.Insert( persistentCells + 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
                      0.0f );
 
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "sleep-support-edge-reserved-capacity" ) == 0 )
+    {
+        static SkullbonezCore::Physics::PhysicsCandidatePairList
+            edges { "TestRuntimeContracts.sleepSupportEdgesReserved",
+                    SkullbonezCore::Physics::PhysicsCapacityReason::ExplicitTestCapacity };
+        {
+            RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
+            edges.Reserve( 2u );
+        }
+        edges.clear();
+        AppendSleepSupportEdge( edges, 0, 1 );
+        AppendSleepSupportEdge( edges, 1, 2 );
+
+        // Hazard: requested=3 is far below the semantic ceiling. The owner must
+        // still fail before PhysicsFixedList can silently exceed the actual
+        // scene-committed reservation of two rows.
+        AppendSleepSupportEdge( edges, 2, 3 );
         return true;
     }
 
@@ -987,12 +1039,12 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "sb-diagnostic-capacity" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
         std::array<SkullbonezCore::Core::SbResult, SkullbonezCore::Core::SbDiagnosticStore::CAPACITY + 1u> leases;
 
         for ( std::size_t index = 0; index < leases.size(); ++index )
         {
-            leases[index] = store.Failure( "FatalCapacity", "slot=%zu", index );
+            leases[index] = store->Failure( "FatalCapacity", "slot=%zu", index );
         }
 
         return true;
@@ -1000,21 +1052,21 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "sb-diagnostic-double-release" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
-        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalRelease", "double release" );
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
+        const SkullbonezCore::Core::SbResult lease = store->Failure( "FatalRelease", "double release" );
         const SkullbonezCore::Core::SbDiagnosticIdentity identity = lease.DiagnosticIdentity();
-        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
-        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( store, identity.token );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( *store, identity.token );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::Release( *store, identity.token );
         return true;
     }
 
     if ( std::strcmp( caseName, "sb-diagnostic-owner-overflow" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
         std::array<char, SkullbonezCore::Core::SbDiagnosticStore::OWNER_CAPACITY + 1u> owner = {};
         owner.fill( 'o' );
         owner.back() = '\0';
-        (void)store.Failure( owner.data(), "owner overflow" );
+        (void)store->Failure( owner.data(), "owner overflow" );
         return true;
     }
 
@@ -1031,25 +1083,25 @@ bool RunRuntimeFatalCase( const char* caseName )
 
     if ( std::strcmp( caseName, "sb-diagnostic-lease-overflow" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
-        const SkullbonezCore::Core::SbResult lease = store.Failure( "FatalLeaseOverflow", "saturate lease count" );
-        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::SaturateLeaseCount( store, lease.DiagnosticIdentity().token );
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
+        const SkullbonezCore::Core::SbResult lease = store->Failure( "FatalLeaseOverflow", "saturate lease count" );
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::SaturateLeaseCount( *store, lease.DiagnosticIdentity().token );
         const SkullbonezCore::Core::SbResult copy = lease;
         return copy.Ok();
     }
 
     if ( std::strcmp( caseName, "sb-diagnostic-generation-overflow" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
-        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ExhaustFirstGeneration( store );
-        (void)store.Failure( "FatalGenerationOverflow", "generation must not wrap" );
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ExhaustFirstGeneration( *store );
+        (void)store->Failure( "FatalGenerationOverflow", "generation must not wrap" );
         return true;
     }
 
     if ( std::strcmp( caseName, "sb-diagnostic-lock-reentry" ) == 0 )
     {
-        SkullbonezCore::Core::SbDiagnosticStore store;
-        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ReenterLock( store );
+        auto store = std::make_unique<SkullbonezCore::Core::SbDiagnosticStore>();
+        SkullbonezCore::Core::SbDiagnosticStoreTestAccess::ReenterLock( *store );
         return true;
     }
 
@@ -1271,15 +1323,11 @@ TEST_CASE( "DX12 retirement diagnostics retain real peaks and reset at device bo
 TEST_CASE( "DX12 retirement exhaustion reports truthful queue and fence diagnostics" )
 {
     ExpectFatalCase( "dx12-retirement-capacity",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine",
-                       "capacity=512 count=512 high_water=512",
-                       "last_release_input=0 last_released=0 last_survivors=0",
-                       "fence_ready=0 last_completed_fence=0" } );
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine", "capacity=512 count=512 high_water=512",
+                       "last_release_input=0 last_released=0 last_survivors=0", "fence_ready=0 last_completed_fence=0" } );
     ExpectFatalCase( "dx12-retirement-release-snapshot",
-                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine",
-                       "capacity=512 count=512 high_water=512",
-                       "last_release_input=9 last_released=5 last_survivors=4",
-                       "fence_ready=1 last_completed_fence=77" } );
+                     { "FATAL[Dx12DeferredReleaseOwner]", "phase=quarantine", "capacity=512 count=512 high_water=512",
+                       "last_release_input=9 last_released=5 last_survivors=4", "fence_ready=1 last_completed_fence=77" } );
     ExpectFatalCase( "dx12-retirement-reset-live-device",
                      { "FATAL[Dx12DeferredReleaseOwner]", "phase=device_reset", "count=1" } );
     ExpectFatalCase( "dx12-retirement-reset-live-shutdown",
@@ -1384,8 +1432,20 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.overlayEntries", "requested=4097",
                        "runtime_capacity=4096", "compile_capacity=4096", "high_water=4096", "phase=physics" } );
 
+#if defined( _DEBUG )
+    ExpectFatalCase( "spatial-grid-pair-membership-capacity",
+                     { "FATAL[Physics/SpatialGrid]", "Pair membership ordinal capacity exhausted",
+                       "owner=SpatialGrid.pairMembershipOrdinals", "requested=2", "logical_capacity=1",
+                       "reserved_capacity=5136", "high_water=0", "admitted_bodies=2", "persistent_live=2",
+                       "persistent_capacity=1040", "overlay_live=0", "overlay_capacity=4096", "phase=physics" } );
+#endif
+
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );
+
+    ExpectFatalCase( "sleep-support-edge-reserved-capacity",
+                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=3",
+                       "capacity=32768", "reserved_capacity=2", "high_water=2", "phase=steady_gameplay" } );
 
     ExpectFatalCase( "sleep-support-edge-capacity",
                      { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded", "requested=32769",

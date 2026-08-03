@@ -302,7 +302,7 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     collider.boundingRadius = body.hot.boundingRadius;
     collider.projectedSurfaceArea = buoyancyFacts.projectedSurfaceArea;
     collider.dragCoefficient = buoyancyFacts.dragCoefficient;
-    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  collider, shape  ).IsValid() );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders, collider, shape ).IsValid() );
 
     PhysicsWorldForces forces;
     forces.gravity = -9.8f;
@@ -589,8 +589,10 @@ TEST_CASE( "Physics handles: collider store resolves body, scene, and model hand
     body.index = 7u;
     body.generation = 1u;
 
-    const PhysicsColliderHandle collider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,  MakeColliderRecord( body, 707u, 3.0f ),
-                                                                       MakeColliderShape( 3.0f )  );
+    const PhysicsColliderHandle
+        collider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,
+                                                                                 MakeColliderRecord( body, 707u, 3.0f ),
+                                                                                 MakeColliderShape( 3.0f ) );
 
     CHECK( collider.IsValid() );
     CHECK( store.Count() == 1 );
@@ -609,17 +611,21 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     PhysicsBodyHandle bodyA { 11u, 1u };
     PhysicsBodyHandle bodyB { 12u, 1u };
     PhysicsBodyHandle bodyC { 13u, 1u };
-    const PhysicsColliderHandle first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,  MakeColliderRecord( bodyA, 111u, 1.0f ),
-                                                                    MakeColliderShape( 1.0f ),
-                                                                    MakeColliderAuthoringRecord( "stone" )  );
+    const PhysicsColliderHandle
+        first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store, MakeColliderRecord( bodyA, 111u, 1.0f ),
+                                                                              MakeColliderShape( 1.0f ),
+                                                                              MakeColliderAuthoringRecord( "stone" ) );
 
-    const PhysicsColliderHandle middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,  MakeColliderRecord( bodyB, 222u, 2.0f ),
-                                                                     MakeColliderShape( 2.0f ),
-                                                                     MakeColliderAuthoringRecord( "metal" )  );
+    const PhysicsColliderHandle
+        middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,
+                                                                               MakeColliderRecord( bodyB, 222u, 2.0f ),
+                                                                               MakeColliderShape( 2.0f ),
+                                                                               MakeColliderAuthoringRecord( "metal" ) );
 
-    const PhysicsColliderHandle last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,  MakeColliderRecord( bodyC, 333u, 3.0f ),
-                                                                   MakeColliderShape( 3.0f ),
-                                                                   MakeColliderAuthoringRecord( "wood" )  );
+    const PhysicsColliderHandle
+        last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store, MakeColliderRecord( bodyC, 333u, 3.0f ),
+                                                                             MakeColliderShape( 3.0f ),
+                                                                             MakeColliderAuthoringRecord( "wood" ) );
 
     CHECK( store.DestroyColliderRecord( middle ) );
 
@@ -633,9 +639,9 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     REQUIRE( store.AuthoringRecordForHandle( last ) != nullptr );
     CHECK( std::strcmp( store.AuthoringRecordForHandle( last )->contactMaterialName, "wood" ) == 0 );
 
-    const PhysicsColliderHandle replacement = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( store,  MakeColliderRecord( PhysicsBodyHandle { 14u, 1u },
-                                                                                              444u, 4.0f ),
-                                                                          MakeColliderShape( 4.0f )  );
+    const PhysicsColliderHandle replacement = SkullbonezTests::ColliderStoreFixtures::
+        CreateColliderRecord( store, MakeColliderRecord( PhysicsBodyHandle { 14u, 1u }, 444u, 4.0f ),
+                              MakeColliderShape( 4.0f ) );
 
     CHECK( replacement.index == middle.index );
     CHECK( replacement.generation != middle.generation );
@@ -651,14 +657,22 @@ TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
     const PhysicsBodyHandle first = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle middle = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
     const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
-    const PhysicsColliderHandle firstCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  MakeColliderRecord( first, 111u, 1.0f ),
-                                                                                MakeColliderShape( 1.0f )  );
+    const PhysicsColliderHandle
+        firstCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,
+                                                                                      MakeColliderRecord( first, 111u,
+                                                                                                          1.0f ),
+                                                                                      MakeColliderShape( 1.0f ) );
 
-    const PhysicsColliderHandle middleCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  MakeColliderRecord( middle, 222u, 2.0f ),
-                                                                                 MakeColliderShape( 2.0f )  );
+    const PhysicsColliderHandle
+        middleCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,
+                                                                                       MakeColliderRecord( middle, 222u,
+                                                                                                           2.0f ),
+                                                                                       MakeColliderShape( 2.0f ) );
 
-    const PhysicsColliderHandle lastCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,  MakeColliderRecord( last, 333u, 3.0f ),
-                                                                               MakeColliderShape( 3.0f )  );
+    const PhysicsColliderHandle
+        lastCollider = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( colliders,
+                                                                                     MakeColliderRecord( last, 333u, 3.0f ),
+                                                                                     MakeColliderShape( 3.0f ) );
 
     REQUIRE( bodies.DestroyBodyRecord( middle ) );
     REQUIRE( colliders.DestroyColliderRecord( middleCollider ) );
@@ -688,9 +702,21 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
             SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
         store->ReserveCapacity( 3u );
         store->ReserveShapeCapacity( 3u, 1u, 0u );
-        first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,  MakeColliderRecord( PhysicsBodyHandle { 1u, 1u }, 101u, 1.0f ), sphereOne  );
-        middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,  MakeColliderRecord( PhysicsBodyHandle { 2u, 1u }, 202u, 2.0f ), sphereTwo  );
-        last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,  MakeColliderRecord( PhysicsBodyHandle { 3u, 1u }, 303u, 3.0f ), sphereThree  );
+        first = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,
+                                                                              MakeColliderRecord( PhysicsBodyHandle { 1u,
+                                                                                                                      1u },
+                                                                                                  101u, 1.0f ),
+                                                                              sphereOne );
+        middle = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,
+                                                                               MakeColliderRecord( PhysicsBodyHandle { 2u,
+                                                                                                                       1u },
+                                                                                                   202u, 2.0f ),
+                                                                               sphereTwo );
+        last = SkullbonezTests::ColliderStoreFixtures::CreateColliderRecord( *store,
+                                                                             MakeColliderRecord( PhysicsBodyHandle { 3u,
+                                                                                                                     1u },
+                                                                                                 303u, 3.0f ),
+                                                                             sphereThree );
     }
 
     REQUIRE( first.IsValid() );
@@ -733,7 +759,7 @@ TEST_CASE( "Collider shape stores: hot rows stay compact and zero-hull scenes co
 
     ColliderRecord replacement = *store->RecordForHandle( first );
     const CollisionShape box = BoundingBox( Vector3( 4.0f, 5.0f, 6.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( *store,  first, replacement, box  ) );
+    REQUIRE( SkullbonezTests::ColliderStoreFixtures::UpdateRecordForHandle( *store, first, replacement, box ) );
     CHECK( store->SphereShapeCount() == 1u );
     CHECK( store->BoxShapeCount() == 1u );
     REQUIRE( GetShapeIf<BoundingBox>( &store->RecordForHandle( first )->shape ) != nullptr );
@@ -748,8 +774,8 @@ TEST_CASE( "Collider hull shape store: canonical identities share stable scene-l
 {
     auto store = std::make_unique<ColliderStore>();
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hullShape;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
-        diagnostics, "SkullbonezData/hulls/pyramid.hull", hullShape ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull",
+                                                                     hullShape ) );
     const CollisionShape hull = hullShape;
     const Vector3 unitScale( 1.0f, 1.0f, 1.0f );
     const HullShapeIdentity canonical = MakeShareableHullShapeIdentity( "SkullbonezData/hulls/pyramid.hull", unitScale );
@@ -920,7 +946,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 #if defined( _DEBUG )
     REQUIRE( eventCount == 102 );
 #else
-    REQUIRE( eventCount == 99 );
+    REQUIRE( eventCount == 101 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -957,8 +983,10 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsBroadphaseStage.candidatePairs", 8000 },
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
         { "SpatialGrid.entries", 17024 },
-        { "SpatialGrid.pairSeen", 31235 },
         { "SpatialGrid.bodyMemberships", 2000 },
+        { "SpatialGrid.pairMembershipOrdinals", 21120 },
+        { "SpatialGrid.pairMembershipOffsets", 2001 },
+        { "SpatialGrid.pairMembershipCounts", 2000 },
         { "SpatialGrid.candidatePairHeads", 2000 },
         { "SpatialGrid.candidatePairNodes", 8000 },
         { "SpatialGrid.candidatePairSortKeys", 8000 },
@@ -966,8 +994,6 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "SpatialGrid.cellObjectSeen", 2000 },
 #if defined( _DEBUG )
         { "PhysicsBroadphaseStage.sleepPrunedPairs", 8000 },
-        { "PhysicsBroadphaseStage.pairOracleShadowPairs", 8000 },
-        { "PhysicsBroadphaseStage.pairOracleNormalizedDriverPairs", 8000 },
 #endif
         { "PhysicsNarrowphaseStage.events", 8000 },
         { "PhysicsNarrowphaseStage.islands", 2000 },
@@ -1041,7 +1067,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 #if defined( _DEBUG )
     CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 107 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 104 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 106 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1111,7 +1137,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
 #if defined( _DEBUG )
     CHECK( physicsCapacityRowCount == 108 );
 #else
-    CHECK( physicsCapacityRowCount == 105 );
+    CHECK( physicsCapacityRowCount == 107 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );
@@ -1135,20 +1161,18 @@ TEST_CASE( "Broadphase owning memory total includes registered grid backing exac
     }
 
     constexpr uint64_t candidateCapacity = 12u;
-    constexpr uint64_t productionStageBytes =
-        candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
+    constexpr uint64_t productionStageBytes = candidateCapacity * ( sizeof( std::pair<int, int> ) + sizeof( int64_t ) );
 #if defined( _DEBUG )
-    constexpr uint64_t debugOracleBytes = candidateCapacity * sizeof( std::pair<int, int> ) * 3u;
+    constexpr uint64_t debugDiagnosticBytes = candidateCapacity * sizeof( std::pair<int, int> );
 #else
-    constexpr uint64_t debugOracleBytes = 0u;
+    constexpr uint64_t debugDiagnosticBytes = 0u;
 #endif
 
     const uint64_t gridBackingBytes = stage.GetSpatialGrid().CollectDynamicMemoryBytes();
     const uint64_t owningDynamicBytes = stage.CollectDynamicMemoryBytes();
-    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugOracleBytes );
+    CHECK( owningDynamicBytes == gridBackingBytes + productionStageBytes + debugDiagnosticBytes );
     CHECK( stage.CollectDebugAndBroadphaseMemoryBytes() ==
-           static_cast<uint64_t>( sizeof( SkullbonezCore::Math::CollisionDetection::SpatialGrid ) ) +
-               owningDynamicBytes );
+           static_cast<uint64_t>( sizeof( SkullbonezCore::Math::CollisionDetection::SpatialGrid ) ) + owningDynamicBytes );
 }
 
 
@@ -1221,8 +1245,8 @@ TEST_CASE( "Prediction physics seed uses the production reserve owner and surviv
     forces.angularDragMultiplier = 0.0f;
 
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape sharedHullShape;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
-        diagnostics, "SkullbonezData/hulls/pyramid.hull", sharedHullShape ) );
+    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull",
+                                                                     sharedHullShape ) );
     const CollisionShape sharedHull = sharedHullShape;
     const HullShapeIdentity sharedHullIdentity = MakeShareableHullShapeIdentity( "SKULLBONEZDATA\\HULLS\\PYRAMID.HULL",
                                                                                  Vector3( 1.0f, 1.0f, 1.0f ) );
@@ -1496,7 +1520,7 @@ TEST_CASE( "Coverage floor contract: box and hull buoyancy stay finite under par
 {
     CheckUnderwaterForcePath( BoxShape( Vector3( 2.0f, 0.5f, 1.0f ) ), 601u );
     SkullbonezCore::Math::CollisionDetection::ConvexHullShape hull;
-    REQUIRE( SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull(
-        diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
+    REQUIRE(
+        SkullbonezTests::ResultLoadFixtures::TryLoadConvexHull( diagnostics, "SkullbonezData/hulls/pyramid.hull", hull ) );
     CheckUnderwaterForcePath( hull, 602u );
 }

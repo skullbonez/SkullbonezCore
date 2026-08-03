@@ -1416,35 +1416,59 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/26 (0%).** Five plans registered from a current-tree source and test
-review, to run in this order:
+work at 2/20 (10%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
+under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew
+the denominator 15 → 20. Four plans remain, to run in this
+order:
 
-1. `TODO/narrowphase-manifold-sleep-coverage.md` (0/6). The contact solver has
-   20 cases with an energy oracle and negative controls; the 2,133-line manifold
-   that feeds it has 5, and the only hull-pair coverage asserts non-emptiness.
-   Feature-ID lifetime, which warm starting depends on, is unpinned. The sleep
-   controller has no test file of its own. Pure test addition, no behavior change.
-2. `TODO/broadphase-pair-dedup-cost.md` (0/5). `ResetCandidatePairDedup` clears
-   an O(N²) triangular bitset every broadphase pass — about 1 MB at the default
-   4,000-body capacity, up to 8 times a frame, to deduplicate at most 16,000
-   emitted pairs. Behavior-preserving only by owner ruling; the geometry filter
-   and sleep-pruned diagnostic fire inside first-seen detection, so ordering is
-   contract and a naive sort-and-unique is rejected at BD1.
-3. `TODO/render-graph-transition-coverage.md` (0/5). `RenderGraph.h` states that
-   a hand-written ordinary frame-pass barrier is a defect; that invariant is
-   review-only today. `Compile()` is pure CPU and returns the full derived
-   transition set, so this is device-free coverage inside `validate_tests`.
-4. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+1. `TODO/render-graph-transition-coverage.md` (2/5). Sixteen pure RenderGraph
+   tests already run through the merge-gated standalone DX12 architecture lane,
+   covering representative derivation, transient, callback, and fatal behavior.
+   They do not run in `validate_tests` or instrumented coverage. RG0 maps the
+   exact structured compiler contract, all Lane-F boundaries, and the residual
+   RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
+   ordinary transition cases / 47 assertions; RG2 is binding next.
+2. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
+   reach in dense piles since the restitution lifetime gate landed. That gate is
+   the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
+   `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
+   bricks went from 566 vertical reversals to zero, and the 200-box wall retains
+   all 211 bodies with zero popcorn cycles. The regression is the accepted
+   ground-settling cost, now measured as larger than marginal.
+   `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the
+   instrument. Leading hypothesis for SR1 to prove or discard: the gate keys on
+   exact feature identity, so a rocking box that re-selects a face or edge feature
+   presents as a contact with no loaded history, re-admits restitution, and resets
+   the 30-frame quiet counter — the same churn also misses the warm-start cache.
+   The comment `194cbf82` deleted when it narrowed the lookup describes exactly
+   this case. Do not reverse the wall fix and do not restore the pair-prefix scan.
+3. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-5. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+4. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Stacking remains parked for later Bullet/Box2D experimentation and is not part
-of this campaign.
+Handoff after the RG1 checkpoint: continue on `nightrunner-2nd-AUG-26` at RG2
+only. Start from one external resource whose base is `PixelShaderResource` and
+pin numeric overrides in authored order 5 then 2, all-resource convergence back
+to the base in stored order, and a following all-resource `CopySource` row that
+proves no stale override survived. For the capacity proof, author eight distinct
+numeric overrides in literal order `7,0,6,1,5,2,4,3`, one per pass, then converge
+all eight; a separate child graph adds subresource 8 in a ninth pass and must
+report `Subresource state capacity exceeded. count=8 capacity=8`. Reuse the
+shared child-process harness through a small RenderGraph dispatcher; do not edit
+production Rendering, project integration, or the RG1 build-config ruling.
+
+Deep-tower stacking remains owner-parked in
+`WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
+and is excluded under inventory rule 9. Do not confuse it with plan 2 above: Dense
+Pile Sleep Resolution is a sleep-quality regression in ordinary settled piles and
+is explicitly not deep-tower work. Split-impulse and substep/relaxation techniques
+stay parked; nothing in plan 2 authorizes reaching into that folder.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3538,6 +3562,153 @@ and sleep-pruned diagnostic list, and it holds no divergence or baseline-refresh
 authority. The modernization plan records that the measured legacy residue is
 already small and that a smaller closing scope is a valid outcome rather than a
 cue to find additional work.
+
+Narrowphase Manifold And Sleep Coverage NM0 completed on 2026-08-02. The
+current-source census enumerates all nine ordered object-pair paths, three
+terrain paths, feature encodings, reduction policies, five existing manifold
+cases, thirteen named sleep cases plus the omnibus capacity probe, and every
+sleep/wake transition. It identifies the exact NM1/NM2/NM4 gaps without source
+or test behavior changes. The live ledger is therefore 1/26 (4%). Evidence is
+in `../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`.
+
+Narrowphase Manifold And Sleep Coverage NM1 completed on 2026-08-02. Eight
+focused cases / 251 assertions derive normals, penetration, row counts, and
+world-space points from authored sphere, box, and brick-hull configurations
+across all ordered families and face/edge/vertex/deep topology. The hull
+edge/edge oracle exposed a reverse-support SAT tie whose plausible normal and
+depth hid a contact point between back-side edges; edge-axis eligibility now
+retains the opposing support pair consistent with the final A-to-B normal.
+Tests, direct coverage, and byte-exact Physics pass without baseline refresh.
+The live ledger is therefore 2/26 (8%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`.
+
+Narrowphase Manifold And Sleep Coverage NM2 completed on 2026-08-02. Resting
+box and brick-hull rows retain ordered feature ids across sub-slop frame pairs;
+a 41-pose sweep crosses the 45-degree incident-face boundary exactly once. The
+production allocation-free reducer is insertion-order independent across all
+720 candidate permutations and directly proves deepest-first, feature-id tie,
+tangent-spread, and invalid-input behavior. Holding body ids fixed while the
+narrowphase feature changes produces a real persistent-cache miss. The live
+ledger is therefore 3/26 (12%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`.
+
+Narrowphase Manifold And Sleep Coverage NM3 completed on 2026-08-02. The NM1
+geometry and NM2 identity/reduction fixtures now share pure predicates with a
+13-assertion negative-control case. Isolated plants invert the normal, flip
+penetration sign, truncate the four-row patch, churn one feature bit, and choose
+a nearby row instead of tangent spread; every corresponding positive predicate
+rejects its plant. The complete object-manifold family passes 17 cases / 1,447
+assertions. The live ledger is therefore 4/26 (15%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md`.
+
+Narrowphase Manifold And Sleep Coverage NM4 completed on 2026-08-02. Seven
+focused cases / 183 assertions directly cover visual-island, explicit joint,
+transitive resting-contact, automatic same-step, ordinary explicit, and
+underwater refusal/release paths. Sorted awake membership survives remove/add
+and same-count rebuild; point-joint support is bidirectional and reaches a fixed
+point. A new fatal child proves the actual two-row reservation fails on request
+three, complementing the existing 32,769 semantic-ceiling probe. The live ledger
+is therefore 5/26 (19%). Evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md`.
+
+Narrowphase Manifold And Sleep Coverage NM5 completed on 2026-08-02. Tests,
+core and deep Physics, direct coverage, and the final fast repository gate pass
+without baseline refresh. Physics stages and solver coverage is 5,050/5,760
+lines (87.67%). All seven ownership inventories are current, the complete
+five-file comment audit has zero deferrals, and the independent read-only review
+returned ACCEPT with no findings after checking authored expectations, planted
+controls, every direct wake path, and the production-rooted reducer seam. The
+completed six-task plan left the active/future ledger under rule 4, so the
+remaining Fresh-Read Coverage And Convention Campaign is 0/20 (0%). Closure
+evidence is in
+`../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`.
+
+Broadphase Pair Dedup Cost BD0 completed on 2026-08-02. Exact triangular clear
+spans and `pairSeen` memory are recorded through the 8,192-body ceiling;
+uninstrumented Profile artifacts cover 37 through 5,000 bodies. Four complete
+360-pass v2 streams preserve raw-grid, augmented, raw sleep, final solver, and
+final sleep lists plus geometry-call counts, and every stream is byte-identical
+across 0, 1, and 4 workers. The first-seen fixture pins raw diagnostic order and
+once-per-identity geometry admission. The live ledger is therefore 1/20 (5%).
+Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md`.
+
+Broadphase Pair Dedup Cost BD1 completed on 2026-08-02. Three independent
+mechanism reviews reject generation-stamped output-sized hashing and post-sort
+dedup because raw identities/observations are not bounded by emitted pairs. The
+chosen per-body sorted bucket-membership index preserves active-bucket traversal
+and admits each pair only from its earliest eligible shared bucket, exactly where
+the old triangular bit first changed. Scene-derived storage is 106,244 bytes at
+4,000 bodies and 206,852 bytes at 8,192, with no pair-identity ceiling. The live
+ledger is therefore 2/20 (10%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md`.
+
+Broadphase Pair Dedup Cost BD2 completed on 2026-08-02. The production path now
+uses scene-reserved per-body active-bucket membership prefixes and admits a pair
+only from its earliest eligible shared bucket. Complete mode-independent
+membership is appended before restricted and singleton exits, while Debug
+temporarily cross-checks every observation against the dense bitset and its
+geometry count. Focused/full tests, byte-exact Physics, format, Automation, fast
+validation, a 6/6 comment audit, and independent ACCEPT pass. The live ledger
+is therefore 3/20 (15%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd2-implementation.md`.
+
+Broadphase Pair Dedup Cost BD3 completed on 2026-08-02. Eligibility-projected
+membership prefixes are byte-identical to every BD0 pair, sleep, and geometry
+stream across all four workloads and 0/1/4 workers. The temporary decision
+cross-check is removed; Debug retains only the deletion-bound BD4 oracle/store.
+The final performance gate passes without baseline refresh. Exact sparse 4,000
+improves Broadphase/CandidatePairs by 28.7%/41.9%, sleeping-heavy 5,000 improves
+them by 14.2%/66.7%, and the phase report records the smaller-scene tradeoff.
+Core/deep Physics, full tests, format, fast validation, a 3/3 comment audit, and
+independent ACCEPT pass. The live ledger is therefore 4/20 (20%). Evidence is in
+`../Reports/2026-08-02/broadphase-pair-dedup-cost-bd3-proof.md`.
+
+Broadphase Pair Dedup Cost BD4 completed on 2026-08-02. The deletion-bound
+Debug triangular store, same-state driver, pair-stream writer, geometry counter,
+two oracle scratch lists, three reserve owners, and their two exact repair
+rulings are gone. Production first-seen membership, canonical solver order,
+bounded sleep diagnostics, and fixed-capacity failure policy remain. All 23
+BD0-BD3 evidence files are retained unchanged and the v2 decoder is historical
+and read-only. The independent closure review returned ACCEPT after all seven
+governance inventories passed and the touched-source audit closed 9/9 with zero
+deferrals. The completed plan leaves the live ledger at 0/15 (0%). Evidence is
+in `../Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`.
+
+Render Graph Transition Coverage RG0 completed on 2026-08-02. The census
+corrects the provisional no-test model: 16 pure RenderGraph tests already run
+through the merge-gated DX12 architecture executable, but not through
+`validate_tests` or instrumented coverage. The exact compiler output is
+transitions, resource lifetimes, transient allocations, and transient
+diagnostics; builder/compiler failures are Lane-F fatals, while the frame
+execution contract returns structured counts and booleans. Hand-derived
+structured assertions plus child-process fatal probes are selected and
+`DumpText()` goldens are rejected. All six ceilings, public failure modes,
+review-only backend properties, and RG1-RG4 residual gaps are fixed. The live
+ledger is therefore 1/15 (7%). Evidence is in
+`../Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`.
+
+Render Graph Transition Coverage RG1 completed on 2026-08-02. The main doctest
+and instrumented-coverage target now compile production `RenderGraph.cpp` and a
+subsystem-named test translation unit. Four cases / 47 assertions hand-derive
+ordinary read-before-write transition order, Unknown and concrete entry states,
+repeated-use no-ops, untouched-resource exclusion, copied native identity, and
+the Present frame edge. Debug and Profile focused runs pass, the independent
+review returned ACCEPT, and the touched-source comment audit is 1/1. Format,
+full doctests, instrumented coverage, and the 402.3-second fast umbrella pass;
+`RenderGraph.cpp` contributes 143/459 covered lines. The live ledger is 2/15
+(13%). Evidence is in
+`../Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`.
+
+The denominator grew 15 → 20 on 2026-08-03 when the owner registered
+`TODO/dense-pile-sleep-resolution.md` (5 tasks) from the sleep regression exposed
+by `box_pile_throw_300.scene.json`. The restitution lifetime gate established by
+`194cbf82` is explicitly retained: the plan changes how contact lifetime continuity
+is established across feature re-selection, never whether continuing contacts are
+suppressed. Reversing the wall fix, and the body-pair prefix scan already rejected
+on measured performance grounds in `12dbb3eb`, are both recorded non-goals. The
+plan holds no baseline-refresh authority; if the repair cannot be reached without a
+golden transition, it stops with a costed owner decision packet instead.
 
 ## Features
 

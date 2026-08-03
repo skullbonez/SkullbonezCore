@@ -6,7 +6,9 @@ Purpose:
 Summary:
   SpatialGrid provides locality candidates; this stage rejects pairs whose
   swept bounding spheres cannot touch during the current fixed tick and rejects
-  dormant/dormant pairs before they enter solver-visible work.
+  dormant/dormant pairs before they enter solver-visible work. The geometry-only
+  predicate remains explicit so Debug can preserve sleep-pruned diagnostics at
+  the same admission boundary without restoring dormant solver work.
 
 Glossary:
   Contact skin: Extra radius added to a broadphase sphere so near misses still
@@ -39,6 +41,7 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 
 namespace SkullbonezCore

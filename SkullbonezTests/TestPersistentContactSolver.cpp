@@ -46,6 +46,7 @@
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/ContactEnergyOracle.h
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
+//   - Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md
 //   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
 //   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
 //   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
@@ -1029,6 +1030,9 @@ TEST_CASE( "Persistent contact solver: full terrain seed prevents first-frame re
 
 TEST_CASE( "Persistent contact solver: shoreline seed prevents one-frame edge bob without becoming cached support" )
 {
+    // Invariant: this independent literal pins the deliberately retained
+    // empirical policy rather than following the production constant. The
+    // linked restoration report records the rejected removal experiment.
     constexpr float shorelineScale = 0.35f;
     constexpr float tiltedEdgeRadians = 0.75f;
     const float tiltedBoxCenterY = cosf( tiltedEdgeRadians ) + sinf( tiltedEdgeRadians );
