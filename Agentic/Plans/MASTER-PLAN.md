@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-08-01
+Date: 2026-08-03
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -1416,19 +1416,23 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 2/20 (10%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 4/20 (20%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
 under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew
 the denominator 15 → 20. Four plans remain, to run in this
 order:
 
-1. `TODO/render-graph-transition-coverage.md` (2/5). Sixteen pure RenderGraph
+1. `TODO/render-graph-transition-coverage.md` (4/5). Sixteen pure RenderGraph
    tests already run through the merge-gated standalone DX12 architecture lane,
    covering representative derivation, transient, callback, and fatal behavior.
    They do not run in `validate_tests` or instrumented coverage. RG0 maps the
    exact structured compiler contract, all Lane-F boundaries, and the residual
    RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
-   ordinary transition cases / 47 assertions; RG2 is binding next.
+   ordinary transition cases / 47 assertions. RG2 pins divergent numeric-state
+   convergence, stored order, stale-override absence, and the exact
+   eight-state/ninth-state Lane-F boundary. RG3 pins overlapping/nested and
+   disjoint lifetimes, every compatibility field, exact allocation diagnostics,
+   and the unused-transient Lane-F path; RG4 is binding next.
 2. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
@@ -1452,16 +1456,15 @@ order:
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after the RG1 checkpoint: continue on `nightrunner-2nd-AUG-26` at RG2
-only. Start from one external resource whose base is `PixelShaderResource` and
-pin numeric overrides in authored order 5 then 2, all-resource convergence back
-to the base in stored order, and a following all-resource `CopySource` row that
-proves no stale override survived. For the capacity proof, author eight distinct
-numeric overrides in literal order `7,0,6,1,5,2,4,3`, one per pass, then converge
-all eight; a separate child graph adds subresource 8 in a ninth pass and must
-report `Subresource state capacity exceeded. count=8 capacity=8`. Reuse the
-shared child-process harness through a small RenderGraph dispatcher; do not edit
-production Rendering, project integration, or the RG1 build-config ruling.
+Handoff after the RG3 checkpoint: continue on `nightrunner-3rd-AUG-26` at RG4
+only. Drive every six named ceiling to its exact boundary and use shared child
+probes for every one-past diagnostic; reads and writes remain independent
+eight-row lists, and the local 24-slot transient-pool fatal stays recorded as
+publicly unreachable. Pin every frame execution-contract count/boolean for null
+and empty names, valid/missing Present, wrong/extra declaration-only rows, and a
+disabled callback. Then run the CPU umbrella, fast gate, touched-source audit,
+all seven governance inventories, and independent closure review. Do not edit
+production Rendering unless a hand-derived oracle exposes a real defect.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3699,6 +3702,27 @@ full doctests, instrumented coverage, and the 402.3-second fast umbrella pass;
 `RenderGraph.cpp` contributes 143/459 covered lines. The live ledger is 2/15
 (13%). Evidence is in
 `../Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`.
+
+Render Graph Transition Coverage RG2 completed on 2026-08-03. Two hand-derived
+main-lane cases pin divergent numeric overrides, stored-order convergence,
+stale-override absence, the eight-state success boundary, and the exact ninth-
+state Lane-F diagnostic through the shared fatal-child harness. The focused
+Profile run passes 6 cases / 180 assertions and the full unit gate passes; no
+production Rendering, project integration, baseline, or build ruling changed.
+The touched-source comment audit is 3/3. The live ledger is 3/20 (15%). Evidence
+is in `../Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`.
+
+Render Graph Transition Coverage RG3 completed on 2026-08-03. Two hand-derived
+main-lane cases pin unused external lifetime state, overlapping/nested slot
+separation, compatible disjoint reuse, every kind/format/dimension/mip/descriptor
+compatibility field, all lifetime/allocation rows, frame-end release, and exact
+allocation/reuse/release/high-water diagnostics. The unused-transient Lane-F
+fact now runs through the shared main-lane child harness. The focused Profile
+run passes 8 cases / 357 assertions and the full unit gate passes; no production
+Rendering, project integration, baseline, backend statistic, or build ruling
+changed. The touched-source comment audit is 1/1. The live ledger is 4/20 (20%).
+Evidence is in
+`../Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`.
 
 The denominator grew 15 → 20 on 2026-08-03 when the owner registered
 `TODO/dense-pile-sleep-resolution.md` (5 tasks) from the sleep regression exposed
