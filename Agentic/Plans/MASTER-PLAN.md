@@ -1420,8 +1420,8 @@ active/future ledger under rule 4.
 Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
 Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded from the active/future denominator
-under rule 4; its SR3 candidate failed the 20,000-frame oracle. One actionable
-plan remains:
+under rule 4; its SR3 candidate failed the 20,000-frame oracle. One live but
+externally blocked plan remains:
 
 1. `TODO/source-modernization-sweep.md` (4/5). MZ0's current-tree correction
    bounds 82 rename-owned semantic prefixed parameters across 27 files, seven
@@ -1431,7 +1431,9 @@ plan remains:
    semantic parameter prefixes without changing signature types or behavior;
    MZ3 retains the coherent British normalization API and the distinct
    `Maths/` physical-module / `Math::` domain names. MZ4's Physics, deep Physics,
-   performance, full, audit, and independent-review gates are binding next.
+   audit, source review, and exact-inventory evidence pass. Its mandatory
+   committed performance comparison is red, so the final full gate remains
+   pending the performance-baseline owner decision in the blocker report.
 
 Blocked lane: `TODO/dense-pile-sleep-resolution.md` remains at 3/5. The
 half-quiet adjacent-pair witness reached only seven live rows and ended the
