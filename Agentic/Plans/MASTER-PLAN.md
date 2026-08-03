@@ -1416,12 +1416,12 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 2/15 (13%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 3/15 (20%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and
 remains the binding next plan. Three plans remain, to run in this order:
 
-1. `TODO/dense-pile-sleep-resolution.md` (2/5). SR0 proves pair-prefix lifetime
+1. `TODO/dense-pile-sleep-resolution.md` (3/5). SR0 proves pair-prefix lifetime
    continuity permanently sleeps all 330 pile bodies at frame 8,513, while
    pre-gate and current exact-feature behavior remain oscillatory beyond frame
    20,000. Exact-feature still retains the accepted four-brick and wall gains;
@@ -1432,8 +1432,12 @@ remains the binding next plan. Three plans remain, to run in this order:
    cache-eligible exact-only restitution admissions carrying 509.278851 solved
    normal impulse.
    Aggregate cache-hit degradation and support-classification instability are
-   rejected; solver non-convergence is a downstream amplifier. SR2 candidate
-   design is binding next. Sleep is measurably harder to
+   rejected; solver non-convergence is a downstream amplifier. SR2 selects a
+   zero-retained-byte half-quiet adjacent pair witness: exact identity remains
+   the warm-start owner, while pair continuity may suppress restitution only
+   after both bodies complete half the quiet window. The predicate selects
+   eight dense-pile rows and zero accepted four-brick/wall rows. SR3
+   implementation and two-sided proof are binding next. Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
    `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
@@ -1456,14 +1460,14 @@ remains the binding next plan. Three plans remain, to run in this order:
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after SR1: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
-Resolution SR2 only. Compare at least three mechanisms against the confirmed
-exact-lifetime false negative: an O(1) pair-lifetime token beside the exact
-cache, manifold feature stabilization, and manifold-owned retiring-feature
-transfer. Preserve exact warm-start compatibility, no-contact reset, elastic
-mutual-gravity behavior, and every accepted wall/four-brick byte. State per-row
-memory/lookup cost and baseline risk. Treat pair-prefix as the measured
-continuity oracle, but do not restore its rejected per-row prefix scan.
+Handoff after SR2: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
+Resolution SR3 only. Implement the half-quiet adjacent pair witness without new
+retained state or replay payload. Borrow Sleep's counter span synchronously,
+derive half-window policy from the configured frame count, and use only constant
+neighbors around the existing exact lookup. Add focused exact-miss, half-window,
+motion, no-contact, and elastic-policy tests. Then prove the four-brick/wall
+hashes unchanged and the pile reaches the SR0 oracle; stop without a baseline
+transition if either accepted hash moves.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3774,6 +3778,20 @@ reconstructed support-footprint classification has zero late-window flips and
 is rejected as unstable. Every successful decision query and its model-read
 byte count are recorded. The live ledger advances to 2/15 (13%). Evidence is in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr1.md`.
+
+Dense Pile Sleep Resolution SR2 completed on 2026-08-03. Four candidates were
+costed against exact warm-start ownership, replay shape, hot memory, and accepted
+bytes. Broad pair lifetime would alter 15 four-brick and 7,609 wall restitution
+decisions, support-edge and pair-age filters do not separate them, and manifold
+identity or retiring-patch transfer carries broader geometry/replay risk. The
+chosen half-quiet adjacent pair witness reuses the sorted loaded-only cache:
+after the exact binary search, at most two neighbors prove pair continuity. It
+suppresses restitution only when both prior quiet counters have reached half the
+configured window. The exact trace predicate selects eight dense-pile rows
+carrying 67.425641 normal impulse and zero rows in both accepted traces. All 23
+successful bounded packets total 13,823 model-read bytes. The live ledger
+advances to 3/15 (20%). Evidence is in
+`../Reports/2026-08-03/dense-pile-sleep-resolution-sr2.md`.
 
 ## Features
 

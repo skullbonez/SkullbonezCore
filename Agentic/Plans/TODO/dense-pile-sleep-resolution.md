@@ -1,7 +1,7 @@
 # Dense Pile Sleep Resolution
 
 Date: 2026-08-03
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
 Priority: First — binding remaining campaign plan
@@ -153,7 +153,19 @@ workloads, no body loss, no popcorn cycles.
   its data-size accounting. If the evidence contradicts the feature-churn hypothesis,
   say so plainly and let SR2 design against what was actually measured.
 
-- [ ] **SR2 — Design candidate mechanisms and record the ruling.** Propose at least
+- [x] **SR2 — Design candidate mechanisms and record the ruling.** Choose the
+  half-quiet adjacent pair witness. The exact cache insertion point proves a
+  same-pair loaded row with at most two constant neighbor checks and zero
+  retained bytes, while exact identity remains the only warm-start authority.
+  Pair continuity suppresses restitution only when both bodies have completed
+  at least half the configured quiet window. The predicate selects eight dense-
+  pile rows carrying 67.425641 solved normal impulse and zero rows in the
+  accepted four-brick and wall traces. Global pair lifetime, a pair hash,
+  manifold identity changes, and retiring-patch transfer are rejected with
+  memory, replay, geometry, and baseline risks recorded in
+  `../../Reports/2026-08-03/dense-pile-sleep-resolution-sr2.md`.
+
+  Original work order: propose at least
   three candidates against the SR1 mechanism. If feature churn is confirmed, the
   design space includes: making the manifold's feature selection stable across
   sub-slop rocking so the exact-feature lookup keeps hitting; carrying a small
