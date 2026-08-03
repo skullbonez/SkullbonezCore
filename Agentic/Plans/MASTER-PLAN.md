@@ -1416,12 +1416,16 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/15 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 1/15 (7%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and
 remains the binding next plan. Three plans remain, to run in this order:
 
-1. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
+1. `TODO/dense-pile-sleep-resolution.md` (1/5). SR0 proves pair-prefix lifetime
+   continuity permanently sleeps all 330 pile bodies at frame 8,513, while
+   pre-gate and current exact-feature behavior remain oscillatory beyond frame
+   20,000. Exact-feature still retains the accepted four-brick and wall gains;
+   SR1 mechanism diagnosis is binding next. Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
    `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
@@ -1444,14 +1448,14 @@ remains the binding next plan. Three plans remain, to run in this order:
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after Render Graph closure: continue on `nightrunner-3rd-AUG-26` at
-Dense Pile Sleep Resolution SR0 only. Build a repeatable fixed-step diagnostic
-for `box_pile_throw_300.scene.json` and record the plan's complete three-point
-history before `63d7e92f`, at `12dbb3eb`, and at current `194cbf82` for the pile,
-four-brick, and 200-box wall workloads. Quantify first sleep, quiescence, never-
-sleeping bodies, per-body sleep/wake oscillations, and kinetic energy; do not
-advance to the feature-churn hypothesis until the measured gain/loss table is
-complete.
+Handoff after SR0: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
+Resolution SR1 only. Use `--physics-diag` and `tools\physics_query.bat` to
+measure feature churn, warm-start hit/miss, false exact-feature lifetime rows,
+and post-settle restitution impulses. Compare the measured mechanism against
+solver non-convergence at the iteration cap and support-classification
+instability. Print every SkullScope query and its data-size accounting. Treat
+pair-prefix as the measured continuity oracle, but do not restore its rejected
+per-row prefix scan.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3734,6 +3738,19 @@ suppressed. Reversing the wall fix, and the body-pair prefix scan already reject
 on measured performance grounds in `12dbb3eb`, are both recorded non-goals. The
 plan holds no baseline-refresh authority; if the repair cannot be reached without a
 golden transition, it stops with a costed owner decision packet instead.
+
+Dense Pile Sleep Resolution SR0 completed on 2026-08-03. Clean detached Debug
+builds and identical fixed-step commands measure pre-gate `9b12badb`, pair-
+prefix `12dbb3eb`, and exact-feature `194cbf82`. At 20,000 pile frames, pair-
+prefix has permanently slept all 330 bodies since frame 8,513; pre-gate and
+exact-feature still transition in the final ten frames and each retains one
+never-sleeping body. The current exact-feature state nevertheless retains the
+four-brick improvement (4/4 permanently sleeping at frame 132) and the accepted
+wall/catcher outcome (211/211 at frame 3,286), both with zero tail kinetic
+energy. A self-tested repeatable tool records first sleep, permanent all-sleep,
+per-body wake oscillations, dynamic-only long-horizon censoring, and kinetic-
+energy checkpoints. The live ledger advances to 1/15 (7%). Evidence is in
+`../Reports/2026-08-03/dense-pile-sleep-resolution-sr0.md`.
 
 ## Features
 

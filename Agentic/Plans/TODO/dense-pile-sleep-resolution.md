@@ -1,7 +1,7 @@
 # Dense Pile Sleep Resolution
 
 Date: 2026-08-03
-Status: NOT STARTED — 0/5 phases complete
+Status: IN PROGRESS — 1/5 phases complete
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
 Priority: First — binding remaining campaign plan
@@ -105,7 +105,18 @@ workloads, no body loss, no popcorn cycles.
 
 ## Phases
 
-- [ ] **SR0 — Reproduce and quantify the regression.** Build the scene into a
+- [x] **SR0 — Reproduce and quantify the regression.** Three clean detached
+  Debug builds pin pre-gate `9b12badb`, pair-prefix `12dbb3eb`, and exact-
+  feature `194cbf82`. Common 6,800-frame full traces plus 20,000-frame CSV
+  sleep censors show the pair-prefix pile permanently sleeps 330/330 at frame
+  8,513, while pre-gate and exact-feature remain oscillatory past 20,000. The
+  exact-feature state retains four-brick permanent sleep at frame 132 and wall
+  permanent sleep at frame 3,286 with zero tail kinetic energy. The repeatable
+  measurement tool, full sleep/energy tables, provenance correction, and
+  witness hashes are recorded in
+  `../../Reports/2026-08-03/dense-pile-sleep-resolution-sr0.md`.
+
+  Original work order: build the scene into a
   repeatable fixed-step diagnostic run and record sleep behaviour at three points in
   history: before `63d7e92f`, at `12dbb3eb` (pair-prefix form), and at `194cbf82`
   (current exact-feature form). For each, record time-to-first-sleep, time-to-quiescence,

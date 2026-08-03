@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-3rd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `1ff768dd` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0-RG4 is complete and excluded under rule 4. Dense Pile Sleep Resolution SR0 is binding next: quantify the complete three-point pile/four-brick/wall history before diagnosing mechanism. |
-| Active/future progress | 0/15 (0%): Narrowphase, broadphase, and render graph are complete and excluded under rule 4; Dense Pile Sleep Resolution, Comment Vocabulary Audit, and Source Modernization Sweep remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Dense Pile Sleep Resolution SR0 is complete; SR1 mechanism diagnosis is binding next. Pair-prefix permanently sleeps the 330-body pile at frame 8,513, while pre-gate and exact-feature remain oscillatory beyond 20,000; exact-feature retains the four-brick and wall wins. |
+| Active/future progress | 1/15 (7%): Narrowphase, broadphase, and render graph are complete and excluded under rule 4; Dense Pile Sleep Resolution, Comment Vocabulary Audit, and Source Modernization Sweep remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Six plans / 31 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), dense pile sleep resolution (5), comment vocabulary audit (5), and source modernization sweep (5). |
-| Dense Pile Sleep Resolution registration | Not started. Sleep is measurably harder to reach in dense piles since the restitution lifetime gate landed. That gate is the falling-wall bounce fix (`194cbf82`, descending from `12dbb3eb` and `63d7e92f`, goldens approved in `43108847`) and it is retained in full — four bricks went from 566 vertical reversals to zero and the 200-box wall keeps all 211 bodies with zero popcorn cycles. `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the instrument. SR1 must prove or discard the exact-feature-churn hypothesis before SR2 designs anything. Reversing the wall fix and restoring the `12dbb3eb` pair-prefix scan are both non-goals. Plan: `Agentic/Plans/TODO/dense-pile-sleep-resolution.md`. |
+| Dense Pile Sleep Resolution registration | SR0 complete. The authoritative `194cbf82` wall/four-brick fix remains fully retained. Clean three-point runs show `12dbb3eb` pair-prefix continuity permanently sleeps all 330 pile bodies at frame 8,513; pre-gate `9b12badb` and current exact-feature remain oscillatory past 20,000. SR1 must prove or discard exact-feature churn against solver-cap and support-classification alternatives before SR2 designs anything. Restoring the rejected per-row prefix scan is a non-goal. Plan: `Agentic/Plans/TODO/dense-pile-sleep-resolution.md`. |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
 | Narrowphase NM2 | Complete. Sub-slop box and brick-hull frame pairs retain ordered feature ids, a 41-pose sweep crosses the incident-face boundary once, and the production reducer proves deepest/tie/spread/invalid behavior across all 720 insertion permutations. A feature-only change misses the persistent cache. Comment audit is 3/3. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`. |
@@ -32,6 +32,7 @@ plan inventory.
 | Render Graph RG2 | Complete. Two hand-derived cases pin divergent numeric subresources 5/2, stored-order convergence, a following all-resource row with no stale override, eight active states in literal order `7,0,6,1,5,2,4,3`, and the exact ninth-state Lane-F diagnostic through the shared child harness. The focused Profile run passes 6 cases / 180 assertions, the full unit gate passes, and the touched-source audit is 3/3. No production Rendering, project integration, baseline, or build ruling changed. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`. |
 | Render Graph RG3 | Complete. Exact rows pin unused external lifetime state, nested overlap in slot 1, compatible disjoint reuse of slot 0, all nine kind/format/dimension/mip/descriptor incompatibilities, frame-end release, and allocation/reuse/release/high-water diagnostics. The unused-transient Lane-F case now runs through the shared main-lane child. The focused Profile run passes 8 cases / 357 assertions, the full unit gate passes, and the touched-source audit is 1/1. No production Rendering, project integration, baseline, backend statistic, or build ruling changed. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`. |
 | Render Graph RG4 | Complete. Exact boundaries and first-excess fatal children pin 24 resources, 24 passes, independent eight-row read/write lists, 96 transitions, and 16 transient allocations. Every execution-contract field is asserted across null/empty capture, valid/missing Present, wrong/extra declaration-only rows, and disabled callback. CPU and fast gates pass; all seven inventories are current; comment audit is 1/1; independent review is clean. The completed plan is deleted. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-closure.md`. |
+| Dense Pile SR0 | Complete. Clean detached Debug builds at pre-gate `9b12badb`, pair-prefix `12dbb3eb`, and exact-feature `194cbf82` produced common 6,800-frame full traces and 20,000-frame sleep censors. Pair-prefix alone reaches permanent 330/330 sleep at frame 8,513; exact-feature retains 4/4 four-brick sleep at 132 and 211/211 wall sleep at 3,286. The self-tested measurement tool and full kinetic/sleep tables are recorded. Evidence: `Agentic/Reports/2026-08-03/dense-pile-sleep-resolution-sr0.md`. |
 | Physics validation baseline repair | Complete. RG4's closure inventory exposed one missing paragraph break and a stale exact-body digest left by the comment-only terrain support-seed decision. The one-file formatting repair changes no source token; qualitative review retains the existing `PrecomputeRows` owner ruling with its current digest. Format, strict complexity inventory, and the 1/1 touched-source comment audit pass. Evidence: `Agentic/Reports/2026-08-03/physics-validation-baseline-repair.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
@@ -142,14 +143,16 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 0/15 (0%). Narrowphase
+Fresh-Read Coverage And Convention is active at 1/15 (7%). Narrowphase
 Manifold And Sleep Coverage, Broadphase Pair Dedup Cost, and Render Graph
 Transition Coverage are complete and excluded under rule 4. Binding remaining
 order is Dense Pile Sleep Resolution, Comment Vocabulary Audit, then Source
 Modernization Sweep. RG4 closed the six public capacity boundaries, every
 execution-contract field, the CPU/fast gates, seven inventories, 1/1 comment
-audit, and independent review. Dense Pile SR0 must now quantify the complete
-three-point pile/four-brick/wall history before mechanism diagnosis begins.
+audit, and independent review. Dense Pile SR0 now proves pair-prefix continuity
+permanently sleeps the pile while exact-feature remains oscillatory past 20,000
+and still retains the four-brick/wall benefits. SR1 mechanism diagnosis is
+binding next.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -916,13 +919,14 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/dense-pile-sleep-resolution.md` at SR0 on
-`nightrunner-3rd-AUG-26`. Build the repeatable fixed-step pile diagnostic and
-record the pre-`63d7e92f`, `12dbb3eb`, and current `194cbf82` history for the
-pile, four-brick, and 200-box wall workloads. Do not diagnose or design until
-the required first-sleep, quiescence, never-sleeping, oscillation, and energy
-table is complete. The active/future ledger is 0/15 (0%) in both MASTER-PLAN
-and this SessionState.
+Continue `Agentic/Plans/TODO/dense-pile-sleep-resolution.md` at SR1 on
+`nightrunner-3rd-AUG-26`. Use the SR0 exact-feature and pair-prefix traces plus
+targeted diagnostics to measure feature churn, warm-start hit/miss, false
+exact-feature lifetime rows, and post-settle restitution impulses. Compare
+against solver-cap non-convergence and support-classification instability, and
+print every SkullScope query with data-size accounting. Do not restore the
+rejected per-row prefix scan. The active/future ledger is 1/15 (7%) in both
+MASTER-PLAN and this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,
