@@ -12,8 +12,8 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-3rd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `1ff768dd` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0-RG3 are complete; RG4 capacity, execution-contract, broad-validation, and closure work is binding next. Dense Pile Sleep Resolution remains queued second and must not interrupt the in-flight render-graph plan. |
-| Active/future progress | 4/20 (20%): Broadphase and narrowphase are complete and excluded under rule 4; four plans remain in binding order. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew the denominator 15 → 20. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0-RG4 is complete and excluded under rule 4. Dense Pile Sleep Resolution SR0 is binding next: quantify the complete three-point pile/four-brick/wall history before diagnosing mechanism. |
+| Active/future progress | 0/15 (0%): Narrowphase, broadphase, and render graph are complete and excluded under rule 4; Dense Pile Sleep Resolution, Comment Vocabulary Audit, and Source Modernization Sweep remain in binding order. The parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Six plans / 31 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), dense pile sleep resolution (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Dense Pile Sleep Resolution registration | Not started. Sleep is measurably harder to reach in dense piles since the restitution lifetime gate landed. That gate is the falling-wall bounce fix (`194cbf82`, descending from `12dbb3eb` and `63d7e92f`, goldens approved in `43108847`) and it is retained in full — four bricks went from 566 vertical reversals to zero and the 200-box wall keeps all 211 bodies with zero popcorn cycles. `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the instrument. SR1 must prove or discard the exact-feature-churn hypothesis before SR2 designs anything. Reversing the wall fix and restoring the `12dbb3eb` pair-prefix scan are both non-goals. Plan: `Agentic/Plans/TODO/dense-pile-sleep-resolution.md`. |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
@@ -31,6 +31,7 @@ plan inventory.
 | Render Graph RG1 | Complete. The main doctest/coverage executable now compiles production `RenderGraph.cpp`; four hand-derived cases / 47 assertions pin ordinary read-before-write order, no-op and untouched-resource behavior, Unknown/concrete entry states, copied native identity, and Present return in Debug and Profile. Independent review returned ACCEPT and comment audit is 1/1. Evidence: `Agentic/Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`. |
 | Render Graph RG2 | Complete. Two hand-derived cases pin divergent numeric subresources 5/2, stored-order convergence, a following all-resource row with no stale override, eight active states in literal order `7,0,6,1,5,2,4,3`, and the exact ninth-state Lane-F diagnostic through the shared child harness. The focused Profile run passes 6 cases / 180 assertions, the full unit gate passes, and the touched-source audit is 3/3. No production Rendering, project integration, baseline, or build ruling changed. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`. |
 | Render Graph RG3 | Complete. Exact rows pin unused external lifetime state, nested overlap in slot 1, compatible disjoint reuse of slot 0, all nine kind/format/dimension/mip/descriptor incompatibilities, frame-end release, and allocation/reuse/release/high-water diagnostics. The unused-transient Lane-F case now runs through the shared main-lane child. The focused Profile run passes 8 cases / 357 assertions, the full unit gate passes, and the touched-source audit is 1/1. No production Rendering, project integration, baseline, backend statistic, or build ruling changed. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`. |
+| Render Graph RG4 | Complete. Exact boundaries and first-excess fatal children pin 24 resources, 24 passes, independent eight-row read/write lists, 96 transitions, and 16 transient allocations. Every execution-contract field is asserted across null/empty capture, valid/missing Present, wrong/extra declaration-only rows, and disabled callback. CPU and fast gates pass; all seven inventories are current; comment audit is 1/1; independent review is clean. The completed plan is deleted. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-closure.md`. |
 | Physics validation baseline repair | Complete. RG4's closure inventory exposed one missing paragraph break and a stale exact-body digest left by the comment-only terrain support-seed decision. The one-file formatting repair changes no source token; qualitative review retains the existing `PrecomputeRows` owner ruling with its current digest. Format, strict complexity inventory, and the 1/1 touched-source comment audit pass. Evidence: `Agentic/Reports/2026-08-03/physics-validation-baseline-repair.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
@@ -141,21 +142,14 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 4/20 (20%). Narrowphase
-Manifold And Sleep Coverage and Broadphase Pair Dedup Cost are complete and
-excluded under rule 4. Binding remaining order is Render Graph Transition
-Coverage, Dense Pile Sleep Resolution, Comment Vocabulary Audit, then Source
-Modernization Sweep. Render
-Graph RG0 completed the exact current compile, failure, test-routing, and
-review-only census. RG1 added the main-lane production integration and four
-hand-derived ordinary-transition cases without replacing the 16 existing
-standalone architecture tests. RG2 pins divergent numeric-subresource
-convergence, stored transition order, stale-override absence, and the exact
-eight-state/ninth-state capacity boundary. RG3 pins transient lifetime, exact
-alias compatibility, allocation decisions, diagnostics, and the unused-
-transient fatal in the main lane. RG4 must now close all six capacity boundaries,
-the frame execution contract, broad CPU/fast gates, governance inventories,
-comment audit, and independent review.
+Fresh-Read Coverage And Convention is active at 0/15 (0%). Narrowphase
+Manifold And Sleep Coverage, Broadphase Pair Dedup Cost, and Render Graph
+Transition Coverage are complete and excluded under rule 4. Binding remaining
+order is Dense Pile Sleep Resolution, Comment Vocabulary Audit, then Source
+Modernization Sweep. RG4 closed the six public capacity boundaries, every
+execution-contract field, the CPU/fast gates, seven inventories, 1/1 comment
+audit, and independent review. Dense Pile SR0 must now quantify the complete
+three-point pile/four-brick/wall history before mechanism diagnosis begins.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
@@ -922,11 +916,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `Agentic/Plans/TODO/render-graph-transition-coverage.md` at RG2 on
-`nightrunner-2nd-AUG-26`. Add the hand-derived divergent numeric-subresource
-convergence and deterministic stored-order proof, then pin eight active states
-and the ninth-state Lane-F diagnostic through the shared child-process harness.
-The active/future ledger is 2/15 (13%) in both MASTER-PLAN and this SessionState.
+Continue `Agentic/Plans/TODO/dense-pile-sleep-resolution.md` at SR0 on
+`nightrunner-3rd-AUG-26`. Build the repeatable fixed-step pile diagnostic and
+record the pre-`63d7e92f`, `12dbb3eb`, and current `194cbf82` history for the
+pile, four-brick, and 200-box wall workloads. Do not diagnose or design until
+the required first-sleep, quiescence, never-sleeping, oscillation, and energy
+table is complete. The active/future ledger is 0/15 (0%) in both MASTER-PLAN
+and this SessionState.
 
 Contact Energy is complete at 7/7. Do not resume stack-specific
 identity/cache, SAT, row-retention, seed, friction, global-order, split-impulse,

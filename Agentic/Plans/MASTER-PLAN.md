@@ -1416,24 +1416,12 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 4/20 (20%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
-Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
-under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew
-the denominator 15 → 20. Four plans remain, to run in this
-order:
+work at 0/15 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+Dedup Cost, and Render Graph Transition Coverage are complete and excluded
+under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and
+remains the binding next plan. Three plans remain, to run in this order:
 
-1. `TODO/render-graph-transition-coverage.md` (4/5). Sixteen pure RenderGraph
-   tests already run through the merge-gated standalone DX12 architecture lane,
-   covering representative derivation, transient, callback, and fatal behavior.
-   They do not run in `validate_tests` or instrumented coverage. RG0 maps the
-   exact structured compiler contract, all Lane-F boundaries, and the residual
-   RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
-   ordinary transition cases / 47 assertions. RG2 pins divergent numeric-state
-   convergence, stored order, stale-override absence, and the exact
-   eight-state/ninth-state Lane-F boundary. RG3 pins overlapping/nested and
-   disjoint lifetimes, every compatibility field, exact allocation diagnostics,
-   and the unused-transient Lane-F path; RG4 is binding next.
-2. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
+1. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
    `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
@@ -1447,31 +1435,30 @@ order:
    the 30-frame quiet counter — the same churn also misses the warm-start cache.
    The comment `194cbf82` deleted when it narrowed the lookup describes exactly
    this case. Do not reverse the wall fix and do not restore the pair-prefix scan.
-3. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-4. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+3. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after the RG3 checkpoint: continue on `nightrunner-3rd-AUG-26` at RG4
-only. Drive every six named ceiling to its exact boundary and use shared child
-probes for every one-past diagnostic; reads and writes remain independent
-eight-row lists, and the local 24-slot transient-pool fatal stays recorded as
-publicly unreachable. Pin every frame execution-contract count/boolean for null
-and empty names, valid/missing Present, wrong/extra declaration-only rows, and a
-disabled callback. Then run the CPU umbrella, fast gate, touched-source audit,
-all seven governance inventories, and independent closure review. Do not edit
-production Rendering unless a hand-derived oracle exposes a real defect.
+Handoff after Render Graph closure: continue on `nightrunner-3rd-AUG-26` at
+Dense Pile Sleep Resolution SR0 only. Build a repeatable fixed-step diagnostic
+for `box_pile_throw_300.scene.json` and record the plan's complete three-point
+history before `63d7e92f`, at `12dbb3eb`, and at current `194cbf82` for the pile,
+four-brick, and 200-box wall workloads. Quantify first sleep, quiescence, never-
+sleeping bodies, per-body sleep/wake oscillations, and kinetic energy; do not
+advance to the feature-churn hypothesis until the measured gain/loss table is
+complete.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
-and is excluded under inventory rule 9. Do not confuse it with plan 2 above: Dense
+and is excluded under inventory rule 9. Do not confuse it with plan 1 above: Dense
 Pile Sleep Resolution is a sleep-quality regression in ordinary settled piles and
 is explicitly not deep-tower work. Split-impulse and substep/relaxation techniques
-stay parked; nothing in plan 2 authorizes reaching into that folder.
+stay parked; nothing in plan 1 authorizes reaching into that folder.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3723,6 +3710,20 @@ Rendering, project integration, baseline, backend statistic, or build ruling
 changed. The touched-source comment audit is 1/1. The live ledger is 4/20 (20%).
 Evidence is in
 `../Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`.
+
+Render Graph Transition Coverage RG4 completed on 2026-08-03. Exact boundaries
+and one-past child probes now pin 24 resources, 24 passes, independent eight-row
+read/write lists, 96 transitions, and 16 transient allocations. The frame
+execution contract asserts every count, boolean, and validity outcome for null
+and empty capture names, valid/missing Present, wrong/extra declaration-only
+rows, and a disabled callback. The publicly unreachable 24-slot local transient
+pool fatal is recorded: allocation row 17 terminates before the compiler can
+request a 25th distinct slot. The CPU umbrella and fast gate pass; all seven
+direct inventories are current; the touched-source audit is 1/1; and independent
+review returned clean. No production Rendering or baseline changed, so DX12
+renderer/stress gates were not triggered. The completed plan is deleted under
+rule 4, leaving the live ledger at 0/15 (0%). Closure evidence is in
+`../Reports/2026-08-03/render-graph-transition-coverage-closure.md`.
 
 The denominator grew 15 → 20 on 2026-08-03 when the owner registered
 `TODO/dense-pile-sleep-resolution.md` (5 tasks) from the sleep regression exposed
