@@ -10,8 +10,10 @@ Summary:
   loaded-contact restitution lifetime and compatible warm-start reuse.
 
 Glossary:
-  Warm starting: Reusing an estimated previous support impulse so resting
-    contacts do not have to rediscover the full normal force from zero each tick.
+  Warm starting: Reusing the previous tick's cached accumulated impulse so a
+    matching contact begins near its converged solution.
+  Terrain support seed: Same-tick body-weight impulse estimate used before
+    iteration when a terrain row has no sufficient cached normal impulse.
   Friction: Tangent impulse that resists sliding along the contact plane.
   Resting footprint: Stable multi-point support patch that can seed sleep and
   cached support impulses.
@@ -29,6 +31,7 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
+  - Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md
   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
@@ -65,6 +68,13 @@ namespace Vector = SkullbonezCore::Math::Vector;
 namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
+
+// ENGINE-SPECIFIC: one means the complete estimated body-weight impulse. The
+// shoreline 0.35 scale is an empirical, owner-ratified policy value, not a
+// physically derived coefficient or previous-tick cache value. A removal
+// experiment changed owner-controlled Physics goldens and was rejected; the
+// pre-536 restoration deliberately retained these exact scales. The permanent
+// decision and behavioral evidence are linked from this file's Related block.
 constexpr float TERRAIN_RESTING_SUPPORT_SEED_SCALE = 1.0f;
 constexpr float TERRAIN_SHORELINE_SUPPORT_SEED_SCALE = 0.35f;
 
@@ -822,10 +832,12 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
             stage.m_sideEffects.pipelineRecords.push_back( manifoldRecord );
         }
 
-        // Stable terrain footprints receive a gravity-sized support seed so a
-        // body already on the ground does not sink before the solver converges.
-        // Shoreline contacts retain the historical reduced seed that prevents
-        // visible edge bobbing without granting resting/sleep authority.
+        // Concept: this is a same-tick support estimate, not reuse of a cached
+        // warm-start impulse. Stable terrain footprints receive the complete
+        // gravity-sized estimate so a grounded body does not sink before the
+        // solver converges. Shoreline contacts retain the ratified reduced
+        // estimate to prevent visible edge bobbing without gaining resting or
+        // sleep authority.
         const float supportSeedScale = manifold.supportsRestingPolicy
                                            ? TERRAIN_RESTING_SUPPORT_SEED_SCALE
                                            : ( manifold.inhibitsSleep ? TERRAIN_SHORELINE_SUPPORT_SEED_SCALE : 0.0f );
@@ -1176,6 +1188,9 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
         }
 
+        // Invariant: the terrain seed is a minimum normal impulse even on a
+        // cache miss. Consequently warmStarted means an impulse was applied
+        // before iteration; it does not by itself prove previous-tick reuse.
         if ( c.isTerrain && c.terrainWarmStart > c.accN )
         {
             c.accN = c.terrainWarmStart;
