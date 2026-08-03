@@ -1,7 +1,7 @@
 # Source Modernization Sweep
 
 Date: 2026-08-02
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Assets, Maths, Physics, World, Rendering/DX12, Runtime App/Camera legacy naming and idiom
 Owner: Engine source conventions
 Priority: Fourth
@@ -108,7 +108,7 @@ behavior changes, and no baseline moves.
   Permanent evidence is in
   `../../Reports/2026-08-03/source-modernization-mz2-parameters.md`.
 
-- [ ] **MZ3 — Rule on the spelling and namespace inconsistencies.** Decide and
+- [x] **MZ3 — Rule on the spelling and namespace inconsistencies.** Decide and
   record: whether `Normalise`/`TryNormalise`/`TryNormalised` become American
   spelling, and whether the `Maths/` directory and `Math::` namespace are
   reconciled. Both are legitimately retain decisions — `Vector3.h` is included by
@@ -116,7 +116,12 @@ behavior changes, and no baseline moves.
   either is retained, record the reason so a future reader does not reopen it; if
   either is changed, it is a mechanical rename with the same MZ2 discipline and it
   escalates the closing gate to `validate_full`. State the decision either way;
-  leaving it unruled is not an outcome.
+  leaving it unruled is not an outcome. Both conventions are retained:
+  `Normalise`/`TryNormalise`/`TryNormalised` form a coherent, called public API,
+  while `Maths/` names the physical module and `Math::` the singular conceptual
+  domain. Neither rename repairs behavior or dependency ownership, and no alias
+  or new naming rule is introduced. Permanent evidence is in
+  `../../Reports/2026-08-03/source-modernization-mz3-rulings.md`.
 
 - [ ] **MZ4 — Prove byte-exactness and close.** Run `tools\validate_physics.bat`
   and `tools\validate_physics_deep.bat` and confirm no baseline moved. Because

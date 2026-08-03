@@ -1416,21 +1416,22 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/5 (60%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 4/5 (80%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
 Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded from the active/future denominator
 under rule 4; its SR3 candidate failed the 20,000-frame oracle. One actionable
 plan remains:
 
-1. `TODO/source-modernization-sweep.md` (3/5). MZ0's current-tree correction
+1. `TODO/source-modernization-sweep.md` (4/5). MZ0's current-tree correction
    bounds 82 rename-owned semantic prefixed parameters across 27 files, seven
    retained Win32 slots, 136 casts across 15 files, 2 exact `NULL` tokens, and 2
    internal object-like constants. MZ1 retired every classified cast, `NULL`,
    and internal constant without behavioral change. MZ2 retired all 82 bounded
    semantic parameter prefixes without changing signature types or behavior;
-   MZ3's spelling/namespace rulings are binding next. Physics hot paths and DX12 are in scope, so byte-exactness and
-   the full gate are closing proofs.
+   MZ3 retains the coherent British normalization API and the distinct
+   `Maths/` physical-module / `Math::` domain names. MZ4's Physics, deep Physics,
+   performance, full, audit, and independent-review gates are binding next.
 
 Blocked lane: `TODO/dense-pile-sleep-resolution.md` remains at 3/5. The
 half-quiet adjacent-pair witness reached only seven live rows and ended the
@@ -1444,7 +1445,7 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Source Modernization
-Sweep MZ3. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Sweep MZ4. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Comment Vocabulary Audit
 is permanently closed in
@@ -3864,6 +3865,13 @@ remain with their MZ0 ABI ruling. Per-file and final Profile builds, format, the
 identifier-only semantic review, and the 27/27 comment audit pass. The live
 ledger advances to 3/5 (60%). Evidence is in
 `../Reports/2026-08-03/source-modernization-mz2-parameters.md`.
+
+Source Modernization Sweep MZ3 completed on 2026-08-03. The established
+`Normalise` family is retained as one coherent called API, and `Maths/` remains
+the physical module while `Math::` remains the singular conceptual domain. No
+source, alias, policy, or baseline changed. The live ledger advances to 4/5
+(80%). Evidence is in
+`../Reports/2026-08-03/source-modernization-mz3-rulings.md`.
 
 ## Features
 
