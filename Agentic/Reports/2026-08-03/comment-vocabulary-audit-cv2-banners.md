@@ -68,7 +68,9 @@ leaving them in a touched file would have failed the audit.
 
 ## Comment-Style Audit
 
-Checklist: `Agentic/Plans/TODO/comment-vocabulary-audit.md`
+The execution-time checklist was `Agentic/Plans/TODO/comment-vocabulary-audit.md`;
+CV4 removed it after the campaign closed and preserved the final totals in the
+permanent closure report.
 
 - checked: 35/35;
 - deferred: 0;
@@ -120,4 +122,3 @@ comment-only.
 No repository validation was run. CV2 changes source comments and documentation
 only, and the comment-stripped comparison proves that no code token changed.
 The plan's final `tools\validate_fast.bat` remains deferred to CV4.
-

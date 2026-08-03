@@ -24,6 +24,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.cpp
   - tools/validate_replay_visual_fidelity.bat
+  - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionArchive.h"
 #include "ReplayPrediction.h"

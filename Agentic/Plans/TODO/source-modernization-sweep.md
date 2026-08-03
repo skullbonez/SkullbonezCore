@@ -124,9 +124,10 @@ behavior changes, and no baseline moves.
 - Runs last. It is the lowest-value plan in the portfolio and it touches the most
   files, which is the correct reason to do it after the coverage and correctness
   work rather than before.
-- Depends on `comment-vocabulary-audit.md` closing CV1 and CV2 first, because MZ2
-  edits comments in the same files CV2 reconciles and two plans editing the same
-  headers concurrently would produce avoidable conflicts.
+- Depends on the completed Comment Vocabulary Audit closing CV1 and CV2 first,
+  because MZ2 edits comments in the same files CV2 reconciled. Its permanent
+  closure evidence is in
+  `../../Reports/2026-08-03/comment-vocabulary-audit-closure.md`.
 - MZ2 benefits from the completed Narrowphase Manifold And Sleep Coverage plan
   (`../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`)
   and Broadphase Pair Dedup Cost plan
@@ -165,4 +166,4 @@ control-flow, or numeric change.
 - `../../../SkullbonezSource/Physics/SpatialGrid.h`
 - `../../../SkullbonezSource/Runtime/Camera/Camera.h`
 - `../../../SkullbonezSource/World/WorldEnvironment.h`
-- `comment-vocabulary-audit.md`
+- `../../Reports/2026-08-03/comment-vocabulary-audit-closure.md`

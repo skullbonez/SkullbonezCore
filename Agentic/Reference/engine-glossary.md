@@ -159,9 +159,10 @@ case-distinct terms remain distinct until an owner explicitly unifies them.
 | Instant build | One worker submission that completes the remaining horizon. |
 | Interaction owner | Concrete owner of persistent UI controls and cross-frame pointer/capture state; it emits typed command values rather than mutating runtime subsystems. |
 | Interaction signature | Hash of pointer/focus state used to invalidate hit data. |
-| Intercept assertion | Lane-P proof over the replay-owned closest-approach snapshot; it observes distance, ETA, and contact without owning the scan. |
+| Intercept assertion | Lane P proof over the replay-owned closest-approach snapshot; it observes distance, ETA, and contact without owning the scan. |
 | JSON (JavaScript Object Notation) | Text metadata format used inside the manifest chunk. |
 | Lane F | Fatal invariant lane for should-never-happen owned engine state; it records diagnostics and does not return. |
+| Lane P | Bounded validation or probe-result lane; it reports proof evidence and is not production error handling. |
 | Lane R | Recoverable error-handling lane for external input or environment failure, represented by an owner/message result. |
 | Lane R result | Recoverable owner/message result for external input or environment failure, reported without exceptions or fatal termination. |
 | Lifecycle generation | Monotonic identity for one accepted scene-load attempt, independent of scene index or successful activation. |

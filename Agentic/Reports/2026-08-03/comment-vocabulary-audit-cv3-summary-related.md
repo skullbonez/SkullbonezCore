@@ -13,9 +13,10 @@ learning-header field. Every Summary was read against the ownership, decision,
 or flow rule. Forty-three filename/Purpose restatements were repaired, and the
 post-repair census contains zero exact Purpose/Summary copies.
 
-The tracked inspection ledger is
-`Agentic/Plans/TODO/comment-vocabulary-summary-related-checklist.md`: 587/587
-checked, zero deferred, zero missing, zero extra, and zero duplicate rows.
+The execution-time tracked ledger, committed at checkpoint `1f7241a9`, recorded
+587/587 checked, zero deferred, zero missing, zero extra, and zero duplicate
+rows. CV4 removed the deletion-bound checklist after carrying those totals into
+the permanent closure report.
 
 ## Summary Findings
 
@@ -56,9 +57,13 @@ actual boundary.
 
 All 20 remaining `Mental model:` blocks were folded into their file Summary,
 as CV1 required. The retained paragraphs continue to explain phase order or
-ownership, but no second file-orientation heading remains. The current tree has
-zero `Mental model:`, `LAYMAN VERSION:`, generic `Allocation policy:`, or
-generic `Contract:` headings.
+ownership, but no second file-orientation heading remains.
+
+CV4 correction: CV3's header-oriented alias scan correctly reached zero Mental
+model fields but missed eleven body-comment labels already assigned to CV4 by
+the CV1 ruling: two `LAYMAN VERSION:`, six short `Allocation policy:`, and three
+generic `Contract:` headings. The independent CV4 closure review found the
+missed stratum and CV4 reconciled all eleven before plan closure.
 
 ## Related Census
 

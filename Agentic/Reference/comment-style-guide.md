@@ -90,6 +90,10 @@ Header fields:
 decision, or data flow before the reader reaches code. It must say something the
 filename does not. For example, `UIState.h implements UI state` is a tautology;
 name the state authority, lifecycle, or boundary the file actually owns.
+Summary may contain more than one paragraph when a second mental model makes
+that boundary clearer. Keep all file-level orientation under `Summary:`; do not
+create competing `Mental model:`, `LAYMAN VERSION:`, `Layman version:`, or
+`Plain-language version:` header sections.
 
 Keep file glossaries local. Define the terms a reader needs for this file, not
 every term in the engine. The split is exact and count-free:
@@ -259,6 +263,83 @@ barrier.UAV.pResource = m_blasResult; // Null would order all UAVs; this narrows
 
 Do not use local inline comments as glossary substitutes.
 
+## Repository Convention Vocabulary
+
+Use one spelling for each reusable comment job:
+
+| Spelling | Job |
+|---|---|
+| `Summary:` | File-level ownership, decision, and flow orientation. |
+| `Concept:` | Local plain-language explanation before a type, function, or dense mechanism. |
+| `Why:` | Reason for a surprising or conservative implementation choice. |
+| `Invariant:` | Rule an owner, caller, or phase must preserve. |
+| `Lifetime:` | Ownership and borrow/resource lifetime boundary. |
+| `Hazard:` | Failure, race, divergence, or nondeterminism prevented nearby. |
+| `Runtime allocation policy:` | Repository no-growth/phase/cap rule for runtime storage. |
+
+Do not shorten `Runtime allocation policy:` to `Allocation policy:`. Do not use
+generic `Contract:` when the text is an invariant. Plain-language rules become
+`Invariant:`; plain-language explanations become `Concept:`.
+
+### Precise Domain Headings
+
+A precise local heading is allowed when its noun is itself the stable category
+or search target a reader needs. Current examples include `Pass contract:`,
+`Caller contract:`, `Docs:`, `Compatibility:`, `Capability:`, `Units:`,
+`Cold boundary:`, `Fallback:`, `Owner:`, `Phase:`, `Precondition:`,
+`Release/Profile:`, and `Terminal drain:`.
+
+This is a qualitative boundary, not an allowlist or permission to invent
+aliases. If a heading only means explanation, reason, rule, lifetime, or risk,
+use `Concept:`, `Why:`, `Invariant:`, `Lifetime:`, or `Hazard:`. `Docs:` is a
+Rendering-local marker for an authoritative external API link beside the choice
+it supports; file-level repository navigation still belongs in `Related:`.
+
+### Result, Failure, And Proof Lanes
+
+Lane labels classify handling; structured tags explain the nearby reason or
+risk. They may therefore appear together.
+
+| Lane | Meaning |
+|---|---|
+| `Lane R` | Recoverable external-input or environment failure represented by an owner/message result. |
+| `Lane F` | Fatal should-never-happen owned engine state. |
+| `Lane P` | Bounded validation or probe result, not production error handling. |
+
+Use these exact spellings. A `Hazard:` comment does not replace Lane F, and a
+`Why:` comment does not replace Lane R or Lane P.
+
+### Algorithm Citations And Engine Decisions
+
+Physics uses a paired source/decision convention:
+
+```cpp
+// CATTO REF:
+// Erin Catto, source/equation and the exact part used here.
+//
+// ENGINE-SPECIFIC:
+// The local policy, geometry, ordering, or numerical decision that differs.
+```
+
+`CATTO REF` identifies what the external algorithm or equation supports.
+`ENGINE-SPECIFIC` identifies what SkullbonezCore decides locally and may appear
+alone when the complete nearby rule is engine policy. When both apply, keep
+them adjacent so the source/decision boundary is visible. Neither label is
+proof by itself; current implementation and tests remain the proof.
+
+### Retired Banners And Review Vocabulary
+
+Do not add the legacy `/* -- Name ---- */` file/type banners. Every tracked
+source file has the modern learning header, and the audited legacy stratum was
+retired after its unique facts moved into headers or nearby structured
+comments. Use `Concept:` for useful local teaching content; do not retain a
+banner solely for visual identity.
+
+Governance-review terms such as extraction scar, capability slice, courier,
+and closure failure belong in reviews, plans, and reports. Source comments
+teach engine concepts and current owner rules, not the vocabulary used to audit
+those rules.
+
 ## Exact Rewrite Example
 
 Current style:
@@ -386,6 +467,7 @@ Prefer actionable TODOs:
 ```
 
 Avoid stale historical comments unless the history explains a current rule.
+Avoid retired headings and identity banners that duplicate the learning header.
 
 ## Comment Maintenance Checklist
 
@@ -394,6 +476,8 @@ When editing a file, check:
 - Does the file have a learning header?
 - Does `Summary:` state ownership, a decision, or a flow that the filename does
   not already reveal?
+- Is file orientation entirely under `Summary:`, with no retired Mental model
+  or layman heading?
 - Does the file glossary define only single-file local vocabulary while shared
   definitions live in `Agentic/Reference/engine-glossary.md` and are cited from
   `Related:`?
@@ -401,23 +485,26 @@ When editing a file, check:
 - Does the first dense use of a non-assumed acronym expand or point to the
   glossary?
 - Are comments explaining concepts, reasons, invariants, lifetimes, hazards, or units?
+- Do runtime allocation comments use `Runtime allocation policy:` exactly?
+- Are Lane R/F/P and CATTO REF/ENGINE-SPECIFIC labels used for their documented
+  handling and citation jobs?
+- Does every custom heading name a precise domain category rather than aliasing
+  a standard structured tag?
 - Did any code change make an existing comment stale?
 - Are public methods documented from the caller's point of view?
 - Are validation-sensitive physics/rendering assumptions called out?
-- Are links useful and sparse?
+- Are links useful and focused, repository-relative paths resolvable, and
+  permanent history links under `Agentic/Reports/` rather than `Plans/TODO/`?
 
-## Should This Become A Skill?
+## Audit Skill
 
-Yes, but the guide should be the source of truth and the skill should be the
-repeatable audit procedure.
-
-Recommended follow-up skill:
+This guide is the source of truth. The repeatable audit procedure lives at:
 
 ```text
 Agentic/Skills/comment-style-audit/skill.md
 ```
 
-That skill should be run intermittently:
+Run the skill:
 
 - Before PR prep on files with heavy comment changes.
 - After adding a new DX12, physics, scene, or diagnostics subsystem.
@@ -432,19 +519,20 @@ The skill should do four things:
 3. Replace acronym-only and restatement comments with concept/why/invariant comments.
 4. Report any terms that still need a human-approved explanation.
 
-This should not start as a strict linter. A script can later flag likely issues,
-such as all-caps terms without glossary entries, but explanation quality needs
-human judgment.
+Mechanical inventories may flag likely issues, but explanation quality and
+claim truth remain qualitative review.
 
-## Rollout Plan
+## Maintenance Model
 
-Use gradual cleanup to avoid noisy churn:
+The tracked source tree completed its learning-header rollout. Preserve that
+baseline without creating noisy comment churn:
 
 1. New files must use this style.
-2. Files touched for meaningful work should get a learning header.
+2. Files touched for meaningful work must keep their header and nearby comments
+   truthful.
 3. Acronym-heavy files get glossary fixes before deeper comment rewrites.
-4. Subsystem passes can happen later, one area at a time: DX12 first, then
-   physics, scene parsing, UI, tools, and tests.
+4. Subsystem or repository passes use a `git ls-files` checklist and report
+   every deferred row explicitly.
 
 Documentation-only comment rewrites require no repository validation. Code
 behavior changes still follow the validation map in `AGENTS.md`.

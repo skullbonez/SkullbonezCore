@@ -53,7 +53,7 @@ using namespace SkullbonezCore::Physics;
 //   This file is Skullbonez narrowphase policy, not Catto's 2D box clipping
 //   implementation. It supplies exact sphere/sphere, closest-point sphere/OBB,
 //   and SAT plus clipped OBB/OBB contacts for the existing 3D engine.
-// LAYMAN VERSION:
+// Concept:
 //   Broadphase has already said "these two objects are close enough to inspect."
 //   This file answers the expensive geometry question: exactly where are they
 //   touching, and which direction should the solver push to separate them?

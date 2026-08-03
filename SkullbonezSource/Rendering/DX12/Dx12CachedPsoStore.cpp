@@ -197,7 +197,7 @@ bool HashBoundedFile( const wchar_t* path, std::size_t cap,
                                     ? static_cast<const std::uint8_t*>( MapViewOfFile( mapping, FILE_MAP_READ, 0, 0, 0 ) )
                                     : nullptr;
 
-    // Allocation policy: cold identity hashing borrows a bounded read-only file
+    // Runtime allocation policy: cold identity hashing borrows a bounded read-only file
     // mapping; it never grows an owning container in runtime code.
     const bool hashed = bytes && HashBytes( { bytes, static_cast<std::size_t>( size.QuadPart ) }, digest );
 

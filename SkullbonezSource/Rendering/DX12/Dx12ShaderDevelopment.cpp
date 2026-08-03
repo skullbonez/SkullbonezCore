@@ -189,7 +189,7 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3D12Device* device )
 {
 
-    // Allocation policy: candidate reflection containers may allocate only in
+    // Runtime allocation policy: candidate reflection containers may allocate only in
     // the explicit BackendInit developer scope held by the F9 caller.
     ID3D12PipelineState* generateMipsCandidate = nullptr;
     const SkullbonezCore::Core::SbResult computeResult = m_textures.PrepareGenerateMipsShaderReload( device,

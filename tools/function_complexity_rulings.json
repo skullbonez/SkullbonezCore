@@ -35,7 +35,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "8d4973fb94f1708f7266c22951a0c7c2313fe0561f76e2595c05f8ecabda1ce1",
+      "body_sha256": "9e5fefae2b45e5556a7c2224bf002e1fc8dd007527b31f44cfa576f3337f04f4",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",

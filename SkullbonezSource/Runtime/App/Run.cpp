@@ -70,7 +70,7 @@ std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( Skullb
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
-    // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
+    // Runtime allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
     return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
 }

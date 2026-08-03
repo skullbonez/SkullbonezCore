@@ -1416,27 +1416,14 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 4/10 (40%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
-Dedup Cost, and Render Graph Transition Coverage are complete and excluded
-under rule 4. Dense Pile Sleep Resolution is blocked at 3/5 and excluded from
-the active/future denominator under rule 4; its SR3 candidate failed the
-20,000-frame oracle and its independent plans remain runnable. Two actionable
-plans remain, to run in this order:
+work at 0/5 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
+Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
+Resolution is blocked at 3/5 and excluded from the active/future denominator
+under rule 4; its SR3 candidate failed the 20,000-frame oracle. One actionable
+plan remains:
 
-1. `TODO/comment-vocabulary-audit.md` (4/5). CV0 inventories all 587 tracked
-   source files: the modern core header is universal, six plain-language
-   spellings occupy 29 files, all 35 banner files also carry the modern header,
-   and the undocumented citation family now totals 23 `CATTO REF` plus 35
-   `ENGINE-SPECIFIC` markers in three Physics files. Execution/proof lanes and
-   recurring policy/contract headings are also undocumented; governance review
-   vocabulary remains absent. CV1 assigns one spelling per reusable job while
-   retaining the non-duplicate citation pair, lanes, and precise domain
-   headings. CV2 removes all 62 legacy banner blocks across the exact 35-file
-   scope with a 35/35 comment audit and zero code-token changes. CV3 completes
-   the 587-file Summary/Related ledger, repairs 43 restatements and two stale
-   claims, folds 20 orientation aliases, and proves all 2,036 paths resolve.
-   CV4's guide/audit-skill reconciliation and closure gates are binding next.
-2. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+1. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
@@ -1451,11 +1438,12 @@ hysteresis probe, broader retained continuity state, geometry/replay transition,
 or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
-Current handoff: continue on `nightrunner-3rd-AUG-26` at Comment Vocabulary
-Audit CV4. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Current handoff: continue on `nightrunner-3rd-AUG-26` at Source Modernization
+Sweep MZ0. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
-candidate is rejected and must not be reimplemented. Source Modernization Sweep
-follows the comment plan independently.
+candidate is rejected and must not be reimplemented. Comment Vocabulary Audit
+is permanently closed in
+`../Reports/2026-08-03/comment-vocabulary-audit-closure.md`.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3836,6 +3824,19 @@ without a new count budget. The 67/67 comment audit and comment-stripped proof
 show zero code-token changes. The live ledger advances to 4/10 (40%). Evidence
 is in
 `../Reports/2026-08-03/comment-vocabulary-audit-cv3-summary-related.md`.
+
+Comment Vocabulary And Banner Convention Audit CV4 completed on 2026-08-03.
+The style guide and audit skill now carry every surviving CV1 convention. The
+last 11 body-label aliases and Core identity banner are gone, Lane P has one
+glossary owner, and all 2,037 Related paths resolve. The 15/15 touched-source
+audit and comment-stripped proof show zero code-token changes. Exact governance
+metadata was refreshed for 16 shifted aggregate sites and one comment-only
+function digest without changing a qualitative ruling. The strict glossary,
+aggregate, complexity, reachability, format, and 389.2-second fast gates pass;
+independent review is clean. The completed plan and its 587-row execution
+checklist are deleted. Comment Vocabulary leaves the active/future ledger under
+rule 4, so Source Modernization is now 0/5 (0%). Evidence is in
+`../Reports/2026-08-03/comment-vocabulary-audit-closure.md`.
 
 ## Features
 

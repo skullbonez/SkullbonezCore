@@ -46,6 +46,8 @@ only after it has been inspected against this skill and the guide.
    - `Glossary` when the file defines single-file local vocabulary
    - `Invariants` where behavior, lifetime, determinism, or GPU state matters
    - `Related` links where another file or reference doc helps
+   - no competing `Mental model:`, layman, or plain-language orientation
+     section; useful orientation is another paragraph under `Summary:`
 5. Apply the glossary split rule:
    - A term defined in exactly one tracked `.cpp`, `.h`, `.hpp`, `.inl`, or
      `.hlsl` file stays in that file's `Glossary:` block.
@@ -60,12 +62,40 @@ only after it has been inspected against this skill and the guide.
 6. Replace non-assumed acronym-only comments with concept comments.
 7. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
    `Hazard:` comments.
-8. For any type that aggregates unrelated-owner data or orchestrates
+8. Enforce the canonical reusable labels:
+   - `Summary:` owns file orientation and `Concept:` owns local plain-language
+     explanation;
+   - `Invariant:` owns rules, including plain-language rules and generic
+     contracts;
+   - runtime no-growth/phase/cap comments use
+     `Runtime allocation policy:`, never short `Allocation policy:`; and
+   - legacy `/* -- Name ---- */` file/type banners are retired. Preserve unique
+     teaching content under the learning header or a nearby structured block,
+     but do not retain a banner for visual identity.
+9. Review precise local headings qualitatively. `Pass contract:`,
+   `Caller contract:`, `Docs:`, `Compatibility:`, `Capability:`, `Units:`,
+   `Cold boundary:`, `Fallback:`, `Owner:`, `Phase:`, `Precondition:`,
+   `Release/Profile:`, and `Terminal drain:` are valid when that noun is the
+   information category or search target. They are examples, not an allowlist.
+   A heading that only means explanation, reason, rule, lifetime, or risk must
+   use the standard tag instead. `Docs:` attaches an authoritative external API
+   link locally; `Related:` owns repository navigation.
+10. Verify retained citation and lane conventions:
+    - `CATTO REF` identifies the external algorithm/equation supporting adjacent
+      Physics code;
+    - `ENGINE-SPECIFIC` identifies the local policy or geometry decision, may
+      stand alone, and stays adjacent when it qualifies a CATTO REF;
+    - `Lane R` is recoverable external-input/environment failure, `Lane F` is
+      fatal owned invariant failure, and `Lane P` is bounded validation/probe
+      evidence; and
+    - lane labels classify handling and may coexist with Why/Invariant/Hazard.
+      Citations and lanes do not replace implementation/test proof.
+11. For any type that aggregates unrelated-owner data or orchestrates
    multi-owner sequencing, require a header `Invariant:` block that names the
    rule the type enforces and identify the focused test that exercises it.
    Absence of either artifact is an audit failure; a data-only aggregate that
    merely shortens a signature remains a banned bag.
-9. Verify behavioral claims in every touched file:
+12. Verify behavioral claims in every touched file:
    - Identify sentences that assert ownership, sequencing, or subsystem
      behavior and confirm each against the post-change source and call path.
    - Correct in the same commit every claim falsified by a responsibility move.
@@ -74,16 +104,20 @@ only after it has been inspected against this skill and the guide.
      as `C1` or `UR3` as prompts to verify, not banned words. The repository
      audit found roughly 55 correct uses that describe runtime state.
    - Require repository-relative `Related:` entries to resolve. Cite permanent
-     closure reports, never deletion-bound `Agentic/Plans/TODO/` paths.
-10. Keep comments close to the concept they explain.
-11. Preserve existing useful teaching comments. Do not rewrite good comments
+     closure reports, never deletion-bound `Agentic/Plans/TODO/` paths, and
+     remove duplicate navigation rows.
+13. Keep comments close to the concept they explain.
+14. Preserve existing useful teaching comments. Do not rewrite good comments
    just to make them look new.
-12. Tick each checklist item only after the file was inspected. Leave deferred
+15. Keep governance-review vocabulary in reviews, plans, and reports. Terms such
+    as extraction scar, capability slice, courier, and closure failure do not
+    teach a source-level engine concept and must not leak into source comments.
+16. Tick each checklist item only after the file was inspected. Leave deferred
    files unchecked and record the reason beside the item.
-13. Rerun the scoped `git ls-files` inventory before reporting completion and
+17. Rerun the scoped `git ls-files` inventory before reporting completion and
     confirm every tracked source file in scope appears in the checklist exactly
     once.
-14. Confirm the diff is comment/documentation only before reporting completion.
+18. Confirm the diff is comment/documentation only before reporting completion.
 
 ## Why Claim Verification Exists
 
@@ -98,12 +132,22 @@ post-change source so ownership moves cannot create the same false finding.
 - No unexplained local, ambiguous, or behavior-sensitive acronyms in comments.
 - Every `Summary:` adds ownership, decision, or flow information beyond the
   filename; tautological summaries fail the audit.
+- File orientation appears only under `Summary:`; Mental model, layman, and
+  plain-language orientation aliases fail the audit.
 - File glossaries contain only exact single-file terms. Multi-file definitions
   live in `Agentic/Reference/engine-glossary.md`, source headers cite it from
   `Related:`, and the strict glossary inventory has no unruled current finding.
 - Never add glossary entries that merely define assumed baseline technology
   names such as HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU,
   shader, texture, compiler, or linker.
+- Plain-language explanations use `Concept:`, rules use `Invariant:`, and
+  runtime allocation boundaries use `Runtime allocation policy:` exactly.
+- Legacy identity banners are absent; unique teaching content is preserved in
+  the modern header or nearby structured comment.
+- Precise domain headings name a real category or search target rather than
+  aliasing Concept/Why/Invariant/Lifetime/Hazard.
+- `CATTO REF`/`ENGINE-SPECIFIC` and Lane R/F/P use their documented
+  source-versus-local-decision and recoverable/fatal/proof meanings.
 - Rendering files explain RTV, DSV, SRV, UAV, PSO, root signatures, resource
   states, barriers, DRED, PIX, BLAS, TLAS, or SBT when those terms appear.
 - Physics files explain broadphase, narrowphase, manifolds, contact rows, warm
@@ -116,7 +160,8 @@ post-change source so ownership moves cannot create the same false finding.
 - Ownership, sequencing, and behavior claims match post-change source; every
   rot marker was reviewed as a prompt rather than rejected mechanically.
 - Repository-relative `Related:` entries resolve and permanent history points
-  to closure reports rather than live `TODO/` plans.
+  to closure reports rather than live `TODO/` plans; duplicate rows are absent.
+- Governance review vocabulary stays out of source comments.
 - No source file in the selected scope is silently skipped. The checklist has no
   unchecked items unless each remaining item has a written deferral reason.
 
@@ -127,6 +172,7 @@ Summarize:
 - Files or subsystems audited.
 - Checklist path, checked count, deferred count, and unchecked files if any.
 - The comment/documentation changes made.
+- The convention labels, citations, and lanes reviewed or normalized.
 - The ownership, sequencing, and behavior claims verified or corrected.
 - Any terms that still need human-approved wording.
 - Validation status, usually: `No validation run; comment-only changes.`

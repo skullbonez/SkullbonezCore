@@ -10,8 +10,6 @@ Summary:
   no object or declaration surface to Release, Profile, or Automation builds.
 
 Glossary:
-  Lane P: Probe assertion reported through the existing validation/report
-    channel rather than an exception or product fallback.
   Visual projection: Rebuilding renderer-bound replay packet values from a
     durable artifact without scheduling a new prediction.
 

@@ -172,7 +172,7 @@ void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& render
                              uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0, uint32_t slot5 = 0 )
 {
 
-    // Contract: ordinary raster shaders expose t0..t5. Slot t4 is reserved for
+    // Invariant: ordinary raster shaders expose t0..t5. Slot t4 is reserved for
     // the object material table, but pass hygiene still clears it to the typed
     // null SRV; object batches bind the material table again immediately before
     // drawing. Terrain alone uses t5 for the tight object-shadow map.

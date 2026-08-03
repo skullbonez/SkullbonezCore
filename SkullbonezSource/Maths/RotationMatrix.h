@@ -4,8 +4,7 @@ Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  RotationMatrix converts quaternion orientation into an orthogonal basis used
-  for world/local vector transforms and support extents.
+  RotationMatrix owns orthogonal-basis storage plus world/local vector and support-extent operations over that basis.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as
@@ -19,7 +18,6 @@ Related:
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
-
 
 #include "MathsCommon.h"
 #include "Vector3.h"

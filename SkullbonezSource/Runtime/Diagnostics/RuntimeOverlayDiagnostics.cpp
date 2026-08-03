@@ -48,7 +48,7 @@ std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForS
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
-    // Allocation policy: Run keeps this heavyweight cohesive owner out of its
+    // Runtime allocation policy: Run keeps this heavyweight cohesive owner out of its
     // public header. The one process-lifetime allocation is bounded to startup.
     return std::make_unique<RuntimeOverlayDiagnostics>( profiler );
 }
