@@ -4,7 +4,7 @@ Date: 2026-08-03
 Status: NOT STARTED — 0/5 phases complete
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
-Priority: Second — runs after the in-flight render-graph plan closes
+Priority: First — binding remaining campaign plan
 
 ## Problem And Evidence
 
@@ -166,11 +166,11 @@ workloads, no body loss, no popcorn cycles.
 
 ## Dependencies And Decisions
 
-- Runs second in the remaining campaign, after the in-flight
-  `render-graph-transition-coverage.md` closes, and displaces the comment-audit and
-  modernization plans by one position each. Do not interrupt the render-graph plan
-  to start this one. That ordering is an owner decision recorded here; neither
-  displaced plan has a dependency on this one.
+- Runs first in the remaining campaign. Render Graph Transition Coverage closed
+  at RG4 and was deleted under ledger rule 4; its permanent closure evidence is
+  `../../Reports/2026-08-03/render-graph-transition-coverage-closure.md`.
+  Comment Vocabulary Audit and Source Modernization Sweep follow this plan, and
+  neither has a dependency on it.
 - `194cbf82` is authoritative and stays. This plan changes how contact **lifetime
   continuity** is established, never whether continuing contacts are suppressed.
 - The pair-prefix scan is a known-rejected mechanism, not an unexplored option. SR2
@@ -218,3 +218,4 @@ continuing contact re-admitted restitution.
 - `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-closure.md`
 - `../../Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md`
 - `../../Reports/2026-08-02/narrowphase-manifold-sleep-coverage-closure.md`
+- `../../Reports/2026-08-03/render-graph-transition-coverage-closure.md`
