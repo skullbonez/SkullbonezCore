@@ -90,6 +90,14 @@ PreviousObjectContactLookup InspectPreviousObjectContact( const PersistentContac
                                       []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
                                       { return entry.key < lookupKey; } );
 
+    // Why: we tried treating an adjacent loaded row from the same body pair as
+    // continuing contact once both bodies were half-way through the sleep quiet
+    // window. It failed to improve the dense pile because the quiet counters
+    // were still zero at the initiating feature change and only seven rows ever
+    // qualified; the run ended with 327/330 sleepers and 5,441 wake oscillations.
+    // Broader pair continuity also changed the accepted wall and four-brick
+    // behavior, so exact feature identity remains the only lifetime authority.
+
     PreviousObjectContactLookup result;
 
     if ( cachedIt != cache.end() && cachedIt->key == exactKey )
