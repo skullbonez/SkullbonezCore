@@ -4,8 +4,9 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Summary:
-  Owns per-scene physics working state
-  shared by broadphase, solver, and diagnostics.
+  PhysicsWorld owns mutable per-scene physics stores, stage instances,
+  fixed-capacity scratch, and diagnostics. PhysicsEngine sequences it while
+  stages borrow explicit views.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

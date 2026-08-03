@@ -10,8 +10,6 @@ Summary:
   window, shared domain facts, and a frame-local replay publication and receives
   typed command/input values; mutable scene, replay, rendering, physics,
   and editor owners never enter this presentation owner.
-
-Mental model:
   The editor is a presentation endpoint. It consumes immutable frame facts,
   retains only UI-local state, and publishes complete input/command/status
   values that runtime owners can apply without reaching back into ImGui.

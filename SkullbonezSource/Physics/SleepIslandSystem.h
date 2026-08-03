@@ -1,11 +1,12 @@
 /*
 File: SkullbonezSource/Physics/SleepIslandSystem.h
 Purpose:
-  Groups supported bodies into sleep islands and decides when islands may sleep.
+  Propagates fixed or sleeping support through the bounded sleep-support graph.
 
 Summary:
-  Groups supported bodies into sleep
-  islands and decides when islands may sleep.
+  SleepIslandSystem performs a deterministic bounded propagation over
+  frame-owned support edges. It marks supported bodies but retains no sleep
+  state and does not choose island transitions.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

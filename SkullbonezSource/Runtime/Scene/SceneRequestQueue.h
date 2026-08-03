@@ -4,9 +4,9 @@ Purpose:
   Declares the fixed scene-owner request vocabulary used at the input boundary.
 
 Summary:
-  UI, keyboard, and replay probes submit scene intent to SceneController. The
-  controller owns this ring and hands Run one value-only batch at the scene
-  execution checkpoint until the full load lifecycle moves behind the owner.
+  SceneRequestQueue is SceneController's fixed ring for ordered UI, keyboard,
+  and replay intent. SceneController drains one value batch at the runtime
+  checkpoint, while SceneLoadTransaction owns the load-phase order.
 
 Invariants:
   - Submission order is observable same-frame behavior.

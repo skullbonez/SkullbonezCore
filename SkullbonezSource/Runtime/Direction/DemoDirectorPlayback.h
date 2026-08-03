@@ -25,7 +25,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Direction/DemoDirectorPlayback.cpp
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
-  - SkullbonezSource/Runtime/Camera/CameraControlState.h
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

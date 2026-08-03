@@ -5,8 +5,9 @@ Purpose:
   lifetime plans.
 
 Summary:
-  Records render pass/resource intent, callback
-  execution, and transient texture lifetime plans.
+  RenderGraph records declared reads, writes, and callback order, then derives
+  API-neutral transitions and transient alias lifetimes for a backend executor
+  to materialize.
 
 Invariants:
   - The graph records pass/resource intent, transient lifetime diagnostics, and

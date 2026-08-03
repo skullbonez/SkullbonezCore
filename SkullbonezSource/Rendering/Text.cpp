@@ -4,7 +4,9 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Builds and draws bitmap/SDF text for HUD and diagnostics.
+  Text2d converts strings and quads into the caller's fixed-capacity CPU batch,
+  then explicit flush boundaries upload and draw those queues through the
+  active font resources.
 
 Invariants:
   - Text and quad batches use fixed vertex layouts that must match their

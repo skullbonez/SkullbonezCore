@@ -4,8 +4,9 @@ Purpose:
   Converts prepared render-instance records into backend draw calls.
 
 Summary:
-  Converts prepared render-instance
-  records into backend draw calls.
+  RenderInstanceRenderer consumes prepared render-instance and collider rows to
+  build normal and shadow submissions; scene stores and backend lifetime remain
+  with their concrete owners.
 
 Invariants:
   - Methods consume prepared render/collider stores; they do not own scene

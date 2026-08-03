@@ -7,8 +7,6 @@ Summary:
   The cursor is the fatal boundary around copied command values and synchronous
   concrete-owner phase calls. Completion is an ordinary final edge in the same
   adjacent-only contract.
-
-Mental model:
   Each method passes one turnstile. Calling a phase twice, skipping ahead, or
   moving backward terminates at the first broken invariant.
 

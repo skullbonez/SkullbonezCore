@@ -1416,14 +1416,14 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/10 (30%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 4/10 (40%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution is blocked at 3/5 and excluded from
 the active/future denominator under rule 4; its SR3 candidate failed the
 20,000-frame oracle and its independent plans remain runnable. Two actionable
 plans remain, to run in this order:
 
-1. `TODO/comment-vocabulary-audit.md` (3/5). CV0 inventories all 587 tracked
+1. `TODO/comment-vocabulary-audit.md` (4/5). CV0 inventories all 587 tracked
    source files: the modern core header is universal, six plain-language
    spellings occupy 29 files, all 35 banner files also carry the modern header,
    and the undocumented citation family now totals 23 `CATTO REF` plus 35
@@ -1432,8 +1432,10 @@ plans remain, to run in this order:
    vocabulary remains absent. CV1 assigns one spelling per reusable job while
    retaining the non-duplicate citation pair, lanes, and precise domain
    headings. CV2 removes all 62 legacy banner blocks across the exact 35-file
-   scope with a 35/35 comment audit and zero code-token changes. CV3's complete
-   Summary/Related inspection is binding next.
+   scope with a 35/35 comment audit and zero code-token changes. CV3 completes
+   the 587-file Summary/Related ledger, repairs 43 restatements and two stale
+   claims, folds 20 orientation aliases, and proves all 2,036 paths resolve.
+   CV4's guide/audit-skill reconciliation and closure gates are binding next.
 2. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
@@ -1450,7 +1452,7 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Comment Vocabulary
-Audit CV3. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Audit CV4. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Source Modernization Sweep
 follows the comment plan independently.
@@ -3822,6 +3824,18 @@ comment audit, scoped Related paths resolve, and a comment-stripped comparison
 proves zero code-token changes. The live ledger advances to 3/10 (30%).
 Evidence is in
 `../Reports/2026-08-03/comment-vocabulary-audit-cv2-banners.md`.
+
+Comment Vocabulary And Banner Convention Audit CV3 completed on 2026-08-03.
+The 587/587 tracked ledger has zero deferred rows. Forty-three tautological
+summaries and two stale ownership claims are repaired; all 20 remaining Mental
+model paragraphs now live under Summary; two duplicate Related rows are gone.
+All 2,036 repository-relative paths resolve, including 1,102 source and 114
+permanent-report citations. No block has become an index, no TODO plan is
+cited, and the existing fail-closed resolver manages report-link maintenance
+without a new count budget. The 67/67 comment audit and comment-stripped proof
+show zero code-token changes. The live ledger advances to 4/10 (40%). Evidence
+is in
+`../Reports/2026-08-03/comment-vocabulary-audit-cv3-summary-related.md`.
 
 ## Features
 

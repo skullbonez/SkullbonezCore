@@ -4,8 +4,9 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Summary:
-  Stores world forces, fluid
-  parameters, and water rendering resources.
+  WorldEnvironment owns gravity, buoyancy, blended drag inputs, and calm/ocean
+  mesh values consumed by fixed-step physics and water rendering through their
+  separate phase boundaries.
 
 Glossary:
   Center of buoyancy: World-space average location of displaced water. Its

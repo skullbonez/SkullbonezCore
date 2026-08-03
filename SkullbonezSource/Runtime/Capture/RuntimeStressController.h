@@ -7,8 +7,6 @@ Summary:
   Graphics stress is split into deterministic planning, descriptor churn,
   bounded action groups, and diagnostics. Run remains the ordered phase
   coordinator and supplies only the concrete owners each operation needs.
-
-Mental model:
   These functions are synchronous stress transactions, not a replacement
   runtime owner. They borrow their operands for one call, retain none, and
   return only value decisions needed by the next render-phase step.

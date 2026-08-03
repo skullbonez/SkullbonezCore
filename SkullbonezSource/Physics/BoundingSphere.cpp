@@ -4,8 +4,9 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Summary:
-  Defines sphere collision geometry, swept
-  tests, volume facts, and render transforms.
+  BoundingSphere owns sphere shape facts and deterministic overlap, swept,
+  inertia, broadphase, and render-transform calculations used by collision and
+  presentation.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

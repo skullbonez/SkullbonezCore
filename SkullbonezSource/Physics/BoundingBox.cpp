@@ -4,8 +4,9 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  Defines oriented-box collision geometry
-  and its broadphase/render helper math.
+  BoundingBox owns oriented-box shape facts and deterministic support, swept,
+  transform, inertia, broadphase, and debug-render calculations used by
+  collision and presentation.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

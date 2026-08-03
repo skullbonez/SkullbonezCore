@@ -9,8 +9,6 @@ Summary:
   and translates immutable display facts into balanced ImGui frames. It
   delegates DX12 device resources and draw recording to the concrete renderer
   owner and delegates native event translation to the pinned Win32 backend.
-
-Mental model:
   One owner surrounds every Dear ImGui call with the sole current context. Each
   completed frame leaves behind bounded presentation, input, command, and
   status values; no runtime subsystem borrows the context or widget state.

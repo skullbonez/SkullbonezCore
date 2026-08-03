@@ -8,8 +8,6 @@ Summary:
   diagnostics, and input owners, then combines those facts with detached
   UI-owned caches in one bounded OperatorEditorFrameView before either
   development UI surface consumes it.
-
-Mental model:
   Run::RenderOperatorUiPhase is the owner-approved top-level phase coordinator.
   It reaches process-owned members for one ordered UI phase, builds one shared
   value projection, submits Legacy and ImGui presentation, and retains no frame

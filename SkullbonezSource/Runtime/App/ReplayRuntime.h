@@ -7,8 +7,6 @@ Summary:
   Runtime/App sequences typed work across concrete sibling owners and exposes
   published value views to the application shell. Replay remains the lower
   capture/timeline/scrub package; Prediction and Planning retain their own state.
-
-Mental model:
   ReplayRuntime is an App composition root, not a Replay-package owner. It
   sequences owner-to-owner work while concrete package owners retain state and
   implement their domain transitions.

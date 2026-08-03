@@ -4,8 +4,8 @@ Purpose:
   Implements quaternion orientation math for rigid bodies and cameras.
 
 Summary:
-  Implements quaternion orientation
-  math for rigid bodies and cameras.
+  Quaternion implements normalized rigid-body and camera orientation updates,
+  with world-axis deltas composed in the engine's active-rotation order.
 
 Glossary:
   World-axis delta: Incremental rotation expressed around a world-space axis

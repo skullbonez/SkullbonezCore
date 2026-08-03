@@ -6,8 +6,6 @@ Purpose:
 Summary:
   Accepts the baked table once at cold setup and provides allocation-free,
   deterministic measurement to UI layout and hit-geometry code.
-
-Mental model:
   Font pixels remain a renderer resource. Their scalar layout facts cross the
   Runtime composition boundary once and become an immutable UI value table.
 

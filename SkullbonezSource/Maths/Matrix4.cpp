@@ -4,8 +4,9 @@ Purpose:
   Implements the engine matrix type and common transform operations.
 
 Summary:
-  Implements the engine matrix type
-  and common transform operations.
+  Matrix4 implements column-major transforms, deterministic look-at fallbacks,
+  DX12 depth projection, and shadow construction shared by simulation and
+  rendering callers.
 
 Glossary:
   Clip-space depth: Projected depth range consumed by the graphics pipeline;

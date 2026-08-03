@@ -7,8 +7,6 @@ Summary:
   The late UI pass lends one immutable draw list and explicit backend owners.
   This unit translates screen-space shapes and text, resolves preview identities
   against the current renderer snapshot, and owns the preview-only GPU objects.
-
-Mental model:
   UI is the author and Runtime/Render is the printer. The author records what
   appears and in which order; the printer chooses DX12 resources and commands.
 

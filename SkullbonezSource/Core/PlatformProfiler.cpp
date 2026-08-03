@@ -4,8 +4,9 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  Bridges engine profiler markers to
-  platform tools such as PIX when available.
+  The adapter decorates bounded marker names, maintains thread-local CPU-range
+  nesting, and forwards markers to PIX only when platform capture support is
+  compiled in.
 
 Invariants:
   - Platform profiler calls must be optional; engine profiling remains valid

@@ -4,8 +4,8 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Summary:
-  Builds and renders the skybox or
-  sky backdrop for scene rendering.
+  SkyBox builds six face meshes and texture bindings for one backend epoch;
+  RenderResourceLifecycle owns the instance while render passes borrow it.
 
 Invariants:
   - SkyBox owns renderer-facing face meshes and shader resources for the active

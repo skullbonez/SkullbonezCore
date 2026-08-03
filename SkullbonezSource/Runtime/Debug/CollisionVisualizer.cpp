@@ -4,8 +4,9 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  Builds debug drawing for
-  collision shapes and contact diagnostics.
+  CollisionVisualizer renders a read-only view of collision geometry, solver
+  contacts, and sleep groups separately from production materials and physics
+  decisions.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

@@ -8,8 +8,6 @@ Summary:
   SceneWorld commits aligned entity/body/collider/buoyancy/render topology and
   exposes stable-identity operations, including transient editor visibility
   and locks.
-
-Mental model:
   SceneController decides when a scene lifecycle advances. SceneWorld owns what
   that scene is. Callers borrow one explicit SceneWorld, then address the
   concrete store or domain operation they need; the lifecycle controller does

@@ -4,8 +4,9 @@ Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
 Summary:
-  Builds and owns DX12 raytracing bottom-level
-  acceleration structures for mesh geometry.
+  BLASDX12 owns one bottom-level acceleration structure built from vertex-only
+  mesh geometry plus its scratch and result resources for the active device
+  epoch.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

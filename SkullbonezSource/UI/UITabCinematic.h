@@ -4,9 +4,9 @@ Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
 Summary:
-  Owns the Cinematic tab
-  widgets, layout, and input
-  handling for the in-engine controls.
+  UICinematicTabState retains presentation-only combo, toggle, and slider
+  state; the tab consumes detached frame data and returns command values instead
+  of mutating render owners.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

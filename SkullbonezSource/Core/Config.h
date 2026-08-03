@@ -4,8 +4,9 @@ Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
 Summary:
-  Loads, stores, and exposes engine configuration
-  values from files and command-line overrides.
+  EngineConfig is the process configuration snapshot. Its domain values are
+  parsed centrally, then copied or borrowed by the concrete runtime owners that
+  apply them.
 
 Glossary:
   Domain config: Narrow value structure whose fields share one concrete runtime

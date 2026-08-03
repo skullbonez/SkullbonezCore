@@ -1,7 +1,7 @@
 # Comment Vocabulary And Banner Convention Audit
 
 Date: 2026-08-02
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Source comments across every subsystem, comment style guide, glossary reference
 Owner: Comment Quality Gate
 Priority: Third
@@ -54,13 +54,13 @@ reader cannot predict which one a file will use:
    or `ObjectContactManifold.cpp`. `LAYMAN VERSION` is a fourth spelling in the
    same neighbourhood.
 
-4. **327 `Summary:` lines of unmeasured quality.** The Comment Quality Gate
+4. **587 `Summary:` lines of unmeasured quality.** The Comment Quality Gate
    requires every `Summary:` to add ownership, decision, or flow information
    beyond the filename, and states plainly that a filename restatement is not a
    summary. Nothing measures compliance. Spot-reading suggests most are genuine,
    which makes the exceptions worth finding rather than worth assuming away.
 
-5. **888 `Related:` entries pointing into `Agentic/`.** Zero currently point at
+5. **893 `Related:` entries pointing into `Agentic/`.** Zero currently point at
    `Plans/TODO/`, so the deletion-bound-plan rule is being followed correctly. The
    durable half — report citations under `Agentic/Reports/<date>/` — is now large
    enough that link rot is a systemic risk rather than an incidental one, and the
@@ -186,15 +186,34 @@ quality is measured rather than assumed.
   - [x] `SkullbonezSource/World/Terrain.h`
   - [x] `SkullbonezSource/World/WorldEnvironment.h`
 
-- [ ] **CV3 — Measure `Summary:` honesty and `Related:` durability.** Inspect all
-  327 `Summary:` lines against the rule that a filename restatement is not a
-  summary, and repair the ones that fail. Inspect all 888 `Related:` entries:
+- [x] **CV3 — Measure `Summary:` honesty and `Related:` durability.** The complete
+  587-file inspection repaired 43 Purpose/filename restatements, folded all 20
+  remaining `Mental model:` blocks into Summary, corrected two stale ownership
+  claims, and removed two duplicate Related rows. The final tree has zero exact
+  Purpose/Summary copies and zero retired orientation labels. All 2,036
+  repository-relative Related paths resolve: 1,102 target source, 778 Reference,
+  114 permanent Reports, 20 tests, 14 tools, and eight other repository paths.
+  No TODO plan is cited; the maximum Related block is eight focused entries and
+  no block is an index. Report-link volume is managed by permanent paths and the
+  existing fail-closed checker, not a new count budget. The 587/587 tracked
+  ledger, 67/67 touched-source audit, risk ruling, and zero-code-token proof are
+  recorded in
+  `../../Reports/2026-08-03/comment-vocabulary-audit-cv3-summary-related.md`.
+
+  Original work order: Inspect all 587 `Summary:` lines against the rule that a
+  filename restatement is not a summary, and repair the ones that fail. Inspect
+  all current `Related:` entries:
   confirm every path resolves, report the split between source-file citations and
   `Agentic/Reports/` citations, and identify any file whose `Related:` block is
   long enough that it has stopped being navigation and become an index. Report
   whether report-link volume is now a maintenance risk and, if so, propose a
   strategy — the proposal is the deliverable; adopting it is an owner decision,
   not something this phase implements.
+
+  The required tracked-source inspection ledger is
+  `comment-vocabulary-summary-related-checklist.md` (587 rows from
+  `git ls-files`). A row is checked only after both fields and the complete file
+  comment contract have been inspected.
 
 - [ ] **CV4 — Update the style guide and close.** Fold every CV1 ruling and the
   CV2 outcome into `Agentic/Reference/comment-style-guide.md` so each surviving

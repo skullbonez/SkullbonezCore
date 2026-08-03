@@ -4,8 +4,9 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Summary:
-  Loads, owns, and resolves reusable
-  runtime assets for scenes and render code.
+  AssetSystem owns the process asset registry and identity sequence. Scenes and
+  render setup borrow its source records while backend owners retain GPU
+  resource lifetime.
 
 Glossary:
   Asset-system borrow: Frame- or operation-local pointer/reference that lets

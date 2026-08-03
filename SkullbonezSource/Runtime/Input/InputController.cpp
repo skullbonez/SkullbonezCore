@@ -4,8 +4,9 @@ Purpose:
   Maintains runtime input-mode state and applies camera mouse-look deltas.
 
 Summary:
-  InputRouter normalizes semantic keyboard edges. This layer retains camera and
-  pointer compatibility behavior while later input slices move those paths.
+  InputController is stateless policy over InputRouter-owned context values and
+  CameraControlState. It applies focus, mode, pointer, and camera deltas without
+  becoming a second retained input-state owner.
 
 Glossary:
   Mouse look: Camera mode where relative mouse movement rotates the view.

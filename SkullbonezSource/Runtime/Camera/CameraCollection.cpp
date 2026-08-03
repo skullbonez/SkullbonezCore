@@ -4,7 +4,9 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  Owns scene cameras and camera cycling state.
+  CameraCollection owns fixed scene camera slots, selection and tween state,
+  and the frame's render-pose snapshot while borrowing optional terrain for
+  movement clamps.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must

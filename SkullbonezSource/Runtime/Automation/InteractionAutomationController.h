@@ -7,8 +7,6 @@ Summary:
   Interaction automation is a validation harness, not gameplay state. Scripts
   describe frame-indexed input/runtime commands. Concrete input and report
   owners hold synthetic device state and bounded evidence outside the sequencer.
-
-Mental model:
   The controller interprets one scheduled script turn into typed value requests
   and assertion inputs. Concrete runtime owners apply those requests; the
   controller retains only script progress and bounded report evidence.

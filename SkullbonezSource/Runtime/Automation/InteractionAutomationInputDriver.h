@@ -6,8 +6,6 @@ Purpose:
 Summary:
   Script actions mutate one bounded device-state owner. Runtime sequencing asks
   it to expire holds and publish exactly one synthetic frame through Input.
-
-Mental model:
   Script actions mutate this small device-state owner. Once per frame it
   publishes one `Input::AutomationState`, so normal input routing observes the
   same shape it would receive from physical devices.

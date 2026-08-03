@@ -4,8 +4,9 @@ Purpose:
   Streams bounded physics diagnostics to SkullScope trace files.
 
 Summary:
-  Streams bounded physics
-  diagnostics to SkullScope trace files.
+  PhysicsDiagnosticsSink writes bounded SkullScope trace records and uses the
+  fixed scene-name table registered at topology boundaries; fixed steps retain
+  neither strings nor new storage.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

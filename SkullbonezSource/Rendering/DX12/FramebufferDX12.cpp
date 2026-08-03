@@ -4,8 +4,9 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  Implements off-screen framebuffer resources
-  and descriptor views for the DX12 renderer.
+  FramebufferDX12 owns off-screen color and depth resources with render-pass
+  write views and later-pass shader views, while borrowing the descriptor owner
+  that bounds their lifetime.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

@@ -4,8 +4,9 @@ Purpose:
   Owns launcher-mode raycast, projectile, laser, and repro snapshot behavior.
 
 Summary:
-  Owns launcher-mode raycast,
-  projectile, laser, and repro snapshot behavior.
+  Launcher tools translate launcher-mode intent into read-only picks,
+  projectile or impulse requests, laser presentation, and stable debug repro
+  snapshots without retaining scene or physics owners.
 
 Glossary:
   Repro snapshot: Debug-only text dump of the object under the launcher

@@ -4,8 +4,9 @@ Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
 Summary:
-  Builds and owns the DX12 raytracing
-  top-level scene acceleration structure.
+  TLASDX12 rebuilds the top-level acceleration structure from current instance
+  transforms and owns its descriptor, upload, scratch, and result resources for
+  one device epoch.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering

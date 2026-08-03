@@ -4,8 +4,9 @@ Purpose:
   Draws physics contacts, axes, sleep state, and pipeline diagnostics.
 
 Summary:
-  Draws physics contacts, axes,
-  sleep state, and pipeline diagnostics.
+  PhysicsDebugVisualizer converts copied solver records into presentation-only
+  line primitives and a short-lived contact cache; diagnostics never feed back
+  into physics.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

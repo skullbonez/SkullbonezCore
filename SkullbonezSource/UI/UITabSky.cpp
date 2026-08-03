@@ -4,8 +4,9 @@ Purpose:
   Owns the Sky tab widgets, layout, and input handling for in-engine sky tuning.
 
 Summary:
-  Owns the Sky tab widgets, layout, and
-  input handling for in-engine sky tuning.
+  The Sky tab projects the sky, cloud, ray, and palette subset of cinematic
+  render policy into bounded widgets and emits the shared typed commands that
+  Runtime applies.
 
 Glossary:
   Cinematic command: Intent returned for the run loop to apply to render config.

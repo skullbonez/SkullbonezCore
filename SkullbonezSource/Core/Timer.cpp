@@ -4,7 +4,9 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Measures elapsed time for frame pacing and simulation updates.
+  Timer wraps the platform high-resolution counter, retaining one successful
+  startup epoch and the current start/stop pair for frame pacing and elapsed
+  time queries.
 
 Invariants:
   - Timer startup returns a Lane R result when high-resolution counters are

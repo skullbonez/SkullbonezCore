@@ -4,8 +4,8 @@ Purpose:
   Stores camera pose and builds view/projection transforms for rendering.
 
 Summary:
-  Stores camera pose and builds
-  view/projection transforms for rendering.
+  Camera keeps one eye, look-at target, up vector, and bounded movement buffer;
+  CameraCollection applies policy and publishes the repaired pose to rendering.
 
 Glossary:
   Look-at target: World point the camera faces; subtracting the eye produces

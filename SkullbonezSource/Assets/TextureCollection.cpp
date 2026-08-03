@@ -4,8 +4,9 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  Loads texture files and hands
-  renderer-neutral texture ids to draw code.
+  TextureCollection resolves legacy hashes through AssetSystem, fills fixed GPU
+  texture slots through borrowed DX12 facets, and rebuilds or releases backend
+  handles at renderer lifecycle boundaries.
 
 Glossary:
   Legacy hash: 32-bit texture key kept for old render callers while asset ids

@@ -4,8 +4,9 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  Loads texture files and hands
-  renderer-neutral texture ids to draw code.
+  TextureCollection owns the fixed legacy-hash-to-backend-handle table. Asset
+  and render owners are borrowed so draw code can use opaque texture ids
+  without taking file or GPU lifetime authority.
 
 Invariants:
   - m_textures is fixed to SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
