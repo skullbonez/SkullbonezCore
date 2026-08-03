@@ -1416,9 +1416,10 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 2/15 (13%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 2/20 (10%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
-under rule 4. Three plans remain, to run in this
+under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew
+the denominator 15 → 20. Four plans remain, to run in this
 order:
 
 1. `TODO/render-graph-transition-coverage.md` (2/5). Sixteen pure RenderGraph
@@ -1428,12 +1429,26 @@ order:
    exact structured compiler contract, all Lane-F boundaries, and the residual
    RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
    ordinary transition cases / 47 assertions; RG2 is binding next.
-2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+2. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
+   reach in dense piles since the restitution lifetime gate landed. That gate is
+   the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
+   `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
+   bricks went from 566 vertical reversals to zero, and the 200-box wall retains
+   all 211 bodies with zero popcorn cycles. The regression is the accepted
+   ground-settling cost, now measured as larger than marginal.
+   `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the
+   instrument. Leading hypothesis for SR1 to prove or discard: the gate keys on
+   exact feature identity, so a rocking box that re-selects a face or edge feature
+   presents as a contact with no loaded history, re-admits restitution, and resets
+   the 30-frame quiet counter — the same churn also misses the warm-start cache.
+   The comment `194cbf82` deleted when it narrowed the lookup describes exactly
+   this case. Do not reverse the wall fix and do not restore the pair-prefix scan.
+3. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-3. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+4. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
@@ -1448,8 +1463,12 @@ report `Subresource state capacity exceeded. count=8 capacity=8`. Reuse the
 shared child-process harness through a small RenderGraph dispatcher; do not edit
 production Rendering, project integration, or the RG1 build-config ruling.
 
-Stacking remains parked for later Bullet/Box2D experimentation and is not part
-of this campaign.
+Deep-tower stacking remains owner-parked in
+`WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
+and is excluded under inventory rule 9. Do not confuse it with plan 2 above: Dense
+Pile Sleep Resolution is a sleep-quality regression in ordinary settled piles and
+is explicitly not deep-tower work. Split-impulse and substep/relaxation techniques
+stay parked; nothing in plan 2 authorizes reaching into that folder.
 
 The Gate Blind Spot Campaign (2026-07-31) is complete at 21/21 and has left the
 active/future ledger under rule 4.
@@ -3680,6 +3699,16 @@ full doctests, instrumented coverage, and the 402.3-second fast umbrella pass;
 `RenderGraph.cpp` contributes 143/459 covered lines. The live ledger is 2/15
 (13%). Evidence is in
 `../Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`.
+
+The denominator grew 15 → 20 on 2026-08-03 when the owner registered
+`TODO/dense-pile-sleep-resolution.md` (5 tasks) from the sleep regression exposed
+by `box_pile_throw_300.scene.json`. The restitution lifetime gate established by
+`194cbf82` is explicitly retained: the plan changes how contact lifetime continuity
+is established across feature re-selection, never whether continuing contacts are
+suppressed. Reversing the wall fix, and the body-pair prefix scan already rejected
+on measured performance grounds in `12dbb3eb`, are both recorded non-goals. The
+plan holds no baseline-refresh authority; if the repair cannot be reached without a
+golden transition, it stops with a costed owner decision packet instead.
 
 ## Features
 

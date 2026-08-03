@@ -4,7 +4,7 @@ Date: 2026-08-02
 Status: NOT STARTED — 0/5 phases complete
 Impact area: Maths, Physics, World, Rendering, Runtime Camera legacy naming and idiom
 Owner: Engine source conventions
-Priority: Fifth
+Priority: Fourth
 
 ## Problem And Evidence
 

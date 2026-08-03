@@ -106,6 +106,12 @@ being built out.
 **ImGui and Tracy integration are a work in progress.** The editor surface and the
 profiler instrumentation are partially wired and are being completed incrementally.
 
+![SkullbonezCore editor](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezEditor.png)
+
+*The in-development editor: scene hierarchy, asset placement palette, live world and
+lighting inspectors, the replay transport along the bottom, and a connected Tracy
+session.*
+
 ## Built for Agentic Development
 
 The test and governance mass in this repository is large relative to the engine, and
