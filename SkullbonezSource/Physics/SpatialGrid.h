@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   Persistent current-position membership and a one-step swept overlay feed one
-  fixed hash-bucket topology. Pair collection builds sorted per-body slices of
-  eligible shared-bucket ordinals, omitting cells that cannot witness a pair, so
-  the earliest eligible shared bucket owns filtering without a retained bit per
-  possible body pair.
+  fixed hash-bucket topology. Pair collection skips ineligible source cells,
+  uses a scene-reserved triangular bitset to accept each normalized identity
+  once in O(1), then emits fixed-staging results in canonical order. The bounded
+  bitset is an intentional memory-for-CPU decision at the scene ceiling.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -24,9 +24,9 @@ Invariants:
     Visualization alone saturates them to signed 16-bit [-32,768, 32,767].
   - Pair-source stamps restrict this frame's work only; they never remove or
     mutate a sleeper's persistent membership.
-  - A normalized pair is filtered only at its earliest shared active bucket
-    that is eligible for the current pair-source mode; coordinate-hash aliases
-    intentionally collapse to that bucket identity.
+  - A normalized pair is filtered only on its first eligible traversal visit;
+    coordinate-hash aliases intentionally collapse to one bucket identity and
+    the dense bitset suppresses all later visits.
   - Every scene-sized store is reserved under SceneLoad, retained across cold
     clears, and never grows during fixed-step work.
 
@@ -35,7 +35,6 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
-  - Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd1-decision.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once
@@ -116,10 +115,11 @@ class SpatialGrid
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
     static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
-    using PairMembershipOrdinal = uint16_t;
-    static constexpr int MAX_PAIR_MEMBERSHIP_ROWS = MAX_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES;
-    static_assert( TABLE_SIZE - 1 <= ( std::numeric_limits<PairMembershipOrdinal>::max )(),
-                   "SpatialGrid active-bucket ordinals no longer fit the membership row type." );
+    static constexpr int64_t MAX_PAIR_IDENTITIES = static_cast<int64_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
+                                                   ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2;
+    static_assert( MAX_PAIR_IDENTITIES - 1 <= ( std::numeric_limits<int>::max )(),
+                   "SpatialGrid triangular pair index exceeds signed-int storage." );
+    static constexpr int PAIR_WORDS = static_cast<int>( ( MAX_PAIR_IDENTITIES + 63 ) / 64 );
 
     struct CellRange
     {
@@ -198,18 +198,13 @@ class SpatialGrid
         overlayEntries { "SpatialGrid.overlayEntries", Physics::PhysicsCapacityReason::SpatialGridSweptOverlayEntries };
     Physics::PhysicsFixedList<BodyMembership, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
         bodyMemberships { "SpatialGrid.bodyMemberships", Physics::PhysicsCapacityReason::SpatialGridBodyMemberships };
-    Physics::PhysicsFixedList<PairMembershipOrdinal, MAX_PAIR_MEMBERSHIP_ROWS>
-        pairMembershipOrdinals { "SpatialGrid.pairMembershipOrdinals",
-                                 Physics::PhysicsCapacityReason::SpatialGridPairMembershipOrdinals };
-    Physics::PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS + 1>
-        pairMembershipOffsets { "SpatialGrid.pairMembershipOffsets",
-                                Physics::PhysicsCapacityReason::SpatialGridPairMembershipOffsets };
-    Physics::PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
-        pairMembershipCounts { "SpatialGrid.pairMembershipCounts",
-                               Physics::PhysicsCapacityReason::SpatialGridPairMembershipCounts };
-#if defined( _DEBUG )
-    std::size_t pairMembershipLogicalCapacityForTest = ( std::numeric_limits<std::size_t>::max )();
-#endif
+
+    // Owner decision: this triangular bitset costs roughly 4 MiB at the
+    // 8,192-body ceiling, and that memory price is intentional. Its O(1) pair
+    // test avoids the measured 25.5%-91.4% CandidatePairs CPU regression from
+    // reconstructing and intersecting per-body bucket memberships.
+    Physics::PhysicsFixedList<uint64_t, PAIR_WORDS> pairSeen { "SpatialGrid.pairSeen",
+                                                               Physics::PhysicsCapacityReason::SpatialGridPairDedupWords };
 
     // Canonical pair staging is scene-reserved storage owned by the grid. Cell
     // traversal may discover pairs in any bucket/list order, but emission is
@@ -248,22 +243,13 @@ class SpatialGrid
                               int capacity ) const;
     void MaintainBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
     void ResetSweptOverlay();
-    int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity, std::size_t* observedRawRows = nullptr,
-                              int expectedBucketIndex = -1 );
-    void BuildPairMembershipIndex();
-    void AppendUniquePairMembershipOrdinal( int bodyIndex, int activeIndex );
-    int CollectPairBucketObjects( const Bucket& bucket, int bucketIndex, int activeIndex, int* outIndices, int capacity,
-                                  std::size_t& observedRawRows );
-    void RequirePairMembershipRowsObserved( std::size_t observedRows ) const;
-    bool IsEarliestEligibleSharedBucket( int a, int b, int currentActiveIndex, bool restrictToPairSourceCells ) const;
-    bool MarkCandidatePairFirstSeen( int a, int b, int currentActiveIndex, bool restrictToPairSourceCells );
-    bool FilterCandidatePairAfterFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
-                                            const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
-                                            float dt, float contactSkin,
-                                            Physics::PhysicsCandidatePairList* sleepPrunedPairs );
-#if defined( _DEBUG )
-    void ObservePairBucketRows( const Bucket& bucket, int bucketIndex, int activeIndex, std::size_t& observedRawRows );
-#endif
+    int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
+    void ResetCandidatePairDedup();
+    bool MarkCandidatePairFirstSeen( int a, int b );
+    bool MarkFilteredCandidatePairFirstSeen( int a, int b, const Physics::PhysicsBodyStore& bodyStore,
+                                             const Physics::ColliderStore& colliderStore,
+                                             std::span<const uint8_t> sleepState, float dt, float contactSkin,
+                                             Physics::PhysicsCandidatePairList* sleepPrunedPairs );
     void GetFilteredCandidatePairsImpl( Physics::PhysicsCandidatePairList& outPairs,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
@@ -336,21 +322,6 @@ class SpatialGrid
     void GetFilteredCandidatePairs( Physics::PhysicsCandidatePairList& outPairs, const Physics::PhysicsBodyStore& bodyStore,
                                     const Physics::ColliderStore& colliderStore, std::span<const uint8_t> sleepState,
                                     float dt, float contactSkin, bool restrictToPairSourceCells );
-#if defined( _DEBUG )
-
-    // Debug child-probe seam: valid grids derive enough ordinal capacity from
-    // their source stores, so fatal diagnostics need a planted logical ceiling.
-    // Keeping this inline avoids manufacturing a production-reachability row.
-    void SetPairMembershipLogicalCapacityForTest( std::size_t capacity )
-    {
-        pairMembershipLogicalCapacityForTest = capacity;
-    }
-    uint32_t GetPairMembershipUniqueCountForTest( int bodyIndex ) const
-    {
-        assert( bodyIndex >= 0 && bodyIndex < objectCount );
-        return pairMembershipCounts[bodyIndex];
-    }
-#endif
     float GetCellSize() const
     {
         return cellSize;
@@ -375,21 +346,13 @@ class SpatialGrid
     {
         return bodyMemberships.capacity();
     }
-    std::size_t GetPairMembershipOrdinalCapacity() const
+    std::size_t GetPairDedupWordCapacity() const
     {
-        return pairMembershipOrdinals.capacity();
+        return pairSeen.capacity();
     }
-    std::size_t GetPairMembershipOrdinalHighWater() const
+    std::size_t GetPairDedupWordHighWater() const
     {
-        return pairMembershipOrdinals.high_water();
-    }
-    std::size_t GetPairMembershipOffsetCapacity() const
-    {
-        return pairMembershipOffsets.capacity();
-    }
-    std::size_t GetPairMembershipCountCapacity() const
-    {
-        return pairMembershipCounts.capacity();
+        return pairSeen.high_water();
     }
     std::size_t GetCandidatePairHeadCapacity() const
     {

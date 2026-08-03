@@ -1415,13 +1415,13 @@ experimentation. The approved Physics, SkullScope, Replay visual, and Replay
 causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
-**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is blocked at
-4/5 (80%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is active at
+6/8 (75%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
 Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded from the active/future denominator
 under rule 4; its SR3 candidate failed the 20,000-frame oracle. One live but
-externally blocked plan remains:
+previously blocked plan and one owner-directed repair plan remain:
 
 1. `TODO/source-modernization-sweep.md` (4/5). MZ0's current-tree correction
    bounds 82 rename-owned semantic prefixed parameters across 27 files, seven
@@ -1432,8 +1432,14 @@ externally blocked plan remains:
    MZ3 retains the coherent British normalization API and the distinct
    `Maths/` physical-module / `Math::` domain names. MZ4's Physics, deep Physics,
    audit, source review, and exact-inventory evidence pass. Its mandatory
-   committed performance comparison is red, so the final full gate remains
-   pending the performance-baseline owner decision in the blocker report.
+   committed performance comparison is red. The owner rejected the broadphase
+   memory/CPU trade and activated the restoration plan below to repair it.
+2. `TODO/broadphase-dense-dedup-restoration.md` (2/3). BR0 accepts the
+   4,193,792-byte scene-ceiling dense bitset and records the rejected 25.5%-91.4%
+   CandidatePairs cost. BR1 restores scene reservation, frame-local clearing,
+   and O(1) triangular bit tests while retaining later behavior and coverage;
+   Profile compilation and 27 focused cases / 8,613 assertions pass. BR2 owns
+   byte-exact, performance, broad repository, comment, and independent closure.
 
 Blocked lane: `TODO/dense-pile-sleep-resolution.md` remains at 3/5. The
 half-quiet adjacent-pair witness reached only seven live rows and ended the
@@ -1446,10 +1452,10 @@ hysteresis probe, broader retained continuity state, geometry/replay transition,
 or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
-Current handoff: continue on `nightrunner-3rd-AUG-26` at Source Modernization
-Sweep MZ4 only after the performance-baseline owner resolves the repeated
-committed-comparison failure recorded in
-`../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`. Do not resume
+Current handoff: continue on `nightrunner-3rd-AUG-26` at Broadphase Dense Dedup
+Restoration BR2. Prove the rejected CandidatePairs CPU regression is gone with
+no baseline refresh, close that plan, then immediately resume Source
+Modernization Sweep MZ4 against the repaired final source. Do not resume
 Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Comment Vocabulary Audit
@@ -3886,6 +3892,18 @@ comparisons and one Physics Bench comparison. The plan has no baseline-refresh
 authority, so final full-gate closure remains unavailable pending a performance-
 baseline owner decision. Evidence is in
 `../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`.
+
+Broadphase Dense Dedup Restoration BR0-BR1 completed on 2026-08-03 under the
+owner's explicit memory/CPU ruling. The live `SpatialGrid` again reserves the
+exact triangular pair bitset (4,193,792 bytes at 8,192 bodies), clears only its
+active word prefix per query, and deduplicates each normalized identity with one
+O(1) bit test. The membership ordinal/offset/count stores, construction and
+intersection path, Debug logical-capacity seam, and architecture-specific test
+expectations are gone. Pair-source eligibility, canonical output staging, and
+their behavioral tests remain. A zero-warning Profile build and 27 focused
+SpatialGrid cases / 8,613 assertions pass. Source Modernization remains 4/5;
+with this plan at 2/3 the live ledger is 6/8 (75%). BR2 must prove byte-exact
+behavior and performance without moving a baseline.
 
 ## Features
 

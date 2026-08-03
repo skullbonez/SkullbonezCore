@@ -12,8 +12,9 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-3rd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `1ff768dd` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is blocked. Source Modernization MZ4 awaits a performance-baseline owner decision after repeated committed-comparison failures; Dense Pile Sleep Resolution remains owner-blocked at 3/5. |
-| Active/future progress | 4/5 (80%): Source Modernization Sweep remains live but externally blocked at MZ4. Narrowphase, broadphase, render graph, and comment vocabulary are complete; Dense Pile Sleep Resolution is separately excluded under rule 4. |
+| Current objective | Complete Broadphase Dense Dedup Restoration BR2, prove the rejected CPU regression is gone without baseline refresh, then close Source Modernization MZ4. Dense Pile Sleep Resolution remains owner-blocked at 3/5. |
+| Active/future progress | 6/8 (75%): Broadphase Dense Dedup Restoration is 2/3 and Source Modernization Sweep is 4/5. Narrowphase, the prior broadphase campaign, render graph, and comment vocabulary are complete; Dense Pile Sleep Resolution is separately excluded under rule 4. |
+| Broadphase dense dedup restoration | BR0-BR1 complete. The owner accepts the exact 4,193,792-byte bitset at the 8,192-body ceiling to avoid the measured 25.5%-91.4% CandidatePairs regression. Membership reconstruction/intersection is removed; O(1) triangular bit dedup is restored. Profile builds with zero warnings and 27 focused cases / 8,613 assertions pass. BR2 owns byte-exact Physics, mandatory performance, full gates, comments, inventories, and independent closure. |
 | Fresh-read campaign registration | Six plans / 31 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), dense pile sleep resolution (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Dense Pile Sleep Resolution blocker | SR0–SR2 remain verified, but the selected half-quiet witness is rejected: its 20,000-frame candidate never permanently sleeps, ends 327/330 with 5,441 wake oscillations, and only seven of 570 live rows reach the threshold. Failed source/test/ruling edits were removed. Owner: Physics contact/sleep. Unblock by selecting the tuned-hysteresis, retained-state, or geometry/replay option and transition scope in `Agentic/Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`, or park the plan. SR4 alone is dependent. |
 | Comment Vocabulary CV0 | Complete. The 587-file tracked census records universal modern headers, six plain-language spellings across 29 files, 35/35 legacy banners layered over modern headers, the three-file 23/35 Catto/engine citation split, undocumented execution/proof lanes and recurring custom headings, zero governance-dialect leakage, and a clean 993-term strict glossary inventory. Evidence: `Agentic/Reports/2026-08-03/comment-vocabulary-audit-cv0-census.md`. |
@@ -155,7 +156,7 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is blocked at 4/5 (80%). Narrowphase
+Fresh-Read Coverage And Convention is active at 6/8 (75%). Narrowphase
 Manifold And Sleep Coverage, Broadphase Pair Dedup Cost, Render Graph
 Transition Coverage, and Comment Vocabulary Audit are complete and excluded
 under rule 4. Dense Pile Sleep
@@ -163,9 +164,11 @@ Resolution is blocked at 3/5 and excluded as an externally blocked lane: its
 half-quiet SR3 candidate failed the long-horizon oracle, all failed source edits
 were removed, and the Physics contact/sleep owner must select a costed policy,
 state, transition, or parking option from the blocker report. SR4 alone depends
-on that decision. Source Modernization Sweep MZ4 separately awaits the
-performance-baseline owner decision recorded in
-`Agentic/Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`.
+on that decision. The owner rejected the broadphase memory/CPU trade that
+blocked Source Modernization MZ4. Broadphase Dense Dedup Restoration is 2/3:
+the exact scene-ceiling bitset and O(1) bit test are restored, focused Profile
+proof passes, and BR2 now owns the no-refresh performance and final gates before
+Source Modernization MZ4 resumes.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,
