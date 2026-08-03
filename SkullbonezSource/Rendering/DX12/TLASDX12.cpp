@@ -70,7 +70,7 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     m_maxInstances = maxInstances;
 
     // Allocate instance desc upload buffer (persistent, rewritten each frame)
-    UINT64 instanceSize = (UINT64)maxInstances * sizeof( D3D12_RAYTRACING_INSTANCE_DESC );
+    UINT64 instanceSize = static_cast<UINT64>( maxInstances ) * sizeof( D3D12_RAYTRACING_INSTANCE_DESC );
 
     D3D12_HEAP_PROPERTIES uploadHeap = {};
     uploadHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -102,7 +102,7 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-    inputs.NumDescs = (UINT)maxInstances;
+    inputs.NumDescs = static_cast<UINT>( maxInstances );
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 
     // Query the driver for TLAS scratch/result memory requirements (same concept as BLAS prebuild).
@@ -189,7 +189,7 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
         return mappedResult.result;
     }
 
-    memcpy( mappedResult.bytes, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+    memcpy( mappedResult.bytes, instances, static_cast<size_t>( instanceCount ) * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
     m_instanceDescs->Unmap( 0, nullptr );
 
     // Build inputs tell DXR where the per-instance table lives and how many
@@ -198,7 +198,7 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-    inputs.NumDescs = (UINT)instanceCount;
+    inputs.NumDescs = static_cast<UINT>( instanceCount );
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
     inputs.InstanceDescs = m_instanceDescs->GetGPUVirtualAddress();
 

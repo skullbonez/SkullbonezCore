@@ -21,7 +21,7 @@ Related:
 
 #include "MathsCommon.h"
 #include "Vector3.h"
-#if SKULLBONEZ_INTRINSICS
+#ifndef _DEBUG
 #include <immintrin.h> // SSE4.1 intrinsics for LoadSSE
 #endif
 
@@ -56,7 +56,7 @@ class RotationMatrix
     // Load matrix rows and columns into SSE registers for fast matrix-vector multiply.
     // row0 = {m11,m12,m13,0}, row1 = {m21,m22,m23,0}, row2 = {m31,m32,m33,0}
     // col0 = {m11,m21,m31,0}, col1 = {m12,m22,m32,0}, col2 = {m13,m23,m33,0}
-#if SKULLBONEZ_INTRINSICS
+#ifndef _DEBUG
     void LoadSSE( __m128& row0, __m128& row1, __m128& row2, __m128& col0, __m128& col1, __m128& col2 ) const
     {
         row0 = _mm_setr_ps( m11, m12, m13, 0.0f );

@@ -35,14 +35,13 @@ Related:
 #include <cfloat> // FLT_MAX for math users that still include the common prelude.
 #include <cmath>  // sqrtf, sinf, cosf, fabsf, acosf
 
-// SSE/SIMD intrinsics are enabled in Release/Profile by default.
-// Define SKULLBONEZ_INTRINSICS before this header to force a scalar fallback.
-#ifndef SKULLBONEZ_INTRINSICS
+// SSE/SIMD intrinsics are enabled in Release/Profile and disabled in Debug.
+// The inline value exposes that build decision without leaking a preprocessor
+// constant into expressions owned by including translation units.
 #ifndef _DEBUG
-#define SKULLBONEZ_INTRINSICS 1
+inline constexpr bool INTRINSICS_ENABLED = true;
 #else
-#define SKULLBONEZ_INTRINSICS 0
-#endif
+inline constexpr bool INTRINSICS_ENABLED = false;
 #endif
 
 // Angle and fraction constants used by math and collision helpers.

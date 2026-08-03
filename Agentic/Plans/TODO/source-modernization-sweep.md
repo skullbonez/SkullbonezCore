@@ -1,7 +1,7 @@
 # Source Modernization Sweep
 
 Date: 2026-08-02
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Assets, Maths, Physics, World, Rendering/DX12, Runtime App/Camera legacy naming and idiom
 Owner: Engine source conventions
 Priority: Fourth
@@ -78,13 +78,18 @@ behavior changes, and no baseline moves.
   closing-gate impact is mapped in
   `../../Reports/2026-08-03/source-modernization-mz0-census.md`.
 
-- [ ] **MZ1 — Retire `NULL`, object-like `#define` constants, and C-style casts.**
+- [x] **MZ1 — Retire `NULL`, object-like `#define` constants, and C-style casts.**
   Replace `NULL` with `nullptr`, object-like `#define` constants with
   `inline constexpr` in the owning header, and all 136 retire-classified casts
   with the narrowest correct named cast. Keep every retain-with-reason occurrence
   and add a brief comment naming the reason where it is not obvious from context.
   This phase touches no physics numerics and should produce an empty behavioral
-  diff; confirm that by inspection before moving on rather than at MZ4.
+  diff; inspection confirmed that the 136 named-cast substitutions, two
+  `nullptr` substitutions, and direct intrinsics build predicate change no
+  arithmetic, target type, ordering, signature, control flow, or data flow.
+  Profile builds with zero warnings/errors, formatting passes, and the required
+  touched-source comment audit is 17/17. Permanent evidence is in
+  `../../Reports/2026-08-03/source-modernization-mz1-idioms.md`.
 
 - [ ] **MZ2 — Retire Hungarian parameter prefixes.** Rename the 82 semantic
   parameters across all corresponding declaration/definition sites in the 27

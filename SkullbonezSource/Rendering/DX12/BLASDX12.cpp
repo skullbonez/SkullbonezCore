@@ -69,9 +69,9 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
     geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
     geomDesc.Triangles.VertexBuffer.StartAddress = vbVA;
-    geomDesc.Triangles.VertexBuffer.StrideInBytes = (UINT64)vertexStride;
+    geomDesc.Triangles.VertexBuffer.StrideInBytes = static_cast<UINT64>( vertexStride );
     geomDesc.Triangles.VertexFormat = vertexPosFormat;
-    geomDesc.Triangles.VertexCount = (UINT)vertexCount;
+    geomDesc.Triangles.VertexCount = static_cast<UINT>( vertexCount );
     geomDesc.Triangles.IndexBuffer = 0;
     geomDesc.Triangles.IndexCount = 0;
     geomDesc.Triangles.IndexFormat = DXGI_FORMAT_UNKNOWN;

@@ -247,8 +247,8 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
     fseek( dxilFile, 0, SEEK_END );
     long dxilSize = ftell( dxilFile );
     fseek( dxilFile, 0, SEEK_SET );
-    std::vector<uint8_t> dxilBlob( (size_t)dxilSize );
-    fread( dxilBlob.data(), 1, (size_t)dxilSize, dxilFile );
+    std::vector<uint8_t> dxilBlob( static_cast<size_t>( dxilSize ) );
+    fread( dxilBlob.data(), 1, static_cast<size_t>( dxilSize ), dxilFile );
     fclose( dxilFile );
 
     // Concept: an RTPSO is assembled from subobjects instead of one flat
@@ -353,8 +353,8 @@ Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device, Dx12Descript
 
     D3D12_RESOURCE_DESC texDesc = {};
     texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Width = (UINT64)width;
-    texDesc.Height = (UINT)height;
+    texDesc.Width = static_cast<UINT64>( width );
+    texDesc.Height = static_cast<UINT>( height );
     texDesc.DepthOrArraySize = 1;
     texDesc.MipLevels = 1;
     texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -526,7 +526,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // Build the static BLAS objects once. The terrain BLAS holds terrain
     // triangles; the sphere BLAS is reused by every moving sphere instance.
     setupResult = m_terrainBlas.Build( m_device5, m_commandList4,
-                                       (D3D12_GPU_VIRTUAL_ADDRESS)setup.terrain.vertexBufferAddress,
+                                       static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.terrain.vertexBufferAddress ),
                                        setup.terrain.vertexCount, setup.terrain.vertexStride, DXGI_FORMAT_R32G32B32_FLOAT,
                                        true );
 
@@ -537,7 +537,8 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     }
 
     outcome.recordedBuildWork = true;
-    setupResult = m_sphereBlas.Build( m_device5, m_commandList4, (D3D12_GPU_VIRTUAL_ADDRESS)setup.sphere.vertexBufferAddress,
+    setupResult = m_sphereBlas.Build( m_device5, m_commandList4,
+                                      static_cast<D3D12_GPU_VIRTUAL_ADDRESS>( setup.sphere.vertexBufferAddress ),
                                       setup.sphere.vertexCount, setup.sphere.vertexStride, DXGI_FORMAT_R32G32B32_FLOAT,
                                       false );
 
@@ -737,7 +738,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
 
     for ( int i = 0; i < instanceCount; ++i )
     {
-        D3D12_RAYTRACING_INSTANCE_DESC& inst = m_instances[(size_t)i + 1];
+        D3D12_RAYTRACING_INSTANCE_DESC& inst = m_instances[static_cast<size_t>( i ) + 1];
         memset( &inst, 0, sizeof( inst ) );
 
         // DXR instance transforms store only the upper 3 rows of a 4x4 matrix.
@@ -761,7 +762,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
         inst.InstanceContributionToHitGroupIndex = 1; // Sphere hit group
         inst.AccelerationStructure = m_sphereBlas.GetResultVA();
 
-        inst.InstanceID = (UINT)( i + 1 );
+        inst.InstanceID = static_cast<UINT>( i + 1 );
     }
 
     return m_tlas.Build( m_device5, m_commandList4, m_instances.data(), instanceCount + 1 );
@@ -870,7 +871,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
         for ( int i = 0; i < 8; ++i )
         {
-            D3D12_CPU_DESCRIPTOR_HANDLE dst = descriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
+            D3D12_CPU_DESCRIPTOR_HANDLE dst = descriptors.ShaderVisibleCpuHandle( slot0 + static_cast<UINT>( i ) );
             UINT srcIdx = textures.ResolveSrv( textureHandles[i] );
             device->CopyDescriptorsSimple( 1, dst, descriptors.StagingCpuHandle( srcIdx ),
                                            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
@@ -889,8 +890,8 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     dispatchDesc.RayGenerationShaderRecord = m_sbt.RayGenRange();
     dispatchDesc.MissShaderTable = m_sbt.MissRange();
     dispatchDesc.HitGroupTable = m_sbt.HitGroupRange();
-    dispatchDesc.Width = (UINT)m_reflectionWidth;
-    dispatchDesc.Height = (UINT)m_reflectionHeight;
+    dispatchDesc.Width = static_cast<UINT>( m_reflectionWidth );
+    dispatchDesc.Height = static_cast<UINT>( m_reflectionHeight );
     dispatchDesc.Depth = 1;
 
     m_commandList4->DispatchRays( &dispatchDesc );

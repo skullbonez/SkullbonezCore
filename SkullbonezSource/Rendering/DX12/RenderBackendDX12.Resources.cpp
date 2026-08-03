@@ -120,7 +120,7 @@ std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, in
         return nullptr;
     }
 
-    UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
+    UINT64 dataSize = static_cast<UINT64>( vertexCount ) * floatsPerVert * sizeof( float );
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = m_frame.UploadReservations().ReserveUpload( dataSize, 4,
                                                                                        RenderUploadCategory::DynamicVertex );
 

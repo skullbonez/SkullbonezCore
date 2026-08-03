@@ -153,14 +153,15 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 
         // Intersection of parabola at q with the current topmost parabola at r:
         //   s = [(src[q] + q²) − (src[r] + r²)] / (2q − 2r)
-        float s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) /
-                  (float)( 2 * ( q - r ) );
+        float s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
+                  static_cast<float>( 2 * ( q - r ) );
 
         while ( k > 0 && s <= scratch_z[k] )
         {
             --k;
             r = scratch_v[k];
-            s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) / (float)( 2 * ( q - r ) );
+            s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
+                static_cast<float>( 2 * ( q - r ) );
         }
 
         ++k;
@@ -175,13 +176,13 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
     for ( int q = 0; q < n; ++q )
     {
 
-        while ( scratch_z[k + 1] < (float)q )
+        while ( scratch_z[k + 1] < static_cast<float>( q ) )
         {
             ++k;
         }
 
         const int r = scratch_v[k];
-        f[q] = (float)( ( q - r ) * ( q - r ) ) + scratch_src[r];
+        f[q] = static_cast<float>( ( q - r ) * ( q - r ) ) + scratch_src[r];
     }
 }
 
@@ -303,10 +304,10 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // Phase 1: render glyphs into a hi-res GDI memory bitmap
     // =========================================================================
     //
-    // CreateCompatibleDC(NULL) creates a DC compatible with the display without
+    // CreateCompatibleDC(nullptr) creates a DC compatible with the display without
     // requiring an existing window, so this runs before renderer startup.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createcompatibledc
-    HDC memDC = CreateCompatibleDC( NULL );
+    HDC memDC = CreateCompatibleDC( nullptr );
 
     if ( !memDC )
     {
@@ -756,7 +757,7 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
             break;
         }
 
-        unsigned char c = (unsigned char)formatted[i];
+        unsigned char c = static_cast<unsigned char>( formatted[i] );
 
         if ( c < 32 || c > 127 )
         {

@@ -135,7 +135,8 @@ int16_t ClampVisualizationCell( int cell )
 
 int64_t SpatialCellKey( int ix, int iy, int iz )
 {
-    return ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
+    return ( static_cast<int64_t>( ix ) * 73856093 ) ^ ( static_cast<int64_t>( iy ) * 19349663 ) ^
+           ( static_cast<int64_t>( iz ) * 83492791 );
 }
 } // namespace
 
@@ -588,9 +589,9 @@ SpatialGrid::CellRange SpatialGrid::RangeForBounds( int index, const Vector3& mi
         static_cast<int>( floorf( maxBounds.z * inverseCellSize ) ),
     };
 
-    const int64_t countX = int64_t( range.maxX ) - int64_t( range.minX ) + 1;
-    const int64_t countY = int64_t( range.maxY ) - int64_t( range.minY ) + 1;
-    const int64_t countZ = int64_t( range.maxZ ) - int64_t( range.minZ ) + 1;
+    const int64_t countX = static_cast<int64_t>( range.maxX ) - static_cast<int64_t>( range.minX ) + 1;
+    const int64_t countY = static_cast<int64_t>( range.maxY ) - static_cast<int64_t>( range.minY ) + 1;
+    const int64_t countZ = static_cast<int64_t>( range.maxZ ) - static_cast<int64_t>( range.minZ ) + 1;
 
     if ( countX > capacity || countY > capacity || countZ > capacity || countX * countY > capacity ||
          countX * countY * countZ > capacity )
@@ -990,9 +991,9 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
     const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
     const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
-    const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
-    const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
-    const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
+    const int64_t cellCountX = static_cast<int64_t>( maxX ) - static_cast<int64_t>( minX ) + 1;
+    const int64_t cellCountY = static_cast<int64_t>( maxY ) - static_cast<int64_t>( minY ) + 1;
+    const int64_t cellCountZ = static_cast<int64_t>( maxZ ) - static_cast<int64_t>( minZ ) + 1;
     const bool exactAabbFits = cellCountX <= MAX_SWEPT_AABB_CELLS && cellCountY <= MAX_SWEPT_AABB_CELLS &&
                                cellCountZ <= MAX_SWEPT_AABB_CELLS &&
                                cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
@@ -1166,9 +1167,15 @@ void SpatialGrid::BuildPairMembershipIndex()
             return uint32_t { 0u };
         }
 
-        const uint64_t countX = static_cast<uint64_t>( int64_t( membership.range.maxX ) - membership.range.minX + 1 );
-        const uint64_t countY = static_cast<uint64_t>( int64_t( membership.range.maxY ) - membership.range.minY + 1 );
-        const uint64_t countZ = static_cast<uint64_t>( int64_t( membership.range.maxZ ) - membership.range.minZ + 1 );
+        const uint64_t countX = static_cast<uint64_t>( static_cast<int64_t>( membership.range.maxX ) -
+                                                       membership.range.minX + 1 );
+
+        const uint64_t countY = static_cast<uint64_t>( static_cast<int64_t>( membership.range.maxY ) -
+                                                       membership.range.minY + 1 );
+
+        const uint64_t countZ = static_cast<uint64_t>( static_cast<int64_t>( membership.range.maxZ ) -
+                                                       membership.range.minZ + 1 );
+
         const uint64_t rowCount = countX * countY * countZ;
 
         if ( rowCount > static_cast<uint64_t>( ( std::numeric_limits<uint32_t>::max )() ) )

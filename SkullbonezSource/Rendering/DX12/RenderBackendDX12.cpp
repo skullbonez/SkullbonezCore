@@ -447,7 +447,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     {
         const SkullbonezCore::Core::SbResult
             backBufferResult = Dx12BackendInitResult( m_resultDiagnostics,
-                                                      SwapChain()->GetBuffer( (UINT)i,
+                                                      SwapChain()->GetBuffer( static_cast<UINT>( i ),
                                                                               IID_PPV_ARGS( &m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) ) ),
                                                       "SwapChain GetBuffer failed" );
 
@@ -457,7 +457,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         }
 
         NameDx12ObjectIndexed( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ), L"Skullbonez DX12 Swapchain Backbuffer",
-                               (UINT)i );
+                               static_cast<UINT>( i ) );
 
         // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
         // replaces the back-buffer resources later, but the descriptor rows stay
@@ -571,8 +571,8 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         return gpuTimerResult;
     }
 
-    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
-                                 { 0, 0, (LONG)width, (LONG)height } );
+    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ), 0.0f, 1.0f },
+                                 { 0, 0, static_cast<LONG>( width ), static_cast<LONG>( height ) } );
 
     m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
                                        m_descriptorHeaps.MainDsv() );
@@ -696,7 +696,7 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
         if ( error )
         {
             msg += ": ";
-            msg += (const char*)error->GetBufferPointer();
+            msg += static_cast<const char*>( error->GetBufferPointer() );
         }
 
         return m_resultDiagnostics.Failure( "Rendering/DX12", "%s", msg.c_str() );
@@ -946,7 +946,7 @@ void RenderBackendDX12::Shutdown()
             {
                 SIZE_T msgLen = 0;
                 infoQueue->GetMessage( i, nullptr, &msgLen );
-                auto* msg = (D3D12_MESSAGE*)malloc( msgLen );
+                auto* msg = static_cast<D3D12_MESSAGE*>( malloc( msgLen ) );
 
                 if ( msg )
                 {
@@ -958,7 +958,7 @@ void RenderBackendDX12::Shutdown()
 
                         if ( fp )
                         {
-                            fprintf( fp, "[%llu] ID=%d: %s\n", i, (int)msg->ID, msg->pDescription );
+                            fprintf( fp, "[%llu] ID=%d: %s\n", i, static_cast<int>( msg->ID ), msg->pDescription );
                         }
                     }
 
@@ -1404,7 +1404,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
     {
         const SkullbonezCore::Core::SbResult
             backBufferResult = Dx12BackendOperationResult( m_resultDiagnostics,
-                                                           m_device.SwapChain()->GetBuffer( (UINT)i,
+                                                           m_device.SwapChain()->GetBuffer( static_cast<UINT>( i ),
                                                                                             IID_PPV_ARGS( &candidateBackBuffers[i] ) ),
                                                            "SwapChain GetBuffer after resize failed" );
 
@@ -1462,7 +1462,8 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
         oldDepth->Release();
     }
 
-    m_pipeline.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f }, { 0, 0, (LONG)width, (LONG)height } );
+    m_pipeline.SetViewport( { 0.0f, 0.0f, static_cast<float>( width ), static_cast<float>( height ), 0.0f, 1.0f },
+                            { 0, 0, static_cast<LONG>( width ), static_cast<LONG>( height ) } );
 
     m_pipeline.SetCurrentTargets( m_descriptors.BackBufferRtv( FrameIndex() ), m_descriptors.MainDsv() );
     const uint64_t recreationGeneration = m_device.PublishResizedExtent( width, height );
@@ -1481,8 +1482,10 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
 void Dx12FrameOwner::SetViewport( int x, int y, int w, int h )
 {
-    m_pipeline.SetViewport( { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f },
-                            { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) } );
+    m_pipeline.SetViewport( { static_cast<float>( x ), static_cast<float>( y ), static_cast<float>( w ),
+                              static_cast<float>( h ), 0.0f, 1.0f },
+                            { static_cast<LONG>( x ), static_cast<LONG>( y ), static_cast<LONG>( x + w ),
+                              static_cast<LONG>( y + h ) } );
 }
 
 

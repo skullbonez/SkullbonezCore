@@ -287,9 +287,9 @@ uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int nu
     }
 
     dvb.floatsPerVertex = totalFloats;
-    dvb.stride = totalFloats * (int)sizeof( float );
+    dvb.stride = totalFloats * static_cast<int>( sizeof( float ) );
     m_dynamicVBs.push_back( dvb );
-    return (uint32_t)m_dynamicVBs.size(); // 1-based
+    return static_cast<uint32_t>( m_dynamicVBs.size() ); // 1-based
 }
 
 
@@ -299,7 +299,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
                                                 Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
 
-    if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() || packedVertices.empty() )
+    if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) || packedVertices.empty() )
     {
         return;
     }
@@ -323,7 +323,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
         return;
     }
 
-    memcpy( uploadPointer, packedVertices.data(), (size_t)dataSize );
+    memcpy( uploadPointer, packedVertices.data(), static_cast<size_t>( dataSize ) );
 
     // Determine vertex format
     VertexFormat12 fmt = VertexFormat12::Pos2_Tex2;
@@ -340,8 +340,8 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 
     D3D12_VERTEX_BUFFER_VIEW vbv = {};
     vbv.BufferLocation = vbAddr;
-    vbv.SizeInBytes = (UINT)dataSize;
-    vbv.StrideInBytes = (UINT)dvb.stride;
+    vbv.SizeInBytes = static_cast<UINT>( dataSize );
+    vbv.StrideInBytes = static_cast<UINT>( dvb.stride );
 
     // Dynamic vertex buffers, such as text quads, change every frame and are
     // drawn from upload memory without copying to a default-heap buffer. That
@@ -352,7 +352,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     diagnostics.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
-    commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
+    commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
 
 
@@ -472,7 +472,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
     vbView.BufferLocation = vertexAddress;
-    vbView.SizeInBytes = (UINT)dataSize;
+    vbView.SizeInBytes = static_cast<UINT>( dataSize );
     vbView.StrideInBytes = 6 * sizeof( float );
     commandList->IASetVertexBuffers( 0, 1, &vbView );
 
@@ -480,7 +480,7 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
     pipeline.BindCurrentOutputs( commandList );
 
     diagnostics.RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
-    commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
+    commandList->DrawInstanced( static_cast<UINT>( vertCount ), 1, 0, 0 );
 }
 
 
@@ -638,9 +638,9 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 
     InstancedMeshDX12 im = {};
     im.staticFloatsPerVert = staticFloatsPerVertex;
-    im.staticStride = staticFloatsPerVertex * (int)sizeof( float );
+    im.staticStride = staticFloatsPerVertex * static_cast<int>( sizeof( float ) );
     im.instanceFloats = instanceFloats;
-    im.instanceStride = instanceFloats * (int)sizeof( float );
+    im.instanceStride = instanceFloats * static_cast<int>( sizeof( float ) );
     im.instanceStartAttrib = instanceStartAttribute;
     im.numInstanceAttribs = static_cast<int>( instanceAttributeSizes.size() );
     im.numStaticAttribs = static_cast<int>( staticAttributeSizes.size() );
@@ -659,7 +659,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
     // This holds geometry that does not change, such as sphere or box mesh
     // vertices. It is uploaded once and reused across instance batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    UINT64 dataSize = (UINT64)staticVertexCount * staticFloatsPerVertex * sizeof( float );
+    UINT64 dataSize = static_cast<UINT64>( staticVertexCount ) * staticFloatsPerVertex * sizeof( float );
 
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -710,7 +710,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    memcpy( uploadPointer, staticVertices, (size_t)dataSize );
+    memcpy( uploadPointer, staticVertices, static_cast<size_t>( dataSize ) );
     commandList->CopyBufferRegion( im.staticVB, 0, uploadResource, uploadAddress - uploadResource->GetGPUVirtualAddress(),
                                    dataSize );
 
@@ -727,11 +727,11 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
     commandList->ResourceBarrier( 1, &barrier );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
-    im.staticVBV.SizeInBytes = (UINT)dataSize;
-    im.staticVBV.StrideInBytes = (UINT)im.staticStride;
+    im.staticVBV.SizeInBytes = static_cast<UINT>( dataSize );
+    im.staticVBV.StrideInBytes = static_cast<UINT>( im.staticStride );
 
     m_instancedMeshes.push_back( im );
-    return (uint32_t)m_instancedMeshes.size(); // 1-based
+    return static_cast<uint32_t>( m_instancedMeshes.size() ); // 1-based
 }
 
 
@@ -739,7 +739,7 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
                                             D3D12_GPU_VIRTUAL_ADDRESS addr, uint8_t* uploadPointer )
 {
 
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || packedInstances.empty() )
+    if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) || packedInstances.empty() )
     {
         return;
     }
@@ -758,10 +758,10 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
         return;
     }
 
-    memcpy( uploadPointer, packedInstances.data(), (size_t)dataSize );
+    memcpy( uploadPointer, packedInstances.data(), static_cast<size_t>( dataSize ) );
 
     im.instanceDataAddr = addr;
-    im.instanceDataSize = (UINT)dataSize;
+    im.instanceDataSize = static_cast<UINT>( dataSize );
 }
 
 
@@ -769,7 +769,7 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID
                                            Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
 {
 
-    if ( draw.handle == 0 || draw.handle > (uint32_t)m_instancedMeshes.size() || draw.instanceCount <= 0 )
+    if ( draw.handle == 0 || draw.handle > static_cast<uint32_t>( m_instancedMeshes.size() ) || draw.instanceCount <= 0 )
     {
         return;
     }
@@ -791,7 +791,7 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID
     vbvs[0] = im.staticVBV;
     vbvs[1].BufferLocation = im.instanceDataAddr;
     vbvs[1].SizeInBytes = im.instanceDataSize;
-    vbvs[1].StrideInBytes = (UINT)im.instanceStride;
+    vbvs[1].StrideInBytes = static_cast<UINT>( im.instanceStride );
 
     // Bind two vertex buffer slots: slot 0 has the shared geometry (sphere mesh), slot 1 has
     // per-instance data (position, color for each ball). The GPU reads slot 0 once per vertex
@@ -805,14 +805,14 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     diagnostics.RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", draw.staticVertexCount, draw.instanceCount } );
-    commandList->DrawInstanced( (UINT)draw.staticVertexCount, (UINT)draw.instanceCount, 0, 0 );
+    commandList->DrawInstanced( static_cast<UINT>( draw.staticVertexCount ), static_cast<UINT>( draw.instanceCount ), 0, 0 );
 }
 
 
 void Dx12GeometryOwner::DestroyInstancedMesh( uint32_t handle )
 {
 
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
+    if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) )
     {
         return;
     }
