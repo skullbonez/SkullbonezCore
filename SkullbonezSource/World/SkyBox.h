@@ -4,20 +4,24 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Summary:
-  Builds and renders the skybox or sky backdrop for scene rendering.
+  SkyBox builds six face meshes and texture bindings for one backend epoch;
+  RenderResourceLifecycle owns the instance while render passes borrow it.
 
 Glossary:
   Face mesh: One quad for a side of the cube; each face binds a different sky
   texture hash.
 
 Invariants:
-  - SkyBox is runtime-owned by Run in normal paths and borrowed by render
-    services for the active frame.
-  - The texture registry is borrowed from Run and must be rebound before any
-    render-resource rebuild.
+  - RenderResourceLifecycle owns the active SkyBox and releases its GPU
+    resources before the concrete backend owners die.
+  - Texture, asset, resource-builder, and config owners are borrowed for the
+    backend epoch and must be rebound before a render-resource rebuild.
+  - Authored face textures are square and include three pixels of edge padding
+    so cube seams do not sample unrelated texels.
 
 Related:
   - SkullbonezSource/World/SkyBox.cpp
+  - SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h
   - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
@@ -51,12 +55,6 @@ class Dx12ResourceBuilder;
 namespace Geometry
 {
 
-/* -- Sky Box
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Runtime-owned skybox representation. Textures must be square and contain 3
-    pixels of padding around the edges.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SkyBox
 {
 

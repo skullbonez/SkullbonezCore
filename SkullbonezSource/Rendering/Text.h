@@ -4,7 +4,8 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Builds and draws bitmap/SDF text for HUD and diagnostics.
+  Text2d appends HUD glyph and quad vertices into the caller's fixed-capacity
+  TextBatch, then explicit flush boundaries publish those queues to DX12.
 
 Glossary:
   VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.
@@ -16,6 +17,8 @@ Invariants:
     the one fixed-capacity TextBatch passed to every mutating draw operation.
   - Render2dText/BatchQuad enqueue CPU-side vertices into that explicit batch,
     and FlushText/FlushQuads are the draw boundaries for those queues.
+  - Text x/y positions remain in near-plane frustum units using the configured
+    45-degree field of view and current screen aspect ratio.
 
 Related:
   - SkullbonezSource/Rendering/Text.cpp
@@ -77,15 +80,6 @@ class TextBatch
     float m_halfHeight = 0.0f;
 };
 
-/* -- Text 2d
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Provides a series of static methods to draw 2D text to the screen using a shader-based
-    font atlas. Replaces the old display-list font approach.
-
-    Coordinate space matches the legacy system: x/y positions are in the frustum-unit space
-    at the near clip plane (FOV=45 degrees, aspect=screen_x/screen_y from engine.cfg).
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Text2d
 {
 

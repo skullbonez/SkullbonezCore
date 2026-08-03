@@ -4,8 +4,9 @@ Purpose:
   Defines oriented-box collision geometry and its broadphase/render helper math.
 
 Summary:
-  Defines oriented-box collision geometry
-  and its broadphase/render helper math.
+  BoundingBox stores local half-extents and a center offset while the owning
+  body row supplies world orientation. Queries derive oriented vertices,
+  broadphase radius, volume, and render transforms from that split.
 
 Glossary:
   Half-extents: Positive distance from the box center to one face along each
@@ -13,7 +14,11 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - m_halfExtents are positive local-axis half-dimensions; m_position is a
+    local-space center offset, not a world position.
+  - BoundingBox stores no current orientation. The owning body row supplies the
+    quaternion, and the authoring layer owns mass-dependent inertia.
 
 Related:
   - SkullbonezSource/Physics/BoundingBox.cpp
@@ -38,36 +43,6 @@ namespace CollisionDetection
 class BoundingSphere;              // Forward declaration
 class ConvexHullShape;
 
-/* -- BoundingBox
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Oriented Bounding Box (OBB) collision shape.
-
-    An OBB is a box that can be oriented at any angle, unlike an AABB (axis-aligned bounding box) which is always
-aligned to world axes. It provides a tighter fit for rotated objects.
-
-    Representation:
-      - m_halfExtents: half the box dimensions along its LOCAL axes
-                       (x = width/2,  y = height/2,  z = depth/2)
-      - m_position:    local-space centre offset from the owning body's origin (usually zero)
-      - Orientation:   provided externally by the body row's quaternion — this class
-                       stores only the shape definition, not the current rotation
-
-    World-space vertex positions:
-      For each corner: world_vertex = body_position + R * (±he.x, ±he.y, ±he.z)
-      where R is the 3×3 rotation matrix from the body row's orientation quaternion.
-
-    Moment of Inertia (solid box, half-extents a, b, c, mass m):
-      I_xx = m/3 * (b² + c²)
-      I_yy = m/3 * (a² + c²)
-      I_zz = m/3 * (a² + b²)
-    (These are computed by the owning body-authoring layer, not this class.)
-
-    Bounding radius (used for broadphase): distance from centre to corner = sqrt(a²+b²+c²)
-
-    Interface matches BoundingSphere so it can participate in the
-    std::variant<BoundingSphere, BoundingBox> CollisionShape type.
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class BoundingBox
 {
 

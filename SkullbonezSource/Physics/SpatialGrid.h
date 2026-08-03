@@ -65,22 +65,10 @@ namespace Math
 namespace CollisionDetection
 {
 
-/* -- Spatial Grid
-------------------------------------------------------------------------------------------------------------------------------------------
-
-    Zero-allocation uniform spatial grid for broadphase collision detection. Persistent body membership uses a
-    fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
-    occupancy uses a separate per-frame stamped overlay. Sorted per-body eligible shared-bucket memberships assign each pair
-    to its earliest eligible shared bucket; fixed radix staging then emits ascending normalized pairs independent of
-    discovery order. Unchanged integer ranges touch no cells. SceneLoad reservation establishes retained backing;
-    fixed-step work performs no heap allocation.
-
-    Layman version:
-      Instead of asking every object about every other object, the world is cut
-      into invisible boxes. Objects only become candidate collision pairs when
-      they share one of those invisible boxes. This is the cheap first filter;
-      it never decides the final collision response.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+// Concept: the broadphase divides the world into invisible cells. Bodies that
+// share an eligible cell become candidate pairs; narrowphase and the solver
+// still own the final collision decision. Retained cell storage and radix
+// staging make that first filter allocation-free and canonically ordered.
 class SpatialGrid
 {
 

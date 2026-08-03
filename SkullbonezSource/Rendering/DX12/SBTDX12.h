@@ -4,8 +4,8 @@ Purpose:
   Builds the DX12 raytracing shader binding table that maps ray records to shaders.
 
 Summary:
-  Builds the DX12 raytracing shader binding
-  table that maps ray records to shaders.
+  SBT lays out aligned ray-generation, miss, and hit-group records that map DXR
+  dispatch rows to their shaders.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -30,12 +30,6 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-/* -- SBT
---------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Shader Binding Table for DXR raytracing pipeline.
-    Lays out raygen, miss, and hit group records with proper alignment.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SBT
 {
 

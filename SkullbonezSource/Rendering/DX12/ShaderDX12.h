@@ -57,17 +57,6 @@ struct ShaderDX12ReloadPayload
 };
 
 
-/* -- ShaderDX12
--------------------------------------------------------------------------------------------------------------------------------------------------
-
-    DirectX 12 shader wrapper.
-
-    A single HLSL file provides the vertex shader (VS) and pixel shader (PS).
-    The wrapper loads both baked stages, reflects the constant-buffer layout,
-    stores a CPU-side copy of uniform bytes, and exposes bytecode for DX12 PSO
-    creation. Manual dev reload adopts another verified baked pair without
-    changing the live object or its constant values until validation succeeds.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShaderDX12
 {
     friend class Dx12PipelineOwner;

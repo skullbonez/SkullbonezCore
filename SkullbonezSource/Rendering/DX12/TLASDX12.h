@@ -4,8 +4,8 @@ Purpose:
   Builds and owns the DX12 raytracing top-level scene acceleration structure.
 
 Summary:
-  Builds and owns the DX12 raytracing
-  top-level scene acceleration structure.
+  TLAS rebuilds the top-level scene acceleration structure from current
+  instance transforms each frame and owns its device-epoch resources.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -32,12 +32,6 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-/* -- TLAS
--------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Top-Level Acceleration Structure wrapper for DXR raytracing.
-    Rebuilt every frame with updated instance transforms.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class TLAS
 {
 

@@ -493,13 +493,6 @@ struct SceneUIOptions
     int stressActionsPerFrame = 4;
 };
 
-/* -- Authored Scene
--------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Loads and holds a deterministic scene description from a .scene.json file.
-    Used for render regression testing — provides fixed cameras, fixed ball placements,
-    and control over physics and frame count.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class AuthoredScene
 {
 

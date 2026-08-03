@@ -4,8 +4,9 @@ Purpose:
   Defines small geometry structs used by math, collision, and rendering code.
 
 Summary:
-  Defines small geometry structs used by
-  math, collision, and rendering code.
+  The shared plain-data contracts carry rays, planes, and terrain samples
+  without importing their Physics, World, or Rendering consumers. TerrainPost
+  pairs one authored position with the normal at that position.
 
 Invariants:
   - Small geometry structs are plain data contracts shared by math, physics,
@@ -27,32 +28,16 @@ namespace SkullbonezCore
 namespace Geometry
 {
 
-/* -- Terrain Post
------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Contains 2 x 3d vectors, one for the position, and one for the normal at that position.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct TerrainPost
 {
     Math::Vector::Vector3 vPosition, vNormal;
 };
 
-/* -- Triangle
----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Contains 3 x 3d vectors, one for each vertex of a triangle in 3d space.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Triangle
 {
     Math::Vector::Vector3 v1, v2, v3;
 };
 
-/* -- Plane
-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Contains a vector which is the normal to the front side of the plane
-    and a scalar distance to represent displacement from the origin.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Plane
 {
     Math::Vector::Vector3 m_normal;
@@ -67,11 +52,6 @@ struct Plane
     }
 };
 
-/* -- XZ Bounds
---------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Contains four scalars representing the boundaries of a XZ plane
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct XZBounds
 {
     float m_xMin, m_xMax, m_zMin, m_zMax;
@@ -87,31 +67,16 @@ struct XZBounds
     }
 };
 
-/* -- Box
---------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    A simple box structure - six integer scalars
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Box
 {
     int m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax;
 };
 
-/* -- XZ Coords
---------------------------------------------------------------------------------------------------------------------------------------------------
-
-    A structure to store X and Z coordinates, independent of the Y axis.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct XZCoords
 {
     float x, z;
 };
 
-/* -- Ray
---------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    A generic ray to represent a directed displacement.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Ray
 {
   public:

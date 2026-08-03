@@ -4,8 +4,9 @@ Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Summary:
-  Records hierarchical CPU/GPU
-  timing markers for runtime diagnostics.
+  Profiler hashes hierarchical marker paths into fixed CPU/GPU sample stores,
+  diagnoses hash or begin/end mismatches, and mirrors established owner zones
+  to Tracy. Public macros compile to no-ops when profiling is disabled.
 
 Glossary:
   QPC (QueryPerformanceCounter): Windows high-resolution CPU timer used for
@@ -16,6 +17,8 @@ Glossary:
 Invariants:
   - Public macros are the supported entry points; direct calls risk mismatched
     marker hashes and begin/end pairs.
+  - Marker path segments encode the overlay tree; callers keep one stable path
+    literal for each logical interval.
   - Marker arrays are fixed-capacity runtime storage, so adding broad marker
     families must account for MAX_MARKERS and MAX_DEPTH.
   - Tracy mirrors owner intervals; it does not become a second marker taxonomy.
@@ -47,20 +50,6 @@ namespace SkullbonezCore
 namespace Core
 {
 
-/* -- Profiler
----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Hierarchical CPU + GPU sampling profiler. Markers are identified by a string literal whose path
-    encodes the tree position, e.g. "Render/Reflection/Skybox". Hash collisions and BEGIN/END
-    mismatches abort immediately. All public methods are no-ops when SKULLBONEZ_PROFILE_ENABLED is
-    undefined.
-
-    CPU timing uses QueryPerformanceCounter (wall-clock).
-    Use the macros:
-      PROFILE_BEGIN / PROFILE_END / PROFILE_SCOPED — CPU timing
-
-    Never call methods directly.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Profiler
 {
   public:

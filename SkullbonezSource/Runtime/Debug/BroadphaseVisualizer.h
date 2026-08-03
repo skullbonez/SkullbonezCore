@@ -39,14 +39,13 @@ class Dx12GeometryOwner;
 namespace Physics
 {
 
-/* -- Broadphase Visualizer
-------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Broadphase visualizer
 
     Real-time debug overlay for the spatial grid broadphase collision system.
     Renders grid cell boundaries as wireframe cubes with per-cell coloring:
 
-    Layman version:
-      This draws the invisible grid used to decide which object pairs are worth
+    This draws the invisible grid used to decide which object pairs are worth
       testing. A red cell means "objects here became collision candidates or
       produced narrowphase contact"; it does not mean the grid solved physics.
 
@@ -56,8 +55,8 @@ namespace Physics
     - Red→Black:    active collision (intensity deepens with collision count per frame)
     - Red/Black→Blue: collision ended (fades back to blue over 0.5s)
 
-    Red overrides yellow entry transitions.  Toggle with G key.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    Red overrides yellow entry transitions. Toggle with G.
+*/
 class BroadphaseVisualizer
 {
 

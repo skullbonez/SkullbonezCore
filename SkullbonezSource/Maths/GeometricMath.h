@@ -14,6 +14,7 @@ Glossary:
     ownership.
 
 Invariants:
+  - GeometricMath is a static-only utility and retains no geometry state.
   - Plane representation is dot(normal, point) = distance, with normal expected
     to be unit length.
   - NO_COLLISION marks ray/plane misses and must not be confused with a valid
@@ -38,21 +39,6 @@ namespace SkullbonezCore
 namespace Math
 {
 
-/* -- Geometric Math
----------------------------------------------------------------------------------------------------------------------------------------------
-
-    Static utility methods for the plane operations that underpin terrain
-    construction and collision queries.
-
-    All methods are stateless. No instances of this class are ever created.
-
-    Key operations:
-      - Triangle normal and plane construction          (cross product + dot product)
-      - Ray-plane intersection time                     (parametric ray equation)
-
-    Plane representation used throughout:   dot( n, P ) = d
-      n = unit normal, d = scalar distance from origin along n.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GeometricMath
 {
   public:

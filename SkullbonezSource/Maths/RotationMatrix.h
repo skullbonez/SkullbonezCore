@@ -4,8 +4,8 @@ Purpose:
   Declares rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  Declares rotation matrix helpers
-  used by transforms and collision code.
+  RotationMatrix converts quaternion orientation into an orthogonal basis used
+  for world/local vector transforms and support extents.
 
 Invariants:
   - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as
@@ -34,11 +34,6 @@ namespace Math
 namespace Transformation
 {
 
-/* -- Rotation Matrix
-----------------------------------------------------------------------------------------------------------------------------------------
-
-    A matrix used to hold rotation data for multiplication with vectors.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class RotationMatrix
 {
 

@@ -4,12 +4,17 @@ Purpose:
   Defines sphere collision geometry, swept tests, volume facts, and render transforms.
 
 Summary:
-  Defines sphere collision geometry, swept
-  tests, volume facts, and render transforms.
+  BoundingSphere stores an authored radius and local center offset. Physics
+  queries ignore orientation, while shared shape visitors expose swept tests,
+  volume/area facts, broadphase radius, and render transforms.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - m_position is the sphere center relative to the owning body origin; only
+    the resulting world center affects collision queries.
+  - Radius determines volume, projected area, isotropic solid-sphere inertia,
+    and bounding radius; the drag coefficient is authored separately.
 
 Related:
   - SkullbonezSource/Physics/BoundingSphere.cpp
@@ -47,29 +52,6 @@ namespace Math
 namespace CollisionDetection
 {
 
-/* -- BoundingSphere
--------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Sphere-shaped collision primitive.  Plain value type — no inheritance, no virtual
-    methods.  Lives in a std::variant<BoundingSphere, BoundingBox> (CollisionShape),
-    dispatched via std::visit.
-
-    Shape properties:
-      Volume:             V = (4/3) * π * r³
-      Moment of inertia:  I = (2/5) * m * r²   (solid sphere, rotational symmetry — same for all axes)
-      Bounding radius:    equal to r (no extra envelope needed)
-      Drag coefficient:   C_d ≈ 0.47  (smooth sphere in turbulent flow, Re > 10⁵)
-      Projected area:     A = π * r²  (circular cross-section)
-
-    Orientation:  spheres have no preferred axis, so only the world-space centre
-    position matters for all physics queries.  The render path may still pass an
-    orientation matrix to GetModelMatrix() to keep visual meshes aligned with the
-    body row.
-
-    Local-space offset (m_position):
-      Centre of the sphere relative to the owning body's origin.  Usually (0,0,0),
-      but may be non-zero for asymmetric objects with an offset collision volume.
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class BoundingSphere
 {
 

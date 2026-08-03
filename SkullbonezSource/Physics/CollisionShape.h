@@ -54,18 +54,9 @@ namespace Math
 namespace CollisionDetection
 {
 
-/* -- CollisionShape
--------------------------------------------------------------------------------------------------------------------------------------------------
-
-    A std::variant-based type-safe union of all collision shape types.
-    Replaces the old DynamicsObject inheritance hierarchy with compile-time
-    exhaustive dispatch via std::visit. Adding a new shape type to this
-    variant will cause compiler errors at every unhandled dispatch site.
-
-    Layman version: this is the engine's tagged box saying "this model's
-    collision volume is either a sphere, box, or convex hull." Callers do not ask through a
-    base class; they visit the tag and run the shape-specific code directly.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+// Concept: a collision shape is a tagged value. Callers visit the active
+// sphere, box, or convex hull directly, so a new shape makes every incomplete
+// dispatch fail to compile instead of hiding behind a base-class fallback.
 using CollisionShape = std::variant<BoundingSphere, BoundingBox, ConvexHullShape>;
 
 // A typed read-only shape view. Collider rows include a per-kind storage index
@@ -160,13 +151,13 @@ inline CollisionShape CopyCollisionShape( const CollisionShapeReference& shape )
     return VisitCollisionShape( shape, []( const auto& value ) -> CollisionShape { return value; } );
 }
 
-/* -- Free-function visitors
------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Free-function collision-shape visitors
 
     These functions dispatch on either the owning CollisionShape variant or the
     borrowed CollisionShapeReference variant. Each shape type provides matching
     member functions, and collision testing produces a compile-time table.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 
 template <typename ShapeLike> inline const Vector::Vector3& GetShapePosition( const ShapeLike& shape )
 {
@@ -271,13 +262,13 @@ inline bool ScaleShapeAxisFromBase( const ShapeLike& baseShape, int axis, float 
     return false;
 }
 
-/* -- Double-dispatch collision test
----------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Double-dispatch collision test
 
     Tests collision between any owning/reference shape pair. Nested exhaustive
     visits produce a compile-time N*N dispatch table, so adding a shape type
     requires every concrete collision pair to compile.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 template <typename FocusShape, typename TargetShape>
 inline float TestShapeCollision( const FocusShape& focus, const TargetShape& target, const Geometry::Ray& focusRay,
                                  const Geometry::Ray& targetRay )

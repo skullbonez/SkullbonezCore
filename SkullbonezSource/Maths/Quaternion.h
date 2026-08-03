@@ -4,8 +4,9 @@ Purpose:
   Declares quaternion orientation math for rigid bodies and cameras.
 
 Summary:
-  Declares quaternion orientation
-  math for rigid bodies and cameras.
+  Quaternion composes rigid-body and camera orientation without Euler-order
+  state; interpolation chooses the shortest equivalent arc and renormalizes the
+  published result.
 
 Glossary:
   Quaternion: Four-component rotation representation that avoids gimbal lock
@@ -43,11 +44,6 @@ namespace Math
 namespace Orientation
 {
 
-/* -- Quaternion
----------------------------------------------------------------------------------------------------------------------------------------------
-
-    Represents a quaternion to express orientation in 3d space.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Quaternion
 {
 

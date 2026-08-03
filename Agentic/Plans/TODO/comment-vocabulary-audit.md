@@ -1,7 +1,7 @@
 # Comment Vocabulary And Banner Convention Audit
 
 Date: 2026-08-02
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Source comments across every subsystem, comment style guide, glossary reference
 Owner: Comment Quality Gate
 Priority: Third
@@ -129,7 +129,16 @@ quality is measured rather than assumed.
   A ruling may legitimately be "retain both, they do different jobs" — but it must
   say what the different jobs are.
 
-- [ ] **CV2 — Reconcile the banner stratum.** For each of the 35 banner files,
+- [x] **CV2 — Reconcile the banner stratum.** The exact 35-file tracked scope
+  contained 62 banner blocks and now contains zero. Informative blocks became
+  standard `Concept:` comments, unique facts moved into modern headers, and
+  duplicate/stale prose was removed. The touched-source comment audit is 35/35
+  with zero deferred, every scoped Related path resolves, and a comment-stripped
+  comparison proves zero code-token changes. Per-file dispositions and claim
+  verification are recorded in
+  `../../Reports/2026-08-03/comment-vocabulary-audit-cv2-banners.md`.
+
+  Original work order: For each of the 35 banner files,
   decide per file: delete the banner when a modern header already states its
   content, merge banner content into the header when the banner says something the
   header does not, or retain the banner with a recorded reason. `Maths/Vector3.h`,
@@ -138,6 +147,44 @@ quality is measured rather than assumed.
   content that is genuinely informative; deleting a banner is not automatically an
   improvement, and a banner that carries the only statement of a design decision
   gets merged, never dropped.
+
+  **Tracked CV2 banner checklist (`git ls-files`, 35 files):**
+
+  - [x] `SkullbonezSource/Core/Log.h`
+  - [x] `SkullbonezSource/Core/Profiler.h`
+  - [x] `SkullbonezSource/Core/Timer.h`
+  - [x] `SkullbonezSource/Maths/GeometricMath.h`
+  - [x] `SkullbonezSource/Maths/GeometricStructures.h`
+  - [x] `SkullbonezSource/Maths/Matrix4.h`
+  - [x] `SkullbonezSource/Maths/Quaternion.h`
+  - [x] `SkullbonezSource/Maths/RotationMatrix.h`
+  - [x] `SkullbonezSource/Maths/Vector3.h`
+  - [x] `SkullbonezSource/Physics/BoundingBox.h`
+  - [x] `SkullbonezSource/Physics/BoundingSphere.h`
+  - [x] `SkullbonezSource/Physics/CollisionShape.h`
+  - [x] `SkullbonezSource/Physics/SpatialGrid.h`
+  - [x] `SkullbonezSource/Rendering/DX12/BLASDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/FramebufferDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/MeshDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/SBTDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/ShaderDX12.h`
+  - [x] `SkullbonezSource/Rendering/DX12/TLASDX12.h`
+  - [x] `SkullbonezSource/Rendering/PrimitiveBatchRenderer.h`
+  - [x] `SkullbonezSource/Rendering/PrimitiveMeshBuilder.h`
+  - [x] `SkullbonezSource/Rendering/RenderGraph.h`
+  - [x] `SkullbonezSource/Rendering/Text.h`
+  - [x] `SkullbonezSource/Runtime/App/Run.h`
+  - [x] `SkullbonezSource/Runtime/App/Window.h`
+  - [x] `SkullbonezSource/Runtime/Camera/CameraCollection.h`
+  - [x] `SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.h`
+  - [x] `SkullbonezSource/Runtime/Debug/CollisionVisualizer.h`
+  - [x] `SkullbonezSource/Runtime/Input/Input.h`
+  - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
+  - [x] `SkullbonezSource/Scene/AuthoredScene.h`
+  - [x] `SkullbonezSource/World/SkyBox.h`
+  - [x] `SkullbonezSource/World/Terrain.h`
+  - [x] `SkullbonezSource/World/WorldEnvironment.h`
 
 - [ ] **CV3 — Measure `Summary:` honesty and `Related:` durability.** Inspect all
   327 `Summary:` lines against the rule that a filename restatement is not a

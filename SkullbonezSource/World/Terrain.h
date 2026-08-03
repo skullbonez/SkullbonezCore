@@ -4,8 +4,9 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Summary:
-  Stores terrain mesh, height
-  queries, and terrain rendering resources.
+  Terrain builds one authored post grid from RAW height data and shares it with
+  render and collision consumers. Cached height, normal, and plane queries let
+  Physics build contact rows without reconstructing triangle planes each tick.
 
 Glossary:
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the
@@ -69,18 +70,6 @@ class ShaderDX12;
 namespace Geometry
 {
 
-/* -- Terrain
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Represents a texturable terrain geometry that must be loaded from a .RAW file.  Also provides information to assist
-with collision detection.
-
-    Layman physics map:
-      Terrain is both render mesh and collision surface. Physics code queries
-      height, normal, and plane at an X/Z location, then builds contact rows
-      against that surface. The cached collision data exists so the physics loop
-      does not rebuild triangle planes every tick.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Terrain
 {
 

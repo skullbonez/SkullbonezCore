@@ -132,13 +132,6 @@ struct PrimitiveBatchRendererState
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> convexHullVertexData = {};
 };
 
-/* -- Primitive Batch Renderer
-------------------------------------------------------------------------------------------------------------------------------------------
-
-    Owner for shared primitive render resources, especially
-    instanced sphere/box/pine batches used by normal rendering and shadow
-    passes.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class PrimitiveBatchRenderer
 {
 

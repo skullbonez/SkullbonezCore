@@ -4,7 +4,9 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Summary:
-  Creates and owns the Win32 window and message pump integration.
+  Window owns native window/client-size state, rebuilds projection values on
+  resize, and lends resize work to the bound render-frame owner without owning
+  renderer resources.
 
 Glossary:
   Resize frame owner: Borrowed concrete owner used only to resize swap-chain and
@@ -51,11 +53,6 @@ struct ImGuiEditorNativeMessageRoute;
 } // namespace DevelopmentTools
 #endif
 
-/* -- Skullbonez Window
-------------------------------------------------------------------------------------------------------------------------------------------
-
-    Startup-owned wrapper for the Win32 application window.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Window
 {
 

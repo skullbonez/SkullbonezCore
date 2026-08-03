@@ -4,8 +4,9 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Summary:
-  Stores world forces, fluid
-  parameters, and water rendering resources.
+  WorldEnvironment owns gravity, buoyancy, and blended gas/fluid drag inputs
+  consumed by fixed-step Physics plus the calm and ocean meshes consumed by
+  water rendering.
 
 Glossary:
   Water render style: Values that feed water shader uniforms, including ordinary
@@ -108,8 +109,8 @@ struct WaterStyleParams
     bool cinematic = false;                                                                           // Scene/style path enabled higher-art-direction water tuning.
 };
 
-/* -- World Environment
-------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: World environment forces and water surfaces
 
     Encapsulates world fluid/gravity settings and exposes scalar force inputs
     consumed by the physics body store each fixed step.
@@ -131,7 +132,7 @@ struct WaterStyleParams
         - Calm mesh: flat mirror within terrain bounds (for reflections)
         - Ocean mesh: animated waves outside terrain bounds
       RenderFluid() drives these each frame.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class WorldEnvironment
 {
 

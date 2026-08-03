@@ -4,7 +4,8 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  Owns scene cameras and camera cycling state.
+  CameraCollection owns fixed scene camera slots, selection/tween state, and
+  the render-pose snapshot while borrowing optional terrain for movement clamps.
 
 Glossary:
   Primary camera: Camera slot controlled directly by player/debug input.
@@ -38,14 +39,6 @@ namespace SkullbonezCore
 namespace Environment
 {
 
-/* -- Camera Collection
-------------------------------------------------------------------------------------------------------------------------------------------
-
-    Runtime-owned collection of Camera objects that performs operations on
-    multiple cameras such as tweens and camera changes. This class is a friend
-    of the Camera class. The camera class has no public interface; cameras must
-    be used through the CameraCollection class.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class CameraCollection
 {
 
@@ -124,7 +117,7 @@ class CameraCollection
 
     void AddCamera( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView,
                     const Math::Vector::Vector3& vUp, uint32_t hash );
-    void Reset();                                                                 // Scene reload path; preserves Run-owned storage.
+    void Reset();                                                                 // Scene reload path; preserves SceneController-owned storage.
 };
 } // namespace Environment
 } // namespace SkullbonezCore
