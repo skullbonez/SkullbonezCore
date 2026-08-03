@@ -4,7 +4,7 @@ Date: 2026-08-03
 Status: BLOCKED — 3/5 phases complete; SR3 candidate rejected, owner decision required
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
-Priority: First — binding remaining campaign plan
+Priority: Blocked lane — owner decision required; independent campaign plans continue
 
 ## Problem And Evidence
 

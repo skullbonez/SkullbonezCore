@@ -1443,14 +1443,11 @@ hysteresis probe, broader retained continuity state, geometry/replay transition,
 or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
-Handoff after SR2: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
-Resolution SR3 only. Implement the half-quiet adjacent pair witness without new
-retained state or replay payload. Borrow Sleep's counter span synchronously,
-derive half-window policy from the configured frame count, and use only constant
-neighbors around the existing exact lookup. Add focused exact-miss, half-window,
-motion, no-contact, and elastic-policy tests. Then prove the four-brick/wall
-hashes unchanged and the pile reaches the SR0 oracle; stop without a baseline
-transition if either accepted hash moves.
+Current handoff: continue on `nightrunner-3rd-AUG-26` at Comment Vocabulary
+Audit CV0. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+selects an option and transition scope from its blocker report; the half-quiet
+candidate is rejected and must not be reimplemented. Source Modernization Sweep
+follows the comment plan independently.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
