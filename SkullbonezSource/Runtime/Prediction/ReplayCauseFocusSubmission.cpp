@@ -20,7 +20,6 @@ Related:
   - ReplayPresentationSubmission.h
   - ReplayPredictionDrawing.cpp
   - ReplayPredictionPresentation.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayPresentationSubmission.h"

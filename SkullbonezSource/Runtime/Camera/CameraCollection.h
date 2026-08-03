@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Camera/CameraCollection.cpp
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

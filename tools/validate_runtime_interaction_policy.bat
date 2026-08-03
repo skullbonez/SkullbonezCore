@@ -19,7 +19,6 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
 @rem   - Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 @rem
 @echo off

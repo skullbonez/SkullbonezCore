@@ -21,9 +21,6 @@ Invariants:
     match this shader exactly.
   - Style modes are scene-authored compatibility surface; default mode behavior
     must not drift when adding a special-case showcase mode.
-
-Related:
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma pack_matrix(column_major)
 

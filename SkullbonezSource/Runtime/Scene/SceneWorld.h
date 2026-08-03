@@ -33,7 +33,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneWorld.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.h
-  - Agentic/Reports/2026-07-18/scene-controller-round-2-census.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

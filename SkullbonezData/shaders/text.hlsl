@@ -18,9 +18,6 @@ Glossary:
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
   match this shader exactly.
-
-Related:
-  - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
 // TEXT RENDERING SHADER — Shader Model 6.6 (Combined VS+PS)

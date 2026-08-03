@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "owner": "Build configuration and test-target composition",
-  "evidence": "Agentic/Reports/2026-07-30/build-configuration-parity-bp0-census.md",
+  "evidence": "git history: build-configuration-parity-bp0-census (2026-07-30)",
   "reasons": {
     "ExceptionHandling": "The engine disables unwind semantics while the doctest target retains /EHsc for REQUIRE; _HAS_EXCEPTIONS=0 and JSON_NOEXCEPTION keep shared engine code exception-free in both owners.",
     "PreprocessorDefinitions": "The engine and doctest targets intentionally carry distinct executable-role macros; their exception and JSON policy macros are aligned and all other inventoried compiler contracts are compared separately."

@@ -21,7 +21,6 @@ Related:
   - SkullbonezSource/Core/Profiler.h
   - SkullbonezSource/Core/PlatformProfiler.h
   - SkullbonezSource/UI/UIProfilerOverlayPresenter.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Profiler.h"

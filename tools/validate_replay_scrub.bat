@@ -28,7 +28,6 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Reference/comment-style-guide.md
 @rem   - tools/validate_replay_visual_fidelity.bat
 @rem
 @echo off

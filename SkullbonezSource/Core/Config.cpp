@@ -27,7 +27,6 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Config.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Common.h"
 #include "Config.h"

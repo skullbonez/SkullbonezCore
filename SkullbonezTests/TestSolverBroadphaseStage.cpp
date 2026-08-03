@@ -26,7 +26,6 @@
 //
 // Related:
 //   - SkullbonezSource/Physics/SolverBroadphaseStage.h
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

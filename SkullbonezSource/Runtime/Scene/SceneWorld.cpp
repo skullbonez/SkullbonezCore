@@ -32,7 +32,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneWorld.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneWorld.h"

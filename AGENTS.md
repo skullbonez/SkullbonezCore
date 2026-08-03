@@ -258,8 +258,8 @@ rule.
 Replay retains the only post-gameplay growth privilege, and only through a
 `RuntimeReserveAllocator`-registered owner with a replay-phase check, hard cap,
 logged growth counter, and owner-specific policy comment. The authoritative
-replay-boundary plan or closure report carries the registration inventory:
-owner, phase gate, cap, high-water/growth counter, policy comment, and status.
+replay-boundary plan carries the registration inventory: owner, phase gate,
+cap, high-water/growth counter, policy comment, and status.
 Adding a registration, increasing a cap, weakening a phase gate, or changing
 counter coverage must update that inventory in the same commit. Reviews of
 replay-touching work must answer both questions: did a downward Replay include
@@ -305,10 +305,12 @@ Comment quality is part of completion, not a follow-up nicety.
   owners and paths that exist in the post-change source. When a change moves a
   responsibility, correct every touched comment describing the previous owner
   in the same commit.
-- Repository-relative `Related:` entries must resolve. Permanent source
-  history cites closure reports under `Agentic/Reports/<date>/`, never
-  deletion-bound `Agentic/Plans/TODO/` plans; `validate_fast` enforces the
-  mechanical path-resolution portion.
+- Repository-relative `Related:` entries must resolve, and must point at
+  durable targets: source files, `tools/` scripts, `Agentic/Reference/`
+  material, or a root document. Do not cite deletion-bound
+  `Agentic/Plans/TODO/` plans, and do not reintroduce a per-commit report
+  archive to link against; git history is the archive. `validate_fast`
+  enforces the mechanical path-resolution portion.
 - Before final reporting on a comment pass, rerun the scoped `git ls-files`
   inventory and reconcile it against the checklist. The final answer or handoff
   must include the checklist path, checked count, deferred count, and any files
@@ -327,8 +329,7 @@ The deleted runtime-boundary regex checker is not part of repository
 enforcement. Do not recreate frozen-count or spelling-budget checks for
 migration vocabulary, inheritance, `Run` size, throw counts, or similar
 historical debt. These policies are enforced by code review, owning plans,
-focused behavioral tests recorded in
-`Agentic/Reports/behavioral_test_depth_closure_20260711.md`, and
+the focused behavioral tests in `SkullbonezTests/` and `Agentic/Tests/`, and
 the targeted validation gates below.
 
 **Repeatable inventories are the instrument, not budgets.** Banning frozen counts
@@ -981,17 +982,31 @@ header defined by the authoritative ledger in
 `Agentic/Plans/MASTER-PLAN.md`:
 
 ```text
-<PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
+<PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <ACTION SUMMARY>
 ```
 
-For plan-runner commits, resolve all three values from the post-commit ledger
-state before staging. The overall percentage is the rounded portfolio-done
-total divided by the current portfolio task total; never estimate it. Every
-plan-implementation prompt must include the fully resolved required subject
-line. One plan owns each plan-runner commit; split unrelated work, and use the
-MASTER-PLAN governance rule only for an unavoidable aggregate documentation or
-governance commit. Commits made outside a plan runner use the normal subject
-rules below and do not claim plan progress.
+For plan-runner commits, resolve both counts from the post-commit ledger state
+before staging; never estimate them. `<DONE>` counts the owning plan's
+completed tasks after this commit, so the counter is plan-local and rises
+monotonically to `<TASK_COUNT>/<TASK_COUNT>` on the closing commit.
+
+Do not reintroduce a cross-plan percentage in the subject. The retired
+`<OVERALL_PERCENT>% OVERALL COMPLETE` field divided portfolio-done by the
+*current* portfolio total, so completing a plan removed that plan's finished
+tasks from the numerator and every closing commit reported `0% OVERALL
+COMPLETE`. A denominator that moves whenever a plan is added or deleted cannot
+be compared across commits, and the field is redundant with `<DONE>/<TASK_COUNT>`.
+Portfolio-level state belongs in `Agentic/Plans/MASTER-PLAN.md`, where it can
+be revised, not frozen into commit subjects.
+
+Keep the whole subject under 72 characters so it is not truncated in GitHub's
+commit list; the action summary is the part a reader needs, so shorten the
+action summary rather than dropping the counts. Every plan-implementation
+prompt must include the fully resolved required subject line. One plan owns
+each plan-runner commit; split unrelated work, and use the MASTER-PLAN
+governance rule only for an unavoidable aggregate documentation or governance
+commit. Commits made outside a plan runner use the normal subject rules below
+and do not claim plan progress.
 
 - Keep the action summary after the required progress header short and action-
   oriented. Conventional prefixes like `docs:`, `fix:`, or `feat:` may begin
@@ -1039,7 +1054,15 @@ tools\validate_build.bat Profile
 
 REM Debug build (for physics logging / CDB debugging):
 tools\validate_build.bat Debug
+
+REM Every configuration the compiled-symbol gates read (Automation, Debug, Profile):
+tools\validate_build_all.bat
 ```
+
+The compiled-symbol reachability scan joins Automation, Debug, and Profile
+objects and fails closed when any root predates current source. Build all three
+after editing source before running that scan directly; `validate_fast` now does
+this for you.
 
 - **Platform:** x64 only; do not change.
 - **Configurations:** Debug, Profile, Release.

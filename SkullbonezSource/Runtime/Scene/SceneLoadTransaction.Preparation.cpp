@@ -17,7 +17,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneLoadPreparation.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "SceneLoadTransaction.h"

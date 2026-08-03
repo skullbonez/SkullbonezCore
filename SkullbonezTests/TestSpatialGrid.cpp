@@ -38,8 +38,6 @@
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
 //   - SkullbonezTests/TestRuntimeContracts.cpp
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
-//   - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

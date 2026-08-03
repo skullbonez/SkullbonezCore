@@ -68,8 +68,8 @@ Byte-exactness is the validation contract, not an aspiration.
 - Zero runtime allocation by policy. Storage is fixed or reserved before gameplay
   begins; exhaustion is a loud diagnostic with owner, capacity and high-water, never
   a silent grow.
-- No exceptions anywhere in engine code. Failures go down one of three explicit
-  lanes: fatal invariant, recoverable result, or probe assertion.
+- No exceptions in engine code. Failures go down one of three explicit lanes:
+  fatal invariant, recoverable result, or probe assertion.
 
 ## Deterministic Replay and Prediction
 
@@ -114,25 +114,25 @@ profiler instrumentation are partially wired and are being completed incremental
 
 ## Built for Agentic Development
 
-The test and governance mass in this repository is large relative to the engine, and
-that ratio is the design, not an accident.
+The guardrails are mechanical rather than documentary — executable gates and tests
+carry the contract, not prose.
 
 | | Approximate size |
 |---|---|
-| Engine source | 231k lines |
-| Tests | 26k lines (main suite plus four standalone CPU targets) |
-| Governance, plans, reference and reports | 80k lines |
-| Validation and tooling scripts | 102 |
+| Engine source | 230k lines |
+| Tests | 30k lines (main suite plus four standalone CPU targets) |
+| Governance and reference docs | 7k lines |
+| Validation and tooling scripts | 105 |
 
 ![SkullbonezCore editor](SkullbonezAgent.png)
 The engine is developed largely by **an automated nightly agent loop**. Each run reads
 `Agentic/Plans/MASTER-PLAN.md` — the authoritative ledger of every live plan and task —
 selects the next task in binding order, implements it on a fresh nightly branch,
 runs the validation gates mapped to the files it touched, submits the result to an
-independent review pass, then commits with a resolved progress header and writes a
-handoff report. Plans carry explicit owner rulings, non-goals, acceptance criteria and
-per-phase evidence, so the next run starts from a written state rather than an
-inference.
+independent review pass, then commits under the owning plan's task counter. Plans
+carry explicit owner rulings, non-goals, acceptance criteria and per-phase evidence,
+so the next run starts from a written state rather than an inference. Closure
+evidence lives in the commit that carried it; git history is the archive.
 
 That model only works if the guardrails are stronger than usual. Hence: byte-exact
 oracles, negative controls that prove a test can actually fail, mechanical dependency
@@ -141,9 +141,9 @@ and validation gates keyed to the exact files a change touched. The governance i
 what makes unattended development safe; `AGENTS.md` is the contract, and it is written
 for any agent, not one vendor's.
 
-A few consequences visible in the tree: zero `TODO`/`FIXME`/`HACK` markers, zero
-`throw` statements, zero raw `new`/`delete` outside the allocator, and exactly one
-inheritance relationship in 231k lines.
+A few consequences visible in the tree: zero `TODO`/`FIXME`/`HACK` markers in
+engine source, zero `throw` statements in engine code, zero raw `new`/`delete`
+outside the allocator, and exactly one inheritance relationship in 230k lines.
 
 ## What Is Not Here
 
@@ -165,6 +165,14 @@ Stated plainly, because a README that only lists strengths is not useful:
 ---
 
 ## Start Here
+
+**Clone.** The full history carries years of build artefacts and image
+baselines. Unless you need that history, take the shallow clone — same working
+tree, roughly a fifth of the download:
+
+```bat
+git clone --depth 1 https://github.com/skullbonez/SkullbonezCore.git
+```
 
 **Humans**
 1. `FIRST_TIME_SETUP.md` if this is a new machine.

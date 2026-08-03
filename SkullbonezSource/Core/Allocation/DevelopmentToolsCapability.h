@@ -20,7 +20,6 @@ Invariants:
 Related:
   - SkoreDevelopmentThirdParty.props
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E2)
 */
 #pragma once
 

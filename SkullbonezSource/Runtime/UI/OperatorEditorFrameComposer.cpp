@@ -26,7 +26,6 @@ Invariants:
 Related:
   - Runtime/App/Run.h owns the private frame-coordinator declaration.
   - RuntimeFrameViews.h retains the value-only late-UI facts.
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "../App/Run.h"

@@ -20,10 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
-  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
-  - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

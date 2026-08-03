@@ -41,7 +41,6 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/App/RunFrame.cpp
   - ThirdPtySource/imgui/imgui.h
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E14-E16)
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
@@ -1995,7 +1994,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                     ImGui::EndDragDropTarget();
                 }
-
             }
             else
             {

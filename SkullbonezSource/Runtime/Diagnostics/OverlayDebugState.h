@@ -23,7 +23,6 @@ Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

@@ -30,7 +30,6 @@ Invariants:
 Related:
   - SkullbonezSource/Core/SbResult.h
   - SkullbonezSource/Core/SbResult.cpp
-  - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr1-decision.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

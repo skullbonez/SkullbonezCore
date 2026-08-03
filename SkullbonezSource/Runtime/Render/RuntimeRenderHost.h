@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

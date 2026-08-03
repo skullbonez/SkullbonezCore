@@ -20,7 +20,6 @@ Invariants:
 
 Related:
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - SkullbonezSource/Core/PlatformWin32.h
 */
 

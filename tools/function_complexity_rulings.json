@@ -5,11 +5,11 @@
     {
       "file": "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp",
       "signature": "void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view, const ReplayOverlay::ReplayOverlayStateView& replay )",
-      "body_sha256": "be90de48dc598854ed96dcdf385f7b1a45bd6289d2d0ea804dfa6815c4434cfd",
+      "body_sha256": "8eca02588424a7573dec81aef61d732cc5f02da9ced69ce3e3b3b1e4e6b2cafa",
       "owner": "ImGuiEditorOwner development-shell frame pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode development-shell composition pass consumes detached frame views, including bounded Look Lab status; its window and tree branches plus local widget values all expire at return, while helper extraction without a new invariant would only relay the same frame authority.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll4-input-capture.md",
+      "evidence": "git history: look-lab-random-style-authoring-ll4-input-capture (2026-08-01)",
       "plan": ""
     },
     {
@@ -19,7 +19,7 @@
       "owner": "Persistent contact manifold-construction phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase converts deterministic candidate pairs into object contact rows, support edges, contact counts, and optional trace values; compile-time trace retention does not split its manifold-construction invariant, and all borrowed participants expire at return.",
-      "evidence": "Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)",
       "plan": ""
     },
     {
@@ -29,7 +29,7 @@
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, exact-feature lifetime bias, friction bounds, warm-start impulses, and optional trace values; the fused exact-feature lifecycle/warm-start lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
-      "evidence": "Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md",
+      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02)",
       "plan": ""
     },
     {
@@ -39,7 +39,7 @@
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01)",
       "plan": ""
     },
     {
@@ -49,7 +49,7 @@
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
       "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, and scene-option policy for a single turn; all hit-test and command state remains frame-local.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -59,7 +59,7 @@
       "owner": "SkullScope frame emission transaction",
       "disposition": "retain-owner",
       "reason": "One bounded diagnostics transaction serializes a complete physics frame schema in deterministic field order, including separation-only bias attribution distinct from restitution; splitting field families would fragment the format invariant and byte-exact validation contract.",
-      "evidence": "Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md",
+      "evidence": "git history: contact-energy-and-warm-start-integrity-es5 (2026-08-02)",
       "plan": ""
     },
     {
@@ -69,7 +69,7 @@
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "One assertion phase reads the selected action against detached snapshots and synchronous runtime owners, then emits one evaluation; its branches are the closed assertion schema rather than independent retained authorities.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -79,7 +79,7 @@
       "owner": "SceneController load transaction",
       "disposition": "retain-owner",
       "reason": "One scene-load transaction sequences authored decode, owner construction, render publication, diagnostics, and commit or rollback; the explicit transaction owns the phase invariant and every service borrow expires at return.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -89,7 +89,7 @@
       "owner": "InteractionAutomationReportWriter report transaction",
       "disposition": "retain-owner",
       "reason": "One writer projects the bounded automation result schema from synchronized runtime snapshots and emits one durable report; field ordering and failure cleanup are one serialization invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -99,7 +99,7 @@
       "owner": "InGameUI immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode UI pass transforms a detached frame value into one ordered draw list; layout, hitbox, and widget branches share the same frame lifetime and draw-order invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -109,7 +109,7 @@
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
       "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -119,7 +119,7 @@
       "owner": "ConvexHullShape decode transaction",
       "disposition": "retain-owner",
       "reason": "One cold hull decode validates and canonicalizes a complete authored shape before publishing the output value; parse branches share one diagnostic path and no partial shape escapes.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -129,7 +129,7 @@
       "owner": "Editor object placement transaction",
       "disposition": "retain-owner",
       "reason": "One editor placement command resolves terrain pose, asset bounds, scene capacity, and history publication atomically; the output is committed only after the shared placement invariant succeeds.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -139,7 +139,7 @@
       "owner": "Replay scrubber overlay pass",
       "disposition": "retain-owner",
       "reason": "One presentation pass converts a detached replay overlay snapshot into an ordered draw submission for one viewport and time; renderer owners are synchronous sinks and no overlay state is retained.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -149,7 +149,7 @@
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
       "reason": "One composition-root phase projects render-model, presentation, and the UI-owned detached Look Lab cache, runs the active operator UI, submits its commands, and latches any process failure before returning; Runtime Direction is not polled on the idle path and all borrows share that synchronous frame lifetime.",
-      "evidence": "Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll5-breadth-reuse-idle.md",
+      "evidence": "git history: look-lab-random-style-authoring-ll5-breadth-reuse-idle (2026-08-01)",
       "plan": ""
     },
     {
@@ -159,7 +159,7 @@
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
       "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, and camera focus into a coherent cause-tree row set; row identity and focus arbitration are one result invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -169,7 +169,7 @@
       "owner": "Replay prediction draw-list update transaction",
       "disposition": "retain-owner",
       "reason": "One update reconciles a detached prediction view with retained geometry, markers, and draw-list state for the current generation; generation identity and replacement ordering are one transaction.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -179,7 +179,7 @@
       "owner": "SceneAuthoredSetup entity transaction",
       "disposition": "retain-owner",
       "reason": "One authored-scene setup transaction creates the complete entity topology and automation gates before publication; partial setup is diagnosed and cannot become the active scene.",
-      "evidence": "Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md",
+      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31)",
       "plan": ""
     },
     {
@@ -189,7 +189,7 @@
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase applies the current scripted action across the exact runtime owners before device routing; action order and frame ownership are synchronous and explicit.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -199,7 +199,7 @@
       "owner": "Profiler tab immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One profiler-tab draw pass lays out the complete detached profiler view and its active controls in draw and hit-test order; all geometry and widget state expires with the frame.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -209,7 +209,7 @@
       "owner": "Profiler histogram immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One histogram pass maps the current profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -219,7 +219,7 @@
       "owner": "Profiler frame-boundary aggregation",
       "disposition": "retain-owner",
       "reason": "One profiler owner closes the current frame, aggregates all marker and timing lanes, advances histories, and publishes the next immutable view; those steps share one frame-boundary invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -229,7 +229,7 @@
       "owner": "RenderGraph compile transaction",
       "disposition": "retain-owner",
       "reason": "One graph owner validates dependencies, orders passes, derives resource lifetimes, and publishes one compile result; splitting the traversal would expose partially compiled graph state.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -239,7 +239,7 @@
       "owner": "Replay velocity-edit interaction turn",
       "disposition": "retain-owner",
       "reason": "One replay-authoring turn arbitrates pointer ownership, scrubber state, velocity preview physics, and resulting camera action; all borrows are synchronous and one gesture owns the transition.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -249,7 +249,7 @@
       "owner": "SceneSnapshotWriter save transaction",
       "disposition": "retain-owner",
       "reason": "One scene writer validates the request and emits the complete snapshot schema through a single diagnostic and cleanup path; no partial file is accepted as a saved scene.",
-      "evidence": "Agentic/Reports/2026-07-31/vector-frame-contract-closure-vf2-authored-impulse-offset.md",
+      "evidence": "git history: vector-frame-contract-closure-vf2-authored-impulse-offset (2026-07-31)",
       "plan": ""
     },
     {
@@ -259,7 +259,7 @@
       "owner": "TornadoVisualPass frame render",
       "disposition": "retain-owner",
       "reason": "One gameplay visual pass projects the tornado frame view into its complete ordered render extension; all generated geometry and style decisions share the current frame lifetime.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -269,7 +269,7 @@
       "owner": "Physics narrowphase pair kernel",
       "disposition": "retain-owner",
       "reason": "One hot narrowphase kernel resolves exactly one candidate pair through shape dispatch, continuous collision policy, manifold output, wake evidence, and optional trace payload; scratch values and output event share the pair lifetime.",
-      "evidence": "Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md",
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)",
       "plan": ""
     },
     {
@@ -279,7 +279,7 @@
       "owner": "Text2d atlas generation transaction",
       "disposition": "retain-owner",
       "reason": "One cold atlas-generation transaction rasterizes the configured glyph set, packs the image, and writes its matching metadata; image and metadata layout must succeed or fail together.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -289,7 +289,7 @@
       "owner": "RenderBackendDX12 shutdown transaction",
       "disposition": "retain-owner",
       "reason": "One backend owner tears down GPU work, frame resources, diagnostics, and device objects in lifetime order; the nested guards encode optional-resource ownership and cannot be reordered independently.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -299,7 +299,7 @@
       "owner": "Startup command-line value application",
       "disposition": "retain-owner",
       "reason": "One startup transaction applies the closed command-line value schema to launch arguments and engine configuration before runtime owners exist; validation and precedence share one initialization invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -309,7 +309,7 @@
       "owner": "Replay cause-focus overlay pass",
       "disposition": "retain-owner",
       "reason": "One prediction presentation pass projects the selected cause row and current solver sample into transient world markers; every owner borrow is read-only or a synchronous tracer sink.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -319,7 +319,7 @@
       "owner": "UiDrawSubmission command transaction",
       "disposition": "retain-owner",
       "reason": "One render submission owner translates an ordered UI draw list into text, preview, texture, geometry, and diagnostic commands for one target; clip and draw order are one submission invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -329,7 +329,7 @@
       "owner": "RuntimeTools gizmo drag interaction",
       "disposition": "retain-owner",
       "reason": "One editor interaction turn arbitrates pointer capture, gizmo axis projection, scene mutation, and typed result emission; gesture ownership and mutation occur atomically for the sampled pointer.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -339,7 +339,7 @@
       "owner": "TornadoGameplay debug geometry build",
       "disposition": "retain-owner",
       "reason": "One gameplay owner rebuilds the complete transient debug-line span from its current simulation state; every branch contributes to one ordered vertex buffer returned with owner lifetime.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -349,7 +349,7 @@
       "owner": "Editor building bounds query",
       "disposition": "retain-owner",
       "reason": "One editor query resolves asset identity, placement orientation, and model bounds into a single world-space box; both outputs are published only when the full geometric transform succeeds.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -359,7 +359,7 @@
       "owner": "Attached camera target-resolution query",
       "disposition": "retain-owner",
       "reason": "One camera owner resolves the retained target identity against current scene topology and updates the target plus output model index consistently; failure leaves no mismatched identity pair.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -369,7 +369,7 @@
       "owner": "Editor building vertical-size query",
       "disposition": "retain-owner",
       "reason": "One cold editor query resolves the selected asset and derives its placement height under the authored bounds convention; all fallback and diagnostic branches return one scalar contract.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -379,7 +379,7 @@
       "owner": "Box contact polytope construction kernel",
       "disposition": "retain-owner",
       "reason": "One narrowphase geometry kernel emits the fixed vertices, faces, and edge topology for a transformed box; the local arrays jointly encode one polytope invariant and escape only as the complete value.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -389,7 +389,7 @@
       "owner": "Scene navigation request projection",
       "disposition": "retain-owner",
       "reason": "One navigation operation resolves direction, browser index, and session history into the next typed scene-load request; wrap and fallback branches share one navigation invariant.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     },
     {
@@ -399,7 +399,7 @@
       "owner": "Interaction automation model projection query",
       "disposition": "retain-owner",
       "reason": "One automation query resolves a named scene model through camera and window projection into one pointer coordinate; all nested rejection paths protect the single success output.",
-      "evidence": "Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
       "plan": ""
     }
   ]

@@ -13,7 +13,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UICache.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

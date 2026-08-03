@@ -15,7 +15,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Editor/EditorTools.h
-  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "EditorTools.h"

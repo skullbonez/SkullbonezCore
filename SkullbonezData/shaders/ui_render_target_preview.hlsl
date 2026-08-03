@@ -19,7 +19,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabProfiler.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma pack_matrix(column_major)
 

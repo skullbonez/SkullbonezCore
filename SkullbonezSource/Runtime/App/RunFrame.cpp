@@ -46,7 +46,6 @@ Related:
   - SkullbonezSource/Runtime/App/Run.h defines the frame-coordinator calling convention.
   - SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp owns operator UI projection.
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"

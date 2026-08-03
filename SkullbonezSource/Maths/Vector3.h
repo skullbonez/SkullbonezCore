@@ -32,7 +32,6 @@ Invariants:
 Related:
   - SkullbonezTests/TestVector3.cpp
   - SkullbonezSource/Maths/MathsCommon.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

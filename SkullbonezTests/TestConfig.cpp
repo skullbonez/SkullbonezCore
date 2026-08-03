@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Core/Config.h
   - SkullbonezSource/Core/Config.cpp
-  - Agentic/Reports/2026-07-12/engine-config-decomposition-closure.md
 */
 
 #include "../ThirdPtySource/doctest/doctest.h"

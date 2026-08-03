@@ -54,8 +54,6 @@ Invariants:
 Related:
   - tools/aggregate_ownership_rulings.json
   - tools/inventory_authority_free_aggregates.py
-  - Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md
-  - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
 """
 
 from __future__ import annotations

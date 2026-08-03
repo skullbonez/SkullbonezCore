@@ -28,8 +28,6 @@ Invariants:
 
 Related:
   - tools/native_diagnostics_suppressions.json
-  - Agentic/Reports/2026-07-30/validation-gate-integrity-closure.md
-  - Agentic/Reference/comment-style-guide.md
 """
 
 from __future__ import annotations

@@ -16,7 +16,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UIDraw.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "UIDraw.h"

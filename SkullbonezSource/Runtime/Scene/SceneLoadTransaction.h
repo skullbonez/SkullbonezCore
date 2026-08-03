@@ -36,7 +36,6 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - SkullbonezSource/Runtime/Scene/SceneRequestExecution.cpp
   - SkullbonezTests/TestOwnerRequestQueues.cpp
-  - Agentic/Reports/2026-07-26/invariant-ownership-governance-gv1-census.md
 */
 #pragma once
 

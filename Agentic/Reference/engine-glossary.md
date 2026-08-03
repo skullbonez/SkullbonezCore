@@ -11,10 +11,10 @@ defined in more than one tracked source file, this glossary owns its single
 definition and the source copies must be removed. Counts describe current
 structure; they are not thresholds, budgets, or permission to retain copies.
 
-These 321 definitions are the GC0 owner adjudications recorded in
-`Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md`.
-The inventory distinguishes terms by exact spelling and capitalization, so
-case-distinct terms remain distinct until an owner explicitly unifies them.
+These 321 definitions are owner adjudications. Terms are distinguished by exact
+spelling and capitalization, so case-distinct terms remain distinct until an
+owner explicitly unifies them. Run `python tools/inventory_glossary_terms.py
+--repo .` to re-derive the current multi-file definition set.
 
 | Term | Canonical definition |
 |---|---|

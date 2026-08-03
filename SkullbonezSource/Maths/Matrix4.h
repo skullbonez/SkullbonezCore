@@ -21,7 +21,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/Matrix4.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

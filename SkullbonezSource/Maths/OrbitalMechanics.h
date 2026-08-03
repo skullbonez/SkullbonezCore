@@ -25,7 +25,6 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/OrbitalMechanics.cpp
   - SkullbonezTests/TestOrbitalMechanics.cpp
-  - Agentic/Reports/2026-07-24/solar-system-trajectory-planner-closure.md
 */
 #pragma once
 

@@ -28,7 +28,6 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezSource/Runtime/App/Window.cpp
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E7)
 */
 #pragma once
 

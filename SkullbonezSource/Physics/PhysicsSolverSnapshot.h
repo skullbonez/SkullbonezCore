@@ -24,7 +24,6 @@ Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp
-  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

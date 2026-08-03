@@ -24,7 +24,6 @@ Related:
   - InputRouter.h declares the retained input owner.
   - InputFrameExecution.cpp owns stateless per-frame composition.
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Run.h"

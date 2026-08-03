@@ -41,7 +41,6 @@
 # Related:
 #   - tools/dependency_graph_rules.json
 #   - AGENTS.md
-#   - Agentic/Reports/2026-07-28/dependency-proof-generation-closure.md
 
 from __future__ import annotations
 

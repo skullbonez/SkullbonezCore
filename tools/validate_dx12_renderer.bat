@@ -22,7 +22,6 @@
 @rem Related:
 @rem   - tools/check_dx12_baselines.py
 @rem   - AGENTS.md
-@rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off
 setlocal enabledelayedexpansion

@@ -28,7 +28,6 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

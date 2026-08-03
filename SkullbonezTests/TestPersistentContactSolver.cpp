@@ -46,11 +46,6 @@
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
 //   - SkullbonezSource/Physics/ContactEnergyOracle.h
 //   - SkullbonezSource/Physics/TerrainContactManifold.h
-//   - Agentic/Reports/2026-07-27/terrain-legacy-contact-seed-remediation-closure.md
-//   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
-//   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
-//   - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

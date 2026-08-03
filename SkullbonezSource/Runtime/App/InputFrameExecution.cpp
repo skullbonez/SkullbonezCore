@@ -28,7 +28,6 @@ Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp implements shared value and UI-command policy.
   - SkullbonezSource/Runtime/Input/InputRouter.h owns retained input state.
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "InputFrame.h"

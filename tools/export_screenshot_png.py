@@ -18,7 +18,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 #!/usr/bin/env python3
@@ -42,7 +41,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 """Convert an engine BMP screenshot to a shareable PNG."""

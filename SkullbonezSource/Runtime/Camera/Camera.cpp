@@ -28,7 +28,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Camera/Camera.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Camera.h"
 #include "../../Maths/RotationMatrix.h"

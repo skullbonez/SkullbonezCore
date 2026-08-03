@@ -10,7 +10,7 @@
     "aggregates":  [
                        {
                            "key":  "BackbufferAcquireGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:352",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:351",
                            "members":  3,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -19,7 +19,7 @@
                        },
                        {
                            "key":  "BackendResourceReleaseContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:213",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:212",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Render",
@@ -46,7 +46,7 @@
                        },
                        {
                            "key":  "CinematicPostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:339",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:338",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -55,7 +55,7 @@
                        },
                        {
                            "key":  "DebugOverlayGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:399",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:398",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -64,7 +64,7 @@
                        },
                        {
                            "key":  "DebugOverlayPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:402",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:401",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -145,7 +145,7 @@
                        },
                        {
                            "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:196",
+                           "site":  "SkullbonezSource/Runtime/App/Run.h:195",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/App",
@@ -154,7 +154,7 @@
                        },
                        {
                            "key":  "FrameEntryContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:220",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:219",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -163,7 +163,7 @@
                        },
                        {
                            "key":  "ImGuiEditorCausalityContext",
-                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:62",
+                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h:61",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/DevelopmentTools",
@@ -172,7 +172,7 @@
                        },
                        {
                            "key":  "ImGuiEditorFrameInput",
-                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:103",
+                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:102",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/DevelopmentTools",
@@ -181,7 +181,7 @@
                        },
                        {
                            "key":  "Input",
-                           "site":  "SkullbonezSource/Runtime/Input/Input.h:115",
+                           "site":  "SkullbonezSource/Runtime/Input/Input.h:114",
                            "members":  0,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/Input",
@@ -190,7 +190,7 @@
                        },
                        {
                            "key":  "KeyboardContextFacts",
-                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:144",
+                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:143",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -217,7 +217,7 @@
                        },
                        {
                            "key":  "LookLabReceiptFacts",
-                           "site":  "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:64",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabBundleWriter.h:63",
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "LL2 / Runtime Direction Look Lab receipt revision",
@@ -226,7 +226,7 @@
                        },
                        {
                            "key":  "LookLabSaveRequest",
-                           "site":  "SkullbonezSource/Runtime/Direction/LookLabController.h:79",
+                           "site":  "SkullbonezSource/Runtime/Direction/LookLabController.h:78",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "LL4 / Runtime Direction Look Lab save transaction",
@@ -235,7 +235,7 @@
                        },
                        {
                            "key":  "ObjectGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:363",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:362",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -244,7 +244,7 @@
                        },
                        {
                            "key":  "ObjectPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:242",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:241",
                            "members":  16,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -262,7 +262,7 @@
                        },
                        {
                            "key":  "PhysicsDiagnosticsFrameInput",
-                           "site":  "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:70",
+                           "site":  "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h:69",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/PhysicsDiagnosticsSink.h",
@@ -271,7 +271,7 @@
                        },
                        {
                            "key":  "PointerPresentationPolicyInput",
-                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:267",
+                           "site":  "SkullbonezSource/Runtime/Input/InputRouter.h:266",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Input",
@@ -289,7 +289,7 @@
                        },
                        {
                            "key":  "PrimitiveBatchShaderParams",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:380",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp:379",
                            "members":  11,
                            "verdict":  "retain",
                            "owner":  "CA0 / Rendering/PrimitiveBatchRenderer.cpp",
@@ -298,7 +298,7 @@
                        },
                        {
                            "key":  "PrimitiveRenderContext",
-                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:72",
+                           "site":  "SkullbonezSource/Rendering/PrimitiveBatchRenderer.h:71",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -307,7 +307,7 @@
                        },
                        {
                            "key":  "ReflectionPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:285",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:284",
                            "members":  22,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -316,7 +316,7 @@
                        },
                        {
                            "key":  "RenderGraphPassContext",
-                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:158",
+                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:156",
                            "members":  5,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -325,7 +325,7 @@
                        },
                        {
                            "key":  "RenderResourceContext",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:227",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:226",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -361,7 +361,7 @@
                        },
                        {
                            "key":  "ReplayGhostGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:388",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:387",
                            "members":  8,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -622,7 +622,7 @@
                        },
                        {
                            "key":  "RuntimeInputFrameFacts",
-                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:98",
+                           "site":  "SkullbonezSource/Runtime/App/InputFrame.h:97",
                            "members":  8,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -631,7 +631,7 @@
                        },
                        {
                            "key":  "RuntimeInteractionFrameInput",
-                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:178",
+                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.h:177",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Interaction",
@@ -640,7 +640,7 @@
                        },
                        {
                            "key":  "RuntimePickRequest",
-                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:49",
+                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:48",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -667,7 +667,7 @@
                        },
                        {
                            "key":  "SceneLoadRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneLoadRequest.h:49",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneLoadRequest.h:48",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Scene",
@@ -676,7 +676,7 @@
                        },
                        {
                            "key":  "SceneRequest",
-                           "site":  "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:44",
+                           "site":  "SkullbonezSource/Runtime/Scene/SceneRequestQueue.h:43",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Scene",
@@ -685,7 +685,7 @@
                        },
                        {
                            "key":  "SceneSaveRequest",
-                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:87",
+                           "site":  "SkullbonezSource/Scene/SceneSnapshotWriter.h:86",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / Scene/SceneSnapshotWriter.h",
@@ -694,7 +694,7 @@
                        },
                        {
                            "key":  "ShadowPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:420",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:419",
                            "members":  12,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -712,7 +712,7 @@
                        },
                        {
                            "key":  "SleepSupportPropagationContext",
-                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:49",
+                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:48",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/SleepIslandSystem.h",
@@ -721,7 +721,7 @@
                        },
                        {
                            "key":  "TerrainGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:368",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:367",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -730,7 +730,7 @@
                        },
                        {
                            "key":  "TerrainPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:268",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:267",
                            "members":  10,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -748,7 +748,7 @@
                        },
                        {
                            "key":  "UIDrawContext",
-                           "site":  "SkullbonezSource/UI/UIDraw.h:47",
+                           "site":  "SkullbonezSource/UI/UIDraw.h:46",
                            "members":  5,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -757,7 +757,7 @@
                        },
                        {
                            "key":  "WaterGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:373",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:372",
                            "members":  2,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",
@@ -766,7 +766,7 @@
                        },
                        {
                            "key":  "WaterPassInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:325",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h:324",
                            "members":  13,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render pass ruling",
@@ -775,7 +775,7 @@
                        },
                        {
                            "key":  "WaterReflectionInput",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:70",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:69",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
@@ -784,7 +784,7 @@
                        },
                        {
                            "key":  "WaterStyleParams",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:89",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:88",
                            "members":  19,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
@@ -793,7 +793,7 @@
                        },
                        {
                            "key":  "WorldExtensionGraphInputs",
-                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:378",
+                           "site":  "SkullbonezSource/Runtime/Render/RuntimeRenderer.h:377",
                            "members":  7,
                            "verdict":  "retain-prior",
                            "owner":  "PB0 / GV1 render graph ruling",

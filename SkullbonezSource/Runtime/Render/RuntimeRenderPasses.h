@@ -25,7 +25,6 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

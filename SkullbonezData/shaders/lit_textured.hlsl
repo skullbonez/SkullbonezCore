@@ -24,9 +24,6 @@ Invariants:
   match this shader exactly.
   - The detail map occupies bindless payload index 5; index 4 remains the
     instanced material-table ABI.
-
-Related:
-  - Agentic/Reference/comment-style-guide.md
 */
 // =============================================================================
 // LIT TEXTURED SHADER — Shader Model 6.6 (Combined Vertex + Pixel Shader)

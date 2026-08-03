@@ -33,7 +33,6 @@ Related:
   - ReplayPrediction.h
   - ReplayPredictionDrawing.h
   - ReplayPredictionPresentation.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "ReplayPredictionDrawing.h"

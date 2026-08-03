@@ -17,7 +17,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderPipeline.h
   - SkullbonezSource/Runtime/App/RunRender.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

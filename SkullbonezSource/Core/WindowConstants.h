@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/Window.cpp consumes the window labels.
   - SkullbonezSource/Assets/AssetSystem.h consumes the shared data root.
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

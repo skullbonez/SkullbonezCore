@@ -35,7 +35,6 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/EditorTools.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"

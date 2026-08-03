@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Tools/RuntimeTools.h"

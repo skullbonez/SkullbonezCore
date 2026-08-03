@@ -25,7 +25,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Simulation/SimulationSystem.h
-  - Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

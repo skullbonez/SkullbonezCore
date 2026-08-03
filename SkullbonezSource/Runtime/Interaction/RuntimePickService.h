@@ -17,7 +17,6 @@ Invariants:
     in the same store snapshot and frame that produced the result.
 
 Related:
-  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - Agentic/Reference/engine-glossary.md
 */

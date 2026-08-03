@@ -20,7 +20,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 #!/usr/bin/env python3
@@ -46,7 +45,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 """Validate optional UI suite screenshots and the cached blur effect."""

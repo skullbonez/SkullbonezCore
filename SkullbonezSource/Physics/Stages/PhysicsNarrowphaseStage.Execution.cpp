@@ -22,7 +22,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp
-  - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsNarrowphaseStage.h"

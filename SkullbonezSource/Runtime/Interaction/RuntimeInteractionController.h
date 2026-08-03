@@ -32,7 +32,6 @@ Related:
   - SkullbonezSource/Runtime/Interaction/RuntimeInteractionController.cpp
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

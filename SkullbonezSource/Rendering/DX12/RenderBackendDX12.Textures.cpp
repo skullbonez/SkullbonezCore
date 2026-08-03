@@ -16,7 +16,6 @@ Invariants:
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RenderBackendDX12.h"

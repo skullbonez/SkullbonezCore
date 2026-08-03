@@ -31,9 +31,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
-  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsWorld.h"

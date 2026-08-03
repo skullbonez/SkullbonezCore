@@ -30,7 +30,6 @@ Related:
   - SkullbonezSource/Runtime/App/Run.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

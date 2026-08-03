@@ -1,12 +1,12 @@
 # Agentic Workspace
 
 This folder contains agent handoff state, task-specific skills, live plans,
-audits, reports, and reference material.
+audits, and reference material.
 
 ## Fresh Agent Start
 
 Follow the startup contract in `../AGENTS.md`. Load only the skill, plan, audit,
-report, or reference needed for the current task.
+or reference needed for the current task.
 
 ## Contents
 
@@ -18,11 +18,12 @@ report, or reference needed for the current task.
 | `Plans/TODO/` | Every live implementation plan and execution checklist |
 | `Plans/WNF/` | Owner-parked “will not do now” plans; agents ignore them unless the owner explicitly restores them to `TODO/` |
 | `Audits/` | Renderer, physics, and process audits loaded on demand |
-| `Bugs.md` | Persistent product bug notes |
 | `Reference/` | Runtime, physics, style, and external reference material |
-| `Reports/` | Validation/investigation evidence; not plan status authority |
+| `Tests/` | Standalone CPU test projects |
 
-Completed plans/checklists are deleted; git history is the archive. A completed
+Completed plans/checklists are deleted; git history is the archive. Per-run
+investigation and closure evidence belongs in the commit body and the owning
+plan, not in a committed report tree. A completed
 plan may remain temporarily only when `MASTER-PLAN.md` explicitly retains it
 for an unmet aggregate closure gate, and is deleted when that gate passes. Do not
 recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
@@ -46,8 +47,8 @@ recreate `Done`, `Failed`, `Rejected`, `To_Eval`, `In_Progress`, or
 - The boilerplate cleanup completed on 2026-07-10. Do not recreate generic
   learning headers; teach file-specific vocabulary, ownership, invariants,
   lifetime, hazards, and validation-sensitive behavior.
-- The active stale-reference inventory is
-  `Reports/2026-07-12/engine-cleanup-aggregate-closure.md`.
+- `python ../tools/check_related_paths.py --repo ..` is the live stale-reference
+  check; it replaces any committed inventory of dead links.
 - `Skills/comment-style-audit/skill.md` is the touched-file/full-scope audit.
 
 ## Hot Paths

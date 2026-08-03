@@ -29,8 +29,6 @@
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp
 //   - SkullbonezSource/Physics/SleepIslandSystem.cpp
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

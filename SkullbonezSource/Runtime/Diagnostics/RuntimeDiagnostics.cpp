@@ -21,7 +21,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/RuntimeDiagnostics.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeDiagnostics.h"

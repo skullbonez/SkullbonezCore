@@ -18,7 +18,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 #!/usr/bin/env python3
@@ -42,7 +41,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 """Run finite concept-scene validation tiers and write concise artifacts."""

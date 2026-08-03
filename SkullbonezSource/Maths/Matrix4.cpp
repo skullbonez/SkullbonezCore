@@ -23,7 +23,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/Matrix4.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Matrix4.h"

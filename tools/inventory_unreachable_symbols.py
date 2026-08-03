@@ -56,8 +56,6 @@ Related:
   - AGENTS.md
   - tools/cpp_source_scan.py
   - tools/inventory_wide_signatures.py
-  - Agentic/Reports/2026-07-30/maths-surface-reachability-closure.md
-  - Agentic/Reports/2026-07-30/unreachable-symbol-remediation-closure.md
 """
 
 from __future__ import annotations

@@ -13,7 +13,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabBar.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabBar.h"

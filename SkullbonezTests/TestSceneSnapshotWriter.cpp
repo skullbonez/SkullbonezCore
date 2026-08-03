@@ -31,7 +31,6 @@ Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
   - SkullbonezSource/Runtime/Scene/SceneSaveOperations.cpp
   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
-  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "TestColliderStoreFixtures.h"

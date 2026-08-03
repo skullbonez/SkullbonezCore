@@ -15,7 +15,6 @@ Invariants:
 
 Related:
   - AuthoredSceneParserSchema.h declares shared parser state and helpers.
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
   - Agentic/Reference/engine-glossary.md
 */
 #include "AuthoredSceneParserSchema.h"

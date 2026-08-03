@@ -16,7 +16,6 @@ Related:
   - SkullbonezSource/Physics/PhysicsObjectPolicy.h
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/ColliderStore.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsObjectPolicy.h"

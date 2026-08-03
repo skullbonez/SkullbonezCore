@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.cpp
-  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

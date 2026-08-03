@@ -21,7 +21,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 """Update committed baselines from current Profile artifacts."""

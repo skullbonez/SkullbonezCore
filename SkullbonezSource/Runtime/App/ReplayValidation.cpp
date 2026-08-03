@@ -27,7 +27,6 @@ Related:
   - SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp
   - SkullbonezSource/Runtime/App/ReplayValidation.Internal.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Replay/ReplayPresentation.h"

@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Diagnostics/SceneMemoryDiagnostics.h
   - SkullbonezSource/Core/MainMemoryStats.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneMemoryDiagnostics.h"
 

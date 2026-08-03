@@ -27,7 +27,6 @@ Invariants:
 Related:
   - SkullbonezSource/World/Terrain.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Terrain.h"
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )

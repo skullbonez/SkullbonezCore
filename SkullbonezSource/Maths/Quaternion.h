@@ -26,7 +26,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/Quaternion.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

@@ -27,7 +27,6 @@ Invariants:
 Related:
   - SkullbonezSource/Assets/AssetSystem.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "AssetSystem.h"
 #include "AssetKeys.h"

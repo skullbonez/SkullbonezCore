@@ -26,8 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
-  - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-bg0.md
   - Agentic/Reference/engine-glossary.md
 */
 

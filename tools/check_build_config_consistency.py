@@ -39,7 +39,6 @@ Related:
   - SKULLBONEZ_CORE.vcxproj
   - SKULLBONEZ_TESTS.vcxproj
   - tools/build_config_rulings.json
-  - Agentic/Reports/2026-07-30/build-configuration-parity-bp0-census.md
 """
 
 from __future__ import annotations

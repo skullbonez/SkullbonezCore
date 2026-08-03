@@ -22,9 +22,6 @@ Invariants:
   - Only C++ header-style trailing comments are aligned; preprocessor lines,
     comment-only lines, and clang-format directives are skipped.
   - The script rewrites text layout only and must not change code tokens.
-
-Related:
-  - Agentic/Reference/comment-style-guide.md
 """
 
 from __future__ import annotations

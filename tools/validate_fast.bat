@@ -128,18 +128,22 @@ echo       Deferred to validate_all_cpu_tests.bat; no test executable ran.
 
 echo [8/9] Checking ready builds...
 if /I "%SKULLBONEZ_SKIP_READY_BUILDS%"=="1" if /I not "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
-    echo ERROR: Compiled-symbol reachability requires a current Debug build.
-    echo        A parent that skips ready builds must build Debug first and set
-    echo        SKULLBONEZ_ASSUME_DEBUG_BUILT=1.
+    echo ERROR: Compiled-symbol reachability requires current Automation, Debug,
+    echo        and Profile builds. A parent that skips ready builds must build
+    echo        all three first and set SKULLBONEZ_ASSUME_DEBUG_BUILT=1.
     exit /b 6
 )
-call "%~dp0validate_ready_builds.bat"
+REM Why: the reachability scan below reads three object roots, so building only
+REM the two launch configurations left Automation older than any edited source
+REM and failed the gate on staleness rather than on a real finding.
+call "%~dp0validate_build_all.bat"
 if errorlevel 1 exit /b 6
 
 echo [9/9] Checking compiled-symbol reachability...
-REM Invariant: Profile and Debug objects must be current before this scan.
-REM Decorated COFF identities distinguish overloads after both configurations'
-REM preprocessors have run; exact rulings own every non-production-rooted row.
+REM Invariant: Automation, Debug, and Profile objects must all be current before
+REM this scan; it fails closed when one root predates current source.
+REM Decorated COFF identities distinguish overloads after each configuration's
+REM preprocessor has run; exact rulings own every non-production-rooted row.
 python "%~dp0inventory_unreachable_symbols.py" --repo "%~dp0.." --format json --strict >nul
 if errorlevel 1 exit /b 8
 

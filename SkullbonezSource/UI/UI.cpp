@@ -20,7 +20,6 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UI.h
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"

@@ -28,7 +28,6 @@ Related:
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
   - SkullbonezSource/UI/UICommands.h
-  - Agentic/Reports/2026-07-27/operator-command-invariant-ownership-oc0-census.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

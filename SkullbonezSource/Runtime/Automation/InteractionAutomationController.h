@@ -37,7 +37,6 @@ Related:
   - SkullbonezSource/Runtime/Automation/InteractionAutomationInputDriver.h
   - SkullbonezSource/Runtime/Automation/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Input/Input.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

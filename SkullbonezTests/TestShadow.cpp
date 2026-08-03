@@ -18,7 +18,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/Shadow.h
-  - Agentic/Reports/2026-07-12/shadow-edge-quality-closure.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

@@ -34,7 +34,6 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/App/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E8-E15)
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

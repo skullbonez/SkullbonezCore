@@ -47,8 +47,6 @@
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
 //   - SkullbonezSource/Physics/ColliderStore.h
 //   - SkullbonezSource/Physics/BuoyancySystem.h
-//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

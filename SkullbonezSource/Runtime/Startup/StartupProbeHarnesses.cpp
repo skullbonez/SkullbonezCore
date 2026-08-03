@@ -23,7 +23,6 @@ Invariants:
 Related:
   - StartupProbeHarnesses.h
   - StartupCommandLine.h
-  - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "StartupProbeHarnesses.h"

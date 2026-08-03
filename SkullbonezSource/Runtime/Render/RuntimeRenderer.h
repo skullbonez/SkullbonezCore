@@ -36,7 +36,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
   - SkullbonezSource/Runtime/App/RunRender.cpp
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

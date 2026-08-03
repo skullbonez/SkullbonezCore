@@ -35,12 +35,6 @@
 //
 // Related:
 //   - SkullbonezSource/Physics/ObjectContactManifold.cpp
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm3-negative-controls.md
-//   - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

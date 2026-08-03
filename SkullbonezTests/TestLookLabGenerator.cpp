@@ -15,7 +15,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 #include "../SkullbonezSource/Runtime/Direction/LookLabGenerator.h"

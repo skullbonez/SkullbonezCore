@@ -21,7 +21,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/Quaternion.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Quaternion.h"

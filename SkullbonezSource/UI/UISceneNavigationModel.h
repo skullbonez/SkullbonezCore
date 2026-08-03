@@ -19,7 +19,6 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UI.h
   - SkullbonezSource/Runtime/Scene/SceneControllerState.h
-  - Agentic/Reports/2026-07-23/ui-runtime-separation-closure.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

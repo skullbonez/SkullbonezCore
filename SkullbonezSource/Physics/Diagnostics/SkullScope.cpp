@@ -19,9 +19,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Diagnostics/SkullScope.h
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
-  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
-  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "SkullScope.h"

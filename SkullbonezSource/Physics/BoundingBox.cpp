@@ -15,7 +15,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/BoundingBox.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 

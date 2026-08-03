@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.h
   - Agentic/Reference/skullbonez-core-class-structure.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "MeshDX12.h"

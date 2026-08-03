@@ -22,7 +22,6 @@
 // Related:
 //   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
 //   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
-//   - Agentic/Reports/2026-07-17/unit-test-coverage-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

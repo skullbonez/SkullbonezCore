@@ -33,7 +33,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
   - SkullbonezSource/UI/UI.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"

@@ -19,7 +19,6 @@ Invariants:
 Related:
   - StartupProbeHarnesses.cpp
   - StartupCommandLine.h
-  - Agentic/Reports/2026-07-15/init-startup-decomposition-map.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

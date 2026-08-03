@@ -28,7 +28,6 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12DeferredReleaseOwner.cpp
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

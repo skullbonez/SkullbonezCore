@@ -21,7 +21,6 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Rendering/RenderInstanceStore.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -494,7 +494,7 @@ When editing a file, check:
 - Are public methods documented from the caller's point of view?
 - Are validation-sensitive physics/rendering assumptions called out?
 - Are links useful and focused, repository-relative paths resolvable, and
-  permanent history links under `Agentic/Reports/` rather than `Plans/TODO/`?
+  pointed at durable targets rather than deletion-bound `Plans/TODO/` files?
 
 ## Audit Skill
 

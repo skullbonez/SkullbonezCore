@@ -34,7 +34,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E9, E14)
 */
 #pragma once
 

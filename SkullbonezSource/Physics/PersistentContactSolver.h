@@ -18,9 +18,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
-  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

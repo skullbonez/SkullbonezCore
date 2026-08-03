@@ -38,8 +38,6 @@ Invariants:
 
 Related:
   - AGENTS.md
-  - Agentic/Reports/2026-07-28/replay-wide-signature-rg1-governance.md
-  - Agentic/Reports/2026-07-15-runtime-wide-invocation-inventory.md
 """
 
 from __future__ import annotations
@@ -539,8 +537,8 @@ def scan_file(
     return declarations, calls
 
 
-def load_prior_dispositions(report: Path) -> dict[str, str]:
-    if not report.exists():
+def load_prior_dispositions(report: Path | None) -> dict[str, str]:
+    if report is None or not report.exists():
         return {}
     text = report.read_text(encoding="utf-8", errors="replace")
     dispositions: dict[str, str] = {}
@@ -697,7 +695,7 @@ def group_candidates(candidates: Iterable[Candidate]) -> list[tuple[Candidate, t
     return sorted(selected, key=lambda item: (-item[0].arity, item[0].qualified_name.lower(), item[0].file, item[0].line))
 
 
-def inventory(repo: Path, threshold: int, prior_report: Path) -> list[dict[str, object]]:
+def inventory(repo: Path, threshold: int, prior_report: Path | None) -> list[dict[str, object]]:
     candidates: list[Candidate] = []
     calls: dict[tuple[str, int], int] = {}
     for path in tracked_source_files(repo):
@@ -875,7 +873,7 @@ def w1_markdown(rows: list[dict[str, object]]) -> str:
         "",
         "Date: 2026-07-23",
         "Owner: skullbonez",
-        "Source inventory: `Agentic/Reports/2026-07-22/wide-signature-w0-inventory.md`",
+        "Source inventory: generated from the current tree by this script.",
         "",
         "## Ratified Rubric",
         "",
@@ -1008,8 +1006,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prior-report",
         type=Path,
-        default=Path("Agentic/Reports/2026-07-15-runtime-wide-invocation-inventory.md"),
-        help="Prior Markdown inventory used to carry forward dispositions",
+        default=None,
+        help="Optional prior Markdown inventory used to carry forward dispositions",
     )
     parser.add_argument(
         "--rulings",
@@ -1032,7 +1030,14 @@ def main() -> int:
         self_test()
         return 0
     repo = args.repo.resolve()
-    prior_report = args.prior_report if args.prior_report.is_absolute() else repo / args.prior_report
+    # No prior inventory is the normal case; dispositions then come only from
+    # the rulings file. A relative path still resolves against the repository.
+    if args.prior_report is None:
+        prior_report = None
+    elif args.prior_report.is_absolute():
+        prior_report = args.prior_report
+    else:
+        prior_report = repo / args.prior_report
     rulings_path = args.rulings if args.rulings.is_absolute() else repo / args.rulings
     try:
         review_trigger, rulings = load_owner_rulings(rulings_path)

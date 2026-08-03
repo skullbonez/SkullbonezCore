@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Editor/EditorHistory.cpp
   - SkullbonezTests/TestEditorCommandHistory.cpp
-  - Agentic/Reports/2026-07-12/editor-undo-redo-closure.md
 */
 #pragma once
 

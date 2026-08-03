@@ -18,7 +18,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
   - Agentic/Reference/skullbonez-core-class-structure.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

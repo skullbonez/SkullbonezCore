@@ -26,7 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp owns frame orchestration.
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderPasses.h"

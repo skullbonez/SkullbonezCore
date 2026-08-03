@@ -32,7 +32,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
-  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

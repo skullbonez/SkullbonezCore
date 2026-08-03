@@ -185,14 +185,14 @@ usage, not repository artifacts or validation logs.
 
 For each plan or source slice, in order:
 
-1. Read the plan enough to understand scope, required validation, and
-   archival/report expectations. Read the authoritative progress ledger in
-   `Agentic/Plans/MASTER-PLAN.md`, calculate the post-slice plan count and
-   rounded overall portfolio percentage, and include this fully resolved line
-   in the active implementation prompt/task framing before edits:
+1. Read the plan enough to understand scope and required validation. Read the
+   authoritative progress ledger in `Agentic/Plans/MASTER-PLAN.md`, resolve the
+   owning plan's post-slice completed-task count and total, and include this
+   fully resolved line in the active implementation prompt/task framing before
+   edits. Both counts are plan-local; do not compute a cross-plan percentage.
 
 ```text
-Required commit subject first line: <PLAN_NAME>, TASK <DONE> / <TASK_COUNT>, <OVERALL_PERCENT>% OVERALL COMPLETE — <ACTION SUMMARY>
+Required commit subject first line: <PLAN_NAME>, TASK <DONE>/<TASK_COUNT> — <ACTION SUMMARY>
 ```
 
    Recalculate it if scope or task completion changes before commit.

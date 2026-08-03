@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp
   - SkullbonezSource/Rendering/RenderGraph.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

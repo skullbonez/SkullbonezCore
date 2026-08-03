@@ -17,8 +17,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

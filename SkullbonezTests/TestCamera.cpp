@@ -21,7 +21,6 @@
 // Related:
 //   - SkullbonezSource/Runtime/Camera/Camera.cpp
 //   - SkullbonezSource/Runtime/Camera/CameraCollection.cpp
-//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

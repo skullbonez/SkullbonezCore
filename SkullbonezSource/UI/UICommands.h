@@ -21,7 +21,6 @@ Invariants:
     authority to mutate runtime state directly.
 
 Related:
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

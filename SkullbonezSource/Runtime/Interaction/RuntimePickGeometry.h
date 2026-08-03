@@ -22,7 +22,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Interaction/RuntimePickService.cpp
-  - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

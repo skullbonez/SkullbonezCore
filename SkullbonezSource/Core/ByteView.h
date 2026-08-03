@@ -17,10 +17,6 @@ Invariants:
   - A view never owns or extends the lifetime of its source.
   - ObjectBytes accepts only trivially copyable values.
   - Callers consume the view synchronously; they must not retain it.
-
-Related:
-  - Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

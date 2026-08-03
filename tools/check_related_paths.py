@@ -22,7 +22,6 @@ Invariants:
     then ignores deleted worktree paths so in-progress moves remain checkable.
 
 Related:
-  - Agentic/Reference/comment-style-guide.md
   - tools/validate_format.bat
 """
 

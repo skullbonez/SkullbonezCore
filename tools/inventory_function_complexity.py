@@ -41,7 +41,6 @@ Invariants:
 Related:
   - tools/cpp_source_scan.py
   - tools/inventory_wide_signatures.py
-  - Agentic/Reports/2026-07-29/function-complexity-cx0-distribution.md
 """
 
 from __future__ import annotations

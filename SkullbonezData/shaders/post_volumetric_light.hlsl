@@ -18,9 +18,6 @@ Invariants:
     match this shader exactly.
   - This is the sole screen-space sun march; tonemap only composites its output.
   - Depth values at or above 0.9999 represent unobstructed sky for the march.
-
-Related:
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma pack_matrix(column_major)
 

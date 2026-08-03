@@ -19,7 +19,6 @@
 @rem   - The bounded diagnostic and zero InfoQueue errors are required evidence.
 @rem
 @rem Related:
-@rem   - Agentic/Reports/dx12_failure_inventory_20260710.md
 @rem   - tools/check_dx12_validation.bat
 @rem
 @echo off

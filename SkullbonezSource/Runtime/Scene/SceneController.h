@@ -24,7 +24,6 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneSessionState.h
   - SkullbonezSource/Runtime/Scene/SceneLoadTransaction.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

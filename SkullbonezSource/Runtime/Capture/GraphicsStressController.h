@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
   - SkullbonezSource/Runtime/App/RunFrame.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

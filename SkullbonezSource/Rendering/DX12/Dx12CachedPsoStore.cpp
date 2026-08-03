@@ -25,7 +25,6 @@ Invariants:
 Related:
   - Dx12CachedPsoStore.h
   - RenderBackendDX12.Pipeline.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Dx12CachedPsoStore.h"
 

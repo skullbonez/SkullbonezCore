@@ -34,7 +34,6 @@ Related:
   - SkullbonezSource/Runtime/Direction/LookLabController.cpp
   - SkullbonezSource/Runtime/Direction/LookLabGenerator.h
   - SkullbonezSource/Runtime/Scene/SceneController.Style.cpp
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
 */
 #pragma once
 

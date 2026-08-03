@@ -22,7 +22,6 @@ Related:
   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.cpp
   - SkullbonezSource/Rendering/PrimitiveMeshBuilder.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

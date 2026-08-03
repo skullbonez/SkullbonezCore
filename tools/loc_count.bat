@@ -25,7 +25,6 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Reference/comment-style-guide.md
 @rem   - Agentic/Skills/loc_count.py
 @rem
 @rem

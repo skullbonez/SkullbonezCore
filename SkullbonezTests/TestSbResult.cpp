@@ -25,7 +25,6 @@ Invariants:
 Related:
   - SkullbonezSource/Core/SbResult.h
   - SkullbonezSource/Core/SbDiagnosticStore.h
-  - Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md
 */
 #include "../SkullbonezSource/Core/SbDiagnosticStore.h"
 #include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"

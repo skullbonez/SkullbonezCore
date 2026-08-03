@@ -21,7 +21,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RenderDefaultsStore.h
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "RenderDefaultsStore.h"
 #include "../../Core/SbDiagnosticStore.h"

@@ -25,7 +25,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h applies active capacity.
   - SkullbonezSource/Physics/PhysicsBodyStore.h fixes body storage to the scene ceiling.
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

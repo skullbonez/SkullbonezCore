@@ -19,10 +19,6 @@
 @rem   - Tests run from the repository root so future file-relative fixtures use
 @rem     the same working directory as the engine validation scripts.
 @rem
-@rem Related:
-@rem   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
-@rem   - Agentic/Reference/comment-style-guide.md
-@rem
 @echo off
 setlocal enabledelayedexpansion
 REM ===============================================================

@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsTerrainView.h
   - SkullbonezSource/World/Terrain.cpp
-  - Agentic/Reports/2026-07-26/downward-domain-bleed-remediation-db0-census.md
 */
 #include "PhysicsTerrainView.h"
 

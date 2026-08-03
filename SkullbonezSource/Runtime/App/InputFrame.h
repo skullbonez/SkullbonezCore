@@ -27,7 +27,6 @@ Related:
   - InputRouter.h owns input state and routing policy.
   - Run.h defines the direct coordinator/concrete delegation convention.
   - RunFrame.cpp owns top-level frame order.
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

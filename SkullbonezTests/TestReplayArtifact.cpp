@@ -23,7 +23,6 @@
 // Related:
 //   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp
 //   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-//   - Agentic/Reports/2026-07-17/unit-test-coverage-closure.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

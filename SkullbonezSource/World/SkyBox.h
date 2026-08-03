@@ -22,7 +22,6 @@ Invariants:
 Related:
   - SkullbonezSource/World/SkyBox.cpp
   - SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

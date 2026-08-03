@@ -27,7 +27,6 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIDrawList.h
   - SkullbonezSource/Runtime/Render/UiTextPass.cpp
-  - Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md
 */
 #pragma once
 

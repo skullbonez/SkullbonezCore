@@ -15,7 +15,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/BoundingSphere.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "BoundingSphere.h"

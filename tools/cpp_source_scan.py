@@ -30,7 +30,6 @@ Related:
   - tools/inventory_authority_free_aggregates.py
   - tools/inventory_extraction_scars.py
   - tools/inventory_wide_signatures.py
-  - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
 """
 
 from __future__ import annotations

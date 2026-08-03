@@ -22,7 +22,6 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UITabProfiler.h
   - SkullbonezSource/UI/UITabProfiler.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "UITabProfiler.h"
 

@@ -19,7 +19,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Camera/CameraControlState.h
   - SkullbonezSource/Runtime/Camera/CameraCollection.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "CameraControlState.h"
 

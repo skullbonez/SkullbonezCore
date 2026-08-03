@@ -24,7 +24,6 @@ Related:
   - SkullbonezSource/Runtime/Debug/PhysicsDebugVisualizer.h
   - SkullbonezSource/Physics/PhysicsDebugData.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsDebugVisualizer.h"

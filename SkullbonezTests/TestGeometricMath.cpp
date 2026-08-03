@@ -21,8 +21,6 @@
 // Related:
 //   - SkullbonezSource/Maths/GeometricMath.h
 //   - SkullbonezSource/Maths/GeometricStructures.h
-//   - Agentic/Reports/2026-07-30/maths-surface-reachability-mr0-census.md
-//   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

@@ -16,7 +16,6 @@ Invariants:
 Related:
   - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - SkullbonezSource/UI/UI.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "UI.h"

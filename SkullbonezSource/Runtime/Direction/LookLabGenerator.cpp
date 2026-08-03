@@ -23,7 +23,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabGenerator.h
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
 */
 #include "LookLabGenerator.h"
 

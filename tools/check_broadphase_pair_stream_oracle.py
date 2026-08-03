@@ -33,10 +33,6 @@ Invariants:
     are subsets of their respective pre-prune lists.
   - --require-identical compares complete file bytes, not summaries or hashes.
   - The tool is read-only unless --json-out explicitly names an output receipt.
-
-Related:
-  - Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-bd0-baseline.md
-  - Agentic/Reports/2026-08-02/broadphase-pair-dedup-oracles/README.md
 """
 
 from __future__ import annotations

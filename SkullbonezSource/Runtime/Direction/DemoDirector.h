@@ -29,7 +29,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Camera/CameraCollection.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

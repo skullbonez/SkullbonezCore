@@ -21,7 +21,6 @@ Invariants:
     mutation.
 
 Related:
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
   - SkullbonezSource/Runtime/Direction/LookLabGenerator.cpp
 */
 #pragma once

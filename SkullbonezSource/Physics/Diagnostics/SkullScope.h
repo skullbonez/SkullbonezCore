@@ -18,7 +18,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

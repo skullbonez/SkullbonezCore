@@ -29,7 +29,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

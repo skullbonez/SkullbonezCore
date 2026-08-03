@@ -17,7 +17,6 @@ Invariants:
 Related:
   - SkullbonezSource/Core/PlatformProfiler.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Common.h"
 #include "Log.h"

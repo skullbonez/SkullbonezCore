@@ -29,9 +29,6 @@
 #     measures the ordinary .gitmodules blob that makes each pin reproducible.
 #   - Baselines and SkullbonezData are the only broad large-file locations.
 #   - Self-tests run without touching the real git index.
-#
-# Related:
-#   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md (repo-hygiene origin
 #     plan retired 2026-07-09; history in git)
 #   - tools/validate_fast.bat
 #   - .github/workflows/mandatory-cpu-validation.yml

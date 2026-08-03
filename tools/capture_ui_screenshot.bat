@@ -18,7 +18,6 @@
 @rem
 @rem Related:
 @rem   - AGENTS.md
-@rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @rem
 @echo off

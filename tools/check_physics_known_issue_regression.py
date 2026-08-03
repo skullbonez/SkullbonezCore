@@ -20,7 +20,6 @@
 # Related:
 #   - tools/validate_physics.bat
 #   - tools/check_physics_regression.py
-#   - Agentic/Reference/comment-style-guide.md
 #
 import argparse
 import difflib

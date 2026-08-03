@@ -32,7 +32,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-07-15/physicsworld-ownership-map.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -23,7 +23,6 @@
 // Related:
 //   - SkullbonezSource/UI/UI.h
 //   - tools/validate_ui_boundary_tests.bat
-//   - Agentic/Reports/2026-07-25/ui-renderer-hard-boundary-closure.md
 
 #include "UI/UI.h"
 

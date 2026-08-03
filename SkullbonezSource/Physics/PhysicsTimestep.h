@@ -23,7 +23,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Simulation/SimulationSystem.cpp
   - SkullbonezSource/Core/Common.h includes this during the aliasing period.
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

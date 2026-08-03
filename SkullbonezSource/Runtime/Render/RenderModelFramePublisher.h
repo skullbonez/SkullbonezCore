@@ -16,7 +16,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderFrameValues.h defines the view.
   - SkullbonezSource/Runtime/App/RunFrame.cpp sequences frame publication.
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

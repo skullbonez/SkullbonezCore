@@ -18,7 +18,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.cpp
-  - Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md
 */
 #include "../SkullbonezSource/Rendering/DX12/Dx12CachedPsoStore.h"
 #include "../ThirdPtySource/doctest/doctest.h"

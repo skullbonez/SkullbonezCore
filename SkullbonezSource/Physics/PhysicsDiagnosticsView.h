@@ -21,9 +21,6 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
   - SkullbonezSource/Physics/PhysicsWorld.h
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
-  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
-  - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
-  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

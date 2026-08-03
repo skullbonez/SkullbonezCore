@@ -31,7 +31,6 @@ Related:
   - SkullbonezSource/Runtime/Direction/LookLabController.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Scene/StandaloneStyleWriter.h
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
 */
 #include "LookLabController.h"
 

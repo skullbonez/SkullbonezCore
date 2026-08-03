@@ -60,10 +60,6 @@ Invariants:
 Related:
   - tools/aggregate_ownership_rulings.json
   - tools/inventory_extraction_scars.py
-  - Agentic/Reports/2026-07-26/governance-shape-to-judgment-g0-census.md
-  - Agentic/Reports/2026-07-27/governance-shape-to-judgment-conversion-closure.md
-  - Agentic/Reports/2026-07-27/ceremonial-aggregate-elimination-ca0-summary.md
-  - Agentic/Reports/2026-07-27/new-aggregate-ruling-gate-closure.md
 """
 
 from __future__ import annotations

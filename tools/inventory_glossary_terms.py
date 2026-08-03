@@ -38,9 +38,6 @@ Invariants:
 
 Related:
   - Agentic/Reference/engine-glossary.md
-  - Agentic/Reference/comment-style-guide.md
-  - Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc0-inventory.md
-  - Agentic/Reports/2026-07-31/engine-glossary-consolidation-gc1-standard.md
 """
 
 from __future__ import annotations

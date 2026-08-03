@@ -33,7 +33,6 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.cpp
   - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
-  - Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md (E6)
 */
 #pragma once
 

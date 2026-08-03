@@ -37,8 +37,6 @@
 #   - SkullbonezData/scenes/box_vibration_t0.scene.json
 #   - SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json
 #   - tools/physics_query.bat
-#   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es0.md
-#   - Agentic/Reports/2026-08-02/contact-energy-and-warm-start-integrity-es5.md
 #   - Agentic/Reference/engine-glossary.md
 #
 """Check compact SkullScope contact-energy metric packets."""

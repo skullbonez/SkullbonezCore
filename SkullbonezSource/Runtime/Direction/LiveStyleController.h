@@ -26,7 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Direction/LiveStyleController.cpp
   - SkullbonezSource/Runtime/Scene/SceneCinematicPolicy.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

@@ -50,7 +50,6 @@ Invariants:
 Related:
   - InputController.h defines the existing action and context vocabulary.
   - InputController.Bindings.h publishes the current immutable binding table.
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns the extraction.
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -18,7 +18,6 @@
 #
 # Related:
 #   - AGENTS.md
-#   - Agentic/Reference/comment-style-guide.md
 #
 #
 """Load-only sweep for every Skullbonez scene file."""

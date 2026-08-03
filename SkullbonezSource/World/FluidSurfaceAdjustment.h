@@ -19,7 +19,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Input/InputRouter.cpp
   - SkullbonezSource/World/WorldEnvironment.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

@@ -103,9 +103,10 @@ only after it has been inspected against this skill and the guide.
      `temporarily`, `on this branch`, `not yet`, and embedded task codes such
      as `C1` or `UR3` as prompts to verify, not banned words. The repository
      audit found roughly 55 correct uses that describe runtime state.
-   - Require repository-relative `Related:` entries to resolve. Cite permanent
-     closure reports, never deletion-bound `Agentic/Plans/TODO/` paths, and
-     remove duplicate navigation rows.
+   - Require repository-relative `Related:` entries to resolve. Cite durable
+     targets — source, `tools/`, `Agentic/Reference/`, or a root document —
+     never deletion-bound `Agentic/Plans/TODO/` paths, and remove duplicate
+     navigation rows.
 13. Keep comments close to the concept they explain.
 14. Preserve existing useful teaching comments. Do not rewrite good comments
    just to make them look new.
@@ -159,8 +160,8 @@ post-change source so ownership moves cannot create the same false finding.
   data-only parameter bags fail the audit.
 - Ownership, sequencing, and behavior claims match post-change source; every
   rot marker was reviewed as a prompt rather than rejected mechanically.
-- Repository-relative `Related:` entries resolve and permanent history points
-  to closure reports rather than live `TODO/` plans; duplicate rows are absent.
+- Repository-relative `Related:` entries resolve and point to durable targets
+  rather than live `TODO/` plans; duplicate rows are absent.
 - Governance review vocabulary stays out of source comments.
 - No source file in the selected scope is silently skipped. The checklist has no
   unchecked items unless each remaining item has a written deferral reason.

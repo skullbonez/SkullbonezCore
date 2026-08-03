@@ -19,7 +19,6 @@ Related:
   - SkullbonezSource/Runtime/Editor/EditorPlacementAssets.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
   - SkullbonezSource/Runtime/Editor/EditorHullAssets.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "EditorPlacementAssets.h"

@@ -27,7 +27,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Common.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

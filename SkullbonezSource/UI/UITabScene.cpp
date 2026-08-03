@@ -16,7 +16,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabScene.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "UITabScene.h"

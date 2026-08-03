@@ -26,7 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

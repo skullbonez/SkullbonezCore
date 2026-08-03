@@ -18,8 +18,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/GeometricMath.h
-  - Agentic/Reports/2026-07-30/maths-surface-reachability-mr0-census.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "GeometricMath.h"

@@ -22,7 +22,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Direction/LookLabBundleWriter.cpp
   - SkullbonezSource/Scene/StandaloneStyleWriter.h
-  - Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md
 */
 #pragma once
 

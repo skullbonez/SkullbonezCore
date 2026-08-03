@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-  - Agentic/Reports/2026-07-22/owner-fanout-reduction-of0-census.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

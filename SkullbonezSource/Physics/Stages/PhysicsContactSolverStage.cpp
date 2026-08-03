@@ -26,7 +26,6 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "PhysicsContactSolverStage.h"

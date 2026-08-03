@@ -52,7 +52,6 @@
 //   - SkullbonezSource/Physics/SleepIslandSystem.h
 //   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.h
 //   - SkullbonezSource/Runtime/Replay/ReplayRestoreTransactions.h
-//   - Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm4-sleep-state.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"

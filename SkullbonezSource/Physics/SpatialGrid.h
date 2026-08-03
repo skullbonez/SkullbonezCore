@@ -33,8 +33,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
-  - Agentic/Reports/2026-07-29/broadphase-canonical-order-guard-closure.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

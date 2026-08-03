@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/App/Run.cpp
   - SkullbonezSource/Runtime/Scene/SceneController.Load.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

@@ -27,7 +27,6 @@ Invariants:
 Related:
   - SkullbonezSource/Scene/AuthoredScene.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "AuthoredScene.h"

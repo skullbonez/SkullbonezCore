@@ -41,7 +41,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Input/InputRouter.h
   - SkullbonezTests/TestRuntimeInputBindings.cpp
-  - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 

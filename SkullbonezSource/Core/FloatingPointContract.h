@@ -24,7 +24,6 @@ Invariants:
 
 Related:
   - Agentic/Plans/MASTER-PLAN.md
-  - Agentic/Reports/2026-07-15/fp-envelope-hardening-diagnosis.md
   - Agentic/Reference/physics-overview.md
 */
 #pragma once

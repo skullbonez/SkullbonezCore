@@ -23,7 +23,6 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h declares the render owner.
   - SkullbonezSource/Rendering/RenderPipeline.h formats the live graph diagnostics.
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RuntimeRenderer.h"

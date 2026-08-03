@@ -31,7 +31,6 @@ Invariants:
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
   - SkullbonezSource/Physics/PhysicsEngine.h
-  - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

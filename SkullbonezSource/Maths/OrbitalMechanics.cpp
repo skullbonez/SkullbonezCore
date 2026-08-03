@@ -26,7 +26,6 @@ Invariants:
 Related:
   - SkullbonezSource/Maths/OrbitalMechanics.h
   - SkullbonezTests/TestOrbitalMechanics.cpp
-  - Agentic/Reports/2026-07-24/solar-system-trajectory-planner-closure.md
 */
 #include "OrbitalMechanics.h"
 

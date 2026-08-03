@@ -16,7 +16,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/RenderPipeline.h
   - SkullbonezSource/Rendering/RenderGraph.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RenderPipeline.h"

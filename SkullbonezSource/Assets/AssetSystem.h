@@ -21,7 +21,6 @@ Invariants:
 Related:
   - SkullbonezSource/Assets/AssetSystem.cpp
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

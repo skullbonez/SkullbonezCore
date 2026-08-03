@@ -22,7 +22,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "Dx12BackbufferCapture.h"

@@ -27,7 +27,6 @@ Related:
   - RuntimeStressController.cpp
   - ../App/RunFrame.cpp
   - GraphicsStressController.h
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

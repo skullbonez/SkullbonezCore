@@ -24,7 +24,6 @@ Invariants:
 Related:
   - RenderBackendDX12.Pipeline.cpp
   - SkullbonezData/shaders/shader_manifest.json
-  - Agentic/Reports/2026-07-12/shader-pipeline-modernization-closure.md
 */
 #pragma once
 

@@ -39,8 +39,6 @@ Related:
   - SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
   - SkullbonezSource/Physics/PhysicsWorld.cpp
-  - Agentic/Reports/2026-07-31/pre-536-physics-oracle-restoration.md
-  - Agentic/Reports/2026-07-29/persistent-contact-convergence-early-out-ce1.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

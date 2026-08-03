@@ -22,7 +22,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UIInput.cpp
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

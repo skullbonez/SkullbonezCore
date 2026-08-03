@@ -31,7 +31,6 @@ Related:
   - SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #pragma once

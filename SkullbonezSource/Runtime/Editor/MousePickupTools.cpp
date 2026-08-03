@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
   - SkullbonezSource/Runtime/Editor/EditorInteractionTools.cpp
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "../Tools/RuntimeTools.h"

@@ -41,7 +41,6 @@ Invariants:
 
 Related:
   - AGENTS.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "Rendering/DX12/Dx12RenderGraphExecutor.h"
 #include "Rendering/DX12/RenderBackendDX12.CommandRecordingState.h"

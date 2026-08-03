@@ -21,7 +21,6 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceRenderer.h
-  - Agentic/Reference/comment-style-guide.md
   - Agentic/Reference/engine-glossary.md
 */
 #include "RenderInstanceRenderer.h"

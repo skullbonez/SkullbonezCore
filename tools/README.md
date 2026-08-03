@@ -177,6 +177,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `inventory_glossary_terms.py [--repo .] [--strict] [--self-test] [--format text\|json]` | Report every learning-header term defined by multiple tracked source files plus wording drift; `--strict` requires an exact current file/line/wording migration ruling and rejects stale rulings without imposing a count threshold |
 | `cpp_source_scan.py` | Shared tracked-source enumeration and comment/literal masking for the two inventories; masking is imported from `inventory_wide_signatures.py` so there is one implementation |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
+| `validate_build_all.bat [--with-release]` | Build every configuration the compiled-symbol gates read (`Automation`, `Debug`, `Profile`); skips when `SKULLBONEZ_SKIP_READY_BUILDS=1` |
 | `validate_all_cpu_tests.bat` | Run all six first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |

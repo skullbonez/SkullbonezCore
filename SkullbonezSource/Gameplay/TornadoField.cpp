@@ -20,7 +20,6 @@ Invariants:
 Related:
   - SkullbonezSource/Gameplay/TornadoField.h
   - Agentic/Reference/physics-overview.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #include "TornadoField.h"
 #include "../Core/Common.h"

@@ -25,7 +25,6 @@
 @rem Related:
 @rem   - SkullbonezData/scenes/graphics_stress.suite.json
 @rem   - SkullbonezSource/Runtime/Capture/RuntimeStressController.cpp
-@rem   - Agentic/Reference/comment-style-guide.md
 @rem
 @echo off
 setlocal enabledelayedexpansion

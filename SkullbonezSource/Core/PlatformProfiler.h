@@ -24,7 +24,6 @@ Related:
   - SkullbonezSource/Core/PlatformProfiler.cpp
   - SkullbonezSource/Core/PlatformWin32.h
   - Agentic/Reference/runtime-reference.md
-  - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 

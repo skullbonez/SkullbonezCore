@@ -24,7 +24,6 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.cpp
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
-  - Agentic/Reports/2026-07-18/dx12-backend-owner-census.md
 */
 #pragma once
 

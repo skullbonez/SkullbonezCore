@@ -7,7 +7,7 @@
       "owner": "Runtime/App composition root",
       "disposition": "retain-owner",
       "reason": "This operation establishes one post-UI frame order before keyboard commands; the diagnostic store and every participant borrow share that synchronous turn and expire when the returned frame result closes the call.",
-      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
@@ -15,7 +15,7 @@
       "owner": "Replay restore event-application phase",
       "disposition": "retain-owner",
       "reason": "One replay-restore phase applies the next frame's immutable event range and advances its three explicit outputs; diagnostics and concrete owners are synchronous borrows, while grouping them would create a courier rather than a new invariant owner.",
-      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.cpp",
@@ -23,7 +23,7 @@
       "owner": "Replay restore target-step phase",
       "disposition": "retain-owner",
       "reason": "The operation owns one restore target step from checkpoint through target validation; every owner/store borrow is used synchronously and no participant or output crosses the phase boundary.",
-      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Render/RenderResourceLifecycle.h",
@@ -31,7 +31,7 @@
       "owner": "RenderResourceLifecycle",
       "disposition": "retain-owner",
       "reason": "The lifecycle owner binds the concrete DX12 resource participants and world/session value owners that share its lifetime; the diagnostic store is the same App-owned lifetime borrow and a services aggregate would only hide this authority.",
-      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Render/RuntimeRenderer.h",
@@ -39,7 +39,7 @@
       "owner": "RuntimeRenderer",
       "disposition": "retain-owner",
       "reason": "The renderer composition owner retains one lifetime-cohesive set of concrete render owners plus world/session views; the App-owned diagnostic store has the same lifetime and does not broaden renderer authority.",
-      "evidence": "Agentic/Reports/2026-07-28/sbresult-compact-success-path-sr2-implementation.md"
+      "evidence": "git history: sbresult-compact-success-path-sr2-implementation (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
@@ -47,7 +47,7 @@
       "owner": "Dx12GeometryOwner",
       "disposition": "retain-owner",
       "reason": "The low-level overload performs one mesh upload from explicit layout and transient DX12 upload capabilities derived synchronously by its public overload.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
@@ -55,7 +55,7 @@
       "owner": "Dx12GeometryOwner",
       "disposition": "retain-owner",
       "reason": "One geometry owner records one transient draw from explicit buffer, viewport, raster, draw-gate, and diagnostic facts.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
@@ -63,7 +63,7 @@
       "owner": "Interaction automation assertion phase",
       "disposition": "retain-owner",
       "reason": "The action and detached views identify one assertion while live owners are inspected or applied synchronously and are not retained.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/UI/UI.cpp",
@@ -71,7 +71,7 @@
       "owner": "InGameUI",
       "disposition": "retain-owner",
       "reason": "This stable UI entry seam receives the detached input, viewport, editor, camera, and scene-option facts for one UI turn.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
@@ -79,7 +79,7 @@
       "owner": "InputRouter",
       "disposition": "retain-owner",
       "reason": "The sole retained input-routing owner controls after-UI command order and quick-exit arbitration using synchronous participant borrows.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/InputRouter.Interactions.cpp",
@@ -87,7 +87,7 @@
       "owner": "InputRouter",
       "disposition": "retain-owner",
       "reason": "The sole retained input-routing owner consumes pointer facts and borrows participating owners for one route decision without retaining them.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
@@ -95,7 +95,7 @@
       "owner": "PhysicsContactSolverStage",
       "disposition": "retain-owner",
       "reason": "Contact state, pair/contact scratch, sleep outputs, diagnostics, timestep, and profiler are one stage turn and expire with the call.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
@@ -103,7 +103,7 @@
       "owner": "PhysicsForceStage",
       "disposition": "retain-owner",
       "reason": "The force stage owns force application and parallel arbitration over the explicit force facts, stores, awake rows, and execution policy for one turn.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
@@ -111,7 +111,7 @@
       "owner": "PhysicsNarrowphaseStage",
       "disposition": "retain-owner",
       "reason": "One pair-scoped operation owns contact, wake-event, and optional trace-payload production from explicit stores, policy, scratch, pair index, and output; the compile-time lane avoids a courier or sink abstraction.",
-      "evidence": "Agentic/Reports/2026-07-31/solver-diagnostic-hot-path-cost-hp2-payload.md"
+      "evidence": "git history: solver-diagnostic-hot-path-cost-hp2-payload (2026-07-31)"
     },
     {
       "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
@@ -119,7 +119,7 @@
       "owner": "RenderInstanceRenderer",
       "disposition": "retain-owner",
       "reason": "This stable main-view entry seam delegates one render submission to a compile-time visibility implementation without collecting or retaining authority.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
@@ -127,7 +127,7 @@
       "owner": "RenderModelsForView visibility specialization",
       "disposition": "retain-owner",
       "reason": "The compile-time visibility policy and explicit render values drive one model submission pass; the helper does not unpack a courier.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
@@ -135,7 +135,7 @@
       "owner": "Planning replay-overlay presentation",
       "disposition": "retain-owner",
       "reason": "One detached Replay view and synchronous render/UI owners produce one overlay submission without mutating Replay state or retaining owners.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringCauseTreeInput.cpp",
@@ -143,7 +143,7 @@
       "owner": "ReplayAuthoring cause-tree input",
       "disposition": "retain-owner",
       "reason": "The authoring owner arbitrates one cause-tree input turn; mutable participants and explicit outputs are not retained beyond the call.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp",
@@ -151,7 +151,7 @@
       "owner": "ReplayAuthoring velocity-edit input",
       "disposition": "retain-owner",
       "reason": "The authoring owner controls one velocity-edit input turn and its physics/interaction arbitration; outputs are decisions for that same turn.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayPrediction.cpp",
@@ -159,7 +159,7 @@
       "owner": "ReplayPrediction source-selection phase",
       "disposition": "retain-owner",
       "reason": "Prediction owns source selection and calibration for one build frame; source facts and result output belong to that phase.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
@@ -167,7 +167,7 @@
       "owner": "Replay startup-probe phase",
       "disposition": "retain-owner",
       "reason": "Startup probe execution is one Replay phase; startup/load values and concrete composition owners are used synchronously and not repackaged.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp",
@@ -175,7 +175,7 @@
       "owner": "Replay probe-orchestration phase",
       "disposition": "retain-owner",
       "reason": "Replay probe orchestration is one diagnostic phase at the App composition level; concrete owner borrows expire synchronously.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/App/ReplayScrubberTools.cpp",
@@ -183,7 +183,7 @@
       "owner": "ReplayRuntime scrubber-input phase",
       "disposition": "retain-owner",
       "reason": "Replay owns scrubber input arbitration; scalar UI/frame facts and router, interaction, camera, and output borrows expire at return.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
@@ -191,7 +191,7 @@
       "owner": "ReplaySolverRecorder",
       "disposition": "retain-owner",
       "reason": "The recorder owns one frame capture; event/time samples and source stores form one immutable capture snapshot consumed before return.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Editor/MousePickupTools.cpp",
@@ -199,7 +199,7 @@
       "owner": "RuntimeTools mouse-pick gesture",
       "disposition": "retain-owner",
       "reason": "RuntimeTools owns the mouse-pick gesture and drag plane; ray/camera facts and world/router/interaction borrows are frame-local.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
@@ -207,7 +207,7 @@
       "owner": "SceneController",
       "disposition": "retain-owner",
       "reason": "The public controller seam enters the invariant-owning scene-load transaction using explicit load participants and no replacement bag.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Scene/SceneController.Load.cpp",
@@ -215,7 +215,7 @@
       "owner": "SceneLoadTransaction",
       "disposition": "retain-owner",
       "reason": "The transaction enforces scene-load phase order while request/startup/config values and concrete load owners participate in that tested invariant.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
@@ -223,7 +223,7 @@
       "owner": "ShadowPass",
       "disposition": "retain-owner",
       "reason": "One shadow-pass owner consumes synchronous render resources, stores, optional worker policy, and caster batches for one map submission.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
@@ -231,7 +231,7 @@
       "owner": "Interaction automation after-render phase",
       "disposition": "retain-owner",
       "reason": "Automation owns this ordered after-render phase, including capture evidence; no cross-phase owner pointer or services aggregate is retained.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
@@ -239,7 +239,7 @@
       "owner": "Interaction automation before-input phase",
       "disposition": "retain-owner",
       "reason": "Automation owns this named phase and its ordering relative to input; concrete composition participants are borrowed only for the phase call.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
@@ -247,7 +247,7 @@
       "owner": "Text2d batching",
       "disposition": "retain-owner",
       "reason": "One text batch appends one coloured triangle; ordered coordinates and colour channels are primitive vertex values rather than unrelated authority.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     },
     {
       "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
@@ -255,7 +255,7 @@
       "owner": "UIWindowInteractionOwner",
       "disposition": "retain-owner",
       "reason": "The interaction owner applies one UI input turn from presentation facts and a detached scene-option view.",
-      "evidence": "Agentic/Reports/2026-07-28/replay-wide-signature-rg0-census.md"
+      "evidence": "git history: replay-wide-signature-rg0-census (2026-07-28)"
     }
   ]
 }
