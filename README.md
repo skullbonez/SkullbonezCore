@@ -10,6 +10,7 @@ core, built to a standard where its physics output is byte-reproducible and ever
 behavioural claim in the repository has a gate behind it.
 
 ![SkullbonezCore](SkullbonezCore.png)
+Fully deterministic solar system with all moons.
 
 ---
 
@@ -107,7 +108,6 @@ being built out.
 profiler instrumentation are partially wired and are being completed incrementally.
 
 ![SkullbonezCore editor](SkullbonezEditor.png)
-
 *The in-development editor: scene hierarchy, asset placement palette, live world and
 lighting inspectors, the replay transport along the bottom, and a connected Tracy
 session.*
@@ -124,6 +124,7 @@ that ratio is the design, not an accident.
 | Governance, plans, reference and reports | 80k lines |
 | Validation and tooling scripts | 102 |
 
+![SkullbonezCore editor](SkullbonezAgent.png)
 The engine is developed largely by **an automated nightly agent loop**. Each run reads
 `Agentic/Plans/MASTER-PLAN.md` — the authoritative ledger of every live plan and task —
 selects the next task in binding order, implements it on a fresh nightly branch,

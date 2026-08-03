@@ -1191,6 +1191,7 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // Invariant: the terrain seed is a minimum normal impulse even on a
         // cache miss. Consequently warmStarted means an impulse was applied
         // before iteration; it does not by itself prove previous-tick reuse.
+
         if ( c.isTerrain && c.terrainWarmStart > c.accN )
         {
             c.accN = c.terrainWarmStart;
