@@ -1,8 +1,8 @@
 # Source Modernization Sweep
 
 Date: 2026-08-02
-Status: NOT STARTED — 0/5 phases complete
-Impact area: Maths, Physics, World, Rendering, Runtime Camera legacy naming and idiom
+Status: IN PROGRESS — 1/5 phases complete
+Impact area: Assets, Maths, Physics, World, Rendering/DX12, Runtime App/Camera legacy naming and idiom
 Owner: Engine source conventions
 Priority: Fourth
 
@@ -19,24 +19,19 @@ large sweep here would be inventing work. The measured baseline:
 | `NULL` uses | 2 |
 | `typedef` declarations | 0 |
 | Object-like `#define` constants | 2 |
-| C-style casts in `.cpp` | 44, across 10 files |
-| Hungarian-prefixed parameters | 58, across 23 files |
+| C-style casts in `.cpp` | 136, across 15 files (MZ0 current-tree correction) |
+| Hungarian-prefixed parameters | 82 rename-owned semantic parameters across 27 files, plus 7 retained Win32 slots (MZ0 current-tree correction) |
 | Raw `new`/`delete`/`malloc` outside allocator internals | 0 |
 | `throw` statements | 0 |
 | Inheritance relationships | 1 |
 
 What remains is a legacy stratum, not a pervasive style problem, and it is
-concentrated in the oldest code. The 23 files carrying Hungarian parameter
-prefixes are `Maths/Quaternion.*`, `Maths/RotationMatrix.h`, `Maths/Vector3.h`,
-`Physics/BoundingSphere.*`, `Physics/PersistentContactSolver.cpp`,
-`Physics/PhysicsEngine.cpp`, `Physics/PhysicsWorld.*`, `Physics/Ragdoll.cpp`,
-`Physics/SpatialGrid.*`, `Rendering/Text.*`, `Runtime/Camera/Camera.*`,
-`Runtime/Camera/CameraCollection.*`, `Runtime/Render/UiTextPass.cpp`,
-`World/Terrain.cpp`, and `World/WorldEnvironment.*`. Representative spellings are
-`fCellSize`, `fChangeInTime`, `fX`/`fY`/`fZ`. Adjacent code in the same files
-already uses modern names, so a reader meets both conventions inside one function
-body — `SpatialGrid::SetCellSize( float fCellSize )` sits beside
-`ReserveSceneCapacity( std::size_t bodyCapacity )`.
+concentrated in the oldest code. MZ0 corrected the earlier lexical estimate with
+a complete syntax-aware census: 82 semantic prefixed parameters are rename-owned
+across 27 files, seven Win32 slots are retained, and 136 casts occupy 15 files. The
+exact files, lines, target types, rename map, false-positive exclusions, and
+validation impact are permanent in
+`../../Reports/2026-08-03/source-modernization-mz0-census.md`.
 
 Two smaller inconsistencies are worth a ruling rather than an edit:
 
@@ -72,25 +67,28 @@ behavior changes, and no baseline moves.
 
 ## Phases
 
-- [ ] **MZ0 — Census and classify.** Produce the exact per-file, per-occurrence
-  list for each signal in the table above: the 2 `NULL` uses, the 2 object-like
-  `#define` constants, the 44 C-style casts with their target types, and the 58
-  Hungarian parameters. Classify each occurrence as retire, retain-with-reason, or
-  needs-ruling. A C-style cast between arithmetic types is retire; one that is
-  load-bearing for a platform or COM boundary is retain-with-reason. Record which
-  occurrences sit in physics hot paths so MZ4 knows exactly which gates the change
-  triggers. The census is the deliverable and bounds the diff before any edit.
+- [x] **MZ0 — Census and classify.** The complete current-tree census supersedes
+  the stale 44-cast estimate: 136 syntax-confirmed casts across 15 files are all
+  retire-classified; the two exact `NULL` tokens and two internal
+  `SKULLBONEZ_INTRINSICS` definitions are retire-classified; and 82 semantic
+  prefixed parameters across 27 files are bounded for MZ2. Ten A/B-role names
+  are not type prefixes, two external declaration rows are excluded, and seven
+  first-party `wParam`/`lParam` slots are explicit Win32-boundary retains.
+  Physics hot-path, DX12, broad-header, and
+  closing-gate impact is mapped in
+  `../../Reports/2026-08-03/source-modernization-mz0-census.md`.
 
 - [ ] **MZ1 — Retire `NULL`, object-like `#define` constants, and C-style casts.**
   Replace `NULL` with `nullptr`, object-like `#define` constants with
-  `inline constexpr` in the owning header, and each retire-classified C-style cast
+  `inline constexpr` in the owning header, and all 136 retire-classified casts
   with the narrowest correct named cast. Keep every retain-with-reason occurrence
   and add a brief comment naming the reason where it is not obvious from context.
   This phase touches no physics numerics and should produce an empty behavioral
   diff; confirm that by inspection before moving on rather than at MZ4.
 
-- [ ] **MZ2 — Retire Hungarian parameter prefixes.** Rename the 58 parameters
-  across the 23 census files. Work one file at a time and build between files;
+- [ ] **MZ2 — Retire Hungarian parameter prefixes.** Rename the 82 semantic
+  parameters across all corresponding declaration/definition sites in the 27
+  census files. Work one file at a time and build between files;
   a rename that compiles is not automatically correct when a member and a
   parameter differ only by prefix, which is the specific hazard in
   `Camera.cpp`, `WorldEnvironment.cpp`, and `SpatialGrid.cpp`. Update any comment
@@ -136,15 +134,15 @@ behavior changes, and no baseline moves.
 - No phase carries baseline-refresh authority. A rename that moves a physics
   baseline is a defect in the rename, not a behavior change to accept. Revert and
   find the slip.
-- If MZ0 finds the residue is even smaller than the counts above suggest — for
-  example if most of the 44 C-style casts turn out to be retain-with-reason — the
+- If a later current-tree census finds the residue smaller than MZ0's counts —
+  for example if many of the 136 casts have already been retired — the
   correct outcome is a smaller plan with that recorded, not a search for
   additional work to justify the phase count.
 
 ## Acceptance
 
 The plan closes when every MZ0 census occurrence is retired or retained with a
-recorded reason, the 58 Hungarian parameters are gone from the 23 named files, the
+recorded reason, the 82 retire-classified parameters are gone from their sites, the
 spelling and namespace questions each carry an explicit ruling, comments naming
 renamed parameters are updated, no physics or visual baseline moved, the mapped
 gates pass, and independent review confirms the diff contains no signature,

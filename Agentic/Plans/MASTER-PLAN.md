@@ -1416,16 +1416,19 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/5 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 1/5 (20%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
 Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded from the active/future denominator
 under rule 4; its SR3 candidate failed the 20,000-frame oracle. One actionable
 plan remains:
 
-1. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
-   across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
-   constants. Touches physics hot paths, so byte-exactness is the closing proof.
+1. `TODO/source-modernization-sweep.md` (1/5). MZ0's current-tree correction
+   bounds 82 rename-owned semantic prefixed parameters across 27 files, seven
+   retained Win32 slots, 136 casts across 15 files, 2 exact `NULL` tokens, and 2
+   internal object-like constants. MZ1 is
+   binding next. Physics hot paths and DX12 are in scope, so byte-exactness and
+   the full gate are closing proofs.
 
 Blocked lane: `TODO/dense-pile-sleep-resolution.md` remains at 3/5. The
 half-quiet adjacent-pair witness reached only seven live rows and ended the
@@ -1439,7 +1442,7 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Source Modernization
-Sweep MZ0. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Sweep MZ1. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Comment Vocabulary Audit
 is permanently closed in
@@ -3837,6 +3840,14 @@ independent review is clean. The completed plan and its 587-row execution
 checklist are deleted. Comment Vocabulary leaves the active/future ledger under
 rule 4, so Source Modernization is now 0/5 (0%). Evidence is in
 `../Reports/2026-08-03/comment-vocabulary-audit-closure.md`.
+
+Source Modernization Sweep MZ0 completed on 2026-08-03. A syntax-aware pass of
+all 260 implementations corrects the stale estimate to 136 retire-classified
+casts across 15 files. The two `NULL` tokens, two intrinsics definitions, and 82
+rename-owned semantic prefixed parameters across 27 files are exactly mapped.
+Ten A/B-role names are excluded and seven first-party Win32 slots are explicit retains. The
+live ledger advances to 1/5 (20%). Evidence is in
+`../Reports/2026-08-03/source-modernization-mz0-census.md`.
 
 ## Features
 
