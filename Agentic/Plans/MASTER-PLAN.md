@@ -1416,20 +1416,22 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 1/10 (10%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 2/10 (20%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution is blocked at 3/5 and excluded from
 the active/future denominator under rule 4; its SR3 candidate failed the
 20,000-frame oracle and its independent plans remain runnable. Two actionable
 plans remain, to run in this order:
 
-1. `TODO/comment-vocabulary-audit.md` (1/5). CV0 inventories all 587 tracked
+1. `TODO/comment-vocabulary-audit.md` (2/5). CV0 inventories all 587 tracked
    source files: the modern core header is universal, six plain-language
    spellings occupy 29 files, all 35 banner files also carry the modern header,
    and the undocumented citation family now totals 23 `CATTO REF` plus 35
    `ENGINE-SPECIFIC` markers in three Physics files. Execution/proof lanes and
    recurring policy/contract headings are also undocumented; governance review
-   vocabulary remains absent. CV1 convention rulings are binding next.
+   vocabulary remains absent. CV1 assigns one spelling per reusable job while
+   retaining the non-duplicate citation pair, lanes, and precise domain
+   headings. CV2's 35-file banner reconciliation is binding next.
 2. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
@@ -1446,7 +1448,7 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Comment Vocabulary
-Audit CV1. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Audit CV2. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Source Modernization Sweep
 follows the comment plan independently.
@@ -3801,6 +3803,14 @@ from source. The strict glossary inventory passes with 993 unique single-file
 definitions, zero multi-file terms, and zero drift. The live ledger advances to
 1/10 (10%). Evidence is in
 `../Reports/2026-08-03/comment-vocabulary-audit-cv0-census.md`.
+
+Comment Vocabulary And Banner Convention Audit CV1 completed on 2026-08-03.
+`Summary:`, `Concept:`, `Invariant:`, and `Runtime allocation policy:` own the
+four competing reusable jobs. The Catto/engine citation pair, Lane R/F/P, and
+precise domain headings remain because they describe distinct information.
+The legacy banner format is retired only after CV2's complete per-file content
+review. The live ledger advances to 2/10 (20%). Evidence is in
+`../Reports/2026-08-03/comment-vocabulary-audit-cv1-rulings.md`.
 
 ## Features
 

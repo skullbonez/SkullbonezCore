@@ -1,7 +1,7 @@
 # Comment Vocabulary And Banner Convention Audit
 
 Date: 2026-08-02
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Source comments across every subsystem, comment style guide, glossary reference
 Owner: Comment Quality Gate
 Priority: Third
@@ -110,7 +110,16 @@ quality is measured rather than assumed.
   definitions. The census is the phase deliverable; do not begin editing comments
   from a reading impression.
 
-- [ ] **CV1 — Rule on the competing conventions.** For each duplicate found in
+- [x] **CV1 — Rule on the competing conventions.** `Summary:` owns file
+  orientation, `Concept:` owns local plain-language explanation, `Invariant:`
+  owns rules, and `Runtime allocation policy:` is the canonical allocation
+  heading. The Catto/engine citation pair, result/failure/proof lanes, and
+  precise domain headings remain because their jobs differ. Legacy banners are
+  retired only after CV2's per-file content review. Exact reasons and the
+  CV2-CV4 reconciliation map are recorded in
+  `../../Reports/2026-08-03/comment-vocabulary-audit-cv1-rulings.md`.
+
+  Original work order: For each duplicate found in
   CV0, choose one spelling and record the reason. Expected decisions, each of
   which may be overturned by evidence from the census: fold `LAYMAN VERSION` into
   whichever of `Mental model:` or `Concept:` survives; keep `CATTO REF` and
