@@ -125,13 +125,22 @@ behavior changes, and no baseline moves.
 
 - [ ] **MZ4 — Prove byte-exactness and close.** Run `tools\validate_physics.bat`
   and `tools\validate_physics_deep.bat` and confirm no baseline moved. Because
-  MZ2 touches `SpatialGrid*`, `PhysicsWorld*`, `Ragdoll*`, and `BoundingSphere*`,
+  MZ2 touches `SpatialGrid*`, `PhysicsWorld*`, `PhysicsEngine.cpp`, and `BoundingSphere*`,
   add `tools\validate_perf.bat`. Because `Maths/Vector3.h`, `Maths/Quaternion.h`,
   and `Rendering/Text.h` are widely included, run `tools\validate_full.bat` at the
   closing gate. If MZ3 changed `Vector3` or the namespace, `validate_full` is
   mandatory rather than precautionary. Audit every touched source-bearing file.
   Obtain an independent read-only review confirming the diff is naming and idiom
   only, with no signature, control-flow, or numeric change.
+
+  **Blocked 2026-08-03:** physics and deep-physics are byte-exact, Debug/Profile
+  builds and formatting pass, the exact ownership inventories are current, and
+  the final touched-source audit is 41/41. The mandatory committed performance
+  comparison nevertheless fails on a quiet-host rerun (three DX12 timing rows
+  and one Physics Bench row). This plan has no baseline-refresh authority, so
+  MZ4 remains unchecked and final `validate_full` closure cannot be claimed.
+  Exact measurements and the required performance-owner decision are recorded
+  in `../../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`.
 
 ## Dependencies And Decisions
 
@@ -181,3 +190,4 @@ control-flow, or numeric change.
 - `../../../SkullbonezSource/Runtime/Camera/Camera.h`
 - `../../../SkullbonezSource/World/WorldEnvironment.h`
 - `../../Reports/2026-08-03/comment-vocabulary-audit-closure.md`
+- `../../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`

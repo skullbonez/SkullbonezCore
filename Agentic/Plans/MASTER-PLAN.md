@@ -1415,8 +1415,8 @@ experimentation. The approved Physics, SkullScope, Replay visual, and Replay
 causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
-**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 4/5 (80%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+**The Fresh-Read Coverage And Convention Campaign (2026-08-02) is blocked at
+4/5 (80%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, Render Graph Transition Coverage, and Comment Vocabulary And Banner
 Convention Audit are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded from the active/future denominator
@@ -1445,7 +1445,10 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Source Modernization
-Sweep MZ4. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Sweep MZ4 only after the performance-baseline owner resolves the repeated
+committed-comparison failure recorded in
+`../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`. Do not resume
+Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Comment Vocabulary Audit
 is permanently closed in
@@ -3872,6 +3875,15 @@ the physical module while `Math::` remains the singular conceptual domain. No
 source, alias, policy, or baseline changed. The live ledger advances to 4/5
 (80%). Evidence is in
 `../Reports/2026-08-03/source-modernization-mz3-rulings.md`.
+
+Source Modernization Sweep MZ4 blocked on 2026-08-03 without advancing its
+verified 4/5 count. Physics and deep-physics remain byte-exact; Debug/Profile,
+formatting, exact ownership inventories, and the 41/41 touched-source audit
+pass. A final quiet-host measurement still fails three committed DX12 timing
+comparisons and one Physics Bench comparison. The plan has no baseline-refresh
+authority, so final full-gate closure remains unavailable pending a performance-
+baseline owner decision. Evidence is in
+`../Reports/2026-08-03/source-modernization-mz4-perf-blocker.md`.
 
 ## Features
 

@@ -35,10 +35,12 @@ Related:
 #include <cfloat> // FLT_MAX for math users that still include the common prelude.
 #include <cmath>  // sqrtf, sinf, cosf, fabsf, acosf
 
-// SSE/SIMD intrinsics are enabled in Release/Profile and disabled in Debug.
-// The inline value exposes that build decision without leaking a preprocessor
-// constant into expressions owned by including translation units.
-#ifndef _DEBUG
+// SSE/SIMD intrinsics are enabled in Release/Profile and disabled in Debug by
+// default. An externally supplied SKULLBONEZ_INTRINSICS value retains the
+// existing scalar/SSE override contract without this header defining a macro.
+#if defined( SKULLBONEZ_INTRINSICS )
+inline constexpr bool INTRINSICS_ENABLED = SKULLBONEZ_INTRINSICS != 0;
+#elif !defined( _DEBUG )
 inline constexpr bool INTRINSICS_ENABLED = true;
 #else
 inline constexpr bool INTRINSICS_ENABLED = false;
