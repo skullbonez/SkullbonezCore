@@ -9,7 +9,9 @@ runtime. This is not a game and it is not trying to become one — it is an engi
 core, built to a standard where its physics output is byte-reproducible and every
 behavioural claim in the repository has a gate behind it.
 
-![SkullbonezCore](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezCore.png)
+![SkullbonezCore editor](SkullbonezEditor.png)
+
+![SkullbonezCore](SkullbonezCore.png)
 
 ---
 
@@ -105,8 +107,6 @@ being built out.
 
 **ImGui and Tracy integration are a work in progress.** The editor surface and the
 profiler instrumentation are partially wired and are being completed incrementally.
-
-![SkullbonezCore editor](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezEditor.png)
 
 *The in-development editor: scene hierarchy, asset placement palette, live world and
 lighting inspectors, the replay transport along the bottom, and a connected Tracy
