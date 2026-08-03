@@ -1416,16 +1416,24 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 1/15 (7%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 2/15 (13%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and
 remains the binding next plan. Three plans remain, to run in this order:
 
-1. `TODO/dense-pile-sleep-resolution.md` (1/5). SR0 proves pair-prefix lifetime
+1. `TODO/dense-pile-sleep-resolution.md` (2/5). SR0 proves pair-prefix lifetime
    continuity permanently sleeps all 330 pile bodies at frame 8,513, while
    pre-gate and current exact-feature behavior remain oscillatory beyond frame
    20,000. Exact-feature still retains the accepted four-brick and wall gains;
-   SR1 mechanism diagnosis is binding next. Sleep is measurably harder to
+   SR1 confirms that exact-feature lifetime is the initiating defect. The same
+   reselected feature at frame 24 receives 0.242185 more solved normal impulse
+   under exact lifetime, producing the first material pair/exact divergence.
+   Frames 1,200–6,799 contain 13,082 false exact-lifetime rows and 66
+   cache-eligible exact-only restitution admissions carrying 509.278851 solved
+   normal impulse.
+   Aggregate cache-hit degradation and support-classification instability are
+   rejected; solver non-convergence is a downstream amplifier. SR2 candidate
+   design is binding next. Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
    `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
@@ -1448,14 +1456,14 @@ remains the binding next plan. Three plans remain, to run in this order:
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after SR0: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
-Resolution SR1 only. Use `--physics-diag` and `tools\physics_query.bat` to
-measure feature churn, warm-start hit/miss, false exact-feature lifetime rows,
-and post-settle restitution impulses. Compare the measured mechanism against
-solver non-convergence at the iteration cap and support-classification
-instability. Print every SkullScope query and its data-size accounting. Treat
-pair-prefix as the measured continuity oracle, but do not restore its rejected
-per-row prefix scan.
+Handoff after SR1: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
+Resolution SR2 only. Compare at least three mechanisms against the confirmed
+exact-lifetime false negative: an O(1) pair-lifetime token beside the exact
+cache, manifold feature stabilization, and manifold-owned retiring-feature
+transfer. Preserve exact warm-start compatibility, no-contact reset, elastic
+mutual-gravity behavior, and every accepted wall/four-brick byte. State per-row
+memory/lookup cost and baseline risk. Treat pair-prefix as the measured
+continuity oracle, but do not restore its rejected per-row prefix scan.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3751,6 +3759,21 @@ energy. A self-tested repeatable tool records first sleep, permanent all-sleep,
 per-body wake oscillations, dynamic-only long-horizon censoring, and kinetic-
 energy checkpoints. The live ledger advances to 1/15 (7%). Evidence is in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr0.md`.
+
+Dense Pile Sleep Resolution SR1 completed on 2026-08-03. Pair/exact SkullScope
+traces place the first material divergence at frame 24: reselected feature 34306
+for pair 306/308 solves 2.221948 normal impulse under exact-feature lifetime and
+1.979763 under pair lifetime. The settling interval contains 13,082 false exact-
+lifetime rows and 66 cache-eligible exact-only restitution admissions carrying
+509.278851 solved normal impulse; ten same-frame endpoint quiet-counter resets
+correlate with those admissions. Both builds
+retain exact warm-start compatibility, and exact has the slightly higher
+aggregate cache-hit rate, so broad cache degradation is rejected as primary.
+Solver-cap saturation is a downstream amplifier present in both histories;
+reconstructed support-footprint classification has zero late-window flips and
+is rejected as unstable. Every successful decision query and its model-read
+byte count are recorded. The live ledger advances to 2/15 (13%). Evidence is in
+`../Reports/2026-08-03/dense-pile-sleep-resolution-sr1.md`.
 
 ## Features
 

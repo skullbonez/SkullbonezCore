@@ -1,7 +1,7 @@
 # Dense Pile Sleep Resolution
 
 Date: 2026-08-03
-Status: IN PROGRESS — 1/5 phases complete
+Status: IN PROGRESS — 2/5 phases complete
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
 Priority: First — binding remaining campaign plan
@@ -126,7 +126,22 @@ workloads, no body loss, no popcorn cycles.
   The deliverable is a table showing exactly what was gained and what was lost; do not
   proceed on the assertion alone.
 
-- [ ] **SR1 — Diagnose the mechanism.** Using `--physics-diag` and
+- [x] **SR1 — Diagnose the mechanism.** The pair/exact traces prove exact-feature
+  lifetime is the initiating defect: frame 24 is the first material divergence,
+  where the same reselected feature solves 2.221948 normal impulse under exact
+  lifetime versus 1.979763 under pair lifetime. Frames 1,200–6,799 contain
+  13,082 exact false-lifetime rows and 66 cache-eligible exact-only restitution
+  admissions carrying 509.278851 solved normal impulse; ten same-frame endpoint
+  quiet-counter resets correlate with those admissions. Both histories still
+  use exact warm-start compatibility, and exact
+  has a slightly higher aggregate cache-hit rate, so broad cache degradation is
+  rejected as the primary mechanism. Solver-cap saturation is a downstream
+  amplifier present in both histories; reconstructed support-footprint
+  classification has zero late-window flips and is rejected as unstable. Full
+  queries, cost accounting, and the SR2 boundary are recorded in
+  `../../Reports/2026-08-03/dense-pile-sleep-resolution-sr1.md`.
+
+  Original work order: using `--physics-diag` and
   `tools\physics_query.bat` on the SR0 run, measure per-frame: contact feature churn
   rate for settling bodies, warm-start cache hit/miss ratio, count of rows where
   `continuesLoadedContact` is false but the pair was in contact last frame, and the
