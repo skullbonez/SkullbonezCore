@@ -1416,18 +1416,20 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 0/10 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 1/10 (10%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
 under rule 4. Dense Pile Sleep Resolution is blocked at 3/5 and excluded from
 the active/future denominator under rule 4; its SR3 candidate failed the
 20,000-frame oracle and its independent plans remain runnable. Two actionable
 plans remain, to run in this order:
 
-1. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
-   same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
-   files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
-   is undocumented. The governance review dialect has correctly not leaked into
-   source and must not be imported by this plan.
+1. `TODO/comment-vocabulary-audit.md` (1/5). CV0 inventories all 587 tracked
+   source files: the modern core header is universal, six plain-language
+   spellings occupy 29 files, all 35 banner files also carry the modern header,
+   and the undocumented citation family now totals 23 `CATTO REF` plus 35
+   `ENGINE-SPECIFIC` markers in three Physics files. Execution/proof lanes and
+   recurring policy/contract headings are also undocumented; governance review
+   vocabulary remains absent. CV1 convention rulings are binding next.
 2. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
@@ -1444,7 +1446,7 @@ or parking. Exact costs and transition scopes are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Current handoff: continue on `nightrunner-3rd-AUG-26` at Comment Vocabulary
-Audit CV0. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
+Audit CV1. Do not resume Dense Pile SR3 until the Physics contact/sleep owner
 selects an option and transition scope from its blocker report; the half-quiet
 candidate is rejected and must not be reimplemented. Source Modernization Sweep
 follows the comment plan independently.
@@ -3787,6 +3789,18 @@ geometry/replay transition, or parking. Dense Pile is excluded as an externally
 blocked lane under rule 4, leaving Comment Vocabulary Audit and Source
 Modernization Sweep at 0/10 (0%). Evidence and exact unblock conditions are in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
+
+Comment Vocabulary And Banner Convention Audit CV0 completed on 2026-08-03.
+The `git ls-files` inventory contains 587 source files (260 `.cpp`, 327 `.h`),
+all with the exact modern core learning-header fields. The census records six
+plain-language/orientation spellings across 29 files, all 35 legacy-banner files
+also carrying modern headers, 23 `CATTO REF` and 35 `ENGINE-SPECIFIC` markers
+across three Physics files, three execution/proof lanes, and the recurring
+undocumented policy/contract headings. Governance review dialect remains absent
+from source. The strict glossary inventory passes with 993 unique single-file
+definitions, zero multi-file terms, and zero drift. The live ledger advances to
+1/10 (10%). Evidence is in
+`../Reports/2026-08-03/comment-vocabulary-audit-cv0-census.md`.
 
 ## Features
 

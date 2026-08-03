@@ -1,7 +1,7 @@
 # Comment Vocabulary And Banner Convention Audit
 
 Date: 2026-08-02
-Status: NOT STARTED — 0/5 phases complete
+Status: IN PROGRESS — 1/5 phases complete
 Impact area: Source comments across every subsystem, comment style guide, glossary reference
 Owner: Comment Quality Gate
 Priority: Third
@@ -90,7 +90,16 @@ quality is measured rather than assumed.
 
 ## Phases
 
-- [ ] **CV0 — Census every comment convention in use.** Using `git ls-files` for
+- [x] **CV0 — Census every comment convention in use.** The tracked inventory is
+  587 files (260 `.cpp`, 327 `.h`), all with exact modern core header fields.
+  Current structured-tag counts, six plain-language spellings across 29 files,
+  the 35/35 banner-plus-modern-header stratum, the three-file 23/35 physics
+  citation split, execution/proof lanes, recurring custom headings, zero source
+  governance-dialect leakage, and the clean 993-term glossary inventory are
+  recorded in
+  `../../Reports/2026-08-03/comment-vocabulary-audit-cv0-census.md`.
+
+  Original work order: Using `git ls-files` for
   the inventory, not `rg`, produce the complete list of conventions actually
   present: section-header spellings and their counts, banner-style files and
   whether each also carries a modern header, the `CATTO REF`/`ENGINE-SPECIFIC`/

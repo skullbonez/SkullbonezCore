@@ -12,10 +12,11 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-3rd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
 | Current baseline | Current `main` tip `1ff768dd` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Dense Pile Sleep Resolution is blocked at 3/5 after its SR3 candidate failed the 20,000-frame oracle; Comment Vocabulary Audit CV0 is binding next, followed by Source Modernization Sweep. |
-| Active/future progress | 0/10 (0%): Narrowphase, broadphase, and render graph are complete; Dense Pile Sleep Resolution is externally blocked and excluded under rule 4. Comment Vocabulary Audit and Source Modernization Sweep remain actionable. The parked stacking plan remains excluded under inventory rule 9. |
+| Current objective | Fresh-Read Coverage And Convention is active. Comment Vocabulary Audit CV0 is complete and CV1 convention rulings are binding next; Source Modernization Sweep follows. Dense Pile Sleep Resolution remains owner-blocked at 3/5. |
+| Active/future progress | 1/10 (10%): Comment Vocabulary Audit is 1/5 and Source Modernization Sweep is 0/5. Narrowphase, broadphase, and render graph are complete; Dense Pile Sleep Resolution is externally blocked and excluded under rule 4. |
 | Fresh-read campaign registration | Six plans / 31 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), dense pile sleep resolution (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Dense Pile Sleep Resolution blocker | SR0–SR2 remain verified, but the selected half-quiet witness is rejected: its 20,000-frame candidate never permanently sleeps, ends 327/330 with 5,441 wake oscillations, and only seven of 570 live rows reach the threshold. Failed source/test/ruling edits were removed. Owner: Physics contact/sleep. Unblock by selecting the tuned-hysteresis, retained-state, or geometry/replay option and transition scope in `Agentic/Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`, or park the plan. SR4 alone is dependent. |
+| Comment Vocabulary CV0 | Complete. The 587-file tracked census records universal modern headers, six plain-language spellings across 29 files, 35/35 legacy banners layered over modern headers, the three-file 23/35 Catto/engine citation split, undocumented execution/proof lanes and recurring custom headings, zero governance-dialect leakage, and a clean 993-term strict glossary inventory. Evidence: `Agentic/Reports/2026-08-03/comment-vocabulary-audit-cv0-census.md`. |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
 | Narrowphase NM1 | Complete. Eight focused cases / 251 assertions pin authored normal, depth, row-count, and point geometry across every ordered object family and box/hull topology. The derived hull edge/edge oracle exposed and repaired a reverse-support SAT tie; tests, direct coverage, and byte-exact Physics pass without baseline refresh. Comment audit is 2/2. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm1-geometry.md`. |
 | Narrowphase NM2 | Complete. Sub-slop box and brick-hull frame pairs retain ordered feature ids, a 41-pose sweep crosses the incident-face boundary once, and the production reducer proves deepest/tie/spread/invalid behavior across all 720 insertion permutations. A feature-only change misses the persistent cache. Comment audit is 3/3. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm2-identity.md`. |
@@ -145,14 +146,14 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 0/10 (0%). Narrowphase
+Fresh-Read Coverage And Convention is active at 1/10 (10%). Narrowphase
 Manifold And Sleep Coverage, Broadphase Pair Dedup Cost, and Render Graph
 Transition Coverage are complete and excluded under rule 4. Dense Pile Sleep
 Resolution is blocked at 3/5 and excluded as an externally blocked lane: its
 half-quiet SR3 candidate failed the long-horizon oracle, all failed source edits
 were removed, and the Physics contact/sleep owner must select a costed policy,
 state, transition, or parking option from the blocker report. SR4 alone depends
-on that decision. Comment Vocabulary Audit CV0 is binding next; Source
+on that decision. Comment Vocabulary Audit CV1 is binding next; Source
 Modernization Sweep follows independently.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
