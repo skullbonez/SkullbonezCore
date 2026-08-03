@@ -5,8 +5,9 @@ Purpose:
   lifetime plans for the renderer.
 
 Summary:
-  Records render pass/resource intent, callback ordering,
-  and transient texture lifetime plans for the renderer.
+  Passes declare resource reads/writes and callback order. RenderGraph derives
+  transitions and transient alias lifetimes; the backend executor alone turns
+  the compiled plan into API barriers and resources.
 
 Invariants:
   - Render graph handles are graph-local ids, not CPU pointers or GPU descriptor
@@ -19,6 +20,10 @@ Invariants:
   - Declared pass accesses are the single source of truth for ordinary
     frame-resource transitions. The graph derives them; the backend executor
     emits them. A hand-written ordinary frame-pass barrier is a defect.
+  - Present, cold capture/readback, development ImGui viewport copy, and
+    shutdown/resize reconciliation are the four bounded transitions outside
+    ordinary pass declarations. Upload, mip, dynamic-geometry, and acceleration
+    structure barriers remain with their resource owners.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
@@ -51,8 +56,8 @@ inline constexpr size_t RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE = 8;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSITIONS = 96;
 inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
 
-/* -- RenderGraph: first DX12 render-architecture contract
------------------------------------------------------------------------------------------------
+/*
+Concept: RenderGraph as the DX12 render-architecture contract
 
     What problem does a render graph solve?
 
@@ -101,7 +106,7 @@ inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
     dynamic geometry, and acceleration structures also stay with their owners;
     they are not frame passes. Adding a fifth ordinary-pass exception is a
     review failure — declare the access instead.
-----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 
 // A queue is a lane of GPU work.
 //

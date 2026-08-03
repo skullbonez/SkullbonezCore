@@ -4,8 +4,9 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Summary:
-  Loads texture files and hands
-  renderer-neutral texture ids to draw code.
+  TextureCollection owns the fixed legacy-hash-to-backend-handle table. Asset
+  and render owners are borrowed so draw code can use opaque texture ids
+  without taking file or GPU lifetime authority.
 
 Invariants:
   - m_textures is fixed to SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
@@ -98,8 +99,8 @@ class TextureCollection
     TextureHandleResult GetTextureHandle( uint32_t hash );
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
-    SkullbonezCore::Core::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );
-    SkullbonezCore::Core::SbResult EnsureJpegTexture( const char* cFileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult CreateJpegTexture( const char* fileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult EnsureJpegTexture( const char* fileName, uint32_t hash );
     SkullbonezCore::Core::SbResult RebuildTexturesFromSourceAssets();
     void DumpTextureAssets( FILE* out ) const;
 };

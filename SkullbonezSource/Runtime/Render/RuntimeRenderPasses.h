@@ -446,13 +446,13 @@ struct ShadowPassOutput
     const Rendering::ShadowFrameData* objectShadow = nullptr;
 };
 
-/* -- FullscreenQuadPass
-------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: FullscreenQuadPass
 
     Shared two-triangle draw surface for generated sky, volumetric light,
     and tonemap. It owns only the dynamic vertex buffer; shader meaning is
     owned by the pass that uses it.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class FullscreenQuadPass
 {
   public:
@@ -467,13 +467,13 @@ class FullscreenQuadPass
     FullscreenPassResources& m_resources;
 };
 
-/* -- SkyPass
------------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: SkyPass
 
     Draws the current sky into whichever render target the caller has bound.
     The cube-map path samples authored face textures; the cinematic path
     owns a generated-atmosphere shader and uses FullscreenQuadPass.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class SkyPass
 {
   public:
@@ -506,13 +506,13 @@ class SkyPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- SceneTargetPass
----------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: SceneTargetPass
 
     Owns the HDR scene target used by cinematic rendering. Begin() binds and
     clears the target, then asks SkyPass to draw the background before world
     geometry is rendered into the target.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class SceneTargetPass
 {
   public:
@@ -535,13 +535,13 @@ class SceneTargetPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- ShadowPass
---------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: ShadowPass
 
     Builds terrain/object shadow maps before receiver passes run. It owns
     the shadow targets and the per-frame receiver payloads that terrain and
     object shaders borrow for the rest of RuntimeRenderer::RenderPreparedFrame().
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class ShadowPass
 {
   public:
@@ -589,13 +589,13 @@ class ShadowPass
     int m_activeWindowHeight = 1;
 };
 
-/* -- ReflectionPass
-----------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: ReflectionPass
 
     Produces the reflection texture consumed by WaterPass. It chooses DXR
     reflection when possible, otherwise it renders a mirrored scene into the
     planar reflection target.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class ReflectionPass
 {
   public:
@@ -627,13 +627,13 @@ class ReflectionPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- ObjectPass
---------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: ObjectPass
 
     Draws production bodies or collision-state solids into the current
     target. The caller chooses whether this is the opaque or transparent
     body pass; this class owns the object shader texture-slot contract.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class ObjectPass
 {
   public:
@@ -652,12 +652,12 @@ class ObjectPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- TerrainPass
--------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: TerrainPass
 
     Draws the terrain mesh with its material texture, cinematic style
     uniforms, and optional shadow receiver payload.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class TerrainPass
 {
   public:
@@ -680,12 +680,12 @@ class TerrainPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- WaterPass
----------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: WaterPass
 
     Draws calm/ocean water after reflection has produced its texture. Water
     samples only the reflection slot and never rebuilds reflection itself.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class WaterPass
 {
   public:
@@ -710,13 +710,13 @@ class WaterPass
     WaterPassDebugInfo m_debugInfo;
 };
 
-/* -- DebugOverlayPass
---------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: DebugOverlayPass
 
     Draws non-production world overlays after the main scene. These overlays
     are intentionally separate from ObjectPass so debug visuals do not leak
     into material or shadow contracts.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class DebugOverlayPass
 {
   public:
@@ -744,12 +744,12 @@ class DebugOverlayPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- VolumetricPass
-----------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: VolumetricPass
 
     Reads the completed HDR scene color/depth target and writes a
     half-resolution light-shaft texture for TonemapPass to composite.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class VolumetricPass
 {
   public:
@@ -778,13 +778,13 @@ class VolumetricPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- TonemapPass
--------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: TonemapPass
 
     Resolves the HDR scene target back to the window backbuffer. It owns the
     final post shader contract: scene color, scene depth, optional
     volumetric light, and cinematic grading uniforms.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class TonemapPass
 {
   public:
@@ -814,14 +814,14 @@ class TonemapPass
     SkullbonezCore::Core::Profiler* m_profiler;      // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
-/* -- UiTextPass
---------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: UiTextPass
 
     Cohesive 2D owner for the existing HUD, in-game UI, and signed-distance-field
     (SDF) text renderer.
     It owns text-batch state and process-lifetime presentation capabilities;
     RuntimeRenderer owns only the graph scheduling edge.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class UiTextPass
 {
   public:

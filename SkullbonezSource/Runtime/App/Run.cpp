@@ -4,7 +4,9 @@ Purpose:
   Coordinates the main game loop and high-level runtime lifecycle.
 
 Summary:
-  Coordinates the main game loop and high-level runtime lifecycle.
+  Run constructs process-lifetime owners, sequences fixed frame and teardown
+  phases, and passes typed values between them without absorbing scene,
+  rendering, replay, input, or UI business state.
 
 Glossary:
   Process-end capacity table: Final active-scene store rows emitted before
@@ -68,7 +70,7 @@ std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( Skullb
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
-    // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
+    // Runtime allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
     return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
 }

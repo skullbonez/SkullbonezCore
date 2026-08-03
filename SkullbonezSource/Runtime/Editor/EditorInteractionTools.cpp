@@ -4,8 +4,9 @@ Purpose:
   Owns runtime editor placement, selection, gizmos, and overlay tracing.
 
 Summary:
-  Owns runtime editor placement,
-  selection, gizmos, and overlay tracing.
+  Editor interaction helpers apply placement, selection, gizmo, and overlay
+  commands through explicit scene, physics, asset, and tool-owner borrows while
+  Input retains gesture authority.
 
 Glossary:
   Placement preflight: Capacity and asset-availability check shared by the

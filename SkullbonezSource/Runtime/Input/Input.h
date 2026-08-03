@@ -4,7 +4,9 @@ Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
 Summary:
-  Collects keyboard and mouse state for the run loop and UI.
+  Input captures one immutable keyboard/mouse frame, drains callback-fed raw
+  mouse events, and applies automation through that same device snapshot before
+  semantic routing.
 
 Glossary:
   HRAWINPUT: Win32 handle for one raw-input packet received through WM_INPUT.
@@ -52,12 +54,6 @@ class Window;
 namespace Hardware
 {
 
-/* -- Input State
-------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Holds input state to help separate logic and input code.  Should be modified depending on the games input
-requirements.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct InputState
 {
 
@@ -116,11 +112,6 @@ struct InputState
     }
 };
 
-/* -- Input
-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Static methods to wrap up input functions from the Win32 API.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Input
 {
   public:

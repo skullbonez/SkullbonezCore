@@ -4,7 +4,8 @@ Purpose:
   Writes debug-only runtime, crash, and diagnostics logs.
 
 Summary:
-  Writes debug-only runtime, crash, and diagnostics logs.
+  This implementation owns debug-build file handles and byte-exact writes for
+  runtime, crash, and diagnostic channels; release builds retain a no-op API.
 
 Invariants:
   - Debug logs are opened in binary mode so newline bytes stay byte-exact for

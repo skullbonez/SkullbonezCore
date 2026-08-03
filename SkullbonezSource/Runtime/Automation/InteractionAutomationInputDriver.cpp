@@ -6,8 +6,6 @@ Purpose:
 Summary:
   The input driver applies hold/release policy independently of camera, scene,
   replay, UI, and tool owners, then forwards a value snapshot to Input.
-
-Mental model:
   Actions set held state and release deadlines. The frame sequencer first
   expires deadlines, applies this frame's actions, then publishes one immutable
   snapshot to the existing input bridge.

@@ -350,28 +350,6 @@ void ExpectCleanChildCase( const char* caseName, std::initializer_list<const cha
 }
 #endif
 
-#if defined( _DEBUG )
-bool RunSpatialGridPairMembershipCapacityFatalCase()
-{
-    static SpatialGrid grid( 1.0f );
-
-    {
-        RuntimeAllocationScope sceneLoadScope( RuntimeAllocationPhase::SceneLoad );
-        grid.ReserveSceneCapacity( 2u );
-    }
-
-    grid.BeginFrame( 2 );
-    grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 1, Vector3( 2.25f, 0.25f, 0.25f ), 0.0f );
-    grid.SetPairMembershipLogicalCapacityForTest( 1u );
-    std::vector<std::pair<int, int>> pairs;
-    pairs.reserve( 1u );
-    RuntimeAllocationScope physicsScope( RuntimeAllocationPhase::Physics );
-    grid.GetCandidatePairs( pairs );
-    return true;
-}
-#endif
-
 struct WorkerFatalProbe
 {
     void ExecuteWorkerTask()
@@ -871,13 +849,6 @@ bool RunRuntimeFatalCase( const char* caseName )
         grid.InsertSwept( 1, Vector3( 5000.25f, 0.25f, 0.25f ), Vector3( 2050.0f, 0.0f, 0.0f ), 0.0f );
         return true;
     }
-
-#if defined( _DEBUG )
-    if ( std::strcmp( caseName, "spatial-grid-pair-membership-capacity" ) == 0 )
-    {
-        return RunSpatialGridPairMembershipCapacityFatalCase();
-    }
-#endif
 
     if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
     {
@@ -1441,14 +1412,6 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "spatial-grid-overlay-entry-capacity",
                      { "FATAL: PhysicsFixedList capacity exceeded", "owner=SpatialGrid.overlayEntries", "requested=4097",
                        "runtime_capacity=4096", "compile_capacity=4096", "high_water=4096", "phase=physics" } );
-
-#if defined( _DEBUG )
-    ExpectFatalCase( "spatial-grid-pair-membership-capacity",
-                     { "FATAL[Physics/SpatialGrid]", "Pair membership ordinal capacity exhausted",
-                       "owner=SpatialGrid.pairMembershipOrdinals", "requested=2", "logical_capacity=1",
-                       "reserved_capacity=5136", "high_water=0", "admitted_bodies=2", "persistent_live=2",
-                       "persistent_capacity=1040", "overlay_live=0", "overlay_capacity=4096", "phase=physics" } );
-#endif
 
     ExpectFatalCase( "spatial-grid-bucket-capacity", { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded",
                                                        "capacity=8192", "active=8192", "phase=steady_gameplay" } );

@@ -4,9 +4,9 @@ Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  Declares off-screen framebuffer resources and their views. It borrows
-  one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
-  framebuffer cannot retain allocator aliases with independent lifetimes.
+  FramebufferDX12 owns off-screen color/depth resources with write views for
+  render passes and shader-read views for later passes. It borrows one
+  Dx12DescriptorHeaps owner so those rows cannot outlive their allocator.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -45,15 +45,6 @@ class Dx12DrawGate;
 class Dx12ResourceRelease;
 
 
-/* -- FramebufferDX12
--------------------------------------------------------------------------------------------------------------------------------------------
-
-    DirectX 12 off-screen framebuffer.
-
-    The engine-facing idea is "draw into a texture, then sample it later." DX12
-    expresses that through separate resources and descriptors: an RTV for color
-    writes, a DSV for depth writes, and SRVs for later shader reads.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class FramebufferDX12
 {
 

@@ -4,8 +4,9 @@ Purpose:
   Defines explicit runtime picking requests for editor, tool, and replay input.
 
 Summary:
-  Defines explicit runtime picking
-  requests for editor, tool, and replay input.
+  RuntimePickService centralizes closest-hit policy over synchronously borrowed
+  physics stores and returns frame-local typed handles for editor, tool, and
+  replay callers to revalidate.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does

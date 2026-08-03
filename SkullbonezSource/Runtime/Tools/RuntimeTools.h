@@ -6,8 +6,6 @@ Purpose:
 Summary:
   RuntimeTools groups bounded editor, launcher, pickup, replay, and overlay
   tool state and applies their commands through explicitly borrowed owners.
-
-Mental model:
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
   gesture is active; tools retain only the start values needed to apply it.

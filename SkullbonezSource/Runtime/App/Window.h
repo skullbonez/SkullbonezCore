@@ -4,7 +4,9 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Summary:
-  Creates and owns the Win32 window and message pump integration.
+  Window owns native window/client-size state, rebuilds projection values on
+  resize, and lends resize work to the bound render-frame owner without owning
+  renderer resources.
 
 Glossary:
   Resize frame owner: Borrowed concrete owner used only to resize swap-chain and
@@ -51,11 +53,6 @@ struct ImGuiEditorNativeMessageRoute;
 } // namespace DevelopmentTools
 #endif
 
-/* -- Skullbonez Window
-------------------------------------------------------------------------------------------------------------------------------------------
-
-    Startup-owned wrapper for the Win32 application window.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Window
 {
 
@@ -109,7 +106,7 @@ class Window
     SkullbonezCore::Core::SbResult HandleScreenResize();                           // Resizes the renderer/projection or reports a Lane R resize
 
     // failure.
-    void SetTitleText( const char* cText );                                        // Updates the native title bar without touching renderer text.
+    void SetTitleText( const char* text );                                         // Updates the native title bar without touching renderer text.
     void SetProjectionFrustum( float nearPlane,
                                float farPlane );                                   // Stores projection depth planes used by later resize messages.
     void SetStartupWindowSize( int width, int height );                            // Stores config-owned initial window/fullscreen dimensions.
@@ -127,11 +124,11 @@ class Window
     void SetWindowDimensions( const RECT dimensions );                             // Caches dimensions from a Win32 RECT.
     void SetWindowDimensions( int width, int height );                             // Caches dimensions from explicit client width/height.
     SkullbonezCore::Core::SbResult
-    CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode,
+    CreateAppWindow( HINSTANCE instance, bool isFullScreenMode,
                      bool showOnCreate = true );                                   // Creates the native window or reports Lane R startup failure.
     void ChangeToFullScreen( int xResolution, int yResolution );                   // Applies fullscreen display mode dimensions.
-    int MsgBox( const char* cMsgBoxText, const char* cMsgBoxTitle,
-                const UINT iMsgBoxType );                                          // Native modal message box for startup/validation failures.
+    int MsgBox( const char* text, const char* title,
+                const UINT type );                                                 // Native modal message box for startup/validation failures.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

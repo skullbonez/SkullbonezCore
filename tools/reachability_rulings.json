@@ -696,7 +696,7 @@
     },
     {
       "file": "SkullbonezSource/World/Terrain.cpp",
-      "signature": "SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config, std::unique_ptr<Terrain>& outTerrain )",
+      "signature": "SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config, std::unique_ptr<Terrain>& outTerrain )",
       "owner": "Terrain authoritative height-map physics construction",
       "disposition": "retain-owner",
       "reason": "It is the CPU/render-free Lane-R seam that owns validated terrain creation.",

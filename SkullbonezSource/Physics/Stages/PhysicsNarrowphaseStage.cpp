@@ -329,7 +329,9 @@ void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEv
     const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
     const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
     const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
-    event.collisionCellKey = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+    event.collisionCellKey = ( static_cast<int64_t>( cx ) * 73856093 ) ^ ( static_cast<int64_t>( cy ) * 19349663 ) ^
+                             ( static_cast<int64_t>( cz ) * 83492791 );
+
     event.hasCollisionCellKey = 1;
 }
 

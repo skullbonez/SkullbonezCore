@@ -4,7 +4,8 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Builds and draws bitmap/SDF text for HUD and diagnostics.
+  Text2d appends HUD glyph and quad vertices into the caller's fixed-capacity
+  TextBatch, then explicit flush boundaries publish those queues to DX12.
 
 Glossary:
   VB (Vertex Buffer): GPU buffer containing text or quad vertex attributes.
@@ -16,6 +17,8 @@ Invariants:
     the one fixed-capacity TextBatch passed to every mutating draw operation.
   - Render2dText/BatchQuad enqueue CPU-side vertices into that explicit batch,
     and FlushText/FlushQuads are the draw boundaries for those queues.
+  - Text x/y positions remain in near-plane frustum units using the configured
+    45-degree field of view and current screen aspect ratio.
 
 Related:
   - SkullbonezSource/Rendering/Text.cpp
@@ -77,15 +80,6 @@ class TextBatch
     float m_halfHeight = 0.0f;
 };
 
-/* -- Text 2d
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Provides a series of static methods to draw 2D text to the screen using a shader-based
-    font atlas. Replaces the old display-list font approach.
-
-    Coordinate space matches the legacy system: x/y positions are in the frustum-unit space
-    at the near clip plane (FOV=45 degrees, aspect=screen_x/screen_y from engine.cfg).
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Text2d
 {
 
@@ -105,11 +99,11 @@ class Text2d
     inline static float charAdvance[96] = {};
 
     // Text coordinates are centered on the client rect in legacy frustum units:
-    // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
+    // x/y normally stay within [-0.5, 0.5], size is normalized, and the format
     // string accepts printf-style arguments.
     // Queues white SDF text for this frame's text batch.
-    static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float fSize, float r, float g,
-                                   float b, const char* cRawText,
+    static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
+                                   const char* format,
                                    ... );                                   // Queues colored SDF text for this frame's text batch.
     static void
     FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures,
@@ -130,9 +124,9 @@ class Text2d
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
                Rendering::Dx12GeometryOwner& renderGeometry, const Assets::AssetSystem& assets, int screenW, int screenH,
-               const char* cFontName );                                     // Loads or generates SDF atlas resources for the active backend.
-    static bool GenerateSdfAtlasToFile( const char* cFontName,
-                                        const char* cOutPath );             // Offline SDF atlas writer used by --gen-atlas tooling.
+               const char* fontName );                                      // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile( const char* fontName,
+                                        const char* outputPath );           // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,
                             Rendering::Dx12GeometryOwner* renderGeometry ); // Releases GPU font resources while a backend is still available.
     static void RebuildProjection( TextBatch& batch, int w, int h );        // Recomputes owned ortho projection after a window resize.
@@ -144,10 +138,10 @@ class Text2d
     {
         return batch.m_halfHeight;
     } // Top edge Y in text space; fixed by the text projection FOV.
-    static float MeasureText( float fSize, const char* text );              // Width in text-space units for already-formatted strings.
+    static float MeasureText( float size, const char* text );               // Width in text-space units for already-formatted strings.
 
   private:
-    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float fSize, float colR, float colG,
+    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
                                     float colB, const char* formatted );
 };
 } // namespace Text

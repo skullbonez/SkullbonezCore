@@ -60,7 +60,7 @@ struct ShaderResourceDecl
 {
     const char* name;
 
-    // Contract: named t-register resources remain available to non-bindless
+    // Invariant: named t-register resources remain available to non-bindless
     // program contracts. Shipping UnifiedRaster programs instead translate
     // BindTexture slot N into b1 bindless payload element N.
     int slot;

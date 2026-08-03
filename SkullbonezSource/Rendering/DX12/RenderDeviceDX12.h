@@ -115,12 +115,13 @@ inline bool CanReserveDx12UploadRange( UINT64 offset, UINT64 capacity, UINT64 si
     return alignedOffset <= capacity && size <= capacity - alignedOffset;
 }
 
-/* -- DX12 diagnostics helpers
-----------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: DX12 diagnostics helpers
 
-    Debug names and DRED are not rendering features by themselves, but they are
-    part of the DX12 architecture because DX12 makes the engine responsible for
-    GPU lifetime and synchronization. When a GPU error happens, the useful
+    Debug names and Device Removed Extended Data (DRED) are not rendering
+    features by themselves, but they are part of the DX12 architecture because
+    DX12 makes the engine responsible for GPU lifetime and synchronization.
+    When a GPU error happens, the useful
     question is not "which raw pointer failed?" but "was that the swap-chain
     back buffer, the upload arena, or a command allocator?"
 
@@ -130,14 +131,14 @@ inline bool CanReserveDx12UploadRange( UINT64 offset, UINT64 capacity, UINT64 si
       and page-fault data if the GPU device is removed.
     - NameDx12Object attaches human-readable names to D3D12 objects. PIX, DRED,
       and the debug layer can then report meaningful object names.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 void EnableDx12DeviceRemovedDiagnostics();
 void NameDx12Object( ID3D12Object* object, const wchar_t* name );
 void NameDx12ObjectIndexed( ID3D12Object* object, const wchar_t* prefix, UINT index );
 
 // Compact counters for the frame fence timeline.
 //
-// Plain-language version:
+// Concept:
 //
 // The CPU records commands into command lists, then submits those command lists
 // to the GPU. The GPU usually executes them later. That means CPU code can be
@@ -152,8 +153,8 @@ struct Dx12FenceTimelineStats
     UINT64 completedValue = 0;
 };
 
-/* -- Dx12FenceTimeline
-------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12FenceTimeline
 
     What is a fence timeline?
 
@@ -181,7 +182,7 @@ struct Dx12FenceTimelineStats
     backend still creates and releases those raw objects. The class owns the
     policy for signal values and waits, which is the part future Dx12RenderDevice
     code should keep.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12FenceTimeline
 {
   public:
@@ -213,7 +214,7 @@ class Dx12FenceTimeline
 
 // A CPU descriptor allocation is one row in a CPU-only DX12 descriptor heap.
 //
-// Plain-language version:
+// Concept:
 //
 // RTV and DSV descriptors are not read directly by shaders. The CPU records
 // command-list calls that bind those descriptors to the Output Merger stage,
@@ -239,8 +240,8 @@ struct Dx12CpuDescriptorAllocatorStats
     UINT used = 0;
 };
 
-/* -- Dx12CpuDescriptorAllocator
--------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12CpuDescriptorAllocator
 
     What is a CPU descriptor allocator?
 
@@ -274,7 +275,7 @@ struct Dx12CpuDescriptorAllocatorStats
     handle and no per-frame transient range. Stable swap-chain rows are
     overwritten for the same engine object; framebuffer rows return through the
     shared retirement fence before the free list may assign them to a new one.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12CpuDescriptorAllocator
 {
   public:
@@ -302,7 +303,7 @@ class Dx12CpuDescriptorAllocator
 
 // Compact counters for the DX12 descriptor allocator.
 //
-// Plain-language version:
+// Concept:
 //
 // A texture, buffer, or unordered-access target is the actual storage. A
 // descriptor is not the storage. A descriptor is a small lookup record that says
@@ -365,8 +366,8 @@ struct Dx12TextureHandleCodec
     }
 };
 
-/* -- Dx12DescriptorAllocator
-------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12DescriptorAllocator
 
     What is a descriptor allocator?
 
@@ -444,7 +445,7 @@ struct Dx12TextureHandleCodec
     Static rows are not overwritten until fence retirement proves their prior
     resource use is complete. AllocateTransient() remains for genuinely dynamic
     compute/raytracing tables and partitions those temporary rows by frame fence.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12DescriptorAllocator
 {
   public:
@@ -467,7 +468,7 @@ class Dx12DescriptorAllocator
     // Reserve one long-lived descriptor slot. Use this for descriptors whose
     // index will be stored in texture/render-resource records.
     //
-    // Plain-language rule: if another object will remember this descriptor
+    // Invariant: if another object will remember this descriptor
     // number after the current draw call, it needs a static slot.
     UINT AllocateStatic();
 
@@ -478,7 +479,7 @@ class Dx12DescriptorAllocator
     // Reserve one temporary descriptor slot from the current frame's range.
     // Use this for descriptor copies needed while recording this frame.
     //
-    // Plain-language rule: if this descriptor exists only so the next draw or
+    // Invariant: if this descriptor exists only so the next draw or
     // dispatch can bind a GPU-visible table row, use a transient slot.
     UINT AllocateTransient();
 
@@ -535,7 +536,7 @@ class Dx12DescriptorAllocator
 
 // Compact counters for the per-frame upload arena.
 //
-// Plain-language version:
+// Concept:
 //
 // Upload memory is CPU-visible staging memory. The CPU writes bytes into it,
 // then the GPU reads those bytes later from the command list. It is commonly
@@ -556,8 +557,8 @@ struct Dx12UploadArenaStats
     UINT64 categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {}; // Run high-water per owner.
 };
 
-/* -- Dx12UploadArena
---------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12UploadArena
 
     What is an upload arena?
 
@@ -607,7 +608,7 @@ struct Dx12UploadArenaStats
       Some DX12 bindings must begin at specific byte boundaries. For example,
       constant-buffer data must be 256-byte aligned. The arena rounds the cursor
       forward to the next legal boundary before each allocation.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12UploadArena
 {
   public:
@@ -653,8 +654,8 @@ class Dx12UploadArena
     UINT64 m_categoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
 };
 
-/* -- Dx12FrameUploadSystem
--------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12FrameUploadSystem
 
     What is the frame upload system?
 
@@ -675,7 +676,7 @@ class Dx12UploadArena
     This class owns the actual upload ID3D12Resource objects and their mapped
     CPU pointers. Dx12UploadArena remains the per-frame byte allocator wrapped
     around each resource.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12FrameUploadSystem
 {
   public:
@@ -725,8 +726,8 @@ struct Dx12ReadbackBufferStats
     bool ready = false;
 };
 
-/* -- Dx12ReadbackBuffer
-----------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12ReadbackBuffer
 
     What is a readback buffer?
 
@@ -744,7 +745,7 @@ struct Dx12ReadbackBufferStats
     has completed. The caller still controls the fence wait because different
     readbacks have different timing needs. Screenshots block immediately; GPU
     timer readback usually polls without stalling the frame.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12ReadbackBuffer
 {
   public:
@@ -788,8 +789,8 @@ struct Dx12RenderDeviceInitDesc
     DXGI_FORMAT backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 };
 
-/* -- Dx12RenderDevice
-------------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Dx12RenderDevice
 
     What is the render device layer?
 
@@ -819,7 +820,7 @@ struct Dx12RenderDeviceInitDesc
     - the backend may borrow those pointers internally through accessors,
     - DX12 helper classes ask the device owner for native handles,
     - shutdown has one place to release the core DX12 objects in a safe order.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class Dx12RenderDevice
 {
   public:

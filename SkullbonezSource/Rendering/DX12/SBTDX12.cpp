@@ -4,8 +4,9 @@ Purpose:
   Builds the DX12 raytracing shader binding table that maps ray records to shaders.
 
 Summary:
-  Builds the DX12 raytracing shader binding
-  table that maps ray records to shaders.
+  SBTDX12 lays out aligned ray-generation, miss, and hit-group records that map
+  DXR dispatch rows to their shaders, then publishes the mapped table only
+  after resource creation succeeds.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -173,18 +174,18 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
     }
 
     uint8_t* mapped = mappedResult.bytes;
-    memset( mapped, 0, (size_t)totalSize );
+    memset( mapped, 0, static_cast<size_t>( totalSize ) );
 
     // Raygen record
-    memcpy( mapped + m_rayGenOffset, rayGenId, (size_t)shaderIdSize );
+    memcpy( mapped + m_rayGenOffset, rayGenId, static_cast<size_t>( shaderIdSize ) );
 
     // Miss record
-    memcpy( mapped + m_missOffset, missId, (size_t)shaderIdSize );
+    memcpy( mapped + m_missOffset, missId, static_cast<size_t>( shaderIdSize ) );
 
     // Hit group records
-    memcpy( mapped + m_hitGroupOffset, terrainHitId, (size_t)shaderIdSize );
+    memcpy( mapped + m_hitGroupOffset, terrainHitId, static_cast<size_t>( shaderIdSize ) );
 
-    memcpy( mapped + m_hitGroupOffset + m_hitGroupStride, sphereHitId, (size_t)shaderIdSize );
+    memcpy( mapped + m_hitGroupOffset + m_hitGroupStride, sphereHitId, static_cast<size_t>( shaderIdSize ) );
 
     m_buffer->Unmap( 0, nullptr );
     return SkullbonezCore::Core::SbResult::Success();

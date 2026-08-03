@@ -73,7 +73,7 @@
                        },
                        {
                            "key":  "EditorGizmoDragPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:260",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:258",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -100,7 +100,7 @@
                        },
                        {
                            "key":  "EditorPointerPreviewInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:224",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:222",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -109,7 +109,7 @@
                        },
                        {
                            "key":  "EditorPointerSelectionInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:237",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:235",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -127,7 +127,7 @@
                        },
                        {
                            "key":  "EditorViewportPlacementInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:325",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:323",
                            "members":  10,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -145,7 +145,7 @@
                        },
                        {
                            "key":  "FramePresentationFacts",
-                           "site":  "SkullbonezSource/Runtime/App/Run.h:204",
+                           "site":  "SkullbonezSource/Runtime/App/Run.h:196",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/App",
@@ -172,7 +172,7 @@
                        },
                        {
                            "key":  "ImGuiEditorFrameInput",
-                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:105",
+                           "site":  "SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h:103",
                            "members":  7,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/DevelopmentTools",
@@ -181,7 +181,7 @@
                        },
                        {
                            "key":  "Input",
-                           "site":  "SkullbonezSource/Runtime/Input/Input.h:124",
+                           "site":  "SkullbonezSource/Runtime/Input/Input.h:115",
                            "members":  0,
                            "verdict":  "retain",
                            "owner":  "NA2 / Runtime/Input",
@@ -199,7 +199,7 @@
                        },
                        {
                            "key":  "LauncherPointerInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:364",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:362",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -208,7 +208,7 @@
                        },
                        {
                            "key":  "LauncherReproSnapshotContext",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:188",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:186",
                            "members":  12,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -316,7 +316,7 @@
                        },
                        {
                            "key":  "RenderGraphPassContext",
-                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:153",
+                           "site":  "SkullbonezSource/Rendering/RenderGraph.h:158",
                            "members":  5,
                            "verdict":  "retain-prior",
                            "owner":  "prior owner ruling carried by CA0",
@@ -505,7 +505,7 @@
                        },
                        {
                            "key":  "ReplaySaveProbeArtifactContext",
-                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:483",
+                           "site":  "SkullbonezSource/Runtime/App/ReplayValidation.Probes.cpp:481",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/App",
@@ -640,7 +640,7 @@
                        },
                        {
                            "key":  "RuntimePickRequest",
-                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:48",
+                           "site":  "SkullbonezSource/Runtime/Interaction/RuntimePickService.h:49",
                            "members":  5,
                            "verdict":  "retain",
                            "owner":  "prior owner ruling carried by CA0",
@@ -712,7 +712,7 @@
                        },
                        {
                            "key":  "SleepSupportPropagationContext",
-                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:48",
+                           "site":  "SkullbonezSource/Physics/SleepIslandSystem.h:49",
                            "members":  3,
                            "verdict":  "retain",
                            "owner":  "CA0 / Physics/SleepIslandSystem.h",
@@ -739,7 +739,7 @@
                        },
                        {
                            "key":  "ToolOverlayBuildInput",
-                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:173",
+                           "site":  "SkullbonezSource/Runtime/Tools/RuntimeTools.h:171",
                            "members":  6,
                            "verdict":  "retain",
                            "owner":  "CA0 / Runtime/Tools",
@@ -775,7 +775,7 @@
                        },
                        {
                            "key":  "WaterReflectionInput",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:69",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:70",
                            "members":  4,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",
@@ -784,7 +784,7 @@
                        },
                        {
                            "key":  "WaterStyleParams",
-                           "site":  "SkullbonezSource/World/WorldEnvironment.h:88",
+                           "site":  "SkullbonezSource/World/WorldEnvironment.h:89",
                            "members":  19,
                            "verdict":  "retain",
                            "owner":  "CA0 / World/WorldEnvironment.h",

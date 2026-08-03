@@ -7,8 +7,6 @@ Summary:
   Interaction automation is a validation driver. It asks the same picking,
   replay, camera, director-shot, and world-input code that an operator would
   use, while concrete input/report owners publish device snapshots and evidence.
-
-Mental model:
   A frame-indexed script produces synthetic device state and typed owner
   commands, then observes copied runtime facts after rendering. The controller
   never becomes an alternate gameplay, replay, editor, or window owner.

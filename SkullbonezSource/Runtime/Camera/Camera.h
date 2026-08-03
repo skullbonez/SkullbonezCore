@@ -97,10 +97,9 @@ class Camera
                                const CameraMovementSettings& settings );     // One-axis bound clamps may need a guarded
 
     // repair pass to restore eye-to-view distance.
-    void SetAll( const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vView,
-                 const Math::Vector::Vector3& vUpVector );
-    void MoveCamera( const TravelDirection enumDir, float fQuantity,
-                     const CameraMovementSettings& settings );               // fQuantity is world-space travel along camera-local axes.
+    void SetAll( const Math::Vector::Vector3& position, const Math::Vector::Vector3& view, const Math::Vector::Vector3& up );
+    void MoveCamera( const TravelDirection direction, float amount,
+                     const CameraMovementSettings& settings );               // amount is world-space travel along camera-local axes.
 
     void RotateCamera( float xMove, float yMove,
                        const CameraMovementSettings& settings );             // Mouse-look delta path; clamps pitch before mutating the view target.

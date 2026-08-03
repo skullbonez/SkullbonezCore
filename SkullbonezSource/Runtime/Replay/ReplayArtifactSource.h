@@ -17,7 +17,6 @@ Invariants:
 Related:
   - ReplayV2Artifact.cpp
   - ReplayRecorder.h
-  - ReplayV2Artifact.cpp
 */
 #pragma once
 

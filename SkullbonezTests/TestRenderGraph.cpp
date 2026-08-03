@@ -22,6 +22,10 @@ Invariants:
     kind, format, dimensions, mip count, and descriptor needs.
   - Every planned transient is released at frame end; unused transients
     terminate through the shared Lane F child-process harness.
+  - Every fixed ceiling accepts its exact boundary and terminates on the first
+    excess row through an isolated child.
+  - The frame execution contract admits either one named declaration-only edge
+    or none, while every command-recording pass remains enabled and callback-owned.
   - These tests create no graphics device and exercise only the API-neutral
     graph contract.
 
@@ -35,7 +39,9 @@ Related:
 #include "../SkullbonezSource/Rendering/RenderGraph.h"
 #include "TestFatalCases.h"
 
+#include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Rendering;
@@ -96,6 +102,40 @@ RenderGraphTransientResourceDesc MakeFullyDescribedTransient()
     desc.descriptors.unorderedAccess = true;
     return desc;
 }
+
+RenderGraphTransientResourceDesc MakeSingleDescriptorTransient()
+{
+    RenderGraphTransientResourceDesc desc = MakeFullyDescribedTransient();
+    desc.descriptors.depthStencil = false;
+    desc.descriptors.shaderResource = false;
+    desc.descriptors.unorderedAccess = false;
+    return desc;
+}
+
+void IgnoreRenderGraphCallback( const RenderGraphPassContext& /*context*/ )
+{
+}
+
+void AddContractCallbackPass( RenderGraph& graph, bool enabled )
+{
+    const RenderGraphResourceHandle target = graph.AddExternalResource( "ContractTarget",
+                                                                        RenderGraphResourceAccess::RenderTarget );
+    const uint32_t pass = graph.AddPass( "ContractCallback" );
+    graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<IgnoreRenderGraphCallback>( pass, enabled, "contract" );
+}
+
+void CheckExecutionContract( const RenderGraphExecutionContractResult& result, size_t expectedCallbackPasses,
+                             size_t expectedDeclarationOnlyPasses, size_t expectedNamedEdges, bool expectedNameMatch,
+                             bool expectedCallbacksEnabled, bool expectedValid )
+{
+    CHECK( result.callbackPassCount == expectedCallbackPasses );
+    CHECK( result.declarationOnlyPassCount == expectedDeclarationOnlyPasses );
+    CHECK( result.expectedDeclarationOnlyPassCount == expectedNamedEdges );
+    CHECK( result.declarationOnlyNameMatches == expectedNameMatch );
+    CHECK( result.allCallbacksEnabled == expectedCallbacksEnabled );
+    CHECK( result.IsValid() == expectedValid );
+}
 } // namespace
 
 bool RunRenderGraphFatalCase( const char* caseName )
@@ -125,6 +165,123 @@ bool RunRenderGraphFatalCase( const char* caseName )
     {
         RenderGraph graph;
         (void)graph.AddTransientResource( "Unused", MakeFullyDescribedTransient(), RenderGraphResourceAccess::Unknown );
+        (void)graph.Compile();
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-graph-resource-capacity" ) == 0 )
+    {
+        RenderGraph graph;
+        std::array<std::array<char, 32>, RENDER_GRAPH_MAX_RESOURCES + 1u> names = {};
+
+        for ( size_t index = 0; index < names.size(); ++index )
+        {
+            std::snprintf( names[index].data(), names[index].size(), "Resource%zu", index );
+            (void)graph.AddExternalResource( names[index].data(), RenderGraphResourceAccess::CopySource );
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-graph-pass-capacity" ) == 0 )
+    {
+        RenderGraph graph;
+
+        for ( size_t index = 0; index <= RENDER_GRAPH_MAX_PASSES; ++index )
+        {
+            (void)graph.AddPass( "CapacityPass" );
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-graph-read-capacity" ) == 0 ||
+         std::strcmp( caseName, "render-graph-write-capacity" ) == 0 )
+    {
+        RenderGraph graph;
+        const bool readCapacity = std::strcmp( caseName, "render-graph-read-capacity" ) == 0;
+        std::array<std::array<char, 32>, RENDER_GRAPH_MAX_PASS_RESOURCE_USES + 1u> names = {};
+        const uint32_t pass = graph.AddPass( readCapacity ? "ReadCapacity" : "WriteCapacity" );
+
+        for ( size_t index = 0; index < names.size(); ++index )
+        {
+            std::snprintf( names[index].data(), names[index].size(), "Use%zu", index );
+            const RenderGraphResourceAccess access = readCapacity ? RenderGraphResourceAccess::CopySource
+                                                                  : RenderGraphResourceAccess::CopyDest;
+            const RenderGraphResourceHandle resource = graph.AddExternalResource( names[index].data(), access );
+
+            if ( readCapacity )
+            {
+                graph.AddRead( pass, resource, access );
+            }
+            else
+            {
+                graph.AddWrite( pass, resource, access );
+            }
+        }
+
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-graph-transition-capacity" ) == 0 )
+    {
+        RenderGraph graph;
+        constexpr std::array<const char*, 9> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2",
+                                                                "Transition3", "Transition4", "Transition5",
+                                                                "Transition6", "Transition7", "Transition8" };
+        std::array<RenderGraphResourceHandle, 9> resources;
+
+        for ( size_t index = 0; index < resources.size(); ++index )
+        {
+            resources[index] = graph.AddExternalResource( RESOURCE_NAMES[index], RenderGraphResourceAccess::CopySource );
+        }
+
+        for ( uint32_t passIndex = 0u; passIndex < 12u; ++passIndex )
+        {
+            const bool write = ( passIndex % 2u ) == 0u;
+            const uint32_t pass = graph.AddPass( write ? "TransitionToDest" : "TransitionToSource" );
+
+            for ( size_t resourceIndex = 0; resourceIndex < 8u; ++resourceIndex )
+            {
+                if ( write )
+                {
+                    graph.AddWrite( pass, resources[resourceIndex], RenderGraphResourceAccess::CopyDest );
+                }
+                else
+                {
+                    graph.AddRead( pass, resources[resourceIndex], RenderGraphResourceAccess::CopySource );
+                }
+            }
+        }
+
+        const uint32_t overflowPass = graph.AddPass( "TransitionOverflow" );
+        graph.AddWrite( overflowPass, resources[8], RenderGraphResourceAccess::CopyDest );
+        (void)graph.Compile();
+        return true;
+    }
+
+    if ( std::strcmp( caseName, "render-graph-transient-allocation-capacity" ) == 0 )
+    {
+        RenderGraph graph;
+        const RenderGraphTransientResourceDesc desc = MakeSingleDescriptorTransient();
+        std::array<RenderGraphResourceHandle, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS + 1u> resources;
+
+        for ( size_t index = 0; index < resources.size(); ++index )
+        {
+            resources[index] = graph.AddTransientResource( "CapacityTransient", desc, RenderGraphResourceAccess::Unknown );
+        }
+
+        for ( size_t groupStart = 0; groupStart < resources.size(); groupStart += RENDER_GRAPH_MAX_PASS_RESOURCE_USES )
+        {
+            const uint32_t pass = graph.AddPass( "UseTransientGroup" );
+            const size_t groupEnd = (std::min)( groupStart + RENDER_GRAPH_MAX_PASS_RESOURCE_USES, resources.size() );
+
+            for ( size_t index = groupStart; index < groupEnd; ++index )
+            {
+                graph.AddWrite( pass, resources[index], RenderGraphResourceAccess::CopyDest );
+            }
+        }
+
         (void)graph.Compile();
         return true;
     }
@@ -398,4 +555,180 @@ TEST_CASE( "Render graph transient alias compatibility compares every compatibil
     ExpectRuntimeFatalCase( "render-graph-unused-transient",
                             { "FATAL[RenderGraph]",
                               "Transient resource must be read or written by at least one pass. resourceIndex=0" } );
+}
+
+TEST_CASE( "Render graph fixed stores accept every exact public boundary" )
+{
+    RenderGraph resourceGraph;
+    std::array<std::array<char, 32>, RENDER_GRAPH_MAX_RESOURCES> resourceNames = {};
+
+    for ( size_t index = 0; index < resourceNames.size(); ++index )
+    {
+        std::snprintf( resourceNames[index].data(), resourceNames[index].size(), "BoundaryResource%zu", index );
+        (void)resourceGraph.AddExternalResource( resourceNames[index].data(), RenderGraphResourceAccess::CopySource );
+    }
+
+    CHECK( resourceGraph.Resources().size() == RENDER_GRAPH_MAX_RESOURCES );
+    CHECK( resourceGraph.Resources().capacity() == RENDER_GRAPH_MAX_RESOURCES );
+
+    RenderGraph passGraph;
+
+    for ( size_t index = 0; index < RENDER_GRAPH_MAX_PASSES; ++index )
+    {
+        (void)passGraph.AddPass( "BoundaryPass" );
+    }
+
+    CHECK( passGraph.Passes().size() == RENDER_GRAPH_MAX_PASSES );
+    CHECK( passGraph.Passes().capacity() == RENDER_GRAPH_MAX_PASSES );
+
+    RenderGraph useGraph;
+    std::array<std::array<char, 32>, RENDER_GRAPH_MAX_PASS_RESOURCE_USES * 2u> useNames = {};
+    std::array<RenderGraphResourceHandle, RENDER_GRAPH_MAX_PASS_RESOURCE_USES * 2u> useResources;
+
+    for ( size_t index = 0; index < useResources.size(); ++index )
+    {
+        std::snprintf( useNames[index].data(), useNames[index].size(), "BoundaryUse%zu", index );
+        const RenderGraphResourceAccess initialAccess = index < RENDER_GRAPH_MAX_PASS_RESOURCE_USES
+                                                            ? RenderGraphResourceAccess::CopySource
+                                                            : RenderGraphResourceAccess::CopyDest;
+        useResources[index] = useGraph.AddExternalResource( useNames[index].data(), initialAccess );
+    }
+
+    const uint32_t usePass = useGraph.AddPass( "IndependentReadWriteBoundary" );
+
+    for ( size_t index = 0; index < RENDER_GRAPH_MAX_PASS_RESOURCE_USES; ++index )
+    {
+        useGraph.AddRead( usePass, useResources[index], RenderGraphResourceAccess::CopySource );
+        useGraph.AddWrite( usePass, useResources[index + RENDER_GRAPH_MAX_PASS_RESOURCE_USES],
+                           RenderGraphResourceAccess::CopyDest );
+    }
+
+    CHECK( useGraph.Passes()[usePass].reads.size() == RENDER_GRAPH_MAX_PASS_RESOURCE_USES );
+    CHECK( useGraph.Passes()[usePass].writes.size() == RENDER_GRAPH_MAX_PASS_RESOURCE_USES );
+    CHECK( useGraph.Compile().transitions.empty() );
+}
+
+TEST_CASE( "Render graph transition output accepts exactly ninety-six rows" )
+{
+    RenderGraph graph;
+    constexpr std::array<const char*, 8> RESOURCE_NAMES = { "Transition0", "Transition1", "Transition2", "Transition3",
+                                                            "Transition4", "Transition5", "Transition6", "Transition7" };
+    std::array<RenderGraphResourceHandle, 8> resources;
+
+    for ( size_t index = 0; index < resources.size(); ++index )
+    {
+        resources[index] = graph.AddExternalResource( RESOURCE_NAMES[index], RenderGraphResourceAccess::CopySource );
+    }
+
+    for ( uint32_t passIndex = 0u; passIndex < 12u; ++passIndex )
+    {
+        const bool write = ( passIndex % 2u ) == 0u;
+        const uint32_t pass = graph.AddPass( write ? "TransitionToDest" : "TransitionToSource" );
+
+        for ( const RenderGraphResourceHandle resource : resources )
+        {
+            if ( write )
+            {
+                graph.AddWrite( pass, resource, RenderGraphResourceAccess::CopyDest );
+            }
+            else
+            {
+                graph.AddRead( pass, resource, RenderGraphResourceAccess::CopySource );
+            }
+        }
+    }
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    REQUIRE( compiled.transitions.size() == RENDER_GRAPH_MAX_TRANSITIONS );
+    CheckTransition( compiled.transitions[0], 0u, resources[0], {}, RenderGraphResourceAccess::CopySource,
+                     RenderGraphResourceAccess::CopyDest );
+    CheckTransition( compiled.transitions[RENDER_GRAPH_MAX_TRANSITIONS - 1u], 11u, resources[7], {},
+                     RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::CopySource );
+}
+
+TEST_CASE( "Render graph transient output accepts exactly sixteen allocations" )
+{
+    RenderGraph graph;
+    const RenderGraphTransientResourceDesc desc = MakeSingleDescriptorTransient();
+    std::array<RenderGraphResourceHandle, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS> resources;
+
+    for ( RenderGraphResourceHandle& resource : resources )
+    {
+        resource = graph.AddTransientResource( "BoundaryTransient", desc, RenderGraphResourceAccess::Unknown );
+    }
+
+    for ( size_t groupStart = 0; groupStart < resources.size(); groupStart += RENDER_GRAPH_MAX_PASS_RESOURCE_USES )
+    {
+        const uint32_t pass = graph.AddPass( "UseTransientGroup" );
+
+        for ( size_t index = groupStart; index < groupStart + RENDER_GRAPH_MAX_PASS_RESOURCE_USES; ++index )
+        {
+            graph.AddWrite( pass, resources[index], RenderGraphResourceAccess::CopyDest );
+        }
+    }
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    REQUIRE( compiled.transientAllocations.size() == RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS );
+    CheckTransientAllocation( compiled.transientAllocations[0], resources[0], 0u, 0u, 0u, 1u, false );
+    CheckTransientAllocation( compiled.transientAllocations[7], resources[7], 7u, 0u, 0u, 1u, false );
+    CheckTransientAllocation( compiled.transientAllocations[8], resources[8], 0u, 1u, 1u, 1u, true );
+    CheckTransientAllocation( compiled.transientAllocations[15], resources[15], 7u, 1u, 1u, 1u, true );
+    CHECK( compiled.transientDiagnostics.allocationCount == 16u );
+    CHECK( compiled.transientDiagnostics.reuseCount == 8u );
+    CHECK( compiled.transientDiagnostics.releaseCount == 16u );
+    CHECK( compiled.transientDiagnostics.highWaterResources == 8u );
+    CHECK( compiled.transientDiagnostics.highWaterDescriptors == 8u );
+}
+
+TEST_CASE( "Render graph fixed stores reject every first excess row in Lane F" )
+{
+    ExpectRuntimeFatalCase( "render-graph-resource-capacity",
+                            { "FATAL[RenderGraph]",
+                              "Resource capacity exceeded while adding external resource. count=24 capacity=24" } );
+    ExpectRuntimeFatalCase( "render-graph-pass-capacity",
+                            { "FATAL[RenderGraph]", "Pass capacity exceeded. count=24 capacity=24" } );
+    ExpectRuntimeFatalCase( "render-graph-read-capacity",
+                            { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
+    ExpectRuntimeFatalCase( "render-graph-write-capacity",
+                            { "FATAL[RenderGraph]", "Pass resource-use capacity exceeded. count=8 capacity=8" } );
+    ExpectRuntimeFatalCase( "render-graph-transition-capacity",
+                            { "FATAL[RenderGraph]", "Transition capacity exceeded. count=96 capacity=96" } );
+    ExpectRuntimeFatalCase( "render-graph-transient-allocation-capacity",
+                            { "FATAL[RenderGraph]", "Transient allocation capacity exceeded. count=16 capacity=16" } );
+}
+
+TEST_CASE( "Render graph frame execution contract reports every count and validity input" )
+{
+    RenderGraph captureGraph;
+    AddContractCallbackPass( captureGraph, true );
+    CheckExecutionContract( captureGraph.ValidateFrameExecutionContract( nullptr ), 1u, 0u, 0u, true, true, true );
+    CheckExecutionContract( captureGraph.ValidateFrameExecutionContract( "" ), 1u, 0u, 0u, true, true, true );
+
+    RenderGraph validGraph;
+    AddContractCallbackPass( validGraph, true );
+    const RenderGraphResourceHandle validTarget = validGraph.AddExternalResource( "ContractTarget",
+                                                                                  RenderGraphResourceAccess::RenderTarget );
+    const uint32_t validPresent = validGraph.AddPass( "Present" );
+    validGraph.AddWrite( validPresent, validTarget, RenderGraphResourceAccess::Present );
+    CheckExecutionContract( validGraph.ValidateFrameExecutionContract( "Present" ), 1u, 1u, 1u, true, true, true );
+
+    RenderGraph missingGraph;
+    AddContractCallbackPass( missingGraph, true );
+    CheckExecutionContract( missingGraph.ValidateFrameExecutionContract( "Present" ), 1u, 0u, 1u, true, true, false );
+
+    RenderGraph wrongGraph;
+    AddContractCallbackPass( wrongGraph, true );
+    (void)wrongGraph.AddPass( "WrongEdge" );
+    CheckExecutionContract( wrongGraph.ValidateFrameExecutionContract( "Present" ), 1u, 1u, 1u, false, true, false );
+
+    RenderGraph extraGraph;
+    AddContractCallbackPass( extraGraph, true );
+    (void)extraGraph.AddPass( "Present" );
+    (void)extraGraph.AddPass( "ExtraEdge" );
+    CheckExecutionContract( extraGraph.ValidateFrameExecutionContract( "Present" ), 1u, 2u, 1u, false, true, false );
+
+    RenderGraph disabledGraph;
+    AddContractCallbackPass( disabledGraph, false );
+    (void)disabledGraph.AddPass( "Present" );
+    CheckExecutionContract( disabledGraph.ValidateFrameExecutionContract( "Present" ), 1u, 1u, 1u, true, false, false );
 }

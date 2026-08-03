@@ -8,8 +8,6 @@ Summary:
   through the only legal owner-mutation order, and retains the accepted-action
   values until InputFrame records them. Concrete runtime owners are borrowed by
   phase calls only and are never retained.
-
-Mental model:
   The transaction is a one-way turnstile around one normalized command packet.
   Each phase sees the final values left by the preceding phase; later commands
   are therefore the explicit winner when two commands touch the same state.

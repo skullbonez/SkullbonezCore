@@ -4,8 +4,8 @@ Purpose:
   Builds debug drawing for collision shapes and contact diagnostics.
 
 Summary:
-  Builds debug drawing for
-  collision shapes and contact diagnostics.
+  CollisionVisualizer renders a read-only view of solver collision and sleep
+  state separately from production materials and physics decisions.
 
 Glossary:
   Sleep group: Connected set of bodies that can stop simulating together once
@@ -73,17 +73,16 @@ struct CollisionVisualizerFrameView
     int modelCount = 0;
 };
 
-/* -- Collision Visualizer
----------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Collision visualizer
 
     Solid-colour debug renderer for collision and sleep state. The visualizer is intentionally
     separate from the normal textured model renderer so the runtime can switch between the two
     without changing production materials.
 
-    Layman version:
-      This draws what the physics system thinks the collision volumes are. It is
+    This draws what the physics system thinks the collision volumes are. It is
       a read-only view over solver state, not an alternate collision system.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 class CollisionVisualizer
 {
   private:

@@ -100,18 +100,18 @@ size_t Dx12PipelineOwner::HashPSOKey( const PSOKey12& key )
     hashCombine( h, static_cast<size_t>( key.rootSignatureIdentity ) );
     hashCombine( h, key.shaderVSHash );
     hashCombine( h, key.shaderPSHash );
-    hashCombine( h, (size_t)key.format );
-    hashCombine( h, (size_t)key.isInstanced );
-    hashCombine( h, (size_t)key.blendEnabled );
-    hashCombine( h, (size_t)key.blendSrc );
-    hashCombine( h, (size_t)key.blendDst );
-    hashCombine( h, (size_t)key.depthEnabled );
-    hashCombine( h, (size_t)key.depthWriteEnabled );
-    hashCombine( h, (size_t)key.cullEnabled );
-    hashCombine( h, (size_t)key.polyOffsetEnabled );
-    hashCombine( h, (size_t)key.polyOffsetDepthBias );
+    hashCombine( h, static_cast<size_t>( key.format ) );
+    hashCombine( h, static_cast<size_t>( key.isInstanced ) );
+    hashCombine( h, static_cast<size_t>( key.blendEnabled ) );
+    hashCombine( h, static_cast<size_t>( key.blendSrc ) );
+    hashCombine( h, static_cast<size_t>( key.blendDst ) );
+    hashCombine( h, static_cast<size_t>( key.depthEnabled ) );
+    hashCombine( h, static_cast<size_t>( key.depthWriteEnabled ) );
+    hashCombine( h, static_cast<size_t>( key.cullEnabled ) );
+    hashCombine( h, static_cast<size_t>( key.polyOffsetEnabled ) );
+    hashCombine( h, static_cast<size_t>( key.polyOffsetDepthBias ) );
     hashCombine( h, hashFloatBits( key.polyOffsetSlopeScaledDepthBias ) );
-    hashCombine( h, (size_t)key.rtvFormat );
+    hashCombine( h, static_cast<size_t>( key.rtvFormat ) );
     return h;
 }
 
@@ -181,14 +181,14 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im, 
             }
 
             out[count].SemanticName = staticSemantics[i < 3 ? i : 2];
-            out[count].SemanticIndex = ( i >= 2 ) ? (UINT)( i - 2 ) : 0;
+            out[count].SemanticIndex = ( i >= 2 ) ? static_cast<UINT>( i - 2 ) : 0;
             out[count].Format = fmt;
             out[count].InputSlot = 0;
             out[count].AlignedByteOffset = staticOffset;
             out[count].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
             out[count].InstanceDataStepRate = 0;
             ++count;
-            staticOffset += (UINT)im.staticAttribSizes[i] * sizeof( float );
+            staticOffset += static_cast<UINT>( im.staticAttribSizes[i] ) * sizeof( float );
         }
     }
     else
@@ -219,14 +219,14 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im, 
         }
 
         out[count].SemanticName = "TEXCOORD";
-        out[count].SemanticIndex = (UINT)( im.instanceStartAttrib + i - 2 );
+        out[count].SemanticIndex = static_cast<UINT>( im.instanceStartAttrib + i - 2 );
         out[count].Format = fmt;
         out[count].InputSlot = 1;
         out[count].AlignedByteOffset = instOffset;
         out[count].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
         out[count].InstanceDataStepRate = 1;
         ++count;
-        instOffset += (UINT)im.instanceAttribSizes[i] * sizeof( float );
+        instOffset += static_cast<UINT>( im.instanceAttribSizes[i] ) * sizeof( float );
     }
 }
 
@@ -280,7 +280,7 @@ void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb, D3D
         }
 
         ++count;
-        offset += (UINT)dvb.attribComponents[i] * sizeof( float );
+        offset += static_cast<UINT>( dvb.attribComponents[i] ) * sizeof( float );
     }
 }
 
@@ -322,7 +322,7 @@ size_t Dx12PipelineOwner::BuildPSOHash( const PSOKey12& key, const DynamicVBDX12
 
         for ( int i = 0; i < dynamicVertexBuffer->numAttribs; ++i )
         {
-            psoHash ^= ( (size_t)dynamicVertexBuffer->attribComponents[i] << ( i * 4 ) );
+            psoHash ^= ( static_cast<size_t>( dynamicVertexBuffer->attribComponents[i] ) << ( i * 4 ) );
         }
 
         // Per-instance and per-vertex layouts can carry identical semantic

@@ -4,8 +4,9 @@ Purpose:
   Loads, owns, and resolves reusable runtime assets for scenes and render code.
 
 Summary:
-  Loads, owns, and resolves reusable
-  runtime assets for scenes and render code.
+  AssetSystem assigns stable ids and generations to logical asset names,
+  resolves their paths against the data root, and publishes source records;
+  renderer-facing owners create GPU resources from those records.
 
 Glossary:
   Logical asset name: Stable engine-facing identifier such as

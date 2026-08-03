@@ -35,7 +35,7 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrameExecution.cpp",
       "signature": "Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameResult* automationBeforeInput )",
-      "body_sha256": "8d4973fb94f1708f7266c22951a0c7c2313fe0561f76e2595c05f8ecabda1ce1",
+      "body_sha256": "9e5fefae2b45e5556a7c2224bf002e1fc8dd007527b31f44cfa576f3337f04f4",
       "owner": "Runtime input frame phase",
       "disposition": "retain-owner",
       "reason": "One ordered input turn runs from automation sampling through device routing and typed command production, including edge-triggered F10/F11 authoring dispatch; lifecycle clearing is now an explicit scene-transition operation outside the idle turn, every participant is a synchronous Run-owned borrow, and wrapping them would create a broad frame context rather than a new invariant.",
@@ -274,8 +274,8 @@
     },
     {
       "file": "SkullbonezSource/Rendering/Text.cpp",
-      "signature": "bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath )",
-      "body_sha256": "017f3e0c5ce8bff203f98839cd3f7064a82c4fd048b6d26fe132f902078605a3",
+      "signature": "bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )",
+      "body_sha256": "316ef543668d0abaef6a1743200de285eae42c23851cc761bad89305df8e0410",
       "owner": "Text2d atlas generation transaction",
       "disposition": "retain-owner",
       "reason": "One cold atlas-generation transaction rasterizes the configured glyph set, packs the image, and writes its matching metadata; image and metadata layout must succeed or fail together.",
@@ -285,7 +285,7 @@
     {
       "file": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "signature": "void RenderBackendDX12::Shutdown()",
-      "body_sha256": "6e7707ce9bba690595e6a727b720eceef8d7c2ce6abc4c95841f9f2302c66f59",
+      "body_sha256": "8e712aad304eb7884742f783c68039322da34b5152016760114d345d5da512ce",
       "owner": "RenderBackendDX12 shutdown transaction",
       "disposition": "retain-owner",
       "reason": "One backend owner tears down GPU work, frame resources, diagnostics, and device objects in lifetime order; the nested guards encode optional-resource ownership and cannot be reordered independently.",

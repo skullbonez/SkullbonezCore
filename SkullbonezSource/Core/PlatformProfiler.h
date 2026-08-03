@@ -4,8 +4,9 @@ Purpose:
   Bridges engine profiler markers to platform tools such as PIX when available.
 
 Summary:
-  Bridges engine profiler markers to
-  platform tools such as PIX when available.
+  PlatformProfiler exposes tool-neutral marker domains and bounded decoration
+  helpers, so callers emit the same profiling structure whether PIX is present
+  or absent.
 
 Glossary:
   Marker domain: Stable engine category used to group profiler ranges without

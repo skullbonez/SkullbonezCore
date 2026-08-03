@@ -944,9 +944,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     RuntimeReserveGrowthEventView events[128] = {};
     const int eventCount = RuntimeReserveAllocator::CopyRecentGrowthEvents( events, 128 );
 #if defined( _DEBUG )
-    REQUIRE( eventCount == 102 );
+    REQUIRE( eventCount == 100 );
 #else
-    REQUIRE( eventCount == 101 );
+    REQUIRE( eventCount == 99 );
 #endif
     CHECK( static_cast<uint64_t>( eventCount ) == RuntimeReserveAllocator::GrowthEventCount() );
 
@@ -984,9 +984,7 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
         { "PhysicsBroadphaseStage.collisionCellKeys", 8000 },
         { "SpatialGrid.entries", 17024 },
         { "SpatialGrid.bodyMemberships", 2000 },
-        { "SpatialGrid.pairMembershipOrdinals", 21120 },
-        { "SpatialGrid.pairMembershipOffsets", 2001 },
-        { "SpatialGrid.pairMembershipCounts", 2000 },
+        { "SpatialGrid.pairSeen", 31235 },
         { "SpatialGrid.candidatePairHeads", 2000 },
         { "SpatialGrid.candidatePairNodes", 8000 },
         { "SpatialGrid.candidatePairSortKeys", 8000 },
@@ -1065,9 +1063,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     };
 
 #if defined( _DEBUG )
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 107 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 105 );
 #else
-    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 106 );
+    CHECK( eventCount + static_cast<int>( std::size( expectedRegisteredWithoutGrowth ) ) == 104 );
 #endif
 
     for ( const ExpectedRegisteredWithoutGrowth& expected : expectedRegisteredWithoutGrowth )
@@ -1135,9 +1133,9 @@ TEST_CASE( "Scene physics capacity commit is monotonic and grows each fixed owne
     }
 
 #if defined( _DEBUG )
-    CHECK( physicsCapacityRowCount == 108 );
+    CHECK( physicsCapacityRowCount == 106 );
 #else
-    CHECK( physicsCapacityRowCount == 107 );
+    CHECK( physicsCapacityRowCount == 105 );
 #endif
 
     CHECK( PhysicsEngine::ReadBodies( *engine ).RecordCapacity() == 2000u );

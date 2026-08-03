@@ -4,8 +4,8 @@ Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
 Summary:
-  Builds and owns DX12 raytracing bottom-level
-  acceleration structures for mesh geometry.
+  BLAS owns one bottom-level acceleration structure built from vertex-only mesh
+  geometry plus its scratch/result resources for the active device epoch.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -30,12 +30,6 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-/* -- BLAS
--------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Bottom-Level Acceleration Structure wrapper for DXR raytracing.
-    Builds a BLAS from a vertex buffer (vertex-only, no index buffer).
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class BLAS
 {
 

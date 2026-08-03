@@ -4,8 +4,8 @@ Purpose:
   Implements rotation matrix helpers used by transforms and collision code.
 
 Summary:
-  Implements rotation matrix helpers
-  used by transforms and collision code.
+  RotationMatrix provides the orthogonal 3x3 basis operations used to rotate
+  vectors, compose transforms, and apply transpose-as-inverse collision math.
 
 Invariants:
   - RotationMatrix represents an orthogonal 3x3 rotation basis; TransposeMultiply

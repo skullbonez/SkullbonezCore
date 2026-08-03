@@ -7,8 +7,6 @@ Summary:
   Run sequences frame-scoped owner borrows in a fixed order, carries only small
   phase results between them, and performs scene-transition cleanup before any
   load can replace the active world.
-
-Mental model:
   Execute is the visible phase schedule. Each private `Run` coordinator reaches
   composed members directly, delegates concrete operands, performs one
   contiguous span, and returns without retaining frame state.

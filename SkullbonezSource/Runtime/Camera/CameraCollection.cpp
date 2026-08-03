@@ -4,7 +4,9 @@ Purpose:
   Owns scene cameras and camera cycling state.
 
 Summary:
-  Owns scene cameras and camera cycling state.
+  CameraCollection owns fixed scene camera slots, selection and tween state,
+  and the frame's render-pose snapshot while borrowing optional terrain for
+  movement clamps.
 
 Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
@@ -80,14 +82,14 @@ void CameraCollection::Reset()
 }
 
 
-void CameraCollection::SetLockedMode( const bool fIsLocked )
+void CameraCollection::SetLockedMode( const bool isLocked )
 {
-    m_cameraArray[m_selectedCamera].m_isLockedMode = fIsLocked;
-    m_cameraArray[m_selectedCamera].m_doCalculateViewMagnitude = !fIsLocked;
+    m_cameraArray[m_selectedCamera].m_isLockedMode = isLocked;
+    m_cameraArray[m_selectedCamera].m_doCalculateViewMagnitude = !isLocked;
 }
 
 
-void CameraCollection::AddCamera( const Vector3& vPosition, const Vector3& vView, const Vector3& vUp, uint32_t hash )
+void CameraCollection::AddCamera( const Vector3& position, const Vector3& view, const Vector3& up, uint32_t hash )
 {
 
     if ( m_arrayPosition == SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
@@ -98,7 +100,7 @@ void CameraCollection::AddCamera( const Vector3& vPosition, const Vector3& vView
 
     m_cameraHashes[m_arrayPosition] = hash;
 
-    m_cameraArray[m_arrayPosition].SetAll( vPosition, vView, vUp );
+    m_cameraArray[m_arrayPosition].SetAll( position, view, up );
 
     if ( !m_arrayPosition )
     {
@@ -110,9 +112,9 @@ void CameraCollection::AddCamera( const Vector3& vPosition, const Vector3& vView
 }
 
 
-void CameraCollection::SetTweenSpeed( float fTweenSpeed )
+void CameraCollection::SetTweenSpeed( float tweenSpeed )
 {
-    m_tweenSpeed = fTweenSpeed;
+    m_tweenSpeed = tweenSpeed;
 }
 
 
@@ -169,7 +171,7 @@ Camera CameraCollection::GetTweenSourcePose() const
 }
 
 
-void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
+void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
 {
 
     // local to store requested camera index
@@ -182,7 +184,7 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
 
     // it is not possible to tween if there is only one camera in the scene
 
-    if ( fTween && m_arrayPosition == 1 )
+    if ( tween && m_arrayPosition == 1 )
     {
         SB_FATAL( "CameraCollection",
                   "SelectCamera cannot tween with one registered camera. hash=0x%08X selected=%d count=%d",
@@ -191,13 +193,13 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
 
     // where should the tween camera be referenced FROM?
 
-    if ( m_isTweening && fTween )
+    if ( m_isTweening && tween )
     {
 
         // if currently tweening, reference from the current tween camera m_position
         SetTweenPath( -1, selectionRequest );
     }
-    else if ( fTween )
+    else if ( tween )
     {
 
         // if not currently tweening, reference from the current selected camera
@@ -213,7 +215,7 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
     m_cameraArray[m_selectedCamera].m_doPreserveViewMagnitude = true;
 
     // specify if tweening
-    m_isTweening = fTween;
+    m_isTweening = tween;
 
     m_tweenProgress = 0;
 
@@ -259,15 +261,15 @@ void CameraCollection::RotatePrimary( float xMove, float yMove )
 }
 
 
-void CameraCollection::SetViewCoordinates( const Vector3& vView )
+void CameraCollection::SetViewCoordinates( const Vector3& view )
 {
-    m_cameraArray[m_selectedCamera].m_view = vView;
+    m_cameraArray[m_selectedCamera].m_view = view;
 }
 
 
-void CameraCollection::SetPrimaryPosition( const Vector3& vPos )
+void CameraCollection::SetPrimaryPosition( const Vector3& position )
 {
-    m_cameraArray[m_selectedCamera].m_position = vPos;
+    m_cameraArray[m_selectedCamera].m_position = position;
 }
 
 
@@ -313,7 +315,7 @@ void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector
 }
 
 
-void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuantity )
+void CameraCollection::MovePrimary( Camera::TravelDirection direction, float amount )
 {
 
     // make sure a camera exists to update
@@ -322,11 +324,11 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuan
     {
         SB_FATAL( "CameraCollection",
                   "MovePrimary requires at least one registered camera. direction=%d quantity=%f count=%d selected=%d",
-                  static_cast<int>( enumDir ), fQuantity, m_arrayPosition, m_selectedCamera );
+                  static_cast<int>( direction ), amount, m_arrayPosition, m_selectedCamera );
     }
 
     // move the primary camera
-    m_cameraArray[m_selectedCamera].MoveCamera( enumDir, fQuantity, m_movementSettings );
+    m_cameraArray[m_selectedCamera].MoveCamera( direction, amount, m_movementSettings );
 }
 
 
@@ -446,10 +448,10 @@ void CameraCollection::SetCamera()
 }
 
 
-void CameraCollection::SetViewMatrix( const Camera& cCameraData )
+void CameraCollection::SetViewMatrix( const Camera& camera )
 {
-    m_renderCamera = cCameraData;
-    m_currentViewMatrix = Matrix4::LookAt( cCameraData.m_position, cCameraData.m_view, cCameraData.m_upVector );
+    m_renderCamera = camera;
+    m_currentViewMatrix = Matrix4::LookAt( camera.m_position, camera.m_view, camera.m_upVector );
 }
 
 
@@ -505,7 +507,7 @@ void CameraCollection::SetCameraXZBounds( uint32_t hash, const XZBounds bounds )
 }
 
 
-void CameraCollection::SetTerrain( Terrain* m_cTerrain )
+void CameraCollection::SetTerrain( Terrain* terrain )
 {
-    m_terrain = m_cTerrain;
+    m_terrain = terrain;
 }

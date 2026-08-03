@@ -6,8 +6,6 @@ Purpose:
 Summary:
   Shared report-fact functions serve both live assertions and final JSON, so
   validation-sensitive calculations have one implementation.
-
-Mental model:
   Runtime owners are borrowed synchronously through one report call. The
   writer computes report facts, verifies any durable replay artifact, writes
   JSON, then releases every borrow before returning.

@@ -7,8 +7,6 @@ Summary:
   Bounded Automation-only evidence, reveal scheduling, archive freezing, and
   CPU-only replay projection live here instead of on the sequencer. Runtime
   owners are borrowed only for synchronous verification and serialization.
-
-Mental model:
   The controller sequences runtime actions and publishes typed reveal intent.
   This owner decides when capture starts, records each presented packet, freezes
   the archive, verifies it without presenting again, and serializes the result.

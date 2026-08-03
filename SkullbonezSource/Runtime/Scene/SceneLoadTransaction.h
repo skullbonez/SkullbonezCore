@@ -9,8 +9,6 @@ Summary:
   detached request/submission values, outputs, and a phase cursor; concrete
   runtime owners are borrowed by the phase method that uses them and are never
   stored.
-
-Mental model:
   The transaction is a one-way turnstile. Scene mutation fills its private
   outputs, runtime owners consume the lifecycle generation, and only then may
   external window/UI/validation presentation observe the result. A later

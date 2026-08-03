@@ -348,7 +348,7 @@ RuntimeValidationHarness::CreateForStartup( SkullbonezCore::Core::SbDiagnosticSt
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
 
-    // Allocation policy: keep both cold harness implementations out of Run.h.
+    // Runtime allocation policy: keep both cold harness implementations out of Run.h.
     // The single owner allocation is bounded to process startup.
     return std::make_unique<RuntimeValidationHarness>( resultDiagnostics );
 }

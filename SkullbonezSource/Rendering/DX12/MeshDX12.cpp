@@ -64,10 +64,10 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     }
 
     m_vertexCount = vertexCount;
-    m_stride = floatsPerVert * (int)sizeof( float );
+    m_stride = floatsPerVert * static_cast<int>( sizeof( float ) );
     m_format = format;
 
-    UINT64 dataSize = (UINT64)vertexCount * m_stride;
+    UINT64 dataSize = static_cast<UINT64>( vertexCount ) * m_stride;
 
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -107,7 +107,7 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
-    memcpy( uploadPtr, data, (size_t)dataSize );
+    memcpy( uploadPtr, data, static_cast<size_t>( dataSize ) );
 
     // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
     // frame upload system owns a backing resource for the current frame.
@@ -148,8 +148,8 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     cmdList->ResourceBarrier( 1, &barrier );
 
     m_vbView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-    m_vbView.SizeInBytes = (UINT)dataSize;
-    m_vbView.StrideInBytes = (UINT)m_stride;
+    m_vbView.SizeInBytes = static_cast<UINT>( dataSize );
+    m_vbView.StrideInBytes = static_cast<UINT>( m_stride );
     return true;
 }
 

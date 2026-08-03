@@ -4,8 +4,9 @@ Purpose:
   Loads, stores, and exposes engine configuration values from files and command-line overrides.
 
 Summary:
-  Loads, stores, and exposes engine configuration
-  values from files and command-line overrides.
+  The parser registers every configuration key once, layers file values and
+  command-line overrides into EngineConfig, validates ranges, and preserves
+  versioned compatibility spellings.
 
 Glossary:
   - ConfigSetting: One typed key-to-field registry row, including the accepted

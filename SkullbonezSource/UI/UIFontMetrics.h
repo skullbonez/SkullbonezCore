@@ -6,8 +6,6 @@ Purpose:
 Summary:
   Publishes one fixed immutable metric table so every UI measurement uses the
   same baked facts as renderer glyph placement without importing its owners.
-
-Mental model:
   The baked font atlas contains pixels and one advance per printable ASCII
   glyph. Runtime installs those advances once during cold font setup; UI then
   measures text without borrowing the renderer's atlas, shader, or text batch.

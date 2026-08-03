@@ -4,8 +4,9 @@ Purpose:
   Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
 
 Summary:
-  Builds and owns DX12 raytracing bottom-level
-  acceleration structures for mesh geometry.
+  BLASDX12 owns one bottom-level acceleration structure built from vertex-only
+  mesh geometry plus its scratch and result resources for the active device
+  epoch.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -68,9 +69,9 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     geomDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
     geomDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
     geomDesc.Triangles.VertexBuffer.StartAddress = vbVA;
-    geomDesc.Triangles.VertexBuffer.StrideInBytes = (UINT64)vertexStride;
+    geomDesc.Triangles.VertexBuffer.StrideInBytes = static_cast<UINT64>( vertexStride );
     geomDesc.Triangles.VertexFormat = vertexPosFormat;
-    geomDesc.Triangles.VertexCount = (UINT)vertexCount;
+    geomDesc.Triangles.VertexCount = static_cast<UINT>( vertexCount );
     geomDesc.Triangles.IndexBuffer = 0;
     geomDesc.Triangles.IndexCount = 0;
     geomDesc.Triangles.IndexFormat = DXGI_FORMAT_UNKNOWN;

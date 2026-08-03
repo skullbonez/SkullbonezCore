@@ -302,7 +302,7 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
 // Cleanup
 // ---------------------------------------------------------------------------
 
-void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderBackendDX12>& renderBackend )
+void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
 
     // Lifetime: disarm callback-fed input queues while the HWND still names
@@ -326,7 +326,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
         SkullbonezCore::Hardware::Input::SetSystemCursorVisible( true );
     }
 
-    UnregisterClass( WINDOW_NAME, hInstance );
+    UnregisterClass( WINDOW_NAME, instance );
 }
 
 
@@ -356,7 +356,7 @@ int ReportDiagnosticStoreSession( SkullbonezCore::Core::SbDiagnosticStore& diagn
 // Entry point
 // ---------------------------------------------------------------------------
 
-int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow )
+int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR commandLineText, int showCommand )
 {
 
     // Heap debug code - breaks program at specified allocation
@@ -365,15 +365,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     // Floating point check routine
     // _controlfp(0, _MCW_EM ^ _EM_INEXACT);
 
-    hPrevInstance;
-    iCmdShow;
+    previousInstance;
+    showCommand;
 
     SkullbonezCore::Core::SbDiagnosticStore diagnostics;
-    const CommandLineView commandLine = TokenizeCommandLine( szCmdLine );
+    const CommandLineView commandLine = TokenizeCommandLine( commandLineText );
 
 #ifdef _DEBUG
     InstallDebugCrashLogger();
-    SkullbonezCore::Core::Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
+    SkullbonezCore::Core::Log().WriteEventf( "process_started command_line=\"%s\"", commandLineText ? commandLineText : "" );
 
     if ( HasOption( commandLine, "--debug-crash-test" ) )
     {
@@ -472,7 +472,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     Window* window = &windowOwner;
     window->SetStartupWindowSize( cfg.window.screenX, cfg.window.screenY );
     window->SetProjectionFrustum( cfg.camera.frustumNear, cfg.camera.frustumFar );
-    const SkullbonezCore::Core::SbResult windowResult = window->CreateAppWindow( hInstance, cfg.window.fullscreen,
+    const SkullbonezCore::Core::SbResult windowResult = window->CreateAppWindow( instance, cfg.window.fullscreen,
                                                                                  !args.automationWindowHidden );
 
     if ( !windowResult.Ok() )
@@ -498,7 +498,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #if defined( TRACY_ENABLE )
         tracyClientOwner.Shutdown();
 #endif
-        CleanupWindow( window, hInstance, renderBackend );
+        CleanupWindow( window, instance, renderBackend );
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
@@ -513,7 +513,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #if defined( TRACY_ENABLE )
         tracyClientOwner.Shutdown();
 #endif
-        CleanupWindow( window, hInstance, renderBackend );
+        CleanupWindow( window, instance, renderBackend );
         CoUninitialize();
         return ReportDiagnosticStoreSession( diagnostics, 1 );
     }
@@ -541,7 +541,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         // point, while logging and COM/platform teardown are still available.
         tracyClientOwner.Shutdown();
 #endif
-        CleanupWindow( window, hInstance, renderBackend );
+        CleanupWindow( window, instance, renderBackend );
     }
     CoreAllocation::PrintRuntimeAllocationSummary( stdout );
     int finalExitCode = runExitCode;

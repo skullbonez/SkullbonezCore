@@ -4,8 +4,9 @@ Purpose:
   Owns the Cinematic tab widgets, layout, and input handling for the in-engine controls.
 
 Summary:
-  Owns the Cinematic tab widgets, layout, and
-  input handling for the in-engine controls.
+  The Cinematic tab owns bounded widget state and one shared layout model for
+  drawing and hit testing, then emits typed render-policy commands for Runtime
+  to apply.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout

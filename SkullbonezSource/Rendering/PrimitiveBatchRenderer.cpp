@@ -192,7 +192,7 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
 static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
 {
 
-    // Contract: every primitive batch uses the same instance stream layout:
+    // Invariant: every primitive batch uses the same instance stream layout:
     // model matrix columns followed by material0/material1/material2/material3. The DX12
     // input layout and both instanced shaders must stay in lockstep with this
     // packing order.

@@ -6,11 +6,8 @@ Purpose:
 Summary:
   Run constructs process-lifetime owners, sequences their fixed frame phases,
   and passes typed values between them without absorbing domain business state.
-
-Mental model:
-  Run is the process composition root and frame sequencer. Its ordered
-  coordinators may reach composed members directly; delegated domain operations
-  receive only the concrete owners and values they use.
+  Ordered coordinators may reach composed members directly; delegated domain
+  operations receive only the concrete owners and values they use.
 
 Glossary:
   Attached camera target: Runtime follow selection where Run owns the selected
@@ -127,11 +124,6 @@ namespace ReplayOverlay
 struct ReplayOverlayStateView;
 }
 
-/* -- Skullbonez Run
----------------------------------------------------------------------------------------------------------------------------------------------
-
-    Harness for the Skullbonez Core graphics library.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Run
 {
 

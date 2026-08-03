@@ -4,8 +4,9 @@ Purpose:
   Stores world forces, fluid parameters, and water rendering resources.
 
 Summary:
-  Stores world forces, fluid
-  parameters, and water rendering resources.
+  WorldEnvironment owns gravity, buoyancy, blended drag inputs, and calm/ocean
+  mesh values consumed by fixed-step physics and water rendering through their
+  separate phase boundaries.
 
 Glossary:
   Center of buoyancy: World-space average location of displaced water. Its
@@ -77,9 +78,9 @@ WorldEnvironment::WorldEnvironment()
 }
 
 
-WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity, float fGravity )
-    : m_fluidSurfaceHeight( fFluidSurfaceHeight ), m_fluidDensity( fFluidDensity ), m_gasDensity( fGasDensity ),
-      m_gravity( fGravity )
+WorldEnvironment::WorldEnvironment( float fluidSurfaceHeight, float fluidDensity, float gasDensity, float gravity )
+    : m_fluidSurfaceHeight( fluidSurfaceHeight ), m_fluidDensity( fluidDensity ), m_gasDensity( gasDensity ),
+      m_gravity( gravity )
 {
 }
 

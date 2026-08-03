@@ -4,8 +4,9 @@ Purpose:
   Defines shadow-map frame data shared by renderers and scene objects.
 
 Summary:
-  Defines shadow-map frame data
-  shared by renderers and scene objects.
+  This header owns frame-local caster batches, shadow-map projection values,
+  receiver bias policy, and binding helpers without taking texture or model
+  lifetime authority.
 
 Glossary:
   Caster value: Prepared model transform plus conservative world-space radius

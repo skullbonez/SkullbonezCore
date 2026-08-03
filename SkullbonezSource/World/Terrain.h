@@ -4,8 +4,9 @@ Purpose:
   Stores terrain mesh, height queries, and terrain rendering resources.
 
 Summary:
-  Stores terrain mesh, height
-  queries, and terrain rendering resources.
+  Terrain builds one authored post grid from RAW height data and shares it with
+  render and collision consumers. Cached height, normal, and plane queries let
+  Physics build contact rows without reconstructing triangle planes each tick.
 
 Glossary:
   RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the
@@ -69,18 +70,6 @@ class ShaderDX12;
 namespace Geometry
 {
 
-/* -- Terrain
-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    Represents a texturable terrain geometry that must be loaded from a .RAW file.  Also provides information to assist
-with collision detection.
-
-    Layman physics map:
-      Terrain is both render mesh and collision surface. Physics code queries
-      height, normal, and plane at an X/Z location, then builds contact rows
-      against that surface. The cached collision data exists so the physics loop
-      does not rebuild triangle planes every tick.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Terrain
 {
 
@@ -91,20 +80,20 @@ class Terrain
     };
 
     static SkullbonezCore::Core::SbResult
-    TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize,
-                            int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+    TryCreateFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
+                            int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
                             Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& resources,
                             std::unique_ptr<Terrain>& outTerrain );                                   // Lane R factory for external RAW height-map input.
     static SkullbonezCore::Core::SbResult
-    TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* sFileName, int iMapSize,
-                                   int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+    TryCreatePhysicsFromHeightMap( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const char* fileName, int mapSize,
+                                   int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
                                    std::unique_ptr<Terrain>& outTerrain );                            // CPU-domain load path with no renderer double.
-    Terrain( int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+    Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
              Rendering::Dx12ResourceBuilder& resources );                                             // Construction shell used by TryCreateFromHeightMap; step
 
     // size feeds both pixels and physics posts.
-    Terrain( PhysicsOnlyHeightMapTag, int iMapSize, int iStepSize, int iTextureWrap,
+    Terrain( PhysicsOnlyHeightMapTag, int mapSize, int stepSize, int textureWrap,
              const SkullbonezCore::Core::EngineConfig& config );                                      // CPU-only shell used by the value-producing load path.
     Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem& assets,
@@ -202,7 +191,7 @@ class Terrain
     Plane m_flatSlopePlane;
     Math::Vector::Vector3 m_flatSlopeNormal;
 
-    Terrain( int iMapSize, int iStepSize, int iTextureWrap, const SkullbonezCore::Core::EngineConfig& config,
+    Terrain( int mapSize, int stepSize, int textureWrap, const SkullbonezCore::Core::EngineConfig& config,
              Assets::AssetSystem* assets,
              Rendering::Dx12ResourceBuilder* resources );                                             // Shared CPU/GPU height-map construction shell.
     Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config,
@@ -211,7 +200,7 @@ class Terrain
 
     SkullbonezCore::Core::SbResult
     LoadTerrainData( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
-                     const char* sFileName );                                                         // Cold RAW byte load used to construct authoritative posts.
+                     const char* fileName );                                                          // Cold RAW byte load used to construct authoritative posts.
     const SkullbonezCore::Core::EngineConfig& Config() const;                                         // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                                                   // Lit terrain shader setup for the active backend.
     void BuildTerrain();                                                                              // Physics-authoritative terrain posts are rebuilt from raw height data.

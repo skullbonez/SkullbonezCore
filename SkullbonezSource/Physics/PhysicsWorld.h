@@ -4,8 +4,9 @@ Purpose:
   Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
 
 Summary:
-  Owns per-scene physics working state
-  shared by broadphase, solver, and diagnostics.
+  PhysicsWorld owns mutable per-scene physics stores, stage instances,
+  fixed-capacity scratch, and diagnostics. PhysicsEngine sequences it while
+  stages borrow explicit views.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -187,7 +188,7 @@ class PhysicsWorld
     // Runs one fixed world step over the stores. Collision diagnostics append
     // fixed events only; name lookup and file output occur after the hot pass.
     void RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                     std::span<BuoyancyBodyFacts> buoyancyFacts, float fChangeInTime, const PhysicsRuntimeSettings& settings,
+                     std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds, const PhysicsRuntimeSettings& settings,
                      const PhysicsWorldForces& worldForces, const ExternalForceFrameInput& externalForces,
                      Threading::WorkerPool& workerPool );
 
@@ -197,7 +198,7 @@ class PhysicsWorld
     // or logging globals.
     bool ShouldEmitStepDiagnostics() const;
     void SetDiagnosticNames( std::span<const char* const> diagnosticNames );
-    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float fChangeInTime,
+    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, float deltaSeconds,
                               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
 
     // Wake and seed decisions read physics-owned fixed/sleep state before the

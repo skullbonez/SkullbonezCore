@@ -4,7 +4,9 @@ Purpose:
   Declares the engine matrix type and common transform operations.
 
 Summary:
-  Declares the engine matrix type and common transform operations.
+  Matrix4 keeps one column-major representation shared by CPU transforms and
+  shaders, while distinct projection helpers preserve legacy and DX12 depth
+  conventions.
 
 Glossary:
   Clip space: Coordinate range produced by projection matrices before viewport
@@ -45,17 +47,6 @@ namespace Math
 namespace Transformation
 {
 
-/* -- Matrix4
------------------------------------------------------------------------------------------------------------------------------------------------
-
-    A 4x4 column-major matrix for 3D transformations (projection, view, model).
-    Stored in column-major order. Engine math and shaders agree on this memory
-    layout:
-    m[0] m[4] m[8]  m[12]
-    m[1] m[5] m[9]  m[13]
-    m[2] m[6] m[10] m[14]
-    m[3] m[7] m[11] m[15]
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Matrix4
 {
 

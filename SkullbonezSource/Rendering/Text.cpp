@@ -4,7 +4,9 @@ Purpose:
   Builds and draws bitmap/SDF text for HUD and diagnostics.
 
 Summary:
-  Builds and draws bitmap/SDF text for HUD and diagnostics.
+  Text2d converts strings and quads into the caller's fixed-capacity CPU batch,
+  then explicit flush boundaries upload and draw those queues through the
+  active font resources.
 
 Invariants:
   - Text and quad batches use fixed vertex layouts that must match their
@@ -151,14 +153,15 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 
         // Intersection of parabola at q with the current topmost parabola at r:
         //   s = [(src[q] + q²) − (src[r] + r²)] / (2q − 2r)
-        float s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) /
-                  (float)( 2 * ( q - r ) );
+        float s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
+                  static_cast<float>( 2 * ( q - r ) );
 
         while ( k > 0 && s <= scratch_z[k] )
         {
             --k;
             r = scratch_v[k];
-            s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) / (float)( 2 * ( q - r ) );
+            s = ( ( scratch_src[q] + static_cast<float>( q * q ) ) - ( scratch_src[r] + static_cast<float>( r * r ) ) ) /
+                static_cast<float>( 2 * ( q - r ) );
         }
 
         ++k;
@@ -173,13 +176,13 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
     for ( int q = 0; q < n; ++q )
     {
 
-        while ( scratch_z[k + 1] < (float)q )
+        while ( scratch_z[k + 1] < static_cast<float>( q ) )
         {
             ++k;
         }
 
         const int r = scratch_v[k];
-        f[q] = (float)( ( q - r ) * ( q - r ) ) + scratch_src[r];
+        f[q] = static_cast<float>( ( q - r ) * ( q - r ) ) + scratch_src[r];
     }
 }
 
@@ -282,7 +285,7 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 // before any graphics initialisation.  Call it when the atlas is absent or
 // when the font or cell dimensions have changed.
 // =============================================================================
-bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath )
+bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )
 {
 
     // Hi-res dimensions — each axis is SDF_SCALE × the final atlas.
@@ -301,10 +304,10 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // Phase 1: render glyphs into a hi-res GDI memory bitmap
     // =========================================================================
     //
-    // CreateCompatibleDC(NULL) creates a DC compatible with the display without
+    // CreateCompatibleDC(nullptr) creates a DC compatible with the display without
     // requiring an existing window, so this runs before renderer startup.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createcompatibledc
-    HDC memDC = CreateCompatibleDC( NULL );
+    HDC memDC = CreateCompatibleDC( nullptr );
 
     if ( !memDC )
     {
@@ -353,7 +356,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // ANTIALIASED_QUALITY gives GDI sub-pixel blending for a smooth binary mask.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta
     HFONT hFont = CreateFont( -FONT_SIZE_HI, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS,
-                              CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, cFontName );
+                              CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_DONTCARE | DEFAULT_PITCH, fontName );
 
     if ( !hFont )
     {
@@ -511,7 +514,7 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // =========================================================================
     FILE* rawFile = nullptr;
 
-    if ( fopen_s( &rawFile, cOutPath, "wb" ) != 0 || !rawFile )
+    if ( fopen_s( &rawFile, outputPath, "wb" ) != 0 || !rawFile )
     {
         return false;
     }
@@ -538,7 +541,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
                                                   TextBatch& batch, Dx12ResourceBuilder& renderResources,
                                                   Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderGeometry,
                                                   const SkullbonezCore::Assets::AssetSystem& assets, int screenW,
-                                                  int screenH, const char* cFontName )
+                                                  int screenH, const char* fontName )
 {
 
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
@@ -551,7 +554,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     {
         fprintf( stderr, "[Text2d] SDF atlas missing or stale — generating (one time)...\n" );
 
-        if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
+        if ( !Text2d::GenerateSdfAtlasToFile( fontName, atlasPath.c_str() ) )
         {
             return resultDiagnostics.Failure( "Rendering/Text", "SDF atlas generation failed: %s", atlasPath.c_str() );
         }
@@ -648,7 +651,7 @@ void Text2d::RebuildProjection( TextBatch& batch, int w, int h )
 }
 
 
-float Text2d::MeasureText( float fSize, const char* text )
+float Text2d::MeasureText( float size, const char* text )
 {
 
     if ( !text )
@@ -664,11 +667,11 @@ float Text2d::MeasureText( float fSize, const char* text )
 
         if ( c >= 32 && c <= 127 )
         {
-            width += charAdvance[c - 32] * fSize;
+            width += charAdvance[c - 32] * size;
         }
         else
         {
-            width += fSize * 0.5f; // fallback advance for non-printable
+            width += size * 0.5f; // fallback advance for non-printable
         }
     }
 
@@ -731,7 +734,7 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 }
 
 
-void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float fSize, float colR, float colG,
+void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
                                  float colB, const char* formatted )
 {
     const int len = static_cast<int>( strlen( formatted ) );
@@ -754,11 +757,11 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
             break;
         }
 
-        unsigned char c = (unsigned char)formatted[i];
+        unsigned char c = static_cast<unsigned char>( formatted[i] );
 
         if ( c < 32 || c > 127 )
         {
-            penX += fSize * 0.5f;
+            penX += size * 0.5f;
             continue;
         }
 
@@ -779,16 +782,16 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
         // (FONT_CELL_H - FONT_SIZE) rows that hold descender strokes.
         float v1 = static_cast<float>( row * FONT_CELL_H + FONT_CELL_H ) / static_cast<float>( FONT_ATLAS_H ) - halfV;
 
-        float charW = Text2d::charAdvance[idx] * fSize;
+        float charW = Text2d::charAdvance[idx] * size;
 
         // Extend the quad downward by the descender fraction so the extra atlas rows
         // map onto screen space without distorting the cap-height region.
-        const float descH = fSize * static_cast<float>( FONT_CELL_H - FONT_SIZE ) / static_cast<float>( FONT_SIZE );
+        const float descH = size * static_cast<float>( FONT_CELL_H - FONT_SIZE ) / static_cast<float>( FONT_SIZE );
 
         float x0 = penX;
         float x1 = penX + charW;
         float y0 = penY - descH; // below yPosition — descender region
-        float y1 = penY + fSize; // above yPosition — cap-height region
+        float y1 = penY + size;  // above yPosition — cap-height region
 
         // 7 floats per vertex: [x, y, u, v, r, g, b]
         float* v = &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT];
@@ -867,22 +870,22 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
 }
 
 
-void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float fSize, float r, float g, float b,
-                                const char* cRawText, ... )
+void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
+                                const char* format, ... )
 {
 
-    if ( !cRawText || !Text2d::pTextShader )
+    if ( !format || !Text2d::pTextShader )
     {
         return;
     }
 
     char textBuffer[512] = {};
     va_list args;
-    va_start( args, cRawText );
-    vsprintf_s( textBuffer, sizeof( textBuffer ), cRawText, args );
+    va_start( args, format );
+    vsprintf_s( textBuffer, sizeof( textBuffer ), format, args );
     va_end( args );
 
-    RenderTextInternal( batch, xPosition, yPosition, fSize, r, g, b, textBuffer );
+    RenderTextInternal( batch, xPosition, yPosition, size, r, g, b, textBuffer );
 }
 
 

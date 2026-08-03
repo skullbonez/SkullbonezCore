@@ -4,8 +4,8 @@ Purpose:
   Shares contact-row math helpers and data structures across physics solver code.
 
 Summary:
-  Shares contact-row math helpers and data
-  structures across physics solver code.
+  This header owns the deterministic tangent-basis, friction-clamp, and
+  effective-mass helpers shared by persistent and staged contact solvers.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines

@@ -4,7 +4,8 @@ Purpose:
   Measures elapsed time for frame pacing and simulation updates.
 
 Summary:
-  Measures elapsed time for frame pacing and simulation updates.
+  Timer captures the platform counter frequency once, then maintains separate
+  interval timestamps, process uptime, and one-second FPS publication buckets.
 
 Glossary:
   High-resolution counter: Windows performance counter used for sub-frame time
@@ -32,11 +33,6 @@ namespace SkullbonezCore
 namespace Environment
 {
 
-/* -- Timer
-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    An easy to use timing mechanism aimed to be useful for games development.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Timer
 {
 

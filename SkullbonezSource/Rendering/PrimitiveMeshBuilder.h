@@ -4,8 +4,9 @@ Purpose:
   Builds simple procedural meshes used by debug rendering and generated scenes.
 
 Summary:
-  Builds simple procedural meshes used by
-  debug rendering and generated scenes.
+  PrimitiveMeshBuilder emits one canonical CPU geometry set whose coordinates,
+  winding, normals, and UVs are repacked independently by production and debug
+  renderers.
 
 Invariants:
   - Primitive coordinates, winding, normals, and UVs are shared geometry
@@ -31,8 +32,8 @@ namespace Rendering
 namespace PrimitiveMeshes
 {
 
-/* -- Primitive Mesh Builder
---------------------------------------------------------------------------------------------------------------------------------------
+/*
+Concept: Primitive mesh builder
 
     Shared CPU-side triangle emitters for the engine's built-in unit primitives.
 
@@ -47,7 +48,7 @@ namespace PrimitiveMeshes
 
     Keeping the primitive coordinates here avoids drift in sphere orientation, cube winding, and
     tessellation while preserving each renderer's specialized shader and instance format.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+*/
 struct VertexPNUV
 {
     float x, y, z;

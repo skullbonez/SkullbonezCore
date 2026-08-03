@@ -589,7 +589,7 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
 
     if ( channels == 3 )
     {
-        rgba.resize( (size_t)w * h * 4 );
+        rgba.resize( static_cast<size_t>( w ) * h * 4 );
 
         for ( int i = 0; i < w * h; ++i )
         {

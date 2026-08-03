@@ -4,8 +4,9 @@ Purpose:
   Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  Stores parsed authored-scene JSON
-  and applies it to runtime scene state.
+  AuthoredScene owns the cold parsed values that cross from scene JSON into
+  deterministic runtime setup, while retaining neither parser state nor live
+  scene stores.
 
 Glossary:
   Scene collection: Vector-backed parsed scene array for cameras, bodies,

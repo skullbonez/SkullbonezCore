@@ -4,8 +4,9 @@ Purpose:
   Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  Implements off-screen framebuffer resources
-  and descriptor views for the DX12 renderer.
+  FramebufferDX12 owns off-screen color and depth resources with render-pass
+  write views and later-pass shader views, while borrowing the descriptor owner
+  that bounds their lifetime.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -82,8 +83,8 @@ bool FramebufferDX12::Create( int width, int height )
 
     D3D12_RESOURCE_DESC colorDesc = {};
     colorDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    colorDesc.Width = (UINT64)width;
-    colorDesc.Height = (UINT)height;
+    colorDesc.Width = static_cast<UINT64>( width );
+    colorDesc.Height = static_cast<UINT>( height );
     colorDesc.DepthOrArraySize = 1;
     colorDesc.MipLevels = 1;
 
@@ -128,8 +129,8 @@ bool FramebufferDX12::Create( int width, int height )
     // Depth texture
     D3D12_RESOURCE_DESC depthDesc = {};
     depthDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    depthDesc.Width = (UINT64)width;
-    depthDesc.Height = (UINT)height;
+    depthDesc.Width = static_cast<UINT64>( width );
+    depthDesc.Height = static_cast<UINT>( height );
     depthDesc.DepthOrArraySize = 1;
     depthDesc.MipLevels = 1;
 

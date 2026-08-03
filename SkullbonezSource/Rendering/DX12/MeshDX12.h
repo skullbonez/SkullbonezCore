@@ -4,9 +4,9 @@ Purpose:
   Declares mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
 Summary:
-  MeshDX12 retains its vertex buffer and two narrow concrete collaborators: a
-  draw gate for command readiness and Dx12Diagnostics for bounded draw evidence.
-  It has no aggregate backend, raw trace, or raw counter reference.
+  MeshDX12 retains a default-heap vertex buffer and its draw view plus two
+  narrow collaborators: a command-readiness gate and Dx12Diagnostics for
+  bounded draw evidence. It retains no aggregate backend or raw trace/counter.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -57,12 +57,6 @@ enum class VertexFormat12
 };
 
 
-/* -- MeshDX12
----------------------------------------------------------------------------------------------------------------------------------------------------
-
-    DX12 static mesh implementation. Holds a committed vertex buffer resource on
-    the default heap and exposes the vertex buffer view used by draw calls.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class MeshDX12
 {
 

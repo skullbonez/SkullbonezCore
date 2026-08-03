@@ -911,7 +911,7 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
                 break;
             }
 
-            // Allocation policy: F9 is an explicit cold developer utility. The
+            // Runtime allocation policy: F9 is an explicit cold developer utility. The
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
             SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope( SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
