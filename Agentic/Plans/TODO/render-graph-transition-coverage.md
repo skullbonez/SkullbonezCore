@@ -1,7 +1,7 @@
 # Render Graph Transition Coverage
 
 Date: 2026-08-02
-Status: IN PROGRESS — 3/5 phases complete
+Status: IN PROGRESS — 4/5 phases complete
 Impact area: Rendering render graph, DX12 render graph executor, tests
 Owner: Rendering render graph
 Priority: First — binding remaining campaign plan
@@ -135,15 +135,15 @@ tested boundary behavior.
   exact Lane-F capacity diagnostic through the shared fatal harness. Evidence:
   `../../Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`.
 
-- [ ] **RG3 — Pin residual transient lifetime, aliasing, and diagnostics.** Add
-  overlapping and nested lifetimes that cannot alias alongside the existing
-  compatible disjoint reuse. Vary kind, format, dimensions, mip count, and each
-  descriptor flag to prove exact compatibility. Assert all lifetime rows,
-  including unused external `used=false`, pool-slot/reuse decisions,
-  `releasedAtFrameEnd`, descriptor counts, and exact allocation/reuse/release and
-  high-water diagnostics. Carry the existing unused-transient Lane-F fact into
-  the main lane. Do not assert backend-only `createdThisCompile` or
-  `reusedThisCompile` as compile output.
+- [x] **RG3 — Pin residual transient lifetime, aliasing, and diagnostics.** A
+  spanning lifetime and nested lifetime use distinct slots while a later
+  compatible lifetime reuses slot 0; every lifetime/allocation row and exact
+  allocation/reuse/release/high-water diagnostic is pinned, including an unused
+  external `used=false`. Nine one-field variants independently reject aliasing
+  for kind, format, dimensions, mip count, and every descriptor flag. The main
+  Lane-F child now owns the exact unused-transient diagnostic, while backend-
+  only materialization statistics remain unasserted. Evidence:
+  `../../Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`.
 
 - [ ] **RG4 — Pin capacity exhaustion and the execution contract, then close.**
   Drive each of the six named ceilings to its boundary and use child processes
@@ -161,7 +161,7 @@ tested boundary behavior.
 
 ## Dependencies And Decisions
 
-- The two physics plans and RG1-RG2 are complete; RG3 is binding next.
+- The two physics plans and RG1-RG3 are complete; RG4 is binding next.
 - Use hand-derived structured assertions. RG0 found no required property that the
   structured compile, callback, execution-contract, resource, or pass surfaces
   cannot express, so `DumpText()` goldens are rejected for this plan.

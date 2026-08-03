@@ -1416,13 +1416,13 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/20 (15%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
+work at 4/20 (20%).** Narrowphase Manifold And Sleep Coverage closed at 6/6 and
 Broadphase Pair Dedup Cost closed at 5/5; both left the active/future ledger
 under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew
 the denominator 15 → 20. Four plans remain, to run in this
 order:
 
-1. `TODO/render-graph-transition-coverage.md` (3/5). Sixteen pure RenderGraph
+1. `TODO/render-graph-transition-coverage.md` (4/5). Sixteen pure RenderGraph
    tests already run through the merge-gated standalone DX12 architecture lane,
    covering representative derivation, transient, callback, and fatal behavior.
    They do not run in `validate_tests` or instrumented coverage. RG0 maps the
@@ -1430,7 +1430,9 @@ order:
    RG1-RG4 matrix. RG1 adds the main-lane production integration and pins four
    ordinary transition cases / 47 assertions. RG2 pins divergent numeric-state
    convergence, stored order, stale-override absence, and the exact
-   eight-state/ninth-state Lane-F boundary; RG3 is binding next.
+   eight-state/ninth-state Lane-F boundary. RG3 pins overlapping/nested and
+   disjoint lifetimes, every compatibility field, exact allocation diagnostics,
+   and the unused-transient Lane-F path; RG4 is binding next.
 2. `TODO/dense-pile-sleep-resolution.md` (0/5). Sleep is measurably harder to
    reach in dense piles since the restitution lifetime gate landed. That gate is
    the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
@@ -1454,13 +1456,15 @@ order:
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
 
-Handoff after the RG2 checkpoint: continue on `nightrunner-3rd-AUG-26` at RG3
-only. Add overlapping and nested transient lifetimes that cannot alias alongside
-compatible disjoint reuse. Vary kind, format, dimensions, mip count, and every
-descriptor flag independently; assert every lifetime and allocation row plus
-allocation/reuse/release and high-water diagnostics. Carry the existing unused-
-transient Lane-F fact into the main lane through the shared child harness. Do not
-assert backend-only materialization statistics or edit production Rendering.
+Handoff after the RG3 checkpoint: continue on `nightrunner-3rd-AUG-26` at RG4
+only. Drive every six named ceiling to its exact boundary and use shared child
+probes for every one-past diagnostic; reads and writes remain independent
+eight-row lists, and the local 24-slot transient-pool fatal stays recorded as
+publicly unreachable. Pin every frame execution-contract count/boolean for null
+and empty names, valid/missing Present, wrong/extra declaration-only rows, and a
+disabled callback. Then run the CPU umbrella, fast gate, touched-source audit,
+all seven governance inventories, and independent closure review. Do not edit
+production Rendering unless a hand-derived oracle exposes a real defect.
 
 Deep-tower stacking remains owner-parked in
 `WNF/contact-stack-stability-techniques.md` for later Bullet/Box2D experimentation
@@ -3707,6 +3711,18 @@ Profile run passes 6 cases / 180 assertions and the full unit gate passes; no
 production Rendering, project integration, baseline, or build ruling changed.
 The touched-source comment audit is 3/3. The live ledger is 3/20 (15%). Evidence
 is in `../Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`.
+
+Render Graph Transition Coverage RG3 completed on 2026-08-03. Two hand-derived
+main-lane cases pin unused external lifetime state, overlapping/nested slot
+separation, compatible disjoint reuse, every kind/format/dimension/mip/descriptor
+compatibility field, all lifetime/allocation rows, frame-end release, and exact
+allocation/reuse/release/high-water diagnostics. The unused-transient Lane-F
+fact now runs through the shared main-lane child harness. The focused Profile
+run passes 8 cases / 357 assertions and the full unit gate passes; no production
+Rendering, project integration, baseline, backend statistic, or build ruling
+changed. The touched-source comment audit is 1/1. The live ledger is 4/20 (20%).
+Evidence is in
+`../Reports/2026-08-03/render-graph-transition-coverage-rg3-transients.md`.
 
 The denominator grew 15 → 20 on 2026-08-03 when the owner registered
 `TODO/dense-pile-sleep-resolution.md` (5 tasks) from the sleep regression exposed
