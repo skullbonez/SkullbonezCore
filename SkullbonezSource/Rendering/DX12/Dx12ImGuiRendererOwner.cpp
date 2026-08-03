@@ -203,7 +203,14 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
     D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
     srv.Format = texture.Format;
     srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    // Why: direct swap-chain presentation ignores alpha, but ImGui composites
+    // this copied image with sampled alpha. Treat the captured world as the
+    // opaque surface it is so translucent/additive world overlays retain their
+    // RGB color instead of being darkened a second time by ImGui blending.
+    srv.Shader4ComponentMapping = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+        D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+        D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+        D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2, D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1 );
     srv.Texture2D.MipLevels = 1u;
     m_device.Device()->CreateShaderResourceView( candidate, &srv, m_gameViewportDescriptor.cpuHandle );
 

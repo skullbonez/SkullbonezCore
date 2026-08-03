@@ -1300,7 +1300,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         return;
     }
 
-    bool selectedEntityVisible = false;
     bool selectedEntityLocked = false;
 
     for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
@@ -1308,7 +1307,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( view.hierarchy.rows[index].sceneObjectId == view.hierarchy.selectedSceneObjectId )
         {
-            selectedEntityVisible = view.hierarchy.rows[index].visible;
             selectedEntityLocked = view.hierarchy.rows[index].locked;
             break;
         }
@@ -1998,35 +1996,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     ImGui::EndDragDropTarget();
                 }
 
-                char selectionOverlay[160] = {};
-
-                if ( view.hierarchy.selectedSceneObjectId != 0u )
-                {
-                    snprintf( selectionOverlay, sizeof( selectionOverlay ), "Selection #%u | %s | %s",
-                              view.hierarchy.selectedSceneObjectId, selectedEntityVisible ? "visible" : "hidden",
-                              selectedEntityLocked ? "locked" : "editable" );
-                }
-                else
-                {
-                    snprintf( selectionOverlay, sizeof( selectionOverlay ), "Selection: none" );
-                }
-
-                char presentationOverlay[192] = {};
-
-                snprintf( presentationOverlay, sizeof( presentationOverlay ),
-                          "%dx%d @ %.2fx | %s | interpolation %s alpha %.2f%s", sourceWidth, sourceHeight,
-                          m_gameViewportRect.dpiScale, view.rendering.cinematicRendering ? "cinematic" : "ordinary",
-                          view.rendering.presentationInterpolation ? "on" : "off", view.rendering.presentationAlpha,
-                          view.viewport.presentationPinned ? " | pinned" : "" );
-
-                const ImVec2 overlayMin( imageMin.x + 10.0f, imageMin.y + 10.0f );
-                const ImVec2 overlayMax( imageMin.x + 360.0f, imageMin.y + 52.0f );
-                drawList->AddRectFilled( overlayMin, overlayMax, IM_COL32( 12, 15, 20, 210 ), 4.0f );
-                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 5.0f ), ImGui::GetColorU32( ImGuiCol_Text ),
-                                   selectionOverlay );
-
-                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 23.0f ),
-                                   ImGui::GetColorU32( ImGuiCol_TextDisabled ), presentationOverlay );
             }
             else
             {
