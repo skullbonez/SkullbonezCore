@@ -332,7 +332,7 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateTextureFromSourceAsset( 
 }
 
 
-SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char* fileName, uint32_t hash )
 {
 
     if ( hash == 0 )
@@ -341,7 +341,7 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
         // Invariant: legacy direct texture creation still indexes the fixed
         // table by hash. Zero is the sentinel for "not addressable".
         SB_FATAL( "TextureCollection", "CreateJpegTexture requires a non-zero legacy hash. path=\"%s\"",
-                  cFileName ? cFileName : "" );
+                  fileName ? fileName : "" );
     }
 
     const Assets::TextureSourceAsset* source = m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash ) : nullptr;
@@ -358,11 +358,11 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
         ReleaseTexture( m_textures[existingIndex] );
     }
 
-    return LoadJpegTextureIntoSlot( FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
+    return LoadJpegTextureIntoSlot( FindFreeSlot(), fileName, hash, 0, true, true, 3 );
 }
 
 
-SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
+SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char* fileName, uint32_t hash )
 {
 
     if ( HasTexture( hash ) )
@@ -370,7 +370,7 @@ SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char*
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    return CreateJpegTexture( cFileName, hash );
+    return CreateJpegTexture( fileName, hash );
 }
 
 

@@ -67,7 +67,7 @@ class Vector3
     }
 
     Vector3( const Vector3& v ) = default;
-    Vector3( float fX, float fY, float fZ ) : x( fX ), y( fY ), z( fZ )
+    Vector3( float x, float y, float z ) : x( x ), y( y ), z( z )
     {
     }
 

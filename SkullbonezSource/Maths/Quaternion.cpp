@@ -39,7 +39,7 @@ Quaternion::Quaternion() : m_x( 0.0f ), m_y( 0.0f ), m_z( 0.0f ), m_w( 1.0f ) //
 }
 
 
-Quaternion::Quaternion( float fX, float fY, float fZ, float fW ) : m_x( fX ), m_y( fY ), m_z( fZ ), m_w( fW )
+Quaternion::Quaternion( float x, float y, float z, float w ) : m_x( x ), m_y( y ), m_z( z ), m_w( w )
 {
 }
 

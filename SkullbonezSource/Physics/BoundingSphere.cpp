@@ -35,8 +35,8 @@ BoundingSphere::BoundingSphere() : m_radius( 0.0f ), m_dragCoefficient( 0.4f )
 }
 
 
-BoundingSphere::BoundingSphere( float fRadius, const Vector3& vPosition, float fDragCoefficient )
-    : m_position( vPosition ), m_radius( fRadius ), m_dragCoefficient( fDragCoefficient )
+BoundingSphere::BoundingSphere( float radius, const Vector3& localPosition, float dragCoefficient )
+    : m_position( localPosition ), m_radius( radius ), m_dragCoefficient( dragCoefficient )
 {
 }
 
@@ -221,9 +221,9 @@ float BoundingSphere::GetDragCoefficient() const
 }
 
 
-void BoundingSphere::SetDragCoefficient( float fDragCoefficient )
+void BoundingSphere::SetDragCoefficient( float dragCoefficient )
 {
-    m_dragCoefficient = fDragCoefficient;
+    m_dragCoefficient = dragCoefficient;
 }
 
 

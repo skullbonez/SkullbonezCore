@@ -99,8 +99,8 @@ class TextureCollection
     TextureHandleResult GetTextureHandle( uint32_t hash );
     void DeleteTexture( uint32_t hash );
     void DeleteAllTextures();
-    SkullbonezCore::Core::SbResult CreateJpegTexture( const char* cFileName, uint32_t hash );
-    SkullbonezCore::Core::SbResult EnsureJpegTexture( const char* cFileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult CreateJpegTexture( const char* fileName, uint32_t hash );
+    SkullbonezCore::Core::SbResult EnsureJpegTexture( const char* fileName, uint32_t hash );
     SkullbonezCore::Core::SbResult RebuildTexturesFromSourceAssets();
     void DumpTextureAssets( FILE* out ) const;
 };

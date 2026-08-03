@@ -141,13 +141,13 @@ int64_t SpatialCellKey( int ix, int iy, int iz )
 } // namespace
 
 
-SpatialGrid::SpatialGrid( float fCellSize )
+SpatialGrid::SpatialGrid( float requestedCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), overlayGeneration( 1 ), pairSourceGeneration( 1 ), freeBucketHead( -1 ),
       freeEntryHead( -1 ), persistentEntryCount( 0 ), objectCount( 0 ), activeBucketCount( 0 ), overlayEntryCount( 0 ),
       overlayActiveBucketCount( 0 ), cellObjectGeneration( 0 )
 {
     Clear();
-    SetCellSize( fCellSize );
+    SetCellSize( requestedCellSize );
 }
 
 
@@ -181,26 +181,26 @@ void SpatialGrid::ReserveSceneCapacity( std::size_t bodyCapacity )
 }
 
 
-void SpatialGrid::SetCellSize( float fCellSize )
+void SpatialGrid::SetCellSize( float requestedCellSize )
 {
 
-    if ( fCellSize < MIN_CELL_SIZE || !std::isfinite( fCellSize ) )
+    if ( requestedCellSize < MIN_CELL_SIZE || !std::isfinite( requestedCellSize ) )
     {
 
         // Lane F: an invalid cell size makes every subsequent float-to-cell
         // conversion unsafe; construction and runtime reconfiguration share
         // this owner boundary.
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell size invalid: value=%.9g minimum=%.9g.", fCellSize,
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell size invalid: value=%.9g minimum=%.9g.", requestedCellSize,
                   MIN_CELL_SIZE );
     }
 
-    if ( fCellSize == cellSize )
+    if ( requestedCellSize == cellSize )
     {
         return;
     }
 
-    cellSize = fCellSize;
-    inverseCellSize = 1.0f / fCellSize;
+    cellSize = requestedCellSize;
+    inverseCellSize = 1.0f / requestedCellSize;
 
     // Invariant: integer cell ranges are meaningful only for the cell size that
     // produced them. Runtime tuning and scene loads are cold rebuild boundaries.

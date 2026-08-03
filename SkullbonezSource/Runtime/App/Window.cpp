@@ -242,14 +242,14 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
 
 
 // "Windows Procedure" - this function handles messages for our window
-LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
+LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPARAM lParam )
 {
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
 
     // Why: Win32 stores the non-owning Window address in LONG_PTR user data and
     // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
     // this WndProc ABI seam; the window object retains lifetime authority.
-    Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
+    Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( windowHandle, GWLP_USERDATA ) );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 
@@ -260,14 +260,14 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     if ( window )
     {
-        developmentUiRoute = window->RouteDevelopmentUiMessage( hWnd, iMsg, wParam, lParam );
+        developmentUiRoute = window->RouteDevelopmentUiMessage( windowHandle, messageId, wParam, lParam );
     }
 #endif
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
 
-    switch ( iMsg )
+    switch ( messageId )
     {
 
     // Which message do we have to deal with today...?
@@ -276,7 +276,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     {
         CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>( lParam );
         window = reinterpret_cast<Window*>( create->lpCreateParams );
-        SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( window ) );
+        SetWindowLongPtr( windowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( window ) );
         break;
     }
 
@@ -310,8 +310,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     // WM_PAINT fired when client area is invalidated
     case WM_PAINT:
-        BeginPaint( hWnd, &ps );
-        EndPaint( hWnd, &ps ); // End painting
+        BeginPaint( windowHandle, &ps );
+        EndPaint( windowHandle, &ps ); // End painting
         break;
 
     case WM_MOUSEWHEEL:
@@ -323,9 +323,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         }
 #endif
 
-        if ( GetForegroundWindow() == hWnd )
+        if ( GetForegroundWindow() == windowHandle )
         {
-            Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
+            Input::AccumulateMouseWheelDelta( windowHandle, GET_WHEEL_DELTA_WPARAM( wParam ) );
         }
 
         break;
@@ -340,7 +340,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 #endif
 
         // Why: WM_INPUT carries an HRAWINPUT token in LPARAM by Win32 contract.
-        Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
+        Input::AccumulateRawMouseDelta( windowHandle, reinterpret_cast<HRAWINPUT>( lParam ) );
         break;
 
     case WM_SYSKEYDOWN:
@@ -385,7 +385,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         if ( LOWORD( lParam ) == HTCLIENT )
         {
 
-            if ( GetForegroundWindow() == hWnd )
+            if ( GetForegroundWindow() == windowHandle )
             {
                 Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
             }
@@ -416,11 +416,11 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
     // Now we have done whatever we wanted to do, let windows do anything else it
     // needs to do based on the message fired...
-    return DefWindowProc( hWnd, iMsg, wParam, lParam );
+    return DefWindowProc( windowHandle, messageId, wParam, lParam );
 }
 
 
-SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode, bool showOnCreate )
+SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool isFullScreenMode, bool showOnCreate )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
@@ -430,7 +430,7 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
     wndclass.style = CS_HREDRAW | CS_VREDRAW; // Vert and Horiz redraw
     wndclass.lpfnWndProc = WndProc;           // Assign callback function
 
-    wndclass.hInstance = hInstance; // Assign hInstance
+    wndclass.hInstance = instance; // Assign application instance
 
     wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO ); // Default icon
 
@@ -486,10 +486,10 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
                          windowX, // Window xPos
                          windowY, // Window yPos
                          windowW, windowH,
-                         nullptr,   // Parent window handle
-                         nullptr,   // Window menu handle
-                         hInstance, // Application instance
-                         this );    // Data to pass to WndProc
+                         nullptr,  // Parent window handle
+                         nullptr,  // Window menu handle
+                         instance, // Application instance
+                         this );   // Data to pass to WndProc
 
     if ( !hWnd )
     {
@@ -538,13 +538,13 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
 }
 
 
-void Window::SetTitleText( const char* cText )
+void Window::SetTitleText( const char* text )
 {
-    SetWindowText( m_sWindow, cText );
+    SetWindowText( m_sWindow, text );
 }
 
 
-int Window::MsgBox( const char* cMsgBoxText, const char* cMsgBoxTitle, const UINT iMsgBoxType )
+int Window::MsgBox( const char* text, const char* title, const UINT type )
 {
-    return ( MessageBox( m_sWindow, cMsgBoxText, cMsgBoxTitle, iMsgBoxType ) );
+    return ( MessageBox( m_sWindow, text, title, type ) );
 }

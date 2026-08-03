@@ -599,7 +599,7 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 
 
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                               std::span<BuoyancyBodyFacts> buoyancyFacts, float fChangeInTime,
+                               std::span<BuoyancyBodyFacts> buoyancyFacts, float deltaSeconds,
                                const PhysicsRuntimeSettings& settings, const PhysicsWorldForces& worldForces,
                                const ExternalForceFrameInput& externalForces, Threading::WorkerPool& workerPool )
 {
@@ -625,7 +625,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
     }
 
     const auto bodyRecords = bodyStore.Records();
-    const bool timeStepChanged = !m_lastTimeRemainingStepValid || fChangeInTime != m_lastTimeRemainingStep;
+    const bool timeStepChanged = !m_lastTimeRemainingStepValid || deltaSeconds != m_lastTimeRemainingStep;
 
     if ( static_cast<int>( m_timeRemaining.size() ) != modelCount || timeStepChanged )
     {
@@ -633,10 +633,10 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
         // Cold topology/timestep boundary: preserve the old all-row value
         // contract for replay/diagnostics. Capacity is reserved before play;
         // ordinary same-dt steps below write only bodies that can consume it.
-        m_timeRemaining.assign( static_cast<std::size_t>( modelCount ), fChangeInTime );
+        m_timeRemaining.assign( static_cast<std::size_t>( modelCount ), deltaSeconds );
     }
 
-    m_lastTimeRemainingStep = fChangeInTime;
+    m_lastTimeRemainingStep = deltaSeconds;
     m_lastTimeRemainingStepValid = true;
     m_stepDiagnostics.BeginStep( modelCount );
     m_terrain.BeginFrame();
@@ -645,7 +645,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
 
     for ( int bodyIndex : awakeBodyIndices )
     {
-        m_timeRemaining[static_cast<std::size_t>( bodyIndex )] = fChangeInTime;
+        m_timeRemaining[static_cast<std::size_t>( bodyIndex )] = deltaSeconds;
     }
 
     const bool fluidSurfaceHeightChanged = !m_lastUnderwaterProbeFluidSurfaceHeightValid ||
@@ -656,7 +656,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore&
     const bool probeDormantUnderwaterLocks = rebuiltAwakeList || m_underwaterSleepProbeNeeded || fluidSurfaceHeightChanged;
 
     m_underwaterSleepProbeNeeded = false;
-    RunSolverPhysics( bodyStore, colliderStore, buoyancyFacts, fChangeInTime, settings, worldForces, externalForces,
+    RunSolverPhysics( bodyStore, colliderStore, buoyancyFacts, deltaSeconds, settings, worldForces, externalForces,
                       workerPool, probeDormantUnderwaterLocks );
 }
 
@@ -1308,17 +1308,17 @@ void PhysicsWorld::SetDiagnosticNames( std::span<const char* const> diagnosticNa
 
 
 void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
-                                        float fChangeInTime, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+                                        float deltaSeconds, const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
 #ifdef _DEBUG
     const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-    m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed, diagnosticsView, bodyStore, colliderStore, fChangeInTime,
+    m_stepDiagnostics.EmitStepDiagnostics( m_diagnosticsSuppressed, diagnosticsView, bodyStore, colliderStore, deltaSeconds,
                                            diagnosticsCsvWriter );
 
 #else
     (void)bodyStore;
     (void)colliderStore;
-    (void)fChangeInTime;
+    (void)deltaSeconds;
     (void)diagnosticsCsvWriter;
 #endif
 }

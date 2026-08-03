@@ -49,7 +49,7 @@ class Quaternion
 
   public:
     Quaternion();                                                     // Initializes to identity orientation.
-    Quaternion( float fX, float fY, float fZ, float fW );             // Explicit component construction for deserialization/math helpers.
+    Quaternion( float x, float y, float z, float w );                 // Explicit component construction for deserialization/math helpers.
     ~Quaternion() = default;
     void Identity();                                                  // Resets orientation to the no-rotation value.
     void Normalise();                                                 // Removes floating-point drift before conversion to matrices or solver rows.

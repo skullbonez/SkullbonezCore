@@ -86,8 +86,7 @@ class Ray
     Ray()
     {
     }
-    Ray( const Math::Vector::Vector3& vOrigin, const Math::Vector::Vector3& vVector3 )
-        : origin( vOrigin ), vector3( vVector3 )
+    Ray( const Math::Vector::Vector3& origin, const Math::Vector::Vector3& vector ) : origin( origin ), vector3( vector )
     {
     }
     ~Ray()

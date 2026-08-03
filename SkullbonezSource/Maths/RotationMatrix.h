@@ -75,9 +75,8 @@ class RotationMatrix
 // One program-wide no-rotation matrix shared by every including translation unit.
 inline const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f );
 
-// Rotate vPoint around normalized arbitrary axis vAxis by fRadians.
-inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis,
-                                                  const Vector::Vector3& vPoint )
+// Rotate point around normalized arbitrary axis axis by radians.
+inline Vector::Vector3 RotatePointAboutArbitrary( float radians, const Vector::Vector3& axis, const Vector::Vector3& point )
 {
 
     // Keep the intermediate named so the derivation below maps back to the old
@@ -86,8 +85,8 @@ inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::
 
     // break rotation amount into vertical and horizontal components to
     // prepare for applying arbitrary 3d rotation matrix
-    float sinTheta = sinf( fRadians );
-    float cosTheta = cosf( fRadians );
+    float sinTheta = sinf( radians );
+    float cosTheta = cosf( radians );
 
     /*
         The following matrix for arbitrary axis rotation is explained in about 2.5
@@ -96,11 +95,11 @@ inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::
 
         The matrix for arbitrary axis rotation is defined as follows:
 
-            let fRadians = a
-            let vAxis	 = n
-            let vPoint.x = x
-                vPoint.y = y
-                vPoint.z = z
+            let radians = a
+            let axis	 = n
+            let point.x = x
+                point.y = y
+                point.z = z
 
             |    n.x^2*(1-cos(a))+cos(a)		n.x*n.y*(1-cos(a))+n.z*sin(a)		n.x*n.z*(1-cos(a))-n.y*sin(a) | | x
        | | n.x*n.y*(1-cos(a))-n.z*sin(a)		   n.y^2*(1-cos(a))+cos(a)			n.y*n.z*(1-cos*a))+n.x*sin(a) | | y
@@ -113,30 +112,30 @@ inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::
        (n.y*n.z*(1-cos(a))-n.x*sin(a)) * y	  +	     (n.x^2*(1-cos(a))+cos(a))    * z |
 
             // old code...
-            vResult.x = (vAxis.x * vAxis.x * (1 - cosTheta) + cosTheta)				* vPoint.x +
-                        (vAxis.x * vAxis.y * (1 - cosTheta) + vAxis.z * sinTheta)	* vPoint.y +
-                        (vAxis.x * vAxis.z * (1 - cosTheta) - vAxis.y * sinTheta)	* vPoint.z ;
+            vResult.x = (axis.x * axis.x * (1 - cosTheta) + cosTheta)				* point.x +
+                        (axis.x * axis.y * (1 - cosTheta) + axis.z * sinTheta)	* point.y +
+                        (axis.x * axis.z * (1 - cosTheta) - axis.y * sinTheta)	* point.z ;
 
-            vResult.y = (vAxis.x * vAxis.y * (1 - cosTheta) - vAxis.z * sinTheta)	* vPoint.x +
-                        (vAxis.y * vAxis.y * (1 - cosTheta) + cosTheta)				* vPoint.y +
-                        (vAxis.y * vAxis.z * (1 - cosTheta) + vAxis.x * sinTheta)	* vPoint.z ;
+            vResult.y = (axis.x * axis.y * (1 - cosTheta) - axis.z * sinTheta)	* point.x +
+                        (axis.y * axis.y * (1 - cosTheta) + cosTheta)				* point.y +
+                        (axis.y * axis.z * (1 - cosTheta) + axis.x * sinTheta)	* point.z ;
 
-            vResult.z = (vAxis.x * vAxis.z * (1 - cosTheta) + vAxis.y * sinTheta)	* vPoint.x +
-                        (vAxis.y * vAxis.z * (1 - cosTheta) - vAxis.x * sinTheta)	* vPoint.y +
-                        (vAxis.z * vAxis.z * (1 - cosTheta) + cosTheta)				* vPoint.z ;
+            vResult.z = (axis.x * axis.z * (1 - cosTheta) + axis.y * sinTheta)	* point.x +
+                        (axis.y * axis.z * (1 - cosTheta) - axis.x * sinTheta)	* point.y +
+                        (axis.z * axis.z * (1 - cosTheta) + cosTheta)				* point.z ;
     */
 
-    RotationMatrix matrix( ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ),
-                           ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ),
-                           ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta ) );
+    RotationMatrix matrix( ( axis.x * axis.x * ( 1 - cosTheta ) + cosTheta ),
+                           ( axis.x * axis.y * ( 1 - cosTheta ) + axis.z * sinTheta ),
+                           ( axis.x * axis.z * ( 1 - cosTheta ) - axis.y * sinTheta ),
+                           ( axis.x * axis.y * ( 1 - cosTheta ) - axis.z * sinTheta ),
+                           ( axis.y * axis.y * ( 1 - cosTheta ) + cosTheta ),
+                           ( axis.y * axis.z * ( 1 - cosTheta ) + axis.x * sinTheta ),
+                           ( axis.x * axis.z * ( 1 - cosTheta ) + axis.y * sinTheta ),
+                           ( axis.y * axis.z * ( 1 - cosTheta ) - axis.x * sinTheta ),
+                           ( axis.z * axis.z * ( 1 - cosTheta ) + cosTheta ) );
 
-    return matrix * vPoint;
+    return matrix * point;
 }
 } // namespace Transformation
 } // namespace Math

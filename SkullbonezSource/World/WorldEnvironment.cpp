@@ -78,9 +78,9 @@ WorldEnvironment::WorldEnvironment()
 }
 
 
-WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity, float fGravity )
-    : m_fluidSurfaceHeight( fFluidSurfaceHeight ), m_fluidDensity( fFluidDensity ), m_gasDensity( fGasDensity ),
-      m_gravity( fGravity )
+WorldEnvironment::WorldEnvironment( float fluidSurfaceHeight, float fluidDensity, float gasDensity, float gravity )
+    : m_fluidSurfaceHeight( fluidSurfaceHeight ), m_fluidDensity( fluidDensity ), m_gasDensity( gasDensity ),
+      m_gravity( gravity )
 {
 }
 

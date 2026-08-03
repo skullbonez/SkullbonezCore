@@ -138,8 +138,8 @@ class WorldEnvironment
 
   public:
     WorldEnvironment();                                                                               // Initializes default gravity/fluid values from config-era constants.
-    WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity,
-                      float fGravity );                                                               // Explicit physics constants for tests and scene loading.
+    WorldEnvironment( float fluidSurfaceHeight, float fluidDensity, float gasDensity,
+                      float gravity );                                                                // Explicit physics constants for tests and scene loading.
     ~WorldEnvironment();                                                                              // Releases owned water mesh/shader resources.
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                        // Scene containers move worlds during setup only.
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                             // Scene containers move worlds during setup only.

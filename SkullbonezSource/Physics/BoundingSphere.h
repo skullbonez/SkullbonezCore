@@ -66,9 +66,9 @@ class BoundingSphere
 
   public:
     BoundingSphere();                                     // Creates an empty sphere at the local origin for staged shape setup.
-    BoundingSphere( float fRadius, const Vector::Vector3& vPosition,
-                    float fDragCoefficient = 0.4f );      // fRadius is meters; vPosition is the owning body's local-space offset.
-    void SetDragCoefficient( float fDragCoefficient );
+    BoundingSphere( float radius, const Vector::Vector3& localPosition,
+                    float dragCoefficient = 0.4f );       // radius is meters; localPosition is the owning body's local-space offset.
+    void SetDragCoefficient( float dragCoefficient );
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos,
                                             const Transformation::Matrix4& rotation )
         const;                                            // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh

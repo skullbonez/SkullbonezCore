@@ -99,11 +99,11 @@ class Text2d
     inline static float charAdvance[96] = {};
 
     // Text coordinates are centered on the client rect in legacy frustum units:
-    // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
+    // x/y normally stay within [-0.5, 0.5], size is normalized, and the format
     // string accepts printf-style arguments.
     // Queues white SDF text for this frame's text batch.
-    static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float fSize, float r, float g,
-                                   float b, const char* cRawText,
+    static void Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
+                                   const char* format,
                                    ... );                                   // Queues colored SDF text for this frame's text batch.
     static void
     FlushText( TextBatch& batch, Rendering::Dx12TextureOwner& renderTextures,
@@ -124,9 +124,9 @@ class Text2d
     BuildFont( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources, Rendering::Dx12TextureOwner& renderTextures,
                Rendering::Dx12GeometryOwner& renderGeometry, const Assets::AssetSystem& assets, int screenW, int screenH,
-               const char* cFontName );                                     // Loads or generates SDF atlas resources for the active backend.
-    static bool GenerateSdfAtlasToFile( const char* cFontName,
-                                        const char* cOutPath );             // Offline SDF atlas writer used by --gen-atlas tooling.
+               const char* fontName );                                      // Loads or generates SDF atlas resources for the active backend.
+    static bool GenerateSdfAtlasToFile( const char* fontName,
+                                        const char* outputPath );           // Offline SDF atlas writer used by --gen-atlas tooling.
     static void DeleteFont( TextBatch& batch, Rendering::Dx12TextureOwner* renderTextures,
                             Rendering::Dx12GeometryOwner* renderGeometry ); // Releases GPU font resources while a backend is still available.
     static void RebuildProjection( TextBatch& batch, int w, int h );        // Recomputes owned ortho projection after a window resize.
@@ -138,10 +138,10 @@ class Text2d
     {
         return batch.m_halfHeight;
     } // Top edge Y in text space; fixed by the text projection FOV.
-    static float MeasureText( float fSize, const char* text );              // Width in text-space units for already-formatted strings.
+    static float MeasureText( float size, const char* text );               // Width in text-space units for already-formatted strings.
 
   private:
-    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float fSize, float colR, float colG,
+    static void RenderTextInternal( TextBatch& batch, float xPosition, float yPosition, float size, float colR, float colG,
                                     float colB, const char* formatted );
 };
 } // namespace Text

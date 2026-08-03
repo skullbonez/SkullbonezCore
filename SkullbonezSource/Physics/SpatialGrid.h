@@ -296,7 +296,7 @@ class SpatialGrid
     static_assert( MAX_ABSOLUTE_CELL_COORDINATE <= ( std::numeric_limits<int>::max )() - 1024,
                    "SpatialGrid exact cell coordinates exceed the guarded signed-int conversion range." );
 
-    SpatialGrid( float fCellSize );
+    SpatialGrid( float requestedCellSize );
 
     // SceneLoad-only sizing for every scene-derived store. The compile-time
     // ceilings remain larger so future evidence can change a runtime formula
@@ -312,7 +312,7 @@ class SpatialGrid
 
     // A changed cell size invalidates every cached integer range and performs a
     // cold clear. Reapplying the same value is intentionally maintenance-free.
-    void SetCellSize( float fCellSize );
+    void SetCellSize( float requestedCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
 
     // Maintains the body's ordinary current-position cells, then adds only the

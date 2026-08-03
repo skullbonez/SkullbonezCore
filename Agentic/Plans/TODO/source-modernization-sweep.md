@@ -1,7 +1,7 @@
 # Source Modernization Sweep
 
 Date: 2026-08-02
-Status: IN PROGRESS — 2/5 phases complete
+Status: IN PROGRESS — 3/5 phases complete
 Impact area: Assets, Maths, Physics, World, Rendering/DX12, Runtime App/Camera legacy naming and idiom
 Owner: Engine source conventions
 Priority: Fourth
@@ -91,7 +91,7 @@ behavior changes, and no baseline moves.
   touched-source comment audit is 17/17. Permanent evidence is in
   `../../Reports/2026-08-03/source-modernization-mz1-idioms.md`.
 
-- [ ] **MZ2 — Retire Hungarian parameter prefixes.** Rename the 82 semantic
+- [x] **MZ2 — Retire Hungarian parameter prefixes.** Rename the 82 semantic
   parameters across all corresponding declaration/definition sites in the 27
   census files. Work one file at a time and build between files;
   a rename that compiles is not automatically correct when a member and a
@@ -100,7 +100,13 @@ behavior changes, and no baseline moves.
   that names an old parameter in the same edit, per the Comment Quality Gate rule
   that comments must name post-change reality. Do not rename members, locals, or
   anything the census did not classify — scope creep here is how a behavior-neutral
-  plan stops being behavior-neutral.
+  plan stops being behavior-neutral. All 82 are retired across the 27 files;
+  the collision-free semantic spellings `requestedCellSize`, `messageId`, and
+  `commandLineText` replace three MZ0 suggestions that would have hidden a
+  member or local. Every file compiled before the next edit, the final Profile
+  and format gates pass, and the touched-source comment audit is 27/27.
+  Permanent evidence is in
+  `../../Reports/2026-08-03/source-modernization-mz2-parameters.md`.
 
 - [ ] **MZ3 — Rule on the spelling and namespace inconsistencies.** Decide and
   record: whether `Normalise`/`TryNormalise`/`TryNormalised` become American

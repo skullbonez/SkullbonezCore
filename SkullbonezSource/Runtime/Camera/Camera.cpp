@@ -48,11 +48,11 @@ Camera::Camera()
 }
 
 
-void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vector3& vUpVector )
+void Camera::SetAll( const Vector3& position, const Vector3& view, const Vector3& up )
 {
-    m_position = vPosition;
-    m_view = vView;
-    m_upVector = vUpVector;
+    m_position = position;
+    m_view = view;
+    m_upVector = up;
 
     m_viewMagnitude = Vector::Distance( m_position, m_view );
 
@@ -82,13 +82,13 @@ void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vecto
 }
 
 
-void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const CameraMovementSettings& settings )
+void Camera::MoveCamera( const TravelDirection direction, float amount, const CameraMovementSettings& settings )
 {
 
     // declare local variable to store movement results
     Vector3 movementResults = Vector::ZERO_VECTOR;
 
-    switch ( enumDir )
+    switch ( direction )
     {
     case TravelDirection::Forward:
 
@@ -109,7 +109,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         }
 
         // movement result is along the view vector, positive direction
-        movementResults = GetViewVectorNormalised() * fQuantity;
+        movementResults = GetViewVectorNormalised() * amount;
         break;
 
     case TravelDirection::Left:
@@ -120,7 +120,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         {
 
             // movement result is along the right vector, negative direction
-            movementResults = GetRightVector() * -fQuantity;
+            movementResults = GetRightVector() * -amount;
         }
 
         break;
@@ -133,7 +133,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         {
 
             // movement result is along the right vector, positive direction
-            movementResults = GetRightVector() * fQuantity;
+            movementResults = GetRightVector() * amount;
         }
 
         break;
@@ -157,7 +157,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const C
         }
 
         // movement result is along the view vector, negative direction
-        movementResults = GetViewVectorNormalised() * -fQuantity;
+        movementResults = GetViewVectorNormalised() * -amount;
     }
 
     m_movementBuffer += movementResults;
