@@ -1,7 +1,7 @@
 # Dense Pile Sleep Resolution
 
 Date: 2026-08-03
-Status: IN PROGRESS — 3/5 phases complete
+Status: BLOCKED — 3/5 phases complete; SR3 candidate rejected, owner decision required
 Impact area: Physics contact restitution lifetime, sleep controller, diagnostics, tests
 Owner: Physics contact and sleep
 Priority: First — binding remaining campaign plan
@@ -180,6 +180,16 @@ workloads, no body loss, no popcorn cycles.
   harsher test of the same property, so an SR1 finding of churn is also a finding
   that NM2's coverage did not reach this regime.
 
+  **SR3 falsifier result:** the selected half-quiet witness failed its complete
+  20,000-frame oracle and is no longer an approved implementation candidate.
+  It ended at 327/330 sleeping with 5,441 wake oscillations and no permanent
+  all-sleep frame. Live reconstruction found only seven qualifying rows; the
+  frame-24 initiating divergence has zero quiet counters. The attempted source,
+  tests, and ruling changes were removed. The costed alternatives, rejected
+  post-run scene fingerprint, independent review, and exact unblock condition
+  are recorded in
+  `../../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
+
 - [ ] **SR3 — Implement and prove both sides.** Land the chosen mechanism. Prove the
   wall fix is fully retained: four-brick reversals stay at zero with 4/4 sleeping,
   the 200-box workload retains all 211 bodies with zero popcorn cycles, and the
@@ -220,6 +230,13 @@ workloads, no body loss, no popcorn cycles.
 - If SR1 finds the regression is not repairable without a golden transition, the
   correct outcome is to stop at SR2 with a costed owner decision packet, not to
   implement a change that forces a baseline the owner has not approved.
+- **Current blocker:** SR3's reviewed candidate failed, and every remaining
+  policy-shaped route needs owner authority for a new hysteresis/tuning rule,
+  retained pair state, or geometry/replay transition. The verified count remains
+  3/5. SR4 depends on SR3; the two later campaign plans do not. Unblock only when
+  the Physics contact/sleep owner selects an option and transition scope from
+  `../../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`, or parks
+  this plan under inventory rule 9.
 
 ## Acceptance
 

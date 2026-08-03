@@ -1416,49 +1416,32 @@ causal goldens are committed closure evidence. The completed plan left the
 active/future ledger under rule 4.
 
 **The Fresh-Read Coverage And Convention Campaign (2026-08-02) is the live
-work at 3/15 (20%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
+work at 0/10 (0%).** Narrowphase Manifold And Sleep Coverage, Broadphase Pair
 Dedup Cost, and Render Graph Transition Coverage are complete and excluded
-under rule 4. Dense Pile Sleep Resolution was registered on 2026-08-03 and
-remains the binding next plan. Three plans remain, to run in this order:
+under rule 4. Dense Pile Sleep Resolution is blocked at 3/5 and excluded from
+the active/future denominator under rule 4; its SR3 candidate failed the
+20,000-frame oracle and its independent plans remain runnable. Two actionable
+plans remain, to run in this order:
 
-1. `TODO/dense-pile-sleep-resolution.md` (3/5). SR0 proves pair-prefix lifetime
-   continuity permanently sleeps all 330 pile bodies at frame 8,513, while
-   pre-gate and current exact-feature behavior remain oscillatory beyond frame
-   20,000. Exact-feature still retains the accepted four-brick and wall gains;
-   SR1 confirms that exact-feature lifetime is the initiating defect. The same
-   reselected feature at frame 24 receives 0.242185 more solved normal impulse
-   under exact lifetime, producing the first material pair/exact divergence.
-   Frames 1,200–6,799 contain 13,082 false exact-lifetime rows and 66
-   cache-eligible exact-only restitution admissions carrying 509.278851 solved
-   normal impulse.
-   Aggregate cache-hit degradation and support-classification instability are
-   rejected; solver non-convergence is a downstream amplifier. SR2 selects a
-   zero-retained-byte half-quiet adjacent pair witness: exact identity remains
-   the warm-start owner, while pair continuity may suppress restitution only
-   after both bodies complete half the quiet window. The predicate selects
-   eight dense-pile rows and zero accepted four-brick/wall rows. SR3
-   implementation and two-sided proof are binding next. Sleep is measurably harder to
-   reach in dense piles since the restitution lifetime gate landed. That gate is
-   the falling-wall bounce fix — authoritative commit `194cbf82`, descending from
-   `12dbb3eb` and `63d7e92f`, goldens approved in `43108847` — and it stays: four
-   bricks went from 566 vertical reversals to zero, and the 200-box wall retains
-   all 211 bodies with zero popcorn cycles. The regression is the accepted
-   ground-settling cost, now measured as larger than marginal.
-   `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the
-   instrument. Leading hypothesis for SR1 to prove or discard: the gate keys on
-   exact feature identity, so a rocking box that re-selects a face or edge feature
-   presents as a contact with no loaded history, re-admits restitution, and resets
-   the 30-frame quiet counter — the same churn also misses the warm-start cache.
-   The comment `194cbf82` deleted when it narrowed the lookup describes exactly
-   this case. Do not reverse the wall fix and do not restore the pair-prefix scan.
-2. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
+1. `TODO/comment-vocabulary-audit.md` (0/5). Four conventions compete for the
    same job: `Mental model:` (21), `LAYMAN VERSION:` (2), 35 pre-standard banner
    files, and the `CATTO REF`/`ENGINE-SPECIFIC` citation family (57 uses) which
    is undocumented. The governance review dialect has correctly not leaked into
    source and must not be imported by this plan.
-3. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
+2. `TODO/source-modernization-sweep.md` (0/5). Bounded: 58 Hungarian parameters
    across 23 named files, 44 C-style casts, 2 `NULL`s, 2 object-like `#define`
    constants. Touches physics hot paths, so byte-exactness is the closing proof.
+
+Blocked lane: `TODO/dense-pile-sleep-resolution.md` remains at 3/5. The
+half-quiet adjacent-pair witness reached only seven live rows and ended the
+20,000-frame pile at 327/330 sleeping with 5,441 wake oscillations and no
+permanent all-sleep frame. Its failed source/test/ruling changes were removed.
+Independent review found no policy-clean stateless separator that repairs the
+causal frame-24 feature transition while preserving accepted four-brick and
+wall bytes. The Physics contact/sleep owner must select an explicitly tuned
+hysteresis probe, broader retained continuity state, geometry/replay transition,
+or parking. Exact costs and transition scopes are in
+`../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 Handoff after SR2: continue on `nightrunner-3rd-AUG-26` at Dense Pile Sleep
 Resolution SR3 only. Implement the half-quiet adjacent pair witness without new
@@ -3792,6 +3775,21 @@ carrying 67.425641 normal impulse and zero rows in both accepted traces. All 23
 successful bounded packets total 13,823 model-read bytes. The live ledger
 advances to 3/15 (20%). Evidence is in
 `../Reports/2026-08-03/dense-pile-sleep-resolution-sr2.md`.
+
+Dense Pile Sleep Resolution SR3 blocked on 2026-08-03 without advancing its
+verified 3/5 count. The half-quiet adjacent-pair witness passed focused tests
+but failed the complete dense oracle: no permanent all-sleep frame by 20,000,
+327/330 finally sleeping, and 5,441 wake oscillations. Only seven of 570 live
+candidate rows reached the half-quiet threshold; the causal frame-24 row had
+zero counters. The failed implementation, tests, and ruling changes were
+removed. Independent review also rejected a frame-24 numeric fingerprint and
+proved that canonical feature-patch continuity would change all 15 four-brick
+and 2,420 wall admissions in its class. The remaining routes require explicit
+owner authority for new hysteresis policy, retained continuity state, a
+geometry/replay transition, or parking. Dense Pile is excluded as an externally
+blocked lane under rule 4, leaving Comment Vocabulary Audit and Source
+Modernization Sweep at 0/10 (0%). Evidence and exact unblock conditions are in
+`../Reports/2026-08-03/dense-pile-sleep-resolution-sr3-blocker.md`.
 
 ## Features
 
