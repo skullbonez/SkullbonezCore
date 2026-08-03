@@ -22,5 +22,18 @@
 
 #pragma once
 
+#include <initializer_list>
+
 const char* RuntimeTestExecutablePath();
+
+// Launches the named fatal probe in an isolated copy of this test executable,
+// then verifies termination and every required diagnostic fragment.
+void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics );
+
+// Returns false for an unknown name. A recognized RenderGraph case must reach
+// its Lane F invariant before this dispatcher can return true.
+bool RunRenderGraphFatalCase( const char* caseName );
+
+// Routes a named fatal child to its subsystem-owned dispatcher. A known case
+// returns only when the invariant failed to terminate the child as required.
 bool RunRuntimeFatalCase( const char* caseName );

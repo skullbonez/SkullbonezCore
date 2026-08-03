@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-08-02
+Date: 2026-08-03
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,10 +10,10 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-2nd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
-| Current baseline | Current `main` tip `d26163ed` is the Night Runner branch baseline. |
-| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0-RG1 are complete; RG2 subresource state and capacity coverage is binding next, using the exact RG2 handoff recorded under Current Execution Priority in MASTER-PLAN. Dense Pile Sleep Resolution is queued second and must not interrupt the in-flight render-graph plan. |
-| Active/future progress | 2/20 (10%): Broadphase and narrowphase are complete and excluded under rule 4; four plans remain in binding order. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew the denominator 15 → 20. The parked stacking plan remains excluded under inventory rule 9. |
+| Branch | `nightrunner-3rd-AUG-26`; normal feature-branch commits and pushes are authorized by the orchestrator workflow. |
+| Current baseline | Current `main` tip `1ff768dd` is the Night Runner branch baseline. |
+| Current objective | Fresh-Read Coverage And Convention is active. Render Graph Transition Coverage RG0-RG2 are complete; RG3 transient lifetime, aliasing, and diagnostics coverage is binding next. Dense Pile Sleep Resolution remains queued second and must not interrupt the in-flight render-graph plan. |
+| Active/future progress | 3/20 (15%): Broadphase and narrowphase are complete and excluded under rule 4; four plans remain in binding order. Dense Pile Sleep Resolution was registered on 2026-08-03 and grew the denominator 15 → 20. The parked stacking plan remains excluded under inventory rule 9. |
 | Fresh-read campaign registration | Six plans / 31 tasks: narrowphase manifold and sleep coverage (6), broadphase pair dedup cost (5), render-graph transition coverage (5), dense pile sleep resolution (5), comment vocabulary audit (5), and source modernization sweep (5). |
 | Dense Pile Sleep Resolution registration | Not started. Sleep is measurably harder to reach in dense piles since the restitution lifetime gate landed. That gate is the falling-wall bounce fix (`194cbf82`, descending from `12dbb3eb` and `63d7e92f`, goldens approved in `43108847`) and it is retained in full — four bricks went from 566 vertical reversals to zero and the 200-box wall keeps all 211 bodies with zero popcorn cycles. `box_pile_throw_300.scene.json` (303 objects, no committed baseline) is the instrument. SR1 must prove or discard the exact-feature-churn hypothesis before SR2 designs anything. Reversing the wall fix and restoring the `12dbb3eb` pair-prefix scan are both non-goals. Plan: `Agentic/Plans/TODO/dense-pile-sleep-resolution.md`. |
 | Narrowphase NM0 | Complete. The census enumerates all nine ordered object pairs, three terrain paths, feature/reduction contracts, current manifold and sleep tests, all sleep transitions, and exact NM1/NM2/NM4 gaps. Evidence: `Agentic/Reports/2026-08-02/narrowphase-manifold-sleep-coverage-nm0-census.md`. |
@@ -29,6 +29,7 @@ plan inventory.
 | Broadphase BD4 | Complete. The deletion-bound Debug dense store, legacy driver, pair-stream writer, geometry counter, scratch owners, reserve rows, and exact repair rulings are removed. Production membership, canonical ordering, permanent sleep diagnostics, capacity-fatal behavior, all 23 historical artifacts, and the read-only v2 decoder remain. Independent review returned ACCEPT; comment audit is 9/9. Closure: `Agentic/Reports/2026-08-02/broadphase-pair-dedup-cost-closure.md`. |
 | Render Graph RG0 | Complete. The exact public input/result/derivation/failure census corrects the stale no-test model: 16 pure graph cases are merge-gated through the standalone DX12 architecture lane but absent from `validate_tests` and instrumented coverage. Hand-derived structured assertions and child-process Lane-F probes are selected; `DumpText()` goldens are rejected. All six ceilings, review-only properties, and RG1-RG4 residual gaps are fixed. Evidence: `Agentic/Reports/2026-08-02/render-graph-transition-coverage-rg0-census.md`. |
 | Render Graph RG1 | Complete. The main doctest/coverage executable now compiles production `RenderGraph.cpp`; four hand-derived cases / 47 assertions pin ordinary read-before-write order, no-op and untouched-resource behavior, Unknown/concrete entry states, copied native identity, and Present return in Debug and Profile. Independent review returned ACCEPT and comment audit is 1/1. Evidence: `Agentic/Reports/2026-08-02/render-graph-transition-coverage-rg1-ordinary-transitions.md`. |
+| Render Graph RG2 | Complete. Two hand-derived cases pin divergent numeric subresources 5/2, stored-order convergence, a following all-resource row with no stale override, eight active states in literal order `7,0,6,1,5,2,4,3`, and the exact ninth-state Lane-F diagnostic through the shared child harness. The focused Profile run passes 6 cases / 180 assertions, the full unit gate passes, and the touched-source audit is 3/3. No production Rendering, project integration, baseline, or build ruling changed. Evidence: `Agentic/Reports/2026-08-03/render-graph-transition-coverage-rg2-subresources.md`. |
 | Look Lab plan registration | F10 deterministically rerolls coherent presentation-only cinematic, lighting, shader-mode, material, and palette values. F11 creates one ignored root `LookLab/<datetime>_<seed>/` directory containing the exact reusable `look.style.json`, a human-readable timestamp/seed/generator/scene/complete-settings/status `look.txt`, and matching `look.png`. F5/F6 remain their profiler diagnostics. Lenses/camera, simulation, scene mutation, shader source/recompilation, resource-quality policy, and baseline refresh are excluded. Plan: `Agentic/Plans/TODO/look-lab-random-style-authoring.md`. |
 | Look Lab LL0 | Complete. The LL6-corrected report locks 84 cinematic atoms, 14 material kinds, all target semantics and 23 tracked schema-v1 styles; it chooses exact SplitMix64 generator version 1, 14 recipe families, bounded coupled ranges, stable self-contained output, bundle/receipt grammar, and the current merge/reset/capture/input behavior. The no-Look-Lab Profile input floor measured 0.119154 ms and 0.108307 ms mean across two passes; the opt-in style harness applied once and remained stamp-only. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll0-census.md`. |
 | Look Lab LL1 | Complete. Runtime Direction owns the pure versioned SplitMix64 candidate generator, integer-quantized Oklab palette roles, fourteen recipes, canonical padding-independent bytes, three ordered broad material rules, and comprehensive validity checks. Debug/Profile pin one fingerprint; 4,096 seeds produce 4,096 unique valid candidates and cover every required recipe/render branch. Direct configuration/reachability checks and the 589.6-second full gate pass; comment audit is 4/4. Evidence: `Agentic/Reports/2026-08-01/look-lab-random-style-authoring-ll1-generator.md`. |
@@ -138,16 +139,19 @@ plan inventory.
 
 ## Live Queue
 
-Fresh-Read Coverage And Convention is active at 2/15 (13%). Narrowphase
+Fresh-Read Coverage And Convention is active at 3/20 (15%). Narrowphase
 Manifold And Sleep Coverage and Broadphase Pair Dedup Cost are complete and
 excluded under rule 4. Binding remaining order is Render Graph Transition
-Coverage, Comment Vocabulary Audit, then Source Modernization Sweep. Render
+Coverage, Dense Pile Sleep Resolution, Comment Vocabulary Audit, then Source
+Modernization Sweep. Render
 Graph RG0 completed the exact current compile, failure, test-routing, and
 review-only census. RG1 added the main-lane production integration and four
 hand-derived ordinary-transition cases without replacing the 16 existing
-standalone architecture tests. RG2 must now pin divergent numeric-subresource
+standalone architecture tests. RG2 pins divergent numeric-subresource
 convergence, stored transition order, stale-override absence, and the exact
-eight-state/ninth-state capacity boundary.
+eight-state/ninth-state capacity boundary. RG3 must now pin transient lifetime,
+alias compatibility, allocation decisions, diagnostics, and the unused-
+transient fatal in the main lane.
 
 Look Lab Random Style Authoring is complete at 7/7. LL0 locked the exhaustive
 current-source presentation census, LL1 completed the pure SplitMix64 generator,

@@ -381,8 +381,18 @@ struct WorkerFatalProbe
 };
 } // namespace
 
+void ExpectRuntimeFatalCase( const char* caseName, std::initializer_list<const char*> expectedDiagnostics )
+{
+    ExpectFatalCase( caseName, expectedDiagnostics );
+}
+
 bool RunRuntimeFatalCase( const char* caseName )
 {
+    if ( RunRenderGraphFatalCase( caseName ) )
+    {
+        return true;
+    }
+
     if ( std::strcmp( caseName, "physics-pipeline-batch-full-mode" ) == 0 )
     {
         SkullbonezCore::Physics::PhysicsPipelineTraceRecorder recorder;
