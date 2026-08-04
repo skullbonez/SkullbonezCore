@@ -98,7 +98,7 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
     prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     prediction.futureNodeCache.futureNodesCacheValid = false;
-    prediction.futureNodeCache.retainedMarkerCount = 0;
+    prediction.futureNodeCache.ResetRetainedMarkers();
     prediction.trajectoryBuild.childFrameCount = 0;
     prediction.trajectoryBuild.builtNodeCount = 0;
     prediction.trajectoryBuild.topologyVersion = 0;

@@ -613,7 +613,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     prediction.trajectoryStore.records.clear();
     prediction.baseline.rootPolyline.clear();
     prediction.baseline.bodyPoses.clear();
-    prediction.futureNodeCache.retainedMarkerCount = 0;
+    prediction.futureNodeCache.ResetRetainedMarkers();
 
     if ( !reader.Float( prediction.simulation.horizonSeconds ) ||
          !reader.Scalar( prediction.simulation.targetModelRow.value ) ||
@@ -707,6 +707,7 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
     }
 
     prediction.futureNodeCache.retainedMarkerCount = markerCount;
+    prediction.futureNodeCache.childMarkerScan.Reset();
 
     uint32_t recordCount = 0;
 

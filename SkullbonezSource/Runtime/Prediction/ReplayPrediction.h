@@ -132,6 +132,47 @@ struct RunReplayPredictionRevealClock
     bool anchorValid = false;
 };
 
+struct ReplayPredictionChildMarkerScanState
+{
+    uint32_t generation = 0;
+    uint32_t topologyVersion = 0;
+    std::size_t frameCount = 0;
+    ReplayFrameIndex revealFrame = 0;
+    Physics::PhysicsSceneObjectId targetId;
+    bool usingBuildFrames = false;
+    bool valid = false;
+
+    // Invariant: retained causal markers already hold the scan's effects. An
+    // exact key match means repeating the frame-by-node walk cannot publish any
+    // new entry/rest pose and is therefore pure wasted presentation work.
+    bool Matches( uint32_t candidateGeneration, uint32_t candidateTopologyVersion,
+                  Physics::PhysicsSceneObjectId candidateTargetId, std::size_t candidateFrameCount,
+                  ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames ) const noexcept
+    {
+        return valid && generation == candidateGeneration && topologyVersion == candidateTopologyVersion &&
+               targetId.value == candidateTargetId.value && frameCount == candidateFrameCount &&
+               revealFrame == candidateRevealFrame && usingBuildFrames == candidateUsingBuildFrames;
+    }
+
+    void Commit( uint32_t candidateGeneration, uint32_t candidateTopologyVersion,
+                 Physics::PhysicsSceneObjectId candidateTargetId, std::size_t candidateFrameCount,
+                 ReplayFrameIndex candidateRevealFrame, bool candidateUsingBuildFrames ) noexcept
+    {
+        generation = candidateGeneration;
+        topologyVersion = candidateTopologyVersion;
+        targetId = candidateTargetId;
+        frameCount = candidateFrameCount;
+        revealFrame = candidateRevealFrame;
+        usingBuildFrames = candidateUsingBuildFrames;
+        valid = true;
+    }
+
+    void Reset() noexcept
+    {
+        valid = false;
+    }
+};
+
 struct RunReplayPredictionFutureNodeCache
 {
 
@@ -158,6 +199,13 @@ struct RunReplayPredictionFutureNodeCache
     // marker poses until a new prediction/future cache resets the story.
     std::array<ReplayPredictionRetainedMarker, REPLAY_PREDICTION_MARKER_CAPACITY> retainedMarkers = {};
     std::size_t retainedMarkerCount = 0;
+    ReplayPredictionChildMarkerScanState childMarkerScan;
+
+    void ResetRetainedMarkers() noexcept
+    {
+        retainedMarkerCount = 0;
+        childMarkerScan.Reset();
+    }
 };
 
 struct RunReplayPredictionTrajectoryBuildState

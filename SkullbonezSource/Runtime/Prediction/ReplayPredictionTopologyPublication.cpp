@@ -1107,19 +1107,30 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     if ( futureTreeReady )
     {
-        ReplayPathChildDrawContext childDraw;
+        ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
+        const uint32_t generation = prediction.build.generationBeginCount;
+        const uint32_t topologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion;
 
+        if ( !markerScan.Matches( generation, topologyVersion, targetId, activePredictionFrameCount, drawWindow.revealFrame,
+                                  usingBuildFrames ) )
         {
-            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext" );
-            BuildReplayPredictionChildMarkerContext( childDraw, prediction, activePredictionFrames,
-                                                     activePredictionFrameCount, drawWindow.revealFrame );
-        }
+            ReplayPathChildDrawContext childDraw;
 
-        {
-            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RetainCausalMarkers" );
-            RetainReplayPredictionCausalMarkers( prediction, childDraw, drawWindow.revealFrame,
-                                                 bufferComplete ? &activePredictionFrames : nullptr,
-                                                 bufferComplete ? activePredictionFrameCount : 0 );
+            {
+                PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext" );
+                BuildReplayPredictionChildMarkerContext( childDraw, prediction, activePredictionFrames,
+                                                         activePredictionFrameCount, drawWindow.revealFrame );
+            }
+
+            {
+                PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RetainCausalMarkers" );
+                RetainReplayPredictionCausalMarkers( prediction, childDraw, drawWindow.revealFrame,
+                                                     bufferComplete ? &activePredictionFrames : nullptr,
+                                                     bufferComplete ? activePredictionFrameCount : 0 );
+            }
+
+            markerScan.Commit( generation, topologyVersion, targetId, activePredictionFrameCount, drawWindow.revealFrame,
+                               usingBuildFrames );
         }
     }
 

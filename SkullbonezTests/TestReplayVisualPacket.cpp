@@ -38,6 +38,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
+#include "../SkullbonezSource/Runtime/Prediction/ReplayPrediction.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionDrawing.h"
 #include "../SkullbonezSource/Runtime/Prediction/ReplayPredictionPublication.h"
 
@@ -50,6 +51,26 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
+
+TEST_CASE( "Replay child marker scan key rejects every publication input change" )
+{
+    ReplayPredictionChildMarkerScanState scan;
+    const SkullbonezCore::Physics::PhysicsSceneObjectId target { 41u };
+    const SkullbonezCore::Physics::PhysicsSceneObjectId otherTarget { 42u };
+    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
+
+    scan.Commit( 3u, 7u, target, 120u, 99u, false );
+    CHECK( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 4u, 7u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 8u, target, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, otherTarget, 120u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, target, 121u, 99u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 100u, false ) );
+    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, true ) );
+
+    scan.Reset();
+    CHECK_FALSE( scan.Matches( 3u, 7u, target, 120u, 99u, false ) );
+}
 
 TEST_CASE( "Replay prediction draw cursor resumes at its suffix and reuses stable tokens" )
 {

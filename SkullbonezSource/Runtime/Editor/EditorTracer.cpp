@@ -206,6 +206,8 @@ EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagn
     m_renderLineData.reserve( EDITOR_TRACER_LINE_FLOAT_CAPACITY + EDITOR_TRACER_PRIORITY_LINE_FLOAT_CAPACITY );
     m_replayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
     m_priorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
+    m_cachedReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_FLOAT_CAPACITY );
+    m_cachedPriorityReplayRibbonSegments.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_FLOAT_CAPACITY );
     m_replayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_ORDINARY_VERTEX_FLOAT_CAPACITY );
     m_priorityReplayRibbonVertexData.reserve( EDITOR_TRACER_REPLAY_RIBBON_PRIORITY_VERTEX_FLOAT_CAPACITY );
 }
@@ -258,10 +260,11 @@ void EditorTracer::Clear()
     m_renderLineData.clear();
     m_replayRibbonSegments.clear();
     m_priorityReplayRibbonSegments.clear();
-    m_replayRibbonVertexData.clear();
-    m_priorityReplayRibbonVertexData.clear();
-    m_expandedOrdinarySegmentCount = 0;
-    m_expandedPrioritySegmentCount = 0;
+
+    // Why: compact ribbon sources are rebuilt by presentation every frame, but
+    // their expanded vertices usually remain identical after prediction stops.
+    // BuildReplayRibbonVertices compares against the exact cached compact bytes
+    // before deciding whether these derived buffers need replacement.
     ClearReplayTrajectoryStats();
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats {};
 }
@@ -706,33 +709,29 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );
 
-    auto updateRibbonData = [&]( const std::vector<float>& ribbonData,
-                                std::vector<float>& vertexData, std::size_t& expandedSegmentCount )
+    const auto compactSourceMatches = []( const std::vector<float>& source, const std::vector<float>& cached )
+    { return source.size() == cached.size() && std::equal( source.begin(), source.end(), cached.begin() ); };
+
+    bool ordinarySourceChanged = false;
+    bool prioritySourceChanged = false;
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/CompareCompactSources" );
+        ordinarySourceChanged = !m_replayRibbonCacheValid ||
+                                !compactSourceMatches( m_replayRibbonSegments, m_cachedReplayRibbonSegments );
+
+        prioritySourceChanged = !m_replayRibbonCacheValid || !compactSourceMatches( m_priorityReplayRibbonSegments,
+                                                                                    m_cachedPriorityReplayRibbonSegments );
+    }
+
+    auto rebuildRibbonData = [&]( const std::vector<float>& ribbonData, std::vector<float>& cachedRibbonData,
+                                  std::vector<float>& vertexData, std::size_t& expandedSegmentCount )
     {
         const std::size_t sourceSegmentCount = ribbonData.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
 
-        if ( sourceSegmentCount < expandedSegmentCount )
-        {
-            vertexData.clear();
-            expandedSegmentCount = 0;
-        }
+        vertexData.clear();
 
-        if ( sourceSegmentCount == expandedSegmentCount )
-        {
-            return;
-        }
-
-        // The previously open segment gains one next-adjacency point when a
-        // command is appended. Re-expand that tail plus only the new suffix;
-        // every earlier vertex remains byte-for-byte retained.
-        const std::size_t firstSegment = expandedSegmentCount > 0u ? expandedSegmentCount - 1u : 0u;
-        const std::size_t retainedFloatCount = firstSegment * EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT *
-                                               EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX;
-
-        vertexData.erase( vertexData.begin() + static_cast<std::ptrdiff_t>( retainedFloatCount ), vertexData.end() );
-
-        for ( std::size_t i = firstSegment * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
-              i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
+        for ( std::size_t i = 0; i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
               i += EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
         {
 
@@ -826,47 +825,88 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
                 vertexData.push_back( next.z );
             }
         }
+
+        cachedRibbonData.clear();
+
+        // Invariant: both cache lanes reserve the same fixed cap as their
+        // source lanes during EditorTracer construction. This copy therefore
+        // replaces bytes inside retained storage instead of growing gameplay
+        // memory when a prediction publication changes.
+
+        for ( const float value : ribbonData )
+        {
+            cachedRibbonData.push_back( value );
+        }
+
         expandedSegmentCount = sourceSegmentCount;
     };
 
     // Invariant: ordinary replay paths may overflow without erasing causal
     // evidence. Priority ribbons are appended second; only the yellow entry box
     // remains on this ribbon path while rest/horizon boxes use priority lines.
-    updateRibbonData( m_replayRibbonSegments, m_replayRibbonVertexData, m_expandedOrdinarySegmentCount );
+
+    if ( ordinarySourceChanged || prioritySourceChanged )
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/ExpandChangedSources" );
+
+        if ( ordinarySourceChanged )
+        {
+            rebuildRibbonData( m_replayRibbonSegments, m_cachedReplayRibbonSegments, m_replayRibbonVertexData,
+                               m_expandedOrdinarySegmentCount );
+        }
+
+        if ( prioritySourceChanged )
+        {
+            rebuildRibbonData( m_priorityReplayRibbonSegments, m_cachedPriorityReplayRibbonSegments,
+                               m_priorityReplayRibbonVertexData, m_expandedPrioritySegmentCount );
+        }
+
+        m_replayRibbonCacheValid = true;
+    }
+
     const std::size_t ordinaryVertexFloatCount = m_replayRibbonVertexData.size();
-    updateRibbonData( m_priorityReplayRibbonSegments, m_priorityReplayRibbonVertexData, m_expandedPrioritySegmentCount );
 
     m_replaySubmissionStats = SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats {};
 
     // Invariant: the fidelity probe observes the same ordered floats consumed
     // by the render commands. Empty streams still have a count-bearing hash so
     // absence cannot alias a skipped sample in the golden manifest.
-    HashReplaySubmissionFloatStream( m_lineData, m_replaySubmissionStats.ordinaryLineHash,
-                                     m_replaySubmissionStats.ordinaryLineBytes );
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/HashLineSources" );
+        HashReplaySubmissionFloatStream( m_lineData, m_replaySubmissionStats.ordinaryLineHash,
+                                         m_replaySubmissionStats.ordinaryLineBytes );
 
-    m_replaySubmissionStats.ordinaryLineVertexCount = static_cast<uint32_t>( m_lineData.size() / 6u );
-    HashReplaySubmissionFloatStream( m_priorityLineData, m_replaySubmissionStats.priorityLineHash,
-                                     m_replaySubmissionStats.priorityLineBytes );
+        m_replaySubmissionStats.ordinaryLineVertexCount = static_cast<uint32_t>( m_lineData.size() / 6u );
+        HashReplaySubmissionFloatStream( m_priorityLineData, m_replaySubmissionStats.priorityLineHash,
+                                         m_replaySubmissionStats.priorityLineBytes );
 
-    m_replaySubmissionStats.priorityLineCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
-    m_replaySubmissionStats.priorityLineVertexCount = static_cast<uint32_t>( m_priorityLineData.size() / 6u );
-    HashReplaySubmissionFloatStream( m_replayRibbonSegments, m_replaySubmissionStats.ordinaryRibbonHash,
-                                     m_replaySubmissionStats.ordinaryRibbonBytes );
+        m_replaySubmissionStats.priorityLineCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityLineData, 12u );
+        m_replaySubmissionStats.priorityLineVertexCount = static_cast<uint32_t>( m_priorityLineData.size() / 6u );
+    }
 
-    m_replaySubmissionStats.ordinaryRibbonSegmentCount = static_cast<uint32_t>( m_replayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    if ( ordinarySourceChanged )
+    {
+        HashReplaySubmissionFloatStream( m_replayRibbonSegments, m_cachedRibbonSubmissionStats.ordinaryRibbonHash,
+                                         m_cachedRibbonSubmissionStats.ordinaryRibbonBytes );
 
-    HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments, m_replaySubmissionStats.priorityRibbonHash,
-                                     m_replaySubmissionStats.priorityRibbonBytes );
+        m_cachedRibbonSubmissionStats.ordinaryRibbonSegmentCount = static_cast<uint32_t>( m_replayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    }
 
-    m_replaySubmissionStats.priorityRibbonCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityReplayRibbonSegments, EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    if ( prioritySourceChanged )
+    {
+        HashReplaySubmissionFloatStream( m_priorityReplayRibbonSegments, m_cachedRibbonSubmissionStats.priorityRibbonHash,
+                                         m_cachedRibbonSubmissionStats.priorityRibbonBytes );
 
-    m_replaySubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>( m_priorityReplayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+        m_cachedRibbonSubmissionStats.priorityRibbonCanonicalHash = HashReplaySubmissionCanonicalRecords( m_priorityReplayRibbonSegments, EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+        m_cachedRibbonSubmissionStats.priorityRibbonSegmentCount = static_cast<uint32_t>( m_priorityReplayRibbonSegments.size() / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT );
+    }
 
     m_replaySubmissionStats.hasGeometry = !m_lineData.empty() || !m_priorityLineData.empty() ||
                                           !m_replayRibbonSegments.empty() || !m_priorityReplayRibbonSegments.empty();
 
-    if ( !m_replayRibbonVertexData.empty() || !m_priorityReplayRibbonVertexData.empty() )
+    if ( ordinarySourceChanged || prioritySourceChanged )
     {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/HashChangedRibbons" );
 
         // Invariant: Stage-9 flicker validation hashes the exact float payload
         // submitted to DrawTransientColoredTriangles. It deliberately ignores
@@ -875,33 +915,57 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         const std::size_t combinedVertexFloatCount = m_replayRibbonVertexData.size() +
                                                      m_priorityReplayRibbonVertexData.size();
 
-        const std::size_t byteCount = combinedVertexFloatCount * sizeof( float );
-        m_replaySubmissionStats.vertexHash = HashReplaySubmissionFloatStreams( m_replayRibbonVertexData,
-                                                                               m_priorityReplayRibbonVertexData );
-
-        m_replaySubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
-        m_replaySubmissionStats.ordinaryVertexCount = static_cast<uint32_t>( ordinaryVertexFloatCount /
-                                                                             EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
-
-        uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
-        const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
-        HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes( ordinaryFloatCount ) );
-
-        if ( ordinaryVertexFloatCount > 0u )
+        if ( combinedVertexFloatCount == 0u )
         {
-            HashReplaySubmissionBytes( ordinaryHash,
-                                       SkullbonezCore::Core::ObjectBytes( std::span<const float>( m_replayRibbonVertexData )
-                                                                              .first( ordinaryVertexFloatCount ) ) );
+            m_cachedRibbonSubmissionStats.vertexHash = 0;
+            m_cachedRibbonSubmissionStats.vertexBytes = 0;
+            m_cachedRibbonSubmissionStats.vertexCount = 0;
+            m_cachedRibbonSubmissionStats.ordinaryVertexHash = 0;
+            m_cachedRibbonSubmissionStats.ordinaryVertexBytes = 0;
+            m_cachedRibbonSubmissionStats.ordinaryVertexCount = 0;
+            m_cachedRibbonSubmissionStats.segmentCount = 0;
         }
+        else
+        {
+            const std::size_t byteCount = combinedVertexFloatCount * sizeof( float );
+            m_cachedRibbonSubmissionStats.vertexHash = HashReplaySubmissionFloatStreams( m_replayRibbonVertexData,
+                                                                                         m_priorityReplayRibbonVertexData );
 
-        m_replaySubmissionStats.ordinaryVertexHash = ordinaryHash;
-        m_replaySubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
-        m_replaySubmissionStats.vertexCount = static_cast<uint32_t>( combinedVertexFloatCount /
-                                                                     EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+            m_cachedRibbonSubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
+            m_cachedRibbonSubmissionStats.ordinaryVertexCount = static_cast<uint32_t>( ordinaryVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
 
-        m_replaySubmissionStats.segmentCount = static_cast<uint32_t>( m_replaySubmissionStats.vertexCount /
-                                                                      EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
+            uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
+            const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
+            HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes( ordinaryFloatCount ) );
+
+            if ( ordinaryVertexFloatCount > 0u )
+            {
+                HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes( std::span<const float>( m_replayRibbonVertexData )
+                                                                                                .first( ordinaryVertexFloatCount ) ) );
+            }
+
+            m_cachedRibbonSubmissionStats.ordinaryVertexHash = ordinaryHash;
+            m_cachedRibbonSubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );
+            m_cachedRibbonSubmissionStats.vertexCount = static_cast<uint32_t>( combinedVertexFloatCount / EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
+
+            m_cachedRibbonSubmissionStats.segmentCount = static_cast<uint32_t>( m_cachedRibbonSubmissionStats.vertexCount / EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT );
+        }
     }
+
+    m_replaySubmissionStats.ordinaryRibbonHash = m_cachedRibbonSubmissionStats.ordinaryRibbonHash;
+    m_replaySubmissionStats.ordinaryRibbonBytes = m_cachedRibbonSubmissionStats.ordinaryRibbonBytes;
+    m_replaySubmissionStats.ordinaryRibbonSegmentCount = m_cachedRibbonSubmissionStats.ordinaryRibbonSegmentCount;
+    m_replaySubmissionStats.priorityRibbonHash = m_cachedRibbonSubmissionStats.priorityRibbonHash;
+    m_replaySubmissionStats.priorityRibbonCanonicalHash = m_cachedRibbonSubmissionStats.priorityRibbonCanonicalHash;
+    m_replaySubmissionStats.priorityRibbonBytes = m_cachedRibbonSubmissionStats.priorityRibbonBytes;
+    m_replaySubmissionStats.priorityRibbonSegmentCount = m_cachedRibbonSubmissionStats.priorityRibbonSegmentCount;
+    m_replaySubmissionStats.vertexHash = m_cachedRibbonSubmissionStats.vertexHash;
+    m_replaySubmissionStats.vertexBytes = m_cachedRibbonSubmissionStats.vertexBytes;
+    m_replaySubmissionStats.vertexCount = m_cachedRibbonSubmissionStats.vertexCount;
+    m_replaySubmissionStats.ordinaryVertexHash = m_cachedRibbonSubmissionStats.ordinaryVertexHash;
+    m_replaySubmissionStats.ordinaryVertexBytes = m_cachedRibbonSubmissionStats.ordinaryVertexBytes;
+    m_replaySubmissionStats.ordinaryVertexCount = m_cachedRibbonSubmissionStats.ordinaryVertexCount;
+    m_replaySubmissionStats.segmentCount = m_cachedRibbonSubmissionStats.segmentCount;
 }
 
 

@@ -1260,7 +1260,7 @@ void ReplayPrediction::EnterOfflineVerification()
 
 void ReplayPrediction::ResetVerificationMarkers() noexcept
 {
-    m_state.futureNodeCache.retainedMarkerCount = 0;
+    m_state.futureNodeCache.ResetRetainedMarkers();
 }
 
 void ReplayPrediction::SetVerificationRevealFrame( ReplayFrameIndex frame ) noexcept
@@ -1457,7 +1457,7 @@ void ReplayPrediction::ClearFutureNodeCache()
     m_state.futureNodeCache.futureNodesBuiltRagdollVisuals = m_state.ragdollVisualsEnabled;
     m_state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     m_state.futureNodeCache.futureNodesCacheValid = false;
-    m_state.futureNodeCache.retainedMarkerCount = 0;
+    m_state.futureNodeCache.ResetRetainedMarkers();
     m_state.trajectoryBuild.childFrameCount = 0;
     m_state.trajectoryBuild.builtNodeCount = 0;
 }
