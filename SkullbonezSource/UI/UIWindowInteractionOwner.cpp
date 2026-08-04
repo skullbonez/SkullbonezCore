@@ -935,7 +935,15 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
     if ( input.leftPressed )
     {
 
-        if ( titleButtons.minimize.Contains( m_mouseX, m_mouseY ) || titleButtons.close.Contains( m_mouseX, m_mouseY ) )
+        if ( titleButtons.close.Contains( m_mouseX, m_mouseY ) )
+        {
+
+            // Why: close and minimize are distinct promises in the drawn
+            // chrome. Closing removes the panel entirely; the separate
+            // minimize button keeps the bottom-left restore affordance.
+            SetVisible( false, now );
+        }
+        else if ( titleButtons.minimize.Contains( m_mouseX, m_mouseY ) )
         {
             SetMinimized( true, now );
         }

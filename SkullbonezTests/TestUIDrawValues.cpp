@@ -6,8 +6,8 @@ Purpose:
 Summary:
   Exercises every UR1 value variant, fixed-capacity failure behavior, preview
   fallback data, clip nesting, immutable text measurement, the profiler
-  presenter, detached memory-capacity rows, and all production UI surfaces
-  without a GPU.
+  presenter, detached memory-capacity rows, window-chrome interaction semantics,
+  and all production UI surfaces without a GPU.
 
 Mental model:
   UI records ordered values into bounded storage. These tests inspect those
@@ -39,6 +39,7 @@ Related:
 #include "../SkullbonezSource/UI/UIProfilerOverlayPresenter.h"
 #include "../SkullbonezSource/UI/UIStyle.h"
 #include "../SkullbonezSource/UI/UI.h"
+#include "../SkullbonezSource/UI/UIWindowInteractionOwner.h"
 
 #include <array>
 #include <cstdio>
@@ -69,6 +70,27 @@ int FindDrawTextIndex( const UIDrawList& list, const char* expected )
     return -1;
 }
 } // namespace
+
+TEST_CASE( "UI window close hides the panel instead of minimizing it" )
+{
+    using SkullbonezCore::UI::InputControl::UIInputSnapshot;
+    using SkullbonezCore::UI::UIWindowInteractionOwner;
+
+    UIWindowInteractionOwner owner;
+    owner.SetVisible( true, 0.0 );
+    owner.SetWindowBounds( 100, 120, 760, 520 );
+
+    UIInputSnapshot input;
+    input.mouseX = 100 + 760 - 25;
+    input.mouseY = 120 + 22;
+    input.leftDown = true;
+    input.leftPressed = true;
+
+    owner.UpdateInput( input, 1920, 1080, 1.0, false, false, false, false, 0, 0xffffffffu, {}, 0 );
+
+    CHECK_FALSE( owner.IsVisible() );
+    CHECK( owner.IsMinimized() );
+}
 
 TEST_CASE( "UI draw values preserve primitive and text order" )
 {

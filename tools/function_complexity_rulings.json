@@ -45,7 +45,7 @@
     {
       "file": "SkullbonezSource/UI/UIWindowInteractionOwner.cpp",
       "signature": "InGameUIInputResult UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& input, int screenWidth, int screenHeight, double now, bool editorModeEnabled, bool editorPlacementMode, bool editorPlaceStatic, bool editorTerrainAlign, int cameraModeIndex, uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptionView, int selectedSceneOption )",
-      "body_sha256": "932cff5ca4121e204225c94215558090e78b2b5cce8d134e7547759c10e434f2",
+      "body_sha256": "57e28ba100a41061d3735d92a58ca5384f49809f595f36cf73be9cd3a9b07af0",
       "owner": "UIWindowInteractionOwner input turn",
       "disposition": "retain-owner",
       "reason": "One UI interaction owner resolves a detached input snapshot against viewport, editor, camera, and scene-option policy for a single turn; all hit-test and command state remains frame-local.",
