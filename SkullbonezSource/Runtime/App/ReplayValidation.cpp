@@ -1763,7 +1763,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 
     if ( !StepReplayRestoreTarget( m_resultDiagnostics, transaction, sceneController, debug, runtimeTools, assets,
                                    workerPool, SkullbonezCore::Core::ActiveSceneObjectCapacity( config ), artifact,
-                                   *checkpoint, *target, m_profiler ) )
+                                   *checkpoint, *target, SkullbonezCore::Core::Profiler::Active() ) )
     {
         return failAfterMutation( transaction.FailureReason(), target );
     }

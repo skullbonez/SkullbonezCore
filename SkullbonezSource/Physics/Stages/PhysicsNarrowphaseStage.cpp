@@ -83,7 +83,7 @@ bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler, const P
                                std::span<const ColliderRecord> colliderRecords, int awakeIndex, int sleepingIndex,
                                float contactEpsilon )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/WakePersistentContact" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
 
     // A swept test can miss a sleeper that is already overlapping after an
     // awake body's correction step. This fresh manifold test catches that
@@ -108,7 +108,7 @@ bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler, const Phy
                              std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB, float time,
                              float contactEpsilon )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ExactContactAtTime" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
 
     if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
          bodyB >= static_cast<int>( colliderRecords.size() ) )
@@ -131,7 +131,7 @@ float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler, co
                                     std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB, float coarseTime,
                                     float availableTime, float contactEpsilon )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/RefineContactTime" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
 
     // The broad sweep can give a conservative first time. Refinement walks
     // forward until exact manifold contact appears, then binary-searches the
@@ -188,12 +188,11 @@ float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler, co
     return hi;
 }
 
-ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler* profiler,
-                                          const PhysicsBodyHotFieldsConstView& hotFields,
+ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler*, const PhysicsBodyHotFieldsConstView& hotFields,
                                           std::span<const ColliderRecord> colliderRecords, int bodyA, int bodyB,
                                           float availableTime )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/SweepPairs" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
     ObjectContactSweepResult result;
     result.collisionTime = availableTime;
 

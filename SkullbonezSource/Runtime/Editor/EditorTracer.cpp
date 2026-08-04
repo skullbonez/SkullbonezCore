@@ -44,6 +44,7 @@ Related:
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/Config.h"
 #include "../../Core/ByteView.h"
+#include "../../Core/Profiler.h"
 #include "../../Rendering/RenderCommandTypes.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 
@@ -294,6 +295,7 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
 
     if ( !m_priorityLineData.empty() )
     {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/CombineLines" );
 
         // Invariant: the packet's combined stream is the exact single line
         // submission consumed below. Ordinary and priority spans remain
@@ -302,7 +304,10 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
         m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
     }
 
-    BuildReplayRibbonVertices( cameraEye, cameraUp );
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices" );
+        BuildReplayRibbonVertices( cameraEye, cameraUp );
+    }
 
     ReplayVisualPacket packet;
     packet.header.cameraEye = cameraEye;
@@ -1374,78 +1379,91 @@ void EditorTracer::Render( const ReplayVisualPacket& packet, const Matrix4& view
     const Rendering::RetainedGeometryStreamToken retainedStream = { packet.retainedPredictionStreamId,
                                                                     packet.retainedPredictionRevision };
 
-    if ( !packet.retainedPredictionOrdinaryLines.empty() )
     {
-        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false,
-                                                 viewProjection, REPLAY_LINE_RASTER );
+        PROFILE_SCOPED( "Frame/Render/DebugOverlay/ReplayVisuals/Lines" );
+
+        if ( !packet.retainedPredictionOrdinaryLines.empty() )
+        {
+            renderCommands.DrawRetainedLinesColored( packet.retainedPredictionOrdinaryLines, retainedStream, false,
+                                                     viewProjection, REPLAY_LINE_RASTER );
+        }
+
+        if ( !packet.retainedPredictionPriorityLines.empty() )
+        {
+            renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true,
+                                                     viewProjection, REPLAY_LINE_RASTER );
+        }
+
+        if ( !packet.combinedLines.empty() )
+        {
+
+            // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
+            // pair of vertices is one line segment consumed by DrawLinesColored.
+            renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
+        }
     }
 
-    if ( !packet.retainedPredictionPriorityLines.empty() )
     {
-        renderCommands.DrawRetainedLinesColored( packet.retainedPredictionPriorityLines, retainedStream, true,
-                                                 viewProjection, REPLAY_LINE_RASTER );
+        PROFILE_SCOPED( "Frame/Render/DebugOverlay/ReplayVisuals/RetainedRibbonDepthHint" );
+
+        if ( !packet.retainedPredictionRibbonVertices.empty() )
+        {
+
+            // The retained lane owns a frame-fenced GPU buffer. Stream/revision
+            // changes refresh the affected slot; stable frames submit these two
+            // draws without reserving or copying geometry upload memory.
+            renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
+                                                       viewProjection,
+                                                       Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                       REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        }
+
+        if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
+        {
+            renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
+                                                       viewProjection,
+                                                       Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                       REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        }
+
+        if ( !packet.retainedPredictionRibbonRanges.empty() )
+        {
+            renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                       packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
+                                                       Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
+                                                       REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        }
     }
 
-    if ( !packet.combinedLines.empty() )
     {
+        PROFILE_SCOPED( "Frame/Render/DebugOverlay/ReplayVisuals/RetainedRibbonVisible" );
 
-        // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
-        // pair of vertices is one line segment consumed by DrawLinesColored.
-        renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
-    }
+        if ( !packet.retainedPredictionRibbonVertices.empty() )
+        {
+            renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
+                                                       viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                       REPLAY_RIBBON_VISIBLE_RASTER );
+        }
 
-    if ( !packet.retainedPredictionRibbonVertices.empty() )
-    {
+        if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
+        {
+            renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
+                                                       viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                       REPLAY_RIBBON_VISIBLE_RASTER );
+        }
 
-        // The retained lane owns a frame-fenced GPU buffer. Stream/revision
-        // changes refresh the affected slot; stable frames submit these two
-        // draws without reserving or copying geometry upload memory.
-        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
-                                                   viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
-                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
-    }
-
-    if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
-    {
-        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
-                                                   viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
-                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
-    }
-
-    if ( !packet.retainedPredictionRibbonRanges.empty() )
-    {
-        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
-                                                   packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbonDepthHint,
-                                                   REPLAY_RIBBON_DEPTH_HINT_RASTER );
-    }
-
-    if ( !packet.retainedPredictionRibbonVertices.empty() )
-    {
-        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionRibbonVertices, retainedStream, false,
-                                                   viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
-                                                   REPLAY_RIBBON_VISIBLE_RASTER );
-    }
-
-    if ( !packet.retainedPredictionPriorityRibbonVertices.empty() )
-    {
-        renderCommands.DrawRetainedGeometryRibbon( packet.retainedPredictionPriorityRibbonVertices, retainedStream, true,
-                                                   viewProjection, Rendering::TransientTriangleStyle::InstancedRibbon,
-                                                   REPLAY_RIBBON_VISIBLE_RASTER );
-    }
-
-    if ( !packet.retainedPredictionRibbonRanges.empty() )
-    {
-        renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
-                                                   packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
-                                                   Rendering::TransientTriangleStyle::InstancedRibbon,
-                                                   REPLAY_RIBBON_VISIBLE_RASTER );
+        if ( !packet.retainedPredictionRibbonRanges.empty() )
+        {
+            renderCommands.DrawRetainedGeometryRanges( packet.retainedPredictionCompactRibbonRecords,
+                                                       packet.retainedPredictionRibbonRanges, retainedStream, viewProjection,
+                                                       Rendering::TransientTriangleStyle::InstancedRibbon,
+                                                       REPLAY_RIBBON_VISIBLE_RASTER );
+        }
     }
 
     if ( !packet.expandedRibbonVertices.empty() || !packet.priorityExpandedRibbonVertices.empty() )
     {
+        PROFILE_SCOPED( "Frame/Render/DebugOverlay/ReplayVisuals/FrameLocalRibbons" );
 
         // Concept: the first pass is a low-opacity depth hint with depth
         // testing disabled; the normal pass is depth-tested, so visible

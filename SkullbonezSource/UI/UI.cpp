@@ -324,7 +324,7 @@ InGameUIInputResult InGameUI::UpdateInput( const InputControl::UIInputSnapshot& 
                                            uint32_t cameraModeEnabledMask, std::span<const char* const> sceneOptions,
                                            int selectedSceneOption )
 {
-    PROFILE_SCOPED( m_profiler, "Frame/UI/Input" );
+    PROFILE_SCOPED( "Frame/UI/Input" );
     return m_windowInteraction.UpdateInput( input, screenWidth, screenHeight, now, editorModeEnabled, editorPlacementMode,
                                             editorPlaceStatic, editorTerrainAlign, cameraModeIndex, cameraModeEnabledMask,
                                             sceneOptions, selectedSceneOption );
@@ -532,7 +532,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
         return finishDraw();
     }
 
-    PROFILE_BEGIN( m_profiler, "Frame/UI/Layout" );
+    PROFILE_BEGIN( "Frame/UI/Layout" );
     const UIRect windowBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
     const float x = windowBounds.x;
     const float y = windowBounds.y;
@@ -593,7 +593,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     // draw commands keeps draw-call churn low while live render-target previews
     // still rebuild every frame.
     widgets.cache.BeginFrame( cacheKey );
-    PROFILE_END( m_profiler, "Frame/UI/Layout" );
+    PROFILE_END( "Frame/UI/Layout" );
 
     const bool drawsLiveRenderTargetPreview = widgets.activeTab == InGameUITab::Targets;
 
@@ -611,12 +611,12 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     UIDrawList& drawList = widgets.cache.MutableDrawList();
     drawList.Clear();
     const UIDrawContext draw( screenW, screenH, drawList );
-    PROFILE_BEGIN( m_profiler, "Frame/UI/DrawBuild" );
+    PROFILE_BEGIN( "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
-    PROFILE_BEGIN( m_profiler, "Frame/UI/Blur" );
+    PROFILE_BEGIN( "Frame/UI/Blur" );
     widgets.backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, widgets.blurPreviewEnabled );
-    PROFILE_END( m_profiler, "Frame/UI/Blur" );
+    PROFILE_END( "Frame/UI/Blur" );
 
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, widgets.blurPreviewEnabled, titleText );
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
@@ -978,7 +978,7 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH },
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
-    PROFILE_END( m_profiler, "Frame/UI/DrawBuild" );
+    PROFILE_END( "Frame/UI/DrawBuild" );
     m_frameDrawList.Append( drawList );
     drawStandaloneOverlays();
 

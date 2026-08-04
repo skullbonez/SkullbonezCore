@@ -207,10 +207,10 @@ constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
 // future-impact tree every render frame makes the path visualizer scale with the
 // full horizon. These cursors let each frame continue where the last frame stopped.
 bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore, SkullbonezCore::Threading::WorkerPool& workerPool,
-                                       SkullbonezCore::Core::Profiler* profiler,
+                                       SkullbonezCore::Core::Profiler*,
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/CaptureBodyState" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = bodyStore.Count();
     const auto bodyRecords = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
@@ -274,10 +274,10 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore, Skullb
 }
 
 
-bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine, SkullbonezCore::Core::Profiler* profiler,
+bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine, SkullbonezCore::Core::Profiler*,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/ApplyBodyState" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
 
     if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
@@ -322,7 +322,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
                                  const PhysicsEngine& liveEngine, const SkullbonezCore::Core::EngineConfig& config,
                                  const PhysicsWorldForces& worldForces, int modelCount )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/SeedPrivateEngine" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/SeedPrivateEngine" );
     const int currentBytes = prediction.simulation.predictionEngineReserveBytes;
 
     if ( prediction.simulation.predictionEngine && currentBytes <= 0 )
@@ -366,10 +366,10 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
 
 
 bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const PhysicsEngine& physicsEngine,
-                                   SkullbonezCore::Threading::WorkerPool& workerPool,
-                                   SkullbonezCore::Core::Profiler* profiler, int modelCount, ReplayFrameIndex frameIndex )
+                                   SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler*,
+                                   int modelCount, ReplayFrameIndex frameIndex )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/CaptureSample" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     const auto bodyRecords = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
@@ -667,7 +667,7 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
 {
     ReplayPrediction& predictionOwner = *this;
     RunReplayPredictionState& prediction = m_state;
-    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/BeginJob" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
 
     if ( !predictionOwner.GenerationPermitted() )
     {
@@ -944,7 +944,7 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
                               const std::chrono::steady_clock::time_point& budgetStart, double budgetMilliseconds,
                               ReplayPredictionUpdateResult& result )
 {
-    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/Slice" );
 
     if ( !prediction.build.building )
     {
@@ -983,17 +983,17 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
 
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
-        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Instant" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Instant" );
         prediction.build.schedule.SetBudget( prediction.build.targetTickCount );
     }
     else if ( prediction.build.buildMode == ReplayPredictionBuildMode::Undecided )
     {
-        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Probe" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Probe" );
         prediction.build.schedule.SetBudget( prediction.build.probeTickBudget );
     }
     else
     {
-        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Amortized" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Amortized" );
         prediction.build.schedule.SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
 
@@ -1031,7 +1031,7 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
     outWasDirty = false;
     outWasPendingLatestRestart = false;
 
-    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/SelectSource" );
+    PROFILE_SCOPED( "Frame/Replay/Prediction/SelectSource" );
 
     if ( !targetAvailable )
     {
@@ -1231,6 +1231,7 @@ void ReplayPrediction::PreparePresentation( const SceneEntityStore& entities, co
                                             bool targetAvailable, double budgetMilliseconds,
                                             ReplayPredictionUpdateResult& result )
 {
+    PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay" );
     PrepareReplayPredictionOverlay( m_state, entities, colliderStore, targetId, targetModelRow, targetAvailable,
                                     budgetMilliseconds, result );
 }

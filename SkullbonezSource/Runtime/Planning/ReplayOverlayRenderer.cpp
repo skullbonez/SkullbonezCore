@@ -101,7 +101,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
 {
     const int screenW = viewport.width;
     const int screenH = viewport.height;
-    PROFILE_SCOPED( profiler, "Frame/Replay/ScrubberOverlay" );
+    PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     RenderReplayInterceptOverlay( submission, textBatch, drawList, replay, renderTextures, renderCommands, renderDiagnostics,
                                   screenW, screenH );
 
@@ -306,7 +306,7 @@ void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch&
                   liveAdvanceHeld ? "PLAY" : "PAUSE" );
 
         {
-            PROFILE_SCOPED( profiler, "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
+            PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
             const UI::UIRect velocityEdit = control( ReplayScrubberControl::VelocityEdit ).drawRect;
             const bool velocityEditEnabled = solverToolsEnabled && replay.velocityEdit.enabled;
             const bool velocityEditHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::VelocityEdit );
@@ -932,10 +932,9 @@ void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch&
 void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList,
                                    const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures,
                                    Rendering::Dx12GeometryOwner& renderCommands,
-                                   Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, int screenW,
-                                   int screenH )
+                                   Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler*, int screenW, int screenH )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/CauseTree/Overlay" );
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
 
     if ( screenW <= 0 || screenH <= 0 || replay.causeTree.rows.empty() )
     {

@@ -39,14 +39,13 @@ namespace SkullbonezCore::Runtime
 {
 void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtime::SceneWorld& world,
                                                    bool replayCameraActive, bool sceneMode, bool attachedActiveFollow,
-                                                   bool cameraLookCaptured, float presentationAlpha,
-                                                   Core::Profiler* profiler )
+                                                   bool cameraLookCaptured, float presentationAlpha, Core::Profiler* )
 {
     Environment::CameraCollection& cameras = world.Cameras();
 
     if ( replayCameraActive )
     {
-        PROFILE_SCOPED( profiler, "Frame/Replay/Camera" );
+        PROFILE_SCOPED( "Frame/Replay/Camera" );
         cameraTime = 0.0f;
         timers.cameraTimer.StopTimer();
         timers.cameraTimer.StartTimer();

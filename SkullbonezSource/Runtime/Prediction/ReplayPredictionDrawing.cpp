@@ -1278,10 +1278,9 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
 }
 
 bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisualizer,
-                                  const ReplayPredictionPresentationView& prediction,
-                                  SkullbonezCore::Core::Profiler* profiler, const SceneEntityStore& modelCollection,
-                                  const ColliderStore& colliderStore, EditorTracer& tracer,
-                                  ReplayRibbonDrawQuota& ribbonQuota )
+                                  const ReplayPredictionPresentationView& prediction, SkullbonezCore::Core::Profiler*,
+                                  const SceneEntityStore& modelCollection, const ColliderStore& colliderStore,
+                                  EditorTracer& tracer, ReplayRibbonDrawQuota& ribbonQuota )
 {
     const bool usingBuildFrames = prediction.usingBuildFrames;
     const std::span<const RunReplayPredictionFrame> activePredictionFrames = prediction.frames;
@@ -1316,7 +1315,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     }
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawRoot" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
         DrawReplayPredictionRootTrajectoryFromStore( prediction, pathVisualizer.targetId, pathVisualizer.colorMode,
                                                      modelCollection, usingBuildFrames, drawWindow.lastFrame,
                                                      drawWindow.revealFrame, drawWindow.sampleStride, tracer, ribbonQuota );
@@ -1335,7 +1334,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
 
     if ( drawFutureTree )
     {
-        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawChildren" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         DrawReplayPredictionChildTrajectoriesFromStore( prediction, pathVisualizer.colorMode, usingBuildFrames,
                                                         drawWindow.revealFrame, drawWindow.lastFrame,
                                                         drawWindow.sampleStride, tracer, ribbonQuota );
@@ -1343,7 +1342,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
 
     if ( !prediction.showAllFuturePaths )
     {
-        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawAffectedBodies" );
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames, activePredictionFrameCount, pathVisualizer.colorMode,
                                                 drawWindow.revealFrame, pathVisualizer.targetId,
                                                 pathVisualizer.targetModelRow.value, prediction.futureNodes, modelCollection,
@@ -1371,7 +1370,7 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
                                      const SceneEntityStore& entities, EditorTracer& tracer,
                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
-    PROFILE_SCOPED( profiler, "Frame/Replay/PathVisualizer/Prediction" );
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
     const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
     DrawReplayPredictionOverlay( pathVisualizer, prediction, profiler, entities, colliderStore, tracer, ribbonQuota );
 }
@@ -2396,7 +2395,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
     ReplayPathVisualizerRenderResult result;
     const ReplayPredictionPresentationView& prediction = context.prediction;
     const RunReplayPathVisualizerState& pathVisualizer = context.pathVisualizer;
-    PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer" );
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
 
     // Concept: this marker owns replay presentation budgeting.
     //
@@ -2448,17 +2447,17 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
             continue;
         }
 
-        PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget" );
+        PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget" );
 
         if ( target.id.value == pathVisualizer.targetId.value )
         {
-            PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
             DrawReplayPastRootTrajectoryFromStore( prediction, target.id, pathVisualizer.colorMode, context.presentFrame,
                                                    context.tracer, ribbonQuota );
         }
 
         {
-            PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
+            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
             ModelRowHint targetHint;
             targetHint.value = target.modelRow.value;
             int markerIndex = -1;

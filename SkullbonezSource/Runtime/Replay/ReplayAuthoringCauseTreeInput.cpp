@@ -120,7 +120,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 {
     outFocusRow = -1;
     outExitInspectionCamera = false;
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Input" );
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
 
     // Concept: this phase owns only the explanatory window and reports row or
     // exit actions. ReplayRuntime resolves a selected row from current stores

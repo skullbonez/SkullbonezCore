@@ -910,7 +910,7 @@ void HandleReplayVelocityEditPressed( ReplayAuthoring& authoring, ReplayPredicti
                                       RuntimeInteractionController& interaction, CameraControlState& camera, double now,
                                       bool& outEnterInteractive )
 {
-    PROFILE_SCOPED( authoring.ProfilerBorrow(), "Frame/Replay/VelocityEdit/Toggle" );
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
     const bool enableVelocityEdit = !authoring.VelocityEdit().enabled;
 
     if ( authoring.SetVelocityEditEnabled( enableVelocityEdit ) )
@@ -1552,7 +1552,7 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
 {
     output.restoreRequest = ReplayLiveRestoreRequest {};
     ReplayInspectionCameraAction hostAction = ReplayInspectionCameraAction::None;
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/ScrubberInput" );
+    PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
     const bool loadedPresentation = HasLoadedPresentation();
     const float solverPresentTrackPosition = SolverPresentTrackPosition();
     const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;

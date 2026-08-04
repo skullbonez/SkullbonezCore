@@ -583,7 +583,7 @@ void UiTextPass::PrepareOperatorFrame( UI::InGameUIFrameData& UIData, const UiTe
                                        Rendering::Dx12Diagnostics& renderDiagnostics )
 {
     Text::TextBatch& textBatch = m_textBatch;
-    PROFILE_BEGIN( m_profiler, "Frame/UI/BuildData" );
+    PROFILE_BEGIN( "Frame/UI/BuildData" );
     UIData.screenW = viewport.screenW;
     UIData.screenH = viewport.screenH;
     UIData.rendererName = renderDiagnostics.GetRendererName();
@@ -1102,26 +1102,26 @@ void UiTextPass::SubmitOperatorFrame( UI::InGameUIFrameData& UIData, UI::InGameU
             preview.hdr = source.hdr;
         }
     }
-    PROFILE_END( m_profiler, "Frame/UI/BuildData" );
+    PROFILE_END( "Frame/UI/BuildData" );
 
-    PROFILE_BEGIN( m_profiler, "Frame/UI/PreFlushText" );
+    PROFILE_BEGIN( "Frame/UI/PreFlushText" );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "PreFlushText" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
-    PROFILE_END( m_profiler, "Frame/UI/PreFlushText" );
+    PROFILE_END( "Frame/UI/PreFlushText" );
     UIData.drawCallsBeforeUI = uiPassDrawCallStart;
     const UI::UIDrawList& uiDrawList = ui.Draw( UIData );
     m_uiDrawSubmission.SubmitWithPreviews( uiDrawList, resolvedPreviews, textBatch, m_gpuTiming, assets, renderResources,
                                            renderTextures, renderCommands, renderDiagnostics, UIData.screenW,
                                            UIData.screenH );
 
-    PROFILE_BEGIN( m_profiler, "Frame/UI/PostFlushText" );
+    PROFILE_BEGIN( "Frame/UI/PostFlushText" );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/PostFlushText" );
         Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
-    PROFILE_END( m_profiler, "Frame/UI/PostFlushText" );
+    PROFILE_END( "Frame/UI/PostFlushText" );
 }
 
 

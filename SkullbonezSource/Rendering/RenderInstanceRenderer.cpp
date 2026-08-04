@@ -592,7 +592,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
                                                        SkullbonezCore::Threading::WorkerPool* workerPool,
                                                        bool useShadowParallelPrep, ShadowCasterBatches& outBatches )
 {
-    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
     const auto instances = renderStore.Records();
     outBatches.Clear();
@@ -629,7 +629,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
     if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
 
         if ( BuildShadowCasterBatchesWithWorkers( profiler, instances, colliders, *workerPool, modelCount, outBatches ) )
         {
@@ -641,7 +641,7 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
 }
 
 
-void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
+void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler*,
                                                         const PrimitiveRenderContext& primitiveContext,
                                                         const ShadowCasterBatches& batches, const Matrix4& view,
                                                         const Matrix4& proj,
@@ -672,7 +672,7 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
     int submitted = 0;
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
 
         auto sphereBatch = primitiveContext.renderer.BeginShadowDepthSphereBatch( primitiveContext, view, proj, cinematic );
@@ -689,7 +689,7 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
     }
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
 
         auto boxBatch = primitiveContext.renderer.BeginShadowDepthBoxBatch( primitiveContext, view, proj );
@@ -707,7 +707,7 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
     if ( !batches.pines.empty() )
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
 
         auto pineBatch = primitiveContext.renderer.BeginShadowDepthPineBatch( primitiveContext, view, proj );
@@ -725,7 +725,7 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
     if ( !batches.convexHulls.empty() )
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
 
         for ( const auto& caster : batches.convexHulls )
@@ -764,7 +764,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
                                                     bool useShadowParallelPrep, const Vector3& focus, float maxDistance,
                                                     Vector3& outCenter, float& outRadius, float& outHeightRange )
 {
-    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
     const auto instances = renderStore.Records();
 
@@ -843,7 +843,7 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
     if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
-        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
         const int chunkCount = workerPool
                                    ->BuildChunkRangesNoAlloc( 0, modelCount, SHADOW_PARALLEL_PREP_MIN_CASTERS, chunks,

@@ -479,7 +479,7 @@ ReplayKeyboardVelocityEditResult ReplayAuthoring::ApplyKeyboardVelocityEdit( con
     if ( input.toggleAllowed && input.altDown && !VelocityEdit().keyboardAltWasDown )
     {
         const bool enableVelocityEdit = !VelocityEdit().enabled;
-        PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Toggle" );
+        PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
 
         if ( SetVelocityEditEnabled( enableVelocityEdit ) )
         {
@@ -550,7 +550,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 {
     outPathPickRequested = false;
     outInspectionCameraAction = ReplayInspectionCameraAction::None;
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Input" );
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
     const RuntimeMouseEdges& pointer = inputRouter.UiSnapshot().mouse;
     const bool leftDown = pointer.leftDown;
     const bool leftPressed = pointer.leftPressed;
@@ -925,7 +925,7 @@ void ReplayAuthoring::AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId t
                                                  PhysicsEngine& velocityPhysics, bool editorModeEnabled,
                                                  const RuntimeInteractionGesture& gesture, EditorTracer& tracer ) const
 {
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Overlay" );
+    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
 
     if ( !m_velocityEdit.enabled || editorModeEnabled )
     {

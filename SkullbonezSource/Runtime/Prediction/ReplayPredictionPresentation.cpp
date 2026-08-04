@@ -21,6 +21,7 @@ Related:
 */
 #include "ReplayPredictionPresentation.h"
 
+#include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -516,6 +517,7 @@ void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisua
 
     if ( m_retainedDrawPacketDirty )
     {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/AttachRetained/RebuildRetainedPacket" );
 
         // Compact retained trajectory records are world-space and camera-neutral.
         // Camera values remain explicit publication inputs for the tracer packet.

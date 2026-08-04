@@ -299,7 +299,7 @@ bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const Run
 {
     const RunReplayPredictionState& prediction = m_state;
     const std::span<const RunReplayPredictionFrame> activePredictionFrames = ActiveFrames();
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/BuildRows" );
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     outCameraFocusedRow = -1;
     authoring.BeginCauseTreeRowBuild();
 
@@ -843,7 +843,7 @@ bool ReplayPrediction::ActivateCauseTreeRow( ReplayAuthoring& authoring, int row
         return false;
     }
 
-    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Focus" );
+    PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
     Vector3 targetPosition = row.point;
     float targetRadius = 2.0f;
     RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;

@@ -109,9 +109,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Run owns the cross-domain ordering. Model interpolation must
     // finish before replay substitutes read-only historical/future poses, and
     // every overlay producer must finish before the packet is published once.
-    PROFILE_BEGIN( m_profiler, "Frame/Render/PrepareModels" );
+    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_sceneController.Scene().PrepareRenderInstances( presentationAlpha );
-    PROFILE_END( m_profiler, "Frame/Render/PrepareModels" );
+    PROFILE_END( "Frame/Render/PrepareModels" );
 
     m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(), m_assets,
                                         ToolOverlayBuildInput { framePolicy.physicsDebugContactLinger,

@@ -519,7 +519,6 @@ class ReplayRuntime
 
     // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
     Core::SbDiagnosticStore& m_resultDiagnostics;
-    Core::Profiler* m_profiler;
     ReplayTimeline m_timeline;
     ReplayProbeRunner m_probeRunner;
     ReplayScrubber m_scrubberOwner;

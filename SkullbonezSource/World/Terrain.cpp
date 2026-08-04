@@ -650,11 +650,11 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, Dx12Textur
 }
 
 
-void Terrain::RenderShadowDepth( Core::Profiler* profiler, const Matrix4& lightView, const Matrix4& lightProjection,
+void Terrain::RenderShadowDepth( Core::Profiler*, const Matrix4& lightView, const Matrix4& lightProjection,
                                  const Rendering::PassRasterStateBucket& rasterState,
                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
-    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
 
     if ( !m_shadowDepthShader )
     {

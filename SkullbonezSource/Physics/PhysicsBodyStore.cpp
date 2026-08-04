@@ -141,11 +141,11 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
 // Boxes and hulls should be lifted only by their deepest actual vertex
 // penetration. A center-height clamp would make tilted or uneven-terrain bodies
 // visibly float and would change the deterministic physics baseline.
-bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain,
+bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
                                   const PhysicsBodyHotState& hot, const BoundingBox& box, Vector3& outVertex,
                                   float& outTerrainHeight, Plane& outPlane, float& outGap )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
     if ( !terrain.IsValid() )
     {
@@ -188,11 +188,11 @@ bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler, cons
     return found;
 }
 
-bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain,
+bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler*, const PhysicsTerrainView& terrain,
                                    const PhysicsBodyHotState& hot, const ConvexHullShape& hull, Vector3& outVertex,
                                    float& outTerrainHeight, Plane& outPlane, float& outGap )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
     if ( !terrain.IsValid() )
     {

@@ -673,7 +673,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
         uiReplay.viewport = { window.ClientWidth(), window.ClientHeight() };
         uiReplay.nowSeconds = timers.simulationTimer.GetTotalTime();
 
-        PROFILE_BEGIN( m_profiler, "Frame/UI" );
+        PROFILE_BEGIN( "Frame/UI" );
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
 
@@ -683,7 +683,7 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                                             uiOperatorDiagnostics, uiOperatorSettings, uiOperatorInteraction,
                                                             uiOperatorPresentation, uiOperatorSubmission, uiReplay );
         }
-        PROFILE_END( m_profiler, "Frame/UI" );
+        PROFILE_END( "Frame/UI" );
     }
     else
     {

@@ -132,9 +132,9 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeValidationHarness& validationHarness,
                                                    float contactEpsilon, double secondsPerFrame )
 {
-    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics" );
+    PROFILE_BEGIN( "Frame/PostPhysics" );
 
-    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
+    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
 
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
     PhysicsEngine& physics = scene.Physics();
@@ -157,9 +157,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
         validationHarness.SceneGates().UpdateRequiredBroadphaseXCells( activeCellView );
     }
 
-    PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
+    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
 
-    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/CollisionVisualizer" );
+    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
     m_renderResources.m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
     const CollisionVisualizerFrameView collisionView { scene.BodyStore(),
                                                        scene.Colliders(),
@@ -170,9 +170,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
                                                        scene.BodyStore().Count() };
 
     m_renderResources.m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
-    PROFILE_END( m_profiler, "Frame/PostPhysics/CollisionVisualizer" );
+    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
-    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
     m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
     m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
     m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor( m_presentationState.physicsDebugPipelineStageCursor );
@@ -192,12 +192,12 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
                                                                                             debugContacts },
                                                            contactEpsilon );
 
-    PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
-    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
+    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
     scene.EndCollisionVisualFrame();
-    PROFILE_END( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
-    PROFILE_END( m_profiler, "Frame/PostPhysics" );
+    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
+    PROFILE_END( "Frame/PostPhysics" );
 }
 
 

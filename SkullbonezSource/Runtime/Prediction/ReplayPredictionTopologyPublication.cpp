@@ -24,6 +24,7 @@ Related:
 #include "../Replay/ReplayOverlayLayout.h"
 #include "../Replay/ReplayScrubber.h"
 #include "../../Core/Config.h"
+#include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -1107,12 +1108,19 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     if ( futureTreeReady )
     {
         ReplayPathChildDrawContext childDraw;
-        BuildReplayPredictionChildMarkerContext( childDraw, prediction, activePredictionFrames, activePredictionFrameCount,
-                                                 drawWindow.revealFrame );
 
-        RetainReplayPredictionCausalMarkers( prediction, childDraw, drawWindow.revealFrame,
-                                             bufferComplete ? &activePredictionFrames : nullptr,
-                                             bufferComplete ? activePredictionFrameCount : 0 );
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/BuildChildMarkerContext" );
+            BuildReplayPredictionChildMarkerContext( childDraw, prediction, activePredictionFrames,
+                                                     activePredictionFrameCount, drawWindow.revealFrame );
+        }
+
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RetainCausalMarkers" );
+            RetainReplayPredictionCausalMarkers( prediction, childDraw, drawWindow.revealFrame,
+                                                 bufferComplete ? &activePredictionFrames : nullptr,
+                                                 bufferComplete ? activePredictionFrameCount : 0 );
+        }
     }
 
     RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames, activePredictionFrameCount, prediction,

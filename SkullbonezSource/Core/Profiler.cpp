@@ -38,6 +38,7 @@ Related:
 
 using namespace SkullbonezCore::Core;
 
+Profiler* Profiler::s_active = nullptr;
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
@@ -84,6 +85,7 @@ Profiler::Profiler()
       m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
       m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 )
 {
+    s_active = this;
     LARGE_INTEGER f;
 
     if ( QueryPerformanceFrequency( &f ) )
@@ -1313,6 +1315,7 @@ Profiler::Profiler()
       m_qpcFrequency( 1 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
       m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 )
 {
+    s_active = this;
     std::memset( m_markers, 0, sizeof( m_markers ) );
     std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
@@ -1426,3 +1429,13 @@ WorkerProfilerScope::~WorkerProfilerScope()
 
 
 #endif // SKULLBONEZ_PROFILE_ENABLED
+
+
+Profiler::~Profiler()
+{
+
+    if ( s_active == this )
+    {
+        s_active = nullptr;
+    }
+}

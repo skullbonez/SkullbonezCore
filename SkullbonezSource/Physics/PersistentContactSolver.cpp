@@ -304,9 +304,9 @@ void PersistentContactSolveTransaction::ApplyImpulse( const PersistentContact& c
 }
 
 void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bodyStore, std::span<const uint8_t> sleepState,
-                                                     int modelCount, Core::Profiler* profiler )
+                                                     int modelCount, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BodySetup" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BodySetup, "SetupBodies" );
     ResetBodies( static_cast<std::size_t>( modelCount ) );
 
@@ -364,7 +364,7 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                                                         PhysicsCandidatePairList& sleepSupportEdges, int modelCount,
                                                         std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::BuildManifolds, "BuildManifolds" );
 
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
@@ -650,14 +650,14 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
         ObjectContactManifold manifold;
         bool manifoldBuilt = false;
         {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
             manifoldBuilt = BuildObjectContactManifold( profiler, bodyA, colliderA.shape, bodyB, colliderB.shape, aIndex,
                                                         bIndex, stepPolicy.contactEpsilon, manifold );
         }
 
         if ( manifoldBuilt )
         {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
+            PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
             contactNormal = manifold.normal;
             const CollisionShapeReference& shapeA = colliderA.shape;
             const CollisionShapeReference& shapeB = colliderB.shape;
@@ -711,8 +711,7 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
                 // while halving warm-start, friction, and PGS row work. Mixed
                 // hull/box, fresh-impact, and sphere contacts keep full rows
                 // because their support footprint is less symmetric.
-                PROFILE_SCOPED( profiler,
-                                "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
+                PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ContactRowReduction" );
 
                 selectedPointCount = reduceObjectContactRows( aIndex, bIndex, manifold, selectedPointIndices );
             }
@@ -780,10 +779,10 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const PersistentContactSolverStepPolicy& stepPolicy,
                                                           PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds, std::span<const uint8_t> sleepState, int modelCount,
-                                                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )
+                                                          std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Rows" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRows, "BuildTerrainRows" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -900,10 +899,9 @@ template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                                                         const ColliderStore& colliderStore,
                                                         const PersistentContactSolverStepPolicy& stepPolicy,
-                                                        std::size_t pipelineRecordCapacity, float dt,
-                                                        Core::Profiler* profiler )
+                                                        std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::Precompute, "PrecomputeRows" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -1413,9 +1411,9 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
 void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
                                                    const PersistentContactSolverStepPolicy& stepPolicy,
                                                    bool retainPipelineRecords, std::size_t pipelineRecordCapacity,
-                                                   Core::Profiler* profiler )
+                                                   Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::SolveRows, "SolveRows" );
     stage.m_persistentContactConvergenceTrace.Clear();
 
@@ -1445,9 +1443,9 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
 
 void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                                       const PersistentContactSolverStepPolicy& stepPolicy, std::span<const uint8_t> sleepState,
-                                                                      std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* profiler )
+                                                                      std::span<const uint8_t> sleepSupportedThisFrame, int modelCount, float dt, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PointSupportInstability" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PointSupportInstability, "ApplyPointSupportInstability" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -1597,11 +1595,10 @@ void PersistentContactSolveTransaction::ApplyPointSupportInstability( PhysicsCon
 
 void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                                                 const PersistentContactSolverStepPolicy& stepPolicy, PhysicsBodyRowList<TerrainContactManifold>& terrainContactManifolds,
-                                                                std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, float dt,
-                                                                Core::Profiler* profiler )
+                                                                std::span<uint8_t> terrainRestApplied, std::span<const uint8_t> sleepState, int modelCount, float dt, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain" );
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/RestPolicy" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::TerrainRestPolicy, "ApplyTerrainRestPolicy" );
 
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
@@ -1702,9 +1699,9 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBod
 template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
                                                    std::span<const uint8_t> sleepState, int modelCount,
-                                                   std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+                                                   std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::WriteBack, "WriteBack" );
 
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
@@ -1756,10 +1753,9 @@ void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& st
 
 void PersistentContactSolveTransaction::PublishDebugContacts( PhysicsContactSolverStage& stage,
                                                               const PhysicsBodyStore& bodyStore,
-                                                              PhysicsStepDiagnostics& stepDiagnostics,
-                                                              Core::Profiler* profiler )
+                                                              PhysicsStepDiagnostics& stepDiagnostics, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::DebugContacts, "PublishDebugContacts" );
 
     auto& physicsDebugContacts = stepDiagnostics.MutableDebugContacts();
@@ -1807,9 +1803,9 @@ template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
                                                           const PersistentContactSolverStepPolicy& stepPolicy,
                                                           std::span<const uint8_t> sleepState,
-                                                          std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+                                                          std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::PositionCorrection, "CorrectPositions" );
 
     PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
@@ -1920,9 +1916,9 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
 
 template <bool RetainPipelineRecords>
 void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore,
-                                                    std::size_t pipelineRecordCapacity, Core::Profiler* profiler )
+                                                    std::size_t pipelineRecordCapacity, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/CacheStore" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::CacheStore, "StoreCache" );
 
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
@@ -1994,9 +1990,9 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
 }
 
 void PersistentContactSolveTransaction::ReleaseFixedContacts( PhysicsContactSolverStage& stage, PhysicsBodyStore& bodyStore,
-                                                              int modelCount, Core::Profiler* profiler )
+                                                              int modelCount, Core::Profiler* )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/FixedContactRelease" );
     AdvanceOrFatal( PersistentContactSolvePhaseCursor::Phase::FixedContactRelease, "ReleaseFixedContacts" );
 
     std::span<PhysicsBodyRecord> bodyRecords = bodyStore.MutableRecords();
@@ -2104,7 +2100,7 @@ void PhysicsContactSolverStage::Solve( PhysicsBodyStore& bodyStore, const Collid
     // diagnostic magnitudes, record fills, or per-row capacity comparisons.
     // Simulation state still follows the same deterministic path.
     const std::size_t pipelineRecordCapacity = static_cast<std::size_t>( pipelineCapacityValue );
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/PersistentContacts" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
     //

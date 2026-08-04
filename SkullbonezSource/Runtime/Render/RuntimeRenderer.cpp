@@ -418,13 +418,13 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
     data.rendered = data.debugOverlayPass->Render( *data.inputs );
 }
 
-void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, SkullbonezCore::Core::Profiler* profiler,
+void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, SkullbonezCore::Core::Profiler*,
                                    const RenderCameraLighting& camera, const RuntimeRenderModelFrameView& models,
                                    const PrimitiveRenderContext& primitive, Textures::TextureCollection& textures,
                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                    const Rendering::ShadowFrameData* shadow )
 {
-    PROFILE_SCOPED( profiler, "Frame/Render/ReplayPredictionGhosts" );
+    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
 
     if ( visualPacket.ghostRequests.empty() )
     {

@@ -164,6 +164,10 @@ struct MainMemoryReplayTrajectoryStats
 
 struct MainMemoryReplayTrajectorySubmissionStats
 {
+
+    // Invariant: one storage lane hashes its exact ordered bytes. A packet that
+    // joins retained and frame-local lanes composes their cached hash/size facts
+    // so publication remains content-sensitive without rereading retained data.
     bool hasGeometry = false;                               // True when the tracer submitted replay ribbon vertices this frame.
     uint64_t ordinaryLineHash = 0;                          // Exact ordinary xyz/rgb line stream sent to DrawLinesColored.
     uint64_t ordinaryLineBytes = 0;
@@ -179,7 +183,7 @@ struct MainMemoryReplayTrajectorySubmissionStats
     uint64_t priorityRibbonCanonicalHash = 0;               // Order-independent exact-record marker fingerprint.
     uint64_t priorityRibbonBytes = 0;
     uint32_t priorityRibbonSegmentCount = 0;
-    uint64_t vertexHash = 0;                                // FNV hash of the exact submitted replay ribbon vertex byte stream.
+    uint64_t vertexHash = 0;                                // Content fingerprint for the submitted replay ribbon vertex lanes.
     uint64_t ordinaryVertexHash = 0;                        // Ordered expanded vertices before priority markers are appended.
     uint64_t ordinaryVertexBytes = 0;
     uint32_t ordinaryVertexCount = 0;

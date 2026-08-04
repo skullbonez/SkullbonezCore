@@ -201,8 +201,8 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 } // namespace
 
 ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::Profiler* profiler )
-    : m_resultDiagnostics( resultDiagnostics ), m_profiler( profiler ), m_probeRunner( resultDiagnostics ),
-      m_authoring( profiler ), m_predictionOwner( resultDiagnostics, profiler ), m_visualPresentation( profiler )
+    : m_resultDiagnostics( resultDiagnostics ), m_probeRunner( resultDiagnostics ), m_authoring( profiler ),
+      m_predictionOwner( resultDiagnostics, profiler ), m_visualPresentation( profiler )
 {
 }
 
@@ -731,14 +731,27 @@ void ReplayRuntime::PrepareRenderOverlay( PhysicsEngine& physics, const SceneEnt
 void ReplayRuntime::PublishRenderPacket( EditorTracer& tracer, const Math::Vector::Vector3& cameraTranslation,
                                          const Math::Vector::Vector3& cameraUp, uint64_t replayReserveGrowthEvents )
 {
+    PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket" );
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
-    m_predictionOwner.PresentationOwner().AttachRetainedPredictionGeometry( packet, cameraTranslation, cameraUp );
+    ReplayVisualPacket packet;
 
-    m_predictionOwner.PresentationOwner().PublishVisualPacket( packet, prediction,
-                                                               m_visualPresentation.PathVisualizer().targetId,
-                                                               m_timeline.Solver().LatestSample(),
-                                                               replayReserveGrowthEvents );
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket" );
+        packet = tracer.BuildReplayVisualPacket( cameraTranslation, cameraUp );
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/AttachRetained" );
+        m_predictionOwner.PresentationOwner().AttachRetainedPredictionGeometry( packet, cameraTranslation, cameraUp );
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/PublishMetadata" );
+        m_predictionOwner.PresentationOwner().PublishVisualPacket( packet, prediction,
+                                                                   m_visualPresentation.PathVisualizer().targetId,
+                                                                   m_timeline.Solver().LatestSample(),
+                                                                   replayReserveGrowthEvents );
+    }
 }
 
 

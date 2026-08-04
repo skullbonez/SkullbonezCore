@@ -86,6 +86,46 @@ TEST_CASE( "Replay retained prediction attachment reuses cached stable submissio
     CHECK( frame.submission.segmentCount == retained.submission.segmentCount );
 }
 
+TEST_CASE( "Replay mixed attachment composes cached hashes without rereading retained geometry" )
+{
+    std::array<float, 4> retainedLines = { 1.0f, 2.0f, 3.0f, 4.0f };
+    const std::array<float, 2> frameLines = { 5.0f, 6.0f };
+    ReplayVisualPacket retained;
+    retained.ordinaryLines = retainedLines;
+    retained.submission.hasGeometry = true;
+    retained.submission.ordinaryLineHash = HashReplayVisualFloatBuffer( retainedLines );
+    retained.submission.ordinaryLineBytes = retainedLines.size() * sizeof( float );
+    retained.submission.ordinaryLineVertexCount = 2u;
+
+    const uint64_t frameHash = HashReplayVisualFloatBuffer( frameLines );
+    const uint64_t frameBytes = frameLines.size() * sizeof( float );
+    const uint64_t expectedHash = CombineReplayVisualSubmissionHashes(
+        retained.submission.ordinaryLineHash, retained.submission.ordinaryLineBytes, frameHash, frameBytes );
+    const auto attachFrame = [&]()
+    {
+        ReplayVisualPacket frame;
+        frame.ordinaryLines = frameLines;
+        frame.submission.hasGeometry = true;
+        frame.submission.ordinaryLineHash = frameHash;
+        frame.submission.ordinaryLineBytes = frameBytes;
+        frame.submission.ordinaryLineVertexCount = 1u;
+        AttachRetainedPredictionGeometry( frame, retained, 7u, 11u );
+        return frame;
+    };
+
+    const ReplayVisualPacket first = attachFrame();
+    CHECK( first.submission.ordinaryLineHash == expectedHash );
+    CHECK( first.submission.ordinaryLineBytes == retained.submission.ordinaryLineBytes + frameBytes );
+    CHECK( first.submission.ordinaryLineVertexCount == 3u );
+
+    // Hazard: changing retained storage without publishing a revision is an
+    // invalid producer action. This deliberate mutation proves attachment uses
+    // cached revision facts and does not scan the retained bytes.
+    retainedLines[0] = 99.0f;
+    const ReplayVisualPacket second = attachFrame();
+    CHECK( second.submission.ordinaryLineHash == first.submission.ordinaryLineHash );
+}
+
 TEST_CASE( "Replay retained ranges preserve canonical geometry across interleaved appends" )
 {
     using SkullbonezCore::Rendering::RetainedGeometryRangeToken;

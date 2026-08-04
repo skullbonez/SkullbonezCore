@@ -80,11 +80,11 @@ bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( con
 }
 
 
-void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
+void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler*,
                                                              std::span<const std::pair<int, int>> candidatePairs,
                                                              int candidatePairCount, int modelCount )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/BuildIslands" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
     m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
     m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
 
@@ -299,7 +299,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( PhysicsBodyStore& bodyStore, const
                                                policy,     profiler };
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
+        PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
         workerPool.ParallelForNoAlloc( 0, islandCount, islandStage, PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
                                        "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
                                        PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );

@@ -431,9 +431,9 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const BroadphaseSettings& broadphaseSettings,
                                                                   std::span<const PointJointConstraint> pointJointConstraints, std::span<const uint8_t> sleepState,
                                                                   std::span<const int> awakeBodyIndices, PhysicsStepDiagnostics& stepDiagnostics, float dt, float contactSkin,
-                                                                  float contactEpsilon, Core::Profiler* profiler )
+                                                                  float contactEpsilon, Core::Profiler* )
 {
-    PROFILE_BEGIN( profiler, "Frame/Physics/Broadphase" );
+    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const std::span<const ColliderRecord> colliderRecords = colliderStore.Records();
@@ -447,7 +447,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // Invariant: Broadphase is the inclusive owner marker. Every direct
         // child below is mutually exclusive so reports can sum children once
         // without adding a nested interval a second time.
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/GridSetup" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridSetup" );
 
         if ( !m_largestBroadphaseRadiusValid )
         {
@@ -486,7 +486,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_collisionCellKeys.clear();
     }
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/GridMaintain" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridMaintain" );
         const bool fullSeed = !m_gridMembershipSeeded || m_gridMembershipBodyCount != modelCount;
         auto maintainBody = [&]( int bodyIndex, bool isAwakeSource )
         {
@@ -541,7 +541,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
     }
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/CandidatePairs" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairs" );
 #if defined( _DEBUG )
         m_sleepPrunedPairs.clear();
 
@@ -560,7 +560,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
     bool fastSmallSweepAppendedPairs = false;
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/FastSmallSweepAugment" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
         fastSmallSweepAppendedPairs = AppendFastSmallSweepPairs( m_candidatePairs, bodyStore, colliderStore, sleepState,
                                                                  hotFields, colliderRecords, awakeBodyIndices, dt,
                                                                  contactSkin, contactEpsilon );
@@ -572,7 +572,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneFixedPairs" );
         m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(), m_candidatePairs.end(),
                                                 FixedSolverCandidatePairPredicate { hotFields, modelCount } ),
                                 m_candidatePairs.end() );
@@ -586,7 +586,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
     if ( !pointJointConstraints.empty() )
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/PruneJointPairs" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
         m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(), m_candidatePairs.end(),
                                                 PointJointCandidatePairPredicate { bodyStore, pointJointConstraints } ),
                                 m_candidatePairs.end() );
@@ -599,7 +599,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordCandidates" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );
 
         // Why: every retained candidate already passed the pair-validity gate,
         // so count-only mode can batch the canonical event cardinality without
@@ -655,7 +655,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 #if defined( _DEBUG )
     {
-        PROFILE_SCOPED( profiler, "Frame/Physics/Broadphase/RecordSleepPrunedPairs" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordSleepPrunedPairs" );
 
         // The production path never walks sleep-only cells. Debug retains the
         // old diagnostic evidence at the earlier emission skip instead of
@@ -675,7 +675,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
     }
 #endif
-    PROFILE_END( profiler, "Frame/Physics/Broadphase" );
+    PROFILE_END( "Frame/Physics/Broadphase" );
     return m_candidatePairs;
 }
 

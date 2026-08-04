@@ -80,3 +80,13 @@ type.
   file. A coverage result is validation evidence, not a test-file owner.
 - Put value-only fixtures shared by multiple subsystem test files in clearly
   named shared test support; do not create a gate-named collection point.
+
+## Profiling Markers
+
+- `PROFILE_SCOPED`, `PROFILE_BEGIN`, and `PROFILE_END` take only the marker
+  name. They resolve the active process profiler internally and may be used from
+  any source location that includes `Core/Profiler.h`.
+- Never add a profiler parameter, context field, callback, or retained member
+  solely to emit a CPU marker.
+- Worker timing remains explicit through `PROFILE_WORKER_SCOPED` because it
+  records worker identity and accumulation rather than an ordinary CPU scope.

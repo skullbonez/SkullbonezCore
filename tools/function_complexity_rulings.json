@@ -15,7 +15,7 @@
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::span<const std::pair<int, int>> candidatePairs, std::span<const uint8_t> sleepState, PhysicsCandidatePairList& sleepSupportEdges, int modelCount, std::size_t pipelineRecordCapacity, Core::Profiler* profiler )",
-      "body_sha256": "0e8d79161352ea88851c1784a0edaed1d2fd2a44953fb853a37862cb62326897",
+      "body_sha256": "14c08191631a6139d0c3b8399a5872cfae92c62f88f18cc7735b76f09895c389",
       "owner": "Persistent contact manifold-construction phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase converts deterministic candidate pairs into object contact rows, support edges, contact counts, and optional trace values; compile-time trace retention does not split its manifold-construction invariant, and all borrowed participants expire at return.",
@@ -24,8 +24,8 @@
     },
     {
       "file": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
-      "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* profiler )",
-      "body_sha256": "babac6956b98be9027da23c15f34c3c206b1d888c3f0cbe92eff99240fc4b159",
+      "signature": "template <bool RetainPipelineRecords> void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStage& stage, const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore, const PersistentContactSolverStepPolicy& stepPolicy, std::size_t pipelineRecordCapacity, float dt, Core::Profiler* )",
+      "body_sha256": "168588ed6ae21c5cf99092413c2fc774e794d82be79e6e6a43c11cc7e85cd9e5",
       "owner": "Persistent contact row-precompute phase",
       "disposition": "retain-owner",
       "reason": "One guarded phase transforms constructed rows and the previous cache into effective masses, exact-feature lifetime bias, friction bounds, warm-start impulses, and optional trace values; the fused exact-feature lifecycle/warm-start lookup and compile-time trace retention preserve that single pre-solve row invariant and no owner borrow survives return.",
@@ -95,7 +95,7 @@
     {
       "file": "SkullbonezSource/UI/UI.cpp",
       "signature": "const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )",
-      "body_sha256": "5c86fcbec89b5c331bb5557be403095f94fc12f61998264046ff7e91dd1bce29",
+      "body_sha256": "d8e9f63ffffceac69ba0f9976e71acc0cdf27b3e4c734d0690cf97ea3ea803cb",
       "owner": "InGameUI immediate draw pass",
       "disposition": "retain-owner",
       "reason": "One immediate-mode UI pass transforms a detached frame value into one ordered draw list; layout, hitbox, and widget branches share the same frame lifetime and draw-order invariant.",
@@ -135,7 +135,7 @@
     {
       "file": "SkullbonezSource/Runtime/Planning/ReplayOverlayRenderer.cpp",
       "signature": "void RenderReplayScrubberOverlay( UiDrawSubmission& submission, Text::TextBatch& textBatch, UI::UIDrawList& drawList, const ReplayOverlayStateView& replay, Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands, Rendering::Dx12Diagnostics& renderDiagnostics, Core::Profiler* profiler, bool scenePhysicsEnabled, RuntimeInteractionGestureKind gesture, ReplayOverlayViewport viewport, double nowSeconds )",
-      "body_sha256": "0a0cc9d923de1f83cc3470677c079403453a5737c1b9ab099a3a33d35df41362",
+      "body_sha256": "0861608a70f1d3bc85c1e4ef458313e6e68bdc4fb07356819aac5289c0e2ed2f",
       "owner": "Replay scrubber overlay pass",
       "disposition": "retain-owner",
       "reason": "One presentation pass converts a detached replay overlay snapshot into an ordered draw submission for one viewport and time; renderer owners are synchronous sinks and no overlay state is retained.",
@@ -145,7 +145,7 @@
     {
       "file": "SkullbonezSource/Runtime/UI/OperatorEditorFrameComposer.cpp",
       "signature": "void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels, const FramePresentationFacts& presentationFacts )",
-      "body_sha256": "04375a35565967422d85a48fc9ffb49ebca85aa9de29ad63b09a05eac7006e44",
+      "body_sha256": "53e531708d1751dfa32cd97e03528dacae572d1ff4911eeee7b847fc3713a1f3",
       "owner": "Runtime operator UI frame phase",
       "disposition": "retain-owner",
       "reason": "One composition-root phase projects render-model, presentation, and the UI-owned detached Look Lab cache, runs the active operator UI, submits its commands, and latches any process failure before returning; Runtime Direction is not polled on the idle path and all borrows share that synchronous frame lifetime.",
@@ -155,7 +155,7 @@
     {
       "file": "SkullbonezSource/Runtime/Prediction/ReplayAuthoringCauseTree.cpp",
       "signature": "bool ReplayPrediction::BuildCauseTreeRows( ReplayAuthoring& authoring, const RunReplayPathVisualizerState& path, const ReplaySolverFrameSample* solverSample, std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords, const PhysicsBodyStore& bodyStore, const RunReplayCameraState& camera, int& outCameraFocusedRow )",
-      "body_sha256": "05bb0d87c14bb2327a5fab6ffc7ccf26e6511cbcb869f65383256071f2234844",
+      "body_sha256": "5e2197f8ba568cba1b593d23be8f44875e0008134a8a0155991e201ca6f1fb4a",
       "owner": "ReplayPrediction cause-tree projection",
       "disposition": "retain-owner",
       "reason": "One prediction owner projects a solver sample, retained presentation rows, body identities, and camera focus into a coherent cause-tree row set; row identity and focus arbitration are one result invariant.",
@@ -235,7 +235,7 @@
     {
       "file": "SkullbonezSource/Runtime/Replay/ReplayAuthoringVelocity.cpp",
       "signature": "bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner, ReplayScrubber& scrubberOwner, const ReplayPathPickInput& pointerRay, bool uiBlocksMouse, double now, InputRouter& inputRouter, RuntimeInteractionController& interaction, PhysicsEngine& velocityPhysics, std::size_t entityCount, bool& outEnterInteractive, bool& outPathPickRequested, ReplayInspectionCameraAction& outInspectionCameraAction )",
-      "body_sha256": "6c7c6718e58d5a1fa95525a09fb0f11532835a22212fdcb18df86b82ad4c89b6",
+      "body_sha256": "6de5bc435d7b1885f5b67a9fd0a484fde26391007c6fc6a7238b150b39e8f3a5",
       "owner": "Replay velocity-edit interaction turn",
       "disposition": "retain-owner",
       "reason": "One replay-authoring turn arbitrates pointer ownership, scrubber state, velocity preview physics, and resulting camera action; all borrows are synchronous and one gesture owns the transition.",

@@ -39,8 +39,9 @@ Related:
 
 #include "ReplayRecorder.h"
 #include "ReplayTrajectoryPackets.h"
-#include "../../Core/MainMemoryStats.h"
 #include "../../Core/ByteView.h"
+#include "../../Core/MainMemoryStats.h"
+#include "../../Core/Profiler.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Rendering/RenderCommandTypes.h"
 
@@ -142,6 +143,30 @@ inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first, std:
     appendValues( second );
     appendValues( third );
     appendValues( fourth );
+    return hash;
+}
+
+inline uint64_t CombineReplayVisualSubmissionHashes( uint64_t retainedHash, uint64_t retainedBytes, uint64_t frameHash,
+                                                     uint64_t frameBytes ) noexcept
+{
+    uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
+    const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
+    {
+
+        for ( uint8_t byte : bytes )
+        {
+            hash ^= static_cast<uint64_t>( byte );
+            hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+        }
+    };
+
+    // Why: retained hashes are computed when their revision changes. Mixing
+    // those cached facts with the small frame-local facts keeps stable packet
+    // publication O(1) instead of rereading the retained geometry byte stream.
+    appendBytes( SkullbonezCore::Core::ObjectBytes( retainedHash ) );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( retainedBytes ) );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( frameHash ) );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( frameBytes ) );
     return hash;
 }
 
@@ -340,16 +365,19 @@ namespace ReplayVisualPacketOperations
 inline void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet, const ReplayVisualPacket& retainedPacket,
                                               uint64_t streamId, uint64_t revision ) noexcept
 {
-    packet.retainedPredictionRibbonVertices = retainedPacket.expandedRibbonVertices;
-    packet.retainedPredictionPriorityRibbonVertices = retainedPacket.priorityExpandedRibbonVertices;
-    packet.retainedPredictionOrdinaryRibbonSegments = retainedPacket.ordinaryRibbonSegments;
-    packet.retainedPredictionPriorityRibbonSegments = retainedPacket.priorityRibbonSegments;
-    packet.retainedPredictionOrdinaryLines = retainedPacket.ordinaryLines;
-    packet.retainedPredictionPriorityLines = retainedPacket.priorityLines;
-    packet.retainedPredictionCompactRibbonRecords = retainedPacket.retainedPredictionCompactRibbonRecords;
-    packet.retainedPredictionRibbonRanges = retainedPacket.retainedPredictionRibbonRanges;
-    packet.retainedPredictionStreamId = streamId;
-    packet.retainedPredictionRevision = revision;
+    {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/AttachRetained/AttachSpans" );
+        packet.retainedPredictionRibbonVertices = retainedPacket.expandedRibbonVertices;
+        packet.retainedPredictionPriorityRibbonVertices = retainedPacket.priorityExpandedRibbonVertices;
+        packet.retainedPredictionOrdinaryRibbonSegments = retainedPacket.ordinaryRibbonSegments;
+        packet.retainedPredictionPriorityRibbonSegments = retainedPacket.priorityRibbonSegments;
+        packet.retainedPredictionOrdinaryLines = retainedPacket.ordinaryLines;
+        packet.retainedPredictionPriorityLines = retainedPacket.priorityLines;
+        packet.retainedPredictionCompactRibbonRecords = retainedPacket.retainedPredictionCompactRibbonRecords;
+        packet.retainedPredictionRibbonRanges = retainedPacket.retainedPredictionRibbonRanges;
+        packet.retainedPredictionStreamId = streamId;
+        packet.retainedPredictionRevision = revision;
+    }
 
     if ( packet.retainedPredictionRibbonVertices.empty() && packet.retainedPredictionPriorityRibbonVertices.empty() &&
          packet.retainedPredictionOrdinaryLines.empty() && packet.retainedPredictionPriorityLines.empty() &&
@@ -366,43 +394,55 @@ inline void AttachRetainedPredictionGeometry( ReplayVisualPacket& packet, const 
 
     if ( !hasFrameLocalGeometry )
     {
+        PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/AttachRetained/CopyCachedSubmission" );
         packet.submission = retainedSubmission;
         return;
     }
 
+    PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/AttachRetained/ComposeMixedSubmission" );
     packet.submission.hasGeometry = packet.submission.hasGeometry || retainedSubmission.hasGeometry;
-    packet.submission.ordinaryLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryLines,
-                                                                       packet.ordinaryLines );
+    packet.submission.ordinaryLineHash = CombineReplayVisualSubmissionHashes( retainedSubmission.ordinaryLineHash,
+                                                                              retainedSubmission.ordinaryLineBytes,
+                                                                              packet.submission.ordinaryLineHash,
+                                                                              packet.submission.ordinaryLineBytes );
     packet.submission.ordinaryLineBytes = packet.retainedPredictionOrdinaryLines.size_bytes() +
                                           packet.ordinaryLines.size_bytes();
     packet.submission.ordinaryLineVertexCount = retainedSubmission.ordinaryLineVertexCount +
                                                 packet.submission.ordinaryLineVertexCount;
-    packet.submission.priorityLineHash = HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityLines,
-                                                                       packet.priorityLines );
+    packet.submission.priorityLineHash = CombineReplayVisualSubmissionHashes( retainedSubmission.priorityLineHash,
+                                                                              retainedSubmission.priorityLineBytes,
+                                                                              packet.submission.priorityLineHash,
+                                                                              packet.submission.priorityLineBytes );
     packet.submission.priorityLineCanonicalHash = retainedSubmission.priorityLineCanonicalHash;
     packet.submission.priorityLineBytes = packet.retainedPredictionPriorityLines.size_bytes() +
                                           packet.priorityLines.size_bytes();
     packet.submission.priorityLineVertexCount = retainedSubmission.priorityLineVertexCount +
                                                 packet.submission.priorityLineVertexCount;
-    packet.submission.ordinaryRibbonHash = HashReplayVisualFloatBuffers( packet.retainedPredictionOrdinaryRibbonSegments,
-                                                                         packet.ordinaryRibbonSegments );
+    packet.submission.ordinaryRibbonHash = CombineReplayVisualSubmissionHashes( retainedSubmission.ordinaryRibbonHash,
+                                                                                retainedSubmission.ordinaryRibbonBytes,
+                                                                                packet.submission.ordinaryRibbonHash,
+                                                                                packet.submission.ordinaryRibbonBytes );
     packet.submission.ordinaryRibbonBytes = packet.retainedPredictionOrdinaryRibbonSegments.size_bytes() +
                                             packet.ordinaryRibbonSegments.size_bytes();
     packet.submission.ordinaryRibbonSegmentCount = retainedSubmission.ordinaryRibbonSegmentCount +
                                                    packet.submission.ordinaryRibbonSegmentCount;
-    packet.submission.priorityRibbonHash = HashReplayVisualFloatBuffers( packet.retainedPredictionPriorityRibbonSegments,
-                                                                         packet.priorityRibbonSegments );
+    packet.submission.priorityRibbonHash = CombineReplayVisualSubmissionHashes( retainedSubmission.priorityRibbonHash,
+                                                                                retainedSubmission.priorityRibbonBytes,
+                                                                                packet.submission.priorityRibbonHash,
+                                                                                packet.submission.priorityRibbonBytes );
     packet.submission.priorityRibbonCanonicalHash = retainedSubmission.priorityRibbonCanonicalHash;
     packet.submission.priorityRibbonBytes = packet.retainedPredictionPriorityRibbonSegments.size_bytes() +
                                             packet.priorityRibbonSegments.size_bytes();
     packet.submission.priorityRibbonSegmentCount = retainedSubmission.priorityRibbonSegmentCount +
                                                    packet.submission.priorityRibbonSegmentCount;
-    packet.submission.vertexHash = HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
-                                                                 packet.expandedRibbonVertices,
-                                                                 packet.retainedPredictionPriorityRibbonVertices,
-                                                                 packet.priorityExpandedRibbonVertices );
-    packet.submission.ordinaryVertexHash = HashReplayVisualFloatBuffers( packet.retainedPredictionRibbonVertices,
-                                                                         packet.expandedRibbonVertices );
+    packet.submission.vertexHash = CombineReplayVisualSubmissionHashes( retainedSubmission.vertexHash,
+                                                                        retainedSubmission.vertexBytes,
+                                                                        packet.submission.vertexHash,
+                                                                        packet.submission.vertexBytes );
+    packet.submission.ordinaryVertexHash = CombineReplayVisualSubmissionHashes( retainedSubmission.ordinaryVertexHash,
+                                                                                retainedSubmission.ordinaryVertexBytes,
+                                                                                packet.submission.ordinaryVertexHash,
+                                                                                packet.submission.ordinaryVertexBytes );
     packet.submission.ordinaryVertexBytes = packet.retainedPredictionRibbonVertices.size_bytes() +
                                             packet.expandedRibbonVertices.size_bytes();
     packet.submission.ordinaryVertexCount = retainedSubmission.ordinaryVertexCount + packet.submission.ordinaryVertexCount;

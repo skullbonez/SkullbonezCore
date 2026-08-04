@@ -51,11 +51,10 @@ RotationMatrix GetOrientationMatrix( const TerrainContactBodyView& body )
     return q.GetOrientationMatrix();
 }
 
-bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
-                                 const BoundingBox& box, Vector3& outVertex, float& outTerrainHeight, Plane& outPlane,
-                                 float& outGap )
+bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainContactBodyView& body, const BoundingBox& box,
+                                 Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
     if ( !body.terrain.IsValid() )
     {
@@ -101,11 +100,11 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const
     return found;
 }
 
-bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
+bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainContactBodyView& body,
                                   const ConvexHullShape& hull, Vector3& outVertex, float& outTerrainHeight, Plane& outPlane,
                                   float& outGap )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
     if ( !body.terrain.IsValid() )
     {
@@ -234,7 +233,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
             // When no vertex is currently touching, sweep every box vertex along
             // the body's linear motion and take the earliest plane hit.
-            PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSweptVertexProbe" );
+            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
 
             for ( int v = 0; v < 8; ++v )
             {
@@ -300,7 +299,7 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
-            PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSweptVertexProbe" );
+            PROFILE_SCOPED( "Frame/Physics/Terrain/HullSweptVertexProbe" );
             const uint16_t vertexCount = hull->GetVertexCount();
 
             for ( uint16_t v = 0; v < vertexCount; ++v )
@@ -402,8 +401,8 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                                       const ShapeView& shape, int bodyIndex, const TerrainContactSweepResult& sweep,
                                       float availableTime, TerrainContactManifold& out )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold" );
-    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/Build" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold" );
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/Build" );
 
     // Geometry-only boundary for the shared terrain row path. This converts the
     // swept terrain hit into contact points, feature ids, tangent axes, and
@@ -453,7 +452,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                              }
                              else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
                              {
-                                 PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/BoxVertices" );
+                                 PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/BoxVertices" );
 
                                  const Vector3& he = shapeValue.GetHalfExtents();
                                  const RotationMatrix rotMat = GetOrientationMatrix( body );
@@ -495,7 +494,7 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
                              }
                              else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
                              {
-                                 PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/HullVertices" );
+                                 PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/HullVertices" );
 
                                  const RotationMatrix rotMat = GetOrientationMatrix( body );
                                  const Vector3 hullCenter = position + ( rotMat * shapeValue.GetPosition() );

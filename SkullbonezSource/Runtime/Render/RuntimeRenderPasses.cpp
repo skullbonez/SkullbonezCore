@@ -532,7 +532,7 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
         return;
     }
 
-    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/EnsureResources" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/EnsureResources" );
 
     // Concept: the shadow map is a concrete DX12 depth framebuffer. It is
     // intentionally owned outside the cinematic HDR target because the same
@@ -629,7 +629,7 @@ SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                    const Math::Vector::Vector3& lightDirectionWorld ) const
 {
-    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
 
@@ -700,7 +700,7 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
                                   const Rendering::RenderInstanceStore& renderInstances,
                                   SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool shadowParallelPrep )
 {
-    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
 
@@ -761,7 +761,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
                                   SkullbonezCore::Threading::WorkerPool* renderWorkerPool, bool renderTerrain,
                                   bool shadowParallelPrep, const Rendering::ShadowCasterBatches* objectCasters )
 {
-    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap" );
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
     DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
@@ -791,7 +791,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
 
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
-        PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
@@ -804,7 +804,7 @@ void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target, const Prim
 
     if ( cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
-        PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
@@ -858,7 +858,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
         // Build shadow maps before any receiver pass. Terrain receives the broad
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
-        PROFILE_SCOPED( m_profiler, "Frame/Shadows" );
+        PROFILE_SCOPED( "Frame/Shadows" );
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/Shadows" );
         PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Shadows/ShadowMap" );
         {
@@ -1402,7 +1402,9 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     // Invariant: production submission and validation observe this same
     // replay-owned packet; neither may rebuild geometry from tracer internals.
+    PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
     tracer.Render( inputs.replayVisualPacket, inputs.camera.viewProjection, inputs.renderGeometry );
+    PROFILE_GPU_END( inputs.gpuTiming, "Frame/Render/DebugOverlay/ReplayVisuals" );
     inputs.runtimeTools.Laser().Render( inputs.camera.viewProjection, inputs.camera.eye, inputs.camera.up, inputs.assets,
                                         inputs.renderResources, inputs.renderGeometry, inputs.renderGeometry );
 

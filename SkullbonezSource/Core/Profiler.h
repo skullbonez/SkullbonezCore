@@ -53,9 +53,15 @@ class Profiler
 {
   public:
 
-    // Lifetime: the startup composition root owns one profiler for the complete
-    // synchronous RunApp lifetime and lends its address to hot subsystem owners.
+    // Lifetime: startup owns one active profiler for the synchronous RunApp
+    // lifetime. CPU marker macros resolve it ambiently so instrumentation never
+    // widens domain APIs or adds retained service borrows.
     Profiler();
+    ~Profiler();
+    static Profiler* Active() noexcept
+    {
+        return s_active;
+    }
     static constexpr int MAX_MARKERS = 192;                  // Registry capacity; overflow is a profiling contract bug.
     static constexpr int MAX_COUNTERS = 16;                  // Scalar diagnostic columns carried beside marker timings.
     static constexpr int MAX_WORKER_CORES = 128;             // Worker overlay capacity, not a thread-spawn request.
@@ -221,6 +227,9 @@ class Profiler
     void WritePerfCSVRow( FILE* f, int pass, int frame ) const;
 
   private:
+
+    // Non-owning process marker target; the sole startup owner clears it on destruction.
+    static Profiler* s_active;
     Profiler( const Profiler& ) = delete;
     Profiler& operator=( const Profiler& ) = delete;
 
@@ -342,28 +351,28 @@ class WorkerProfilerScope
 #define PROFILE_PASTE_INNER( a, b ) a##b
 #define PROFILE_PASTE( a, b ) PROFILE_PASTE_INNER( a, b )
 
-#define PROFILE_BEGIN( profiler, name )                                                                                     \
+#define PROFILE_BEGIN( name )                                                                                               \
     do                                                                                                                      \
     {                                                                                                                       \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                          \
-        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                            \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                              \
         if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                           \
             PROFILE_PASTE( _profP_, __LINE__ )->Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                          \
     } while ( 0 )
 
-#define PROFILE_END( profiler, name )                                                                                       \
+#define PROFILE_END( name )                                                                                                 \
     do                                                                                                                      \
     {                                                                                                                       \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                          \
-        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                            \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ::SkullbonezCore::Core::Profiler::Active();                              \
         if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                           \
             PROFILE_PASTE( _profP_, __LINE__ )->End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                            \
     } while ( 0 )
 
-#define PROFILE_SCOPED( profiler, name )                                                                                    \
+#define PROFILE_SCOPED( name )                                                                                              \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                             \
-    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( profiler, name,                               \
-                                                                              PROFILE_PASTE( _profSH_, __LINE__ ) )
+    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( ::SkullbonezCore::Core::Profiler::Active(),   \
+                                                                              name, PROFILE_PASTE( _profSH_, __LINE__ ) )
 
 #define PROFILE_WORKER_SCOPED( profiler, name )                                                                             \
     constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                             \
@@ -401,9 +410,9 @@ class WorkerProfilerScope
 
 #else // SKULLBONEZ_PROFILE_ENABLED
 
-#define PROFILE_BEGIN( profiler, name ) ( (void)( profiler ) )
-#define PROFILE_END( profiler, name ) ( (void)( profiler ) )
-#define PROFILE_SCOPED( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_BEGIN( name ) ( (void)sizeof( name ) )
+#define PROFILE_END( name ) ( (void)sizeof( name ) )
+#define PROFILE_SCOPED( name ) ( (void)sizeof( name ) )
 #define PROFILE_WORKER_SCOPED( profiler, name ) ( (void)( profiler ) )
 #define PROFILE_COUNTER( profiler, name, value ) ( (void)( profiler ) )
 #define PROFILE_FRAME_BEGIN( profiler ) ( (void)( profiler ) )

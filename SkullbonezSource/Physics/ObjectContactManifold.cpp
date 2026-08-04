@@ -1965,11 +1965,11 @@ ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a,
 //   references to the local 3D manifold builders. The normal is always oriented
 //   from body A toward body B so the solver can use one impulse sign convention.
 template <typename ShapeA, typename ShapeB>
-bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, const ObjectContactBodyView& a,
-                                     const ShapeA& shapeA, const ObjectContactBodyView& b, const ShapeB& shapeB, int bodyA,
-                                     int bodyB, float contactSkin, ObjectContactManifold& out )
+bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler*, const ObjectContactBodyView& a, const ShapeA& shapeA,
+                                     const ObjectContactBodyView& b, const ShapeB& shapeB, int bodyA, int bodyB,
+                                     float contactSkin, ObjectContactManifold& out )
 {
-    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ObjectManifold" );
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold" );
 
     // Shape dispatch is intentionally explicit. The solver wants one uniform
     // manifold shape, but the geometry needed to produce it differs a lot:
@@ -1993,8 +1993,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                    std::is_same_v<ShapeTypeB,
                                                                                                   BoundingSphere> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/SphereSphere" );
 
                                                                         return BuildSphereSphere( a, shapeValueA, b,
@@ -2006,8 +2005,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        BoundingBox> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/SphereBox" );
 
                                                                         return BuildSphereBoxOrdered( a, shapeValueA, b,
@@ -2019,8 +2017,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        ConvexHullShape> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/SphereHull" );
 
                                                                         return BuildSphereHullOrdered( a, shapeValueA, b,
@@ -2032,8 +2029,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        BoundingSphere> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/SphereBox" );
 
                                                                         return BuildSphereBoxOrdered( b, shapeValueB, a,
@@ -2045,8 +2041,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        BoundingBox> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/BoxBox" );
 
                                                                         return BuildBoxBox( a, shapeValueA, b, shapeValueB,
@@ -2057,8 +2052,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        ConvexHullShape> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/BoxHull" );
 
                                                                         return BuildBoxHull( a, shapeValueA, b, shapeValueB,
@@ -2069,8 +2063,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        BoundingSphere> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/SphereHull" );
 
                                                                         return BuildSphereHullOrdered( b, shapeValueB, a,
@@ -2082,8 +2075,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                         std::is_same_v<ShapeTypeB,
                                                                                                        BoundingBox> )
                                                                     {
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/BoxHull" );
 
                                                                         return BuildBoxHull( b, shapeValueB, a, shapeValueA,
@@ -2098,8 +2090,7 @@ bool BuildObjectContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, c
                                                                                        "Every CollisionShape pair requires "
                                                                                        "explicit narrowphase dispatch." );
 
-                                                                        PROFILE_SCOPED( profiler,
-                                                                                        "Frame/Physics/Narrowphase/"
+                                                                        PROFILE_SCOPED( "Frame/Physics/Narrowphase/"
                                                                                         "ObjectManifold/HullHull" );
 
                                                                         return BuildHullHull( a, shapeValueA, b, shapeValueB,

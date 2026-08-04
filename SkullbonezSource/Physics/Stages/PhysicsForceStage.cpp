@@ -352,7 +352,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     const bool runParallel = execution.parallel && execution.parallelMutualGravity &&
                              modelCount >= MUTUAL_GRAVITY_PARALLEL_MIN_BODIES && workerPool.GetThreadCount() > 0;
 
-    PROFILE_BEGIN( profiler, "Frame/Physics/MutualGravity/PairBuild" );
+    PROFILE_BEGIN( "Frame/Physics/MutualGravity/PairBuild" );
 
     if ( runParallel )
     {
@@ -368,9 +368,9 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
         }
     }
 
-    PROFILE_END( profiler, "Frame/Physics/MutualGravity/PairBuild" );
+    PROFILE_END( "Frame/Physics/MutualGravity/PairBuild" );
 
-    PROFILE_BEGIN( profiler, "Frame/Physics/MutualGravity/Reduce" );
+    PROFILE_BEGIN( "Frame/Physics/MutualGravity/Reduce" );
 
     std::size_t compactPairCount = 0u;
 
@@ -415,7 +415,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
         }
     }
 
-    PROFILE_END( profiler, "Frame/Physics/MutualGravity/Reduce" );
+    PROFILE_END( "Frame/Physics/MutualGravity/Reduce" );
 
     return m_mutualGravityForces.data();
 }
