@@ -684,6 +684,8 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
             target.lastSelfMs = source.lastSelfMs;
             target.avgMs = source.avgMs;
             target.selfAvgMs = source.selfAvgMs;
+            target.lastFrameWorkerMs = source.lastFrameWorkerMs;
+            target.workerAvgMs = source.workerAvgMs;
             target.p50Ms = source.p50Ms;
             target.p99Ms = source.p99Ms;
             target.colorR = color.r;
@@ -760,6 +762,8 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
             option.leafName = input.leafName ? input.leafName : option.name;
             option.cpuMs = (std::max)( 0.0f, input.cpuMs );
             option.cpuAverageMs = (std::max)( 0.0f, input.cpuAverageMs );
+            option.workerMs = (std::max)( 0.0f, input.workerMs );
+            option.workerAverageMs = (std::max)( 0.0f, input.workerAverageMs );
             option.gpuMs = (std::max)( 0.0f, input.gpuMs );
         };
 
@@ -807,6 +811,10 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
                                                                           .cpuMs = marker.lastFrameMs,
                                                                           .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs
                                                                                                               : marker.lastFrameMs,
+                                                                          .workerMs = marker.lastFrameWorkerMs,
+                                                                          .workerAverageMs = marker.workerAvgMs > 0.0f
+                                                                                                 ? marker.workerAvgMs
+                                                                                                 : marker.lastFrameWorkerMs,
                                                                           .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
                                                                           .colorR = color.r,
                                                                           .colorG = color.g,
@@ -852,6 +860,7 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     UIData.replayMemorySolverRetentionSeconds = replayHud.solverRetentionSeconds;
     UIData.replayMemoryBudgetClamped = replayHud.memoryBudgetClamped;
     UIData.replayMemorySolverWindowReduced = replayHud.solverWindowReduced;
+    UIData.predictionRevealRate = replayHud.predictionRevealRate;
     const bool memoryTabActive = ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == InGameUITab::Memory;
     const bool memoryOverlayEnabled = ui.IsMemoryOverlayEnabled();
     UIData.reserveCapacityRows = nullptr;

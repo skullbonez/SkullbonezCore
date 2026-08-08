@@ -251,8 +251,13 @@ TEST_CASE( "Production UI frame streams retain committed fingerprints" )
         InGameUITab::Sky,      InGameUITab::Cinematic, InGameUITab::Memory,
     };
     constexpr uint64_t expected[] = {
-        1167260169752999469ull,
-        5621374501062094743ull,
+
+        // Profiler: refreshed when the per-marker Work column was added so
+        // worker-thread time stopped being summed into the frame-thread rows.
+        // Only this surface moved; the other ten fingerprints prove the column
+        // did not disturb any other tab's stream.
+        16424379413615724563ull,
+        5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
         643319089294822447ull,
         9774020997193876338ull,
         3787874871094680490ull,

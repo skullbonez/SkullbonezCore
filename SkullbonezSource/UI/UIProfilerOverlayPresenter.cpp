@@ -110,6 +110,21 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
         }
     }
 
+    // Why: the WORK column only earns its width when a worker actually reached
+    // an instrumented path this session. Scenes below the parallel-dispatch
+    // threshold, and runs with no replay prediction, keep the original layout.
+    bool anyWorker = false;
+
+    for ( int index = 0; index < markerCount; ++index )
+    {
+
+        if ( markers[index].workerAvgMs > 0.0f || markers[index].lastFrameWorkerMs > 0.0f )
+        {
+            anyWorker = true;
+            break;
+        }
+    }
+
     const float padX = fontSize * 0.6f;
     const float padY = lineHeight * 1.2f;
 
@@ -139,8 +154,10 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
     const float valueColumnStep = fontSize * 7.0f;
     const float averageColumn = markerNameWidth + fontSize * 1.5f;
     const float selfColumn = averageColumn + valueColumnStep;
-    const float gpuColumn = anyGpu ? selfColumn + valueColumnStep : -1.0f;
-    const float p50Column = anyGpu ? gpuColumn + valueColumnStep : selfColumn + valueColumnStep;
+    const float workerColumn = anyWorker ? selfColumn + valueColumnStep : -1.0f;
+    const float afterWorkerColumn = anyWorker ? workerColumn : selfColumn;
+    const float gpuColumn = anyGpu ? afterWorkerColumn + valueColumnStep : -1.0f;
+    const float p50Column = anyGpu ? gpuColumn + valueColumnStep : afterWorkerColumn + valueColumnStep;
     const float p99Column = p50Column + valueColumnStep;
     const float minimumColumn = p99Column + valueColumnStep;
     const float maximumColumn = minimumColumn + valueColumnStep;
@@ -171,6 +188,13 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
     const float gpuGreen = 0.8f;
     const float gpuBlue = 1.0f;
 
+    // Why: WORK reuses the light blue the histogram already assigns to
+    // other-core time, so the aggregate line and the per-marker column read as
+    // the same quantity split two ways.
+    const float workerRed = 0.42f;
+    const float workerGreen = 0.83f;
+    const float workerBlue = 1.0f;
+
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
     float frameAverageMs = 0.0f;
@@ -194,6 +218,11 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
     draw.Text( xLeft + nameColumn, y, fontSize, columnRed, columnGreen, columnBlue, "MARKER" );
     draw.Text( xLeft + averageColumn, y, fontSize, columnRed, columnGreen, columnBlue, "CPU" );
     draw.Text( xLeft + selfColumn, y, fontSize, columnRed, columnGreen, columnBlue, "SELF" );
+
+    if ( anyWorker )
+    {
+        draw.Text( xLeft + workerColumn, y, fontSize, workerRed, workerGreen, workerBlue, "WORK" );
+    }
 
     if ( anyGpu )
     {
@@ -270,6 +299,20 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
         draw.Text( xLeft + averageColumn, y, fontSize, red, green, blue, "%6.2f", marker.avgMs );
         const float selfMs = marker.selfAvgMs > 0.0f ? marker.selfAvgMs : marker.lastSelfMs;
         draw.Text( xLeft + selfColumn, y, fontSize, red, green, blue, "%6.2f", selfMs );
+
+        if ( anyWorker )
+        {
+            const float workerMs = marker.workerAvgMs > 0.0f ? marker.workerAvgMs : marker.lastFrameWorkerMs;
+
+            if ( workerMs > 0.0f )
+            {
+                draw.Text( xLeft + workerColumn, y, fontSize, workerRed, workerGreen, workerBlue, "%6.2f", workerMs );
+            }
+            else
+            {
+                draw.Text( xLeft + workerColumn, y, fontSize, columnRed, columnGreen, columnBlue, "    - " );
+            }
+        }
 
         if ( anyGpu )
         {

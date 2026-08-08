@@ -143,6 +143,11 @@ class Run
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult;                                        // Last queue load outcome observed by startup/load-only paths.
     bool m_skipExecute = false;                                                                  // Startup-only probes can complete without entering the frame loop.
     RunLaunchOptions m_launchOptions;                                                            // CLI/startup policy reapplied across scene loads.
+
+    // Invariant: --predict is a one-shot arming request, not a mode. Once the
+    // target resolves and the intent is applied this latches, so later operator
+    // predict/target/pause edits are never overwritten by the launch flag.
+    bool m_startupPredictionApplied = false;
     ApplicationExitState m_applicationExit;                                                      // First-failure exit latch resolved by the platform message loop.
     RenderDefaultsStore m_renderDefaults;                                                        // Deferred ordinary/cinematic engine.cfg persistence owner.
     RunStartupState m_startup;                                                                   // engine.cfg startup capacity/thread defaults restored by demo resets.
@@ -258,6 +263,12 @@ class Run
     bool TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy );                        // Screenshot triggers; true restarts frame.
     void TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy );                          // Auto-cycle capture; may post WM_QUIT.
     bool TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy );                       // Completion/load policy; true restarts frame.
+
+    // Lifetime: replays the operator's scrubber/predict/target/pause sequence
+    // once, then never runs again in this process. It cannot run from
+    // ApplyStartupOverrides because that boundary precedes the first scene load,
+    // so the named body does not exist yet; the frame loop retries until it does.
+    void ApplyStartupPredictionRequest();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     void ApplyDevelopmentUiMode();                                                               // Reapplies the process-lifetime surface selection.
     void SelectDevelopmentUiSurface( DevelopmentUiMode surface );                                // Atomically hides the source before showing the target surface.

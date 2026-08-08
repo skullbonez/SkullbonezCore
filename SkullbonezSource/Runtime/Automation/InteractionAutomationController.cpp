@@ -122,6 +122,10 @@ constexpr uint64_t INTERACTION_PREDICTION_FINGERPRINT_PRIME = 1099511628211ull;
 // must never decide when the operator sees the causal unfold begin.
 constexpr int REPLAY_VISUAL_FIDELITY_START_FRAME = 900;
 
+// Real-time causal unfold, held independently of the shipped reveal default so
+// the probe's captured animation cannot move when that default changes.
+constexpr double REPLAY_VISUAL_FIDELITY_REVEAL_RATE = 1.0;
+
 void HashPredictionByte( uint64_t& hash, uint8_t value )
 {
     hash ^= static_cast<uint64_t>( value );
@@ -3987,6 +3991,15 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             // would retain markers, then rewinding to zero would create a
             // broken second presentation pass.
             PublishReplayDeterministicReveal( result.replayIntent, 0, true );
+
+            // Invariant: a deterministic visual probe pins its own pacing rather
+            // than inheriting the operator-facing default. That default is now
+            // effectively immediate, which makes retained trails and trajectory
+            // lines snap instead of animate, so a probe that inherited it would
+            // capture a different picture than the one its goldens approve.
+            // Real-time here reproduces the pacing the goldens were captured at.
+            result.replayIntent.applyPredictionRevealRate = true;
+            result.replayIntent.predictionRevealRate = REPLAY_VISUAL_FIDELITY_REVEAL_RATE;
             AppendReportAction( state, frame, action.type, "prediction", nullptr, true,
                                 "reveal held at zero; frame-exact capture starts after prediction publication" );
 

@@ -207,6 +207,12 @@ ReplayRuntime::ReplayRuntime( Core::SbDiagnosticStore& resultDiagnostics, Core::
 }
 
 
+void ReplayRuntime::ApplyPredictionRevealRate( float revealRate )
+{
+    m_predictionOwner.SetRevealRatePreservingCursor( static_cast<double>( revealRate ) );
+}
+
+
 ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )
 {
     ReplayFrameIntentResult result;
@@ -1603,6 +1609,7 @@ ReplayHudStatus ReplayRuntime::BuildHudStatus( bool includeMemoryStats ) const
     status.solverWindowReduced = policy.solverWindowReduced;
     status.divergenceUnits = m_predictionOwner.State().baseline.divergenceUnits;
     status.divergenceValid = m_predictionOwner.State().baseline.divergenceValid;
+    status.predictionRevealRate = static_cast<float>( m_predictionOwner.State().revealClock.secondsPerSecond );
 
     if ( includeMemoryStats )
     {

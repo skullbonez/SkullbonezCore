@@ -301,6 +301,11 @@ class ReplayRuntime
     // changed or queued policy state changed before recording was configured.
     bool ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
 
+    // Sets the causal-unfold pacing the operator surface authors. Presentation
+    // only: it changes how fast an already-computed horizon is drawn, never what
+    // was simulated.
+    void ApplyPredictionRevealRate( float revealRate );
+
     // Exposes the resolved policy for diagnostics/UI; callers must not infer
     // recorder capacity from raw requested fields.
     ReplayShutdownReport FinishShutdown();

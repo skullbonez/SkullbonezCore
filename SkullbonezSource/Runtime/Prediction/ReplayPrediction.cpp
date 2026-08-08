@@ -103,6 +103,13 @@ namespace
 constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
+// Why: a time budget completes a different number of ticks per frame on every
+// CPU, so the frame a horizon finishes on is machine-dependent. Automation that
+// captures a frame-exact reveal needs the opposite - a fixed tick count per
+// submit, which lands completion on the same frame everywhere. Deterministic
+// reveal is the automation-owned flag, so it selects this pacing too.
+constexpr int REPLAY_PREDICTION_DETERMINISTIC_TICKS_PER_SUBMIT = 8;
+
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                      int modelCount, int& outModelIndex )
 {
@@ -198,8 +205,6 @@ constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies" );
 constexpr uint32_t REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH = HashStr( "Frame/Replay/Prediction/CaptureSample/WorkerBodies" );
-
-constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
 
 // Concept: future-node building is an incremental cache.
 //
@@ -366,8 +371,8 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction, Skullbone
 
 
 bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const PhysicsEngine& physicsEngine,
-                                   SkullbonezCore::Threading::WorkerPool& workerPool, SkullbonezCore::Core::Profiler*,
-                                   int modelCount, ReplayFrameIndex frameIndex )
+                                   SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount,
+                                   ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
@@ -495,17 +500,17 @@ void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
     prediction.build.publication.MarkWorkerFailed();
 }
 
-void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, SkullbonezCore::Core::Profiler* profiler,
-                                     const SkullbonezCore::Core::EngineConfig& config,
-                                     SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
-                                     int endTickIndex )
+int RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, const SkullbonezCore::Core::EngineConfig& config,
+                                    SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
+                                    int endTickIndex )
 {
+    PROFILE_SCOPED( "Frame/Replay/Prediction/WorkerRange" );
 
     if ( prediction.build.publication.WorkerFailed() || !prediction.simulation.predictionEngineReady ||
          !prediction.simulation.predictionEngine )
     {
         MarkReplayPredictionWorkerFailed( prediction );
-        return;
+        return 0;
     }
 
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
@@ -526,45 +531,88 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, Skull
         // Scene mutation paths must cancel and wait before live stores are
         // reloaded, because this worker never borrows legacy object record rows.
 
-        if ( !StepPredictionEngineTick( predictionEngine, prediction.simulation.predictionTornadoGameplay, PHYSICS_FIXED_DT,
-                                        prediction.simulation.predictionWorldForces, workerPool ) ||
-             !CaptureReplayPredictionFrame( prediction, predictionEngine, workerPool, profiler, modelCount,
-                                            static_cast<ReplayFrameIndex>( predictionTick ) ) )
+        bool stepSucceeded = false;
+
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/WorkerRange/PhysicsStep" );
+            stepSucceeded = StepPredictionEngineTick( predictionEngine, prediction.simulation.predictionTornadoGameplay,
+                                                      PHYSICS_FIXED_DT, prediction.simulation.predictionWorldForces,
+                                                      workerPool );
+        }
+
+        bool captureSucceeded = false;
+
+        if ( stepSucceeded )
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/WorkerRange/CaptureSample" );
+            captureSucceeded = CaptureReplayPredictionFrame( prediction, predictionEngine, workerPool, modelCount,
+                                                             static_cast<ReplayFrameIndex>( predictionTick ) );
+        }
+
+        if ( !stepSucceeded || !captureSucceeded )
         {
             MarkReplayPredictionWorkerFailed( prediction );
-            return;
+            return completedTicks;
         }
 
         prediction.build.nextTick = predictionTick + 1;
         ++completedTicks;
+
+        // Invariant: a physics tick is indivisible. Check the real worker
+        // clock only after publishing the completed tick, then leave the
+        // unprocessed range at the task cursor for the next frame.
+
+        if ( !prediction.revealClock.deterministicFrameEnabled &&
+             std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - probeStart ).count() >=
+                 REPLAY_PREDICTION_MAX_WORK_MILLISECONDS )
+        {
+
+            // Invariant: deterministic capture stops on the submitted tick count
+            // instead, so the same range completes on the same frame regardless
+            // of how much work this machine fits into five milliseconds.
+            break;
+        }
     }
 
-    if ( completedTicks > 0 && prediction.simulation.measuredTicksPerMs.load( std::memory_order_relaxed ) <= 0.0 )
+    if ( completedTicks > 0 )
     {
         const double elapsedMs = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - probeStart )
                                      .count();
 
-        prediction.simulation.probeElapsedMs += elapsedMs;
-        prediction.simulation.probeTicksCompleted += completedTicks;
+        const double measuredTicksPerMs = prediction.simulation.measuredTicksPerMs.load( std::memory_order_relaxed );
 
-        if ( prediction.simulation.probeTicksCompleted >= config.replayPrediction.probeTicks &&
-             prediction.simulation.probeElapsedMs > 0.0 )
+        if ( measuredTicksPerMs <= 0.0 )
         {
-            const double ticksPerMs = static_cast<double>( prediction.simulation.probeTicksCompleted ) /
-                                      prediction.simulation.probeElapsedMs;
+            prediction.simulation.probeElapsedMs += elapsedMs;
+            prediction.simulation.probeTicksCompleted += completedTicks;
 
-            prediction.simulation.measuredTicksPerMs.store( ticksPerMs, std::memory_order_release );
+            if ( prediction.simulation.probeTicksCompleted >= config.replayPrediction.probeTicks &&
+                 prediction.simulation.probeElapsedMs > 0.0 )
+            {
+                const double ticksPerMs = static_cast<double>( prediction.simulation.probeTicksCompleted ) /
+                                          prediction.simulation.probeElapsedMs;
+
+                prediction.simulation.measuredTicksPerMs.store( ticksPerMs, std::memory_order_release );
+            }
+        }
+        else
+        {
+            prediction.simulation.measuredTicksPerMs.store( UpdateReplayPredictionTicksPerMs( measuredTicksPerMs,
+                                                                                              completedTicks, elapsedMs ),
+                                                            std::memory_order_release );
         }
     }
+
+    return completedTicks;
 }
 
 } // namespace
 
-void ReplayPrediction::RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config,
-                                       SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
-                                       int endTickIndex )
+int ReplayPrediction::RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config,
+                                      SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount, int beginTickIndex,
+                                      int endTickIndex )
 {
-    RunReplayPredictionWorkerRange( m_state, m_profiler, config, workerPool, modelCount, beginTickIndex, endTickIndex );
+    return RunReplayPredictionWorkerRange( m_state, config, workerPool, modelCount, beginTickIndex, endTickIndex );
 }
 
 namespace
@@ -906,8 +954,7 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
     }
 
     if ( !prediction.simulation.predictionEngine ||
-         !CaptureReplayPredictionFrame( prediction, *prediction.simulation.predictionEngine, workerPool,
-                                        predictionOwner.ProfilerBorrow(), modelCount, 0 ) )
+         !CaptureReplayPredictionFrame( prediction, *prediction.simulation.predictionEngine, workerPool, modelCount, 0 ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -923,11 +970,11 @@ bool ReplayPrediction::BeginFrameSimulation( PhysicsEngine& physicsEngine, const
         // Lifetime: the slice borrows EngineConfig and WorkerPool from Run's
         // process-lifetime owners. CancelJob/WaitForJobIdle joins the slice
         // before either borrow can be retired or replay build state is cleared.
-        prediction.build.schedule.Begin( prediction.build.targetTickCount, REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
+        prediction.build.schedule.Begin( prediction.build.targetTickCount, 1,
                                          ReplayPredictionSimulationSlice { &predictionOwner, &config, &workerPool,
                                                                            modelCount } );
 
-        prediction.build.schedule.SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
+        prediction.build.schedule.SetBudget( 1 );
     }
     prediction.build.building = true;
     ++prediction.build.generationBeginCount;
@@ -971,30 +1018,45 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
         const double measuredTicksPerMs = prediction.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
         const std::size_t publishedFrameCount = prediction.PublishedBuildFrameCount();
         const int completedTicks = static_cast<int>( publishedFrameCount > 0u ? publishedFrameCount - 1u : 0u );
+        const double instantBudgetMilliseconds = (std::min)( prediction.build.instantBudgetMs, budgetMilliseconds );
         prediction.build.buildMode = ChooseReplayPredictionBuildMode( measuredTicksPerMs,
                                                                       (std::max)( 0, prediction.build.targetTickCount -
                                                                                          completedTicks ),
-                                                                      prediction.build.instantBudgetMs,
+                                                                      instantBudgetMilliseconds,
                                                                       prediction.simulation.predictionBodies.size() );
     }
 
-    // Why: the frame loop still submits once per pass. Instant mode expands only
-    // the worker budget; main-thread begin, tree, and draw budgets stay bounded.
+    const std::size_t publishedFrameCount = prediction.PublishedBuildFrameCount();
+    const int completedTicks = static_cast<int>( publishedFrameCount > 0u ? publishedFrameCount - 1u : 0u );
+    const int remainingTicks = (std::max)( 0, prediction.build.targetTickCount - completedTicks );
+
+    // Invariant: every mode offers the worker the complete remaining horizon.
+    // The worker's steady-clock check, not a predicted tick count, stops the
+    // submitted range at the first completed tick at or after five milliseconds.
 
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Instant" );
-        prediction.build.schedule.SetBudget( prediction.build.targetTickCount );
+        prediction.build.schedule.SetBudget( remainingTicks );
     }
     else if ( prediction.build.buildMode == ReplayPredictionBuildMode::Undecided )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Probe" );
-        prediction.build.schedule.SetBudget( prediction.build.probeTickBudget );
+        prediction.build.schedule.SetBudget( remainingTicks );
     }
     else
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Amortized" );
-        prediction.build.schedule.SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
+        prediction.build.schedule.SetBudget( remainingTicks );
+    }
+
+    if ( prediction.revealClock.deterministicFrameEnabled )
+    {
+
+        // Why: the submitted range, not a clock, is the stop condition under
+        // deterministic capture. Offering the whole remaining horizon here would
+        // let a fast machine finish it in one submit and a slow one take many.
+        prediction.build.schedule.SetBudget( REPLAY_PREDICTION_DETERMINISTIC_TICKS_PER_SUBMIT );
     }
 
     prediction.build.schedule.SubmitTick( workerPool );

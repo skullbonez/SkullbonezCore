@@ -53,6 +53,14 @@ constexpr float HISTOGRAM_DROPDOWN_ROW_H = 22.0f;
 constexpr float HISTOGRAM_DROPDOWN_FOOTER_H = 16.0f;
 constexpr int HISTOGRAM_DROPDOWN_VISIBLE_ROWS = 8;
 constexpr float HISTOGRAM_SAMPLE_CLAMP_MS = 250.0f;
+
+// Why: six seconds of history across the fixed ring. Long enough that a
+// prediction horizon build stays readable after it ends, short enough that each
+// slot still resolves a single spike rather than a smear.
+constexpr double HISTOGRAM_WINDOW_SECONDS = 6.0;
+
+constexpr double HISTOGRAM_BUCKET_SECONDS = HISTOGRAM_WINDOW_SECONDS /
+                                            static_cast<double>( SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT );
 constexpr float HISTOGRAM_FRAME_CPU_BUDGET_MS = 16.7f;
 constexpr float HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS = 33.3f;
 constexpr float HISTOGRAM_MARKER_DEFAULT_AXIS_MS = 16.67f;
@@ -114,6 +122,8 @@ void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 {
     state.histogramHead = 0;
     state.histogramCount = 0;
+    state.histogramBucketStartSeconds = -1.0;
+    state.histogramBucketOpen = false;
     state.histogramAxisMs = HistogramInitialAxisMs( state );
     state.histogramAverageTextLastUpdateSeconds = -1.0;
     state.histogramAverageCpuMs = 0.0f;
@@ -838,9 +848,33 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
 
     const bool mainSelected = HistogramMainSelected( state );
     const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
-    PerformanceHistogramSample& writeSample = state.histogramSamples[state.histogramHead];
-    writeSample = {};
 
+    // Invariant: a slot closes on elapsed wall time, so the visible window is a
+    // constant duration instead of a constant frame count. A backwards clock
+    // (scene reload resets the runtime timer) starts a fresh slot rather than
+    // holding the current one open forever.
+    const bool bucketExpired = state.histogramBucketStartSeconds < 0.0 || data.now < state.histogramBucketStartSeconds ||
+                               ( data.now - state.histogramBucketStartSeconds ) >= HISTOGRAM_BUCKET_SECONDS;
+
+    if ( bucketExpired )
+    {
+
+        if ( state.histogramBucketOpen )
+        {
+            state.histogramHead = ( state.histogramHead + 1 ) % HISTOGRAM_SAMPLE_COUNT;
+
+            if ( state.histogramCount < HISTOGRAM_SAMPLE_COUNT )
+            {
+                ++state.histogramCount;
+            }
+        }
+
+        state.histogramSamples[state.histogramHead] = {};
+        state.histogramBucketStartSeconds = data.now;
+        state.histogramBucketOpen = false;
+    }
+
+    PerformanceHistogramSample& writeSample = state.histogramSamples[state.histogramHead];
     bool wroteMarker = false;
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
@@ -861,8 +895,15 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
         // Invariant: marker histories are stored by cached option slot. Main
         // keeps the fixed frame-budget axis, while non-main selections can use
         // their own dynamic scale without changing the ring layout.
-        const float markerMs = std::clamp( option.cpuMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
-        writeSample.markerMs[optionIndex] = markerMs;
+        // Hazard: a worker-owned marker such as the replay prediction slice has
+        // no frame-thread time at all. Plotting cpuMs alone would graph a flat
+        // zero for exactly the markers an operator selects to see worker load,
+        // so the line is the marker's total across both threads.
+        const float markerMs = std::clamp( option.cpuMs + option.workerMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
+
+        // Why: peak, not last or mean. A slot can span many frames at high frame
+        // rates, and the spike is the reason an operator is looking.
+        writeSample.markerMs[optionIndex] = (std::max)( writeSample.markerMs[optionIndex], markerMs );
         writeSample.hasMarker[optionIndex] = true;
         wroteMarker = true;
 
@@ -871,7 +912,7 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
         if ( state.histogramCount > 8 && markerMs > 0.10f &&
              markerMs > (std::max)( previousMaxMs[optionIndex] * 1.20f, axisSpikeThreshold ) )
         {
-            writeSample.markerSpikeMs[optionIndex] = markerMs;
+            writeSample.markerSpikeMs[optionIndex] = (std::max)( writeSample.markerSpikeMs[optionIndex], markerMs );
         }
     }
 
@@ -882,16 +923,15 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
 
     if ( mainSelected && data.workerCoreTotalMs > 0.0f )
     {
-        writeSample.secondaryMs = std::clamp( data.workerCoreTotalMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
+        writeSample.secondaryMs = (std::max)( writeSample.secondaryMs,
+                                              std::clamp( data.workerCoreTotalMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS ) );
+
         writeSample.hasSecondary = true;
     }
 
-    state.histogramHead = ( state.histogramHead + 1 ) % HISTOGRAM_SAMPLE_COUNT;
-
-    if ( state.histogramCount < HISTOGRAM_SAMPLE_COUNT )
-    {
-        ++state.histogramCount;
-    }
+    // Invariant: the slot stays at the current head until its wall-clock slice
+    // expires. Marking it open is what lets the next expiry advance the ring.
+    state.histogramBucketOpen = true;
 
     float visibleMaxMs = 0.0f;
 
@@ -1269,8 +1309,12 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                        selected ? palette.textPrimary.g : palette.textSecondary.g,
                        selected ? palette.textPrimary.b : palette.textSecondary.b, text );
 
-            snprintf( text, sizeof( text ), "%.3f",
-                      rowOption.cpuAverageMs > 0.0f ? rowOption.cpuAverageMs : rowOption.cpuMs );
+            // Why: the selector value must match the line the row plots, or a
+            // worker-owned marker reads 0.000 here and an operator never finds
+            // the row that carries the work.
+            const float rowCpuMs = rowOption.cpuAverageMs > 0.0f ? rowOption.cpuAverageMs : rowOption.cpuMs;
+            const float rowWorkerMs = rowOption.workerAverageMs > 0.0f ? rowOption.workerAverageMs : rowOption.workerMs;
+            snprintf( text, sizeof( text ), "%.3f", rowCpuMs + rowWorkerMs );
 
             draw.Text( dropdown.x + dropdown.w - 62.0f, rowY + 6.0f, 9.2f, rowR, rowG, rowB, text );
         }

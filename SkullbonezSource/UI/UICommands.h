@@ -266,6 +266,14 @@ struct UIPhysicsCommands
     float requestedRollingFrictionCoeff = 0.0f;
     bool stepPhysicsPipelinePrevious = false;
     bool stepPhysicsPipelineNext = false;
+
+    // Concept: prediction reveal pacing is presentation, not simulation. It
+    // decides how fast the causal-unfold cursor sweeps an already-computed
+    // horizon, so it never reaches physics, replay samples, or solver restores.
+    // It lives beside the physics controls because that is where an operator
+    // looks after enabling predict.
+    bool requestPredictionRevealRate = false;
+    float requestedPredictionRevealRate = 0.0f;
 };
 
 struct UIEditorCommands

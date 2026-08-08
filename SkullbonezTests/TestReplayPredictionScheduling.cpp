@@ -4,9 +4,9 @@ Purpose:
   Locks replay prediction scheduling and publication protocols.
 
 Summary:
-  Worker timing is supplied as a value, while publication tests exercise the
-  release/acquire cursor owner, build-root visibility, and shared sample
-  lookups without starting a physics worker.
+  Worker timing is supplied as a value for build-mode and feedback decisions,
+  while publication tests exercise the release/acquire cursor owner, build-root
+  visibility, and shared sample lookups without starting a physics worker.
 
 Glossary:
   Instant build: One worker submission for the remaining prediction horizon.
@@ -17,6 +17,8 @@ Glossary:
 
 Invariants:
   - A zero instant budget always preserves amortized scheduling.
+  - Throughput calibration follows changing worker cost without reacting fully
+    to one noisy slice.
   - A large-body prediction remains amortized even when its cheap probe reports
     implausibly high throughput.
   - Repeated dirty events cannot cancel an amortized replacement until one
@@ -45,6 +47,7 @@ using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::ReplayPred
 using SkullbonezCore::Runtime::ReplayPredictionPublicationOperations::SceneObjectIdForModelIndexInSample;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionBuildMode;
 using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::ChooseReplayPredictionCoalescerAction;
+using SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations::UpdateReplayPredictionTicksPerMs;
 
 TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amortized mode" )
 {
@@ -55,6 +58,12 @@ TEST_CASE( "Replay prediction scheduling: measured cost selects instant or amort
     CHECK( ChooseReplayPredictionBuildMode( 50.0, 2400, 30.0, 1u ) == ReplayPredictionBuildMode::Amortized );
     CHECK( ChooseReplayPredictionBuildMode( 10000.0, 2400, 30.0, 216u ) ==
            ReplayPredictionBuildMode::Amortized );
+}
+
+TEST_CASE( "Replay prediction scheduling: throughput feedback follows changing worker cost" )
+{
+    CHECK( UpdateReplayPredictionTicksPerMs( 100.0, 100, 2.0 ) == doctest::Approx( 87.5 ) );
+    CHECK( UpdateReplayPredictionTicksPerMs( 0.0, 100, 2.0 ) == doctest::Approx( 50.0 ) );
 }
 
 TEST_CASE( "Replay prediction scheduling: instant dirty work is superseded without cancellation" )

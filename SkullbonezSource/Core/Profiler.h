@@ -110,7 +110,27 @@ class Profiler
         int colorIndex;                                      // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
         int openCount;                                       // recursion guard (must be 0 at frame end)
         int64_t openStartTicks;                              // QPC ticks at most recent Begin
-        double accumSecondsThisFrame;
+        double accumSecondsThisFrame;                        // Marker-thread span time only; worker spans accumulate below.
+
+        // Concept: one marker path is reached from both the frame thread and
+        // worker threads, because worker jobs reuse the same instrumented code.
+        // Summing both into accumSecondsThisFrame made a row like
+        // Frame/Physics/Integrate report replay-prediction work as if it were
+        // live physics, so worker spans accumulate separately and the overlay
+        // reports them in their own column.
+        // Invariant: these three are written only under m_workerSampleMutex or
+        // at a frame boundary, never from a marker Begin/End on the frame thread.
+        double workerAccumSecondsThisFrame;
+        float lastFrameWorkerMs;                             // Most recent finished-frame worker total for this marker.
+        float workerAvgMs;                                   // Worker moving average, refreshed on the CPU/GPU cadence.
+        double workerAvgAccumMs;                             // Running worker sum inside the current average window.
+        int workerAvgFrameCount;                             // Frames accumulated into workerAvgAccumMs.
+
+        // Latches on the first worker sample and drives this marker's `_worker`
+        // perf CSV column, mirroring how hasGpu drives `_gpu`. A changed column
+        // count re-emits the header, which analyze_perf treats as authoritative
+        // for the rows after it.
+        bool hasWorker;
         double firstStartSecondsThisFrame;
         double lastEndSecondsThisFrame;
         bool spanWrittenThisFrame;
@@ -176,7 +196,14 @@ class Profiler
 
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
-    void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks );
+
+    // outermostOnThread distinguishes the two quantities a worker span feeds.
+    // Every span adds to its own marker's worker total, but only the outermost
+    // one adds to the per-core wall-clock accumulator: nested spans overlap in
+    // time, so counting them all would report several times the core's real
+    // occupancy.
+    void RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks,
+                             bool outermostOnThread );
     void RecordCounter( const char* fullPath, uint32_t hash, double value );
 
     // Rendering calls these around command recording. Core owns the nested CPU
@@ -324,9 +351,21 @@ class WorkerProfilerScope
 {
   public:
     WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash );
+
+    // Concept: an inert scope that Open arms later. Ambient PROFILE_BEGIN on a
+    // worker needs the same timing behavior without constructing an object at
+    // the Begin call site, because the per-thread marker stack is fixed storage
+    // and must not use optional emplacement to arm one of its rows.
+    WorkerProfilerScope() noexcept;
     ~WorkerProfilerScope();
     WorkerProfilerScope( const WorkerProfilerScope& ) = delete;
     WorkerProfilerScope& operator=( const WorkerProfilerScope& ) = delete;
+
+    // Invariant: Open arms an inert scope and Close is idempotent, so the
+    // destructor after an explicit Close is a no-op. Both are for the ambient
+    // begin/end path; RAII users construct and destruct normally.
+    void Open( Profiler* profiler, const char* fullPath, uint32_t hash );
+    void Close();
 
   private:
 
@@ -336,6 +375,10 @@ class WorkerProfilerScope
     uint32_t m_hash;
     int m_workerIndex;
     int64_t m_startTicks;
+
+    // Set when this scope opened at worker nesting depth zero; see
+    // Profiler::RecordWorkerSample for why only that level feeds core occupancy.
+    bool m_outermostOnThread;
     bool m_platformProfilerOpen;
     uint32_t m_tracySourceLocationHandle;
     uint32_t m_tracyZoneId;

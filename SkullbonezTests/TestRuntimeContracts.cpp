@@ -1175,6 +1175,30 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     workerPool.Shutdown();
 }
 
+TEST_CASE( "AmortizedTask: partial work resumes at the first unfinished item" )
+{
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
+    std::array<int, 3> rangeBegins = {};
+    int invocationCount = 0;
+    AmortizedTask task( 5, 5,
+                        [&]( int begin, int end ) -> int
+                        {
+                            rangeBegins[static_cast<std::size_t>( invocationCount )] = begin;
+                            ++invocationCount;
+                            return (std::min)( 2, end - begin );
+                        } );
+
+    task.SubmitTick( inlinePool );
+    CHECK( task.GetProgress() == doctest::Approx( 0.4f ) );
+    task.SubmitTick( inlinePool );
+    CHECK( task.GetProgress() == doctest::Approx( 0.8f ) );
+    task.SubmitTick( inlinePool );
+
+    CHECK( task.IsComplete() );
+    CHECK( rangeBegins == std::array<int, 3> { 0, 2, 4 } );
+}
+
 TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic collection" )
 {
 

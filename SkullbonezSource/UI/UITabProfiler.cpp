@@ -116,6 +116,13 @@ float ProfilerMarkerDisplaySelfMs( const SkullbonezCore::UI::ProfilerTab::Marker
     return marker.selfAvgMs > 0.0f ? marker.selfAvgMs : marker.lastSelfMs;
 }
 
+// Why: worker rows follow the same settled-average-then-last-frame rule as CPU
+// and Self, so a row's three numbers are always read from the same window.
+float ProfilerMarkerDisplayWorkerMs( const SkullbonezCore::UI::ProfilerTab::MarkerSnapshot& marker )
+{
+    return marker.workerAvgMs > 0.0f ? marker.workerAvgMs : marker.lastFrameWorkerMs;
+}
+
 bool IsMarkerExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
 
@@ -802,10 +809,11 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIF
     const float rowH = 30.0f;
     const float headerH = 32.0f;
     const float colMarker = tableX + 18.0f;
-    const float colCpu = tableX + tableW * 0.32f;
-    const float colSelf = tableX + tableW * 0.42f;
-    const float colP50 = tableX + tableW * 0.52f;
-    const float colP99 = tableX + tableW * 0.62f;
+    const float colCpu = tableX + tableW * 0.30f;
+    const float colSelf = tableX + tableW * 0.39f;
+    const float colWork = tableX + tableW * 0.48f;
+    const float colP50 = tableX + tableW * 0.57f;
+    const float colP99 = tableX + tableW * 0.66f;
     const float barX = tableX + tableW * 0.73f;
     const float barW = (std::max)( 105.0f, tableW * 0.23f );
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
@@ -828,6 +836,10 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIF
     draw.Text( colMarker, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Marker" );
     draw.Text( colCpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "CPU" );
     draw.Text( colSelf, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Self" );
+
+    // Why: Work shares the histogram's other-cores blue so the aggregate line
+    // and this per-marker breakdown read as the same quantity.
+    draw.Text( colWork, tableY + 10.0f, 10.5f, 0.42f, 0.83f, 1.00f, "Work" );
     draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
     draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
     draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, state.timelineEnabled ? "Span" : "0 ms" );
@@ -877,6 +889,18 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIF
         draw.Text( colCpu, rowY + 8.0f, 11.5f, r, g, b, buf );
         snprintf( buf, sizeof( buf ), "%.2f", selfMs );
         draw.Text( colSelf, rowY + 8.0f, 11.5f, r, g, b, buf );
+        const float workerMs = ProfilerMarkerDisplayWorkerMs( marker );
+
+        if ( workerMs > 0.0f )
+        {
+            snprintf( buf, sizeof( buf ), "%.2f", workerMs );
+            draw.Text( colWork, rowY + 8.0f, 11.5f, 0.42f, 0.83f, 1.00f, buf );
+        }
+        else
+        {
+            draw.Text( colWork, rowY + 8.0f, 11.5f, 0.42f, 0.48f, 0.52f, "-" );
+        }
+
         snprintf( buf, sizeof( buf ), "%.2f", p50Ms );
         draw.Text( colP50, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
         snprintf( buf, sizeof( buf ), "%.2f", p99Ms );

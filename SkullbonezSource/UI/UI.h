@@ -118,6 +118,12 @@ struct UIProfilerMarkerOption
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
     float cpuAverageMs = 0.0f;        // Same 500 ms moving average used by the profiler table.
+
+    // Worker-thread time for the same marker. The histogram plots cpu+worker so
+    // selecting a worker-owned marker graphs the work that marker actually did;
+    // the profiler table's CPU and Work columns own the per-thread split.
+    float workerMs = 0.0f;
+    float workerAverageMs = 0.0f;
     float gpuMs = 0.0f;
     float colorR = 0.0f;              // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
@@ -175,6 +181,10 @@ struct InGameUIFrameData
     int replayMemorySolverRetentionSeconds = 0;
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
+
+    // Predicted seconds revealed per real second by the causal-unfold cursor.
+    // Presentation pacing only; the Physics tab shows and edits it.
+    float predictionRevealRate = 1.0f;
     int modelCount = 0;
     int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     int workerThreadCount = 0;

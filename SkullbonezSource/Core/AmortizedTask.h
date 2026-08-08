@@ -6,6 +6,8 @@ Purpose:
 Summary:
   AmortizedTask is for latency-tolerant work. Each SubmitTick queues one bounded
   chunk on the worker pool and returns immediately; the caller polls progress.
+  A time-bounded callback may return the completed prefix so unfinished items
+  remain at the cursor for the next submission.
 
 Glossary:
   Amortized work: Large job split across multiple ticks so one frame does not
@@ -13,8 +15,8 @@ Glossary:
   In-flight chunk: Submitted worker slice that has not yet marked completion.
 
 Invariants:
-  - WorkFunction receives half-open ranges [begin, end) and must tolerate
-    smaller final chunks.
+  - WorkFunction receives half-open ranges [begin, end). A void result commits
+    the whole range; an int result commits that many leading items.
   - Reset restarts the cursor only while idle, reports refusal while a worker
     owns the task, and preserves the configured callback and per-tick budget.
   - Destruction while a chunk is in flight is Lane F because the worker ring
@@ -32,6 +34,7 @@ Related:
 
 #include <algorithm>
 #include <atomic>
+#include <type_traits>
 #include <utility>
 
 namespace SkullbonezCore
@@ -41,6 +44,10 @@ namespace Threading
 
 template <typename WorkFunctionT> class AmortizedTask
 {
+    using WorkResult = std::invoke_result_t<WorkFunctionT&, int, int>;
+    static_assert( std::is_void_v<WorkResult> || std::is_same_v<WorkResult, int>,
+                   "AmortizedTask work must return void or a completed-prefix int." );
+
   public:
     AmortizedTask( int totalItems, int itemsPerTick, WorkFunctionT work )
         : m_totalItems( (std::max)( 0, totalItems ) ), m_itemsPerTick( (std::max)( 1, itemsPerTick ) ), m_cursor( 0 ),
@@ -128,7 +135,7 @@ template <typename WorkFunctionT> class AmortizedTask
     void ExecuteWorkerTask()
     {
         const int budget = (std::max)( 1, m_itemsPerTick.load( std::memory_order_acquire ) );
-        const int begin = m_cursor.fetch_add( budget, std::memory_order_acq_rel );
+        const int begin = m_cursor.load( std::memory_order_acquire );
 
         if ( begin >= m_totalItems )
         {
@@ -138,9 +145,25 @@ template <typename WorkFunctionT> class AmortizedTask
         }
 
         const int end = (std::min)( m_totalItems, begin + budget );
-        m_work( begin, end );
+        int committedEnd = end;
 
-        if ( end >= m_totalItems )
+        if constexpr ( std::is_void_v<WorkResult> )
+        {
+            m_work( begin, end );
+        }
+        else
+        {
+
+            // Invariant: only the contiguous completed prefix advances. This
+            // lets a timer stop work between indivisible items without losing
+            // the unprocessed tail of the claimed range.
+            const int completedItems = std::clamp( m_work( begin, end ), 0, end - begin );
+            committedEnd = begin + completedItems;
+        }
+
+        m_cursor.store( committedEnd, std::memory_order_release );
+
+        if ( committedEnd >= m_totalItems )
         {
             m_complete.store( true, std::memory_order_release );
         }

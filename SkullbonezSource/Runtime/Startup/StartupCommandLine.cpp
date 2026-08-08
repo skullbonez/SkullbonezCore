@@ -331,6 +331,8 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "[scene] Generated demo scene will use the low-poly hero rendering mode." },
         { "--profiler", "--show-profiler", []( ParsedArgs& args ) { args.showProfiler = true; },
           "[overlay] SkullbonezCore::Core::Profiler HUD enabled at startup." },
+        { "--predict-running", "--predict_running", []( ParsedArgs& args ) { args.predictPauseOnStart = false; },
+          "[predict] Startup prediction will not pause the simulation." },
         { "--platform-profiler-markers", "--platform-profiler",
           []( ParsedArgs& args )
           {

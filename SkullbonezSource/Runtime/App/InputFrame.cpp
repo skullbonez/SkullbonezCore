@@ -1068,6 +1068,15 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
         }
     }
 
+    if ( uiCommands.physics.requestPredictionRevealRate )
+    {
+
+        // Why: the reveal rate is authored on the Physics tab but owned by
+        // ReplayPrediction, which Runtime/Interaction may not include. The
+        // composition root applies it here instead of widening that edge.
+        replayRuntime.ApplyPredictionRevealRate( uiCommands.physics.requestedPredictionRevealRate );
+    }
+
     RecordRuntimePresentationWaterUIActions( operatorAcceptance, recordUIAction );
     operatorCommands.ApplySimulationPolicy( sceneController.State(), ui.SceneNavigation().overrides, config, workerPool );
     RecordRunSimulationUIActions( operatorAcceptance, recordUIAction );

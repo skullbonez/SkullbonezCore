@@ -105,11 +105,11 @@
     {
       "file": "SkullbonezSource/Runtime/App/InputFrame.cpp",
       "signature": "RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, bool keyboardToggleEditorMode, const RuntimeInputFrameFacts& facts )",
-      "body_sha256": "80c069ef6111b4d12f1a5f7d3c15f868008cac3fd4f1ceeca9404cbfb5324015",
+      "body_sha256": "8e8d3334a49d80742ce5066f70405bf048eafdcf83a6da41fd5e44ee95f27157",
       "owner": "Runtime input-command application phase",
       "disposition": "retain-owner",
-      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One post-routing phase applies the complete typed command set in frame order and returns the resulting UI frame value; all owner access is synchronous and ordering is the operation invariant. The prediction reveal rate is applied here for the same reason the replay memory policy is: the owning package sits above Runtime/Interaction, so the composition root forwards it rather than widening that edge.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the Physics-tab reveal rate joined the same phase",
       "plan": ""
     },
     {
@@ -185,7 +185,7 @@
     {
       "file": "SkullbonezSource/Runtime/Automation/InteractionAutomationController.cpp",
       "signature": "InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state, Window& windowOwner, const SkullbonezCore::Core::EngineConfig& config, SceneController& scene, RunTimerState& timers, CameraControlState& camera, InputRouter& inputRouter, RuntimeInteractionController& interaction, RuntimeTools& runtimeTools, SkullbonezCore::UI::InGameUI& ui, const ReplayAutomationView& replayView, const Rendering::RenderSceneSnapshot& renderSnapshot )",
-      "body_sha256": "46390b61f3378a5f41e707e2df67656e0a579c247df9cebd2c536b53a32ea02f",
+      "body_sha256": "69b862a2974314d2dba1ed3104ea90d32b4144b93f1bcfc03520c6fba4237a35",
       "owner": "Pre-input interaction automation tick",
       "disposition": "retain-owner",
       "reason": "One pre-input automation phase applies the current scripted action across the exact runtime owners before device routing; action order and frame ownership are synchronous and explicit.",
@@ -195,31 +195,31 @@
     {
       "file": "SkullbonezSource/UI/UITabProfiler.cpp",
       "signature": "void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float contentX, float contentY, float contentW, float contentH, float scrollY, int activeSlider )",
-      "body_sha256": "2acff78f52a6107d23523f93425480ff7e1896690d6b3e3ca16ebfe2f1e72731",
+      "body_sha256": "c261fdd8d450f95ce49446af600ad2480c72e09b524f65ace0b2b77a7a9098e2",
       "owner": "Profiler tab immediate draw pass",
       "disposition": "retain-owner",
-      "reason": "One profiler-tab draw pass lays out the complete detached profiler view and its active controls in draw and hit-test order; all geometry and widget state expires with the frame.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One profiler-tab draw pass lays out the complete detached profiler view and its active controls in draw and hit-test order; all geometry and widget state expires with the frame. The worker column added one more per-row value in that same order and did not introduce a second responsibility; depth 6 is unchanged.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the per-marker worker column was added",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/UI/UITabProfilerHistogram.cpp",
       "signature": "void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data )",
-      "body_sha256": "2b3876f3c0858d726933d8ee89c8d7d4340dc61d4fe55c903859e0709bd72ccb",
+      "body_sha256": "5b1bb3fd7a2fbf81de54c0f7f42e6503ece282e5ea8a9e2347160febe3404e1d",
       "owner": "Profiler histogram immediate draw pass",
       "disposition": "retain-owner",
-      "reason": "One histogram pass maps the current profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One histogram pass maps the current profiler sample window into axes, buckets, labels, and hit regions; scale selection and geometry share one frame-local presentation invariant. The selector row now sums frame-thread and worker time so a worker-owned marker does not read zero; that is one more value in the same pass, and depth 6 is unchanged.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when the selector stopped reading frame-thread time alone",
       "plan": ""
     },
     {
       "file": "SkullbonezSource/Core/Profiler.cpp",
       "signature": "void Profiler::FrameEnd()",
-      "body_sha256": "8672d72adac3cb26051f3db30a4a6033b2845b0e6980c21009cfd04f8f41da1f",
+      "body_sha256": "93d924929f61f3f1b27180cdee75050a30d0d53123b9470e96b6ad8e96881743",
       "owner": "Profiler frame-boundary aggregation",
       "disposition": "retain-owner",
-      "reason": "One profiler owner closes the current frame, aggregates all marker and timing lanes, advances histories, and publishes the next immutable view; those steps share one frame-boundary invariant.",
-      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29)",
+      "reason": "One profiler owner closes the current frame, aggregates all marker and timing lanes, advances histories, and publishes the next immutable view; those steps share one frame-boundary invariant. The worker lane is one more such lane, committed and averaged on the same cadence and under the worker mutex the core samples already hold; depth 6 is unchanged.",
+      "evidence": "git history: function-complexity-cx0-distribution (2026-07-29); re-ruled when per-marker worker time became its own lane",
       "plan": ""
     },
     {

@@ -65,6 +65,17 @@ namespace
 {
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 
+// Why: the scrubber auto-hides on an idle timer. Startup arming holds it long
+// enough for an operator to see the armed predict/target state before the bar
+// fades, without pinning it open for the session.
+constexpr double REPLAY_STARTUP_PREDICTION_SCRUBBER_HOLD_SECONDS = 5.0;
+
+// Why: the load frame still settles scene stores and physics enablement. Arming
+// on a settled frame instead is what keeps the request from being spent while
+// prediction would decline it; see the hazard note in
+// Run::ApplyStartupPredictionRequest.
+constexpr int REPLAY_STARTUP_PREDICTION_ARM_FRAME = 5;
+
 std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
@@ -172,6 +183,17 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
     }
 
     target.dumpTextureAssets = launch.dumpTextureAssets;
+
+    if ( launch.predictTargetName[0] != '\0' )
+    {
+
+        // Why: this policy is copied, not merged. A later scene load reapplies
+        // launch policy through the same call, and Run's one-shot latch — not a
+        // cleared name — is what stops the request from re-arming.
+        strcpy_s( target.predictTargetName, sizeof( target.predictTargetName ), launch.predictTargetName );
+        target.predictHorizonSeconds = launch.predictHorizonSeconds;
+        target.predictPauseOnStart = launch.predictPauseOnStart;
+    }
 
     if ( launch.interactiveSceneRun )
     {
@@ -519,6 +541,98 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // frame loop; tools must use the dedicated Automation configuration.
     return m_resultDiagnostics.Failure( "InteractionAutomation", "--interaction-script requires an Automation|x64 build." );
 #endif
+}
+
+
+void Run::ApplyStartupPredictionRequest()
+{
+
+    if ( m_startupPredictionApplied || m_launchOptions.predictTargetName[0] == '\0' )
+    {
+        return;
+    }
+
+    const SceneSessionState& sceneState = m_sceneController.State();
+
+    // Hazard: BeginFrameSource consumes the dirty token before it checks scene
+    // physics, so arming into a scene that is not simulating yet clears the
+    // rebuild request and the horizon never starts. Wait for a simulating scene
+    // that has run a frame rather than arming on the load frame.
+
+    if ( !sceneState.isScenePhysics || sceneState.currentFrame < REPLAY_STARTUP_PREDICTION_ARM_FRAME )
+    {
+        return;
+    }
+
+    SceneWorld& sceneWorld = m_sceneController.Scene();
+    const int modelIndex = sceneWorld.Entities().FindByDisplayName( m_launchOptions.predictTargetName );
+    const PhysicsBodyRecord* body = modelIndex >= 0 ? sceneWorld.BodyStore().RecordForModelIndex( modelIndex ) : nullptr;
+
+    // Lane R: --predict names external launch input. A scene whose bodies are
+    // still loading simply retries next frame; only a scene that has finished
+    // loading without the name is a reportable operator mistake.
+
+    if ( !body || !body->sceneObjectId.IsValid() )
+    {
+
+        if ( sceneWorld.SceneEntityCount() > 0 )
+        {
+            m_startupPredictionApplied = true;
+            fprintf( stdout, "[predict] No scene object named \"%s\"; startup prediction not armed.\n",
+                     m_launchOptions.predictTargetName );
+        }
+
+        return;
+    }
+
+    // Concept: prediction seeds its private engine from the live physics stores,
+    // not from the recorded solver track, so arming does not wait for capture.
+    // The solver track only supplies the source frame/hash used to decide when a
+    // committed future is stale; a null latest sample degrades to source 0.
+    ReplayFrameIntent intent;
+    intent.setScrubberVisibility = true;
+    intent.scrubberVisible = true;
+    intent.scrubberNow = m_timers.simulationTimer.GetTotalTime();
+    intent.scrubberHoldSeconds = REPLAY_STARTUP_PREDICTION_SCRUBBER_HOLD_SECONDS;
+    intent.setPredictionEnabled = true;
+    intent.predictionEnabled = true;
+    intent.setPredictionHorizon = m_launchOptions.predictHorizonSeconds > 0.0f;
+    intent.predictionHorizonSeconds = m_launchOptions.predictHorizonSeconds;
+    intent.setPathTarget = true;
+    intent.pathTargetId = body->sceneObjectId;
+    intent.pathTargetModelRow.value = modelIndex;
+    strncpy_s( intent.pathTargetName, sizeof( intent.pathTargetName ), m_launchOptions.predictTargetName, _TRUNCATE );
+    (void)m_replayRuntime.ApplyFrameIntent( intent );
+
+    // Invariant: the replay workspace owns world input while prediction is the
+    // active tool. Without this the armed target draws but pointer gestures
+    // still belong to the previous owner, which is not the state the operator
+    // reaches by clicking predict.
+    (void)m_interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayPrediction,
+                                                             InteractionExitReason::EnterReplay );
+
+    // Hazard: cross-scene pause freezes SceneSessionState::currentFrame, which is
+    // the counter --frames completes against. Pausing a frame-limited run would
+    // hang the process instead of exiting, so a frame limit wins over the pause
+    // request and says so rather than failing silently.
+    const bool frameLimited = m_launchOptions.frameCountOverride > 0;
+    const bool pauseScene = m_launchOptions.predictPauseOnStart && !frameLimited;
+
+    if ( pauseScene && !m_sceneController.CrossScenePauseLocked() )
+    {
+
+        // Why: a paused scene stops changing the solver source, so the horizon
+        // builds once and holds instead of restarting every frame.
+        // --predict-running keeps the scene advancing for sustained worker load.
+        m_sceneController.ToggleCrossScenePause();
+    }
+
+    m_startupPredictionApplied = true;
+    fprintf( stdout, "[predict] Armed prediction on \"%s\" (model row %d, %s).\n", m_launchOptions.predictTargetName,
+             modelIndex,
+             pauseScene ? "paused"
+                        : ( m_launchOptions.predictPauseOnStart ? "running; pause skipped under --frames" : "running" ) );
 }
 
 

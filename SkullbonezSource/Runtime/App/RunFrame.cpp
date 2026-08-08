@@ -336,6 +336,7 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         // Invariant: prediction publication completes before overlay and render
         // construction. Render cannot decide whether the private engine advances.
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        ApplyStartupPredictionRequest();
         m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(), m_sceneController.Scene().Tornado(),
                                           m_sceneController.Scene().Entities(), m_config,
                                           m_sceneController.Scene().Environment().GetPhysicsWorldForces(), m_workerPool,

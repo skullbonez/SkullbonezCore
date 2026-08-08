@@ -486,6 +486,7 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
         return true;
     }
 
+
     return false;
 }
 

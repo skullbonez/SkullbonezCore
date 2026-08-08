@@ -30,6 +30,7 @@ Related:
 #include "UIStyle.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -40,6 +41,29 @@ namespace
 {
 constexpr int UI_SCENE_CONTENT_HEIGHT = 252;
 constexpr float UI_SCENE_TIME_SCALE_SLIDER_Y = 196.0f;
+constexpr float UI_SCENE_PREDICTION_REVEAL_SLIDER_Y = 236.0f;
+
+// Concept: the reveal slider is authored normalized 0..1 and mapped
+// exponentially, because the useful range spans three decades. A linear 1..1000
+// control would bury every cinematic pace in the first half percent of travel.
+// Full right is the shipped default, where a finished horizon appears within a
+// frame or two instead of animating over the whole horizon length.
+constexpr float REPLAY_PREDICTION_REVEAL_RATE_MIN = 1.0f;
+constexpr float REPLAY_PREDICTION_REVEAL_RATE_MAX = 1000.0f;
+
+float PredictionRevealRateFromNormalized( float normalized )
+{
+    const float clamped = std::clamp( normalized, 0.0f, 1.0f );
+    return REPLAY_PREDICTION_REVEAL_RATE_MIN *
+           std::pow( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN, clamped );
+}
+
+float NormalizedFromPredictionRevealRate( float rate )
+{
+    const float clamped = std::clamp( rate, REPLAY_PREDICTION_REVEAL_RATE_MIN, REPLAY_PREDICTION_REVEAL_RATE_MAX );
+    return std::log( clamped / REPLAY_PREDICTION_REVEAL_RATE_MIN ) /
+           std::log( REPLAY_PREDICTION_REVEAL_RATE_MAX / REPLAY_PREDICTION_REVEAL_RATE_MIN );
+}
 
 char LowerAscii( char value )
 {
@@ -126,7 +150,10 @@ namespace SceneTab
 
 int ContentHeight()
 {
-    return UI_SCENE_CONTENT_HEIGHT;
+
+    // Why: the scroll extent must reach the reveal row placed under simulation
+    // speed, or the slider is unreachable at the bottom of the tab.
+    return UI_SCENE_CONTENT_HEIGHT + 40;
 }
 
 
@@ -378,6 +405,7 @@ void RequestFilterKeySync( UISceneTabState& state )
 void ResetPreviewState( UISceneTabState& state )
 {
     state.previewTimeScale = -1.0f;
+    state.previewPredictionReveal = -1.0f;
 }
 
 
@@ -672,12 +700,36 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
         return true;
     }
 
+    state.predictionRevealSlider.SetBounds( contentX, rowBase + ( UI_SCENE_PREDICTION_REVEAL_SLIDER_Y - 42.0f ), contentW,
+                                            34.0f );
+
+    if ( state.predictionRevealSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_PREDICTION_REVEAL;
+        state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
+        result.commands.physics.requestPredictionRevealRate = true;
+
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+
+        return true;
+    }
+
     return false;
 }
 
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
+
+    if ( activeSlider == SLIDER_PREDICTION_REVEAL )
+    {
+        state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
+        result.commands.physics.requestPredictionRevealRate = true;
+
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+
+        return true;
+    }
 
     if ( activeSlider != SLIDER_TIME_SCALE )
     {
@@ -698,6 +750,15 @@ bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInput
     if ( activeSlider == SLIDER_TIME_SCALE && state.previewTimeScale > 0.0f )
     {
         result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;
+        return true;
+    }
+
+    if ( activeSlider == SLIDER_PREDICTION_REVEAL && state.previewPredictionReveal >= 0.0f )
+    {
+        result.commands.physics.requestPredictionRevealRate = true;
+
+        result.commands.physics.requestedPredictionRevealRate = PredictionRevealRateFromNormalized( state.previewPredictionReveal );
+
         return true;
     }
 
@@ -819,6 +880,30 @@ void Draw( UISceneTabState& state, const UIDrawContext& draw, const InGameUIFram
         {
             state.timeScaleSlider.Draw( draw, "Simulation speed", buf, displayTimeScale, UI_TIME_SCALE_MIN,
                                         UI_TIME_SCALE_MAX );
+        }
+
+        // Why: the row reads in rate units an operator can reason about, while
+        // the track position stays normalized so the exponential mapping is what
+        // moves under the handle.
+        const float displayRevealRate = ( state.previewPredictionReveal >= 0.0f )
+                                            ? PredictionRevealRateFromNormalized( state.previewPredictionReveal )
+                                            : data.predictionRevealRate;
+
+        if ( displayRevealRate >= REPLAY_PREDICTION_REVEAL_RATE_MAX )
+        {
+            snprintf( buf, sizeof( buf ), "Instant" );
+        }
+        else
+        {
+            snprintf( buf, sizeof( buf ), "%.1fx", static_cast<double>( displayRevealRate ) );
+        }
+
+        state.predictionRevealSlider.SetBounds( contentX, scrolledY + UI_SCENE_PREDICTION_REVEAL_SLIDER_Y, contentW, 34.0f );
+
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_SCENE_PREDICTION_REVEAL_SLIDER_Y, 34.0f ) )
+        {
+            state.predictionRevealSlider.Draw( draw, "Reveal speed", buf,
+                                               NormalizedFromPredictionRevealRate( displayRevealRate ), 0.0f, 1.0f );
         }
     }
 

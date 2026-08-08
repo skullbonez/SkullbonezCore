@@ -120,11 +120,17 @@ struct RunReplayPredictionRevealClock
 
     // Concept: reveal anchor is the wall-clock start of the causal-unfold
     // animation. The overlay clamps drawn prediction frames to a cursor derived
-    // from this anchor so the tree unfolds over real time instead of popping in
-    // whole.
+    // from this anchor, so this rate — not the build — decides how long the
+    // operator waits to see a finished path.
+    // Why the default is not real time: at 1.0 the wait equalled the horizon, so
+    // a 120-second prediction spent two minutes drawing work that had already
+    // finished computing, and the delay read as slow simulation. Ordinary
+    // predict-and-look now resolves within a frame or two, while authored
+    // director phases and the reveal-speed transport command still slow it back
+    // down for a deliberate unfold.
     // Invariant: overlay pacing never feeds physics, replay samples, or solver
     // restores, so steady_clock here cannot affect deterministic simulation.
-    double secondsPerSecond = 1.0;           // Runtime-authored causal-unfold speed; 1.0 = real-time.
+    double secondsPerSecond = 1000.0;        // Causal-unfold speed; 1.0 = real-time, large = effectively immediate.
     std::chrono::steady_clock::time_point anchor = {};
     ReplayFrameIndex presentedFrame = 0;     // Last common reveal clamp consumed by replay presentation.
     ReplayFrameIndex deterministicFrame = 0; // Automation-owned cursor; ignored outside fidelity capture.
@@ -630,8 +636,8 @@ class ReplayPrediction
     void CommitVelocityMutation() noexcept;
     bool ReadyForDeterministicReveal() const noexcept;
     void ArmDeterministicReveal( ReplayFrameIndex frame, bool resetPresentedFrame ) noexcept;
-    void RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool, int modelCount,
-                         int beginTickIndex, int endTickIndex );
+    int RunWorkerRange( const SkullbonezCore::Core::EngineConfig& config, Threading::WorkerPool& workerPool, int modelCount,
+                        int beginTickIndex, int endTickIndex );
     ReplayPredictionFrameSourceAction SelectFrameSource( const ReplaySolverFrameSample* latestSolverSample,
                                                          Physics::PhysicsSceneObjectId targetId, bool targetAvailable,
                                                          bool liveAdvanceHeld, double simulationTotalSeconds,

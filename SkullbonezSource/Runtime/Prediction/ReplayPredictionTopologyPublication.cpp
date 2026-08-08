@@ -1064,9 +1064,26 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     // Invariant: reveal advancement and derived-cache publication happen
     // before rendering. The overlay receives one immutable visible prefix and
     // cannot change which causal evidence later passes observe in this frame.
-    const ReplayPredictionDrawFrameWindow drawWindow = PrepareReplayPredictionDrawFrameWindow( prediction,
-                                                                                               activePredictionFrames,
-                                                                                               activePredictionFrameCount );
+    // Invariant: one clock bounds the whole overlay pass, not just the future
+    // node build. Phases run in priority order and each remaining phase is
+    // skipped once the shared budget is spent, so the pass shows as much as it
+    // can within budgetMilliseconds and finishes the rest on later frames.
+    // Hazard: the check is between phases, so a pass can overrun by at most the
+    // duration of the one phase already in flight. No phase is interrupted
+    // internally, which is what keeps every retained marker set self-consistent.
+    const auto overlayBudgetStart = std::chrono::steady_clock::now();
+
+    // Concept: these child markers exist to separate the overlay's idle cost from
+    // its rebuild cost. Once a horizon is complete the pass still runs every
+    // frame, and only some phases are cached behind a scan/version match, so a
+    // single PrepareOverlay total cannot say which phase is paying.
+    ReplayPredictionDrawFrameWindow drawWindow;
+
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/DrawWindow" );
+        drawWindow = PrepareReplayPredictionDrawFrameWindow( prediction, activePredictionFrames,
+                                                             activePredictionFrameCount );
+    }
 
     const bool bufferComplete = !usingBuildFrames;
 
@@ -1083,29 +1100,38 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     if ( bufferComplete )
     {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/RootRestMarker" );
         RetainReplayPredictionRootRestMarker( prediction, activePredictionFrames, activePredictionFrameCount,
                                               drawWindow.revealFrame, targetId, targetModelRow.value, colliderStore );
     }
 
-    const auto buildBudgetStart = std::chrono::steady_clock::now();
-
     if ( prediction.enabled )
     {
-        UpdateReplayPredictionFutureNodeCache( prediction, activePredictionFrames, activePredictionFrameCount,
-                                               usingBuildFrames, modelCollection, targetId, buildBudgetStart,
-                                               budgetMilliseconds );
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/FutureNodeCache" );
+            UpdateReplayPredictionFutureNodeCache( prediction, activePredictionFrames, activePredictionFrameCount,
+                                                   usingBuildFrames, modelCollection, targetId, overlayBudgetStart,
+                                                   budgetMilliseconds );
+        }
 
-        UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
-                                               usingBuildFrames, targetId );
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/TrajectoryStore" );
+            UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
+                                                   usingBuildFrames, targetId );
+        }
 
         (void)ReplayPredictionBudgetExpiredForPass( result,
                                                     SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBuildTree,
-                                                    buildBudgetStart, budgetMilliseconds );
+                                                    overlayBudgetStart, budgetMilliseconds );
     }
 
     const bool futureTreeReady = prediction.FutureTreeReadyForDraw( targetId, usingBuildFrames, activePredictionFrameCount );
 
-    if ( futureTreeReady )
+    // Why: the scan cache is the resume token. Skipping the block leaves
+    // markerScan.Matches false, so the next frame retries the whole rebuild
+    // rather than committing a half-built marker set.
+
+    if ( futureTreeReady && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
         ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
         const uint32_t generation = prediction.build.generationBeginCount;
@@ -1134,12 +1160,29 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         }
     }
 
-    RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames, activePredictionFrameCount, prediction,
-                                               drawWindow.revealFrame, bufferComplete, targetId, targetModelRow.value,
-                                               prediction.futureNodeCache.futureNodes, modelCollection, colliderStore );
+    // Why: skipping a retention phase keeps the previous frame's marker set
+    // rather than clearing it, so a deferred frame reads as one frame stale
+    // instead of losing markers outright.
 
-    if ( bufferComplete )
+    if ( !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
+
+        // Hazard: this phase has no scan/version cache, so it repeats in full on
+        // an idle frame whose horizon has not changed. It is the first place to
+        // look when the overlay shows a steady cost with nothing rebuilding.
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/AffectedBodyMarkers" );
+        RetainReplayPredictionAffectedBodyMarkers( activePredictionFrames, activePredictionFrameCount, prediction,
+                                                   drawWindow.revealFrame, bufferComplete, targetId, targetModelRow.value,
+                                                   prediction.futureNodeCache.futureNodes, modelCollection, colliderStore );
+    }
+
+    if ( bufferComplete && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
+    {
+
+        // Hazard: uncached like the affected-body phase above, and it only runs
+        // once the buffer is complete, so it is present exactly on the idle
+        // frames an operator is trying to account for.
+        PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/EndStateMarkers" );
         RetainReplayPredictionEndStateMarkers( prediction, drawWindow.revealFrame, activePredictionFrames,
                                                activePredictionFrameCount );
     }

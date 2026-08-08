@@ -52,8 +52,12 @@ constexpr std::array kTabs = {
 };
 
 constexpr std::array<uint64_t, kTabs.size()> kExpectedFingerprints = {
-    1227990051524176107ull,
-    5621374501062094743ull,
+
+    // Profiler: refreshed when the per-marker Work column was added so
+    // worker-thread time stopped being summed into the frame-thread rows. Only
+    // this surface moved; the other ten prove the column disturbed no other tab.
+    17282268762934632125ull,
+    5048000936848528224ull, // Scene: reveal-speed row added under simulation speed.
     643319089294822447ull,
     9774020997193876338ull,
     3787874871094680490ull,

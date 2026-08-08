@@ -30,10 +30,12 @@ Related:
 #include "WorkerPool.h"
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <optional>
 
 
 using namespace SkullbonezCore::Core;
@@ -46,6 +48,44 @@ Profiler* Profiler::s_active = nullptr;
 namespace
 {
 constexpr int64_t TICKS_PER_AVG_REFRESH_MS = 500;
+
+struct WorkerBeginEndMarker
+{
+
+    // Lifetime: the scope row is fixed thread-local storage armed by ambient
+    // Begin and closed by the matching End on the same worker thread. Runtime
+    // allocation policy: it is stored by value and armed through Open rather
+    // than emplaced into an optional, so no marker row constructs storage on a
+    // steady-state worker path.
+    WorkerProfilerScope scope;
+    const char* fullPath = nullptr;
+    uint32_t hash = 0u;
+};
+
+struct WorkerBeginEndStack
+{
+    std::array<WorkerBeginEndMarker, Profiler::MAX_DEPTH> markers;
+    int top = 0;
+};
+
+int& CurrentWorkerScopeDepth()
+{
+
+    // Invariant: live WorkerProfilerScope nesting on this worker thread. Zero
+    // means the next scope opened is the one whose span equals the core's real
+    // occupancy for that job.
+    thread_local int depth = 0;
+    return depth;
+}
+
+WorkerBeginEndStack& CurrentWorkerBeginEndStack()
+{
+
+    // Invariant: balanced ambient markers are nested per worker. A thread-local
+    // stack keeps unrelated WorkerPool threads from sharing begin/end state.
+    thread_local WorkerBeginEndStack stack;
+    return stack;
+}
 
 int CountSlashes( const char* s )
 {
@@ -221,6 +261,12 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.openCount = 0;
     m.openStartTicks = 0;
     m.accumSecondsThisFrame = 0.0;
+    m.workerAccumSecondsThisFrame = 0.0;
+    m.lastFrameWorkerMs = 0.0f;
+    m.workerAvgMs = 0.0f;
+    m.workerAvgAccumMs = 0.0;
+    m.workerAvgFrameCount = 0;
+    m.hasWorker = false;
     m.firstStartSecondsThisFrame = 0.0;
     m.lastEndSecondsThisFrame = 0.0;
     m.spanWrittenThisFrame = false;
@@ -309,6 +355,17 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
 
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
+        WorkerBeginEndStack& stack = CurrentWorkerBeginEndStack();
+
+        if ( stack.top >= MAX_DEPTH )
+        {
+            AbortMismatch( "MAX_DEPTH exceeded on worker", fullPath );
+        }
+
+        WorkerBeginEndMarker& marker = stack.markers[stack.top++];
+        marker.fullPath = fullPath;
+        marker.hash = hash;
+        marker.scope.Open( this, fullPath, hash );
         return;
     }
 
@@ -321,6 +378,24 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
+        WorkerBeginEndStack& stack = CurrentWorkerBeginEndStack();
+
+        if ( stack.top <= 0 )
+        {
+            AbortMismatch( "PROFILE_END with empty worker stack", fullPath );
+        }
+
+        WorkerBeginEndMarker& marker = stack.markers[stack.top - 1];
+
+        if ( marker.hash != hash || !marker.fullPath || std::strcmp( marker.fullPath, fullPath ) != 0 )
+        {
+            AbortMismatch( "PROFILE_BEGIN/END worker mismatch", marker.fullPath );
+        }
+
+        --stack.top;
+        marker.scope.Close();
+        marker.fullPath = nullptr;
+        marker.hash = 0u;
         return;
     }
 
@@ -329,7 +404,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
 
 void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks,
-                                   int64_t endTicks )
+                                   int64_t endTicks, bool outermostOnThread )
 {
 
     if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
@@ -351,7 +426,12 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
     const double endSeconds = static_cast<double>( endTicks - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
 
     const double durationSeconds = static_cast<double>( endTicks - startTicks ) / static_cast<double>( m_qpcFrequency );
-    marker.accumSecondsThisFrame += durationSeconds;
+
+    // Invariant: worker duration never enters accumSecondsThisFrame. Self-time
+    // accounting subtracts child totals from that field, so mixing threads there
+    // would make a parent's self time meaningless as well as its total.
+    marker.workerAccumSecondsThisFrame += durationSeconds;
+    marker.hasWorker = true;
 
     if ( !marker.spanWrittenThisFrame )
     {
@@ -363,6 +443,15 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
     {
         marker.firstStartSecondsThisFrame = (std::min)( marker.firstStartSecondsThisFrame, startSeconds );
         marker.lastEndSecondsThisFrame = (std::max)( marker.lastEndSecondsThisFrame, endSeconds );
+    }
+
+    if ( !outermostOnThread )
+    {
+
+        // Invariant: a nested span is already inside its parent's measured
+        // range. Its marker attribution above is complete; adding it to the
+        // core accumulator again would inflate occupancy by the nesting depth.
+        return;
     }
 
     WorkerCoreAccumulator& worker = m_workerCoreAccumulators[workerIndex];
@@ -402,17 +491,38 @@ void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value 
 }
 
 
-WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
-    : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ),
-      m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 ),
-      m_platformProfilerOpen( false ), m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ), m_tracyZoneActive( 0 ),
-      m_tracyZoneConnectionId( 0u )
+WorkerProfilerScope::WorkerProfilerScope() noexcept
+    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
+      m_outermostOnThread( false ), m_platformProfilerOpen( false ), m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ),
+      m_tracyZoneActive( 0 ), m_tracyZoneConnectionId( 0u )
 {
+}
+
+
+WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash ) : WorkerProfilerScope()
+{
+    Open( profiler, fullPath, hash );
+}
+
+
+void WorkerProfilerScope::Open( Profiler* profiler, const char* fullPath, uint32_t hash )
+{
+    m_profiler = profiler;
+    m_fullPath = fullPath;
+    m_hash = hash;
+    m_workerIndex = SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex();
 
     if ( m_workerIndex < 0 )
     {
         return;
     }
+
+    // Lifetime: the depth counter is thread-local and balanced by Close, so it
+    // tracks live nesting on one worker without any shared state. It covers
+    // ambient PROFILE_SCOPED and explicit PROFILE_WORKER_SCOPED alike, because
+    // both arrive here.
+    m_outermostOnThread = CurrentWorkerScopeDepth() == 0;
+    ++CurrentWorkerScopeDepth();
 
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
@@ -439,12 +549,24 @@ WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPa
 
 WorkerProfilerScope::~WorkerProfilerScope()
 {
+    Close();
+}
+
+
+void WorkerProfilerScope::Close()
+{
 
     if ( m_workerIndex < 0 )
     {
         return;
     }
 
+    // Invariant: the index is captured and then cleared, so Close is idempotent
+    // and the destructor of an explicitly closed ambient scope can neither
+    // double-record the sample nor unbalance the nesting depth.
+    const int workerIndex = m_workerIndex;
+    m_workerIndex = -1;
+    --CurrentWorkerScopeDepth();
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
 #if defined( TRACY_ENABLE )
@@ -465,7 +587,7 @@ WorkerProfilerScope::~WorkerProfilerScope()
 
     if ( m_profiler )
     {
-        m_profiler->RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
+        m_profiler->RecordWorkerSample( m_fullPath, m_hash, workerIndex, m_startTicks, t.QuadPart, m_outermostOnThread );
     }
 }
 
@@ -792,12 +914,22 @@ void Profiler::FrameBegin()
         --m_warmupFrames;
     }
 
-    for ( int i = 0; i < m_markerCount; ++i )
     {
-        m_markers[i].accumSecondsThisFrame = 0.0;
-        m_markers[i].firstStartSecondsThisFrame = 0.0;
-        m_markers[i].lastEndSecondsThisFrame = 0.0;
-        m_markers[i].spanWrittenThisFrame = false;
+
+        // Hazard: a worker slice can outlive the frame that submitted it, so a
+        // RecordWorkerSample can land while this reset runs. Clearing the worker
+        // accumulator under the same mutex that guards it keeps the reset from
+        // racing a concurrent worker span.
+        std::lock_guard<std::mutex> lock( m_workerSampleMutex );
+
+        for ( int i = 0; i < m_markerCount; ++i )
+        {
+            m_markers[i].accumSecondsThisFrame = 0.0;
+            m_markers[i].workerAccumSecondsThisFrame = 0.0;
+            m_markers[i].firstStartSecondsThisFrame = 0.0;
+            m_markers[i].lastEndSecondsThisFrame = 0.0;
+            m_markers[i].spanWrittenThisFrame = false;
+        }
     }
 
     for ( int i = 0; i < m_counterCount; ++i )
@@ -875,6 +1007,9 @@ void Profiler::FrameEnd()
         }
 
         m.lastFrameMs = ms;
+        m.lastFrameWorkerMs = static_cast<float>( m.workerAccumSecondsThisFrame * 1000.0 );
+        m.workerAvgAccumMs += static_cast<double>( m.lastFrameWorkerMs );
+        ++m.workerAvgFrameCount;
 
         if ( m.spanWrittenThisFrame )
         {
@@ -1040,6 +1175,28 @@ void Profiler::FrameEnd()
             sample.spanEndMs = worker.spanWrittenThisFrame ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 )
                                                            : 0.0f;
         }
+
+        // Why: per-marker worker averages share the worker mutex and the same
+        // 500 ms cadence as the CPU/GPU averages, so an overlay row never mixes
+        // a fresh worker number with a stale CPU one.
+
+        if ( refreshAverages )
+        {
+
+            for ( int index = 0; index < m_markerCount; ++index )
+            {
+                Marker& marker = m_markers[index];
+
+                if ( marker.workerAvgFrameCount > 0 )
+                {
+                    marker.workerAvgMs = static_cast<float>( marker.workerAvgAccumMs /
+                                                             static_cast<double>( marker.workerAvgFrameCount ) );
+
+                    marker.workerAvgAccumMs = 0.0;
+                    marker.workerAvgFrameCount = 0;
+                }
+            }
+        }
     }
 
 #if defined( TRACY_ENABLE )
@@ -1187,7 +1344,11 @@ int Profiler::PerfCSVColumnCount() const
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-        columnCount += m_markers[i].hasGpu ? 2 : 1;
+
+        // Why: a marker reached from a worker gets its own column instead of
+        // being folded into the frame-thread value, so offline analysis can see
+        // where worker time went rather than inferring it from a total.
+        columnCount += 1 + ( m_markers[i].hasGpu ? 1 : 0 ) + ( m_markers[i].hasWorker ? 1 : 0 );
     }
 
     return columnCount;
@@ -1214,6 +1375,11 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
         {
             fprintf( f, ",%s_gpu", m_markers[i].name );
         }
+
+        if ( m_markers[i].hasWorker )
+        {
+            fprintf( f, ",%s_worker", m_markers[i].name );
+        }
     }
 
     // Keep VsyncWait at the end so it doesn't skew active-frame averages when viewed together.
@@ -1228,6 +1394,11 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             if ( m_markers[i].hasGpu )
             {
                 fprintf( f, ",%s_gpu", m_markers[i].name );
+            }
+
+            if ( m_markers[i].hasWorker )
+            {
+                fprintf( f, ",%s_worker", m_markers[i].name );
             }
 
             break;
@@ -1280,6 +1451,11 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
         {
             fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
         }
+
+        if ( m_markers[i].hasWorker )
+        {
+            fprintf( f, ",%.4f", m_markers[i].lastFrameWorkerMs );
+        }
     }
 
     for ( int i = 0; i < m_markerCount; ++i )
@@ -1292,6 +1468,11 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             if ( m_markers[i].hasGpu )
             {
                 fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+            }
+
+            if ( m_markers[i].hasWorker )
+            {
+                fprintf( f, ",%.4f", m_markers[i].lastFrameWorkerMs );
             }
 
             break;
@@ -1337,7 +1518,7 @@ void Profiler::End( const char*, uint32_t )
 }
 
 
-void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t )
+void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t, bool )
 {
 }
 
@@ -1416,14 +1597,31 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 }
 
 
+WorkerProfilerScope::WorkerProfilerScope() noexcept
+    : m_profiler( nullptr ), m_fullPath( nullptr ), m_hash( 0u ), m_workerIndex( -1 ), m_startTicks( 0 ),
+      m_outermostOnThread( false ), m_platformProfilerOpen( false )
+{
+}
+
+
 WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
     : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ),
-      m_platformProfilerOpen( false )
+      m_outermostOnThread( false ), m_platformProfilerOpen( false )
 {
 }
 
 
 WorkerProfilerScope::~WorkerProfilerScope()
+{
+}
+
+
+void WorkerProfilerScope::Open( Profiler*, const char*, uint32_t )
+{
+}
+
+
+void WorkerProfilerScope::Close()
 {
 }
 

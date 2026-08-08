@@ -167,7 +167,7 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 }
 } // namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations
 
-void ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTickIndex ) const
+int ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTickIndex ) const
 {
 
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
@@ -175,8 +175,10 @@ void ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTic
 
     if ( prediction && config && workerPool )
     {
-        prediction->RunWorkerRange( *config, *workerPool, modelCount, beginTickIndex, endTickIndex );
+        return prediction->RunWorkerRange( *config, *workerPool, modelCount, beginTickIndex, endTickIndex );
     }
+
+    return 0;
 }
 
 RunReplayPredictionState::~RunReplayPredictionState()

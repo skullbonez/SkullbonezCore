@@ -88,5 +88,6 @@ type.
   any source location that includes `Core/Profiler.h`.
 - Never add a profiler parameter, context field, callback, or retained member
   solely to emit a CPU marker.
-- Worker timing remains explicit through `PROFILE_WORKER_SCOPED` because it
-  records worker identity and accumulation rather than an ordinary CPU scope.
+- The same `PROFILE_SCOPED` and balanced `PROFILE_BEGIN`/`PROFILE_END` calls
+  detect worker threads internally. Never pass a profiler just to select the
+  worker recording path.

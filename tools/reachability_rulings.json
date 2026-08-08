@@ -21,11 +21,29 @@
     },
     {
       "file": "SkullbonezSource/Core/Profiler.cpp",
-      "signature": "void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks )",
+      "signature": "void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks, bool outermostOnThread )",
       "owner": "Core::WorkerProfilerScope",
       "disposition": "retain-owner",
-      "reason": "Completed worker scopes publish their bounded per-worker sample through Profiler.",
-      "evidence": "WorkerProfilerScope destructor calls RecordWorkerSample; WorkerPool header templates construct the scope around production worker chunks. 2026-07-30 final synchronized Debug/Profile census: classification=no-reference; mapping=exact; own_tu_calls=0; test_calls=0; ambiguous_production_calls=1; required_arity=5/5; symbols=?RecordWorkerSample@Profiler@Core@SkullbonezCore@@QEAAXPEBDIH_J1@Z",
+      "reason": "Completed worker scopes publish their bounded per-worker sample through Profiler. The added outermostOnThread parameter selects whether the span also feeds per-core occupancy, so nested spans stop multiplying that total.",
+      "evidence": "WorkerProfilerScope::Close calls RecordWorkerSample; WorkerPool header templates construct the scope around production worker chunks, and Profiler::Begin/End arm one for ambient worker markers. Census re-derived when the sixth parameter was added: classification=no-reference; mapping=exact; own_tu_calls=1; test_calls=0; required_arity=6/6.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/Profiler.cpp",
+      "signature": "void WorkerProfilerScope::Open( Profiler* profiler, const char* fullPath, uint32_t hash )",
+      "owner": "Core::WorkerProfilerScope",
+      "disposition": "retain-owner",
+      "reason": "Arming is a real seam, not retired surface: the ambient worker begin/end path holds its scopes in a fixed thread-local stack and must arm a row in place, because emplacing one would be a banned steady-state construction on a worker path.",
+      "evidence": "Profiler::Begin calls Open for a worker-thread marker, and the RAII constructor delegates to it. Both entries are in this translation unit, so no cross-TU reference is expected; the header declaration exists for the RAII users of the type.",
+      "plan": ""
+    },
+    {
+      "file": "SkullbonezSource/Core/Profiler.cpp",
+      "signature": "void WorkerProfilerScope::Close()",
+      "owner": "Core::WorkerProfilerScope",
+      "disposition": "retain-owner",
+      "reason": "Close is the single publish-and-unwind step shared by the destructor and the ambient End path; it is idempotent so a stack row closed by End cannot double-record when its storage is reused.",
+      "evidence": "Profiler::End calls Close for a worker-thread marker, and the destructor calls it unconditionally. Both entries are in this translation unit, matching the own-TU-only classification rather than indicating dead surface.",
       "plan": ""
     },
     {

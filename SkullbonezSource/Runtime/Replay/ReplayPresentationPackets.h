@@ -61,6 +61,11 @@ struct ReplayHudStatus
     int presentationRetentionSeconds = 0;
     int solverRetentionSeconds = 0;
     float divergenceUnits = 0.0f;
+
+    // Presentation pacing of the causal-unfold cursor, in predicted seconds per
+    // real second. The operator surface shows and edits this; it never reaches
+    // physics or solver state.
+    float predictionRevealRate = 1.0f;
     bool memoryBudgetClamped = false;
     bool solverWindowReduced = false;
     bool divergenceValid = false;

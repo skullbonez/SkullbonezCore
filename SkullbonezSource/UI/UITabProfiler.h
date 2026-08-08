@@ -61,6 +61,12 @@ struct MarkerSnapshot
     float lastSelfMs = 0.0f;
     float avgMs = 0.0f;
     float selfAvgMs = 0.0f;
+
+    // Worker-thread time for this same marker path, kept apart from the frame
+    // thread's numbers above. A row can have both: the frame thread and a worker
+    // job reach the same instrumented code.
+    float lastFrameWorkerMs = 0.0f;
+    float workerAvgMs = 0.0f;
     float p50Ms = 0.0f;
     float p99Ms = 0.0f;
     float colorR = 0.0f;
@@ -146,6 +152,16 @@ struct UIProfilerTabState
     PerformanceHistogramSample histogramSamples[HISTOGRAM_SAMPLE_COUNT] = {};
     int histogramHead = 0;
     int histogramCount = 0;
+
+    // Concept: one ring slot is a fixed slice of wall time, not one frame.
+    // Frame-per-slot made the visible span collapse as frame rate rose - at
+    // ~350 fps the whole 120-slot history covered about a third of a second, so
+    // a prediction burst scrolled off before it could be read. Slots now hold
+    // the peak seen during their slice, which keeps the window a constant
+    // duration at any frame rate and preserves spikes rather than averaging
+    // them away.
+    double histogramBucketStartSeconds = -1.0;
+    bool histogramBucketOpen = false;
     float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
     double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
     float histogramAverageCpuMs = 0.0f;                  // Latched selected-marker footer average refreshed on a 0.5s cadence.

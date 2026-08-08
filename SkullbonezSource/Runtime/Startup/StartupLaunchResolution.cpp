@@ -29,6 +29,7 @@ Related:
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
 #include "../App/RunLaunchOptions.h"
+#include "../Replay/ReplayOverlaySurface.h"
 #include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>
@@ -294,6 +295,44 @@ bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
     args.interactiveRun = true;
     args.suppressExitDialog = true;
     fprintf( stdout, "[style-harness] Live style control directory: %s\n", args.liveStyleControlDir );
+    return true;
+}
+bool ApplyPredictTargetName( const char* value, ParsedArgs& args )
+{
+
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--predict expects a scene object display name." );
+    }
+
+    if ( strlen( value ) >= sizeof( args.predictTargetName ) )
+    {
+        return FailCommandLineParse( "--predict body name is too long." );
+    }
+
+    strcpy_s( args.predictTargetName, sizeof( args.predictTargetName ), value );
+
+    // Why: scene mode leaves replay capture off by default. Prediction seeds
+    // from live physics either way, but with no solver track the source
+    // frame/hash never changes, so a running scene would build one horizon and
+    // then hold it. Capture is what makes the armed target keep re-predicting.
+    args.replayRecording = true;
+    args.replayExplicit = true;
+    fprintf( stdout, "[predict] Startup prediction target: %s\n", args.predictTargetName );
+    return true;
+}
+bool ApplyPredictHorizonSeconds( const char* value, ParsedArgs& args )
+{
+    float seconds = 0.0f;
+
+    if ( IsOptionValueMissing( value ) || !ParseFloatToken( value, seconds ) ||
+         seconds < ReplayOverlay::REPLAY_PREDICTION_MIN_SECONDS || seconds > ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS )
+    {
+        return FailCommandLineParse( "--predict-seconds expects 1.0..120.0 seconds." );
+    }
+
+    args.predictHorizonSeconds = seconds;
+    fprintf( stdout, "[predict] Startup prediction horizon: %.2f s\n", static_cast<double>( seconds ) );
     return true;
 }
 bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
@@ -742,6 +781,9 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.developmentUiMode = args.developmentUiMode;
     launch.developmentUiModeExplicit = args.developmentUiModeExplicit;
 #endif
+    strcpy_s( launch.predictTargetName, sizeof( launch.predictTargetName ), args.predictTargetName );
+    launch.predictHorizonSeconds = args.predictHorizonSeconds;
+    launch.predictPauseOnStart = args.predictPauseOnStart;
     overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
@@ -877,6 +919,8 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
         { "--memory-dump", "--memory_dump", ApplyMemoryDumpPath },
         { "--interaction-script", "--interaction_script", ApplyInteractionScriptPath },
         { "--interaction-report", "--interaction_report", ApplyInteractionReportPath },
+        { "--predict", nullptr, ApplyPredictTargetName },
+        { "--predict-seconds", "--predict_seconds", ApplyPredictHorizonSeconds },
         { "--replay",
           nullptr,
           []( const char* value, ParsedArgs& args ) -> bool

@@ -89,6 +89,14 @@ struct RunLaunchOptions
     int graphicsStressSceneIntervalFrames = 45;                                                  // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;                                               // CLI --graphics-stress-memory-interval
     bool replayGuideArcsAtStartup = false;                                                       // CLI --guide-arcs re-enables the default-off Legacy guide after scene load.
+
+    // Concept: a prediction launch request, not live prediction authority.
+    // ReplayPrediction still owns enablement, horizon, and the build; Run only
+    // replays the operator's scrubber/predict/target/pause sequence once the
+    // scene has bodies. Empty predictTargetName means --predict was omitted.
+    char predictTargetName[64] = {};                                                             // CLI --predict <body display name>
+    float predictHorizonSeconds = 0.0f;                                                          // CLI --predict-seconds (0 = owner default)
+    bool predictPauseOnStart = true;                                                             // CLI --predict-running clears this
     SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode
         allocationGuardMode = SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off; // CLI --allocation-guard
 

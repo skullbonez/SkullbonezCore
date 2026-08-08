@@ -36,7 +36,9 @@ Related:
 #include "../Replay/ReplayIdentity.h"
 #include "ReplayPredictionPackets.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -69,7 +71,7 @@ struct ReplayPredictionSimulationSlice
     Threading::WorkerPool* workerPool = nullptr;
     int modelCount = 0;
 
-    void operator()( int beginTickIndex, int endTickIndex ) const;
+    int operator()( int beginTickIndex, int endTickIndex ) const;
 };
 
 using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionSimulationSlice>;
@@ -182,6 +184,30 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
     const double projectedMilliseconds = static_cast<double>( remainingTicks ) / measuredTicksPerMs;
     return projectedMilliseconds <= instantBudgetMs ? ReplayPredictionBuildMode::Instant
                                                     : ReplayPredictionBuildMode::Amortized;
+}
+
+inline double UpdateReplayPredictionTicksPerMs( double measuredTicksPerMs, int completedTicks,
+                                                double elapsedMilliseconds ) noexcept
+{
+
+    if ( completedTicks <= 0 || elapsedMilliseconds <= 0.0 || !std::isfinite( elapsedMilliseconds ) )
+    {
+        return measuredTicksPerMs;
+    }
+
+    const double sampleTicksPerMs = static_cast<double>( completedTicks ) / elapsedMilliseconds;
+
+    if ( measuredTicksPerMs <= 0.0 || !std::isfinite( measuredTicksPerMs ) )
+    {
+        return sampleTicksPerMs;
+    }
+
+    // Concept: prediction cost changes as future contacts fan out. A quarter
+    // weight keeps the reported throughput responsive without letting one noisy
+    // worker wake-up dominate the estimate; the worker's wall clock remains the
+    // sole authority for the five-millisecond stop.
+    constexpr double SAMPLE_WEIGHT = 0.25;
+    return measuredTicksPerMs + ( sampleTicksPerMs - measuredTicksPerMs ) * SAMPLE_WEIGHT;
 }
 
 inline ReplayPredictionCoalescerAction ChooseReplayPredictionCoalescerAction( bool dirty, bool building,
