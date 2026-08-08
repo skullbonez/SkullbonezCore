@@ -33,6 +33,7 @@ Related:
 
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations
@@ -55,8 +56,15 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     // Lane P: this is bounded validation work performed after the sole live
     // capture. Temporary vectors are diagnostics artifacts, never steady-state
     // replay storage or a second presentation path.
-    RunReplayPathVisualizerState restoredPathVisualizer;
-    RunReplayPredictionState restoredPrediction;
+    // Hazard: RunReplayPredictionState carries the whole prediction aggregate,
+    // roughly 840 KB. Three of them as locals made this function probe about
+    // 2.5 MB of stack at entry and fault in __chkstk before its first
+    // statement, against a 1 MB default. Runtime allocation policy: an explicit
+    // cold Automation-only verification action, never a steady runtime path.
+    const auto restoredPathVisualizerStorage = std::make_unique<RunReplayPathVisualizerState>();
+    const auto restoredPredictionStorage = std::make_unique<RunReplayPredictionState>();
+    RunReplayPathVisualizerState& restoredPathVisualizer = *restoredPathVisualizerStorage;
+    RunReplayPredictionState& restoredPrediction = *restoredPredictionStorage;
 
     if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, outReason, reasonSize ) )
     {
@@ -86,8 +94,10 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
         return false;
     }
 
-    RunReplayPathVisualizerState migratedPathVisualizer;
-    RunReplayPredictionState migratedPrediction;
+    const auto migratedPathVisualizerStorage = std::make_unique<RunReplayPathVisualizerState>();
+    const auto migratedPredictionStorage = std::make_unique<RunReplayPredictionState>();
+    RunReplayPathVisualizerState& migratedPathVisualizer = *migratedPathVisualizerStorage;
+    RunReplayPredictionState& migratedPrediction = *migratedPredictionStorage;
 
     if ( !LoadReplayPredictionArchive( legacyBytes, migratedPathVisualizer, migratedPrediction, outReason, reasonSize ) )
     {
@@ -119,8 +129,10 @@ bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, cha
     futureBytes[5] = 0u;
     futureBytes[6] = 0u;
     futureBytes[7] = 0u;
-    RunReplayPathVisualizerState rejectedPathVisualizer;
-    RunReplayPredictionState rejectedPrediction;
+    const auto rejectedPathVisualizerStorage = std::make_unique<RunReplayPathVisualizerState>();
+    const auto rejectedPredictionStorage = std::make_unique<RunReplayPredictionState>();
+    RunReplayPathVisualizerState& rejectedPathVisualizer = *rejectedPathVisualizerStorage;
+    RunReplayPredictionState& rejectedPrediction = *rejectedPredictionStorage;
     char futureReason[128] = {};
 
     if ( LoadReplayPredictionArchive( futureBytes, rejectedPathVisualizer, rejectedPrediction, futureReason,
