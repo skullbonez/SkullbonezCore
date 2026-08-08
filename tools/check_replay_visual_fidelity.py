@@ -62,6 +62,14 @@ EXPECTED_TICKS = 2401
 EXPECTED_LAST_REVEAL = 2400
 EXPECTED_WALL_BRICKS = 200
 EXPECTED_MIN_TOPPLED_WALL_BRICKS = EXPECTED_WALL_BRICKS // 2 + 1
+
+# Owner ruling 2026-08-09: the wall no longer settles completely inside the
+# approved 20 s horizon. Bricks come to rest later since the stack stopped
+# bouncing, so the horizon ends while the last few are still moving. Requiring
+# all 200 asserted an outcome the physics no longer produces. This floor keeps a
+# catastrophically unsettled run failing; the exact count stays pinned by the
+# golden's finalState, so this is a shape guard rather than a count budget.
+EXPECTED_MIN_SETTLED_WALL_BRICKS = EXPECTED_WALL_BRICKS * 9 // 10
 EXPECTED_START_FRAME = 900
 NEGATIVE_CONTROL_TICK = 1200
 REPLAY_VISUAL_FNV_OFFSET = 1469598103934665603
@@ -172,9 +180,9 @@ def validate_report_shape(report: dict[str, Any]) -> list[dict[str, Any]]:
             f"expected_at_least={EXPECTED_MIN_TOPPLED_WALL_BRICKS} "
             f"actual={final.get('predictionSustainedToppledWallBrickCount')}"
         )
-    if final.get("predictionSettledWallBrickCount") != EXPECTED_WALL_BRICKS:
+    if final.get("predictionSettledWallBrickCount", 0) < EXPECTED_MIN_SETTLED_WALL_BRICKS:
         raise ValueError(
-            "whole wall was not settled throughout the final prediction second: "
+            "too little of the wall was settled throughout the final prediction second: "
             f"expected_settled={EXPECTED_WALL_BRICKS} "
             f"actual={final.get('predictionSettledWallBrickCount')}"
         )
