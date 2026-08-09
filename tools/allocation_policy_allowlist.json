@@ -1357,6 +1357,17 @@
       "reason": "Canonical bytes are built only while resolving, fingerprinting, or validating an explicit Look Lab candidate; the idle frame path never calls the generator or encoder.",
       "cap": "Exactly 649 canonical bytes for generator version 1: fixed candidate metadata, 84 cinematic atoms, and three complete material rules.",
       "removal_or_wrapper_plan": "Replace the vector return with a version-sized fixed canonical byte value before generator version 2 changes the field contract."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Prediction/ReplayPredictionArchive.Automation.cpp",
+      "patterns": [
+        "std::make_unique<RunReplayPredictionState>"
+      ],
+      "owner": "replay_prediction_archive_verification",
+      "phase": "Diagnostics",
+      "reason": "RunReplayPredictionState is 792,936 bytes and the round-trip verifier needs three live at once to compare restored, migrated and rejected decodes. As locals they asked for about 2.3 MB of frame and faulted in __chkstk against the roughly 840 KB of stack left at this call depth, so the probe crashed before writing its report. This translation unit links only in Automation, runs once after the sole live capture, and never touches steady gameplay, presentation, or a second prediction path.",
+      "cap": "Exactly three RunReplayPredictionState allocations per VerifyReplayPredictionArchiveRoundTrip call, which runs once per fidelity probe process.",
+      "removal_or_wrapper_plan": "Delete when the verifier can compare decodes one at a time against a streamed encoder, or when prediction state moves behind a handle whose value type is small enough to keep on the frame."
     }
   ]
 }
