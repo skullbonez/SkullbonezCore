@@ -172,9 +172,17 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
 bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& prediction );
 void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& prediction,
                                                const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount );
+
+// budgetStart/budgetMilliseconds bound the all-body path rebuild, which is the
+// one phase inside the overlay pass that can run long on its own: a mutual
+// gravity scene publishes a path per body, so 200 bodies over a 120 s horizon
+// measured 154 ms in a single uninterrupted call. It resumes from
+// trajectoryBuild.builtAllBodyCount on the next frame.
 void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                            bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId );
+                                            bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId,
+                                            const std::chrono::steady_clock::time_point& budgetStart,
+                                            double budgetMilliseconds );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
 std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount, ReplayFrameIndex revealFrame,

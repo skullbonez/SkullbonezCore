@@ -674,7 +674,9 @@ bool ReplayPredictionChildTrajectoryRecordMatches( const RunReplayPredictionStat
 
 void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& prediction,
                                                 const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                                bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId )
+                                                bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId,
+                                                const std::chrono::steady_clock::time_point& budgetStart,
+                                                double budgetMilliseconds )
 {
     const bool showAllFuturePaths = prediction.simulation.predictionWorldForces.mutualGravity.enabled;
 
@@ -737,9 +739,22 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
     }
 
     const std::size_t firstBody = sourceChanged ? 0u : prediction.trajectoryBuild.builtAllBodyCount;
+    std::size_t completedBodies = bodyCount;
 
     for ( std::size_t bodyIndex = firstBody; bodyIndex < bodyCount; ++bodyIndex )
     {
+
+        // Invariant: a body record is indivisible, so the budget is read between
+        // whole bodies. Recording the reached index and keeping allBodyPaths set
+        // makes builtAllBodyCount the resume cursor rather than a completion
+        // claim; the next frame continues from here instead of restarting.
+
+        if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            completedBodies = bodyIndex;
+            break;
+        }
+
         const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
 
         if ( seedBody.id.value == 0u || seedBody.id.value == rootId.value )
@@ -754,13 +769,15 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
     }
 
     prediction.trajectoryBuild.allBodyFrameCount = frameCount;
-    prediction.trajectoryBuild.builtAllBodyCount = bodyCount;
+    prediction.trajectoryBuild.builtAllBodyCount = completedBodies;
     prediction.trajectoryBuild.allBodyPaths = true;
 }
 
 void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
-                                            bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId )
+                                            bool usingBuildFrames, Physics::PhysicsSceneObjectId rootId,
+                                            const std::chrono::steady_clock::time_point& budgetStart,
+                                            double budgetMilliseconds )
 {
     frameCount = (std::min)( frameCount, frames.size() );
 
@@ -776,7 +793,8 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
 
     // Update the topology-independent body bank before causal publication
     // changes the shared source-bank cursor below.
-    UpdateReplayPredictionAllBodyTrajectories( prediction, frames, frameCount, usingBuildFrames, rootId );
+    UpdateReplayPredictionAllBodyTrajectories( prediction, frames, frameCount, usingBuildFrames, rootId, budgetStart,
+                                               budgetMilliseconds );
 
     if ( !prediction.trajectoryBuild.valid )
     {

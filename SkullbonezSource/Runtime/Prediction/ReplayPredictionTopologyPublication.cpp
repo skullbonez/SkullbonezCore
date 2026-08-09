@@ -1027,8 +1027,11 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
     UpdateReplayPredictionFutureNodeCache( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
                                            false, modelCollection, rootId, rebuildStart, 0.0 );
 
+    // Why 0.0: a zero budget never expires. This is the post-completion rebuild
+    // of the committed tree, which must publish every body path in one pass; the
+    // per-frame overlay path is the one that yields, not this one.
     UpdateReplayPredictionTrajectoryStore( prediction, prediction.simulation.frames, prediction.simulation.frames.size(),
-                                           false, rootId );
+                                           false, rootId, rebuildStart, 0.0 );
 }
 
 
@@ -1117,7 +1120,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/PrepareOverlay/TrajectoryStore" );
             UpdateReplayPredictionTrajectoryStore( prediction, activePredictionFrames, activePredictionFrameCount,
-                                                   usingBuildFrames, targetId );
+                                                   usingBuildFrames, targetId, overlayBudgetStart, budgetMilliseconds );
         }
 
         (void)ReplayPredictionBudgetExpiredForPass( result,
