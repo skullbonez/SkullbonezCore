@@ -789,10 +789,14 @@ bool ReplayPredictionBodyReachedActivationDisplacement( const RunReplayPredictio
            VectorMagSquared( outActivationDelta ) >= REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE_SQ;
 }
 
+// bodyCursor is in/out: it names the first body still to resolve. Returning
+// false leaves it at the body the budget interrupted, so the next frame resumes
+// there. A body is only ever interrupted before it publishes a node, so
+// retrying it repeats no work and duplicates nothing.
 bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredictionFrame>& frames, std::size_t frameCount,
                                                ReplayPredictionFutureContext& context,
                                                const std::chrono::steady_clock::time_point& budgetStart,
-                                               double budgetMilliseconds )
+                                               double budgetMilliseconds, std::size_t& bodyCursor )
 {
     frameCount = (std::min)( frameCount, frames.size() );
 
@@ -811,16 +815,19 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
     // one-frame speed spike, so slow-pushed bodies join on the tick they
     // actually begin to move.
 
-    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
+    for ( std::size_t bodyIndex = bodyCursor; bodyIndex < firstFrame.bodies.size(); ++bodyIndex )
     {
+        const RunReplayPredictionBodySample& initialBody = firstFrame.bodies[bodyIndex];
 
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
+            bodyCursor = bodyIndex;
             return false;
         }
 
         if ( context.nodes->size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
+            bodyCursor = firstFrame.bodies.size();
             return true;
         }
 
@@ -843,6 +850,7 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
 
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
+                bodyCursor = bodyIndex;
                 return false;
             }
 
@@ -874,6 +882,7 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
         }
     }
 
+    bodyCursor = firstFrame.bodies.size();
     return true;
 }
 
@@ -986,11 +995,29 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         }
     }
 
-    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
-         !BuildReplayPredictionAffectedFutureNodes( frames, frameCount, futureContext, budgetStart, budgetMilliseconds ) )
+    // Why: a longer horizon can activate a body that had not moved yet, so a
+    // grown frameCount reopens the pass from the start. A settled horizon leaves
+    // it closed, which is what stops the rescan from costing budget forever.
+
+    if ( prediction.futureNodeCache.futureNodesAffectedFrameCount < frameCount )
     {
-        publishScratch();
-        return;
+        prediction.futureNodeCache.futureNodesAffectedBodyCursor = 0;
+        prediction.futureNodeCache.futureNodesAffectedComplete = false;
+    }
+
+    if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
+         !prediction.futureNodeCache.futureNodesAffectedComplete )
+    {
+
+        if ( !BuildReplayPredictionAffectedFutureNodes( frames, frameCount, futureContext, budgetStart, budgetMilliseconds,
+                                                        prediction.futureNodeCache.futureNodesAffectedBodyCursor ) )
+        {
+            publishScratch();
+            return;
+        }
+
+        prediction.futureNodeCache.futureNodesAffectedComplete = true;
+        prediction.futureNodeCache.futureNodesAffectedFrameCount = frameCount;
     }
 
     if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )

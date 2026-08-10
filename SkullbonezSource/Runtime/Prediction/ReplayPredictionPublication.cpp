@@ -93,6 +93,9 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.futureNodeBuildScratch.clear();
     prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
     prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
+    prediction.futureNodeCache.futureNodesAffectedBodyCursor = 0;
+    prediction.futureNodeCache.futureNodesAffectedFrameCount = 0;
+    prediction.futureNodeCache.futureNodesAffectedComplete = false;
     prediction.futureNodeCache.futureNodesBuiltTargetId = Physics::PhysicsSceneObjectId {};
     prediction.futureNodeCache.futureNodesTopologyVersion = 0;
     prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;

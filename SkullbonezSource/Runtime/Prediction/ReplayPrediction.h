@@ -189,6 +189,19 @@ struct RunReplayPredictionFutureNodeCache
     std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
+
+    // Concept: the contact scan above has futureNodesBuiltFrameCount as its
+    // resume cursor; the sparse-contact affected-body pass needs the same or it
+    // restarts from body zero on every frame. Without it a completed prediction
+    // rescans every body against every frame forever, which both burns the
+    // overlay budget on a static horizon and makes affected-body trails appear a
+    // few at a time instead of at once.
+    // Invariant: the watermark is the frameCount the pass last completed
+    // against. A growing horizon can activate a body that had not moved yet, so
+    // growth reopens the pass rather than trusting the old answer.
+    std::size_t futureNodesAffectedBodyCursor = 0;
+    std::size_t futureNodesAffectedFrameCount = 0;
+    bool futureNodesAffectedComplete = false;
     Physics::PhysicsSceneObjectId futureNodesBuiltTargetId;
 
     // Invariant: topologyVersion identifies the published node set/order and
