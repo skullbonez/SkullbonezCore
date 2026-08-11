@@ -49,7 +49,6 @@ class PhysicsBodyStore;
 }
 namespace Runtime
 {
-
 // Returns the final scene path component without allocating. The returned
 // pointer aliases the caller-owned path string.
 const char* SceneFileNameFromPath( const char* path );
@@ -57,7 +56,6 @@ std::string NormalizeSceneQueuePath( const std::string& path );
 
 struct SceneSessionState
 {
-
     // Resets per-load state while preserving session-owned manual-run values.
     void ResetForLoad( const SkullbonezCore::Core::CinematicRenderConfig& cinematicDefaults );
     Physics::PhysicsSceneObjectId AllocateSceneObjectId();

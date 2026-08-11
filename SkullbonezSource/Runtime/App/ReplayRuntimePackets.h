@@ -32,7 +32,6 @@ Related:
 
 namespace SkullbonezCore::Runtime
 {
-
 // Concept: App composes the lower Replay selection with the sibling Prediction
 // row selected on the future side of the shared scrub track. Neither sibling
 // header needs to name the other's retained publication.

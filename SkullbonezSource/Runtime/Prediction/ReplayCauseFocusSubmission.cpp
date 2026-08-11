@@ -70,7 +70,6 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsS
 const SkullbonezCore::Runtime::ReplaySolverBodySample*
 FindReplayNonNegativeBodyByModelIndex( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample, int modelIndex )
 {
-
     // Why: CauseFocus has always rejected the terrain/world negative sentinel,
     // while the shared solver wrapper retains the Prediction domain's legacy
     // negative-row scan. Select that policy explicitly instead of changing it.
@@ -139,7 +138,6 @@ namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsSceneObjectId id, ModelRowHint& hint,
                                      int modelCount, int& outModelIndex )
 {
-
     // Why: retained replay UI state carries a dense row only as an optimization.
     // The stable scene id remains authoritative while this resolver heals or
     // invalidates the frame-local hint.

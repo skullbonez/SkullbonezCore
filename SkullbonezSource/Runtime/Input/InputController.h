@@ -232,7 +232,6 @@ constexpr RuntimeInputContextMask operator|( RuntimeInputContextMask lhs, Runtim
 
 struct RuntimeInputKeyBinding
 {
-
     // Concept: The table vocabulary is shared input metadata. Step 1.1 only
     // names key/action/context records; later slices will move TakeInput's
     // branch dispatch onto this data without changing command behavior here.

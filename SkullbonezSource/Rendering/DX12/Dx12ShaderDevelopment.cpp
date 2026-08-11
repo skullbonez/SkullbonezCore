@@ -95,7 +95,6 @@ void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
 
     if ( m_liveShaderCount >= m_liveShaders.size() )
     {
-
         // Lane F: the registry is a fixed backend-lifetime contract. Growing it
         // during resource creation would violate the runtime allocation policy.
         SB_FATAL( "Dx12ShaderDevelopment", "Live raster shader registry exhausted. capacity=%zu", m_liveShaders.size() );
@@ -122,7 +121,6 @@ void Dx12ShaderDevelopment::UnregisterShader( ShaderDX12* shader )
 
     if ( m_pipeline.ActiveShader() == shader )
     {
-
         // Invariant: deleting a live shader cannot leave pipeline desired state
         // borrowing its identity for the next draw.
         m_pipeline.SetActiveShader( nullptr );
@@ -171,7 +169,6 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 
     if ( !exited || exitCode != 0 )
     {
-
         // Lane R: the external bake can fail without changing the live generation.
         return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader bake failed (wait=%lu exit=%lu)", waitResult,
                                             exitCode );
@@ -183,7 +180,6 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() con
 
 SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3D12Device* device )
 {
-
     // Runtime allocation policy: candidate reflection containers may allocate only in
     // the explicit BackendInit developer scope held by the F9 caller.
     ID3D12PipelineState* generateMipsCandidate = nullptr;
@@ -240,7 +236,6 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
 void Dx12ShaderDevelopment::ResetAfterShutdown()
 {
-
     // Lifetime: runtime and geometry resource owners must destroy every shader
     // before the renderer tears down pipeline/device state. A remaining row
     // would become a dangling owner reference after backend destruction.

@@ -148,7 +148,6 @@ class GrowthEventLock
 
 bool IsGameplayPhaseIndex( int phaseIndex ) noexcept
 {
-
     // Runtime allocation policy: replay is allowed bounded registered growth,
     // but an unregistered replay heap request is still a validation failure.
     return phaseIndex == 3 || phaseIndex == 4 || phaseIndex == 5 || phaseIndex == 6;
@@ -278,7 +277,6 @@ bool GrowthRequestMatchesOwner( const OwnerRecord& owner, const RuntimeReserveGr
 
 bool ReplayGrowthCountLimitExhausted( const OwnerRecord& owner, uint64_t oldGrowthCount ) noexcept
 {
-
     // Invariant: the hard capacity is the replay memory bound. A negative
     // growth-count limit leaves exploratory replay tools free to discover
     // larger prediction buffers while still counting and reporting each bump.
@@ -586,7 +584,6 @@ bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( Runtime
     {
         if ( activeBefore > hardBytes || bytes > hardBytes - activeBefore )
         {
-
             // Lane F precursor: the caller reports the named vendor and map
             // request before terminating. Count the rejected request here so
             // allocation-policy summaries cannot present the cap as healthy.
@@ -636,7 +633,6 @@ void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerH
     if ( ownerIndex != UNREGISTERED_OWNER && owner.allowDevelopmentToolAllocations &&
          ( owner.hardCapacity <= 0 || activeAfter > static_cast<uint64_t>( owner.hardCapacity ) ) )
     {
-
         // Invariant: the tool exception is bounded by live bytes. Crossing the
         // cap remains a policy violation even though the allocation itself has
         // already succeeded inside the third-party library.

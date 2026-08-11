@@ -136,7 +136,6 @@ void UIDrawList::PushClip( float x, float y, float w, float h )
 {
     if ( m_clipDepth >= MAX_CLIP_DEPTH )
     {
-
         // Invariant: every rejected push still owns its matching pop. Tracking
         // that logical depth prevents an overflow pair from un-clipping the
         // deepest retained outer rectangle.

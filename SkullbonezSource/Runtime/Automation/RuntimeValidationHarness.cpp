@@ -103,7 +103,6 @@ void SceneAutomationGateConfiguration::AppendRequiredBroadphaseXCells( int minCe
 
 void SceneAutomationGateTracker::ApplyConfiguration( SceneAutomationGateConfiguration configuration )
 {
-
     // Lifetime: resolved body rows belong to exactly one activated scene. Move
     // the cold-load value so validation performs no second allocation or lookup.
     m_configuration = std::move( configuration );
@@ -113,7 +112,6 @@ void SceneAutomationGateTracker::ApplyConfiguration( SceneAutomationGateConfigur
 void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                         SceneAutomationGateConfiguration&& configuration )
 {
-
     // Lifetime: the caller may offer a detached configuration on every apply
     // boundary; only a newly cleared generation transfers its vector storage.
     if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
@@ -422,7 +420,6 @@ void RuntimeValidationHarness::ResumeGraphicsStressAfterSceneLoad( const RunLaun
 void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                       const RunLaunchOptions& launchOptions )
 {
-
     // Invariant: a reload may be sampled more than once, but the stress random
     // stream and cadence resume exactly once after population reaches commit.
     if ( launchOptions.graphicsStress &&

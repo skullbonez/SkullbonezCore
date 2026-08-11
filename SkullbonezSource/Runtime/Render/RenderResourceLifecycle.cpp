@@ -246,7 +246,6 @@ void RenderResourceLifecycle::ReleaseUiTextResources()
 void RenderResourceLifecycle::InvalidateProfilerResources()
 {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-
     // Lifetime: invalidate backend queries while the diagnostics facet is live,
     // then clear Core's value history through the concrete timing owner.
     m_gpuTiming.InvalidateDevice();

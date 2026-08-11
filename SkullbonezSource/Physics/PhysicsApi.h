@@ -251,7 +251,6 @@ struct PhysicsColliderCreateDesc
 
 struct PhysicsAuthoredBodyRegistration
 {
-
     // One scene-creation commit publishes both physics rows. Either both
     // handles are valid or neither row remains live.
     PhysicsBodyHandle body;
@@ -272,7 +271,6 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( const Math::CollisionDe
                                                          const char* contactMaterialName = nullptr,
                                                          HullShapeIdentity hullIdentity = {} )
 {
-
     // Why: creation paths already know the exact primitive facts. Build the
     // collider import packet once there so PhysicsEngine owns the live row and
     // collection owners do not rediscover shape metrics on append.

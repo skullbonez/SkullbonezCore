@@ -37,7 +37,6 @@ class DiagnosticsRuntime;
 struct OverlayDebugState;
 struct SceneUiActivation
 {
-
     // Value-only copy of authored UI intent. The scene owner retains neither
     // the parsed AuthoredScene nor the complete UI owner across the load boundary.
     SceneUIOptions authoredOptions;

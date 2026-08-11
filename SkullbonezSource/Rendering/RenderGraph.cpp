@@ -215,7 +215,6 @@ void RenderGraphCompileResult::ReserveForRuntimePassGraph()
 
 void RenderGraph::Clear()
 {
-
     // Clear starts a fresh frame graph. It forgets declarations only; it does
     // not destroy GPU textures because this first graph contract does not own
     // GPU resources yet.
@@ -235,7 +234,6 @@ void RenderGraph::ReserveForRuntimePassGraph()
 RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess,
                                                             RenderGraphNativeResourceToken nativeResource )
 {
-
     // External resources are objects the current renderer already owns, such as
     // the swap-chain back buffer or an existing reflection target. The graph can
     // reason about how passes use them without taking over allocation yet.
@@ -331,7 +329,6 @@ RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
 
 uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
 {
-
     // A pass is a named unit of frame work. A declaration becomes executable
     // when its callback is installed; callback-free rows are frame-edge
     // bookkeeping only.
@@ -357,7 +354,6 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
 void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
                            uint32_t subresource )
 {
-
     // A read means this pass expects the previous contents of the resource to
     // already exist and be visible to the shader or fixed-function GPU stage.
     // Graph compilation compares this read against the previous write and emits
@@ -372,7 +368,6 @@ void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resourc
 void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access,
                             uint32_t subresource )
 {
-
     // A write means this pass produces or overwrites contents in the resource.
     // Graph compilation remembers this as the latest known resource state, then
     // transitions the resource before the next incompatible read or write. This
@@ -386,7 +381,6 @@ void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resour
 
 void RenderGraph::SetPassCallbackRecord( uint32_t passIndex, CallbackRecord record, bool enabled, const char* debugLabel )
 {
-
     // Concept: callback ownership is a pass-order contract, not a closure
     // warehouse. A raw function pointer plus caller-owned userdata keeps the
     // graph from allocating or retaining broad runtime state just to execute one
@@ -406,7 +400,6 @@ void RenderGraph::SetPassCallbackRecord( uint32_t passIndex, CallbackRecord reco
 
 std::string RenderGraph::DumpText() const
 {
-
     // Human-readable dumps are an early diagnostic tool. Before a render graph
     // text dump lets an engineer confirm the frame is declared in the intended
     // order and that each pass uses the expected resources.
@@ -528,7 +521,6 @@ RenderGraphCompileResult RenderGraph::Compile() const
 
 void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 {
-
     // This is the first deliberately simple graph compiler.
     //
     // It does not execute callbacks. It does not create backend API textures.
@@ -660,7 +652,6 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 
                 if ( allAccess == RenderGraphResourceAccess::Unknown )
                 {
-
                     // Unknown means "legacy code still owns the real initial
                     // DX12 state." It is useful as a diagnostic marker, but it
                     // is not a real barrier source state.
@@ -933,7 +924,6 @@ RenderGraphExecutionContractResult RenderGraph::ValidateFrameExecutionContract( 
 
 void RenderGraph::ReleaseCallbackPayloadBorrows()
 {
-
     // Lifetime: production callbacks borrow stack payloads only through their
     // synchronous append/execute range. Once frame diagnostics are complete,
     // poison every erased invocation slot so an accidental full-graph rerun
@@ -951,7 +941,6 @@ void RenderGraph::ReleaseCallbackPayloadBorrows()
 
 const RenderGraphResourceDesc& RenderGraph::CheckedResource( RenderGraphResourceHandle handle ) const
 {
-
     // Fail immediately when a pass refers to a resource that was never declared.
     // That is much easier to debug than letting a bad graph handle turn into a
     // wrong DX12 descriptor, a bad resource barrier, or a GPU validation error
@@ -967,7 +956,6 @@ const RenderGraphResourceDesc& RenderGraph::CheckedResource( RenderGraphResource
 
 RenderGraphPassDesc& RenderGraph::CheckedPass( uint32_t passIndex )
 {
-
     // Pass indices are local to this graph. Failing fatally here keeps graph
     // construction mistakes in CPU code instead of letting them silently produce
     // incomplete barrier schedules later.
@@ -982,7 +970,6 @@ RenderGraphPassDesc& RenderGraph::CheckedPass( uint32_t passIndex )
 
 void RenderGraph::CheckedConcreteAccess( RenderGraphResourceAccess access ) const
 {
-
     // Unknown is useful as an initial state when legacy backend code still owns
     // the actual DX12 object. It is not useful as a pass declaration because a
     // backend barrier helper cannot translate "unknown" into a safe read/write

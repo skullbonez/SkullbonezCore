@@ -48,7 +48,6 @@ namespace
 {
 size_t HashShaderBytecode( ID3DBlob* blob )
 {
-
     // Why: PSO cache keys must survive scene reloads. Shader blobs can be
     // reallocated at new addresses even when their compiled bytecode is
     // identical, so pointer identity is too volatile for long stress runs.
@@ -117,7 +116,6 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !loadedBaked )
     {
-
         // Lane R: runtime accepts only the pinned offline-DXC artifact. Manual
         // hot reload reruns that same bake before asking this loader to try again.
         SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_bytecode_rejected path=%s reason=%s",
@@ -143,7 +141,6 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !ValidateGeneratedShaderProgramContract( hlslPath, *m_contract, contractError ) )
     {
-
         // Lane R: authored shader assets are external startup inputs. Reject
         // a stale CPU/DXIL ABI with the owning shader and exact mismatch.
         SkullbonezCore::Core::Log()
@@ -164,7 +161,6 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
     if ( !ValidateReflectedContract( reflectedContractError ) )
     {
-
         // Hazard: hot reload changes the baked files without recompiling this
         // executable's generated metadata. Validate the candidate DXIL itself
         // before it can enter the transaction, including optional-present rows.
@@ -234,7 +230,6 @@ bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 
 void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
 {
-
     // Invariant: CanAdoptReload proved the constant layout is unchanged. Keep
     // the live CPU values and only replace bytecode/reflection identity so a
     // reload cannot erase uniforms that owners set once during construction.
@@ -248,7 +243,6 @@ void ShaderDX12::AdoptReload( ShaderDX12ReloadPayload& payload )
 
 bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* stageName )
 {
-
     // Use D3DReflect to inspect the compiled shader bytecode and discover constant buffer layouts.
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
@@ -270,7 +264,6 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
     if ( !ReflectShaderBytecode( blob, reflect, hr ) )
     {
-
         // Lane R: reflection depends on compiler output and device tooling. A
         // failed reflection pass means this shader cannot expose a safe uniform
         // contract, so report failure to Compile() instead of throwing.
@@ -990,7 +983,6 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
 
     if ( m_contract )
     {
-
         // Typed blocks replace per-uniform setters for this activation. Mark
         // all contract uniforms as set so Debug diagnostics still catch stale
         // reflected layouts without falsely reporting every field in the block.
@@ -1043,7 +1035,6 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 
 const uint8_t* ShaderDX12::GetVSBytecode() const
 {
-
     // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
     // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
     return m_vsBlob ? static_cast<const uint8_t*>( m_vsBlob->GetBufferPointer() ) : nullptr;
@@ -1064,7 +1055,6 @@ size_t ShaderDX12::GetVSBytecodeHash() const
 
 const uint8_t* ShaderDX12::GetPSBytecode() const
 {
-
     // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
     // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
     return m_psBlob ? static_cast<const uint8_t*>( m_psBlob->GetBufferPointer() ) : nullptr;

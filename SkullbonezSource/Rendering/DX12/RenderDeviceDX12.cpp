@@ -46,7 +46,6 @@ static inline SkullbonezCore::Core::SbResult Dx12StartupResult( SkullbonezCore::
 {
     if ( FAILED( hr ) )
     {
-
         // Lane R: adapter, driver, swap-chain, and Win32 event creation can fail
         // because of the host environment. Report the failing DX12 startup step
         // to the process bootstrap instead of escaping through an exception.
@@ -95,7 +94,6 @@ struct Dx12RenderDeviceInitRollback
 
 void EnableDx12DeviceRemovedDiagnostics()
 {
-
     // DRED is Direct3D's "black box recorder" for device removal. A device can
     // be removed when the GPU hangs, the driver resets, or DX12 detects a serious
     // memory/access problem. Turning this on before device creation asks the
@@ -121,7 +119,6 @@ void EnableDx12DeviceRemovedDiagnostics()
 
 void NameDx12Object( ID3D12Object* object, const wchar_t* name )
 {
-
     // SetName is a diagnostic label, not a rendering dependency. Ignore failure
     // because the engine should still run on systems where a debug-name call is
     // unavailable or rejected, but always try because PIX, DRED, and InfoQueue
@@ -140,7 +137,6 @@ void NameDx12Object( ID3D12Object* object, const wchar_t* name )
 
 void NameDx12ObjectIndexed( ID3D12Object* object, const wchar_t* prefix, UINT index )
 {
-
     // Many DX12 objects come in small per-frame arrays. Give each object the
     // same readable prefix plus an index so debugging output can distinguish
     // "backbuffer 0" from "backbuffer 1" or "upload buffer 0" from "upload
@@ -154,7 +150,6 @@ void NameDx12ObjectIndexed( ID3D12Object* object, const wchar_t* prefix, UINT in
 
 void Dx12FenceTimeline::Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HANDLE eventHandle )
 {
-
     // The queue is where GPU work is submitted. The fence is the counter the
     // queue updates when that work reaches a known completion point. The event
     // is a normal Windows event used to put the CPU thread to sleep while it
@@ -168,7 +163,6 @@ void Dx12FenceTimeline::Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HAN
 
 void Dx12FenceTimeline::Reset()
 {
-
     // Reset only forgets the borrowed pointers. The backend/device still owns
     // and releases the command queue, fence, and event handle.
     m_queue = nullptr;
@@ -479,7 +473,6 @@ void Dx12DescriptorAllocator::ResetFrame( UINT frameIndex )
 
 UINT Dx12DescriptorAllocator::AllocateStatic()
 {
-
     // Lifetime: freed rows enter this list only after the frame retirement
     // fence completes, so reuse cannot change a descriptor still visible to an
     // in-flight command list.
@@ -536,7 +529,6 @@ void Dx12DescriptorAllocator::FreeStatic( UINT index )
 
 UINT Dx12DescriptorAllocator::AllocateTransient()
 {
-
     // Transient slots are short-lived copies into the shader-visible heap.
     // They are cheap to allocate during command recording, but the CPU must not
     // reuse a slot until the GPU has finished every command list that saw it.
@@ -623,7 +615,6 @@ void Dx12DescriptorAllocator::ValidateStagingIndex( UINT index, const char* cont
 
 D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleCpuHandle( UINT index ) const
 {
-
     // CPU handles are used when the engine writes or copies a descriptor into a
     // heap slot. GPU handles are separate because shaders see GPU addresses, not
     // CPU pointers.
@@ -646,7 +637,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleCpuHandle( UIN
 
 D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleGpuHandle( UINT index ) const
 {
-
     // The GPU handle is the value bound to a root descriptor table. A shader
     // follows this handle to find the descriptor that describes the texture or
     // UAV it should read or write.
@@ -669,7 +659,6 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleGpuHandle( UIN
 
 D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT index ) const
 {
-
     // Staging handles point to CPU-only descriptor rows. Keeping persistent
     // descriptors here gives the renderer a stable template it can copy into
     // transient shader-visible rows without reconstructing the view description
@@ -720,7 +709,6 @@ Dx12DescriptorAllocatorStats Dx12DescriptorAllocator::GetStats() const
 
 void Dx12UploadArena::Init( ID3D12Resource* resource, uint8_t* mappedPtr, UINT64 capacityBytes )
 {
-
     // Upload buffers are created once and kept mapped. Persistent mapping is a
     // normal DX12 upload-heap pattern: the CPU writes through mappedPtr, and the
     // GPU later reads the same bytes through resource->GetGPUVirtualAddress().
@@ -748,7 +736,6 @@ void Dx12UploadArena::Reset()
 
 void Dx12UploadArena::ResetFrame()
 {
-
     // Resetting the byte cursor is safe only after the backend has waited for
     // this frame allocator's fence. At that point, the GPU can no longer read
     // old constants or dynamic vertices from this upload buffer.
@@ -763,7 +750,6 @@ void Dx12UploadArena::ResetFrame()
 
 bool Dx12UploadArena::CanAllocate( UINT64 sizeBytes, UINT64 alignment ) const
 {
-
     // The backend uses this probe to decide whether it must submit and wait
     // before recording more upload-heavy work. It prevents wraparound writes
     // into bytes already used earlier in the same command list.
@@ -863,7 +849,6 @@ Dx12UploadArenaStats Dx12UploadArena::GetStats() const
 
 UINT64 Dx12UploadArena::AlignOffset( UINT64 offset, UINT64 alignment ) const
 {
-
     // Alignment means "start this allocation at an address divisible by N." The
     // formula below rounds up to the next legal byte offset. When alignment is 1
     // or 0, every byte position is legal, so no rounding is needed.
@@ -1336,7 +1321,6 @@ SkullbonezCore::Core::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceIni
 
     for ( UINT i = 0; i < m_frameCount; ++i )
     {
-
         // A command allocator is the memory backing one batch of recorded GPU
         // commands. It must not be reset until the frame fence proves the GPU
         // has finished executing commands recorded into it.
@@ -1401,7 +1385,6 @@ SkullbonezCore::Core::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceIni
 
 void Dx12RenderDevice::Shutdown()
 {
-
     // Invariant: this low-level owner does not submit or wait. Normal runtime
     // teardown reaches it only after RenderBackendDX12 has proven queue/present
     // completion; Init rollback reaches it before any command-list submission.
@@ -1478,7 +1461,6 @@ void Dx12RenderDevice::Shutdown()
 
 void Dx12RenderDevice::PublishInitialExtent( int width, int height )
 {
-
     // Invariant: generation zero means no complete render-device epoch has been
     // published. Initial publication creates generation one exactly once.
     if ( width <= 0 || height <= 0 || m_recreationGeneration != 0 )
@@ -1510,7 +1492,6 @@ uint64_t Dx12RenderDevice::PublishResizedExtent( int width, int height )
 SkullbonezCore::Core::SbResult Dx12RenderDevice::CreateDepthStencilResource( int width, int height,
                                                                              ID3D12Resource*& outResource ) const
 {
-
     // Concept: the main depth surface is part of the published presentation
     // epoch because its dimensions must match the swap-chain color surfaces.
     // Creation returns a candidate; ReplaceDepthStencil is the publication step.
@@ -1556,7 +1537,6 @@ SkullbonezCore::Core::SbResult Dx12RenderDevice::CreateDepthStencilResource( int
 
 ID3D12Resource* Dx12RenderDevice::ReplaceDepthStencil( ID3D12Resource* replacement )
 {
-
     // Lifetime: replacement transfers one COM reference into this owner. The
     // caller receives the old reference and must retire or release it.
     ID3D12Resource* previous = m_depthStencil;

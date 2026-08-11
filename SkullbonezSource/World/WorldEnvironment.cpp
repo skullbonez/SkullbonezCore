@@ -97,7 +97,6 @@ void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Core::EngineConf
 void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                            SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
 {
-
     // Lifetime: water keeps rebuild-only borrows owned by Run and refreshed by
     // WaterPass before lazy resource recreation.
     ApplyWaterAndFluidSettings( config );
@@ -285,7 +284,6 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
     if ( cinematic && !WaterModeIncludesOuterOcean( waterMode ) )
     {
-
         // Cinematic preview stops after the calm basin pool. Skipping the outer
         // ocean avoids a giant water sheet behind the shot and keeps attention on
         // the terrain bowl, balls, sunset, and fog.
@@ -510,7 +508,6 @@ void WorldEnvironment::SetFluidSurfaceHeight( float height )
 
 void WorldEnvironment::ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment, float deltaSeconds )
 {
-
     // Invariant: input has already resolved device semantics. This world owner
     // consumes only signed meters-per-second over the simulation interval.
     m_fluidSurfaceHeight += adjustment.DeltaMeters( deltaSeconds );

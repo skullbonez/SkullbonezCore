@@ -49,7 +49,6 @@ TornadoVisualPass::TornadoVisualPass()
 
 void TornadoVisualPass::ReserveCapacity()
 {
-
     // Runtime allocation policy: the live SceneWorld pays the complete visual
     // maximum before steady gameplay. Replay-only TornadoGameplay owners do
     // not carry this 32 MiB presentation buffer.
@@ -117,7 +116,6 @@ void TornadoGameplay::SetSystemConfig( const TornadoSystemConfig& config )
 {
     if ( config.vortices.size() > MAX_ACTIVE_FORCE_FIELDS )
     {
-
         // Lane F: authored parsing must reject oversize content before owner
         // mutation. Reaching this typed command with too many rows means that
         // recoverable preflight was bypassed.
@@ -381,7 +379,6 @@ void TornadoGameplay::EnsureStateBuffers( int modelCount )
     if ( modelCount < 0 || static_cast<std::size_t>( modelCount ) > m_captureSeconds.capacity() ||
          static_cast<std::size_t>( modelCount ) > m_ejectCooldownSeconds.capacity() )
     {
-
         // Lane F: SceneWorld must reserve the authored capacity before steady
         // gameplay. Growing either timer vector here would violate the global
         // runtime allocation policy.
@@ -426,7 +423,6 @@ void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )
 
 uint64_t TornadoVisualPass::DynamicMemoryBytes() const
 {
-
     // Why: the focused CPU test target links Gameplay ownership without the
     // DX12-backed visual implementation, but diagnostics still must account
     // for the visual owner's reserved CPU arena through that stable seam.

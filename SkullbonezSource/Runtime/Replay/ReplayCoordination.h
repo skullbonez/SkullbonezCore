@@ -71,7 +71,6 @@ struct SceneSessionState;
 
 namespace ReplayInteractionOperations
 {
-
 // Ends replay-owned tool capture without borrowing the replay composition root.
 // Gesture and native-capture authority remain with their concrete input owners.
 void CancelToolGesture( RuntimeInteractionController& interaction );

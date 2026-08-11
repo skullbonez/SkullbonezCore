@@ -168,7 +168,6 @@ SkullbonezCore::Core::MainMemoryStats
 BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
                              const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects )
 {
-
     // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
     // It can show the last cached replay totals and current model-store capacity,
     // but process reconciliation belongs to explicit diagnostics refreshes.
@@ -290,7 +289,6 @@ float UiTextPass::BeginFrame( RunTimerState& timers, const RuntimeRenderModelFra
 float UiTextPass::UpdateFrameMetrics( RunTimerState& timers, const RuntimeRenderModelFrameView& models,
                                       double secondsPerFrame )
 {
-
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
     timers.updateTimer.StopTimer();
@@ -347,7 +345,6 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
     if ( debug.isTextOnly )
     {
-
         // Dark background covering the full viewport
         Text2d::Render2dQuad( textBatch, renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
 
@@ -446,7 +443,6 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
     const auto renderRuntimeModeBadge = [&]()
     {
-
         // Why: clean validation/look-dev captures use --hide-top-text to remove
         // top-left chrome without changing scene simulation or camera state.
         if ( debug.isTopTextHidden )
@@ -611,7 +607,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     UIData.cpuFrameMs = timers.cpuFrameWorkMs;
     UIData.gpuFrameMs = timers.gpuFrameWorkMs;
     {
-
         // Concept: render draw attribution is copied through UIData while
         // the render diagnostics capability is already borrowed by Run. The
         // profiler tab never needs the wide renderer facade to explain draw
@@ -714,7 +709,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     }
 #endif
     {
-
         // Concept: marker enumeration stays in the runtime pass that owns
         // profiler access. The UI receives a bounded frame snapshot so
         // drawing and hit testing do not reach into profiler globals.
@@ -856,7 +850,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
 
     if ( memoryTabActive )
     {
-
         // Why: memory sampling belongs to DiagnosticsRuntime; the render host
         // only decides whether the UI pass needs to draw.
         assert( replayHud.memoryStatsValid );
@@ -865,7 +858,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
     }
     else if ( memoryOverlayEnabled )
     {
-
         // Why: F6 stays event/counter driven. Merely leaving the overlay up
         // must not start a process-memory or replay-memory sampling heartbeat.
         UIData.mainMemory = BuildMainMemoryOverlayStats( diagnosticsRuntime, models.gameObjectMemory );
@@ -873,7 +865,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
 
     if ( memoryTabActive || memoryOverlayEnabled )
     {
-
         // The render snapshot is cheap owner-maintained accounting; unlike
         // process memory sampling, it is safe to refresh for the F6 overlay.
         UIData.renderMemory = ProjectRenderMemoryDiagnostics( renderDiagnostics.GetRenderMemoryStats() );
@@ -1177,7 +1168,6 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 
     if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
     {
-
         // Panel anchored bottom-left, filling most of the width. Height kept modest - leave vertical
         // space above for future multi-core stacked rows.
         const float panW = ( hw - mX ) * 2.0f * 0.85f; // 85% of screen width
@@ -1344,7 +1334,6 @@ void UiTextPass::FinalizeOverlay( OverlayMode mode, Rendering::Dx12TextureOwner&
 
 void UiTextPass::ReportRetainedDrawStats()
 {
-
     // Lifetime: reporting runs after the complete UI graph, so every retained
     // stream reflects the same final command/text counts as the former scope.
     const RetainedUIDrawStatsScope retainedDrawStats( m_testPatternDrawList, m_badgeDrawList, m_replayDrawList,

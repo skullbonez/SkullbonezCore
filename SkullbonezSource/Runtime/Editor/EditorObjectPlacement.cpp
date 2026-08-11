@@ -70,7 +70,6 @@ constexpr float EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
 void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, bool boxObject )
 {
-
     // Concept: editor-spawn material encodes placement mode before asset
     // recipes override it. Fixed bodies stay neutral, dynamic boxes keep the
     // legacy inverted-texture marker, and dynamic hulls use the blue editor tint.
@@ -92,7 +91,6 @@ void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, b
 PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution,
                                                   HullShapeIdentity hullIdentity = {} )
 {
-
     // Why: placement commit already owns the primitive geometry selected by the
     // editor. Pass that value into physics at append time so the collider store
     // receives exact shape facts without a legacy object record readback.
@@ -115,7 +113,6 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
                                                       int activeModelCapacity, EditorObjectPlacementRequest request,
                                                       int& outType, bool reportErrors )
 {
-
     // Invariant: This preflight is the single capacity and asset-count gate
     // for both CanPlace and Place. Add new multi-part object families here
     // before adding their placement branch below.
@@ -219,7 +216,6 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
     auto addModel = [&]( SceneEntityCreateDesc model, PhysicsBodyCreateDesc bodyDesc, PhysicsColliderCreateDesc colliderDesc,
                          bool modelFixed, bool modelStartsAsleep = false ) -> bool
     {
-
         // Lifetime: the transaction publishes the new scene, physics, and
         // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned

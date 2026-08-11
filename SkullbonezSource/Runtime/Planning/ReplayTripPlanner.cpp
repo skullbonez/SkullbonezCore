@@ -84,7 +84,6 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::BeginFrame( const ReplayTri
 
     if ( ( input.liveAdvanceHeld || !m_view.available ) && PlanningState( m_view.state ) )
     {
-
         // Invariant: losing the planning preconditions is cancellation, not an
         // implicit commit of the last candidate already applied to live Physics.
         m_commandCount = 0;
@@ -434,7 +433,6 @@ const ReplayTripPlannerView& ReplayTripPlanner::View() const noexcept
 
 bool ReplayTripPlanner::RequiresLiveInput() const noexcept
 {
-
     // Why: the default-hidden planner must impose no body-store scan or large
     // view copy in steady gameplay. A queued command or non-idle plan wakes it.
     return m_commandCount > 0 || m_view.visible || m_view.state != ReplayTripPlannerState::Idle;

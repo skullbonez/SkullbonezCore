@@ -61,7 +61,6 @@ enum class LookLabStatusKind : uint8_t
 
 struct LookLabStatusView
 {
-
     // Invariant: these fields describe one candidate transition and travel as
     // one detached UI value. TestLookLabController pins publication and clearing.
     LookLabStatusKind kind = LookLabStatusKind::Idle;
@@ -77,7 +76,6 @@ struct LookLabStatusView
 
 struct LookLabSaveRequest
 {
-
     // Invariant: these synchronous values describe one bundle revision and are
     // copied into controller-owned bounded facts before this call returns;
     // TestLookLabController.cpp proves the request cannot outlive its borrows.

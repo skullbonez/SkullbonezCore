@@ -97,7 +97,6 @@ PreviousObjectContactLookup InspectPreviousObjectContact( const PersistentContac
 
     if ( cachedIt != cache.end() && cachedIt->key == exactKey )
     {
-
         // Hazard: malformed or colliding manifold feature IDs can leave
         // duplicate cache keys. Preserve lower_bound's historical first-match
         // choice until the manifold-identity owner eliminates that ambiguity.
@@ -127,7 +126,6 @@ PersistentContactSolverStepPolicy
 PhysicsContactSolverStage::ResolveStepPolicy( const PhysicsRuntimeSettings& settings,
                                               const PhysicsWorldForces& worldForces ) noexcept
 {
-
     // Invariant: these are the historical use-site guards, collected without
     // changing their bounds so every row in the solve shares one interpretation.
     PersistentContactSolverStepPolicy policy;
@@ -163,7 +161,6 @@ void PersistentContactSolveTransaction::AdvanceOrFatal( PersistentContactSolvePh
 
     if ( !m_phase.TryAdvance( next ) )
     {
-
         // Lane F: running a contact phase twice, backward, or after skipping a
         // predecessor can publish rows, velocities, or cache state from a
         // partially solved fixed tick.
@@ -237,7 +234,6 @@ bool PersistentContactSolveTransaction::HasCachedImpulse( const PersistentContac
 
 float PersistentContactSolveTransaction::ConservativeContactRadius( const ColliderRecord& collider )
 {
-
     // Broadphase radii must include any local shape offset. If a shape is not
     // centered on the body origin, the conservative sphere reaches the farthest
     // shifted point.
@@ -326,7 +322,6 @@ void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bod
 
         if ( sleepState[bodyIndex] || hotRead.fixed[bodyIndex] != 0u )
         {
-
             // Sleeping bodies still provide persistent support to awake bodies,
             // but they behave as static anchors until deliberately woken.
             body.linearVelocity = ZERO_VECTOR;
@@ -380,12 +375,12 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
     };
     auto contactBodyViewForIndex = [&]( int index ) -> ObjectContactBodyView
     {
-
         // Why: object manifolds need only pose plus shape. Pose comes from
         // PhysicsBodyStore, while ColliderStore owns the per-kind shape payload
         // borrowed by its collider row; row construction never needs a mutable
         // scene object.
         const std::size_t bodyIndex = static_cast<std::size_t>( index );
+
         ObjectContactBodyView view;
         view.position = PhysicsBodyPosition( hotRead, bodyIndex );
         view.orientation = PhysicsBodyOrientation( hotRead, bodyIndex );
@@ -693,7 +688,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
             if ( manifold.pointCount > 2 && !hasSphere && sameShapeFaceFootprint && hasRestingFootprint &&
                  objectContactRowsAreQuiet( aIndex, bIndex, manifold ) )
             {
-
                 // Why: same-shape box/box and hull/hull face manifolds often
                 // produce four rows for one broad contact patch. For quiet
                 // support, two well-spread cached points preserve the plane
@@ -795,7 +789,6 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
     // normal/friction solving.
     for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
     {
-
         // Skip invalid/no-op manifolds before they affect profiler counts,
         // pipeline records, or the warm-start cache. Sleeping bodies do not
         // need fresh terrain rows; their accepted support state is already
@@ -1059,7 +1052,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             }
             else
             {
-
                 // Concept: restitution belongs to a new impact, not to rocking
                 // inside a contact feature that already carried support. Exact
                 // feature identity owns both warm-start compatibility and this
@@ -1122,7 +1114,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
             }
             else
             {
-
                 // Why: the exact lookup above owns both feature lifetime and
                 // warm-start compatibility, avoiding a second binary search.
                 cachedEntry = previousObjectContact.exactFeature;
@@ -1153,7 +1144,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         }
 
         {
-
             // Concept: impact presentation needs the relative motion that
             // existed before warm-start and solver impulses push through an
             // island. Solved impulse alone also represents support transfer.
@@ -1203,7 +1193,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
 
         if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
         {
-
             // CATTO REF:
             //   Catto 2005, PDF p. 17, Algorithm 4 initializes a = B*lambda.
             //   In this implementation, "a" is represented by the mutable solver
@@ -1610,7 +1599,6 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBod
 
         if ( omegaMagSq > TOLERANCE * TOLERANCE )
         {
-
             // Approximate rolling friction as a torque opposite angular
             // velocity. The effective radius is exact for spheres and a
             // conservative average extent for boxes, enough to bleed tiny
@@ -1664,7 +1652,6 @@ void PersistentContactSolveTransaction::ApplyTerrainRestPolicy( const PhysicsBod
         if ( ( Dot( body.linearVelocity, body.linearVelocity ) ) < sleepLinear * sleepLinear &&
              ( Dot( body.angularVelocity, body.angularVelocity ) ) < sleepAngular * sleepAngular )
         {
-
             // Snap only near-zero supported motion. This avoids tiny solver
             // residue keeping a legitimately settled terrain body awake,
             // while leaving unsupported impacts and sliding bodies untouched.

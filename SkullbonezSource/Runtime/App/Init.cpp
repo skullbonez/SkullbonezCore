@@ -143,7 +143,6 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
 
     if ( !renderInitResult.Ok() )
     {
-
         // Lane R: render backend startup probes the host graphics environment.
         // Failures are reported at process bootstrap before any runtime borrows
         // are published.
@@ -169,7 +168,6 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
             SkullbonezCore::Core::EngineConfig& cfg, WorkerPool& workerPool, SkullbonezCore::Core::Profiler* profiler,
             RenderBackendDX12& renderBackend, SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
 {
-
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
     {
@@ -301,7 +299,6 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
 
 void CleanupWindow( Window* window, HINSTANCE instance, std::unique_ptr<RenderBackendDX12>& renderBackend )
 {
-
     // Lifetime: disarm callback-fed input queues while the HWND still names
     // the window that WndProc used, before backend/window class teardown.
     const HWND windowHandle = window->NativeWindowHandle();
@@ -355,7 +352,6 @@ int ReportDiagnosticStoreSession( SkullbonezCore::Core::SbDiagnosticStore& diagn
 
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR commandLineText, int showCommand )
 {
-
     // Heap debug code - breaks program at specified allocation
     // _CrtSetBreakAlloc(89);
 
@@ -439,7 +435,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
 
     SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClient = nullptr;
 #if defined( TRACY_ENABLE )
-
     // Lifetime: this owner starts before WorkerPool creates instrumentable
     // threads and is explicitly stopped after their joins on every exit path.
     SkullbonezCore::Core::DevelopmentTools::TracyClientOwner tracyClientOwner;
@@ -516,7 +511,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
 
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-
     // Lifetime: Init owns profiling for the synchronous RunApp call. The
     // profiler's fixed marker rings are intentionally startup-heap-owned so
     // they do not consume WinMain's bounded thread stack. Runtime, render, UI,
@@ -532,7 +526,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
         workerPool.Shutdown();
 #if defined( TRACY_ENABLE )
-
         // Lifetime: no engine worker can publish another marker after this
         // point, while logging and COM/platform teardown are still available.
         tracyClientOwner.Shutdown();

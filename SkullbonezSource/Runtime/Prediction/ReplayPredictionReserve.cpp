@@ -45,7 +45,6 @@ namespace SkullbonezCore::Runtime
 {
 namespace
 {
-
 // Runtime allocation policy: prediction scratch can grow as the user explores
 // larger retained paths. The registered hard cap is a real byte ceiling, not a
 // theoretical element-count product; growth count is telemetry so interactive
@@ -171,7 +170,6 @@ std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacit
 
 uint64_t ReplayPredictionEngineMemoryBytes( const Physics::PhysicsEngine& engine )
 {
-
     // Why: PhysicsWorld's total already includes its broadphase, diagnostics,
     // and sleep-visual storage. Adding the debug subset again would double-count
     // that memory and could reject an otherwise valid bounded replay reserve.
@@ -210,7 +208,6 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
 
     if ( requestedBytes > currentReservedBytes )
     {
-
         // Why: the private engine is retained across prediction rebuilds. Only
         // real capacity increases should consume replay growth events; same-size
         // reseeds just reuse the previous bounded reservation.

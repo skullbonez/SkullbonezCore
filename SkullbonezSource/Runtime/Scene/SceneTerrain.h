@@ -60,7 +60,6 @@ class SceneTerrain
     {
         if ( !terrain )
         {
-
             // Lane F: publishing no terrain would invalidate every scene-world
             // consumer and violates the replacement transaction contract.
             SB_FATAL( "SceneTerrain", "Cannot publish a null scene terrain." );

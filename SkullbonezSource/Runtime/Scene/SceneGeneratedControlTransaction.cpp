@@ -45,7 +45,6 @@ namespace
 {
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 {
-
     // Why: The transaction has already cleared mutable scene/model state.
     // Report the recoverable owner and let the caller reset replay/profiler
     // state around the now-current partial topology.
@@ -81,7 +80,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
         if ( !RecordDrainResult( flushResult ) )
         {
-
             // Lane R: the input/stress boundary reports the device failure and
             // this transaction never enters Repopulate.
             return flushResult;
@@ -184,7 +182,6 @@ void SceneGeneratedControlTransaction::AdvanceOrFatal( SceneGeneratedControlPhas
 
     if ( !m_phase.TryAdvance( next ) )
     {
-
         // Lane F: accepting an out-of-order phase could mutate topology before
         // the GPU drain or publish replay state before repopulation.
         SB_FATAL( "Runtime/SceneGeneratedControlTransaction", "Illegal phase transition. operation=%s current=%u next=%u",
@@ -198,7 +195,6 @@ SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineCon
                                            CameraControlState& camera, SimulationSystem& simulation, RuntimeTools& tools,
                                            Rendering::Dx12FrameOwner* renderFrame )
 {
-
     // Invalid UI sentinel values do not represent a transaction and therefore
     // do not enter the phase machine.
     if ( !ResolveRequest( uiOverrides, scene.State() ) )

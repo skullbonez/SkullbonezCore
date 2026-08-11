@@ -131,7 +131,6 @@ SkullbonezCore::Core::SbResult SkyBox::LoadTextures( const SkullbonezCore::Core:
 void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, SkullbonezCore::Assets::AssetSystem& assets,
                           Dx12ResourceBuilder& resources )
 {
-
     // Shorthand for boundary values with overflow
     const int overflow = cfg.skybox.overflow;
     float xn = static_cast<float>( m_boundaries.m_xMin - overflow );
@@ -210,7 +209,6 @@ void SkyBox::BuildMeshes( const SkullbonezCore::Core::EngineConfig& cfg, Skullbo
 
 void SkyBox::BindTextures( TextureCollection& textures )
 {
-
     // Lifetime: Run owns the texture collection; skybox only borrows it between
     // Initialise and backend teardown/rebuild.
     m_textures = &textures;
@@ -220,7 +218,6 @@ void SkyBox::BindTextures( TextureCollection& textures )
 void SkyBox::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                  SkullbonezCore::Assets::AssetSystem& assets, Dx12ResourceBuilder& resources )
 {
-
     // Lifetime: sky resources rebuild during backend init/reset while all three
     // borrows are owned by Run.
     m_config = &config;

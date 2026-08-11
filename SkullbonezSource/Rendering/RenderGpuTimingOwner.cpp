@@ -210,7 +210,6 @@ void RenderGpuTimingOwner::InvalidateDevice()
 }
 
 #else
-
 // Why: unprofiled tools/tests retain the same renderer-facing no-op contract.
 RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics )
     : m_profiler( profiler ), m_diagnostics( diagnostics )

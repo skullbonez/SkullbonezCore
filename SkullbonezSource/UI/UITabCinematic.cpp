@@ -44,7 +44,6 @@ constexpr float UI_CINEMATIC_ROW_H = 42.0f;
 
 struct CinematicSliderSpec
 {
-
     // Concept: One row in the Cine tab. Keeping label/range/step together makes
     // it clear which UI slider controls which render setting.
     const char* section;
@@ -58,7 +57,6 @@ struct CinematicSliderSpec
 
 struct CinematicFeatureSpec
 {
-
     // One toggle in the Cine tab, such as Bloom or Fog.
     const char* label;
     SkullbonezCore::UI::UICinematicFeature feature;
@@ -224,7 +222,6 @@ int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], 
 
 int CinematicSliderIndexFromActiveSlider( int activeSlider )
 {
-
     // Other UI tabs already use activeSlider. Give Cine sliders their own id
     // range so dragging can continue even if the mouse leaves the slider bounds.
     const int index = activeSlider - UI_CINEMATIC_SLIDER_BASE;
@@ -233,7 +230,6 @@ int CinematicSliderIndexFromActiveSlider( int activeSlider )
 
 float CinematicSliderY( int index, float baseY )
 {
-
     // Sections add extra vertical space. Calculating this from the spec array
     // keeps hit testing and drawing in lockstep.
     float y = baseY;
@@ -259,7 +255,6 @@ float CinematicSliderY( int index, float baseY )
 float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                               SkullbonezCore::UI::UICinematicParam param )
 {
-
     // Read the live value for a Cine slider. This is the inverse of the command
     // application in InputRouter.Interactions.cpp.
     switch ( param )
@@ -552,7 +547,6 @@ bool HandleContentClick( UICinematicTabState& state, InGameUIInputResult& result
 
 bool UpdateActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
-
     // Lifetime: activeSlider is shared across all tabs. The Cine tab accepts
     // only its own id range before writing a cinematic command.
     const int cinematicSlider = CinematicSliderIndexFromActiveSlider( activeSlider );

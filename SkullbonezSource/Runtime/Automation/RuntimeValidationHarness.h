@@ -69,7 +69,6 @@ struct RunStartupOverrides;
 
 struct SceneAutomationGatePhysicsView
 {
-
     // Lifetime: post-physics diagnostics constructs this immutable view for one
     // synchronous observation; the tracker stores no scene or store pointer.
     const Physics::PhysicsBodyStore& bodyStore;
@@ -79,7 +78,6 @@ struct SceneAutomationGatePhysicsView
 
 struct SceneAutomationGateStatus
 {
-
     // Value-only completion facts consumed by scene advancement. Diagnostic
     // row ownership and missing-requirement reporting remain in validation.
     bool hasRequirements = false;

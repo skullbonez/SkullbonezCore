@@ -46,7 +46,6 @@ constexpr float UI_SKY_ROW_H = 42.0f;
 
 struct SkySliderSpec
 {
-
     // Concept: One row in the Sky tab. Keeping param/range/step together
     // prevents draw, hit-test, and command mapping from drifting apart.
     const char* section;
@@ -277,7 +276,6 @@ int ContentHeight()
 bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY,
                          float contentX, float scrolledY, float contentW )
 {
-
     // Invariant: Click handling sets the same bounds used by Draw, so hit boxes
     // and visible controls stay coupled.
     const UIRect saveBounds = SkySaveButtonBounds( contentX, scrolledY, contentW );
@@ -324,7 +322,6 @@ bool HandleContentClick( UISkyTabState& state, InGameUIInputResult& result, int&
 
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
-
     // Lifetime: activeSlider is a global UI capture id. Accept only the Sky tab
     // range so dragging between tabs cannot write the wrong command.
     const int skySlider = SkySliderIndexFromActiveSlider( activeSlider );

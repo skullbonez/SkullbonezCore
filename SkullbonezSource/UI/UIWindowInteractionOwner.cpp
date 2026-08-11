@@ -36,7 +36,6 @@ using namespace SkullbonezCore::UI::FrameComposition;
 
 namespace
 {
-
 // Concept: input snapshots retain the Win32 wheel-unit contract as a plain
 // value; UI policy must not recover it through an incidental renderer include.
 constexpr float UI_MOUSE_WHEEL_DELTA = 120.0f;
@@ -54,7 +53,6 @@ void UIWindowInteractionOwner::ResetPresentationResources()
 
 UIWindowInteractionOwner::WidgetView UIWindowInteractionOwner::Widgets()
 {
-
     // Lifetime: the draw composer borrows these references synchronously. The
     // owner remains alive for the whole call and no reference may be retained.
     return { m_window,
@@ -928,7 +926,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
     {
         if ( titleButtons.close.Contains( m_mouseX, m_mouseY ) )
         {
-
             // Why: close and minimize are distinct promises in the drawn
             // chrome. Closing removes the panel entirely; the separate
             // minimize button keeps the bottom-left restore affordance.
@@ -1247,7 +1244,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
                         if ( m_saveTrajectoryStyleButton.HitTest( m_mouseX, m_mouseY ) )
                         {
-
                             // One persistence owner writes the complete ordinary
                             // profile; this local affordance saves the edited path
                             // values without creating a second config writer.
@@ -1409,7 +1405,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
     if ( leftNow && m_activeSlider != 0 )
     {
-
         // Why: sliders update previews continuously while dragged. Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
@@ -1472,7 +1467,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
     if ( input.leftReleased )
     {
-
         // Invariant: commit deferred slider previews exactly once on release. This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.

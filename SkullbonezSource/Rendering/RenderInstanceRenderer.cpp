@@ -224,7 +224,6 @@ bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profil
                                           SkullbonezCore::Threading::WorkerPool& workerPool, int modelCount,
                                           ShadowCasterBatches& outBatches )
 {
-
     // Concept: shadow prep uses count/prefix/fill instead of chunk-local
     // vectors. Counting gives each worker a stable output range for every
     // caster stream, so the fill pass can run in parallel without allocating or
@@ -280,7 +279,6 @@ bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profil
 
 RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instance, bool box )
 {
-
     // Why: contact highlights are render-only feedback. They must not mutate
     // the model's stored material or physics release policy.
     RenderMaterial material = instance.material;

@@ -55,7 +55,6 @@ namespace Hardware
 
 struct InputState
 {
-
     // InputState is copied through the run loop, so the per-frame booleans live
     // in one compact mask instead of a scattered set of mutable fields.
     enum Key : uint32_t

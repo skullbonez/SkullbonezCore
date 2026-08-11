@@ -501,7 +501,6 @@ LauncherReproSnapshotStatus
 RuntimeTools::WriteLauncherReproSnapshotWithStatusMessage( const LauncherReproSnapshotContext& context,
                                                            OverlayDebugState& debug ) const
 {
-
     // Why: the debug Enter shortcut should ask the launcher owner for both the
     // cold snapshot artifact and the operator-facing status text, leaving Run to
     // decide only whether the shortcut is currently allowed.

@@ -60,7 +60,6 @@ Matrix4 BuildRenderModelMatrix( const Vector3& position, const Quaternion& orien
 
     if ( collider.shapeKind == ColliderShapeKind::ConvexHull )
     {
-
         // Why: convex hull draw code transforms authored hull vertices directly.
         // Keep the legacy T * R body matrix here so moving renderers to this
         // snapshot does not add the collision-shape scale/offset a second time.
@@ -297,7 +296,6 @@ bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
 
 void RenderInstanceStore::TickContactFeedback( int modelCount, float deltaSeconds )
 {
-
     // Invariant: feedback follows the same dense rows as render presentation;
     // swap-last deletion moves both timers with the affected scene object.
     const int tickCount = (std::min)( (std::max)( modelCount, 0 ), PresentationCount() );

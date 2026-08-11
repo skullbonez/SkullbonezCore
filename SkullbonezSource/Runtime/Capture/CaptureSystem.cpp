@@ -210,7 +210,6 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, FILE* file,
                                            SkullbonezCore::Core::ByteView bytes, const char* path )
 {
-
     // Invariant: validation screenshots are binary artifacts; a short write is
     // a failed capture, not a partial success that downstream comparisons can
     // safely inspect.
@@ -231,7 +230,6 @@ SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticSto
 
 RuntimeCaptureAutomation CompletionAutomation( bool isInteractiveRun, RuntimeCaptureAutomation automationWhenHeadless )
 {
-
     // Why: interactive captures should keep the window available for inspection,
     // while validation launches need an explicit automation policy to finish.
     return isInteractiveRun ? RuntimeCaptureAutomation::HoldInteractive : automationWhenHeadless;
@@ -260,7 +258,6 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
                                                                  Rendering::Dx12BackbufferCapture& backend,
                                                                  const char* path )
 {
-
     // Lane R: capture support, readback dimensions, and file output can fail
     // because of renderer/device/file-system environment state, so callers get
     // an owner/message result instead of an exception unwind.

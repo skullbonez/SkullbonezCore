@@ -41,7 +41,6 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
-
 // Lifetime: Win32 calls WndProc without a Run instance, so callback-fed mouse
 // queues stay process-local behind Input's static API. Keep new callback
 // accumulator state behind the bound HWND so late or foreign callbacks cannot
@@ -81,7 +80,6 @@ constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
 [[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
 {
-
     // Why: printf-style %p requires a void pointer in this fatal diagnostic;
     // the casts do not establish ownership or serve as runtime identity.
     SB_FATAL( "Input", "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
@@ -177,7 +175,6 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 
     if ( !GetKeyboardState( keyboardState ) )
     {
-
         // Lane R: desktop/session state can make Win32 keyboard capture fail.
         // The frame owner must stop rather than route a fabricated all-up frame.
         return diagnostics.Failure( "Runtime/Input", "GetKeyboardState failed while capturing the device frame (win32=%lu)",
@@ -200,7 +197,6 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
     if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey >= 0 &&
          s_automationState.keyVirtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT )
     {
-
         // Invariant: automation augments the same immutable snapshot consumed by
         // physical input; it does not retain a second command-edge path.
         const int virtualKey = s_automationState.keyVirtualKey;
@@ -210,7 +206,6 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 
     if ( s_automationState.enabled && s_automationState.controlDown )
     {
-
         // Why: modifier-aware interaction probes must exercise the normal
         // immutable keyboard snapshot used by editor shortcuts.
         const std::size_t word = static_cast<std::size_t>( VK_CONTROL ) / 64u;
@@ -244,7 +239,6 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                              bool captured )
 {
-
     // Lane R: InputRouter owns the decision, while this narrow hardware seam
     // verifies that Win32 accepted the requested capture transition.
     Window* window = BoundInputWindow();

@@ -53,7 +53,6 @@ class Fence
 
     void Signal()
     {
-
         // Why: the atomic decrement publishes completion even when the final
         // signal arrives before the waiter reaches condition_variable::wait.
         const int previous = m_remaining.fetch_sub( 1, std::memory_order_acq_rel );

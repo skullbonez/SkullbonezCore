@@ -68,7 +68,6 @@ void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 bool FlushWorkingSetQueryBatch( HANDLE process, PSAPI_WORKING_SET_EX_INFORMATION* pages, std::size_t pageCount,
                                 uint64_t& privateWorkingSetBytes, uint64_t pageSize )
 {
-
     // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
     // whole sample. The caller tracks success separately from the byte count.
     if ( !pages || pageCount == 0 )
@@ -269,7 +268,6 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
         }
         else
         {
-
             // Why: F6 memory UI runs on the render thread. GetProcessMemoryInfo
             // is a bounded counter query, while private working set requires an
             // address-space walk over committed pages and can stall a frame.
@@ -344,7 +342,6 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
     {
         perfLog.perfLogWritesSinceFlush = 0;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-
         // Why: validation appends multiple scene passes in one process. Reset
         // the profiler pass state so the existing warmup skips restart rows
         // before CSV output represents steady-state frame costs.

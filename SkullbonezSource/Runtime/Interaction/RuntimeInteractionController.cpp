@@ -48,7 +48,6 @@ bool IsGizmoOwner( WorldInteractionOwner owner )
 bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture, RuntimePointerCaptureOwner captureOwner,
                            WorldInteractionOwner owner )
 {
-
     // Invariant: every non-empty gesture must have both a compatible pointer
     // capture owner and a world owner. This keeps replay, editor, and
     // manipulator drags from overlapping after mode transitions.
@@ -157,7 +156,6 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterManipulator()
 
 RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunCameraMode mode )
 {
-
     // Why: camera mode is the user-facing command, while workspace/owner is the
     // interaction contract. Keeping this mapping here makes mode transitions use
     // the same cleanup metadata as direct tool and replay owner transitions.
@@ -184,7 +182,6 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunC
 
 RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteractionOwner owner ) const
 {
-
     // Concept: workspace classification is interaction-domain vocabulary. Tool
     // routers ask this owner instead of duplicating replay/edit/live mappings.
     if ( owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
@@ -312,7 +309,6 @@ bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureComm
 bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace workspace, WorldInteractionOwner owner,
                                                           const RuntimeInteractionGesture& gesture )
 {
-
     // Invariant: owner selection and gesture capture share one controller
     // boundary. Domain tools must not mirror either half in replay/root state.
     SetWorldInteractionOwnerInWorkspace( workspace, owner, InteractionExitReason::BeginGesture );
@@ -436,7 +432,6 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
 
     if ( input.crossScenePauseLocked )
     {
-
         // Invariant: the explicit cross-scene lock outranks camera, workspace,
         // launcher, and tool policy. Space remains the sole step-level release.
         policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;

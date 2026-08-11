@@ -147,7 +147,6 @@ void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader 
 
 bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat )
 {
-
     // Runtime allocation policy: PSO cache misses are legal only during
     // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
     // future RTV format fails visibly under the allocation guard.
@@ -212,7 +211,6 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
     if ( FAILED( hr ) || !gridLinePSO )
     {
-
         // Lane R: debug-line rendering is diagnostic overlay work. A failed
         // line PSO should drop this overlay draw and report the device result,
         // not unwind the frame; cache capacity failures below remain fatal.
@@ -250,7 +248,6 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
 Dx12GeometryOwner::Dx12GeometryOwner()
 {
-
     // Runtime allocation policy: text, overlays, primitive batches, and tools
     // acquire stable one-based handles from this bounded registry. Reserve the
     // complete handle budget before any first-use render path can request one.
@@ -363,7 +360,6 @@ bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, Dx12Dra
 
 void Dx12GeometryOwner::DestroyDynamicVB( uint32_t /*handle*/ )
 {
-
     // No GPU resources to release; upload memory is shared by the frame arena.
 }
 
@@ -375,7 +371,6 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
                                           Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
                                           const RasterStateDesc& rasterState )
 {
-
     // Invariant: the specialized line-topology PSO is immutable. Declared
     // callers must select its depth-disabled, unblended, two-sided recipe.
     if ( packedVertices.empty() || packedVertices.size() % 6 != 0 || !IsGridLineRasterState( rasterState ) )
@@ -515,7 +510,6 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
 
     if ( IsInstancedRibbonStyle( style ) )
     {
-
         // Concept: the retained-ribbon shader expands each compact segment into a
         // screen-space vector spline. The viewport converts the authored full
         // width and analytic anti-aliasing overhang from pixels to
@@ -668,7 +662,6 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 
     if ( FAILED( staticBufferResult ) || !im.staticVB )
     {
-
         // Lane R: instanced mesh handles already use 0 as "no backend mesh".
         // Callers route uploads and draws through that handle, so creation can
         // fail as a logged result without leaving a partially registered mesh.
@@ -854,7 +847,6 @@ size_t Dx12GeometryOwner::InstancedCapacity() const
 
 void Dx12GeometryOwner::InvalidateGridLinePipelinesForShaderReload()
 {
-
     // Lifetime: the caller has drained the GPU. Grid-line PSOs bypass the main
     // raster cache, so they must be released explicitly before the registered
     // grid-line ShaderDX12 adopts new bytecode.
@@ -1031,7 +1023,6 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
 
     if ( uploadPlan.uploadRequired )
     {
-
         // The expanded CPU cache repeats each segment payload six times only
         // for the transient submission contract. Retained GPU storage keeps one
         // per-instance record and patches only the formerly open adjacency tail

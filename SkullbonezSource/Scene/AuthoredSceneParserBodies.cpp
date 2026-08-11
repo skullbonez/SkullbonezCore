@@ -221,7 +221,6 @@ void AuthoredSceneParser::ApplyConvexHull( const Json& object, const std::string
 
     if ( composedOrientation )
     {
-
         // Lifetime: this pointer is borrowed only for the internal asset
         // expansion call. It is not an authored JSON field or retained.
         composedOrientation->GetComponents( hull.orientX, hull.orientY, hull.orientZ, hull.orientW );

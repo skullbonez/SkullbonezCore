@@ -64,7 +64,6 @@ Related:
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 #if defined( LZ4_USER_MEMORY_FUNCTIONS )
-
 // Why: Tracy compiles its private LZ4 implementation into TracyClient.cpp. The
 // vendor's opt-in hooks keep that compression stream inside the same named,
 // capped owner as its rpmalloc maps without modifying the pinned vendor source.
@@ -199,7 +198,6 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
 
 void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offset, std::size_t release )
 {
-
     // Why: rpmalloc uses release==0 as an optional decommit hint. Retaining the
     // committed pages keeps reuse valid and conservatively charges the complete
     // live backing range until its one matching full release.
@@ -242,7 +240,6 @@ void ConfigureTracyBackingAllocator()
     if ( !activeConfig || activeConfig->memory_map != MapTracyBackingMemory ||
          activeConfig->memory_unmap != UnmapTracyBackingMemory )
     {
-
         // Hazard: this means Tracy touched rpmalloc before the engine owner and
         // installed its direct OS mapper, recreating the untracked allocation path.
         SB_FATAL( "DevelopmentTools/Tracy", "rpmalloc initialized before the engine backing-map owner." );
@@ -268,7 +265,6 @@ void TracyClientOwner::Start()
 
     if ( captureMode == RequestedCaptureMode::Off )
     {
-
         // Why: Tracy's vendor client owns sizeable transport queues even while
         // no viewer is attached. Requiring an explicit capture mode keeps the
         // named default/perf configuration inside the established memory gate.

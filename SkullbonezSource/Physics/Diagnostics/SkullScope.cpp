@@ -153,7 +153,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
                                                               frameInput.names,
                                                               modelDiagnostics[static_cast<std::size_t>( i )] ) )
         {
-
             // Invariant: PhysicsBodyStore defines dense diagnostics row count.
             // A rejected index keeps its default record so later arrays retain
             // the same body id mapping instead of silently truncating the frame.

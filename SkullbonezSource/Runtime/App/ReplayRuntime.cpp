@@ -181,7 +181,6 @@ float ReplayRuntimeScrubberPresentTrackPosition( const ReplayRecorderStats& stat
 bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,
                                       int modelIndex )
 {
-
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
@@ -447,7 +446,6 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
 void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& transaction,
                                               DiagnosticsRuntime& diagnosticsRuntime, const SceneSessionState& scene ) const
 {
-
     // Lifetime: transaction-owned diagnostic strings remain valid for this
     // synchronous write; neither DiagnosticsRuntime nor Scene is retained.
     if ( transaction.HasRestoreProbeDiagnostic() )
@@ -975,7 +973,6 @@ void ReplayRuntime::ApplyInputFocusLoss( Environment::CameraCollection* cameras,
 
 void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
-
     // Invariant: guide visibility is scene-local and always returns to its
     // zero-cost default before an early interaction-cleanup return.
     m_planningOwner.ClearState();
@@ -993,7 +990,6 @@ void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& 
 
     if ( ClearInteractionForRuntimeTransition( interaction, inputRouter ) )
     {
-
         // Why: scene clear already invalidated the old camera collection and
         // the detached scene camera will replace its policy below. End Replay's
         // presentation ownership without touching the newly populated world.
@@ -1101,7 +1097,6 @@ ReplayRecordingActivationResult ReplayRuntime::ConfigureRecording( bool enabled,
 
     if ( activation.configuration.presentationConfig.enabled )
     {
-
         // Runtime allocation policy: presentation buffers reserve during replay
         // setup, before steady gameplay begins.
         m_authoring.ReserveCauseTreeRows( REPLAY_CAUSE_TREE_ROW_CAPACITY );
@@ -1230,7 +1225,6 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
                                   const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore,
                                   RuntimeTools& runtimeTools )
 {
-
     // Invariant: presentation, solver, and event timelines share the same
     // branch and event cursor for this frame. Save/export code depends on that
     // alignment when it pairs visual frames with restore checkpoints.
@@ -1249,7 +1243,6 @@ void ReplayRuntime::CaptureFrame( int sceneFrame, float physicsDt, const ReplayW
 
     if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
-
         // Why: recorder counts and reserve rows are already-owned fixed
         // snapshots. No-viewer runs skip even these value copies, and the
         // name-based reserve registry is sampled only once per 60 frames.
@@ -1350,7 +1343,6 @@ bool ReplayRuntime::IsScrubPaused() const
 
 const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
 {
-
     // Concept: a scrub sample is available only when the active track is paused
     // away from live time. Live presentation should continue drawing the live
     // scene instead of borrowing old retained samples.
@@ -1398,7 +1390,6 @@ const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 
 const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() const
 {
-
     // Concept: prediction frames extend the solver track past the present
     // marker. They are not retained history, so only the future side of the
     // normalized track can resolve to a prediction frame. Prediction.enabled is
@@ -1636,7 +1627,6 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
                                       bool scenePhysicsEnabled, double simulationTimeSinceLastStart,
                                       double simulationTotalTime )
 {
-
     // Concept: the composition root samples owner values, then prediction
     // advances without a ReplayRuntime reach-back. Its value-only result is
     // applied after the worker/publication transition returns.
@@ -1740,7 +1730,6 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
 
 void ReplayRuntime::PreparePredictionPresentation( PhysicsEngine& physics, const SceneEntityStore& entities )
 {
-
     // Why: live frames and CPU-only archive projection share this publication
     // command. Keeping it separate from drawing prevents validation from
     // becoming a privileged back door into the prediction owner's state.

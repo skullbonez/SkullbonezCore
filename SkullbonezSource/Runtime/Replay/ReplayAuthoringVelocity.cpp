@@ -594,7 +594,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
     {
-
         // Hazard: a drag can outlive its target if the scene reloads or the
         // edited body is removed. All capture and active-axis state must unwind
         // before any velocity math touches the model collection.
@@ -672,7 +671,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         // still publishing every materially changed pointer sample.
         if ( velocityChanged && velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
         {
-
             // Why: held samples bend only the selected published path. This
             // fixed-size command replaces its predecessor without scheduling a
             // private-world build or disturbing the other retained paths.
@@ -709,7 +707,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
     {
         if ( presentationOwner.PathVisualizer().hasTarget )
         {
-
             // Why: the old future must be retained before the first drag tick
             // dirties prediction. The visualizer owns the actual capture so it
             // can reuse the same rest-pose and replay-reserve rules as drawing.

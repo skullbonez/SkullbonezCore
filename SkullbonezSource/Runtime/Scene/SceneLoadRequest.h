@@ -89,7 +89,6 @@ struct SceneLoadRequest
 
 struct SceneUICommandSubmissionResult
 {
-
     // Invariant: flags report accepted UI commands for InputFrame transition
     // recording; SceneController preserves request submission order.
     bool resetScene = false;

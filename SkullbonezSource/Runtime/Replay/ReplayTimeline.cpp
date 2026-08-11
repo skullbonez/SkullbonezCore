@@ -85,7 +85,6 @@ ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled, in
 
 bool ReplayTimeline::SetRecordingEnabled( bool enabled ) noexcept
 {
-
     // Hazard: hash-log capture is a startup validation contract and cannot be
     // paused by an editor surface. Ordinary recording may stop without
     // reconfiguring or clearing the already reserved retained rings.
@@ -364,7 +363,6 @@ ReplayTimeline::CaptureFrame( int sceneFrame, float physicsDt, const ReplayWorld
 
         if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
         {
-
             // Why: the solver sample already contains presentation-facing body
             // fields and its hash, so a paired capture needs only one store walk.
             m_presentation.CaptureFrameFromSolverSample( *solverSample );

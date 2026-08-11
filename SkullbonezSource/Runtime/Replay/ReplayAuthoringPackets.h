@@ -71,7 +71,6 @@ struct RunReplayCauseTreeRow
 
 struct RunReplayCauseTreeState
 {
-
     // Invariant: Authoring reserves the full bounded row capacity before steady runtime; builders fail
     // closed instead of growing this vector while the replay UI is active.
     std::vector<RunReplayCauseTreeRow> rows;

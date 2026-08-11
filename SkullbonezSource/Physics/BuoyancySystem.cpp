@@ -45,7 +45,6 @@ constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 
 void ApplyDescriptorFacts( const PhysicsBodyCreateDesc& desc, BuoyancyBodyFacts& facts )
 {
-
     // Invariant: assignment order matches the retired PhysicsBodyRecord
     // stamping path so topology refresh cannot change fixed-step inputs.
     facts.volume = desc.volume;

@@ -347,7 +347,6 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
 
     if ( result.layoutResetRequired )
     {
-
         // Why: migration may keep harmless text filters, but stale panel IDs
         // and docking authority must never enter the current topology.
         result.preferences.layoutVersion = IMGUI_EDITOR_LAYOUT_VERSION;

@@ -70,7 +70,6 @@ namespace Runtime
 {
 struct SceneEntityCreateResult
 {
-
     // Lane R: authored input failures leave every store unchanged; success
     // publishes the body handle created by the cross-store commit.
     SkullbonezCore::Core::SbResult status;
@@ -79,7 +78,6 @@ struct SceneEntityCreateResult
 
 struct ScenePhysicsPostStepOutput
 {
-
     // Lifetime: the span borrows the physics owner's fixed-capacity event rows
     // until the next physics step. Dense rows are synchronous-only hints.
     std::span<const int> fixedContactModelIndices;

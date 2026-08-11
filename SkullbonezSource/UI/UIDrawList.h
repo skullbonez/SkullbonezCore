@@ -76,7 +76,6 @@ class UIDrawList
 
     struct Command
     {
-
         // Why: PushCommand value-initializes each committed row. Keeping unused
         // fixed-capacity rows trivial avoids touching every reserved page when
         // retained UI scratch owners are constructed.

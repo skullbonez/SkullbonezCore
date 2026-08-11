@@ -280,7 +280,6 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
 // =============================================================================
 bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPath )
 {
-
     // Hi-res dimensions — each axis is SDF_SCALE × the final atlas.
     const int FONT_SIZE_HI = FONT_SIZE * SDF_SCALE;     // 192 px glyph height
     const int FONT_CELL_W_HI = FONT_CELL_W * SDF_SCALE; // 240 px cell width
@@ -531,7 +530,6 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
                                                   const SkullbonezCore::Assets::AssetSystem& assets, int screenW,
                                                   int screenH, const char* fontName )
 {
-
     // Load the pre-generated SDF atlas if available.  To regenerate, run:
     //   SKULLBONEZ_CORE.exe --gen-atlas
     // If the file is absent or stale the engine generates it on first run so
@@ -728,7 +726,6 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
 
     for ( int i = 0; i < len; ++i )
     {
-
         // Guard against overflowing the batch buffer.
         if ( batch.m_textVertexCount + TEXT_BATCH_VERTS_PER_CHAR > TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR )
         {
@@ -889,13 +886,11 @@ void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, 
 void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1, float r,
                         float g, float b, float a )
 {
-
     // Accumulate one quad (two triangles, 6 vertices) into the owner batch.
     // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
     // FlushQuads() uploads and draws all accumulated quads in one call.
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_QUAD > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
-
         // Buffer full — flush now and continue accumulating.
         FlushQuads( batch, renderCommands );
     }
@@ -980,7 +975,6 @@ void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands,
 
 void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
 {
-
     // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).
     if ( batch.m_quadVertexCount == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )

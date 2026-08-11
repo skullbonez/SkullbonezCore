@@ -51,7 +51,6 @@ namespace Threading
 using WorkerPoolMutex = TrackedMutex;
 using WorkerPoolConditionVariable = std::condition_variable_any;
 #else
-
 // Profile/Release stay on the standard primitives: lock validation and its
 // generic condition-variable cost are a Debug probe only.
 using WorkerPoolMutex = std::mutex;

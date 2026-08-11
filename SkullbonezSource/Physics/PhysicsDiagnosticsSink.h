@@ -47,7 +47,6 @@ inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = SkullbonezCore::Sce
 // or file-I/O dependency enters collision detection or solver loops.
 struct PhysicsDiagnosticsCsvWriter
 {
-
     // Cold concrete writer: no callback or retained user pointer can enter the
     // solver. Calls occur only after bounded physics events are committed.
     void Writef( const char* fileName, const char* fmt, ... ) const;
@@ -63,7 +62,6 @@ struct PhysicsCollisionTimeEvent
 };
 
 #ifdef _DEBUG
-
 // Immutable inputs for one diagnostics emission pass. Body/collider/world facts
 // are already owned by physics; only names remain a presentation overlay.
 struct PhysicsDiagnosticsFrameInput

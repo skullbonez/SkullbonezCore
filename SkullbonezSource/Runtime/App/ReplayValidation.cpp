@@ -125,7 +125,6 @@ const ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& wor
 
 namespace
 {
-
 // Debug-only probe implementations live in ReplayValidation.Probes.cpp.
 
 
@@ -418,7 +417,6 @@ bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore
                                          SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
                                          char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
 {
-
     // Lifetime: scene/editor owners are synchronous borrows for this decoded
     // event. The event and reason buffer stay explicit because they belong
     // only to this operation.
@@ -476,7 +474,6 @@ bool ApplyReplayRestoreEditorPlaceEvent( SkullbonezCore::Core::SbDiagnosticStore
 bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEventSample& event, char* eventOutReason,
                                              std::size_t eventReasonSize )
 {
-
     // Concept: v2 restore replays editor transforms by editing the authoritative
     // PhysicsBodyStore and ColliderStore rows. Presentation samples are only
     // validation targets; they are not allowed to become collision authority.
@@ -1517,7 +1514,6 @@ bool ReplayProbeRunner::Configure( const ReplayStartupRequest& request )
 
 void ReplayRuntime::ConfigureStartupWorkflows( const ReplayStartupRequest& request )
 {
-
     // Invariant: load-probe capability is decided by the probe owner and
     // enforced by the prediction owner before any startup workflow executes.
     m_predictionOwner.SetGenerationPermitted( m_probeRunner.Configure( request ) );
@@ -1666,7 +1662,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 
     if ( request.injectTargetHashMismatchForProbe )
     {
-
         // Why: the Debug failure probe owns this private seam so the named v2
         // gate can force a post-mutation verification failure and prove rollback.
         // Delete it when target verification accepts an independently testable
@@ -1758,7 +1753,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 
     if ( request.makeLiveBranch )
     {
-
         // Why: install ancestry before the caller applies the detached timeline
         // reset output, so preserveBranchMetadata retains the new live lineage.
         const uint32_t parentBranchId = m_authoring.BeginRestoredBranch( checkpoint->branch, target->frameIndex,

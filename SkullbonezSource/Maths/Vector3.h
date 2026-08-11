@@ -56,7 +56,6 @@ class Vector3
     Vector3()
     {
 #ifdef _DEBUG
-
         // Hazard: poison default-constructed components so use-before-init
         // propagates visibly through Debug math instead of mimicking a valid zero.
         x = std::numeric_limits<float>::quiet_NaN();

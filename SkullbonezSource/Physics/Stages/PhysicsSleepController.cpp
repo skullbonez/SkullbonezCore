@@ -91,7 +91,6 @@ void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t request
 
 void SkullbonezCore::Physics::AppendSleepSupportEdge( PhysicsCandidatePairList& edges, int supporter, int supported )
 {
-
     // Hazard: checking the semantic cap alone would still let an incorrectly
     // initialized list overrun below that cap. The actual scene-load commit
     // is part of the fail-before-grow contract too.
@@ -173,7 +172,6 @@ void PhysicsSleepController::ApplyRuntimeSettings( const SleepSettings& settings
 
 PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const SleepSettings& settings ) const
 {
-
     // Why: sleep eligibility and wake-energy thresholds are sleep-domain
     // policy. PhysicsWorld sequences the resulting value without re-deciding it.
     const float linearSpeed = (std::max)( 0.0f, settings.linearSpeed );
@@ -208,7 +206,6 @@ void PhysicsSleepController::EnsureVisualIdSize( int modelCount )
 
 void PhysicsSleepController::RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount )
 {
-
     // Cold boundary: topology changes and replay restores can reassign dense
     // model indices. Ordinary fixed steps update this list only at wake/sleep
     // transitions and never rebuild it from the full body set.
@@ -297,7 +294,6 @@ void PhysicsSleepController::InvalidateBodyTopology()
 
 void PhysicsSleepController::FlushPendingAwakeBodyIndices()
 {
-
     // Parallel wake workers publish only bounded body indices. The sequencer
     // folds them into the sorted owner list after WorkerPool completion, so
     // worker scheduling cannot affect later force/integration order.
@@ -333,7 +329,6 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
 
     if ( rebuildAwakeList )
     {
-
         // Cold boundary: authored topology/body commands own the body-store
         // flag. Steady steps retain m_sleepState directly and avoid two full
         // mirror passes over sleepers that cannot have changed state.
@@ -387,7 +382,6 @@ bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
 #if defined( _DEBUG )
     else
     {
-
         // Invariant: every non-topology wake/sleep path updates the list at the
         // transition. A mismatch here exposes a bypass before it can reorder a
         // worker stage or strand a body outside broadphase maintenance.
@@ -524,7 +518,6 @@ void PhysicsSleepController::RunIslandStageMode( PhysicsBodyStore& bodyStore, co
                                                  PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                                  const PhysicsSleepStepPolicy& sleepPolicy )
 {
-
     // Invariant: contact rows, point joints, and persisted visual ids are
     // united in their original order before any eligibility decision is made.
     const int modelCount = bodyStore.Count();
@@ -766,7 +759,6 @@ void PhysicsSleepController::ApplyTransitionsMode( PhysicsBodyStore& bodyStore, 
                                                    PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                                    const PhysicsSleepStepPolicy& sleepPolicy, DisjointSet& sleepIslands )
 {
-
     // Invariant: RunIslandStage has already populated eligibility and support;
     // this pass only advances counters and applies whole-island transitions.
     const int modelCount = bodyStore.Count();
@@ -898,7 +890,6 @@ void PhysicsSleepController::RunIslandStage( PhysicsBodyStore& bodyStore, const 
                                              PhysicsPipelineTraceRecorder& physicsPipelineTrace,
                                              const PhysicsSleepStepPolicy& sleepPolicy )
 {
-
     // Why: select once per step so count-only execution has no per-body
     // diagnostic branch or payload construction.
     if ( physicsPipelineTrace.RetainsFullRecords() )

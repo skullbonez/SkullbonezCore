@@ -274,7 +274,6 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
 
 const DemoPhase* ActiveDirectorPhase( const CameraControlState& camera )
 {
-
     // Concept: phase assertions observe the same active phase that playback
     // uses. They are report-only probes and must not advance or repair director
     // state just to make a scripted screenshot line up.
@@ -465,7 +464,6 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 
     if ( value == "Comma" )
     {
-
         // Why: visual acceptance drives the same comma-owned presentation
         // command as a physical key, so mode order and UI reflection are tested
         // through the production input route.
@@ -839,7 +837,6 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
                                                      CameraControlState& camera, RunInteractionAutomationAction& action,
                                                      int frame )
 {
-
     // Concept: director/camera automation seeds the same camera and director
     // owners used by live authoring. Camera-mode transitions are routed by the
     // caller through InputRouter before this helper handles director-local work.
@@ -995,7 +992,6 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                                                   TrySetReplayInterceptTarget trySetReplayInterceptTarget,
                                                   SetWorldInteractionOwnerAfterTransition setWorldInteractionOwner )
 {
-
     // Concept: replay state automation changes only harness-visible replay
     // controls. Direct physics mutation is limited to the velocity-edit proof
     // path and still marks prediction dirty so replay owners rebuild outputs.
@@ -1087,7 +1083,6 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
             }
             else
             {
-
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
@@ -1157,7 +1152,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
                                                    ReplayFrameIntent& replayIntent, const ReplayAutomationView& replay,
                                                    RunInteractionAutomationAction& action, int frame )
 {
-
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
@@ -1219,7 +1213,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
-
             // Concept: the scrubber exposes one physical button whose label
             // flips between pause and play. Automation clicks the real rectangle
             // so replay input ownership does the state transition and
@@ -1246,7 +1239,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
         if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
         {
-
             // Concept: velocity automation toggles the visible scrubber control,
             // then lets the next scripted world click exercise replay velocity
             // targeting through normal input ownership.
@@ -1275,7 +1267,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
 
         if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
         {
-
             // Why: branch-restore proof clicks the visible Branch rectangle
             // after a scripted scrub, so TickReplayScrubberInput remains the
             // owner of the restore.
@@ -1309,7 +1300,6 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
 
     if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
     {
-
         // Why: replay branch tests need a historical solver selection, but the
         // selection still comes from the scrubber track hitbox and normal
         // drag/release handling.
@@ -2770,7 +2760,6 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
                                                                                  const Rendering::RenderSceneSnapshot& renderSnapshot, const RunInteractionAutomationAction& action,
                                                                                  InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
-
     // Concept: after-render assertions are read-only probes over owner state.
     // The context keeps that state explicit so the Run tick only schedules,
     // reports, and fails automation work instead of owning assertion policy.
@@ -3586,7 +3575,6 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
         }
         case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
         {
-
             // Why: scripts describe client pixels because those are the
             // editor's layout coordinates. Win32 resizes the outer frame, so
             // include the current style and monitor DPI exactly once.
@@ -3726,7 +3714,6 @@ SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::ConfigureInteractionAutomation( InteractionAutomationController& state, const char* scriptPath,
                                                          const char* reportPath )
 {
-
     // Configure can be called again while applying startup options. Reset the
     // sequencer in place because its report writer owns store-bound tracer
     // storage and is intentionally not assignable.
@@ -3805,7 +3792,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     if ( state.reportWriter.ReplayVisualCaptureEnabled() )
     {
-
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
@@ -3997,7 +3983,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
             if ( found )
             {
-
                 // Why: automation submits the same fixed scene-owner request as
                 // the browser. The load executes at the normal post-input
                 // checkpoint and cannot retain this cold script action.
@@ -4077,7 +4062,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             }
             else if ( duplicateSurfaceSelection )
             {
-
                 // Invariant: Run receives at most one process-surface request
                 // per frame, so selection is never silently collapsed or reordered.
                 FailAutomation( state, "multiple development UI surface selections share one frame" );
@@ -4283,7 +4267,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     if ( allProcessed && frame >= lastFrame )
     {
-
         // This command runs after the final reveal screenshot while live
         // physics still holds the seed pose used by root markers. The writer
         // owns the CPU-only proof and cannot initiate a second presented pass.
@@ -4296,7 +4279,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         if ( !state.status.failed && replayView.prediction.build.building )
         {
-
             // Why: prediction reports read committed topology, frame counts,
             // and trajectory hashes. Let the normal render-frame replay path
             // finish its worker swap/rebuild instead of draining physics under

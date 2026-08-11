@@ -33,7 +33,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-
 // Invariant: object/object keys store two 15-bit body indices above the
 // 32-bit feature id. Widening this mask would consume bit 62, which
 // distinguishes terrain rows from object/object rows.
@@ -73,7 +72,6 @@ struct PersistentContactSolverStepPolicy
 
 struct PersistentContactCacheEntry
 {
-
     // Previous-frame impulse cache. The key encodes the bodies plus feature
     // id so a contact can find last tick's converged impulse even if rows
     // are rebuilt from fresh manifolds this tick.
@@ -85,7 +83,6 @@ struct PersistentContactCacheEntry
 
 struct SolverBodyState
 {
-
     // Solver scratch copy of dynamic body state. Rows iterate over this
     // compact representation first, then the final velocities are written
     // back to the authoritative hot-field spans after the solve.

@@ -97,7 +97,6 @@ const AuthoredSceneParser::ParsedAssetDefinition* AuthoredSceneParser::FindAsset
 
 bool AuthoredSceneParser::RegisterSceneObjectName( const char* name, const std::string& path )
 {
-
     // Invariant: display-name material targeting and current runtime lookup
     // are unambiguous only when every parsed shape row owns a unique name.
     const std::string candidate = name ? name : "";
@@ -212,7 +211,6 @@ void AuthoredSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset, c
 std::string AuthoredSceneParser::ReadAssetPrimitiveType( const Json& asset, const std::string& path,
                                                          const char* context ) const
 {
-
     // Concept: old compound parts used a bare `hull` member. Keep that as a
     // convex-hull shorthand while new container parts name their primitive.
     if ( const Json* type = FindMember( asset, "type" ) )
@@ -313,7 +311,6 @@ void AuthoredSceneParser::ValidateAssetPrimitiveFields( const Json& asset, const
 
 void AuthoredSceneParser::UpgradeAssetLibraryV0ToV1( Json& root, const std::string& path )
 {
-
     // Version 0 is the unversioned asset-library grammar. Its fields already
     // have v1 meaning, so the deterministic upgrade is an explicit stamp with
     // no recipe reordering or value changes.

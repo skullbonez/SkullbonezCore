@@ -62,7 +62,6 @@ Window::Window( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics ) : m
 Window::~Window()
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Lifetime: Run must remove the native-message borrow before its ImGui
     // context disappears. A surviving pointer would let late messages enter
     // freed vendor state during native teardown.
@@ -90,7 +89,6 @@ void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner
 {
     if ( !m_developmentUiInput )
     {
-
         // Start may fail before the Window borrow is installed. Shutdown still
         // calls this one balanced cleanup path and has nothing to remove.
         return;
@@ -245,7 +243,6 @@ LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPAR
     Window* window = reinterpret_cast<Window*>( GetWindowLongPtr( windowHandle, GWLP_USERDATA ) );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Concept: Dear ImGui observes the native stream first, then this value
     // decides whether the established engine input path also receives the
     // event. Window/OS lifecycle messages are never captured by editor policy.
@@ -261,7 +258,6 @@ LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPAR
     // operations invoked here use explicit result/fatal lanes.
     switch ( messageId )
     {
-
     // Which message do we have to deal with today...?
     // WM_CREATE fired on window creation
     case WM_CREATE:
@@ -457,7 +453,6 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
 
     if ( !m_fIsFullScreenMode )
     {
-
         // Default the window to the bottom-left of the usable desktop work area.
         // The work area excludes the taskbar, so a tall 1800x1000 window does not
         // open with its title bar hidden behind shell chrome.
@@ -483,7 +478,6 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
 
     if ( !hWnd )
     {
-
         // Lane R: native window creation can fail because of the host desktop
         // environment, so startup reports the result instead of unwinding.
         return m_resultDiagnostics.Failure( "Runtime/Window", "Window creation failed." );

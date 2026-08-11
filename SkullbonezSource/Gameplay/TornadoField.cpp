@@ -120,7 +120,6 @@ std::size_t TornadoField::DynamicMemoryBytes() const
 
 TornadoSystem::TornadoSystem()
 {
-
     // Lifetime: both vectors reach their authored hard cap during owner
     // construction. Scene edits, idle UI, and replay restore may change size
     // but cannot grow storage after steady gameplay begins.

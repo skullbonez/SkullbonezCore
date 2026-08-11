@@ -128,7 +128,6 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
                                               SkullbonezCore::Runtime::SceneWorld& world, int modelIndex,
                                               uint32_t changedFlags, int scaleAxis, float scaleFactor )
 {
-
     // Why: editor gizmos mutate the SceneWorld-owned authoring edge, then
     // commit into PhysicsBodyStore. Replay event bytes must come from that
     // authoritative body row so legacy model-side writeback is not required
@@ -375,7 +374,6 @@ int GatherSelectedEditorTransformGroup( const SceneWorld& world, int selectedInd
 const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, PhysicsBodyHandle bodyHandle,
                                                      int modelIndex )
 {
-
     // Invariant: editor selection carries the handle as live physics identity.
     // The model index is a UI/grouping hint and must agree before callers read
     // the dense store row.
@@ -1010,7 +1008,6 @@ void CancelEditorGizmoDragState( RunEditorPlacementState& editor, RuntimeInterac
 
 int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const PhysicsBodyStore& bodyStore )
 {
-
     // Concept: editor selection identity is the body/collider handle pair.
     // The row cache is only a UI/editor grouping hint and is repaired from the
     // live body store before any caller treats it as a model row.
@@ -1597,7 +1594,6 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
 
     const auto publishInteractionTransition = [&routeResult]( const RuntimeInteractionTransition& transition )
     {
-
         // Invariant: one pointer route can begin at most one editor claim. The
         // composition shell must clean it before routing another world owner.
         if ( routeResult.hasInteractionTransition )
@@ -1799,7 +1795,6 @@ bool InputRouter::TryBuildWorldRayAt( POINT mouse, const Environment::CameraColl
 
     if ( clampToViewport )
     {
-
         // Invariant: Captured tool drags keep receiving mouse positions after
         // the cursor leaves the client area. Clamp those positions to the
         // nearest viewport edge so drag math remains continuous instead of
@@ -2063,7 +2058,6 @@ bool TryUpdateEditorPlacementPreview( SkullbonezCore::Core::SbDiagnosticStore& d
 
     if ( !terrainAlreadyIncludesAltitude )
     {
-
         // Invariant: Placement altitude is applied before normal/orientation
         // lookup so preview and commit agree about the authored terrain point.
         terrainPoint.y += static_cast<float>( editor.placementAltitudeSteps ) *

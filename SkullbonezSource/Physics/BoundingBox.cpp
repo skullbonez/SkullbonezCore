@@ -153,7 +153,6 @@ const Vector3& BoundingBox::GetHalfExtents() const
 // Box vs Sphere swept test: approximate box as bounding sphere for broadphase
 float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-
     // Cheap candidate test only. A later OBB/sphere manifold uses the real box
     // axes and closest point, so this broadphase test is allowed to be generous.
     // Approximate this box as a sphere of bounding radius for the swept test
@@ -166,7 +165,6 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
 
     if ( totalMovementSq < TOLERANCE )
     {
-
         // Static overlap check
         Vector3 delta = ( targetRay.origin + target.GetPosition() ) - ( focusRay.origin + m_position );
 
@@ -204,7 +202,6 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
 // Box vs Box swept test: approximate both as bounding spheres for broadphase
 float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-
     // Two oriented boxes can be expensive to sweep exactly. This conservative
     // radius test asks only whether their bounding balls could touch this tick.
     // Exact face/edge/corner contacts are built by ObjectContactManifold.cpp.
@@ -251,7 +248,6 @@ float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRa
 
 float BoundingBox::TestCollision( const ConvexHullShape& target, const Ray& targetRay, const Ray& focusRay ) const
 {
-
     // Conservative broadphase candidate test. Exact box/hull SAT contacts are
     // generated later by ObjectContactManifold.cpp.
     float combinedRadius = GetBoundingRadius() + target.GetBoundingRadius();

@@ -104,7 +104,6 @@ float SampleWorldSurfaceHeight( SkullbonezCore::Geometry::Terrain& surface, floa
 // node operations directly, these ABI records disappear with its userData seam.
 struct CinematicPostGraphState
 {
-
     // Shared publication between the two concrete post passes. It contains no
     // pass owner and exists only for their ordered graph transition handshake.
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
@@ -465,7 +464,6 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 
         if ( request.tintStrength > 0.0f )
         {
-
             // Why: baseline ghosts reuse authored materials for shape/lighting,
             // then tint toward cyan so the cold future separates from the warm
             // live prediction without adding a second render path.
@@ -711,7 +709,6 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 
     if ( data.state->volumetricTransitionCount != expectedTransitions )
     {
-
         // Hazard: sampling the cinematic scene or binding the transient without
         // all compiled producer edges would record an invalid command stream.
         SB_FATAL( "RunRender", "VolumetricLightPass compiled transition count mismatch. expected=%zu actual=%zu",
@@ -768,7 +765,6 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
 
         if ( data.state->tonemapTransitionCount != expectedTransitions )
         {
-
             // Hazard: tonemap must not sample until the compiler-selected
             // consumer edge changes the transient from output to shader read.
             SB_FATAL( "RunRender", "ToneMapPass compiled transition count mismatch. expected=%zu actual=%zu",
@@ -786,7 +782,6 @@ void WriteCinematicPostGraphEvidence( const SkullbonezCore::Rendering::RenderGra
                                       const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding, bool volumetricDeclared,
                                       size_t volumetricTransitionCount, size_t tonemapTransitionCount )
 {
-
     // Why: this human-readable file is diagnostic evidence, not frame storage.
     // The allocation phase must match that policy even when the cinematic post
     // graph is emitted from inside the Render frame scope.
@@ -1012,7 +1007,6 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowP
 
     if ( targetTransitionCount == 0 )
     {
-
         // Disabled shadows still schedule the callback that clears stale CPU
         // receiver payloads; this stable no-transition row satisfies the graph
         // callback resource contract without pretending a GPU target exists.
@@ -1555,7 +1549,6 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 
             if ( !postState.volumetricLight.IsValid() )
             {
-
                 // Lane R: if graph-managed texture allocation fails, the
                 // optional volumetric callback records no draw and tonemap
                 // proceeds without its sample. Keep the failure visible.
@@ -1593,7 +1586,6 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
                                    UiOperatorPresentationGraphInvocation& operatorPresentation,
                                    UiOperatorSubmissionGraphInvocation& operatorSubmission, UiReplayGraphInvocation& replay )
 {
-
     // Why: RenderGraph borrows callback userdata until ExecuteGraphCallbacksOrFatal(),
     // so callers own each operation-specific ABI record until this method returns.
     // Invariant: no record collects the UI union; focused passes register in
@@ -1664,7 +1656,6 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
 
     if ( !textOnly && operatorNeeded )
     {
-
         // Invariant: one RenderGraph order owns the UIData write sequence.
         // Prepare and submission are scheduled together, which balances the
         // BuildData profile scope and prevents a partially projected draw.
@@ -1917,7 +1908,6 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 {
     if ( resources.cinematicEnabled )
     {
-
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
@@ -1934,7 +1924,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
                                            const SkullbonezCore::Core::CinematicRenderConfig& renderConfig,
                                            bool cinematicRender )
 {
-
     // Invariant: Run opens graph ownership before choosing a world or text-only
     // path. RenderPreparedFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
@@ -2025,7 +2014,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // allocator waits do not block work that can overlap the previous frame.
     if ( !useCinematicTarget )
     {
-
         // If the cinematic target could not be created, this same graph-owned
         // frame edge clears the fallback backbuffer instead of reviving a
         // direct backend transition path.
@@ -2072,7 +2060,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     }
     else
     {
-
         // Why: disabled shadows still need last-frame receiver handles cleared,
         // but scheduling an empty ShadowMapPass violates the scene's opt-out.
         shadowPass = m_shadowPass.ResetFrameOutputs();
@@ -2325,7 +2312,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
 void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
     // handles are invalidated before targets die.
@@ -2385,7 +2371,6 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
     if ( !flushResult.Ok() )
     {
-
         // Lane R: return before the first release. The destructor caller
         // converts this non-returnable teardown failure to Lane F.
         return flushResult;
@@ -2458,7 +2443,6 @@ void RuntimeRenderer::BeginFrameGraph()
 
 void RuntimeRenderer::PrepareUiFrameTarget()
 {
-
     // Text-only and ImGui-only frames do not necessarily execute a world or
     // tonemap pass. This graph callback is their normal backbuffer acquisition;
     // on ordinary frames it validates the already-render-target state.
@@ -2500,7 +2484,6 @@ void RuntimeRenderer::FinalizeFrameGraph()
 
 void RuntimeRenderer::FinalizeCaptureOnlyFrameGraph()
 {
-
     // Capture restart frames intentionally do not reach swap-chain Present.
     // Validate that every recorded pass was callback-owned, then release all
     // scene/resource payload borrows before capture automation can load a new

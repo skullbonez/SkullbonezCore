@@ -200,7 +200,6 @@ SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnos
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::Configure( const char* reportPath )
 {
-
     // Reconfiguration is a cold Automation operation. Clear the complete
     // previous report epoch while retaining the fixed store-bound tracer owner.
     m_written = false;
@@ -776,7 +775,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::BuildPredictionTraje
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::TryPredictionTargetDisplacement( const ReplayAutomationView& replay, float& outDisplacement, Vector3* outFirst, Vector3* outLast )
 {
-
     // Concept: automation reports compare the first and last prediction sample
     // for the selected replay body. Missing target data is a clean "not ready",
     // not an error state for the running scene.
@@ -842,7 +840,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::VisiblePredictionFra
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionPathVisible( const ReplayAutomationView& replay )
 {
-
     // Concept: long prediction jobs expose a populated build prefix before the
     // final frame vector is swapped in. Automation should agree with the overlay
     // and count that prefix as visible once it can draw at least one segment.
@@ -852,7 +849,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictio
 
 std::size_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPastTrajectoryPublishedPointCount( const ReplayAutomationView& replay )
 {
-
     // Concept: this is a structural performance/flicker probe. The selected
     // path must retain a published drawable prefix while its recorder ring
     // advances, independent of machine-specific frame timing.
@@ -871,7 +867,6 @@ std::size_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPa
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionContactsIncomplete( const ReplayAutomationView& replay )
 {
-
     // Concept: automation reports should distinguish a valid root prediction
     // from a partial contact-derived tree, because contact reserve failures are
     // intentionally non-fatal to prediction drawing.
@@ -900,7 +895,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictio
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::LiveSolverHashStableAcrossPrediction( const ReplayAutomationView& replay, uint64_t* outSourceHash, uint64_t* outLiveHash )
 {
-
     // Concept: prediction isolation proof. The source hash is captured before
     // the private prediction engine starts stepping; the live latest hash should
     // still match after prediction has produced visible frames.
@@ -1479,7 +1473,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
             if ( settledThroughoutFinalSecond )
             {
-
                 // Invariant: horizon completeness requires the whole authored
                 // wall to be motionless for its final second. The one-micron
                 // position bound is only a completion predicate; frame-exact
@@ -1500,7 +1493,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
     if ( m_replayVisualFidelityTrajectoryCaptured )
     {
-
         // The V0 oracle describes the completed prediction reveal. Report the
         // fingerprint frozen at its last presented tick rather than any later
         // non-presenting verification scratch state.

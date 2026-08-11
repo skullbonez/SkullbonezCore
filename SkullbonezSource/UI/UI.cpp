@@ -339,7 +339,6 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.memoryOverlay );
     const auto finishDraw = [&]() -> const UIDrawList&
     {
-
         // Why: every exit path must publish capacity evidence. Hidden,
         // minimized, and cached frames are real retained-stream consumers too.
         char drawStatsFlag[2] = {};

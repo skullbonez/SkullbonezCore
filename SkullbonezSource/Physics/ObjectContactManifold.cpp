@@ -55,7 +55,6 @@ using namespace SkullbonezCore::Physics;
 //   touching, and which direction should the solver push to separate them?
 namespace
 {
-
 // ENGINE-SPECIFIC:
 //   Feature IDs are compact and deterministic. The persistent solver key keeps
 //   all 32 feature bits beside two 15-bit body indices, so the kind bits keep
@@ -80,7 +79,6 @@ struct BoxWorld
 
 struct SatResult
 {
-
     // ENGINE-SPECIFIC:
     //   Stores the winning SAT axis. Catto's solver does not care how the axis
     //   was found; it only receives the final normal and contact rows.
@@ -161,7 +159,6 @@ struct SphereHullClosestFeature
 
 float Component( const Vector3& v, int axis )
 {
-
     // ENGINE-SPECIFIC:
     //   Small helper for indexing half-extents and local coordinates without
     //   changing Vector3's public API during this focused physics change.
@@ -180,7 +177,6 @@ float Component( const Vector3& v, int axis )
 
 float ClampFloat( float value, float lo, float hi )
 {
-
     // ENGINE-SPECIFIC:
     //   Narrowphase helpers use scalar clamps for closest-point and clipping
     //   math. Keeping the helper local avoids adding broad utility API surface.
@@ -189,7 +185,6 @@ float ClampFloat( float value, float lo, float hi )
 
 BoxWorld MakeBoxWorld( const ObjectContactBodyView& body, const BoundingBox& box )
 {
-
     // ENGINE-SPECIFIC:
     //   Convert the engine's local box shape plus body orientation into an OBB
     //   basis. Catto's equations downstream operate in world space; this is the
@@ -207,7 +202,6 @@ BoxWorld MakeBoxWorld( const ObjectContactBodyView& body, const BoundingBox& box
 
 Vector3 SphereCenter( const ObjectContactBodyView& body, const BoundingSphere& sphere )
 {
-
     // ENGINE-SPECIFIC:
     //   Spheres can carry a local shape offset. Rotate it through the body
     //   orientation before building Catto-style world-space contact arms.
@@ -217,7 +211,6 @@ Vector3 SphereCenter( const ObjectContactBodyView& body, const BoundingSphere& s
 
 uint32_t FaceId( int axis, float sign )
 {
-
     // ENGINE-SPECIFIC:
     //   Six OBB faces are encoded as axis*2 + sign. This is part of the stable
     //   feature key used by temporal warm starting.
@@ -226,7 +219,6 @@ uint32_t FaceId( int axis, float sign )
 
 uint32_t EncodeSphereBoxFeature( bool boxIsA, uint32_t faceId )
 {
-
     // ENGINE-SPECIFIC:
     //   A sphere/box row is identified by which body owns the box and which box
     //   face the sphere is touching. Catto requires stable identifiers for
@@ -237,7 +229,6 @@ uint32_t EncodeSphereBoxFeature( bool boxIsA, uint32_t faceId )
 
 uint32_t EncodeBoxFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32_t incidentFace, uint32_t pointId )
 {
-
     // ENGINE-SPECIFIC:
     //   Face contacts include reference face, incident face, and clipped vertex
     //   ID so each row in a four-point manifold can warm start independently.
@@ -249,7 +240,6 @@ uint32_t EncodeBoxFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32
 
 uint32_t EncodeBoxEdgeFeature( uint32_t edgeA, uint32_t edgeB )
 {
-
     // ENGINE-SPECIFIC:
     //   Edge contacts use the two participating OBB edge IDs. There is only one
     //   row for edge-edge, but the ID still needs to survive across frames for
@@ -260,7 +250,6 @@ uint32_t EncodeBoxEdgeFeature( uint32_t edgeA, uint32_t edgeB )
 void AddContactPoint( const ObjectContactBodyView& a, const ObjectContactBodyView& b, ObjectContactManifold& manifold,
                       const Vector3& point, float penetration, uint32_t featureId )
 {
-
     // CATTO REF:
     //   Catto Section 4 rows store a contact point plus r1/r2 arms. This helper
     //   centralizes that setup so every manifold path feeds the solver the same
@@ -283,7 +272,6 @@ ObjectContactCandidateSelection
 SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContactCandidate* candidates, int candidateCount,
                                                               const Vector3& normal )
 {
-
     // Invariant: the deepest row is always selected first. The remaining rows
     // maximize their minimum tangent-plane distance from the selected set, so a
     // clipped octagon does not collapse into four neighboring solver points.
@@ -416,7 +404,6 @@ SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContac
 
 namespace
 {
-
 // CATTO REF:
 //   The result is Catto's simplest contact model: one point, one normal, and one
 //   penetration value. rA/rB are filled in AddContactPoint for Equations 9-11.
@@ -449,7 +436,6 @@ bool BuildSphereSphere( const ObjectContactBodyView& a, const BoundingSphere& sp
 
 int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, float& signOut )
 {
-
     // When a sphere is inside or right against a box, several faces can look
     // plausible. Choose the face whose normalized coordinate is closest to the
     // box surface so the contact normal does not jump around frame to frame.
@@ -552,7 +538,6 @@ bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody, const Bound
 
 float ProjectBoxRadius( const BoxWorld& box, const Vector3& axis )
 {
-
     // Imagine shining a light along "axis" and measuring the box's shadow on
     // that line. The projected radius is half the length of that shadow. SAT
     // uses this to ask whether two box shadows overlap on every possible axis.
@@ -675,7 +660,6 @@ void BuildFaceVertices( const BoxWorld& box, int faceAxis, float faceSign, ClipV
 int ClipPolygonAgainstPlane( const ClipVertex* input, int inputCount, const Vector3& planePoint, const Vector3& inwardNormal,
                              float contactSkin, ClipVertex* output )
 {
-
     // Keep only the portion of an incident face that lies inside one boundary
     // plane of the reference face. Repeating this for all four side planes trims
     // the touching face down to the actual contact patch.
@@ -889,7 +873,6 @@ bool BuildBoxFaceContact( const ObjectContactBodyView& aBody, const ObjectContac
 
 uint32_t EdgeId( int edgeAxis, int sign0, int sign1 )
 {
-
     // A box has four edges running in each local axis direction. The two side
     // signs identify which of those four edges participated in an edge contact.
     int s0 = sign0 > 0 ? 1 : 0;
@@ -900,7 +883,6 @@ uint32_t EdgeId( int edgeAxis, int sign0, int sign1 )
 void BuildEdgeSegment( const BoxWorld& box, int edgeAxis, const Vector3& towardNormal, bool maximize, Vector3& p0,
                        Vector3& p1, uint32_t& edgeId )
 {
-
     // Build the world-space line segment for the edge most exposed in the
     // contact direction. Edge/edge contacts need the actual two endpoints so the
     // closest-points calculation can find the single representative touch point.
@@ -1913,7 +1895,6 @@ ObjectContactSweepResult SweepObjectContactImpl( const ObjectContactBodyView& a,
                                                  const Vector3& linearVelocityA, const ObjectContactBodyView& b,
                                                  const ShapeB& shapeB, const Vector3& linearVelocityB, float changeInTime )
 {
-
     // Concept: CCD sweep is only a conservative front-end. It uses each body's
     // current position plus linear displacement to find the first candidate
     // overlap; precise contact geometry and velocity response remain with the

@@ -44,7 +44,6 @@ ApplicationExitState::ApplicationExitState( SkullbonezCore::Core::SbDiagnosticSt
 
 void ApplicationExitState::RequestNormalExit() noexcept
 {
-
     // Why: normal shutdown is only a stop request. It must not erase an earlier
     // recoverable failure that the process boundary still needs to report.
     m_exitRequested = true;
@@ -100,7 +99,6 @@ SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCod
 
     if ( messageExitCode != 0 )
     {
-
         // Lane R: a platform/environment boundary asked the process to stop with
         // failure but did not provide richer owner diagnostics.
         return m_diagnostics.Failure( "Runtime/ApplicationExit", "application exit message reported nonzero code %d",

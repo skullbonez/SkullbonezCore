@@ -149,7 +149,6 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
 
         if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
         {
-
             // Hazard: load/create teardown may already have cleared the old
             // world before a recoverable failure. Never let a later save or
             // owner action consume that incomplete replacement topology.

@@ -700,7 +700,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
         if ( *sceneArg != '\0' )
         {
-
             // Support both quoted ("path with spaces") and unquoted tokens.
             // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
             // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
@@ -811,7 +810,6 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
 }
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
-
     // clang-format off
     // Keep the compatibility inventory compact: row order is behavior-bearing,
     // and each option remains visually adjacent to its exact callback.

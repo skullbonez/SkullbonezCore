@@ -126,7 +126,6 @@ void SceneLoadTransaction::RestoreResetSnapshot( SceneController& controller,
 
 void SceneLoadTransaction::ClearUiOverrides( SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides )
 {
-
     // Concept: Reset-to-defaults hands authority back to authored scene data by
     // clearing UI-generated setup overrides.
     uiOverrides.timeScaleOverride = 0.0f;

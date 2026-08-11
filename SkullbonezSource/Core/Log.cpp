@@ -89,7 +89,6 @@ FILE* EngineLog::OpenLog( const char* fileName )
 
     if ( it == m_logs.end() )
     {
-
         // Open debug logs in binary mode so '\n' is written exactly as LF on
         // Windows. Physics regression CSVs are intended to be byte-exact
         // validation artifacts; text mode silently expands '\n' to CRLF and can
@@ -99,7 +98,6 @@ FILE* EngineLog::OpenLog( const char* fileName )
 
         if ( f )
         {
-
             // SkullScope and physics CSV logging can emit thousands of small
             // rows per run. Give the CRT a large user-space buffer so those rows
             // batch in memory instead of forcing tiny disk writes from the hot
@@ -128,7 +126,6 @@ void EngineLog::Writef( const char* fileName, const char* fmt, ... )
 
 void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
 {
-
     // Why: the lock covers both lazy handle lookup and the CRT write. FILE
     // streams do not become safe merely because their owning map is guarded.
     std::lock_guard<std::mutex> lock( m_logMutex );
@@ -136,7 +133,6 @@ void EngineLog::WriteVf( const char* fileName, const char* fmt, va_list args )
 
     if ( f )
     {
-
         // Intentionally no fflush here. Hot diagnostic paths call Writef many
         // times per frame; flushing each row makes SkullScope trace generation
         // dominated by I/O. Callers that need durable output at a boundary use

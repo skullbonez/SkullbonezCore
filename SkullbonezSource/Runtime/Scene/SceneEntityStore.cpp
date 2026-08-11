@@ -86,7 +86,6 @@ void SceneEntityCreateDesc::SetBehaviorGroup( SceneBehaviorGroupKind kind, Physi
 
 SceneEntityStore::SceneEntityStore( SkullbonezCore::Core::SbDiagnosticStore& diagnostics ) : m_diagnostics( diagnostics )
 {
-
     // Phase: startup preallocation. The default capacity is reserved before
     // scene population so steady gameplay entity commits cannot touch the heap.
     m_records.reserve( static_cast<std::size_t>( m_capacity ) );

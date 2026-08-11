@@ -36,7 +36,6 @@ namespace UI
 
 enum class UICinematicParam
 {
-
     // Each enum value maps one Cine-tab slider to one SkullbonezCore::Core::CinematicRenderConfig field.
     // The run loop receives this id, clamps the value, and applies it live.
     None = -1,
@@ -109,7 +108,6 @@ enum class UICinematicParam
 
 enum class UICinematicFeature
 {
-
     // Each enum value maps one Cine-tab toggle to a render pass or visual feature.
     None = -1,
     Sky,
@@ -125,7 +123,6 @@ enum class UICinematicFeature
 
 enum class UIRenderParam
 {
-
     // Each enum value maps one Render-tab slider to one SkullbonezCore::Core::OrdinaryRenderConfig field.
     None = -1,
     SunIntensity,
@@ -203,7 +200,6 @@ struct UIPhysicsDebugStatus
 
 struct UIOnlyCommands
 {
-
     // Commands are one-frame requests, not durable state. The UI sets them
     // while handling input; Run consumes them and mutates the engine.
     // This prevents UI widgets from directly owning renderer, scene, or physics
@@ -340,7 +336,6 @@ struct UIProfilerCommands
 
 struct UICinematicCommands
 {
-
     // UI output for one frame. These are requests, not state: the render loop
     // consumes them and mutates the real SkullbonezCore::Core::CinematicRenderConfig.
     // requestedModeSceneIndex uses sceneOptions indexing for concept/cine style
@@ -363,7 +358,6 @@ struct UIRenderCommands
 
 struct UIReplayMemoryCommands
 {
-
     // One-frame replay policy request from the Memory tab. InputFrame translates
     // these UI-facing values into the authoritative replay policy owner.
     bool requestPolicy = false;

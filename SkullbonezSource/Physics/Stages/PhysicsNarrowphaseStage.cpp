@@ -348,7 +348,6 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     // still receive the swept hit timing, but remain static solver anchors.
     if ( wakeAccess.IsSleeping( x ) || wakeAccess.IsSleeping( y ) )
     {
-
         // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
         if ( wakeAccess.IsSleeping( x ) && !wakeAccess.IsSleeping( y ) )
         {
@@ -540,7 +539,6 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
         }
         else
         {
-
             // Both bodies are sleeping; there is no awake energy to produce a wake event.
             return;
         }

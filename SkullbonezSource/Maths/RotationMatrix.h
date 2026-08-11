@@ -79,7 +79,6 @@ inline const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
 // Rotate point around normalized arbitrary axis axis by radians.
 inline Vector::Vector3 RotatePointAboutArbitrary( float radians, const Vector::Vector3& axis, const Vector::Vector3& point )
 {
-
     // Keep the intermediate named so the derivation below maps back to the old
     // formula comments and debugger watches.
     Vector::Vector3 vResult;

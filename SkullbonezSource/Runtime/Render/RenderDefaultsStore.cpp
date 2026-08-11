@@ -62,7 +62,6 @@ void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
 {
     if ( m_count >= RENDER_DEFAULTS_REQUEST_CAPACITY )
     {
-
         // Lane F: a UI frame cannot legally exceed the fixed persistence owner
         // budget. A growth fallback would violate steady-runtime allocation policy.
         SB_FATAL( "Runtime/RenderDefaultsStore",
@@ -122,7 +121,6 @@ RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index 
 {
     if ( index >= static_cast<std::size_t>( m_count ) )
     {
-
         // Lane F: this accessor is diagnostics/test evidence over occupied slots.
         SB_FATAL( "Runtime/RenderDefaultsStore", "Pending request index out of range. index=%zu count=%d", index, m_count );
     }

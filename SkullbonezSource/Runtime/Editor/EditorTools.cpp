@@ -225,7 +225,6 @@ Vector3 EditorPlacementScaleFromGesture( int objectType, const Vector3& startSca
 
 void ResetEditorUnfocusedInputState( RunEditorPlacementState& editor, RuntimeInteractionController& interaction )
 {
-
     // Lifetime: Losing focus cancels gesture-owned state only. Persistent
     // editor choices such as object type and static/dynamic placement survive
     // so toggling focus does not rewrite the authoring mode.

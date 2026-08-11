@@ -48,7 +48,6 @@ enum class ReplayMemoryPreset : int
 
 struct ReplayMemoryPolicy
 {
-
     // Concept: presets and sliders resolve to concrete recorder windows here so
     // UI code never needs to know how presentation, solver, and event rings are
     // sized or degraded.
@@ -63,7 +62,6 @@ struct ReplayMemoryPolicy
 
 struct ReplayMemoryPolicyRequest
 {
-
     // Sentinel -1 means "leave the current policy value unchanged"; UI controls
     // can therefore emit one focused command without mirroring every slider.
     int presetIndex = -1;

@@ -50,7 +50,6 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
 
 uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
 {
-
     // Why: DumpText allocates. Hash only stable schedule/resource vocabulary so
     // unchanged frames return before constructing diagnostic strings; native
     // addresses are deliberately excluded because swap-chain rotation is not a

@@ -73,7 +73,6 @@ BroadphaseVisualizer::BroadphaseVisualizer()
 
 int64_t BroadphaseVisualizer::PackKey( int16_t ix, int16_t iy, int16_t iz )
 {
-
     // Pack three int16_t into a single int64_t for use as a cell map key.
     return ( static_cast<int64_t>( ix ) * 73856093 ) ^ ( static_cast<int64_t>( iy ) * 19349663 ) ^
            ( static_cast<int64_t>( iz ) * 83492791 );
@@ -105,7 +104,6 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
 
     if ( m_cellCount >= MAX_TRACKED_CELLS )
     {
-
         // Hazard: this is a debug renderer. Dropping excess visualization cells
         // is preferable to unbounded allocation while physics is stepping.
         return -1; // Silently drop if at capacity
@@ -174,7 +172,6 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
     case CellState::Colliding:
     {
-
         // Red (1,0,0) → Black (0,0,0) based on collision heat
         float intensity = 1.0f - ( static_cast<float>( cell.collisionHeat ) / static_cast<float>( MAX_COLLISION_HEAT ) );
 
@@ -191,7 +188,6 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
     case CellState::Fading:
     {
-
         // Current collision color → Blue (0,0,1) over FADE_DURATION
         float intensity = 1.0f - ( static_cast<float>( cell.collisionHeat ) / static_cast<float>( MAX_COLLISION_HEAT ) );
 
@@ -212,7 +208,6 @@ void BroadphaseVisualizer::ComputeCellColor( const TrackedCell& cell, float& r, 
 
 void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz, float r, float g, float b )
 {
-
     // Grid indices become world-space cube corners for the debug wireframe.
     float x0 = static_cast<float>( ix ) * m_cellSize;
     float y0 = static_cast<float>( iy ) * m_cellSize;
@@ -295,7 +290,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
         // Transition logic for newly occupied cells
         if ( cell.state == CellState::Empty )
         {
-
             // Cell just gained objects — start entry animation
             cell.state = CellState::Entering;
             cell.timer = 0.0f;
@@ -344,7 +338,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
 
             if ( cell.timer >= FADE_DURATION )
             {
-
                 // Transition complete — now steadily occupied
                 cell.state = CellState::Occupied;
                 cell.timer = 0.0f;
@@ -356,7 +349,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
 
             if ( !cell.activeThisFrame )
             {
-
                 // Lost all objects — transition to empty
                 cell.state = CellState::Empty;
                 cell.timer = 0.0f;
@@ -380,7 +372,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
 
             if ( cell.timer >= FADE_DURATION )
             {
-
                 // Fade complete — return to occupied or empty
                 if ( cell.activeThisFrame )
                 {

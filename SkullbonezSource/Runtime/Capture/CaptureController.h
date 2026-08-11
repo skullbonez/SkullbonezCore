@@ -52,7 +52,6 @@ enum class PostRenderCaptureOwner : uint8_t
 
 struct PostRenderCaptureRequest
 {
-
     // Invariant: the token identifies one request to its retained transaction
     // owner; Capture never interprets or manufactures transaction identity.
     char path[CAPTURE_REQUEST_PATH_CAPACITY] = {};
@@ -62,7 +61,6 @@ struct PostRenderCaptureRequest
 
 struct PostRenderCaptureResult
 {
-
     // TestOwnerRequestQueues.cpp proves fixed owner/token identity independently
     // of the renderer-backed drain.
     PostRenderCaptureRequest request;
@@ -71,7 +69,6 @@ struct PostRenderCaptureResult
 
 struct PostRenderCaptureBatchResult
 {
-
     // Invariant: count names the initialized FIFO prefix; Capture fills one row
     // for every removed request, including failed image writes.
     PostRenderCaptureResult results[POST_RENDER_CAPTURE_REQUEST_CAPACITY];

@@ -136,7 +136,6 @@ class Dx12RetirementDiagnosticState
     }
     [[noreturn]] void FatalExhaustion( size_t capacity, size_t currentCount ) const
     {
-
         // Hazard: high-water necessarily reaches capacity before a bounded
         // queue can reject its next row. The last release facts distinguish
         // normal saturation from a stalled or never-observed fence.

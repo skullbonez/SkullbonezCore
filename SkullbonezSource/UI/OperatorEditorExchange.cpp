@@ -101,7 +101,6 @@ bool SamePropertyPayload( const OperatorEditorPropertyCommand& left, const Opera
 
 bool IsPhysicsDebugOverlayValue( uint32_t value )
 {
-
     // Invariant: shared editor queues carry only the UI command vocabulary.
     // Runtime performs the later UI-overlay-to-Physics-flag translation.
     switch ( static_cast<UIPhysicsDebugOverlay>( value ) )
@@ -539,7 +538,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
 SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                       InGameUICommands& commands )
 {
-
     // Invariant: normalization drains legacy one-frame fields exactly once.
     // Typed queues then become the only arbitration input for either surface.
     OperatorEditorCommandQueues normalized = commands.operatorEditor;
@@ -948,7 +946,6 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Co
                                                               const OperatorEditorCommandQueues& exchange,
                                                               InGameUICommands& commands )
 {
-
     // Invariant: preview commands never escape presentation. Projection emits
     // only committed intent into the established narrow owner packets.
     // Lane R: surfaces are untrusted presentation inputs. Re-run bounded

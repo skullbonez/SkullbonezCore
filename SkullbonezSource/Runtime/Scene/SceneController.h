@@ -131,13 +131,11 @@ struct SceneFrameProceedPolicy
 };
 inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
 {
-
     // Invariant: only the sampled step edge releases a locked scene turn.
     return SceneFrameProceedPolicy { stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
 }
 struct SceneDefaultsSaveView
 {
-
     // Lifetime: every owner is borrowed only for one synchronous cold save.
     // The writer retains no pointers across a scene reload.
     const OverlayDebugState& debug;

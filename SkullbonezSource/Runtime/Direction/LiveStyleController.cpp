@@ -67,7 +67,6 @@ void JoinControlPath( const char* directory, const char* fileName, char* out, si
 
 uint64_t FileStamp( const char* path )
 {
-
     // Why: live style files are tiny, so a combined timestamp/size stamp avoids
     // rereading every frame while still catching rapid save updates.
     WIN32_FILE_ATTRIBUTE_DATA data = {};

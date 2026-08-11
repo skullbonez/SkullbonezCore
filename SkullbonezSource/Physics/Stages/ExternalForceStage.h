@@ -67,7 +67,6 @@ struct ExternalCylindricalForceField
 
 struct ExternalForceFrameInput
 {
-
     // Lifetime: Gameplay owns all three spans; Physics borrows them for one
     // Step call and writes only the two model-row timer spans.
     std::span<const ExternalCylindricalForceField> fields;

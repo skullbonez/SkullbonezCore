@@ -30,7 +30,6 @@ namespace Rendering
 {
 namespace PrimitiveMeshes
 {
-
 /*
 Concept: Primitive mesh builder
 
@@ -76,7 +75,6 @@ inline constexpr int PineTriangleVertexCount()
 
 template <typename EmitVertex> inline void EmitUnitSphere( int slices, int stacks, EmitVertex emitVertex )
 {
-
     // The sphere is generated as triangle-expanded UV-sphere quads. Its local frame matches the
     // existing Skullbonez visual/physics convention: theta=0 points down negative Z, which is the
     // same orientation both the normal renderer and collision visualizer already used.
@@ -116,7 +114,6 @@ template <typename EmitVertex> inline void EmitUnitSphere( int slices, int stack
 
 template <typename EmitVertex> inline void EmitUnitSphereFlat( int slices, int stacks, EmitVertex emitVertex )
 {
-
     // Faceted low-poly sphere variant. Positions and UVs match EmitUnitSphere,
     // but each emitted triangle receives one face normal so lighting exposes the
     // actual polygon structure instead of smoothing it away.

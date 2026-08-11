@@ -33,7 +33,6 @@ namespace SkullbonezCore::Rendering
 {
 struct RaytracingGeometryDesc
 {
-
     // Lifetime: the borrowed GPU address remains valid until cold setup copies
     // its geometry into the acceleration structure.
     uint64_t vertexBufferAddress = 0;
@@ -62,7 +61,6 @@ struct ReflectionEnvironmentTextures
 
 struct WaterReflectionRayDesc
 {
-
     // Invariant: every environment handle names a registered engine texture.
     // The DX12 owner resolves all eight handles as one contiguous shader table.
     Math::Transformation::Matrix4 inverseViewProjection;

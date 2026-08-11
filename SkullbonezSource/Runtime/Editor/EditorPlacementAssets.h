@@ -181,7 +181,6 @@ bool TryBuildScaledEditorHullForType( Core::SbDiagnosticStore& diagnostics, int 
 
 template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Assets::AssetSystem& assets, Fn&& fn )
 {
-
     // Invariant: Asset-library part order is the spawn order. Preview bounds,
     // collision hull lookup, material selection, and actual placement must all
     // visit parts through this helper to stay identical.

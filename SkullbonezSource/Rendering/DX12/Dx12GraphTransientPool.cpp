@@ -93,7 +93,6 @@ Dx12GraphTransientPool::Dx12GraphTransientPool( Dx12RenderDevice& device, Dx12De
 RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( const RenderGraph& graph,
                                                                               const RenderGraphCompileResult& compiled )
 {
-
     // Concept: these are frame-target pool slots, not scene assets. The graph
     // compiler proves alias compatibility; this owner keeps that proof beside
     // the physical texture and every view row that represents it.
@@ -153,7 +152,6 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
         if ( !slot )
         {
-
             // Runtime allocation exception: render-graph pool growth is a
             // warm-up materialization action. Created slots persist to shutdown;
             // steady frames reuse the compiler-assigned physical pool.
@@ -216,7 +214,6 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
             if ( FAILED( hr ) )
             {
-
                 // Lane R: optional post-process passes may use their older
                 // framebuffer path when native transient creation fails.
                 MarkMaterializationFailure( m_stats, hr, resource );
@@ -396,7 +393,6 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
 
         if ( !slot || !slot->resource )
         {
-
             // Lane R: materialization already logged the allocation failure.
             // The callback disables that optional effect, so there is no native
             // resource and therefore no barrier to emit for this logical edge.
@@ -405,7 +401,6 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
 
         if ( slot->currentAccess != transition.before )
         {
-
             // Hazard: accepting a mismatch would make the graph's StateBefore
             // claim disagree with the actual physical slot, which DX12 treats
             // as undefined command-stream state rather than a recoverable miss.

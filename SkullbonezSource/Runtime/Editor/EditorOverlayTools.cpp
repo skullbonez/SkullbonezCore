@@ -107,7 +107,6 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( Core::SbDiagnosti
     if ( editor.selectedModelRow.value >= world.SceneEntityCount() ||
          ( editor.selectedBody.IsValid() && !selectionHandlesValid ) )
     {
-
         // Invariant: Selection stores handles plus a model-row hint. If
         // topology invalidates either side, clear through the interaction
         // command path instead of letting later gizmo code read a stale row.
@@ -187,14 +186,12 @@ void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const R
         if ( !body || !collider || modelIndex < 0 || modelIndex >= world.SceneEntityCount() ||
              collider->body != mousePickup.body )
         {
-
             // Stale drag state can happen after editor deletion or scene reload.
             // Leave cancellation to the input/physics owner and just omit the
             // presentation trace for this frame.
         }
         else
         {
-
             // Why: Mouse pickup stores a body handle when the drag begins.
             // Overlay drawing should follow that live store row instead of
             // requiring post-step authoring/presentation data to be current.
@@ -221,7 +218,6 @@ void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const R
         if ( body && collider && bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
              collider->body == bodyHandle )
         {
-
             // Why: attached-camera follow is already store-backed; its overlay
             // marker should read the same live body/collider rows instead of
             // keeping legacy model-side pose/shape caches hot for presentation.

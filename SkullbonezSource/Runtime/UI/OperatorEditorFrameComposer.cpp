@@ -218,7 +218,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                  const FramePresentationFacts& presentationFacts )
 {
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Invariant: copy the completed world backbuffer before either operator
     // surface draws, preserving one presentation owner at a time.
     if ( m_imguiEditor.IsVisible() )
@@ -385,7 +384,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
                                   m_assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Why: the legacy surface does not consume E12 contextual detail. Sampling
     // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
@@ -395,7 +393,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
         if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
         {
-
             // Hazard: a scene transition can invalidate the body handle before the
             // presentation frame observes the cleared editor selection. Report the
             // stale state; never repair identity from a dense-row guess in the UI.
@@ -511,7 +508,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
-
         // Why: the secondary surface can be visible while the legacy UI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
         // of making ImGui depend on whether the legacy text pass happens to run.

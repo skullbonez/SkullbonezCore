@@ -55,7 +55,6 @@ struct RunReplayPredictionBodySample
 
 struct RunReplayPredictionFrame
 {
-
     // Concept: body samples are authoritative for the root trajectory, while
     // debugContacts are optional evidence for the contact-derived cause tree.
     // contactsIncomplete means the frame stayed usable after contact scratch

@@ -107,7 +107,6 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
-
 // Why: Profile builds do not emit Debug-only scene-finished telemetry, so
 // automation exits need an explicit stdout breadcrumb near the quit request.
 void PrintRuntimeExitReason( const char* reason )
@@ -131,7 +130,6 @@ float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config
 
 namespace
 {
-
 // Lifetime: this fixed post-step operation receives only its replay-capture
 // inputs. It cannot reach unrelated frame owners through the root view slices.
 void CaptureReplayPostStep( RuntimeTools& runtimeTools, SkullbonezCore::Runtime::SceneController& sceneController,
@@ -229,7 +227,6 @@ double Run::BeginFrameTurn()
 
 void Run::BeginFrameDiagnosticsPhase()
 {
-
     // Frame boundary: publish prior-frame GPU counters before resetting the
     // diagnostics storage that records this turn.
     Renderer().BeginProfilerFrame();
@@ -329,7 +326,6 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
         interpolationAlpha = TickPhysics( secondsPerFrame, capturePresentationPinned, proceedPolicy );
     }
     {
-
         // Invariant: prediction publication completes before overlay and render
         // construction. Render cannot decide whether the private engine advances.
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
@@ -350,7 +346,6 @@ Run::FrameSimulationPhaseResult Run::RunSimulationPhase( double secondsPerFrame,
 Run::FrameRenderPhaseResult Run::PrepareRenderPhase( bool legacyDevelopmentUiActive,
                                                      const FrameSimulationPhaseResult& simulation )
 {
-
     // Concept: graphics stress is render/runtime churn, not UI command work.
     // This top-level phase coordinates its concrete planning, load, action, and
     // diagnostics operations without delegating the composition root.
@@ -489,7 +484,6 @@ void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, flo
 
 void Run::RunPostDrawDiagnosticsPhase( bool legacyDevelopmentUiActive )
 {
-
     // Invariant: the F11 request was formed during input after its candidate was
     // applied. Draining after world/UI draw and before Present captures that
     // exact frame without lending renderer authority to LookLabController.
@@ -726,7 +720,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
 float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
 {
-
     // Why: simulation pacing is a reactive frame concern. Sampling the ledger
     // here keeps SimulationSystem out of every cold scene-load call surface.
     m_simulation.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
@@ -834,7 +827,6 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
     }
     else
     {
-
         // Why: Scene-mode, no-physics harnesses intentionally skip simulation
         // UpdateLogic, but Director is presentation state. It still needs phase
         // style/camera entry work so authored show decks behave in static scenes.
@@ -950,7 +942,6 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( result.restartFrame )
     {
-
         // Capture automation can synchronously replace scene-owned render
         // resources below. Close and clear graph borrows before that mutation;
         // this restart path deliberately records no Present declaration.
@@ -961,7 +952,6 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( !result.captureResult.Ok() )
     {
-
         // Lane R: capture readback/file IO failed after rendering, so terminate
         // automation with diagnostics instead of marking the scene complete.
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );
@@ -1076,7 +1066,6 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
 
     if ( !result.captureResult.Ok() )
     {
-
         // Lane R: auto-cycle captures are validation side effects; failed file
         // output exits the run rather than recording a false capture success.
         fprintf( stderr, "%s: %s\n", result.captureResult.ErrorOwner(), result.captureResult.ErrorMessage() );

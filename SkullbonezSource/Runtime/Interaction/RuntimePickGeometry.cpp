@@ -193,7 +193,6 @@ struct PickShapeVisitor
 
     bool operator()( const Math::CollisionDetection::BoundingBox& box ) const
     {
-
         // Invariant: BoundingBox::GetModelMatrix translates by worldPos +
         // box.GetPosition(), then rotates the unit cube. Match that authored
         // offset convention so editor picking agrees with the rendered box.

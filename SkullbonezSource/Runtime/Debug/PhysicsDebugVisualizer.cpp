@@ -56,7 +56,6 @@ constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER = MakePassRasterStateB
 
 float ShapeAxisLength( const ColliderRecord& collider, int axis )
 {
-
     // Scale local-axis arrows to the shape. Boxes use their true half-extent on
     // the selected axis; spheres use bounding radius for all axes.
     const CollisionShapeReference& shape = collider.shape;
@@ -73,7 +72,6 @@ float ShapeAxisLength( const ColliderRecord& collider, int axis )
 
 void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& b )
 {
-
     // Stable colors make pipeline stepping readable across frames. These colors
     // are diagnostic labels only; they do not encode any solver math.
     switch ( stage )
@@ -329,7 +327,6 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameVi
 
 void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
 {
-
     // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
     // lines = the two sideways friction axes. A gray body-to-body line helps
     // locate which pair produced the row.
@@ -360,7 +357,6 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
 
 void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
 {
-
     // Purple marks sleeping bodies, green marks credible support, and orange
     // marks sleep inhibition. This helps distinguish "touching" from "allowed
     // to sleep," which are intentionally different policies.
@@ -542,7 +538,6 @@ void PhysicsDebugVisualizer::SetPipelineStageCursor( int cursor )
 
 void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view )
 {
-
     // The C-key mode is bitmask based: axes, contacts, and sleep state can be
     // shown independently or together.  If contacts are disabled, discard the
     // linger cache immediately so re-enabling starts from live solver rows.
@@ -640,7 +635,6 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Ma
 
     if ( !m_lineData.empty() )
     {
-
         // Why: DebugOverlayPass resolves renderer readiness once per frame; this
         // visualizer only owns physics diagnostic geometry.
         renderCommands.DrawLinesColored( m_lineData, viewProj, PHYSICS_DEBUG_LINE_RASTER );

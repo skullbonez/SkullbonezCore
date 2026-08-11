@@ -299,7 +299,6 @@ struct ReplaySolverWorldSnapshot
 
     void ClearPreservingCapacity() noexcept
     {
-
         // Lifetime: cancellation is a steady-runtime transition. Preserve all
         // Physics and Gameplay vector storage allocated during reserve setup.
         physics.ClearPreservingCapacity();

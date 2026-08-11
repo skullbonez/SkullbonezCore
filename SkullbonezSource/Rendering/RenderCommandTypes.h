@@ -53,7 +53,6 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-
 // Blend factor enum (matches the subset used by the engine)
 enum class BlendFactor
 {
@@ -111,7 +110,6 @@ struct RasterStateBucketId
 
 struct PassRasterStateBucket
 {
-
     // Invariant: this id is meaningful only inside the declaring pass. It is
     // diagnostic identity, never a durable cross-pass or backend cache key.
     RasterStateBucketId id;
@@ -128,7 +126,6 @@ struct InstancedMeshDrawDesc
 
 struct ClearTargetDesc
 {
-
     // Values travel on the clear operation so no later pass can inherit hidden
     // backend clear state from an earlier target.
     bool color = true;

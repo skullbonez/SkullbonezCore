@@ -86,7 +86,6 @@ void EditorCommandHistory::Clear()
 
 void EditorCommandHistory::InvalidateForNonUndoableEdit()
 {
-
     // Hazard: retaining either side of history across an edit with no inverse
     // would let a later undo/redo apply facts captured for a different world.
     Clear();

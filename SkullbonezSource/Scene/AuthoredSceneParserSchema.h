@@ -432,7 +432,6 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
 
 template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std::vector<THull>& hulls )
 {
-
     // Why: Older rooted-tree scenes placed trunk foliage too low relative to the
     // root hull. Apply the compatibility lift only to matching fixed parts so
     // saved legacy scenes keep their intended clearance without moving roots.
@@ -533,7 +532,6 @@ inline const Json& EmptyJson()
 
 inline void Fail( const std::string& path, const std::string& detail )
 {
-
     // Concept: Parser failures include the file path and logical context because
     // scene JSON is edited by humans and validation scripts.
     std::ostringstream message;
@@ -773,7 +771,6 @@ inline SceneObjectGroupKind ReadSceneObjectGroupKind( const Json& value, const s
 inline void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group, const Json& object, const std::string& path,
                                           const char* objectContext )
 {
-
     // Concept: objectGroup JSON uses the authored root name as its file-facing
     // reference. After expansion, the parser resolves that name once to the
     // root's stable scene object id; runtime grouping never stores the row.
@@ -854,7 +851,6 @@ inline Json ReadJsonFile( const std::string& path )
 
     if ( root.is_discarded() )
     {
-
         // Lane R: malformed authored JSON is external input, so the parser
         // records a recoverable failure without requiring exception support.
         Fail( path, "Invalid JSON" );
@@ -1069,7 +1065,6 @@ inline std::string ReadInferredContactMaterial( const Json& object, const std::s
 
     if ( renderMaterial && renderMaterial->is_object() )
     {
-
         // Why: asset libraries already tag render materials by substance; using
         // that token keeps gameplay contact policies material-aware without duplicating JSON.
         if ( const Json* mode = FindMember( *renderMaterial, "mode" ); mode && mode->is_string() )

@@ -204,7 +204,6 @@ bool InputActions::TryAppend( const InputActionEvent& event )
 {
     if ( m_count >= CAPACITY )
     {
-
         // Hazard: action loss is observable. The owner-facing integration must
         // treat Overflowed() as a fatal capacity invariant rather than growing.
         m_overflowed = true;
@@ -249,7 +248,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
     if ( capture.mouse )
     {
-
         // Invariant: ImGui already received these native events in WndProc.
         // Engine, legacy UI, camera, gizmo, and replay see a neutral device
         // class rather than independently consuming the same click or drag.
@@ -308,7 +306,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
     if ( focusGained || captureReleased )
     {
-
         // Invariant: input pressed while another application or tool UI owned
         // the class must not arrive as a new command. Remember current levels
         // and wait for a physical release/repress cycle.
@@ -344,7 +341,6 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPh
 
     if ( m_phaseRoutedThisFrame[phaseIndex] )
     {
-
         // Invariant: a phase contributes at most one pass to a frame's ordered
         // output, even if an integration bug asks to route it twice.
         return;
@@ -368,7 +364,6 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPh
 
         if ( routedThisCall[actionIndex] )
         {
-
             // Invariant: the repository table owns one key per action. Ignoring a
             // duplicate fails closed without double-emitting an action event.
             continue;
@@ -549,7 +544,6 @@ void InputRouter::ApplyPointerPresentation( const PointerPresentationPolicy& pol
 
 bool InputRouter::ReleasePointerToUi( const PointerPresentationPolicy& policy )
 {
-
     // Invariant: UI release cannot steal the pointer from an active camera-look
     // gesture. A true result tells the camera owner to clear accumulated deltas.
     if ( policy.mouseLookOwnsCursor )
@@ -602,7 +596,6 @@ void InputRouter::CancelPointerPresentation()
 
 void InputRouter::DeferPointerPresentationCommit()
 {
-
     // Hazard: imgui_impl_win32 and the engine both use HWND-scoped SetCapture.
     // While the editor owns mouse intent the engine must not release the same
     // HWND capture; invalidating here makes the first returning engine frame

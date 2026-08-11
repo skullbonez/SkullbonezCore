@@ -121,7 +121,6 @@ ReplayPredictionPresentation::ReplayPredictionPresentation( Core::SbDiagnosticSt
                                                             Core::Profiler* profiler )
     : m_profiler( profiler ), m_retainedMarkerDrawList( resultDiagnostics )
 {
-
     // Runtime allocation policy: focus masks are rewritten during replay render
     // passes, so the byte vector owns its full model-capacity storage up front.
     m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
@@ -173,7 +172,6 @@ ReplayPredictionPresentationMemoryStats ReplayPredictionPresentation::CollectMem
 
 void ReplayPredictionPresentation::ReserveRecordingBuffers()
 {
-
     // Runtime allocation policy: ghost requests are replay-only overlay data.
     // Reserve during startup replay configuration, before steady interaction.
     m_ghostDrawRequests.reserve( REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY );
@@ -256,7 +254,6 @@ bool ReplayPredictionPresentation::CanAppendGhostDrawRequests( std::size_t count
 
 void ReplayPredictionPresentation::AppendGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request )
 {
-
     // Invariant: callers prove capacity before the bounded presentation pass;
     // replay steady-state rendering must never grow this vector.
     if ( m_ghostDrawRequests.size() < m_ghostDrawRequests.capacity() )
@@ -454,7 +451,6 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
 
     if ( retainedAppearanceChanged || markerAppearanceChanged )
     {
-
         // Invariant: packed retained records carry style values. A live UI edit
         // invalidates geometry only; prediction samples remain authoritative.
         m_retainedGeometry.Clear();
@@ -467,7 +463,6 @@ bool ReplayPredictionPresentation::PrepareRetainedGeometryDrawList( const Replay
 
     if ( prediction.deterministicRevealEnabled )
     {
-
         // Invariant: deterministic reveal is the untouched frame-local oracle.
         // It must not mix retained provisional tails into the packet it hashes.
         m_retainedRenderingActive = false;
@@ -582,7 +577,6 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
 
 void ReplayPredictionPresentation::StorePublishedVisualPacket( ReplayVisualPacket packet )
 {
-
     // Lifetime: spans point into fixed tracer or prediction reserves and remain
     // valid until the next frame clears those owners. No packet survives order.
     m_publishedVisualPacket = packet;
@@ -626,7 +620,6 @@ void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame( const Skullb
 
     if ( !sameSubmittedBytes || !sameReserveWindow )
     {
-
         // Invariant: build reserve growth may finish before the steady window;
         // evidence begins only once submitted bytes and counters hold steady.
         m_trajectorySubmissionProbe.stableFrameCount = 1;

@@ -79,7 +79,6 @@ bool SceneController::CrossScenePauseLocked() const
 
 SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepRequested ) const
 {
-
     // Invariant: the lock can be bypassed only by the step edge sampled for
     // this frame. Callers consume proceedAllowed instead of re-deriving it.
     return ResolveSceneFrameProceedPolicy( m_crossScenePauseLocked, stepRequested );

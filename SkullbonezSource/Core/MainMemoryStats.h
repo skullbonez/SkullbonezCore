@@ -31,7 +31,6 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-
 // Concept: replay diagnostics use enum-indexed POD arrays so memory dumps and UI
 // frames can copy counters and byte categories without allocating or depending
 // on replay owner types.
@@ -164,7 +163,6 @@ struct MainMemoryReplayTrajectoryStats
 
 struct MainMemoryReplayTrajectorySubmissionStats
 {
-
     // Invariant: one storage lane hashes its exact ordered bytes. A packet that
     // joins retained and frame-local lanes composes their cached hash/size facts
     // so publication remains content-sensitive without rereading retained data.
@@ -205,7 +203,6 @@ struct MainMemoryProcessStats
 
 struct MainMemoryReplayStats
 {
-
     // One fixed row per ReplayRetainedMemory growth policy. Measured high-water
     // is the evidence used to set the cap; allocator high-water is this run.
     struct GrowthOwner

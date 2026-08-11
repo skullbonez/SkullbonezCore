@@ -137,7 +137,6 @@ inline ContactEnergyMeasurement MeasureContactEnergy( const PhysicsBodyStore& bo
 
 inline double ContactEnergyPrecisionTolerance( double referenceEnergy ) noexcept
 {
-
     // Invariant: this is only an accumulation-rounding allowance. Authored work,
     // penetration repair, or restitution above one must remain visible failures.
     return (std::max)( 1.0e-6, 64.0 * static_cast<double>( FLT_EPSILON ) * (std::max)( std::abs( referenceEnergy ), 1.0 ) );

@@ -48,7 +48,6 @@ namespace
 {
 bool ReplayPredictionContactsIncomplete( const ReplayPredictionPresentationView& prediction )
 {
-
     // Concept: contact payloads are optional prediction evidence. The root path
     // can still be correct when contact-tree rows are partial, but the overlay
     // should label that loss instead of implying a complete causal tree.
@@ -649,7 +648,6 @@ void RenderReplayInterceptOverlay( UiDrawSubmission& submission, Text::TextBatch
                                    Rendering::Dx12GeometryOwner& renderCommands,
                                    Rendering::Dx12Diagnostics& renderDiagnostics, int screenW, int screenH )
 {
-
     // Why: closest approach is useful while the scrubber is hidden, so this
     // independent Legacy surface is invoked before scrubber visibility policy.
     const ReplayInterceptView& intercept = replay.intercept;

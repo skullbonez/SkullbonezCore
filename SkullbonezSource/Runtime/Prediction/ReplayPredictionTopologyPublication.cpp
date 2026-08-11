@@ -229,7 +229,6 @@ bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts, ReplayFra
 
     for ( std::size_t contactIndex = outNextContactIndex; contactIndex < contacts.size(); ++contactIndex )
     {
-
         // Invariant: callers that slice a frame on budget exhaustion must resume
         // from this contact index before advancing the frame cursor.
         if ( budgetExpired() )
@@ -711,7 +710,6 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context, Phys
 
     if ( RunReplayPathTraceNode* existing = FindReplayFutureNodeInNodes( nodes, id ) )
     {
-
         // Why: a real contact edge carries stronger causal evidence than an
         // earlier motion-only fallback for the same future body.
         if ( contactDerived && !existing->contactDerived )
@@ -869,7 +867,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
-
     // Invariant: frameCount is the populated prefix of frames. buildFrames is
     // pre-sized for the whole prediction horizon, so using frames.size() while
     // building would scan empty rows and mark the future-node cache complete
@@ -910,7 +907,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
     auto publishScratch = [&]()
     {
-
         // Why: the renderer reads futureNodes only after this builder returns.
         // Copying the scratch prefix here lets cause/effect paths grow over
         // frames without exposing a vector while it is being mutated.
@@ -996,7 +992,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
     if ( prediction.futureNodeCache.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
-
         // Invariant: once the fixed topology cap is saturated, later frames
         // cannot publish additional nodes. Mark the cache complete for the
         // visible prefix so reports do not encode the frame-budget slice that
@@ -1048,7 +1043,6 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     if ( usingBuildFrames )
     {
-
         // Invariant: the frame thread owns this latch. A worker may release more
         // rows after preparation, but topology, trajectories, markers, ghosts,
         // and packet headers must all keep this one coherent prefix until the
@@ -1167,7 +1161,6 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     // instead of losing markers outright.
     if ( !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
-
         // Hazard: this phase has no scan/version cache, so it repeats in full on
         // an idle frame whose horizon has not changed. It is the first place to
         // look when the overlay shows a steady cost with nothing rebuilding.
@@ -1179,7 +1172,6 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
 
     if ( bufferComplete && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
-
         // Hazard: uncached like the affected-body phase above, and it only runs
         // once the buffer is complete, so it is present exactly on the idle
         // frames an operator is trying to account for.

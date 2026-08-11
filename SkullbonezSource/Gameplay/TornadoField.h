@@ -34,7 +34,6 @@ namespace SkullbonezCore
 {
 namespace Gameplay
 {
-
 // Invariant: authored content is rejected before mutation when it exceeds this
 // fixed gameplay budget; steady gameplay never truncates or grows the field set.
 inline constexpr std::size_t MAX_TORNADO_ACTIVE_FORCE_FIELDS = 64u;

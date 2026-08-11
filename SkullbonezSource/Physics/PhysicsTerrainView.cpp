@@ -75,7 +75,6 @@ void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, P
 
     if ( flatSlope )
     {
-
         // Invariant: preserve base + slopeX*x + slopeZ*z exactly; regrouping
         // these terms changes the byte-exact physics oracle.
         outHeight = slopeBaseY + slopeX * x + slopeZ * z;

@@ -211,7 +211,6 @@ int CubeQ12( int value )
 
 Color3 OklabToLinearRgb( OklabQ12 color )
 {
-
     // Concept: these are the published Oklab inverse matrices quantized to Q12.
     // Integer intermediates keep palette construction exact across compiler
     // optimization modes; only the final power-of-two division becomes float.
@@ -245,7 +244,6 @@ float Q12Range( int minimum, int maximum, SplitMix64& rng )
 
 int MinimumFogSpanQ12( int fogStartQ12 )
 {
-
     // Why: integer ceiling preserves the 15-percent publication boundary on
     // the Q12 grid without compiler-dependent float multiply/rounding.
     constexpr int PERCENT_DENOMINATOR = 100;
@@ -332,7 +330,6 @@ void AppendFloat( std::vector<uint8_t>& bytes, float value )
 
 void AppendCinematic( std::vector<uint8_t>& bytes, const Core::CinematicRenderConfig& c )
 {
-
     // Invariant: this is the LL6-corrected 84-atom prerelease version-1 field
     // order, not an in-memory dump. After LL6 closure, insertions belong in a
     // new generator version because changing this order invalidates

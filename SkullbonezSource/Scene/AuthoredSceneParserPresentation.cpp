@@ -103,7 +103,6 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
 
 void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path )
 {
-
     // Concept: water debug fields are explicit presentation overrides. They do
     // not mutate the authored water simulation or its physics parameters.
     RequireObject( debug, path, "debug" );
@@ -412,7 +411,6 @@ void AuthoredSceneParser::ApplyCinematicInt( const Json& cinematic, const std::s
 
 void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::string& path )
 {
-
     // Invariant: each accepted scalar sets its matching override bit. Runtime
     // style merging relies on the value and mask changing atomically.
     struct FloatField
@@ -667,7 +665,6 @@ void AuthoredSceneParser::ApplyCinematic( const Json& cinematic, const std::stri
 
 void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& path )
 {
-
     // Invariant: scene files expose one camera record with normalized direction
     // vectors; invalid cardinality or degenerate vectors fail the whole parse.
     RequireObject( camera, path, "camera" );

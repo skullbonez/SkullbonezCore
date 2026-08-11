@@ -69,7 +69,6 @@ bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler*, const TerrainC
 
     for ( int v = 0; v < 8; ++v )
     {
-
         // The low three bits enumerate the OBB corner signs. Sampling each
         // world-space corner against its own terrain height keeps sleep/contact
         // decisions tied to the visible geometry instead of a center XZ sample.
@@ -150,7 +149,6 @@ template <typename ShapeView>
 float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const TerrainContactBodyView& body,
                                 const ShapeView& shape, float changeInTime, Ray& outTestingRay, Plane& outTestingPlane )
 {
-
     // Swept terrain tests use the body's unobstructed path for the candidate
     // timestep. Keeping this local makes the ray construction explicit at the
     // point where terrain collision state is prepared.
@@ -168,7 +166,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( box != nullptr )
     {
-
         // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward
         // extent from centre is dot(abs(rotationRow_Y), halfExtents). This is
         // only an early-out aid; exact terrain contact below samples real vertices.
@@ -198,7 +195,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
 
     if ( box != nullptr )
     {
-
         // Boxes need a real vertex/terrain gap test before any center-based path
         // runs. On sloped terrain, a center sample can say the box is supported
         // while every real vertex is still visibly above the surface.
@@ -229,7 +225,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
-
             // When no vertex is currently touching, sweep every box vertex along
             // the body's linear motion and take the earliest plane hit.
             PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
@@ -365,7 +360,6 @@ TerrainContactSweepResult SweepTerrainContactImpl( SkullbonezCore::Core::Profile
                                                    const TerrainContactBodyView& body, const ShapeView& shape,
                                                    float changeInTime )
 {
-
     // This answers "how many seconds can this body move before it hits terrain?"
     // and returns the hit plane directly for the solver row builder.
     if ( !body.terrain.IsValid() )
@@ -432,7 +426,6 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
 
                              if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
                              {
-
                                  // A sphere has one terrain point: the bottom pole along the
                                  // terrain normal. That becomes one normal row and two tangent rows.
                                  const float radius = shapeValue.GetRadius();
@@ -545,7 +538,6 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
 
     if ( preVn < -body.restitutionThreshold && out.pointCount > 1 )
     {
-
         // For fast impacts, collapse a multi-point box footprint to a centroid
         // impact row. Resting contacts should use the full patch, but a high
         // speed bounce should not stack several restitution rows and over-launch.

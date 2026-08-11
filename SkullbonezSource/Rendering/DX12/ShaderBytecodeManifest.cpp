@@ -74,7 +74,6 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
 
     if ( status >= 0 )
     {
-
         // Why: BCryptGetProperty exposes arbitrary property storage as
         // mutable bytes; the requested property is exactly one DWORD.
         status = BCryptGetProperty( algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &objectBytes ),
@@ -94,7 +93,6 @@ bool Sha256Hex( std::string& bytes, std::string& hex )
 
     if ( status >= 0 && !bytes.empty() )
     {
-
         // Why: BCryptHashData's ABI accepts mutable bytes. ReadBytes owns this
         // writable string, and BCrypt borrows it synchronously without mutation.
         status = BCryptHashData( hash, reinterpret_cast<PUCHAR>( bytes.data() ), static_cast<ULONG>( bytes.size() ), 0 );
@@ -328,7 +326,6 @@ bool ValidateLoadedReflection( const char* hlslPath, const char* stage, ID3DBlob
 
 bool DevShaderHotReloadEnabled()
 {
-
     // Invariant: this launch policy is immutable after process startup, so the
     // renderer can query it from the manual cold utility action.
     static const bool enabled = CommandLineHasExactToken( "--dev-shader-hot-reload" );

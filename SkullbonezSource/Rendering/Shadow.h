@@ -59,7 +59,6 @@ struct ShadowConvexHullCaster
 
 struct ShadowCasterBatches
 {
-
     // CPU-built caster streams. Worker jobs may fill these payloads, but only
     // the main thread may submit them through the active render command path.
     // Convex hull payloads borrow immutable hull geometry owned by the live
@@ -101,7 +100,6 @@ struct ShadowCasterBatches
 
 struct ShadowFrameData
 {
-
     // Light-space camera used by the shadow pass. The depth pass renders casters
     // with lightView/lightProjection, while receivers use lightViewProjection to
     // transform their world-space fragment position back into the same clip
@@ -186,7 +184,6 @@ inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& proj
 inline void ApplyShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& textures, const ShadowFrameData* shadow,
                                          bool receive, bool objectReceiver = false )
 {
-
     // Receivers call this unconditionally, even when shadows are disabled. That
     // keeps all lit shaders using the same uniform layout and avoids stale GPU
     // state: disabled receivers get identity matrices, zero strength, and an
@@ -210,7 +207,6 @@ inline void ApplyShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& t
     }
     else
     {
-
         // Pass contract: disabled receivers must not inherit an old shadow map
         // binding. The shader would skip sampling, but clearing the slot keeps
         // descriptor lifetime visible to the backend.
@@ -221,7 +217,6 @@ inline void ApplyShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& t
 inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader, Dx12TextureOwner& textures, const ShadowFrameData* shadow,
                                                bool receive )
 {
-
     // Concept: terrain keeps its broad-map payload at t3 and layers a tighter
     // object projection through t5. This deliberately appends a binding after
     // the t4 material table instead of reinterpreting object material state.

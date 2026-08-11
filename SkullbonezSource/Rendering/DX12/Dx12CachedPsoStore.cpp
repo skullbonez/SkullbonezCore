@@ -71,7 +71,6 @@ class Sha256Writer
 
         if ( status >= 0 )
         {
-
             // Why: BCryptGetProperty exposes arbitrary property storage as
             // mutable bytes; the requested property is exactly one DWORD.
             status = BCryptGetProperty( m_algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>( &m_objectBytes ),
@@ -260,7 +259,6 @@ bool HashShaderBytecode( Sha256Writer& writer, const D3D12_SHADER_BYTECODE& byte
 
 bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc )
 {
-
     // Invariant: hash individual values rather than descriptor structs. Native
     // structs contain padding and pointers whose bytes are process-dependent.
     if ( !HashShaderBytecode( writer, desc.VS ) || !HashShaderBytecode( writer, desc.PS ) ||
@@ -809,7 +807,6 @@ void Dx12CachedPsoStore::Persist()
 
 void Dx12CachedPsoStore::Shutdown()
 {
-
     // Lifetime: mapped warm bytes are needed only while creating PSOs. Close
     // the old file before atomic replacement so Windows cannot reject rename
     // with a sharing violation. Live PSOs remain valid for GetCachedBlob below.

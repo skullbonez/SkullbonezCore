@@ -28,7 +28,6 @@ namespace Physics
 {
 namespace ContactSolver
 {
-
 // Shared contact-solver math used by object/object and object/terrain rows.
 // A "row" is one tiny rule such as "do not move into the wall along this normal"
 // or "slow sideways sliding along this tangent." Keeping the math here helps the
@@ -36,7 +35,6 @@ namespace ContactSolver
 inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vector::Vector3& tangent1,
                                   Math::Vector::Vector3& tangent2 )
 {
-
     // Catto-style 3D contact solving treats friction as two scalar tangent rows
     // attached to the same contact point as the normal row. The tangent frame
     // must be deterministic: if two identical runs pick different tangent axes,
@@ -70,7 +68,6 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vec
 
 inline void ClampFrictionVector( float& accT1, float& accT2, float limit )
 {
-
     // Catto 2005 presents two independent tangent bounds for the 2D examples.
     // Skullbonez solves 3D contacts, so two tangent rows form one friction vector
     // in the contact plane. Clamping the vector length, rather than each axis
@@ -93,7 +90,6 @@ template <typename ApplyInvInertia>
 inline float ComputeStaticBodyEffectiveMass( float invMass, const Math::Vector::Vector3& axis,
                                              const Math::Vector::Vector3& r, ApplyInvInertia applyInvInertia )
 {
-
     // Effective mass is the scalar denominator in Catto's row solve:
     //
     //     lambda = velocity_error / (J * M^-1 * J^T)
@@ -113,7 +109,6 @@ inline float ComputeTwoBodyEffectiveMass( float invMassA, float invMassB, const 
                                           const Math::Vector::Vector3& rA, const Math::Vector::Vector3& rB,
                                           ApplyInvInertiaA applyInvInertiaA, ApplyInvInertiaB applyInvInertiaB )
 {
-
     // Same row denominator as ComputeStaticBodyEffectiveMass, but with both
     // dynamic bodies contributing linear and angular terms. Keeping the formula
     // here avoids subtle drift between terrain/object contact paths: any later

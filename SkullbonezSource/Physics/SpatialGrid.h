@@ -61,7 +61,6 @@ namespace Math
 {
 namespace CollisionDetection
 {
-
 // Concept: the broadphase divides the world into invisible cells. Bodies that
 // share an eligible cell become candidate pairs; narrowphase and the solver
 // still own the final collision decision. Retained cell storage and radix

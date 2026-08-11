@@ -196,7 +196,6 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
 EditorTracer::EditorTracer( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics )
     : m_resultDiagnostics( resultDiagnostics )
 {
-
     // Runtime allocation policy: overlay line storage is paid once during tool
     // construction. EmitLine refuses overflow so replay prediction, gizmos, and
     // target markers cannot grow this vector while render builds the frame.
@@ -592,7 +591,6 @@ void EditorTracer::EmitReplayRibbonGlowPairTo( std::vector<float>& ribbonData, c
                                                const ReplayRibbonStyle& core,
                                                SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-
     // Why: legacy callers still supply two style records, but the vector ribbon
     // owns edge coverage and optional selection halo in one pixel-shader pass.
     // Merge the strongest hints so each logical segment consumes one fixed-
@@ -791,7 +789,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
             // SV_VertexID still selects the endpoint and side in the shader.
             for ( int vertex = 0; vertex < 6; ++vertex )
             {
-
                 // Why: all six shader-expanded vertices carry the same segment
                 // record. Emitting that record here keeps the wire layout
                 // visible without inventing a one-call parameter descriptor.
@@ -1168,7 +1165,6 @@ void EditorTracer::AddReplayPathSegment( const Vector3& start, const Vector3& en
 
 void EditorTracer::AddReplayCausalTrailSegment( const Vector3& start, const Vector3& end, float r, float g, float b )
 {
-
     // Why: retained causal trails are the evidence attached to yellow/grey/ghost
     // boxes. They live with the priority ribbons so overflow in ordinary root
     // path rendering cannot leave a marker without its sampled route.
@@ -1225,7 +1221,6 @@ void EditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector3& 
 void EditorTracer::AddReplayCausalEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                const CollisionShapeReference& shape )
 {
-
     // Why: yellow always means "joined the causal tree here". Keep it as the
     // only marker on the ribbon shader, but emit one logical segment style so
     // marker outlines do not double the retained ribbon budget.
@@ -1245,7 +1240,6 @@ void EditorTracer::AddReplayCausalRestMarker( const Vector3& position, const Qua
 void EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const Quaternion& orientation,
                                                  const CollisionShapeReference& shape )
 {
-
     // Concept: horizon ghosts are not landings. They mark "this is where the
     // prediction buffer ends" for a body still mid-flight, so the color stays
     // distinct from grey resting boxes.
@@ -1256,7 +1250,6 @@ void EditorTracer::AddReplayCausalHorizonMarker( const Vector3& position, const 
 void EditorTracer::AddReplayBaselineEntryMarker( const Vector3& position, const Quaternion& orientation,
                                                  const CollisionShapeReference& shape )
 {
-
     // Concept: cold baseline markers are the old future's footprint. They stay
     // on the wire path so cyan boxes do not compete with selected-path halos.
     EmitShapeOutline( position, orientation, shape, 0.26f, 0.78f, 0.95f );
@@ -1304,7 +1297,6 @@ void EditorTracer::AddSelectionOutline( const Vector3& position, const Quaternio
 void EditorTracer::AddGizmo( const Vector3& origin, float radius, int hotTranslateAxis, int hotRotationAxis, int activeAxis,
                              bool activeRotation, bool scaleMode, bool activeScale )
 {
-
     // Concept: Translate and scale share axis lines, while rotate owns rings.
     // Keeping both in one tracer method makes hover/active color priority
     // identical for editor placement and replay velocity overlays.
@@ -1448,7 +1440,6 @@ void EditorTracer::Render( const ReplayVisualPacket& packet, const Matrix4& view
 
         if ( !packet.combinedLines.empty() )
         {
-
             // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
             // pair of vertices is one line segment consumed by DrawLinesColored.
             renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
@@ -1460,7 +1451,6 @@ void EditorTracer::Render( const ReplayVisualPacket& packet, const Matrix4& view
 
         if ( !packet.retainedPredictionRibbonVertices.empty() )
         {
-
             // The retained lane owns a frame-fenced GPU buffer. Stream/revision
             // changes refresh the affected slot; stable frames submit these two
             // draws without reserving or copying geometry upload memory.

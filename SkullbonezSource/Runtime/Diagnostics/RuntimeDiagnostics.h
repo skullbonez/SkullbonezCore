@@ -70,7 +70,6 @@ struct RunPhysicsDiagnosticsState
 
 struct ReplayScrubProbeDiagnostic
 {
-
     // Lifetime: bodyName is consumed synchronously while one NDJSON row is
     // written. Every other field is a value snapshot of that probe result.
     uint64_t selectedReplayFrame = 0;
@@ -97,7 +96,6 @@ struct ReplayScrubProbeDiagnostic
 
 struct ReplayRestoreProbeDiagnostic
 {
-
     // Value snapshot used to translate the retained-solver probe into the
     // stable replay_restore NDJSON schema without borrowing replay owners.
     uint64_t targetReplayFrame = 0;
@@ -119,7 +117,6 @@ struct ReplayRestoreProbeDiagnostic
 
 struct ReplayRestoreResultDiagnostic
 {
-
     // Lifetime: strings are borrowed only for the synchronous log write; this
     // schema carries no replay, scene, or diagnostics ownership.
     const char* restoreSource = nullptr;

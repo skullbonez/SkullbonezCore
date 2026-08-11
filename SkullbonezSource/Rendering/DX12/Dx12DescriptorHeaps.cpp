@@ -37,7 +37,6 @@ SkullbonezCore::Core::SbResult DescriptorInitResult( SkullbonezCore::Core::SbDia
 {
     if ( FAILED( result ) )
     {
-
         // Lane R: descriptor heap creation depends on device/driver capacity.
         return resultDiagnostics.Failure( "Dx12DescriptorHeaps", "%s (HRESULT 0x%08X)", operation,
                                           static_cast<unsigned int>( result ) );
@@ -128,7 +127,6 @@ SkullbonezCore::Core::SbResult Dx12DescriptorHeaps::Init( ID3D12Device* device, 
                     MAX_TRANSIENT_SRVS, frameCount );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-
     // Concept: development UI textures use a separate bounded shader-visible
     // table. The vendor backend can bind this heap without gaining authority
     // over the engine's global SM6.6 descriptor rows.
@@ -369,7 +367,6 @@ Dx12CpuDescriptorAllocation Dx12DescriptorHeaps::AllocateRtv()
 
     if ( stats.used >= stats.capacity )
     {
-
         // Invariant: output rows are fixed device-epoch storage; exhaustion is
         // a budget failure, never permission to grow a runtime heap.
         SB_FATAL( "Dx12DescriptorHeaps", "DX12 RTV heap exhausted. heap=%s used=%u capacity=%u",
@@ -385,7 +382,6 @@ Dx12CpuDescriptorAllocation Dx12DescriptorHeaps::AllocateDsv()
 
     if ( stats.used >= stats.capacity )
     {
-
         // Invariant: output rows are fixed device-epoch storage; exhaustion is
         // a budget failure, never permission to grow a runtime heap.
         SB_FATAL( "Dx12DescriptorHeaps", "DX12 DSV heap exhausted. heap=%s used=%u capacity=%u",

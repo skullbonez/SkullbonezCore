@@ -68,7 +68,6 @@ bool IsFiniteVector( const Vector3& v )
 
 bool TryNormalizeVector( Vector3& v )
 {
-
     // Hazard: attachment and replay camera targets can briefly collapse to a
     // zero-length vector after a reset or stale body recovery. Callers must use
     // a fallback instead of feeding NaNs into camera matrices.
@@ -576,7 +575,6 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
 
         if ( body && collider && collider->body == body->handle )
         {
-
             // Concept: the attach camera follows physics identity, not vector
             // order. Model index is kept as a presentation hint after the live
             // handle proves which dense row currently owns the body.

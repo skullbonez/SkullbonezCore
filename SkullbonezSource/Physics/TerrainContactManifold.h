@@ -44,7 +44,6 @@ namespace Physics
 {
 struct TerrainContactBodyView
 {
-
     // Terrain contact needs pose, velocity, shape policy, and a detached
     // Physics heightfield view. It deliberately exposes no World owner.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;

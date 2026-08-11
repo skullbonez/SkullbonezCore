@@ -83,7 +83,6 @@ struct PhaseCounters
 
 struct AllocationHeader
 {
-
     // Why: the CRT owns the original unaligned allocation address; the tracker
     // must preserve that opaque block so FreeTrackedMemory returns it exactly.
     void* raw;
@@ -146,7 +145,6 @@ uint64_t MixOwnershipCookieValue( uint64_t cookie, uint64_t value ) noexcept
 
 uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* userPointer ) noexcept
 {
-
     // Provenance token: ASLR makes the process-local atomic address different
     // each launch, while binding every header field to its exact user pointer
     // prevents a readable copied/shaped header from authorizing another address.
@@ -168,7 +166,6 @@ uint64_t AllocationOwnershipCookie( const AllocationHeader& header, const void* 
 uintptr_t ProcessImageBase() noexcept
 {
 #if defined( _WIN32 )
-
     // Why: module handles are address-shaped Win32 ABI values. Diagnostics use
     // the integer only to normalize captured callsites against this image base.
     return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
@@ -345,7 +342,6 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
 
     uintptr_t stackFrames[8] = {};
 #if defined( _WIN32 )
-
     // Why: CaptureStackBackTrace reports opaque return addresses through its
     // void-pointer ABI; the tracker stores integer addresses for bounded lookup
     // and never dereferences them.
@@ -387,7 +383,6 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReser
 
 void RecordFree( const AllocationHeader& header ) noexcept
 {
-
     // Invariant: a delete only subtracts bytes that were counted while the
     // guard was enabled. Startup allocations freed during gameplay shutdown
     // still carry tracker headers, but they must not underflow phase counters.
@@ -476,7 +471,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         }
 
 #if defined( TRACY_ENABLE )
-
         // Heavy Tracy capture is independent of allocation-guard mode. The
         // connection id pairs this allocation with a free only inside the same
         // viewer session, avoiding stale frees after disconnect/reconnect.
@@ -493,7 +487,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
 bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& copy ) noexcept
 {
 #if defined( _WIN32 ) && defined( _MSC_VER )
-
     // Hazard: magic alone is not provenance. A foreign candidate can expose
     // only the magic bytes while raw/size remain inaccessible, or can shape a
     // readable public magic value around a non-CRT raw pointer. Copy the entire
@@ -509,7 +502,6 @@ bool TryCopyAllocationHeader( const AllocationHeader* header, AllocationHeader& 
         return false;
     }
 #else
-
     // The shipping global hook is Win32/MSVC-owned. Other toolchain builds keep
     // the existing direct copy until they acquire an equivalent signal guard.
     copy = *header;
@@ -661,7 +653,6 @@ namespace Allocation
 RuntimeAllocationScope::RuntimeAllocationScope( RuntimeAllocationPhase phase ) noexcept
     : m_previous( GetRuntimeAllocationPhase() )
 {
-
     // Invariant: lifecycle phase is runtime policy input even when allocation
     // counting is disabled. Upload overflow, replay reserve, and future phase
     // consumers must not silently observe Startup in ordinary launches.

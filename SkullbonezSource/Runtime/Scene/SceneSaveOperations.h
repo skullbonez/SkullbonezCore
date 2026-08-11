@@ -38,7 +38,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-
 // Returns false only when the numbered editor path could not be selected. When
 // true, outSaveResult reports the synchronous serializer result.
 bool TrySaveNextEditorSceneSnapshot( Core::SbDiagnosticStore& diagnostics, int& sequence,

@@ -301,7 +301,6 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
             break;
         case UI::UIDrawList::CommandType::PreviewImage:
         {
-
             // Invariant: images split the quad/text batches so commands
             // authored after the image remain above it in the final frame.
             flushQueued();

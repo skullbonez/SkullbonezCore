@@ -54,7 +54,6 @@ namespace
 char g_commandLineError[512] = {};
 struct ConfigCliValueDirective
 {
-
     // Why: startup config options mutate the loaded SkullbonezCore::Core::EngineConfig before any
     // subsystem borrows it, so these handlers must not reopen the global config
     // singleton.
@@ -70,7 +69,6 @@ struct GeneratedObjectOverrideDirective
 };
 struct CliFlagDirective
 {
-
     // Table-driven flag parsing keeps aliases beside the canonical spelling.
     // That matters because command-line options are user-facing compatibility
     // surface, not private implementation detail.

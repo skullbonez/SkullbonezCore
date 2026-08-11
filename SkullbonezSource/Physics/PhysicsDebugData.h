@@ -29,7 +29,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-
 // Debug flags select which physics overlays are drawn. These are visualization
 // layers only; toggling them must never alter collision response, sleep policy,
 // or solver ordering.
@@ -47,7 +46,6 @@ enum PhysicsDebugFlags : uint32_t
 
 enum class PhysicsPipelineStage : uint8_t
 {
-
     // Ordered list of major physics pipeline events recorded during a tick.
     // Runtime overlays can show one stage at a time so a reader can inspect the
     // broadphase, manifold, warm-start, solve, writeback, and sleep decisions.
@@ -72,7 +70,6 @@ enum class PhysicsPipelineStage : uint8_t
 
 struct PhysicsPipelineRecord
 {
-
     // One compact breadcrumb from a physics tick. scalarA/B/C intentionally mean
     // different things per stage; see emit sites for exact meaning. Keeping the
     // payload small makes debug drawing and SkullScope summaries cheap.
@@ -134,7 +131,6 @@ inline const char* PhysicsPipelineStageName( PhysicsPipelineStage stage )
 
 struct PhysicsDebugContact
 {
-
     // Solver contact row captured for drawing and presentation sinks. The
     // pre-solve speeds are measured before the row applies impulses, so
     // diagnostics distinguish real relative motion from support-force transfer.

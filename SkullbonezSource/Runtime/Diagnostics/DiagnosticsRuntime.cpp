@@ -61,7 +61,6 @@ constexpr double MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS = 1.0;
 
 void WriteJsonString( FILE* file, const char* value )
 {
-
     // Concept: Memory dumps are written without a JSON library, so this helper
     // is the narrow escaping boundary for user-controlled checkpoint/path text.
     fputc( '"', file );
@@ -225,7 +224,6 @@ void WriteReplayMemoryCategories( FILE* file, const SkullbonezCore::Core::MainMe
 
 void WriteReplayGrowthOwners( FILE* file, const SkullbonezCore::Core::MainMemoryReplayStats& replay )
 {
-
     // Concept: each row pairs the committed sizing evidence with live allocator
     // counters, so dumps distinguish an intentional cap from observed use.
     fputs( "    \"growth_owners\": [\n", file );
@@ -385,7 +383,6 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
         return true;
     case RuntimeInputAction::CycleWaterReflection:
     {
-
         // Key '2' cycles FBO mirror rendering, DXR reflection when supported,
         // no reflection, then back to FBO. Machines without DXR skip the
         // unsupported mode instead of leaving the toggle in a dead state.
@@ -611,7 +608,6 @@ void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 
 void DiagnosticsRuntime::ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass )
 {
-
     // Concept: Scene-authored screenshot and perf-log directives are
     // diagnostics automation. Keep the artifact state with DiagnosticsRuntime
     // while scene loading decides when to call it.
@@ -690,7 +686,6 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
 
     if ( stats.process.available )
     {
-
         // Why: Task Manager numbers include memory not tracked by replay or
         // scene stores. The reconciliation fields make that gap explicit
         // instead of hiding it in the engine bucket.
@@ -937,7 +932,6 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& phy
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                                      const char* rendererName )
 {
-
     // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
     // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(), physics, scene, config, scenePath,
@@ -960,7 +954,6 @@ void DiagnosticsRuntime::LogReplayRestoreProbe( const SceneSessionState& scene, 
 void DiagnosticsRuntime::LogReplayRestoreResult( const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
-
     // Invariant: Replay restore diagnostics are forwarded with their exact
     // hashes, counts, and flags so SkullScope queries can distinguish checkpoint
     // restores from fallback restores.

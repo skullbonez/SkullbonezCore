@@ -39,7 +39,6 @@ namespace
 {
 [[noreturn]] void FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName, int index, int count )
 {
-
     // Concept: parsed scene getters are Lane F once parsing has succeeded.
     //
     // Scene JSON syntax/data failures are Lane R at TryLoadFromFile, but an

@@ -129,7 +129,6 @@ AssetSystem::AssetSystem( std::string dataRoot ) : m_dataRoot( std::move( dataRo
 
 void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::EngineConfig& config )
 {
-
     // Concept: built-in runtime assets are source records, not GPU resources.
     // Renderer lifecycle code consumes these records later when backend facets
     // are available.
@@ -241,7 +240,6 @@ std::string AssetSystem::ResolvePath( const char* relativePath ) const
 const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const char* logicalName,
                                                            const char* relativePath )
 {
-
     // Invariant: registration is an engine-owned setup path. Authored asset
     // file failures are Lane R elsewhere; a blank registry key means the caller
     // violated the AssetSystem API contract.
@@ -280,7 +278,6 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
 
 std::string AssetSystem::RegisterSourceAssetPath( AssetKind kind, const char* logicalName, const char* relativePath )
 {
-
     // Why: callers that only need a load path should not depend on the registry
     // record layout; AssetSystem still owns source identity and resolution.
     return RegisterSourceAsset( kind, logicalName, relativePath ).resolvedPath;
@@ -401,7 +398,6 @@ const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logical
 std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
                                                                   const char* logicalNameOrBaseName ) const
 {
-
     // Invariant: empty shader keys are owner API violations. A non-empty miss
     // can still use the built-in compatibility map or explicit base-name path.
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )

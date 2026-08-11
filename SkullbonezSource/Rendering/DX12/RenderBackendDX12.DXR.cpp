@@ -133,7 +133,6 @@ bool Dx12RaytracingOwner::Initialized() const
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {
-
     // Concept: the raytracing root signature is the binding contract for
     // reflect.rt.hlsl.
     //
@@ -227,7 +226,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 {
-
     // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
     // workflows so runtime startup never shells out or depends on SDK paths.
     std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
@@ -547,7 +545,6 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device* device, int maxInstances )
 {
-
     // Lifetime: the backend calls this only after its queue fence proves the
     // recorded BLAS builds complete. Scratch can then be released safely.
     m_terrainBlas.ReleaseAfterBuild();
@@ -576,7 +573,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
 
 void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& failure )
 {
-
     // Lane R: optional raytracing setup may fail while raster rendering stays
     // available. Retain one bounded reason after releasing safely drained DXR
     // resources so diagnostics can explain the fallback.
@@ -604,7 +600,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
 
     if ( setupOutcome.recordedBuildWork )
     {
-
         // Lifetime: only the frame/device coordinator closes, submits, and
         // fences command work. The raytracing owner reports whether it emitted
         // BLAS commands so the coordinator can prove their completion before
@@ -641,7 +636,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
 
     if ( !Supported() )
     {
-
         // Optional command-list capability failure selects raster fallback and
         // is not a fatal renderer initialization error.
         return SkullbonezCore::Core::SbResult::Success();
@@ -697,7 +691,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
     if ( instanceCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ||
          ( m_maxInstances > 0 && instanceCount > m_maxInstances ) )
     {
-
         // Invariant: the TLAS instance buffer was sized during InitDXR for one
         // terrain instance plus the active model capacity. A larger rebuild
         // would overwrite the fixed raytracing instance table.
@@ -848,7 +841,6 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     if ( allValid )
     {
-
         // Root parameter [3] is one descriptor table with eight consecutive SRV
         // rows. AllocateTransientSRVRange() checks and reserves all eight rows
         // at once, so an exhausted heap cannot leave a partially reserved table.
@@ -911,7 +903,6 @@ void Dx12RaytracingOwner::DispatchReflectionRays( const WaterReflectionRayDesc& 
 
     if ( dispatch.rasterStateInvalidated )
     {
-
         // The owner reports state invalidation as a value. It cannot mutate the
         // sibling raster owners or retain a path back into this coordinator.
         m_rasterPipeline.InvalidateCommandState();
@@ -940,7 +931,6 @@ uint32_t Dx12RaytracingOwner::ReflectionTextureHandle() const
 
 void Dx12RaytracingOwner::PublishReflectionTextureHandle( uint32_t handle )
 {
-
     // Invariant: the texture registry exposes at most one handle for the
     // reflection SRV during a raytracing-owner epoch.
     if ( handle == 0 || m_reflectionTextureHandle != 0 )
@@ -1046,7 +1036,6 @@ void Dx12RaytracingOwner::ShutdownDXR()
 
     if ( reflectionTextureHandle != 0 )
     {
-
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.
