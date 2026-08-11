@@ -48,7 +48,6 @@ inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vec
     // tangent1 is normalized and tangent2 is the cross product that completes the
     // orthonormal basis. This is intentionally simple and branch-stable because
     // it runs in hot contact setup paths.
-
     if ( fabsf( normal.x ) > 0.9f )
     {
         tangent1 = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );

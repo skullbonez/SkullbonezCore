@@ -52,10 +52,8 @@ void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::strin
 
     const auto applyFlag = [&]( const char* key, uint32_t flag )
     {
-
         if ( const Json* value = FindMember( debug, key ) )
         {
-
             if ( ReadBool( *value, path, key ) )
             {
                 m_scene.m_sceneOptions.physicsDebugFlags |= flag;
@@ -357,7 +355,6 @@ void AuthoredSceneParser::ApplyCinematicBool( const Json& cinematic, const std::
 
     for ( const BoolField& field : kFields )
     {
-
         if ( const Json* value = FindMember( cinematic, field.key ) )
         {
             const bool parsed = ReadBool( *value, path, field.key );
@@ -396,7 +393,6 @@ void AuthoredSceneParser::ApplyCinematicInt( const Json& cinematic, const std::s
 
     for ( const IntField& field : kFields )
     {
-
         if ( const Json* value = FindMember( cinematic, field.key ) )
         {
             const int parsed = ReadInt( *value, path, field.key );
@@ -489,7 +485,6 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
 
     for ( const FloatField& field : kFields )
     {
-
         if ( const Json* value = FindMember( cinematic, field.key ) )
         {
             const float parsed = ReadFloat( *value, path, field.key );
@@ -540,7 +535,6 @@ void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std:
 
     for ( const ShadowFloatField& field : kShadowFields )
     {
-
         if ( const Json* value = FindMember( cinematic, field.key ) )
         {
             const float parsed = ReadFloat( *value, path, field.key );

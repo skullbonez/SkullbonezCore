@@ -53,7 +53,6 @@ void ApplicationExitState::RequestNormalExit() noexcept
 
 void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
 {
-
     if ( failure.Ok() || m_hasOwnedFailure )
     {
         return;
@@ -69,7 +68,6 @@ void ApplicationExitState::RequestOwnedFailure( const SkullbonezCore::Core::SbRe
 
 void ApplicationExitState::RequestPhaseFailure( const SkullbonezCore::Core::SbResult& failure ) noexcept
 {
-
     if ( failure.Ok() )
     {
         SB_FATAL( "Runtime/ApplicationExit", "RequestPhaseFailure requires a non-success frame-phase result" );
@@ -95,7 +93,6 @@ bool ApplicationExitState::HasOwnedFailure() const noexcept
 
 SkullbonezCore::Core::SbResult ApplicationExitState::Resolve( int messageExitCode ) const noexcept
 {
-
     if ( m_hasOwnedFailure )
     {
         return m_failure;

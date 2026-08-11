@@ -153,7 +153,6 @@ bool CommandLineHasExactToken( const char* expected )
 
     while ( cursor && *cursor )
     {
-
         while ( *cursor && std::isspace( static_cast<unsigned char>( *cursor ) ) )
         {
             ++cursor;

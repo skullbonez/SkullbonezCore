@@ -224,7 +224,6 @@ Vector3 EditorAxisDragPlaneNormal( int axis, const Vector3& rayDirection )
 bool TryEditorAxisPlaneRayParameter( int axis, const Vector3& planeOrigin, const Vector3& planeNormal,
                                      const Vector3& rayOrigin, const Vector3& rayDirection, float& outAxisT )
 {
-
     if ( axis < 0 || axis > 2 )
     {
         return false;
@@ -349,7 +348,6 @@ void MoveSelectedEditorObjectAlongAxis( RunEditorPlacementState& editor, SceneWo
         // Invariant: Group drags reuse the gesture-start transform snapshot for
         // every member, so multi-part ragdolls move rigidly even if physics
         // wakes during the drag.
-
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
@@ -465,7 +463,6 @@ void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, Scen
 
         // Invariant: Rotation groups pivot around the captured selection
         // center, not each part's own center, preserving the authored assembly.
-
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
@@ -499,7 +496,6 @@ void RotateSelectedEditorObjectAroundAxis( RunEditorPlacementState& editor, Scen
 void UpdateEditorGizmoHotAxes( RunEditorPlacementState& editor, SceneWorld& world, const Vector3& rayOrigin,
                                const Vector3& rayDirection, bool scaleMode )
 {
-
     if ( scaleMode )
     {
         editor.hotGizmoAxis = HitEditorGizmoAxis( editor, world, rayOrigin, rayDirection );

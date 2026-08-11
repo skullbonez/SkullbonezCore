@@ -84,7 +84,6 @@ struct Dx12RenderGraphExecutionResult
 
     void AddBarrier( const Dx12RenderGraphBarrierRecord& record )
     {
-
         if ( barrierCount >= barriers.size() )
         {
             barrierOverflow = true;

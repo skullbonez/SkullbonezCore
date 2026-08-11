@@ -102,7 +102,6 @@ using Json = nlohmann::ordered_json;
 
 void CopyText( char* destination, std::size_t destinationSize, const std::string& value )
 {
-
     if ( destination && destinationSize > 0 )
     {
         strcpy_s( destination, destinationSize, value.c_str() );
@@ -134,7 +133,6 @@ void HashPredictionByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
 {
-
     for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
         HashPredictionByte( hash, byte );
@@ -157,7 +155,6 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
 
 void HashInteractionText( uint64_t& hash, const char* text, std::size_t capacity )
 {
-
     for ( std::size_t index = 0; index < capacity && text[index] != '\0'; ++index )
     {
         HashPredictionByte( hash, static_cast<uint8_t>( text[index] ) );
@@ -295,7 +292,6 @@ const DemoPhase* ActiveDirectorPhase( const CameraControlState& camera )
 
 bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
 {
-
     if ( value == "Demo" )
     {
         outMode = RunCameraMode::Demo;
@@ -344,7 +340,6 @@ bool TryParseCameraMode( const std::string& value, RunCameraMode& outMode )
 
 bool TryParseOwner( const std::string& value, WorldInteractionOwner& outOwner )
 {
-
     if ( value == "None" )
     {
         outOwner = WorldInteractionOwner::None;
@@ -417,14 +412,12 @@ bool TryParseOwner( const std::string& value, WorldInteractionOwner& outOwner )
 
 bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 {
-
     if ( value.size() == 1 )
     {
         const char key = value[0];
 
         // Why: Interaction scripts use human key labels; Win32 virtual-key
         // values for alphanumeric keys intentionally match ASCII.
-
         if ( key >= 'A' && key <= 'Z' )
         {
             outVirtualKey = key;
@@ -447,7 +440,6 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
     // Why: visible Look Lab acceptance must hold the same F10/F11 keys across
     // sampled frames instead of relying on an OS tap that can fall between
     // Input polls.
-
     if ( TryParseInteractionAutomationVirtualKey( value.c_str(), outVirtualKey ) )
     {
         return true;
@@ -498,7 +490,6 @@ bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
 
 bool ReadAutomationVec3( const Json& value, Vector3& out )
 {
-
     if ( !value.is_array() || value.size() != 3u || !value[0].is_number() || !value[1].is_number() || !value[2].is_number() )
     {
         return false;
@@ -512,7 +503,6 @@ bool ReadAutomationVec3( const Json& value, Vector3& out )
 
 bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::string& outError )
 {
-
     if ( !value.is_object() )
     {
         outError = "setCameraPose must be an object";
@@ -542,7 +532,6 @@ bool ReadAutomationCameraPose( const Json& value, DemoCameraPose& out, std::stri
 
 const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
-
     switch ( type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
@@ -620,7 +609,6 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
 
 const char* AssertName( RunInteractionAutomationAssertKind kind )
 {
-
     switch ( kind )
     {
     case RunInteractionAutomationAssertKind::SelectedObject:
@@ -788,7 +776,6 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
 
 bool ReadBool( const Json& value )
 {
-
     if ( value.is_boolean() )
     {
         return value.get<bool>();
@@ -815,7 +802,6 @@ bool IsBoolValue( const Json& value )
 
 bool TryReadFrame( const Json& entry, int& outFrame )
 {
-
     if ( !entry.contains( "frame" ) || !entry["frame"].is_number_integer() )
     {
         return false;
@@ -857,7 +843,6 @@ void ApplyInteractionAutomationDirectorCameraAction( InteractionAutomationContro
     // Concept: director/camera automation seeds the same camera and director
     // owners used by live authoring. Camera-mode transitions are routed by the
     // caller through InputRouter before this helper handles director-local work.
-
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::LoadShotList:
@@ -1014,7 +999,6 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     // Concept: replay state automation changes only harness-visible replay
     // controls. Direct physics mutation is limited to the velocity-edit proof
     // path and still marks prediction dirty so replay owners rebuild outputs.
-
     switch ( action.type )
     {
     case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -1097,7 +1081,6 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
 
         if ( hasTarget && record && bodyIndex >= 0 )
         {
-
             if ( !PrepareReplayVelocityMutationBaseline( replay, replayIntent ) )
             {
                 FailAutomation( state, "replay path target velocity nudge requires a completed prediction baseline" );
@@ -1178,7 +1161,6 @@ void ApplyInteractionAutomationReplayControlClick( InteractionAutomationControll
     // Concept: replay-control automation clicks the visible scrubber widgets
     // instead of mutating replay state directly. Normal replay input remains the
     // owner of prediction, pause/play, velocity-edit, and branch transitions.
-
     if ( strcmp( action.text, "predict" ) == 0 )
     {
         const int screenW = window ? window->ClientWidth() : config.window.screenX;
@@ -1347,7 +1329,6 @@ void ApplyInteractionAutomationSolverTrackScrub( InteractionAutomationController
 
 bool ParseSetCameraModeAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["setCameraMode"].is_string() )
     {
         outError = "setCameraMode must be a string";
@@ -1369,7 +1350,6 @@ bool ParseSetCameraModeAction( const Json& entry, RunInteractionAutomationAction
 
 bool ParseLoadShotListAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["loadShotList"].is_string() )
     {
         outError = "loadShotList must be a string";
@@ -1383,7 +1363,6 @@ bool ParseLoadShotListAction( const Json& entry, RunInteractionAutomationAction&
 
 bool ParseDirectorPlayAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !IsBoolValue( entry["directorPlay"] ) )
     {
         outError = "directorPlay must be a boolean value";
@@ -1416,7 +1395,6 @@ bool ParseDirectorReleaseAction( const Json&, RunInteractionAutomationAction& ou
 
 bool ParseSetPhaseStyleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["setPhaseStyle"].is_string() )
     {
         outError = "setPhaseStyle must be a string";
@@ -1436,7 +1414,6 @@ bool ParseSetCameraPoseAction( const Json& entry, RunInteractionAutomationAction
 
 bool ParseClickObjectAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["clickObject"].is_string() || ( entry.contains( "button" ) && !entry["button"].is_string() ) ||
          ( entry.contains( "holdFrames" ) && !entry["holdFrames"].is_number_integer() ) )
     {
@@ -1494,7 +1471,6 @@ bool ParseClickPointAction( const Json& entry, RunInteractionAutomationAction& o
 
 bool ParseLoseFocusAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["loseFocus"].is_number_integer() )
     {
         outError = "loseFocus must be an integer frame count";
@@ -1525,7 +1501,6 @@ bool ParseMoveMouseAction( const Json& entry, RunInteractionAutomationAction& ou
 
 bool ParseClickReplayControlAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["clickReplayControl"].is_string() )
     {
         outError = "clickReplayControl must be a string";
@@ -1539,7 +1514,6 @@ bool ParseClickReplayControlAction( const Json& entry, RunInteractionAutomationA
 
 bool ParseScrubReplaySolverTrackAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["scrubReplaySolverTrack"].is_number() )
     {
         outError = "scrubReplaySolverTrack must be a number";
@@ -1554,7 +1528,6 @@ bool ParseScrubReplaySolverTrackAction( const Json& entry, RunInteractionAutomat
 
 bool ParseScrubEditorReplayTrackAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["scrubEditorReplayTrack"].is_number() )
     {
         outError = "scrubEditorReplayTrack must be a normalized number";
@@ -1569,7 +1542,6 @@ bool ParseScrubEditorReplayTrackAction( const Json& entry, RunInteractionAutomat
 bool ParseSetReplayPredictionEnabledAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                             std::string& outError )
 {
-
     if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
     {
         outError = "setReplayPredictionEnabled must be a boolean value";
@@ -1584,7 +1556,6 @@ bool ParseSetReplayPredictionEnabledAction( const Json& entry, RunInteractionAut
 bool ParseSetReplayPredictionHorizonSecondsAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                                    std::string& outError )
 {
-
     if ( !entry["setReplayPredictionHorizonSeconds"].is_number() )
     {
         outError = "setReplayPredictionHorizonSeconds must be a number";
@@ -1599,7 +1570,6 @@ bool ParseSetReplayPredictionHorizonSecondsAction( const Json& entry, RunInterac
 bool ParseBeginReplayVisualFidelityCaptureAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                                   std::string& outError )
 {
-
     if ( !IsBoolValue( entry["beginReplayVisualFidelityCapture"] ) ||
          !ReadBool( entry["beginReplayVisualFidelityCapture"] ) )
     {
@@ -1614,7 +1584,6 @@ bool ParseBeginReplayVisualFidelityCaptureAction( const Json& entry, RunInteract
 
 bool ParseSetReplayPathTargetAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["setReplayPathTarget"].is_string() )
     {
         outError = "setReplayPathTarget must be a string";
@@ -1629,7 +1598,6 @@ bool ParseSetReplayPathTargetAction( const Json& entry, RunInteractionAutomation
 bool ParseSetReplayInterceptTargetAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                           std::string& outError )
 {
-
     if ( !entry["setReplayInterceptTarget"].is_string() )
     {
         outError = "setReplayInterceptTarget must be a string";
@@ -1644,7 +1612,6 @@ bool ParseSetReplayInterceptTargetAction( const Json& entry, RunInteractionAutom
 bool ParseSetReplayTripPlannerCommandAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                              std::string& outError )
 {
-
     if ( !entry["setReplayTripPlannerCommand"].is_string() )
     {
         outError = "setReplayTripPlannerCommand must be a string";
@@ -1670,7 +1637,6 @@ bool ParseSetReplayTripPlannerCommandAction( const Json& entry, RunInteractionAu
 
     if ( outAction.tripPlannerCommand == ReplayTripPlannerCommandKind::SetTimeOfFlight )
     {
-
         if ( !entry.contains( "timeOfFlightSeconds" ) || !entry["timeOfFlightSeconds"].is_number() )
         {
             outError = "trip planner tof command requires numeric timeOfFlightSeconds";
@@ -1701,7 +1667,6 @@ bool ParseNudgeReplayPathTargetVelocityAction( const Json& entry, RunInteraction
 
 bool ParseShowReplayScrubberAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !IsBoolValue( entry["showReplayScrubber"] ) )
     {
         outError = "showReplayScrubber must be a boolean value";
@@ -1715,7 +1680,6 @@ bool ParseShowReplayScrubberAction( const Json& entry, RunInteractionAutomationA
 
 bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["pressKey"].is_string() || ( entry.contains( "control" ) && !entry["control"].is_boolean() ) )
     {
         outError = "pressKey requires a string key and optional boolean control";
@@ -1739,7 +1703,6 @@ bool ParsePressKeyAction( const Json& entry, RunInteractionAutomationAction& out
 bool ParseCaptureEditorSelectionStateAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                              std::string& outError )
 {
-
     if ( !entry["captureEditorSelectionState"].is_number_integer() )
     {
         outError = "captureEditorSelectionState must be an integer slot";
@@ -1761,7 +1724,6 @@ bool ParseCaptureEditorSelectionStateAction( const Json& entry, RunInteractionAu
 
 bool ParseLoadSceneAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["loadScene"].is_string() )
     {
         outError = "loadScene must be a scene-browser path";
@@ -1776,7 +1738,6 @@ bool ParseLoadSceneAction( const Json& entry, RunInteractionAutomationAction& ou
 bool ParseSetDevelopmentUiSurfaceAction( const Json& entry, RunInteractionAutomationAction& outAction,
                                          std::string& outError )
 {
-
     if ( !entry["setDevelopmentUiSurface"].is_string() )
     {
         outError = "setDevelopmentUiSurface must be legacy or imgui";
@@ -1815,7 +1776,6 @@ bool ParseSetImGuiPanelVisibleAction( const Json& entry, RunInteractionAutomatio
 
 bool ParseResetImGuiLayoutAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
     {
         outError = "resetImGuiLayout must be true";
@@ -1828,7 +1788,6 @@ bool ParseResetImGuiLayoutAction( const Json& entry, RunInteractionAutomationAct
 
 bool ParseFocusImGuiPanelAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["focusImGuiPanel"].is_string() )
     {
         outError = "focusImGuiPanel must be a string panel name";
@@ -1842,7 +1801,6 @@ bool ParseFocusImGuiPanelAction( const Json& entry, RunInteractionAutomationActi
 
 bool ParseSetImGuiDpiScaleAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["setImGuiDpiScale"].is_number() )
     {
         outError = "setImGuiDpiScale must be a number";
@@ -1889,7 +1847,6 @@ bool ParseResizeWindowAction( const Json& entry, RunInteractionAutomationAction&
 
 bool ParseScreenshotAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry["screenshot"].is_string() )
     {
         outError = "screenshot must be a string path";
@@ -1911,7 +1868,6 @@ enum class AssertionParseStatus
 AssertionParseStatus ParseBasicAssertion( const std::string& name, const Json& expected,
                                           RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( name == "selectedObject" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::SelectedObject;
@@ -1993,7 +1949,6 @@ AssertionParseStatus ParseBasicAssertion( const std::string& name, const Json& e
 AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& expected,
                                            RunInteractionAutomationAction& outAction, std::string& )
 {
-
     if ( name == "replayPredictionEnabled" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::ReplayPredictionEnabled;
@@ -2349,7 +2304,6 @@ AssertionParseStatus ParseReplayAssertion( const std::string& name, const Json& 
 AssertionParseStatus ParseRuntimeAssertion( const std::string& name, const Json& expected,
                                             RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( name == "shadowPassExecuted" )
     {
         outAction.assertKind = RunInteractionAutomationAssertKind::ShadowPassExecuted;
@@ -2757,7 +2711,6 @@ constexpr std::pair<const char*, InteractionActionParser> INTERACTION_ACTION_PAR
 
 bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, std::string& outError )
 {
-
     if ( !entry.is_object() || !TryReadFrame( entry, outAction.frame ) )
     {
         outError = "each action must be an object with an integer frame";
@@ -2767,7 +2720,6 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
 
     for ( const auto& [field, parser] : INTERACTION_ACTION_PARSERS )
     {
-
         if ( entry.contains( field ) )
         {
             return parser( entry, outAction, outError );
@@ -2785,7 +2737,6 @@ std::string BoolString( bool value )
 
 const char* TripPlannerStateName( ReplayTripPlannerState state )
 {
-
     switch ( state )
     {
     case ReplayTripPlannerState::Idle:
@@ -2931,10 +2882,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
 
         // Why: the assertion's actual field carries the bounded sequence, not
         // merely "true", so a passing lane-P report is also convergence evidence.
-
         for ( std::size_t index = 0; index < replay.tripPlanner.iterationMissCount; ++index )
         {
-
             if ( index != 0 )
             {
                 misses << ',';
@@ -3102,10 +3051,8 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
         {
             const auto findTargetVelocity = [&]( const RunReplayPredictionFrame& frame, Vector3& outVelocity )
             {
-
                 for ( const RunReplayPredictionBodySample& body : frame.bodies )
                 {
-
                     if ( body.id.value == replay.prediction.simulation.targetId.value )
                     {
                         outVelocity = body.linearVelocity;
@@ -3336,7 +3283,6 @@ InteractionAutomationAssertionEvaluation EvaluateInteractionAutomationAssertion(
     {
         const auto captureName = []( RuntimePointerCaptureOwner owner ) -> const char*
         {
-
             switch ( owner )
             {
             case RuntimePointerCaptureOwner::None:
@@ -3678,7 +3624,6 @@ SkullbonezCore::Core::SbResult
 InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
                                                                     UI::OperatorEditorCommandQueues& commands ) const
 {
-
     if ( !frame.hasOperatorEditorReplayCommand )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -3737,10 +3682,8 @@ bool TryProjectInteractionAutomationModel( const SceneWorld& world, InputRouter&
 
     for ( const int step : steps )
     {
-
         for ( int y = step / 2; y < height; y += step )
         {
-
             for ( int x = step / 2; x < width; x += step )
             {
                 const POINT candidate { static_cast<LONG>( x ), static_cast<LONG>( y ) };
@@ -3882,7 +3825,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     for ( RunInteractionAutomationAction& action : state.actions )
     {
-
         if ( action.processed || action.frame != frame )
         {
             continue;
@@ -4044,7 +3986,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
             for ( int index = 0; index < static_cast<int>( browserPaths.size() ); ++index )
             {
-
                 if ( browserPaths[static_cast<std::size_t>( index )] == action.path )
                 {
                     browserIndex = index;
@@ -4085,7 +4026,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
             if ( action.type == RunInteractionAutomationActionType::SetDevelopmentUiSurface )
             {
-
                 for ( std::size_t commandIndex = 0u; commandIndex < result.developmentUiCommandCount; ++commandIndex )
                 {
                     duplicateSurfaceSelection = result.developmentUiCommands[commandIndex].type ==
@@ -4261,7 +4201,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
     for ( RunInteractionAutomationAction& action : state.actions )
     {
-
         if ( action.processed || action.frame != frame )
         {
             continue;
@@ -4269,7 +4208,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 
         if ( action.type == RunInteractionAutomationActionType::Screenshot )
         {
-
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
                 const SkullbonezCore::Core::SbResult captureResult = capture.SaveScreenshot( backbufferCapture,
@@ -4349,7 +4287,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         // This command runs after the final reveal screenshot while live
         // physics still holds the seed pose used by root markers. The writer
         // owns the CPU-only proof and cannot initiate a second presented pass.
-
         if ( !state.status.failed &&
              !state.reportWriter.FinishReplayVisualCapture( state.status, runtimeTools, scene.Scene(), replayView ) )
         {
@@ -4396,7 +4333,6 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
 bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state,
                                                                            int frame )
 {
-
     if ( !state.enabled || state.finished )
     {
         return false;
@@ -4404,7 +4340,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationWillCaptureAfterRender( const
 
     for ( const RunInteractionAutomationAction& action : state.actions )
     {
-
         if ( !action.processed && action.frame == frame && action.type == RunInteractionAutomationActionType::Screenshot )
         {
             return true;

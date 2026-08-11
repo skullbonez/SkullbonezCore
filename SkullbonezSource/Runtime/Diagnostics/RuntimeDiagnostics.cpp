@@ -48,7 +48,6 @@ namespace
 {
 void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
 {
-
     if ( perfLog.isPerfLogFlushEnabled ||
          ( perfLog.perfLogFlushInterval > 0 && perfLog.perfLogWritesSinceFlush >= perfLog.perfLogFlushInterval ) )
     {
@@ -59,7 +58,6 @@ void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
 
 void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 {
-
     if ( perfLog.perfLogFile && perfLog.perfLogWritesSinceFlush > 0 )
     {
         fflush( perfLog.perfLogFile );
@@ -73,7 +71,6 @@ bool FlushWorkingSetQueryBatch( HANDLE process, PSAPI_WORKING_SET_EX_INFORMATION
 
     // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
     // whole sample. The caller tracks success separately from the byte count.
-
     if ( !pages || pageCount == 0 )
     {
         return true;
@@ -84,7 +81,6 @@ bool FlushWorkingSetQueryBatch( HANDLE process, PSAPI_WORKING_SET_EX_INFORMATION
 
     if ( queried )
     {
-
         for ( std::size_t pageIndex = 0; pageIndex < pageCount; ++pageIndex )
         {
             const PSAPI_WORKING_SET_EX_INFORMATION& page = pages[pageIndex];
@@ -198,7 +194,6 @@ std::string JsonEscape( const char* value )
 
     for ( const char* p = value; *p != '\0'; ++p )
     {
-
         switch ( *p )
         {
         case '\\':
@@ -229,7 +224,6 @@ std::string JsonEscape( const char* value )
 
 void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
 {
-
     if ( perfLog.perfLogFile )
     {
         FlushPendingPerfLogWrites( perfLog );
@@ -256,7 +250,6 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
 
     // Why: GetProcessMemoryInfo's base-structure ABI accepts the extended
     // structure when cb/size identify PROCESS_MEMORY_COUNTERS_EX.
-
     if ( GetProcessMemoryInfo( process, reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &pmc ), sizeof( pmc ) ) )
     {
         stats.available = true;
@@ -290,7 +283,6 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
 
 void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint )
 {
-
     if ( !perfLog.perfLogFile )
     {
         return;
@@ -338,7 +330,6 @@ void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool e
 void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass,
                                            SkullbonezCore::Core::Profiler* profiler )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return;
@@ -357,7 +348,6 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
         // Why: validation appends multiple scene passes in one process. Reset
         // the profiler pass state so the existing warmup skips restart rows
         // before CSV output represents steady-state frame costs.
-
         if ( profiler )
         {
             profiler->ScheduleReset();
@@ -420,7 +410,6 @@ RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const Sk
 void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int frame, float physicsTimeSeconds,
                                       float renderTimeSeconds, SkullbonezCore::Core::Profiler* profiler )
 {
-
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
         return;
@@ -432,7 +421,6 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, int pass, int fr
 
     if ( !perfLog.perfHeaderWritten )
     {
-
         if ( profiler )
         {
             profiler->WritePerfCSVHeader( perfLog.perfLogFile );
@@ -483,7 +471,6 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
 void RuntimeDiagnostics::LogSceneFinished( SceneSessionState& scene, const char* scenePath, const char* rendererName,
                                            const char* reason )
 {
-
     if ( scene.isFinishLogged )
     {
         return;
@@ -505,7 +492,6 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
                                                      const SkullbonezCore::Core::EngineConfig& config, const char* scenePath,
                                                      const char* rendererName )
 {
-
     if ( !diagnostics.isEnabled )
     {
         return;
@@ -549,7 +535,6 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
 void RuntimeDiagnostics::LogReplayScrubProbe( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                               const ReplayScrubProbeDiagnostic& probe )
 {
-
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
@@ -605,7 +590,6 @@ void RuntimeDiagnostics::LogReplayRestoreProbe( RunPhysicsDiagnosticsState& diag
 void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                                  const ReplayRestoreResultDiagnostic& result )
 {
-
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;
@@ -642,7 +626,6 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const SceneSessionState& scene,
                                                    const char* status )
 {
-
     if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
     {
         return;

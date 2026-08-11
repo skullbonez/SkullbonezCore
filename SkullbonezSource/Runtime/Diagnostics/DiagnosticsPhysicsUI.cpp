@@ -125,7 +125,6 @@ DiagnosticsPhysicsOverlayUICommandResult ApplyDiagnosticsPhysicsOverlayUICommand
 
 bool ApplyDiagnosticsTerrainContactProbeUICommand( OverlayDebugState& debug, const UI::UIPhysicsCommands& commands )
 {
-
     if ( !commands.toggleTerrainContactProbe )
     {
         return false;

@@ -100,7 +100,6 @@ inline bool AppendPredictionRetainedRecord( std::span<float> arena, Rendering::R
                                             const ReplayPredictionRetainedRecord& incoming,
                                             float continuityToleranceSquared ) noexcept
 {
-
     if ( range.recordCount >= range.recordCapacity )
     {
         return false;
@@ -156,7 +155,6 @@ inline bool AppendPredictionRetainedContinuation( std::span<float> arena,
                                                   const ReplayPredictionRetainedRecord& incoming,
                                                   float continuityToleranceSquared ) noexcept
 {
-
     if ( range.recordCount != 0u )
     {
         return false;

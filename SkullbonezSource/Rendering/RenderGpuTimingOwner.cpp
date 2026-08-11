@@ -46,7 +46,6 @@ RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagno
 
 void RenderGpuTimingOwner::BeginFrame()
 {
-
     if ( !m_profiler || !m_diagnostics )
     {
         return;
@@ -60,7 +59,6 @@ void RenderGpuTimingOwner::BeginFrame()
     // Invariant: Core clears marker identities only at FrameBegin. Mirror that
     // epoch before reading query slots so an old index can never populate a new
     // marker row after a profiler reset.
-
     if ( m_markerEpoch != m_profiler->MarkerEpoch() )
     {
         m_diagnostics->GpuTimerInvalidate();
@@ -72,7 +70,6 @@ void RenderGpuTimingOwner::BeginFrame()
 
     if ( m_diagnostics->GetCapabilities().supportsGpuTimers )
     {
-
         for ( std::size_t markerIndex = 0; markerIndex < frame.markers.size(); ++markerIndex )
         {
             const Core::Profiler::Marker& marker = frame.markers[markerIndex];
@@ -117,7 +114,6 @@ void RenderGpuTimingOwner::BeginFrame()
 
 void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
 {
-
     if ( !m_profiler )
     {
         return;
@@ -155,7 +151,6 @@ void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
 
 void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
 {
-
     if ( !m_profiler )
     {
         return;
@@ -197,7 +192,6 @@ void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
 
 void RenderGpuTimingOwner::InvalidateDevice()
 {
-
     if ( m_openDepth != 0 )
     {
         SB_FATAL( "RenderGpuTimingOwner", "device invalidation reached with %d open GPU range(s)", m_openDepth );

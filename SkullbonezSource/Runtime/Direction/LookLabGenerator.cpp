@@ -526,7 +526,6 @@ LookLabCandidate GenerateLookLabCandidate( uint64_t seed, uint32_t generatorVers
 
 LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidate )
 {
-
     if ( candidate.generatorVersion != LOOK_LAB_GENERATOR_VERSION )
     {
         return LookLabCandidateIssue::UnsupportedVersion;
@@ -598,7 +597,6 @@ LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidat
 
     for ( float value : values )
     {
-
         if ( !IsFinite( value ) )
         {
             return LookLabCandidateIssue::NonFiniteValue;
@@ -719,7 +717,6 @@ LookLabCandidateIssue ValidateLookLabCandidate( const LookLabCandidate& candidat
 
         for ( float value : materialValues )
         {
-
             if ( !IsFinite( value ) )
             {
                 return LookLabCandidateIssue::NonFiniteValue;

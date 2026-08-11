@@ -155,7 +155,6 @@ void UIWindowInteractionOwner::SetVisible( bool visible, double now )
 
 void UIWindowInteractionOwner::ToggleVisible( double now )
 {
-
     if ( !m_window.isVisible )
     {
         SetVisible( true, now );
@@ -180,7 +179,6 @@ void UIWindowInteractionOwner::CancelEditorMiniPaletteInteraction()
 
 void UIWindowInteractionOwner::SetMinimized( bool minimized, double now )
 {
-
     if ( m_window.isMinimized == minimized )
     {
         return;
@@ -313,7 +311,6 @@ void UIWindowInteractionOwner::SetWindowBounds( int x, int y, int width, int hei
 
 void UIWindowInteractionOwner::SetBlurEnabled( bool enabled )
 {
-
     if ( m_blurPreviewEnabled != enabled )
     {
         m_blurPreviewEnabled = enabled;
@@ -439,7 +436,6 @@ bool UIWindowInteractionOwner::NeedsUiTextPass() const
 
 void UIWindowInteractionOwner::SetHitboxOverlayEnabled( bool enabled )
 {
-
     if ( m_hitboxOverlayEnabled != enabled )
     {
         m_hitboxOverlayEnabled = enabled;
@@ -472,7 +468,6 @@ void UIWindowInteractionOwner::SetMouseOverride( bool enabled, int x, int y )
 
 void UIWindowInteractionOwner::SetMaximized( bool maximized, int screenW, int screenH, double now )
 {
-
     if ( Chrome::SetMaximized( m_window, maximized, screenW, screenH, now ) )
     {
         m_scrollbarVisibleUntil = 0.0;
@@ -483,7 +478,6 @@ void UIWindowInteractionOwner::SetMaximized( bool maximized, int screenW, int sc
 
 int UIWindowInteractionOwner::ContentHeight() const
 {
-
     switch ( m_activeTab )
     {
     case InGameUITab::Scene:
@@ -618,7 +612,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
         if ( !showEditorMiniPalette )
         {
-
             if ( m_editorMiniPalettePressActive )
             {
                 result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
@@ -792,7 +785,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
                         if ( flyoutOption >= 0 )
                         {
-
                             if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
                             {
                                 selectedObjectType = EditorMiniTreeObjectType( flyoutOption,
@@ -934,7 +926,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
 
     if ( input.leftPressed )
     {
-
         if ( titleButtons.close.Contains( m_mouseX, m_mouseY ) )
         {
 
@@ -980,7 +971,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         }
         else if ( m_sceneTab.combo.IsOpen() )
         {
-
             if ( m_activeTab == InGameUITab::Scene )
             {
                 const float contentX = static_cast<float>( inputX + contentPad );
@@ -1012,7 +1002,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         }
         else if ( m_renderTargetCombo.IsOpen() )
         {
-
             if ( m_activeTab == InGameUITab::Targets )
             {
                 const int option = m_renderTargetCombo.HitOption( m_mouseX, m_mouseY, m_lastRenderTargetPreviewCount );
@@ -1047,7 +1036,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         }
         else if ( m_editorTab.objectCombo.IsOpen() )
         {
-
             if ( m_activeTab == InGameUITab::Editor )
             {
                 const float contentX = static_cast<float>( inputX + contentPad );
@@ -1369,7 +1357,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         }
         else if ( inside && m_mouseY >= inputY + inputH - bottomH )
         {
-
             if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
                 m_rendererCombo.ToggleOpen();
@@ -1426,7 +1413,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         // Why: sliders update previews continuously while dragged. Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-
         if ( !SceneTab::UpdateActiveSlider( m_sceneTab, m_activeSlider, m_mouseX, result ) &&
              !ProfilerTab::UpdateActiveSlider( m_profilerTab, m_activeSlider, m_mouseX, m_lastMaxWorkerThreadCount,
                                                result ) &&
@@ -1442,7 +1428,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             }
             else
             {
-
                 if ( !SkyTab::UpdateActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
                      !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {
@@ -1491,7 +1476,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
         // Invariant: commit deferred slider previews exactly once on release. This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.
-
         if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
              !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !MemoryTab::CommitActiveSlider( m_memoryOverlay, m_activeSlider, result ) &&
@@ -1506,7 +1490,6 @@ UIWindowInteractionOwner::UpdateInput( const InputControl::UIInputSnapshot& inpu
             }
             else
             {
-
                 if ( !SkyTab::CommitActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
                      !CinematicTab::CommitActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
                 {

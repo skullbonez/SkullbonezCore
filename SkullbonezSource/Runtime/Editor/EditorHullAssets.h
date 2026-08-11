@@ -117,7 +117,6 @@ inline const char* HullAssetBaseName( const char* token )
 
     for ( const char* cursor = base; *cursor != '\0'; ++cursor )
     {
-
         if ( *cursor == '/' || *cursor == '\\' )
         {
             base = cursor + 1;
@@ -129,10 +128,8 @@ inline const char* HullAssetBaseName( const char* token )
 
 inline const EditorHullAssetInfo* FindEditorHullAssetInfo( EditorHullAsset asset )
 {
-
     for ( const EditorHullAssetInfo& info : EDITOR_HULL_ASSETS )
     {
-
         if ( info.asset == asset )
         {
             return &info;
@@ -144,7 +141,6 @@ inline const EditorHullAssetInfo* FindEditorHullAssetInfo( EditorHullAsset asset
 
 inline EditorHullAsset EditorHullAssetFromToken( const char* token )
 {
-
     if ( !token || token[0] == '\0' )
     {
         return EditorHullAsset::UNKNOWN;
@@ -154,7 +150,6 @@ inline EditorHullAsset EditorHullAssetFromToken( const char* token )
 
     for ( const EditorHullAssetInfo& info : EDITOR_HULL_ASSETS )
     {
-
         if ( strcmp( token, info.token ) == 0 || strcmp( token, info.path ) == 0 || strcmp( base, info.token ) == 0 ||
              strcmp( base, info.fileName ) == 0 )
         {
@@ -196,7 +191,6 @@ inline const char* ResolveEditorHullAssetPath( const char* token )
 
 inline constexpr bool EditorHullAssetDefaultsToContactRelease( EditorHullAsset asset )
 {
-
     switch ( asset )
     {
     case EditorHullAsset::TREE_TRUNK_SMALL_FACETED:
@@ -233,7 +227,6 @@ inline float HullAssetTokenDefaultContactReleaseThreshold( const char* token )
 
 inline float EditorTreeRootedAboveRootLiftY( const char* instanceName )
 {
-
     if ( !instanceName )
     {
         return 0.0f;
@@ -255,7 +248,6 @@ inline float EditorTreeRootedAboveRootLiftY( const char* instanceName )
 
 inline float EditorTreeRootedLegacyRootToTrunkDeltaY( const char* instanceName )
 {
-
     if ( !instanceName )
     {
         return 0.0f;

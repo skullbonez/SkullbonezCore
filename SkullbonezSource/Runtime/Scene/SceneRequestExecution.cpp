@@ -60,7 +60,6 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
     const SceneLoadNavigationState& navigation = transaction.m_outputs.navigation;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
-
         if ( !request.accepted )
         {
             return false;
@@ -138,10 +137,8 @@ bool SceneController::ExecutePending( SceneLoadTransaction& transaction, Skullbo
         // Invariant: replay observes completed owner work. Rejected browser
         // indices, failed loads, invalid create names, and failed writes leave
         // no serialized action that a restore could mistake for applied state.
-
         if ( accepted )
         {
-
             if ( completedRequests.count >= SCENE_REQUEST_QUEUE_CAPACITY )
             {
                 SB_FATAL( "Runtime/SceneController", "Fixed completed scene-request capacity exhausted." );

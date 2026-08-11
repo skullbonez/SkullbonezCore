@@ -101,10 +101,8 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER = S
 
 void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures, unsigned int keptSlots )
 {
-
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
-
         if ( ( keptSlots & ( 1u << slot ) ) == 0u )
         {
             renderTextures.BindTexture( 0, slot );
@@ -120,7 +118,6 @@ void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& re
 int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstanceStore& renderStore, Matrix4* outMatrices,
                                    int maxModelCount )
 {
-
     if ( !outMatrices || maxModelCount <= 0 )
     {
         return 0;
@@ -195,7 +192,6 @@ SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderResour
 
 bool ReportRenderTextureResult( const char* passName, const SkullbonezCore::Core::SbResult& result )
 {
-
     if ( result.Ok() )
     {
         return true;
@@ -234,7 +230,6 @@ Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
     // Why: scene/config data can omit or zero the sun vector. Shadows still need
     // a normalized direction so matrix construction cannot divide by a zero
     // length vector.
-
     if ( VectorMag( lightDirectionWorld ) < 1.0e-5f )
     {
         lightDirectionWorld = Vector3( -0.68f, 0.22f, -0.70f );
@@ -368,7 +363,6 @@ void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) co
 
 void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -387,7 +381,6 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
 
 void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-
     if ( renderGeometry && m_resources.quadVB != 0 )
     {
         renderGeometry->DestroyDynamicVB( m_resources.quadVB );
@@ -399,7 +392,6 @@ void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* rend
 
 void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -424,7 +416,6 @@ void SkyPass::ReleaseGpuResources()
 
 void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -442,7 +433,6 @@ void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources
 
         // RGBA16F preserves bright sky/fog values until TonemapPass compresses
         // them back to display color on the window backbuffer.
-
         if ( m_resources.hdrTarget )
         {
             m_resources.hdrTarget->ResetResources();
@@ -457,7 +447,6 @@ void SceneTargetPass::EnsureGpuResources( const RenderResourceContext& resources
 
 void SceneTargetPass::ReleaseGpuResources()
 {
-
     if ( m_resources.hdrTarget )
     {
         m_resources.hdrTarget->ResetResources();
@@ -507,7 +496,6 @@ void ReflectionPass::ReleaseGpuResources()
 
     // Lifetime: ResetResources gives the backend a chance to release device
     // objects before the unique_ptr destructor drops the concrete target owner.
-
     if ( m_resources.target )
     {
         m_resources.target->ResetResources();
@@ -526,7 +514,6 @@ void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* st
 void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
                                      const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
 {
-
     if ( !cinematic.shadow.enabled )
     {
         return;
@@ -924,7 +911,6 @@ void SkyPass::RenderCinematicSky( const RenderCameraLighting& camera, const Math
     // Invariant: the active cinematic choice is a frame snapshot, while the
     // generated-sky shader and fullscreen vertex buffer are pass resources.
     // This path should not reach back through Run state for either.
-
     if ( !cinematic.skyAtmosphereEnabled || !m_skyResources.atmosphereShader || m_fullscreenResources.quadVB == 0 )
     {
         return;
@@ -1039,7 +1025,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
 
         // Default colors preserve ordinary-water sky misses; cinematic scenes
         // replace the typed values so ray misses match authored void colors.
-
         if ( inputs.cinematic && inputs.cinematic->enabled )
         {
             reflection.skyColorTop = Vector3( inputs.cinematic->skyZenithR, inputs.cinematic->skyZenithG,
@@ -1077,7 +1062,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs 
     }
     else
     {
-
         if ( !m_resources.target )
         {
             return output;
@@ -1224,7 +1208,6 @@ void ObjectPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ 
 
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
-
     if ( inputs.terrainHidden || !m_terrain.Get() )
     {
         return;
@@ -1258,7 +1241,6 @@ void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
-
     if ( m_terrain.Get() )
     {
         m_terrain.Get()->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
@@ -1268,7 +1250,6 @@ void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 
 void TerrainPass::ReleaseGpuResources()
 {
-
     if ( m_terrain.Get() )
     {
         m_terrain.Get()->ReleaseRenderResources();
@@ -1339,7 +1320,6 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     // Debug overlays intentionally stay out of the object/material pass. They
     // draw diagnostic geometry over the final world view and should not inherit
     // production material binding assumptions.
-
     if ( !HasOverlayWork( inputs ) )
     {
         return false;
@@ -1357,7 +1337,6 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     if ( snapshot.broadphaseOverlayVisible )
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
@@ -1378,7 +1357,6 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     if ( !snapshot.worldExtensionDebugLines.empty() )
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/WorldExtension" );
@@ -1410,7 +1388,6 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( inputs.gpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
@@ -1467,7 +1444,6 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
 
     // Invariant: replay owns a complete frame packet. Its fixed-capacity lines
     // and ribbons are sufficient pass work even when editor tools are hidden.
-
     if ( inputs.replayVisualPacket.HasGeometry() )
     {
         return true;
@@ -1487,7 +1463,6 @@ void DebugOverlayPass::EnsureGpuResources( const RenderResourceContext& /*resour
 
 void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -1524,7 +1499,6 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
                              Rendering::Dx12Diagnostics& renderDiagnostics, Rendering::RenderGpuTimingOwner* gpuTiming,
                              int windowWidth, int windowHeight, const Rendering::RenderGraphTextureBinding* graphOutput )
 {
-
     if ( !CanRender( true, &cinematic ) )
     {
         return false;
@@ -1542,7 +1516,6 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
 
     if ( !useGraphOutput )
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_END( gpuTiming, "Frame/Render/VolumetricLight" );
@@ -1557,7 +1530,6 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/VolumetricLight/Draw" );
@@ -1596,7 +1568,6 @@ bool VolumetricPass::Render( const RenderCameraLighting& camera,
 
 void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-
     if ( !resources.cinematicEnabled )
     {
         return;
@@ -1625,7 +1596,6 @@ void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cin
                           bool sceneAlreadyUnbound, bool volumetricReady,
                           const Rendering::RenderGraphTextureBinding* graphVolumetric )
 {
-
     if ( !m_sceneResources.hdrTarget || !m_tonemapResources.shader || m_fullscreenResources.quadVB == 0 )
     {
         return;
@@ -1651,7 +1621,6 @@ void TonemapPass::Render( const SkullbonezCore::Core::CinematicRenderConfig& cin
     // into the final image on the window." This is where the HDR scene becomes
     // normal display color and where bloom/fog/rays are layered in.
     {
-
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( gpuTiming, "Frame/Render/Tonemap/Draw" );

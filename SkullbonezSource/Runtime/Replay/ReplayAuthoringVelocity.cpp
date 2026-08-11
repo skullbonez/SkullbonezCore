@@ -69,7 +69,6 @@ bool IsReplayToolOwner( WorldInteractionOwner owner )
 
 Vector3 EditorAxisVector( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -119,7 +118,6 @@ float ReplayVelocityAngularVisualRadius( float modelRadius, float angularCompone
 
 float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 {
-
     if ( axis == 0 )
     {
         return value.x;
@@ -136,7 +134,6 @@ float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 
 void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 {
-
     if ( axis == 0 )
     {
         value.x = component;
@@ -154,7 +151,6 @@ void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 
 Vector3 EditorRotationRingBasisA( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -171,7 +167,6 @@ Vector3 EditorRotationRingBasisA( int axis )
 
 Vector3 EditorRotationRingBasisB( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -188,7 +183,6 @@ Vector3 EditorRotationRingBasisB( int axis )
 
 float WrapEditorAngleDelta( float delta )
 {
-
     while ( delta > _PI )
     {
         delta -= 2.0f * _PI;
@@ -318,7 +312,6 @@ static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targ
 
 int HitReplayVelocityLinearAxis( const ReplayVelocityBodyView& body, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-
     if ( body.fixed )
     {
         return -1;
@@ -351,7 +344,6 @@ int HitReplayVelocityLinearAxis( const ReplayVelocityBodyView& body, const Vecto
 
 int HitReplayVelocityAngularAxis( const ReplayVelocityBodyView& body, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-
     if ( body.fixed )
     {
         return -1;
@@ -403,7 +395,6 @@ int HitReplayVelocityAngularAxis( const ReplayVelocityBodyView& body, const Vect
 bool TryReplayVelocityAxisRayParameter( const ReplayVelocityBodyView& body, int axis, const Vector3& rayOrigin,
                                         const Vector3& rayDirection, float& outAxisT )
 {
-
     if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
     {
         return false;
@@ -430,7 +421,6 @@ bool TryReplayVelocityAxisRayParameter( const ReplayVelocityBodyView& body, int 
 bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body, int axis, const Vector3& rayOrigin,
                                        const Vector3& rayDirection, float& outAngle )
 {
-
     if ( axis < 0 || axis > 2 || body.modelRow.value < 0 )
     {
         return false;
@@ -522,7 +512,6 @@ bool ReplayAuthoring::PrepareVelocityEditInput( bool editorModeEnabled, bool sce
                                                 int screenHeight, InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
 {
-
     if ( !VelocityEdit().enabled || editorModeEnabled || !scenePhysicsEnabled || screenWidth <= 0 || screenHeight <= 0 )
     {
         const bool endDragGesture = interaction.Gesture().kind == RuntimeInteractionGestureKind::ReplayVelocityDrag;
@@ -579,7 +568,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     if ( !pointerRay.hasWorldRay )
     {
-
         if ( velocityDragActive() && ( leftReleased || !leftDown ) )
         {
             finishVelocityDrag();
@@ -682,7 +670,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
         // A stationary held pointer resolves to the velocity already stored.
         // Skipping that no-op prevents needless replacement generations while
         // still publishing every materially changed pointer sample.
-
         if ( velocityChanged && velocityPhysics.SetBodyVelocity( body.body, linearVelocity, angularVelocity, true ) )
         {
 
@@ -696,7 +683,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     if ( velocityDragActive() )
     {
-
         if ( leftDown && !uiBlocksMouse )
         {
             applyReplayVelocityEditDrag( rayOrigin, rayDirection );
@@ -721,7 +707,6 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 
     const auto armBaselineComparisonForDrag = [&]()
     {
-
         if ( presentationOwner.PathVisualizer().hasTarget )
         {
 

@@ -87,7 +87,6 @@ using SkullbonezCore::Runtime::SceneController;
 
 const char* FileNameFromPath( const char* path )
 {
-
     if ( !path )
     {
         return "";
@@ -134,7 +133,6 @@ bool SceneMaterialTargetMatches( const char* target, const char* displayName, bo
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.
-
     if ( simpleRagdollPart && IsBroadMaterialTarget( target ) )
     {
         return false;
@@ -175,7 +173,6 @@ void ResetObjectMaterials( SceneWorld& world )
 
     for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
     {
-
         if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
             entities.MutableAt( modelIndex ).renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f,
@@ -217,7 +214,6 @@ void ApplyObjectMaterials( SceneWorld& world, const SkullbonezCore::Scene::Stand
 
     for ( const SkullbonezCore::Scene::StandaloneStyleMaterialRule& material : style.materialRules )
     {
-
         for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )

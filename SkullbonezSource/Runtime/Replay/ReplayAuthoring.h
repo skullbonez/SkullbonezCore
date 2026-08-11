@@ -163,7 +163,6 @@ class ReplayAuthoring
     }
     bool AppendCauseTreeRow( const RunReplayCauseTreeRow& row )
     {
-
         if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
         {
             return false;
@@ -253,7 +252,6 @@ class ReplayAuthoring
 
     bool SetVelocityEditEnabled( bool enabled ) noexcept
     {
-
         if ( m_velocityEdit.enabled == enabled )
         {
             return false;
@@ -323,7 +321,6 @@ class ReplayAuthoring
 
     bool FinishVelocityEditDrag() noexcept
     {
-
         if ( !m_velocityEdit.dragChanged )
         {
             return false;

@@ -69,7 +69,6 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
                                            const wchar_t* rayGenName, const wchar_t* missName,
                                            const wchar_t* hitGroupTerrainName, const wchar_t* hitGroupSphereName )
 {
-
     if ( !props )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12", "SBT: missing RT pipeline shader identifier interface" );
@@ -145,7 +144,6 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device, ID3D12StateObje
     // Allocate the SBT buffer on the upload heap (CPU-writable) because it's small and only
     // written once at init. The GPU reads it every DispatchRays call to find shader entry points.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
                                                   D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_buffer ) ) ) )
     {
@@ -222,7 +220,6 @@ D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE SBT::HitGroupRange() const
 
 void SBT::Reset()
 {
-
     if ( m_buffer )
     {
         m_buffer->Release();

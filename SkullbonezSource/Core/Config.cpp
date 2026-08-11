@@ -66,7 +66,6 @@ struct FileCloser
 {
     void operator()( FILE* file ) const
     {
-
         if ( file )
         {
             fclose( file );
@@ -83,7 +82,6 @@ bool IsSpaceOrTab( char c )
 
 char* TrimInPlace( char* text )
 {
-
     while ( IsSpaceOrTab( *text ) )
     {
         ++text;
@@ -112,7 +110,6 @@ bool IsRangeValid( double value, const ConfigSetting& setting )
 
 bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const char* path, int line, int& out )
 {
-
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected integer" );
@@ -141,7 +138,6 @@ bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const
 
 bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, const char* path, int line, float& out )
 {
-
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected float" );
@@ -170,7 +166,6 @@ bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, con
 
 bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, const char* path, int line, bool& out )
 {
-
     if ( !value || *value == '\0' )
     {
         WarnConfigLine( path, line, setting.name, value, "expected boolean" );
@@ -715,10 +710,8 @@ static constexpr ConfigSettingRange kConfigSettingOrder[] = {
 // added to kConfigSettingOrder.
 constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
 {
-
     for ( const ConfigSettingRange& range : kConfigSettingOrder )
     {
-
         if ( static_cast<size_t>( range.domain ) >= static_cast<size_t>( ConfigSettingDomain::Count ) )
         {
             return false;
@@ -732,7 +725,6 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
 
         for ( const ConfigSettingRange& range : kConfigSettingOrder )
         {
-
             if ( range.domain == domain && ( range.first > domainCount || range.count > domainCount - range.first ) )
             {
                 return false;
@@ -745,7 +737,6 @@ constexpr bool ConfigSettingOrderCoversEveryDomainRowExactlyOnce()
 
             for ( const ConfigSettingRange& range : kConfigSettingOrder )
             {
-
                 if ( range.domain == domain && row >= range.first && row - range.first < range.count )
                 {
                     ++visits;
@@ -767,14 +758,12 @@ static_assert( ConfigSettingOrderCoversEveryDomainRowExactlyOnce(),
 
 template <typename Visitor> bool VisitConfigSettingsInOrder( Visitor&& visitor )
 {
-
     for ( const ConfigSettingRange& range : kConfigSettingOrder )
     {
         const ConfigSettingTable& table = kConfigSettingTables[static_cast<size_t>( range.domain )];
 
         for ( size_t row = 0; row < range.count; ++row )
         {
-
             if ( !visitor( table.settings[range.first + row] ) )
             {
                 return false;
@@ -790,7 +779,6 @@ const ConfigSetting* FindConfigSetting( const char* name )
     const ConfigSetting* found = nullptr;
     VisitConfigSettingsInOrder( [name, &found]( const ConfigSetting& setting )
                                 {
-
                                     if ( strcmp( setting.name, name ) != 0 )
                                     {
                                         return true;
@@ -989,7 +977,6 @@ SbResult EngineConfig::Load( SbDiagnosticStore& diagnostics, const char* path )
 /* ---------------------------------------------------------------------------------*/
 void EngineConfig::Dump( FILE* out ) const
 {
-
     if ( !out )
     {
         return;

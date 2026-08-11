@@ -43,7 +43,6 @@ namespace
 {
 DXGI_FORMAT ToColorFormat( RenderGraphResourceFormat format )
 {
-
     switch ( format )
     {
     case RenderGraphResourceFormat::RGBA8:
@@ -115,7 +114,6 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
     for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
     {
-
         if ( allocation.resource.index >= graph.Resources().size() )
         {
             SB_FATAL( "Dx12GraphTransientPool",
@@ -145,7 +143,6 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
         for ( GraphTransientResourceDX12& candidate : m_resources )
         {
-
             if ( GraphTransientPoolSlotCanSatisfyDX12( candidate, allocation.poolSlot, desc ) )
             {
                 slot = &candidate;
@@ -303,7 +300,6 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
     for ( const GraphTransientResourceDX12& slot : m_resources )
     {
-
         if ( slot.resource )
         {
             m_stats.descriptorRowsOwned += CountDescriptorRows( slot.desc.descriptors );
@@ -321,10 +317,8 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
 
 GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource )
 {
-
     for ( const GraphTransientBindingDX12& binding : m_bindings )
     {
-
         if ( binding.resource.index == resource.index && binding.slotIndex < m_resources.size() )
         {
             return &m_resources[binding.slotIndex];
@@ -336,10 +330,8 @@ GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourc
 
 const GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource ) const
 {
-
     for ( const GraphTransientBindingDX12& binding : m_bindings )
     {
-
         if ( binding.resource.index == resource.index && binding.slotIndex < m_resources.size() )
         {
             return &m_resources[binding.slotIndex];
@@ -371,7 +363,6 @@ RenderGraphTextureBinding Dx12GraphTransientPool::Resolve( RenderGraphResourceHa
 size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled,
                                                    uint32_t passIndex )
 {
-
     if ( passIndex >= graph.Passes().size() )
     {
         SB_FATAL( "Dx12GraphTransientPool", "Graph transient transition requested an invalid pass. pass=%u passCount=%zu",
@@ -382,7 +373,6 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
 
     for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
     {
-
         if ( transition.passIndex != passIndex )
         {
             continue;
@@ -460,7 +450,6 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph, con
 
 void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
 {
-
     if ( m_renderTargetActive )
     {
         SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target is already active." );
@@ -484,7 +473,6 @@ void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding&
     // No saved target escapes this owner or survives the matching End call.
     // Invariant: ExecuteTransitions must consume the compiled producer edge
     // before binding. Begin only changes descriptors/targets; it emits no barrier.
-
     if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
     {
         SB_FATAL( "Dx12GraphTransientPool",
@@ -504,7 +492,6 @@ void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding&
 
 void Dx12GraphTransientPool::EndRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
 {
-
     if ( !m_renderTargetActive || m_activeRenderTarget.index != binding.resource.index )
     {
         SB_FATAL( "Dx12GraphTransientPool",
@@ -522,7 +509,6 @@ void Dx12GraphTransientPool::EndRenderTarget( const RenderGraphTextureBinding& b
     // End restores the caller's target but deliberately leaves the texture in
     // RenderTarget state. The next consuming graph pass owns the compiled
     // RenderTarget -> PixelShaderResource transition immediately before use.
-
     if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
     {
         SB_FATAL( "Dx12GraphTransientPool",
@@ -543,7 +529,6 @@ void Dx12GraphTransientPool::ReleaseAfterTerminalDrain( const char* reason )
 
     for ( GraphTransientResourceDX12& slot : m_resources )
     {
-
         if ( slot.textureHandle != 0 )
         {
             const UINT srvIndex = m_textures.UnregisterSRV( slot.textureHandle );

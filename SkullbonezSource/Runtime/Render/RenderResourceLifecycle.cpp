@@ -134,7 +134,6 @@ SkullbonezCore::Core::SbResult RenderResourceLifecycle::EnsureUiTextResources( i
 
 SkullbonezCore::Core::SbResult RenderResourceLifecycle::InitialiseSceneRayTracing( int modelCapacity )
 {
-
     if ( !m_raytracingAvailable )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -265,7 +264,6 @@ void RenderResourceLifecycle::ReleaseTextureResources()
 
 void RenderResourceLifecycle::ReleaseSkyResources()
 {
-
     if ( m_skyBox )
     {
         m_skyBox->ReleaseRenderResources();

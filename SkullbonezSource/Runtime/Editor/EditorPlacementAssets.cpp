@@ -92,7 +92,6 @@ const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType 
 
     for ( const EditorBuildingDefinition& building : EDITOR_BUILDING_ASSETS )
     {
-
         if ( building.objectType == type )
         {
             return &building;
@@ -105,7 +104,6 @@ const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType 
 
 std::string EditorResolveBuildingAssetLibraryPath( const SkullbonezCore::Assets::AssetSystem& assets )
 {
-
     if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library = assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) )
     {
         return library->resolvedPath;
@@ -117,7 +115,6 @@ std::string EditorResolveBuildingAssetLibraryPath( const SkullbonezCore::Assets:
 
 const Json* EditorJsonFindMember( const Json& object, const char* name )
 {
-
     if ( !object.is_object() )
     {
         return nullptr;
@@ -215,7 +212,6 @@ bool EditorJsonBoolOr( const Json& object, const char* name, bool fallback )
 
 bool TryReadEditorJsonVec3( const Json& value, Vector3& out )
 {
-
     if ( !value.is_array() || value.size() < 3 || !value[0].is_number() || !value[1].is_number() || !value[2].is_number() )
     {
         return false;
@@ -399,7 +395,6 @@ SkullbonezCore::Rendering::RenderMaterial EditorBuildingPartMaterial( const Json
 
     if ( materialJson && materialJson->is_object() )
     {
-
         if ( const Json* colorValue = EditorJsonFindMember( *materialJson, "color" ) )
         {
             TryReadEditorJsonVec3( *colorValue, color );
@@ -519,7 +514,6 @@ const ConvexHullShape* CachedEditorBuildingHull( SkullbonezCore::Core::SbDiagnos
 
     for ( const auto& entry : hulls )
     {
-
         if ( entry.first == hullPath )
         {
             return &entry.second;
@@ -602,10 +596,8 @@ float EditorBuildingVerticalSize( SkullbonezCore::Core::SbDiagnosticStore& diagn
 
                                                 for ( int xSign = -1; xSign <= 1; xSign += 2 )
                                                 {
-
                                                     for ( int ySign = -1; ySign <= 1; ySign += 2 )
                                                     {
-
                                                         for ( int zSign = -1; zSign <= 1; zSign += 2 )
                                                         {
                                                             const Vector3 corner( halfExtents.x *
@@ -705,10 +697,8 @@ bool TryComputeEditorBuildingWorldBounds( SkullbonezCore::Core::SbDiagnosticStor
 
                                                 for ( int xSign = -1; xSign <= 1; xSign += 2 )
                                                 {
-
                                                     for ( int ySign = -1; ySign <= 1; ySign += 2 )
                                                     {
-
                                                         for ( int zSign = -1; zSign <= 1; zSign += 2 )
                                                         {
                                                             const Vector3 corner( halfExtents.x *
@@ -1725,7 +1715,6 @@ bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
 
 Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
 {
-
     if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
     {
         return IDENTITY_QUATERNION;
@@ -1763,7 +1752,6 @@ const ConvexHullShape* CachedEditorHullForAsset( SkullbonezCore::Core::SbDiagnos
 
     for ( std::size_t i = 0; i < EDITOR_HULL_ASSET_COUNT; ++i )
     {
-
         if ( EDITOR_HULL_ASSETS[i].asset != asset )
         {
             continue;
@@ -1875,10 +1863,8 @@ void ExpandEditorHousePartWorldBounds( const EditorHousePartDefinition& part, co
 
     for ( int x = -1; x <= 1; x += 2 )
     {
-
         for ( int y = -1; y <= 1; y += 2 )
         {
-
             for ( int z = -1; z <= 1; z += 2 )
             {
                 const Vector3 corner = center + orientation * Vector3( halfExtents.x * static_cast<float>( x ),

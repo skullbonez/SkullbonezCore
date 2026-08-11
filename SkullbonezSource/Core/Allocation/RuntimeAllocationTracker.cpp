@@ -179,7 +179,6 @@ uintptr_t ProcessImageBase() noexcept
 
 std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
 {
-
     if ( alignment < DEFAULT_ALIGNMENT )
     {
         alignment = DEFAULT_ALIGNMENT;
@@ -191,7 +190,6 @@ std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
 
         while ( rounded < alignment )
         {
-
             if ( rounded > std::numeric_limits<std::size_t>::max() / 2u )
             {
                 return 0u;
@@ -208,7 +206,6 @@ std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
 
 bool TryComputeAllocationSize( std::size_t size, std::size_t alignment, std::size_t& totalSize ) noexcept
 {
-
     if ( alignment == 0u )
     {
         return false;
@@ -286,7 +283,6 @@ RuntimeAllocationGuardMode CurrentMode() noexcept
 void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle owner, uintptr_t callsite, uintptr_t parent,
                      bool violation, uint64_t size ) noexcept
 {
-
     if ( callsite == 0u )
     {
         return;
@@ -332,7 +328,6 @@ void RecordCallsite( RuntimeAllocationPhase phase, RuntimeReserveOwnerHandle own
 bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size, RuntimeReserveOwnerHandle owner,
                        uintptr_t callsite ) noexcept
 {
-
     if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
     {
         return false;
@@ -396,7 +391,6 @@ void RecordFree( const AllocationHeader& header ) noexcept
     // Invariant: a delete only subtracts bytes that were counted while the
     // guard was enabled. Startup allocations freed during gameplay shutdown
     // still carry tracker headers, but they must not underflow phase counters.
-
     if ( ( header.flags & ALLOCATION_HEADER_RECORDED ) == 0u )
     {
         return;
@@ -427,7 +421,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
 
     if ( !TryComputeAllocationSize( size, alignment, totalSize ) )
     {
-
         if ( overflowed )
         {
             *overflowed = true;
@@ -472,7 +465,6 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     // Hazard: recording must never allocate through this same hook. The
     // thread-local guard keeps emergency CRT/STL paths from recursively counting
     // tracker internals as gameplay work.
-
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
@@ -578,7 +570,6 @@ void HandleForeignFree( void* pointer, const char* headerState ) noexcept
 
 void FreeTrackedMemory( void* pointer ) noexcept
 {
-
     if ( !pointer )
     {
         return;
@@ -610,7 +601,6 @@ void FreeTrackedMemory( void* pointer ) noexcept
     // Lifetime: the guarded, provenance-checked snapshot remains valid after
     // raw is freed below. Clearing the live magic makes a double-delete fail
     // closed into the foreign-pointer path instead of subtracting twice.
-
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
@@ -698,7 +688,6 @@ RuntimeAllocationGuardMode GetRuntimeAllocationGuardMode() noexcept
 
 const char* RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode mode ) noexcept
 {
-
     switch ( mode )
     {
     case RuntimeAllocationGuardMode::Off:
@@ -714,7 +703,6 @@ const char* RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode mode ) no
 
 const char* RuntimeAllocationPhaseName( RuntimeAllocationPhase phase ) noexcept
 {
-
     switch ( phase )
     {
     case RuntimeAllocationPhase::Startup:
@@ -805,7 +793,6 @@ void ResetRuntimeAllocationCounters() noexcept
 
 void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 {
-
     if ( !out || !RuntimeAllocationGuardEnabled() )
     {
         return;
@@ -875,7 +862,6 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 
         for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
         {
-
             if ( rankCount <= topCounts[rank] )
             {
                 continue;

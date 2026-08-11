@@ -141,7 +141,6 @@ void DrawUiTestPattern( UiDrawSubmission& submission, SkullbonezCore::UI::UIDraw
 
     for ( float y = 0.0f; y < static_cast<float>( screenH ); y += tile )
     {
-
         for ( float x = 0.0f; x < static_cast<float>( screenW ); x += tile )
         {
             const bool alternate = ( ( static_cast<int>( x / tile ) + static_cast<int>( y / tile ) ) & 1 ) != 0;
@@ -188,7 +187,6 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
 void RenderReplayDivergenceCounter( SkullbonezCore::Text::TextBatch& textBatch, const OverlayDebugState& debug,
                                     const ReplayHudStatus& replayHud )
 {
-
     if ( !debug.isTopTextHidden || !replayHud.divergenceValid )
     {
         return;
@@ -237,7 +235,6 @@ SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::Dx12Re
     // Invariant: the renderer atlas and UI layout consume the same 96 values
     // loaded from the baked font header. A device rebuild may confirm them but
     // cannot silently change hit geometry during the process lifetime.
-
     if ( !SkullbonezCore::UI::UIFontMetrics::Install( Text2d::charAdvance, 96 ) )
     {
         return m_resultDiagnostics.Failure( "Runtime/Render/UiTextPass",
@@ -306,7 +303,6 @@ float UiTextPass::UpdateFrameMetrics( RunTimerState& timers, const RuntimeRender
 
     if ( timers.timeSinceLastRender > 0.5f )
     {
-
         if ( secondsPerFrame )
         {
             timers.rollingFpsTime = 1.0f / static_cast<float>( secondsPerFrame );
@@ -349,7 +345,6 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
     const char* rendererName = renderDiagnostics.GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-
     if ( debug.isTextOnly )
     {
 
@@ -383,7 +378,6 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
     const auto renderScenePauseBadge = [&]()
     {
-
         if ( debug.isTopTextHidden || ( !scene.isSceneMode && !crossScenePauseLocked && !scene.isTestComplete ) )
         {
             return;
@@ -455,7 +449,6 @@ void UiTextPass::RenderChromeStatus( const UiTextViewport& viewport, const Overl
 
         // Why: clean validation/look-dev captures use --hide-top-text to remove
         // top-left chrome without changing scene simulation or camera state.
-
         if ( debug.isTopTextHidden )
         {
             return;
@@ -540,7 +533,6 @@ void UiTextPass::RenderChromeTail( const OverlayDebugState& debug, const ReplayH
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
     // A tiny center gap keeps the target visible instead of covering it.
-
     if ( launcherCameraMode )
     {
         const float cArm = 0.020f;
@@ -636,7 +628,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
 
         if ( drawTrace.nodes )
         {
-
             for ( int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex )
             {
                 const auto& source = drawTrace.nodes[nodeIndex];
@@ -729,7 +720,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
         // drawing and hit testing do not reach into profiler globals.
         auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
         {
-
             for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
             {
                 const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
@@ -747,7 +737,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
         // append only normalizes nullable names and non-negative timings.
         auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
         {
-
             if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
                  markerOptionExists( input.hash, input.isFrameTotal ) )
             {
@@ -831,7 +820,6 @@ void UiTextPass::ProjectOperatorDiagnostics( UI::InGameUIFrameData& UIData, cons
 
         for ( uint32_t pinnedHash : kPinnedMarkerHashes )
         {
-
             for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
             {
                 const SkullbonezCore::Core::Profiler::Marker& marker = profiler.GetMarker( markerIndex );
@@ -1152,14 +1140,12 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 #endif
 
     // --- Overlay: None ---
-
     if ( mode == OverlayMode::None )
     {
         return;
     }
 
     // --- Overlay: Scene telemetry ---
-
     if ( mode == OverlayMode::SceneStats )
     {
         const float titleSz = 0.013f;
@@ -1216,7 +1202,6 @@ void UiTextPass::RenderOverlayContent( const UiTextViewport& viewport, OverlayMo
 #endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
-
     if ( mode == OverlayMode::Keys )
     {
         const float titleSz = 0.013f;
@@ -1315,7 +1300,6 @@ void UiTextPass::RenderReplay( const ReplayOverlay::ReplayOverlayStateView& over
                                Rendering::Dx12TextureOwner& renderTextures, Rendering::Dx12GeometryOwner& renderCommands,
                                Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-
     if ( !legacySurfaceActive )
     {
         return;
@@ -1331,7 +1315,6 @@ void UiTextPass::FinalizeOverlay( OverlayMode mode, Rendering::Dx12TextureOwner&
                                   Rendering::Dx12GeometryOwner& renderCommands,
                                   Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-
     if ( mode == OverlayMode::BarsNormalized || mode == OverlayMode::BarsAbsolute )
     {
         return;

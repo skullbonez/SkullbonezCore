@@ -42,7 +42,6 @@ constexpr const char* OWNER = "Runtime/Direction/LookLabBundleWriter";
 
 bool TimestampValid( const char* timestamp )
 {
-
     if ( !timestamp || std::strlen( timestamp ) != 19 )
     {
         return false;
@@ -57,7 +56,6 @@ bool TimestampValid( const char* timestamp )
 
         for ( size_t separatorIndex = 0; separatorIndex < std::size( separators ); ++separatorIndex )
         {
-
             if ( index == separators[separatorIndex] )
             {
                 separator = timestamp[index] == expected[separatorIndex];
@@ -97,7 +95,6 @@ template <size_t Capacity> bool TextValid( const std::array<char, Capacity>& tex
 
     for ( const char* cursor = text.data(); cursor != terminator; ++cursor )
     {
-
         if ( *cursor == '\r' || *cursor == '\n' )
         {
             return false;
@@ -122,7 +119,6 @@ template <size_t Capacity> bool CopyPath( const std::filesystem::path& path, std
 
 const char* StatusName( LookLabArtifactStatus status )
 {
-
     switch ( status )
     {
     case LookLabArtifactStatus::Pending:
@@ -152,7 +148,6 @@ Core::SbResult LookLabBundleWriter::CreateBundleDirectory( Core::SbDiagnosticSto
                                                            const char* localTimestamp, uint64_t seed,
                                                            LookLabBundlePaths& output )
 {
-
     if ( !lookLabRoot || lookLabRoot[0] == '\0' || !TimestampValid( localTimestamp ) )
     {
         return diagnostics.Failure( OWNER, "Look Lab root or local timestamp is invalid." );
@@ -200,7 +195,6 @@ Core::SbResult LookLabBundleWriter::BuildReceipt( Core::SbDiagnosticStore& diagn
                                                   const Scene::StandaloneStyleSnapshot& snapshot,
                                                   const LookLabBundlePaths& paths, std::string& output )
 {
-
     if ( !TextValid( facts.localTimestamp, false ) || !TimestampValid( facts.localTimestamp.data() ) ||
          facts.utcOffsetMinutes < -14 * 60 || facts.utcOffsetMinutes > 14 * 60 || !TextValid( facts.sourceScenePath ) ||
          !TextValid( facts.sourceSceneDisplayName ) || !TextValid( facts.styleDiagnostic ) ||

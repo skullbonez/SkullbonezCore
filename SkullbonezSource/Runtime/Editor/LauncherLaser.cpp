@@ -87,7 +87,6 @@ LauncherLaser::~LauncherLaser()
 
 void LauncherLaser::ResetResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-
     if ( renderGeometry && m_dynamicVB != 0 )
     {
         renderGeometry->DestroyDynamicVB( m_dynamicVB );
@@ -102,7 +101,6 @@ void LauncherLaser::ResetResources( Rendering::Dx12GeometryOwner* renderGeometry
 void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                      Rendering::Dx12GeometryOwner& renderGeometry )
 {
-
     if ( !m_shader )
     {
         m_shader = assets.CreateShader( renderResources, "shader.launcher_laser" );
@@ -147,7 +145,6 @@ void LauncherLaser::Fire( const Vector3& rayOrigin, const Vector3& rayDirection,
 
 void LauncherLaser::Update( float dt )
 {
-
     if ( dt <= 0.0f )
     {
         return;
@@ -155,7 +152,6 @@ void LauncherLaser::Update( float dt )
 
     for ( Shot& shot : m_shots )
     {
-
         if ( !shot.active )
         {
             continue;
@@ -173,10 +169,8 @@ void LauncherLaser::Update( float dt )
 
 bool LauncherLaser::HasActiveShots() const
 {
-
     for ( const Shot& shot : m_shots )
     {
-
         if ( shot.active )
         {
             return true;
@@ -270,7 +264,6 @@ void LauncherLaser::EmitBillboardQuad( const Vector3& center, const Vector3& rig
 
 void LauncherLaser::EmitShot( const Shot& shot )
 {
-
     if ( !shot.active || shot.lifetimeSeconds <= TOLERANCE )
     {
         return;

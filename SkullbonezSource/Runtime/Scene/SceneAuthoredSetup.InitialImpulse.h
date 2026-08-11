@@ -28,7 +28,6 @@ namespace SkullbonezCore::Runtime
 inline void ApplyAuthoredBallInitialImpulse( Physics::PhysicsEngine& physics, Physics::PhysicsBodyHandle body,
                                              const SceneBall& ball )
 {
-
     if ( ball.isFixed || ( ball.forceX == 0.0f && ball.forceY == 0.0f && ball.forceZ == 0.0f ) )
     {
         return;

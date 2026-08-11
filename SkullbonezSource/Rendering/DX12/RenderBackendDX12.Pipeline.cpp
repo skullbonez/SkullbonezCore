@@ -54,7 +54,6 @@ using Microsoft::WRL::ComPtr;
 
 static D3D12_BLEND MapBlendFactor( BlendFactor f )
 {
-
     switch ( f )
     {
     case BlendFactor::Zero:
@@ -154,7 +153,6 @@ void Dx12PipelineOwner::BuildInstancedInputLayout( const InstancedMeshDX12& im, 
     count = 0;
 
     // Slot 0: static vertex data
-
     if ( im.numStaticAttribs > 0 )
     {
 
@@ -318,7 +316,6 @@ size_t Dx12PipelineOwner::BuildPSOHash( const PSOKey12& key, const DynamicVBDX12
 
     if ( dynamicVertexBuffer )
     {
-
         for ( int i = 0; i < dynamicVertexBuffer->numAttribs; ++i )
         {
             psoHash ^= ( static_cast<size_t>( dynamicVertexBuffer->attribComponents[i] ) << ( i * 4 ) );
@@ -339,10 +336,8 @@ ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device, c
                                                          const DynamicVBDX12* dynamicVertexBuffer,
                                                          const RasterStateDesc& rasterState, bool precompile )
 {
-
     for ( size_t i = 0; i < m_psoCacheCount; ++i )
     {
-
         if ( m_psoCache[i].hash == psoHash )
         {
             ++m_psoCacheHitCount;
@@ -545,7 +540,6 @@ bool Dx12PipelineOwner::PrecompileDraw( ID3D12Device* device, VertexFormat12 for
                                         const InstancedMeshDX12* instancedMesh, const DynamicVBDX12* dynamicVertexBuffer,
                                         const RasterStateDesc& declaredRasterState )
 {
-
     if ( !device || !m_activeShader || declaredRasterState.targets.sampleCount != 1 )
     {
         return false;
@@ -592,7 +586,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
         ++m_psoCacheHitCount;
 
         // Only the constant buffer has changed (e.g. model matrix per ball)
-
         if ( m_activeShader )
         {
             D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
@@ -604,7 +597,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
 
             // Hazard: zero means the phase policy rejected this upload. Drawing
             // would reuse the prior root constant address, so fail the caller.
-
             if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
             {
                 return false;
@@ -623,7 +615,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
     // Full state setup path: at least one expensive binding category changed,
     // so rebuild/reuse the PSO, rebind the root signature, refresh constants,
     // publish texture indices, and update output targets.
-
     if ( psoChanged )
     {
         ID3D12PipelineState* pso = FindOrCreatePSO( device, key, psoHash, format, instanced, im, dvb, rasterState, false );
@@ -650,7 +641,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
     // shader uniforms (MVP matrix, colors, time, etc.) are uploaded to the GPU each draw call.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootconstantbufferview
-
     if ( m_activeShader )
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
@@ -662,7 +652,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
 
         // Hazard: do not publish a draw after the phase policy rejected its
         // constants; the command list may still contain an older root address.
-
         if ( m_activeShader->ConstantBufferUploadSize() > 0 && cbAddr == 0 )
         {
             return false;
@@ -680,7 +669,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
     // putting DX12 heap identity there would leak the backend boundary and
     // overwrite packed material flags. The matching descriptors already occupy
     // stable shader-visible rows, so this draw loop allocates or copies nothing.
-
     if ( psoChanged || textures.BindingsDirty() )
     {
         UINT textureIndices[TEXTURE_SLOT_COUNT] = {};
@@ -697,7 +685,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommand
     }
 
     // Avoid redundant OM/RS binds; target changes are tracked explicitly.
-
     if ( m_targetsDirty )
     {
         commandList->RSSetViewports( 1, &m_viewport );
@@ -732,7 +719,6 @@ void Dx12PipelineOwner::ReleaseShaderPipelinesForReload()
 
     for ( size_t index = 0; index < m_psoCacheCount; ++index )
     {
-
         if ( m_psoCache[index].pso )
         {
             m_psoCache[index].pso->Release();
@@ -901,7 +887,6 @@ void Dx12PipelineOwner::Shutdown()
 
     for ( size_t index = 0; index < m_psoCacheCount; ++index )
     {
-
         if ( m_psoCache[index].pso )
         {
             m_psoCache[index].pso->Release();

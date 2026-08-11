@@ -44,7 +44,6 @@ MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagno
 
 MeshDX12::~MeshDX12()
 {
-
     if ( m_vertexBuffer )
     {
         m_vertexBuffer->Release();
@@ -56,7 +55,6 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
                        int floatsPerVert, VertexFormat12 format, D3D12_GPU_VIRTUAL_ADDRESS uploadAddr, uint8_t* uploadPtr,
                        ID3D12Resource* uploadBuffer )
 {
-
     if ( uploadAddr == 0 || !uploadPtr )
     {
         return false;
@@ -110,7 +108,6 @@ bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
 
     // Invariant: ReserveUpload and GetUploadPtr above are only valid when the
     // frame upload system owns a backing resource for the current frame.
-
     if ( !uploadBuffer )
     {
         SB_FATAL( "MeshDX12", "Create requires a DX12 upload buffer." );
@@ -170,7 +167,6 @@ void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
 
     // Invariant: the pass bucket reaches PSO selection on the same call that
     // submits the mesh. No ambient setter state participates in this draw.
-
     if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster ) )
     {
         return;

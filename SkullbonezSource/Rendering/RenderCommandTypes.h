@@ -207,7 +207,6 @@ constexpr RetainedGeometryUploadPlan BuildRetainedGeometryUploadPlan( RetainedGe
                                                                       std::size_t incomingUnitCount,
                                                                       bool repairPreviousUnit ) noexcept
 {
-
     if ( cached.identity == incoming.identity && cached.revision == incoming.revision )
     {
         return {};

@@ -41,7 +41,6 @@ namespace
 {
 template <typename T> bool ParseUnsigned( const char* begin, const char* end, T& outValue ) noexcept
 {
-
     if ( !begin || !end || begin >= end )
     {
         return false;
@@ -53,7 +52,6 @@ template <typename T> bool ParseUnsigned( const char* begin, const char* end, T&
 
 void CopyPreferenceText( char* destination, std::size_t capacity, const char* begin, const char* end ) noexcept
 {
-
     if ( !destination || capacity == 0u )
     {
         return;
@@ -72,7 +70,6 @@ void CopyPreferenceText( char* destination, std::size_t capacity, const char* be
 
 void CopySanitizedPreferenceText( char* destination, std::size_t capacity, const char* source ) noexcept
 {
-
     if ( !destination || capacity == 0u )
     {
         return;
@@ -188,7 +185,6 @@ bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport, float cli
 
 const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept
 {
-
     switch ( panel )
     {
     case ImGuiEditorPanelId::SceneAndModes:
@@ -223,7 +219,6 @@ const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept
 
 bool TryParseImGuiEditorPanel( const char* name, ImGuiEditorPanelId& outPanel ) noexcept
 {
-
     if ( !name )
     {
         return false;
@@ -366,7 +361,6 @@ ImGuiEditorPreferenceParseResult ParseImGuiEditorPreferences( const char* text, 
 std::size_t SerializeImGuiEditorPreferences( const ImGuiEditorPreferences& preferences, char* output,
                                              std::size_t outputCapacity ) noexcept
 {
-
     if ( !output || outputCapacity == 0u )
     {
         return 0u;

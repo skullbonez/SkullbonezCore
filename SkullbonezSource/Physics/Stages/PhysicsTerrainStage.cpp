@@ -160,7 +160,6 @@ void PhysicsTerrainStage::Detect( const PhysicsBodyStore& bodyStore, const Colli
     }
     else
     {
-
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
             detectAwakeBody( awakeSlot );
@@ -234,7 +233,6 @@ void PhysicsTerrainStage::CommitCandidate( const PreparedTerrainCandidateCommit&
                                            std::span<uint8_t> sleepSupportedThisFrame,
                                            std::span<uint8_t> sleepInhibitedThisFrame )
 {
-
     if ( !commit.hit )
     {
         return;

@@ -126,7 +126,6 @@ template <typename ShapeT> const ShapeT* GetShapeIf( const CollisionShape* shape
 
 template <typename ShapeT> const ShapeT* GetShapeIf( const CollisionShapeReference* shape )
 {
-
     if ( !shape || !shape->IsValid() )
     {
         return nullptr;
@@ -208,7 +207,6 @@ inline Transformation::Matrix4 GetShapeModelMatrix( const ShapeLike& shape, cons
 template <typename ShapeLike>
 inline bool ScaleShapeAxisFromBase( const ShapeLike& baseShape, int axis, float factor, CollisionShape& outScaledShape )
 {
-
     if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
     {
         return false;

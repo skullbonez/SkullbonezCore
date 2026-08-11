@@ -51,7 +51,6 @@ Math::Transformation::RotationMatrix BuildPickRotation( const Math::Orientation:
 bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin, const Math::Vector::Vector3& rayDirection,
                               const Math::Vector::Vector3& center, float radius, float& outT )
 {
-
     if ( radius <= 0.0f )
     {
         return false;
@@ -86,7 +85,6 @@ bool IntersectRaySphereExact( const Math::Vector::Vector3& rayOrigin, const Math
 
 bool ClipBoxAxis( float origin, float direction, float minValue, float maxValue, float& inOutEnter, float& inOutExit )
 {
-
     if ( fabsf( direction ) <= PICK_AXIS_EPSILON )
     {
         return origin >= minValue - PICK_CLIP_EPSILON && origin <= maxValue + PICK_CLIP_EPSILON;
@@ -144,7 +142,6 @@ bool IntersectRayConvexHullLocal( const Math::Vector::Vector3& localOrigin, cons
 
         if ( fabsf( denominator ) <= PICK_AXIS_EPSILON )
         {
-
             if ( numerator < -PICK_CLIP_EPSILON )
             {
                 return false;

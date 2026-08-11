@@ -75,7 +75,6 @@ void* LZ4_malloc( std::size_t size )
 
 void* LZ4_calloc( std::size_t count, std::size_t size )
 {
-
     if ( count != 0u && size > std::numeric_limits<std::size_t>::max() / count )
     {
         return nullptr;
@@ -158,7 +157,6 @@ bool IsInitialized() noexcept
 
 void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
 {
-
     if ( offset )
     {
         *offset = 0u;
@@ -205,7 +203,6 @@ void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offse
     // Why: rpmalloc uses release==0 as an optional decommit hint. Retaining the
     // committed pages keeps reuse valid and conservatively charges the complete
     // live backing range until its one matching full release.
-
     if ( release == 0u )
     {
         return;
@@ -262,7 +259,6 @@ TracyClientOwner::~TracyClientOwner()
 
 void TracyClientOwner::Start()
 {
-
     if ( m_started )
     {
         return;
@@ -317,7 +313,6 @@ void TracyClientOwner::Start()
 
 bool TracyClientOwner::StartStandardCapture()
 {
-
     if ( m_started )
     {
         return true;
@@ -327,7 +322,6 @@ bool TracyClientOwner::StartStandardCapture()
     // remains a pre-launch choice. Standard capture has no allocation events,
     // so Tracy's manual-lifetime client can start safely at this cold editor
     // boundary without invalidating already-live engine allocations.
-
     if ( !SetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, STANDARD_MODE_VALUE ) )
     {
         fprintf( stderr, "[tracy] Standard capture request failed to set %s (error=%lu).\n", CAPTURE_MODE_ENVIRONMENT,
@@ -343,7 +337,6 @@ bool TracyClientOwner::StartStandardCapture()
 
 void TracyClientOwner::Shutdown() noexcept
 {
-
     if ( !m_started )
     {
         return;
@@ -383,7 +376,6 @@ TracyClientStatus TracyClientOwner::CopyStatus() noexcept
 
 void TracyClientOwner::MarkSubmittedFrame() noexcept
 {
-
     if ( !g_tracyInitialized.load( std::memory_order_acquire ) )
     {
         return;
@@ -395,7 +387,6 @@ void TracyClientOwner::MarkSubmittedFrame() noexcept
 
 void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
 {
-
     if ( !g_tracyInitialized.load( std::memory_order_acquire ) )
     {
         return;
@@ -410,7 +401,6 @@ void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
 
 uint32_t TracyClientOwner::RegisterOwnerZone( const char* fullPath, uint32_t hash ) noexcept
 {
-
     if ( !fullPath || !fullPath[0] )
     {
         return 0u;
@@ -492,7 +482,6 @@ TracyZoneToken TracyClientOwner::BeginOwnerZone( uint32_t sourceLocationHandle )
 
 void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
 {
-
     if ( !token.active || !IsInitialized() || !TracyIsConnected ||
          tracy::GetProfiler().ConnectionId() != token.connectionId )
     {
@@ -505,7 +494,6 @@ void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
 
 void TracyClientOwner::PublishPlot( const char* name, double value ) noexcept
 {
-
     if ( !IsInitialized() || !name || !TracyIsConnected )
     {
         return;

@@ -100,7 +100,6 @@ void FormatMemoryMiB( uint64_t bytes, char* out, std::size_t outSize )
 
 void FormatAllocationBytes( uint64_t bytes, char* out, std::size_t outSize )
 {
-
     if ( bytes >= 1024u * 1024u )
     {
         FormatMemoryMiB( bytes, out, outSize );
@@ -117,7 +116,6 @@ void FormatAllocationBytes( uint64_t bytes, char* out, std::size_t outSize )
 
 const char* ReplayMemoryPresetLabel( int preset )
 {
-
     switch ( preset )
     {
     case 1:
@@ -200,7 +198,6 @@ void RefreshReplayPolicySnapshot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
 
 void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 {
-
     if ( !out || outSize == 0 )
     {
         return;
@@ -220,7 +217,6 @@ void CopyShortLabel( const char* source, char* out, std::size_t outSize )
 
 uint64_t CurrentTotalMemoryBytes( const SkullbonezCore::Core::MainMemoryStats& memory )
 {
-
     if ( memory.process.available && memory.process.taskManagerBytes > 0u )
     {
         return memory.process.taskManagerBytes;
@@ -236,7 +232,6 @@ uint64_t CurrentTotalMemoryBytes( const SkullbonezCore::Core::MainMemoryStats& m
 
 uint64_t OverlayMinimumAxisSpan( uint64_t totalBytes )
 {
-
     if ( totalBytes >= 4ull * 1024ull * MEMORY_BYTES_PER_MIB )
     {
         return 256ull * MEMORY_BYTES_PER_MIB;
@@ -283,7 +278,6 @@ void DrawMemoryOverlayLineSegment( const SkullbonezCore::UI::UIDrawContext& draw
 
 int FindPinnedEventBySequence( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state, uint64_t sequence )
 {
-
     if ( sequence == 0u )
     {
         return -1;
@@ -291,7 +285,6 @@ int FindPinnedEventBySequence( const SkullbonezCore::UI::MemoryTab::UIMemoryOver
 
     for ( int i = 0; i < state.pinnedEventCount; ++i )
     {
-
         if ( state.pinnedEvents[i].isFilled && state.pinnedEvents[i].event.sequence == sequence )
         {
             return i;
@@ -327,7 +320,6 @@ int OldestPinnedEventIndex( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlay
 
 int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state, bool newEventGranted )
 {
-
     if ( state.pinnedEventCount < SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_PINNED_EVENT_MAX )
     {
         return state.pinnedEventCount++;
@@ -354,7 +346,6 @@ void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
                          const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event, uint64_t levelBytes,
                          double now )
 {
-
     if ( event.sequence == 0u || FindPinnedEventBySequence( state, event.sequence ) >= 0 )
     {
         return;
@@ -377,7 +368,6 @@ void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
 
 void ClearOverlayPinnedEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state )
 {
-
     for ( int i = 0; i < SkullbonezCore::UI::MemoryTab::MEMORY_OVERLAY_PINNED_EVENT_MAX; ++i )
     {
         state.pinnedEvents[i] = {};
@@ -390,7 +380,6 @@ void ClearOverlayPinnedEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlaySta
 void RefreshOverlayEvents( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
                            const SkullbonezCore::UI::InGameUIFrameData& data, uint64_t levelBytes )
 {
-
     if ( data.reserveGrowthEventTotalCount < state.lastObservedEventTotal )
     {
         ClearOverlayPinnedEvents( state );
@@ -471,7 +460,6 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
 void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event, float& r, float& g,
                        float& b )
 {
-
     if ( !event.granted )
     {
         r = 0.96f;
@@ -516,7 +504,6 @@ void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGro
 
 float MemoryEventLength( uint64_t bytes, float maxLength )
 {
-
     if ( bytes == 0u )
     {
         return 14.0f;
@@ -553,7 +540,6 @@ NewestPinnedEvent( const SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
 void DrawMemoryStackSegment( const SkullbonezCore::UI::UIDrawContext& draw, float& x, float y, float h, float stackW,
                              float stackEndX, uint64_t bytes, uint64_t totalBytes, float r, float g, float b )
 {
-
     if ( bytes == 0u || totalBytes == 0u || x >= stackEndX )
     {
         return;
@@ -649,7 +635,6 @@ void DrawReplayMemoryPolicyPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                   const SkullbonezCore::UI::InGameUIFrameData& data, float contentX, float contentY,
                                   float contentW, float contentH, float panelY, int activeSlider, int mouseX, int mouseY )
 {
-
     if ( !IsMemoryRowVisible( contentY, contentH, panelY, MEMORY_REPLAY_POLICY_BLOCK_H ) )
     {
         return;
@@ -1053,7 +1038,6 @@ void DrawReserveCapacityRows( const SkullbonezCore::UI::UIDrawContext& draw,
                []( const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* left,
                    const SkullbonezCore::UI::UIRuntimeReserveCapacityRow* right )
                {
-
                    if ( left->residentBytes != right->residentBytes )
                    {
                        return left->residentBytes > right->residentBytes;
@@ -1254,7 +1238,6 @@ void SetOverlayEnabled( UIMemoryOverlayState& state, bool enabled )
 
 void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& data )
 {
-
     if ( !state.overlayEnabled )
     {
         return;
@@ -1269,7 +1252,6 @@ void PushOverlayFrame( UIMemoryOverlayState& state, const InGameUIFrameData& dat
 void DrawOverlay( UIMemoryOverlayState& state, const UIDrawContext& draw, const InGameUIFrameData& data, float preferredX,
                   float preferredY )
 {
-
     if ( !state.overlayEnabled )
     {
         return;
@@ -1466,7 +1448,6 @@ bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& resul
 
     for ( int i = 0; i < MEMORY_REPLAY_PRESET_COUNT; ++i )
     {
-
         if ( state.replayPresetButtons[i].HitTest( mouseX, mouseY ) )
         {
             state.previewRetentionSeconds = -1;
@@ -1500,7 +1481,6 @@ bool HandleContentClick( UIMemoryOverlayState& state, InGameUIInputResult& resul
 
 bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mouseX, InGameUIInputResult& )
 {
-
     if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION )
     {
         state.previewRetentionSeconds = static_cast<int>( state.replayRetentionSlider.ValueFromMouse( mouseX, static_cast<float>( MEMORY_REPLAY_RETENTION_MIN ),
@@ -1523,7 +1503,6 @@ bool UpdateActiveSlider( UIMemoryOverlayState& state, int activeSlider, int mous
 
 bool CommitActiveSlider( UIMemoryOverlayState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider == MEMORY_REPLAY_SLIDER_RETENTION && state.previewRetentionSeconds >= 0 )
     {
         SetReplayMemoryPolicyCommand( result, -1, state.previewRetentionSeconds, -1 );

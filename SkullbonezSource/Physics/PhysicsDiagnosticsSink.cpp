@@ -93,7 +93,6 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index, 
                                                                      const PhysicsDiagnosticsNameView& names,
                                                                      PhysicsDiagnosticsModelRecord& outRecord )
 {
-
     if ( index < 0 || index >= bodyStore.Count() || index >= colliderStore.Count() )
     {
         return false;
@@ -183,7 +182,6 @@ bool PhysicsDiagnosticsSink::IsRegressionLogEnabled() const
 
 void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame )
 {
-
     if ( !IsRegressionLogEnabled() )
     {
         return;
@@ -238,7 +236,6 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
 
 void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 {
-
     if ( m_physicsCollisionTimeLogPath[0] != '\0' )
     {
         ++m_physicsCollisionTimeLogFrame;

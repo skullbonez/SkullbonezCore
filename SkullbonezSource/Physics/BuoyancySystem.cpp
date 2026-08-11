@@ -78,7 +78,6 @@ void BuoyancySystem::ReserveCapacity( std::size_t capacity )
 
 bool BuoyancySystem::AppendBodyFacts( const PhysicsBodyCreateDesc& desc )
 {
-
     if ( m_bodyFacts.size() >= m_bodyFacts.capacity() )
     {
         return false;
@@ -92,7 +91,6 @@ bool BuoyancySystem::AppendBodyFacts( const PhysicsBodyCreateDesc& desc )
 
 bool BuoyancySystem::RefreshBodyFacts( int index, const PhysicsBodyCreateDesc& desc )
 {
-
     if ( index < 0 || index >= Count() )
     {
         return false;
@@ -105,7 +103,6 @@ bool BuoyancySystem::RefreshBodyFacts( int index, const PhysicsBodyCreateDesc& d
 
 bool BuoyancySystem::EraseBodyFactsSwapLast( int index )
 {
-
     if ( index < 0 || index >= Count() )
     {
         return false;
@@ -125,7 +122,6 @@ bool BuoyancySystem::EraseBodyFactsSwapLast( int index )
 
 bool BuoyancySystem::TrimToCount( int count )
 {
-
     if ( count < 0 || count > Count() )
     {
         return false;
@@ -186,7 +182,6 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
                                                          const ColliderStore& colliderStore, BuoyancyBodyFacts& facts,
                                                          int index )
 {
-
     if ( index < 0 || index >= bodyStore.Count() )
     {
         return false;

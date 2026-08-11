@@ -67,7 +67,6 @@ int TextureCollection::FindIndex( uint32_t hash ) const
 
 int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 {
-
     if ( hash == 0 )
     {
         return -1;
@@ -75,7 +74,6 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 
     for ( size_t index = 0; index < m_textures.size(); ++index )
     {
-
         if ( m_textures[index].legacyHash == hash && m_textures[index].IsResident() )
         {
             return static_cast<int>( index );
@@ -88,10 +86,8 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 
 int TextureCollection::FindFreeSlot() const
 {
-
     for ( size_t index = 0; index < m_textures.size(); ++index )
     {
-
         if ( !m_textures[index].IsResident() )
         {
             return static_cast<int>( index );
@@ -110,10 +106,8 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
 
     // Lifetime: the collection stores renderer-neutral ids, but the backend
     // owns the actual GPU texture object behind each handle.
-
     if ( texture.backendHandle )
     {
-
         if ( !m_renderResources )
         {
 
@@ -134,7 +128,6 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
 
 void TextureCollection::DeleteAllTextures()
 {
-
     for ( GpuTextureRecord& texture : m_textures )
     {
         ReleaseTexture( texture );
@@ -217,7 +210,6 @@ bool TextureCollection::HasTexture( uint32_t hash ) const
 
 SkullbonezCore::Core::SbResult TextureCollection::EnsureTexture( uint32_t hash )
 {
-
     if ( HasTexture( hash ) )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -242,7 +234,6 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
                                                                            Assets::AssetId sourceId, bool generateMips,
                                                                            bool linearFilter, int channelsHint )
 {
-
     if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
     {
 
@@ -311,7 +302,6 @@ SkullbonezCore::Core::SbResult TextureCollection::LoadJpegTextureIntoSlot( int s
 
 SkullbonezCore::Core::SbResult TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
 {
-
     if ( source.legacyHash == 0 )
     {
         return m_resultDiagnostics.Failure( "TextureCollection",
@@ -333,7 +323,6 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateTextureFromSourceAsset( 
 
 SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char* fileName, uint32_t hash )
 {
-
     if ( hash == 0 )
     {
 
@@ -363,7 +352,6 @@ SkullbonezCore::Core::SbResult TextureCollection::CreateJpegTexture( const char*
 
 SkullbonezCore::Core::SbResult TextureCollection::EnsureJpegTexture( const char* fileName, uint32_t hash )
 {
-
     if ( HasTexture( hash ) )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -384,7 +372,6 @@ SkullbonezCore::Core::SbResult TextureCollection::RebuildTexturesFromSourceAsset
 
     for ( const Assets::TextureSourceAsset& source : m_assets->GetTextureSourceAssets() )
     {
-
         if ( source.legacyHash != 0 )
         {
             const SkullbonezCore::Core::SbResult result = CreateTextureFromSourceAsset( source );
@@ -402,7 +389,6 @@ SkullbonezCore::Core::SbResult TextureCollection::RebuildTexturesFromSourceAsset
 
 void TextureCollection::DumpTextureAssets( FILE* out ) const
 {
-
     if ( !out )
     {
         return;
@@ -412,7 +398,6 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
 
     if ( m_assets )
     {
-
         for ( const Assets::TextureSourceAsset& source : m_assets->GetTextureSourceAssets() )
         {
             const int index = FindIndexNoThrow( source.legacyHash );
@@ -433,7 +418,6 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
 
     for ( const GpuTextureRecord& texture : m_textures )
     {
-
         if ( texture.IsResident() )
         {
             fprintf( out,

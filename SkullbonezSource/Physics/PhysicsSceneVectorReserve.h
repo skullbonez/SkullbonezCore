@@ -47,7 +47,6 @@ template <typename T>
 void ReservePhysicsSceneVector( std::vector<T>& values, std::size_t requestedCapacity, std::size_t hardCapacity,
                                 const char* ownerName, const char* capacityReason )
 {
-
     if ( requestedCapacity <= values.capacity() )
     {
         return;
@@ -70,7 +69,6 @@ void ReservePhysicsSceneVector( std::vector<T>& values, std::size_t requestedCap
         // ReplayPrediction owns one outer byte-budget approval for its private
         // engine and nested fixed/vector stores. Scene vectors may consume that
         // already-granted backing but cannot manufacture replay authority.
-
         if ( replayOwner == INVALID_RUNTIME_RESERVE_OWNER ||
              !RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( replayOwner, static_cast<int>( phase ) ) )
         {

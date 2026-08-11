@@ -63,7 +63,6 @@ struct HullFile
 
     void Close()
     {
-
         if ( handle )
         {
             fclose( handle );
@@ -98,7 +97,6 @@ Vector3 BoxApproxUnitInertia( const Vector3& halfExtents )
 
 void ScaleAxisComponent( Vector3& v, int axis, float factor )
 {
-
     switch ( axis )
     {
     case 0:
@@ -156,7 +154,6 @@ SkullbonezCore::Core::SbResult RequireNoExtraTokens( SkullbonezCore::Core::SbDia
 
     // Hazard: hull files are deterministic physics inputs. Extra tokens usually
     // mean the bake format changed or the asset is corrupted, so fail loudly.
-
     if ( strtok_s( nullptr, " \t\r\n", &context ) )
     {
         return HullLoadFailure( diagnostics, "Unexpected extra value in %s at %s:%d.  (ConvexHullShape::LoadFromFile)",
@@ -205,7 +202,6 @@ float SweptBoundingRadiusCollision( float focusRadius, const Vector3& focusOffse
 
 void CopyHullName( char ( &out )[64], const char* path, const char* authoredName )
 {
-
     if ( authoredName && authoredName[0] != '\0' )
     {
         strncpy_s( out, authoredName, _TRUNCATE );
@@ -270,7 +266,6 @@ ConvexHullShape::ConvexHullShape()
 SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                  const char* path, ConvexHullShape& outHull )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return HullLoadFailure( diagnostics, "Convex hull path is empty.  (ConvexHullShape::LoadFromFile)" );
@@ -629,7 +624,6 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
 
         if ( strcmp( token, "vertex" ) == 0 )
         {
-
             if ( hull.m_vertexCount >= MAX_VERTICES )
             {
                 return HullLoadFailure( diagnostics,
@@ -658,7 +652,6 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
 
         if ( strcmp( token, "face" ) == 0 )
         {
-
             if ( hull.m_faceCount >= MAX_FACES )
             {
                 return HullLoadFailure( diagnostics,
@@ -718,7 +711,6 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
 
             while ( ( value = strtok_s( nullptr, " \t\r\n", &context ) ) != nullptr )
             {
-
                 if ( face.indexCount >= MAX_FACE_VERTICES || hull.m_faceIndexCount >= MAX_FACE_INDICES )
                 {
                     return HullLoadFailure( diagnostics,
@@ -761,7 +753,6 @@ SkullbonezCore::Core::SbResult ConvexHullShape::TryLoadFromFile( SkullbonezCore:
 
         if ( strcmp( token, "edge" ) == 0 )
         {
-
             if ( hull.m_edgeCount >= MAX_EDGES )
             {
                 return HullLoadFailure( diagnostics,
@@ -948,7 +939,6 @@ Vector3 ConvexHullShape::ComputeBoxApproxInertia( float mass ) const
 
 void ConvexHullShape::ScaleAxis( int axis, float factor )
 {
-
     if ( axis < 0 || axis > 2 || m_vertexCount == 0 || !std::isfinite( factor ) || factor <= TOLERANCE )
     {
         return;

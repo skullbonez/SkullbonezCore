@@ -85,7 +85,6 @@ bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirectiv
 }
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--physics-regression-log" ) )
     {
         return true;
@@ -100,7 +99,6 @@ bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 }
 bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
     {
         return true;
@@ -115,7 +113,6 @@ bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 }
 bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--physics-diag" ) && !HasOption( commandLine, "--physics-diagnostics" ) )
     {
         return true;
@@ -130,7 +127,6 @@ bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 }
 bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-scrub-test" ) && !HasOption( commandLine, "--replay_scrub_test" ) &&
          !HasOption( commandLine, "--replay-scrub-probe" ) && !HasOption( commandLine, "--replay_scrub_probe" ) )
     {
@@ -145,7 +141,6 @@ bool ValidateReplayScrubProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-restore-test" ) && !HasOption( commandLine, "--replay_restore_test" ) &&
          !HasOption( commandLine, "--replay-restore-probe" ) && !HasOption( commandLine, "--replay_restore_probe" ) )
     {
@@ -160,7 +155,6 @@ bool ValidateReplayRestoreProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-save-probe" ) && !HasOption( commandLine, "--replay_save_probe" ) )
     {
         return true;
@@ -174,7 +168,6 @@ bool ValidateReplaySaveProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-load-probe" ) && !HasOption( commandLine, "--replay_load_probe" ) )
     {
         return true;
@@ -188,7 +181,6 @@ bool ValidateReplayLoadProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-restore-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_file_probe" ) )
     {
@@ -203,7 +195,6 @@ bool ValidateReplayRestoreFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-restore-target-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_target_file_probe" ) )
     {
@@ -218,7 +209,6 @@ bool ValidateReplayRestoreTargetFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-restore-branch-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_branch_file_probe" ) )
     {
@@ -233,7 +223,6 @@ bool ValidateReplayRestoreBranchFileProbe( const CommandLineView& commandLine )
 }
 bool ValidateReplayRestoreFailureFileProbe( const CommandLineView& commandLine )
 {
-
     if ( !HasOption( commandLine, "--replay-restore-failure-file-probe" ) &&
          !HasOption( commandLine, "--replay_restore_failure_file_probe" ) )
     {
@@ -397,7 +386,6 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
 
     for ( const CliFlagDirective& flag : kFlags )
     {
-
         if ( HasFlagDirective( commandLine, flag ) )
         {
             flag.apply( out );
@@ -448,7 +436,6 @@ CommandLineView TokenizeCommandLine( const char* cmdLine )
 
     while ( *cursor != '\0' )
     {
-
         while ( IsTokenWhitespace( *cursor ) )
         {
             ++cursor;
@@ -509,7 +496,6 @@ bool OptionTokenMatches( const std::string& token, const char* optionName )
 }
 bool OptionTokenHasAssignedValue( const std::string& token, const char* optionName, const char*& outValue )
 {
-
     if ( !optionName )
     {
         return false;
@@ -528,7 +514,6 @@ bool OptionTokenHasAssignedValue( const std::string& token, const char* optionNa
 } // anonymous namespace
 const char* FindOptionValue( const CommandLineView& commandLine, const char* optionName )
 {
-
     for ( size_t i = 0; i < commandLine.tokens.size(); ++i )
     {
         const std::string& token = commandLine.tokens[i];
@@ -541,7 +526,6 @@ const char* FindOptionValue( const CommandLineView& commandLine, const char* opt
 
         if ( OptionTokenMatches( token, optionName ) )
         {
-
             if ( i + 1 < commandLine.tokens.size() && !IsOptionToken( commandLine.tokens[i + 1] ) )
             {
                 return commandLine.tokens[i + 1].c_str();
@@ -560,7 +544,6 @@ const char* FindOptionValue( const CommandLineView& commandLine, const char* das
 }
 bool HasOption( const CommandLineView& commandLine, const char* optionName )
 {
-
     for ( const std::string& token : commandLine.tokens )
     {
         const char* assignedValue = nullptr;
@@ -577,7 +560,6 @@ namespace
 {
 char* TrimLineInPlace( char* text )
 {
-
     while ( IsTokenWhitespace( *text ) )
     {
         ++text;
@@ -595,7 +577,6 @@ char* TrimLineInPlace( char* text )
 } // anonymous namespace
 bool ParseFloatToken( const char* value, float& out )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -617,7 +598,6 @@ namespace
 {
 bool ParseIntToken( const char* value, int& out )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -637,7 +617,6 @@ bool ParseIntToken( const char* value, int& out )
 }
 bool ParseUnsignedIntToken( const char* value, unsigned int& out )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -657,7 +636,6 @@ bool ParseUnsignedIntToken( const char* value, unsigned int& out )
 }
 bool CopyOptionPath( const char* value, const char* optionName, char* outPath, size_t outPathSize )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "%s requires an output path.", optionName );
@@ -687,7 +665,6 @@ bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine, ParsedAr
                                     SkullbonezCore::Core::EngineConfig& config,
                                     const ConfigCliValueDirective ( &directives )[N] )
 {
-
     for ( const ConfigCliValueDirective& directive : directives )
     {
         const char* value = FindValueDirective( commandLine, directive );
@@ -702,7 +679,6 @@ bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine, ParsedAr
 }
 bool ParseOnOffValue( const char* value, bool& out )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -732,7 +708,6 @@ bool ParseOnOffValue( const char* value, bool& out )
 }
 bool ParseEnvironmentBool( const char* value, bool& out )
 {
-
     if ( !value || *value == '\0' )
     {
         return false;
@@ -757,7 +732,6 @@ bool ParseEnvironmentBool( const char* value, bool& out )
 } // anonymous namespace
 bool ParseOptionalOnOffValue( const char* value, bool& out )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         out = true;
@@ -770,7 +744,6 @@ namespace
 {
 bool ParseAllocationGuardModeValue( const char* value, CoreAllocation::RuntimeAllocationGuardMode& out )
 {
-
     if ( IsOptionValueMissing( value ) || _stricmp( value, "measure" ) == 0 )
     {
         out = CoreAllocation::RuntimeAllocationGuardMode::Measure;
@@ -807,7 +780,6 @@ bool ParseRendererArg( const CommandLineView& commandLine )
 
     for ( const SkullbonezCore::Runtime::RuntimeRendererOption& renderer : SkullbonezCore::Runtime::kRuntimeRendererOptions )
     {
-
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
         {
@@ -1043,7 +1015,6 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
 
     for ( const GeneratedObjectOverrideDirective& directive : kOverrides )
     {
-
         if ( !HasOption( commandLine, directive.optionName ) )
         {
             continue;
@@ -1086,7 +1057,6 @@ bool ParseAllocationGuardCommandLineToken( const char* value,
 bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine,
                        SkullbonezCore::Core::EngineConfig& config, ParsedArgs& out )
 {
-
     if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
     {
         return false;
@@ -1230,7 +1200,6 @@ bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, con
 
     if ( out.physicsDiagnosticsRequested )
     {
-
         if ( !out.fixedStep )
         {
             out.fixedStep = true;
@@ -1255,7 +1224,6 @@ bool ParseCommandLine( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, con
 
     if ( out.replayScrubProbe )
     {
-
         if ( !out.replayRecording )
         {
             return FailCommandLineParse( "--replay-scrub-probe requires replay capture; remove --replay off." );

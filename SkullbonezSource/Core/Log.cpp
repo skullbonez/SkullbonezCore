@@ -46,7 +46,6 @@ constexpr size_t DEBUG_LOG_BUFFER_BYTES = 8u * 1024u * 1024u;
 
 void EnsureParentDirectory( const char* fileName )
 {
-
     if ( !fileName )
     {
         return;
@@ -181,7 +180,6 @@ void EngineLog::FlushAll()
 
     for ( auto& [name, file] : m_logs )
     {
-
         if ( file )
         {
             fflush( file );
@@ -196,7 +194,6 @@ void EngineLog::CloseAllForTests()
 
     for ( auto& [name, file] : m_logs )
     {
-
         if ( file )
         {
             fclose( file );
@@ -214,7 +211,6 @@ EngineLog::~EngineLog()
 
     for ( auto& [name, file] : m_logs )
     {
-
         if ( file )
         {
             fclose( file );

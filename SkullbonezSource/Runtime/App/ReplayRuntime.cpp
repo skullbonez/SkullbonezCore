@@ -100,7 +100,6 @@ constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 const ReplayPresentationSample*
 ReplayRuntimeLoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
 {
-
     if ( samples.empty() )
     {
         return nullptr;
@@ -114,7 +113,6 @@ ReplayRuntimeLoadedPresentationSampleAtNormalized( const std::vector<ReplayPrese
 
 float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats )
 {
-
     if ( !stats.enabled || stats.sampleCount < 2 )
     {
         return PHYSICS_FIXED_DT;
@@ -126,7 +124,6 @@ float ReplayRuntimeScrubberRetainedPastSeconds( const ReplayRecorderStats& stats
 const std::vector<RunReplayPredictionFrame>&
 ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
 {
-
     if ( prediction.BuildFramesAreComplete() )
     {
         return prediction.build.buildFrames;
@@ -138,7 +135,6 @@ ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction 
 const std::vector<RunReplayPredictionFrame>&
 ReplayRuntimeTimelinePredictionFrames( const RunReplayPredictionState& prediction, std::size_t& outFrameCount )
 {
-
     if ( prediction.BuildPrefixShouldBePresented() )
     {
         outFrameCount = prediction.PublishedBuildFrameCount();
@@ -188,7 +184,6 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
     {
         return false;
@@ -397,7 +392,6 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( ReplayRestoreTransaction& transac
     // Hazard: a recoverable restore failure may return only after the live
     // backup was reapplied. Continuing from a half-restored solver would make
     // later physics output nondeterministic, so rollback failure is Lane F.
-
     if ( !hashMatched && !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "Replay restore verification failed and the live backup could not be restored" );
@@ -456,7 +450,6 @@ void ReplayRuntime::PublishRestoreDiagnostic( const ReplayRestoreTransaction& tr
 
     // Lifetime: transaction-owned diagnostic strings remain valid for this
     // synchronous write; neither DiagnosticsRuntime nor Scene is retained.
-
     if ( transaction.HasRestoreProbeDiagnostic() )
     {
         diagnosticsRuntime.LogReplayRestoreProbe( scene, transaction.RestoreProbeDiagnostic() );
@@ -533,7 +526,6 @@ void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics, const SceneEntit
 
         // Concept: guide rings use the thin baseline ribbon lane so they remain
         // subordinate to the brighter simulated ship prediction.
-
         for ( std::size_t pointIndex = 0; pointIndex < REPLAY_GUIDE_ARC_POINT_COUNT; ++pointIndex )
         {
             const std::size_t nextIndex = ( pointIndex + 1u ) % REPLAY_GUIDE_ARC_POINT_COUNT;
@@ -797,7 +789,6 @@ ReplayRenderFrameView ReplayRuntime::BuildRenderFrameView( const ReplayFrameSele
 void ReplayRuntime::CompleteRenderFrame( bool submissionRendered, int sceneFrame, uint64_t replayReserveGrowthEvents,
                                          RuntimeTools& runtimeTools )
 {
-
     if ( submissionRendered )
     {
         m_predictionOwner.PresentationOwner()
@@ -810,7 +801,6 @@ void ReplayRuntime::CompleteRenderFrame( bool submissionRendered, int sceneFrame
 
 void ReplayRuntime::CancelRenderFrame( RuntimeTools& runtimeTools )
 {
-
     if ( m_visualPresentation.HasLauncherVisualBackup() )
     {
         m_visualPresentation.RestoreAndClearLauncherVisualBackup( runtimeTools );
@@ -904,7 +894,6 @@ bool ReplayRuntime::RouteWorldPointer( const ReplayWorldPointerInput& input, con
                                        CameraControlState& camera, RuntimeInteractionController& interaction,
                                        InputRouter& inputRouter )
 {
-
     if ( !input.leftPressed || input.suppressWorldAction || input.editorMode ||
          ( !input.controlDown && input.launcherMode ) )
     {
@@ -946,7 +935,6 @@ bool ReplayRuntime::ApplyInteractionExit( const ReplayInteractionExitInput& inpu
                                           CameraControlState& camera, RuntimeInteractionController& interaction,
                                           InputRouter& inputRouter )
 {
-
     if ( !input.leavingReplayWorkspace || ( !HasActiveInteractionState() && !input.previousOwnerWasReplay ) )
     {
         return false;
@@ -1018,7 +1006,6 @@ void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& 
 void ReplayRuntime::ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket& packet,
                                                      RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
-
     if ( m_sceneClearObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         ClearInteractionForSceneLoad( interaction, inputRouter );
@@ -1030,7 +1017,6 @@ void ReplayRuntime::ObserveSceneLifecycleAfterActivation( const SceneLifecyclePa
                                                           RuntimeInteractionController& interaction, Environment::CameraCollection* cameras, Geometry::Terrain* terrain,
                                                           CameraControlState& camera, RunCameraMode normalizedRestoreMode, bool attachedFollow, bool directorGrabbed )
 {
-
     if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
         ResetSceneTimeline( input, inputRouter, interaction, cameras, terrain, camera, normalizedRestoreMode, attachedFollow,
@@ -1075,7 +1061,6 @@ float ReplayRuntime::SolverPresentTrackPosition() const
 bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized,
                                           RuntimeInteractionGestureKind gesture ) const
 {
-
     if ( editorModeEnabled || !uiVisible || !uiMinimized )
     {
         return false;
@@ -1219,7 +1204,6 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
 
 void ReplayRuntime::ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update )
 {
-
     if ( !update.apply )
     {
         return;
@@ -1313,7 +1297,6 @@ bool ReplayRuntime::HasLoadedPresentation() const
 
 const ReplayPresentationSample* ReplayRuntime::LoadedPresentationSampleAtNormalized( float normalized ) const
 {
-
     if ( !HasLoadedPresentation() )
     {
         return nullptr;
@@ -1396,7 +1379,6 @@ const ReplayPresentationSample* ReplayRuntime::CurrentScrubSample() const
 
 const ReplaySolverFrameSample* ReplayRuntime::CurrentSolverScrubSample() const
 {
-
     if ( m_scrubberOwner.View().activeTrack != RunReplayTrack::Solver || !IsScrubPaused() )
     {
         return nullptr;
@@ -1497,7 +1479,6 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
 
     // The policy table is stable and fixed-size; diagnostics never discovers
     // replay owners by scanning recent-event text or allocating a report map.
-
     for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
     {
         const ReplayGrowthOwnerPolicy& policy = REPLAY_GROWTH_OWNER_POLICIES[index];
@@ -1724,7 +1705,6 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics, const Gameplay::To
 
 void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result )
 {
-
     if ( result.targetModelRowRepaired )
     {
         m_visualPresentation.SetPathTargetModelRow( result.repairedTargetModelRow );
@@ -1742,7 +1722,6 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
 
     for ( std::size_t passIndex = 0; passIndex < result.budgetExpiries.size(); ++passIndex )
     {
-
         for ( uint32_t count = 0; count < result.budgetExpiries[passIndex]; ++count )
         {
             m_predictionOwner.PresentationOwner().RecordTrajectoryBudgetExpiry( static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
@@ -1751,7 +1730,6 @@ void ReplayRuntime::ApplyPredictionUpdateResult( const ReplayPredictionUpdateRes
 
     for ( std::size_t causeIndex = 0; causeIndex < result.rebuildCauses.size(); ++causeIndex )
     {
-
         for ( uint32_t count = 0; count < result.rebuildCauses[causeIndex]; ++count )
         {
             m_predictionOwner.PresentationOwner().RecordTrajectoryRebuildCause( static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );

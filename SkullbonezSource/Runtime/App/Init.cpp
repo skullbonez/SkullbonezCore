@@ -153,7 +153,6 @@ SkullbonezCore::Core::SbResult InitRenderBackend( SkullbonezCore::Core::SbDiagno
     // Invariant: Prediction owns the logical record layout and configures the
     // generic retained-geometry lane while BackendInit still owns all cold
     // allocation. Frame code receives the geometry owner only after this succeeds.
-
     if ( !renderBackend->Geometry().ConfigureRetainedGeometryCapacity( ReplayOverlay::PredictionRetainedGeometryCapacity() ) )
     {
         return diagnostics.Failure( "Runtime/Prediction",
@@ -273,7 +272,6 @@ int RunApp( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Window* window
 
             if ( !executeResult.Ok() )
             {
-
                 if ( executeResult.ErrorOwner() && strcmp( executeResult.ErrorOwner(), "InteractionAutomation" ) == 0 )
                 {
                     return reportInteractionAutomationResult( executeResult );
@@ -412,7 +410,6 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previousInstance, PSTR command
         // Hazard: validation owns no interactive desktop. A modal parse-error
         // dialog would hide the already-reported failure behind an infinite
         // wait, so hidden automation receives the same diagnostic and exits.
-
         if ( !HasOption( commandLine, "--automation-hidden-window" ) )
         {
             MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR | MB_SETFOREGROUND );

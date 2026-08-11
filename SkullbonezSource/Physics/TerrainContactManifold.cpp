@@ -157,7 +157,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
     outTestingRay = Ray( body.position, body.linearVelocity * changeInTime );
 
     // If out of bounds, no collision has occurred.
-
     if ( !body.terrain.IsInBounds( body.position.x, body.position.z ) )
     {
         return NO_COLLISION;
@@ -348,7 +347,6 @@ float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler, const 
     }
 
     // If the dynamic object is stationary and not in contact, no collision will occur.
-
     if ( outTestingRay.vector3.IsCloseToZero() )
     {
         return NO_COLLISION;
@@ -370,7 +368,6 @@ TerrainContactSweepResult SweepTerrainContactImpl( SkullbonezCore::Core::Profile
 
     // This answers "how many seconds can this body move before it hits terrain?"
     // and returns the hit plane directly for the solver row builder.
-
     if ( !body.terrain.IsValid() )
     {
         SB_FATAL( "TerrainContactManifold", "Physics terrain view not valid in SweepTerrainContact." );
@@ -407,7 +404,6 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
     // Geometry-only boundary for the shared terrain row path. This converts the
     // swept terrain hit into contact points, feature ids, tangent axes, and
     // support-policy metadata. It must not apply impulses or decide final sleep.
-
     if ( !body.terrain.IsValid() || body.isFixed || !sweep.hit )
     {
         return false;
@@ -477,7 +473,6 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
 
                                  for ( int v = 0; v < 8; ++v )
                                  {
-
                                      if ( signedDists[v] > cutoff )
                                      {
                                          continue;
@@ -520,7 +515,6 @@ bool BuildTerrainContactManifoldImpl( SkullbonezCore::Core::Profiler* profiler, 
 
                                  for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
                                  {
-
                                      if ( signedDists[v] > cutoff )
                                      {
                                          continue;

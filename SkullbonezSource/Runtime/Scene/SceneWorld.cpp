@@ -95,7 +95,6 @@ constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 
 ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& collider, const RenderMaterial& material )
 {
-
     switch ( collider.shapeKind )
     {
     case ColliderShapeKind::Sphere:
@@ -107,7 +106,6 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
         // Why: the data-driven-shadow-caster-streams plan confines legacy pine
         // content knowledge to this scene-owner instance-build boundary. Frame
         // submission consumes only the resulting opaque stream id.
-
         if ( material.kind == RenderMaterialKind::Pine ||
              ( material.textureMode > 1.25f &&
                static_cast<int>( material.textureMode + 0.5f ) == PINE_VISUAL_MATERIAL_MODE ) )
@@ -362,7 +360,6 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
 
     // Invariant: hullColliderCount participates in body topology, while hullVariantCapacity counts retained immutable
     // geometry rows. Exact shareable identities let those two values differ without under-reserving either owner.
-
     if ( sphereCount + boxCount + hullColliderCount != bodyCount )
     {
         return m_diagnostics
@@ -393,7 +390,6 @@ SkullbonezCore::Core::SbResult SceneWorld::CommitPhysicsSceneCapacity( int bodyC
 SkullbonezCore::Core::SbResult SceneWorld::ReserveAdditionalPhysicsSceneCapacity( int sphereCount, int boxCount,
                                                                                   int hullCount, int pointJointCount )
 {
-
     if ( sphereCount < 0 || boxCount < 0 || hullCount < 0 || pointJointCount < 0 )
     {
         return m_diagnostics.Failure( "Scene/SceneWorld", "Additional scene physics capacity cannot be negative." );
@@ -608,10 +604,8 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     // Invariant: a group root cannot disappear while surviving metadata still
     // names it. Group deletion is an ordered caller operation that removes
     // dependants before the root.
-
     for ( int index = 0; index < modelCount; ++index )
     {
-
         if ( index == modelIndex )
         {
             continue;
@@ -730,7 +724,6 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
     // Invariant: physics rows shrink before presentation and metadata rows.
     // Every surviving handle was validated by scene object id before this command,
     // and PhysicsBodyStore retires removed handles.
-
     if ( !m_physics.TrimBodiesToCount( bodies ) ||
          ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
          !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) || !TrimPresentationRowsForSceneRestore( bodyCount ) ||
@@ -751,7 +744,6 @@ void SceneWorld::BeginPhysicsStepPresentationCapture()
     // Invariant: this hook now precedes StepPhysics, whose first action used to
     // repair supported physics topology drift. Preserve that repair boundary
     // before RenderInstanceStore validates paired dense rows.
-
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
         SB_FATAL( "Scene/SceneWorld",
@@ -820,7 +812,6 @@ bool SceneWorld::CanTrimPresentationRowsForSceneRestore( int modelCount ) const
 
 bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
 {
-
     if ( !CanTrimPresentationRowsForSceneRestore( modelCount ) )
     {
         return false;
@@ -832,7 +823,6 @@ bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
 
 bool SceneWorld::RepairPhysicsBodyTopology()
 {
-
     if ( BodyStore().Count() != SceneEntityCount() ||
          static_cast<int>( Physics::PhysicsEngine::ReadBuoyancyFacts( m_physics ).size() ) != SceneEntityCount() )
     {
@@ -863,7 +853,6 @@ bool SceneWorld::RepairPhysicsBodyAndColliderTopology()
         // collider shape/material rows are store-owned once created. Count drift
         // in ColliderStore is a construction bug, not a reason to rediscover
         // shape facts from legacy object record.
-
         if ( bodyTopologyChanged || buoyancyTopologyChanged )
         {
             (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();

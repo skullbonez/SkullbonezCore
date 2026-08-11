@@ -69,7 +69,6 @@ constexpr uint64_t PHYSICS_ENGINE_LIFECYCLE_EXPECTED_HASH = 0x953D97A226665242ul
 
 uint64_t HashPhysicsSmokeU32( uint64_t hash, uint32_t value )
 {
-
     for ( uint32_t shift = 0u; shift < 32u; shift += 8u )
     {
         hash ^= static_cast<uint8_t>( value >> shift );
@@ -831,7 +830,6 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample( SkullbonezCo
 } // anonymous namespace
 bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 {
-
     if ( !HasOption( commandLine, "--gen-atlas" ) )
     {
         return false;
@@ -842,7 +840,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 
     if ( atlasArg && *atlasArg != '\0' )
     {
-
         if ( strlen( atlasArg ) >= MAX_PATH )
         {
             fprintf( stderr, "[gen-atlas] Output path is too long.\n" );
@@ -875,7 +872,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 bool HandlePhysicsStandaloneSmoke( Core::SbDiagnosticStore& diagnostics, const CommandLineView& commandLine,
                                    int& outExitCode )
 {
-
     if ( !HasOption( commandLine, "--physics-standalone-smoke" ) && !HasOption( commandLine, "--physics_standalone_smoke" ) )
     {
         return false;
@@ -888,7 +884,6 @@ bool HandlePhysicsStandaloneSmoke( Core::SbDiagnosticStore& diagnostics, const C
     PhysicsRuntimeHandleSmokeResult runtimeMirror = RunPhysicsRuntimeHandleSmokeSample( diagnostics );
     auto writeReport = [&]( FILE* stream )
     {
-
         if ( !stream )
         {
             return;

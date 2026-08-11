@@ -39,7 +39,6 @@ uint32_t HashCombine( uint32_t seed, uint32_t value )
 
 uint32_t HashTextValue( uint32_t seed, const char* value )
 {
-
     if ( !value )
     {
         return HashCombine( seed, 0u );
@@ -96,7 +95,6 @@ float MinimizedWidthWithCameraModeCombo( const char* title, int screenW )
 
 void StripMinimizedRuntimeModeSuffix( const InGameUIFrameData& data, char* title, size_t titleSize )
 {
-
     if ( !title || titleSize == 0 )
     {
         return;
@@ -228,7 +226,6 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 
     // Invariant: visibility rows are live diagnostics. Hash every field so a
     // retained UI draw cannot display the preceding frame's culling result.
-
     for ( int viewIndex = 0; viewIndex < static_cast<int>( UIRenderVisibilityView::Count ); ++viewIndex )
     {
         const UIRenderVisibilityViewStats& visibility = data.visibility.views[viewIndex];
@@ -555,7 +552,6 @@ int ResolveRenderTargetPreviewSelection( const InGameUIFrameData& data, int sele
 
 const char* RenderTargetPreviewTypeText( const UIRenderTargetPreviewResource& resource )
 {
-
     if ( resource.depth )
     {
         return "Depth SRV";
@@ -583,7 +579,6 @@ UIRect IntersectRect( const UIRect& a, const UIRect& b )
 
 UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
 {
-
     if ( bounds.w <= 1.0f || bounds.h <= 1.0f || width <= 0 || height <= 0 )
     {
         return bounds;
@@ -605,7 +600,6 @@ UIRect FitRectToAspect( const UIRect& bounds, int width, int height )
 
 void BuildEditorObjectCounterText( const InGameUIFrameData& data, char* out, size_t outSize )
 {
-
     if ( !out || outSize == 0 )
     {
         return;
@@ -639,7 +633,6 @@ UIRect TitleButtonGroupBounds( const Chrome::TitleButtonRects& titleButtons )
 void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData& data, int screenW, int screenH,
                               const UIRect* avoidBounds )
 {
-
     if ( !data.editorModeEnabled )
     {
         return;
@@ -684,7 +677,6 @@ void DrawEditorObjectCounter( const UIDrawContext& draw, const InGameUIFrameData
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
 {
-
     if ( data.waterNoReflect )
     {
         return 2;

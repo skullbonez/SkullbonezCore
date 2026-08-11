@@ -198,7 +198,6 @@ struct FileCloser
 {
     void operator()( FILE* file ) const
     {
-
         if ( file )
         {
             fclose( file );
@@ -215,7 +214,6 @@ SkullbonezCore::Core::SbResult WriteExact( SkullbonezCore::Core::SbDiagnosticSto
     // Invariant: validation screenshots are binary artifacts; a short write is
     // a failed capture, not a partial success that downstream comparisons can
     // safely inspect.
-
     if ( bytes.empty() )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -266,7 +264,6 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( SkullbonezCore:
     // Lane R: capture support, readback dimensions, and file output can fail
     // because of renderer/device/file-system environment state, so callers get
     // an owner/message result instead of an exception unwind.
-
     if ( !backend.SupportsBackbufferCapture() )
     {
         return diagnostics
@@ -372,7 +369,6 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferPng( SkullbonezCore:
                                                                  Rendering::Dx12BackbufferCapture& backend,
                                                                  const char* path )
 {
-
     if ( !backend.SupportsBackbufferCapture() )
     {
         return diagnostics.Failure( "Runtime/CaptureSystem", "Renderer does not support PNG backbuffer capture: %s", path );
@@ -412,7 +408,6 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferPng( SkullbonezCore:
 bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool isSceneMode, int currentFrame,
                                      double elapsedMs )
 {
-
     if ( !isSceneMode )
     {
         return false;
@@ -425,7 +420,6 @@ bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool 
 
     if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
     {
-
         if ( screenshot.screenshotFrame > 0 && ( currentFrame + 1 ) >= screenshot.screenshotFrame )
         {
             return true;
@@ -445,7 +439,6 @@ bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, bool 
 bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState& screenshot, bool isSceneMode,
                                                        int currentFrame, double elapsedMs )
 {
-
     if ( !isSceneMode )
     {
         return false;
@@ -454,7 +447,6 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
     // Hazard: a millisecond trigger is checked again after rendering and can
     // cross its threshold during the frame. Pin every pending one-shot scene
     // capture so trigger timing can never select an interpolated backbuffer.
-
     if ( screenshot.screenshotPath[0] != '\0' && !screenshot.isScreenshotSaved )
     {
         return true;
@@ -469,10 +461,8 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
                                                      int currentFrame, double elapsedMs, const char* currentScenePath,
                                                      CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
-
     if ( isSceneMode && screenshot.isScreenshotAndExit && currentFrame == 0 )
     {
-
         if ( !currentScenePath )
         {
             return {};
@@ -523,7 +513,6 @@ RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screens
 
     if ( isSceneMode && screenshot.screenshotInterval > 0 && screenshot.screenshotDir[0] != '\0' )
     {
-
         if ( ( currentFrame + 1 ) % screenshot.screenshotInterval == 0 )
         {
             ++screenshot.intervalCaptureCount;
@@ -548,7 +537,6 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode, bool isInte
                                                    int& trackBallIndex, CaptureController& capture,
                                                    Rendering::Dx12BackbufferCapture& backend )
 {
-
     if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
     {
         return {};

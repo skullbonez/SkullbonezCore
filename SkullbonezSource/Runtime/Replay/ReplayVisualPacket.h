@@ -70,7 +70,6 @@ inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noe
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
     const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
     {
-
         for ( uint8_t byte : bytes )
         {
             hash ^= static_cast<uint64_t>( byte );
@@ -93,7 +92,6 @@ inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first, std:
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
     const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
     {
-
         for ( uint8_t byte : bytes )
         {
             hash ^= static_cast<uint64_t>( byte );
@@ -122,7 +120,6 @@ inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first, std:
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
     const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
     {
-
         for ( uint8_t byte : bytes )
         {
             hash ^= static_cast<uint64_t>( byte );
@@ -133,7 +130,6 @@ inline uint64_t HashReplayVisualFloatBuffers( std::span<const float> first, std:
     appendBytes( SkullbonezCore::Core::ObjectBytes( floatCount ) );
     const auto appendValues = [&appendBytes]( std::span<const float> values )
     {
-
         if ( !values.empty() )
         {
             appendBytes( SkullbonezCore::Core::ObjectBytes( values ) );
@@ -152,7 +148,6 @@ inline uint64_t CombineReplayVisualSubmissionHashes( uint64_t retainedHash, uint
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
     const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
     {
-
         for ( uint8_t byte : bytes )
         {
             hash ^= static_cast<uint64_t>( byte );
@@ -180,7 +175,6 @@ inline uint64_t BuildCanonicalReplayVisualArchiveSemanticHash( uint64_t visualSt
     uint64_t hash = visualStateHash;
     const auto appendLittleEndian = [&hash]( uint64_t value, std::size_t byteCount )
     {
-
         for ( std::size_t byteIndex = 0; byteIndex < byteCount; ++byteIndex )
         {
             hash ^= static_cast<uint8_t>( value >> ( byteIndex * 8u ) );
@@ -552,7 +546,6 @@ inline bool FindReplayVisualValueDifference( uint64_t expected, uint64_t actual,
                                              std::size_t recordIndex, std::size_t elementIndex,
                                              ReplayVisualPacketDifference& outDifference ) noexcept
 {
-
     if ( expected == actual )
     {
         return false;
@@ -618,7 +611,6 @@ inline bool FindReplayTrajectoryDifference( std::span<const ReplayTrajectoryReco
                                             std::span<const ReplayTrajectoryRecord> actual,
                                             ReplayVisualPacketDifference& outDifference ) noexcept
 {
-
     if ( FindReplayVisualValueDifference( expected.size(), actual.size(), ReplayVisualPacketField::TrajectoryRecordCount, 0u,
                                           0u, outDifference ) )
     {
@@ -693,7 +685,6 @@ inline bool FindReplayFutureNodeDifference( std::span<const RunReplayPathTraceNo
                                             std::span<const RunReplayPathTraceNode> actual,
                                             ReplayVisualPacketDifference& outDifference ) noexcept
 {
-
     if ( FindReplayVisualValueDifference( expected.size(), actual.size(), ReplayVisualPacketField::FutureNodeCount, 0u, 0u,
                                           outDifference ) )
     {
@@ -739,7 +730,6 @@ inline bool FindReplayRetainedMarkerDifference( std::span<const ReplayPrediction
                                                 std::span<const ReplayPredictionRetainedMarker> actual,
                                                 ReplayVisualPacketDifference& outDifference ) noexcept
 {
-
     if ( FindReplayVisualValueDifference( expected.size(), actual.size(), ReplayVisualPacketField::RetainedMarkerCount, 0u,
                                           0u, outDifference ) )
     {
@@ -787,7 +777,6 @@ inline bool FindReplayGhostRequestDifference( std::span<const ReplayPredictionGh
                                               std::span<const ReplayPredictionGhostDrawRequest> actual,
                                               ReplayVisualPacketDifference& outDifference ) noexcept
 {
-
     if ( FindReplayVisualValueDifference( expected.size(), actual.size(), ReplayVisualPacketField::GhostRequestCount, 0u, 0u,
                                           outDifference ) )
     {
@@ -847,7 +836,6 @@ inline bool FindReplayTrajectoryDiagnosticDifference( const SkullbonezCore::Core
 
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++index )
     {
-
         if ( FindReplayVisualValueDifference( expected.emittedSegments[index], actual.emittedSegments[index],
                                               ReplayVisualPacketField::TrajectoryDiagnostic, index, fieldIndex,
                                               outDifference ) ||
@@ -863,7 +851,6 @@ inline bool FindReplayTrajectoryDiagnosticDifference( const SkullbonezCore::Core
 
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_BUDGET_PASS_COUNT; ++index )
     {
-
         if ( FindReplayVisualValueDifference( expected.budgetExpiries[index], actual.budgetExpiries[index],
                                               ReplayVisualPacketField::TrajectoryDiagnostic, index, fieldIndex,
                                               outDifference ) )
@@ -876,7 +863,6 @@ inline bool FindReplayTrajectoryDiagnosticDifference( const SkullbonezCore::Core
 
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_REBUILD_CAUSE_COUNT; ++index )
     {
-
         if ( FindReplayVisualValueDifference( expected.rebuildCauses[index], actual.rebuildCauses[index],
                                               ReplayVisualPacketField::TrajectoryDiagnostic, index, fieldIndex,
                                               outDifference ) )

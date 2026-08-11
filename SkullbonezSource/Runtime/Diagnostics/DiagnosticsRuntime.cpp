@@ -68,10 +68,8 @@ void WriteJsonString( FILE* file, const char* value )
 
     if ( value )
     {
-
         for ( const char* cursor = value; *cursor != '\0'; ++cursor )
         {
-
             switch ( *cursor )
             {
             case '\\':
@@ -347,10 +345,8 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
                                         const Rendering::Dx12Diagnostics* renderDiagnostics, bool sceneMode,
                                         double simulationSeconds, RuntimeInputAction action, bool wasPressed )
 {
-
     if ( !wasPressed )
     {
-
         switch ( action )
         {
         case RuntimeInputAction::ToggleWaterFreeze:
@@ -397,7 +393,6 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
 
         if ( !debug.isWaterRTReflect && !debug.isWaterNoReflect )
         {
-
             if ( dxrReflectionSupported )
             {
                 debug.isWaterRTReflect = true;
@@ -434,7 +429,6 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
     case RuntimeInputAction::CyclePhysicsDebugOverlay:
 
         // C key: None -> Axes -> Contacts -> Sleep -> All -> None.
-
         switch ( debug.physicsDebugFlags )
         {
         case Physics::PHYSICS_DEBUG_NONE:
@@ -486,10 +480,8 @@ bool HandleDiagnosticsKeyboardShortcut( OverlayDebugState& debug, int& cameraTra
 
         // G cycles the tracked ball while the broadphase overlay is off; once
         // the overlay is active, the same key owns overlay visibility.
-
         if ( sceneMode && cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
-
             if ( sceneEntityCount > 0 )
             {
                 cameraTrackBallIndex = ( cameraTrackBallIndex + 1 ) % sceneEntityCount;
@@ -702,7 +694,6 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
         // Why: Task Manager numbers include memory not tracked by replay or
         // scene stores. The reconciliation fields make that gap explicit
         // instead of hiding it in the engine bucket.
-
         if ( stats.process.taskManagerBytes >= stats.trackedEngineBytes )
         {
             stats.unattributedProcessBytes = stats.process.taskManagerBytes - stats.trackedEngineBytes;
@@ -739,7 +730,6 @@ const SkullbonezCore::Core::MainMemoryStats& DiagnosticsRuntime::MainMemoryStats
 
 void DiagnosticsRuntime::SetMainMemoryDumpPath( const char* path )
 {
-
     if ( !path )
     {
         m_mainMemoryDumpPath[0] = '\0';
@@ -760,7 +750,6 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
                                               const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                                               const SceneSessionState& scene, const char* checkpoint, double nowSeconds )
 {
-
     if ( !MainMemoryDumpRequested() )
     {
         return false;
@@ -1000,7 +989,6 @@ void DiagnosticsRuntime::BeforeSceneUnload( const SceneSessionState& scene, cons
 
 void DiagnosticsRuntime::ReportStoreCapacityRows( const SceneSessionState& scene, const char* scenePath, const char* status )
 {
-
     if ( scene.loadCount <= 0 )
     {
         return;

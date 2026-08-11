@@ -114,7 +114,6 @@ RotationMatrix BodyRotation( const PhysicsBodyHotState& hot )
 
 Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& value )
 {
-
     if ( !record.usesWorldInertia )
     {
         return VectorMultiply( hot.inverseRotationalInertia, value );
@@ -139,7 +138,6 @@ Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBod
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
 {
-
     if ( !std::isfinite( value.x ) || !std::isfinite( value.y ) || !std::isfinite( value.z ) )
     {
         return ZERO_VECTOR;
@@ -166,7 +164,6 @@ void ApplyConstraintImpulse( PhysicsBodyRecord& a, PhysicsBodyRecord& b, Physics
                              PhysicsBodyHotState& hotB, const Vector3& rA, const Vector3& rB, const Vector3& impulse,
                              float invMassA, float invMassB )
 {
-
     if ( invMassA > 0.0f )
     {
         hotA.linearVelocity += impulse * invMassA;
@@ -206,7 +203,6 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore, std::span<const PointJoi
 
     for ( const PointJointConstraint& constraint : constraints )
     {
-
         if ( ( constraint.flags & PointJointConstraint::FLAG_LIMIT_NECK_SWING ) == 0 )
         {
             continue;
@@ -284,7 +280,6 @@ int PointJointConstraint::BodyBIndex( const PhysicsBodyStore& bodyStore ) const
 
 float Ragdoll::ClampScale( float scale )
 {
-
     if ( !std::isfinite( scale ) )
     {
         return RAGDOLL_DEFAULT_SCALE;
@@ -389,7 +384,6 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData, const Vector3& terr
 bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> constraints,
                                 std::span<const uint8_t> sleepState, float dt )
 {
-
     if ( constraints.empty() || dt <= TOLERANCE )
     {
         return false;
@@ -402,7 +396,6 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore, std::span<const Poi
 
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
     {
-
         for ( const PointJointConstraint& constraint : constraints )
         {
             const int bodyAIndex = constraint.BodyAIndex( bodyStore );

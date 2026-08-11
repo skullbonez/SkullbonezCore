@@ -33,7 +33,6 @@ namespace Runtime
 SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                           const SceneRequest& request )
 {
-
     if ( request.type == SceneRequestType::CreateScene )
     {
         const std::size_t textLength = strnlen_s( request.text, SCENE_REQUEST_TEXT_CAPACITY );
@@ -76,7 +75,6 @@ SceneRequestBatch SceneRequestQueue::TakePending()
 
         if ( SceneRequestIsTransition( request.type ) )
         {
-
             if ( hasTransition )
             {
                 ++batch.rejectedTransitionCount;
@@ -95,7 +93,6 @@ SceneRequestBatch SceneRequestQueue::TakePending()
 
 bool SceneRequestQueue::HasTransition() const
 {
-
     for ( int offset = 0; offset < m_count; ++offset )
     {
         const int index = ( m_head + offset ) % SCENE_REQUEST_QUEUE_CAPACITY;

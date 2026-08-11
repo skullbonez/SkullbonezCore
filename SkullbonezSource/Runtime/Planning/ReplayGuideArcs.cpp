@@ -44,7 +44,6 @@ void ReplayGuideArcs::Toggle() noexcept
 
 void ReplayGuideArcs::SetEnabled( bool enabled ) noexcept
 {
-
     if ( m_enabled == enabled )
     {
         return;
@@ -94,7 +93,6 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 
     // Why: the disabled fast path is the common case and does not even resolve
     // orbital elements, preserving the plan's zero-cost default presentation.
-
     if ( !m_enabled )
     {
         return;
@@ -109,7 +107,6 @@ void ReplayGuideArcs::Update( const ReplayGuideArcsUpdateInput& input ) noexcept
 
     // Invariant: all live-body resolution and orbital math remain behind this
     // five-second gate. Scene loads and toggles explicitly reset the deadline.
-
     if ( input.nowSeconds < m_nextRefreshSeconds )
     {
         return;

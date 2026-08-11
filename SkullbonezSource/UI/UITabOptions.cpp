@@ -130,7 +130,6 @@ bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, 
 bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX, int modelCapacity,
                          InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_TIME_SCALE )
     {
         state.previewTimeScale = state.timeScaleSlider.ValueFromMouse( mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX,
@@ -155,7 +154,6 @@ bool UpdateActiveSlider( UIOptionsTabState& state, int activeSlider, int mouseX,
 
 bool CommitActiveSlider( UIOptionsTabState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_TIME_SCALE && state.previewTimeScale > 0.0f )
     {
         result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;

@@ -134,7 +134,6 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
 inline float ComputeBoxTerrainBestFaceNormalDot( Core::Profiler*, const Math::Transformation::RotationMatrix& orientation,
                                                  const Math::Vector::Vector3& terrainNormal, bool profile )
 {
-
     if ( profile )
     {
         PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyFaceAxes" );
@@ -189,7 +188,6 @@ inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVerticesImpl( const Math::Col
         }
         else
         {
-
             if ( gap < result.minTerrainGap )
             {
                 result.minTerrainGap = gap;
@@ -210,7 +208,6 @@ ProbeBoxTerrainVertices( Core::Profiler*, const Math::CollisionDetection::Boundi
                          const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation,
                          const PhysicsTerrainView& terrain, float contactEpsilon, bool profile )
 {
-
     if ( profile )
     {
         PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
@@ -247,7 +244,6 @@ inline float ComputeConvexHullTerrainBestFaceNormalDot( Core::Profiler*,
                                                         const Math::Transformation::RotationMatrix& orientation,
                                                         const Math::Vector::Vector3& terrainNormal, bool profile )
 {
-
     if ( profile )
     {
         PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyFaces" );
@@ -291,7 +287,6 @@ inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVerticesImpl( const Ma
         }
         else
         {
-
             if ( gap < result.minTerrainGap )
             {
                 result.minTerrainGap = gap;
@@ -313,7 +308,6 @@ inline BoxTerrainVertexSupportProbe ProbeConvexHullTerrainVertices( const Math::
                                                                     const PhysicsTerrainView& terrain, float contactEpsilon,
                                                                     bool profile )
 {
-
     if ( profile )
     {
         PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyVerts" );
@@ -369,7 +363,6 @@ ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler, const ShapeView& shape,
 
     if ( supportsRestingPolicy )
     {
-
         if ( terrain.IsValid() )
         {
             result.vertices = box ? ProbeBoxTerrainVertices( profiler, *box, position, orientation, terrain, contactEpsilon,
@@ -409,7 +402,6 @@ ClassifyBoxTerrainSupport( Core::Profiler* profiler, const ShapeView& shape, con
                            const Math::Vector::Vector3& terrainNormal, const PhysicsTerrainView& terrain, int contactCount,
                            float contactEpsilon, bool profile )
 {
-
     if ( profile )
     {
         PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicy" );

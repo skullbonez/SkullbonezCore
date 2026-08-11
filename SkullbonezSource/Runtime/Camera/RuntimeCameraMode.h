@@ -72,7 +72,6 @@ inline bool RunCameraModeIsAttached( RunCameraMode mode )
 
 inline const char* RunCameraModeLabel( RunCameraMode mode )
 {
-
     switch ( mode )
     {
     case RunCameraMode::Demo:

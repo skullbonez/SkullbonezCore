@@ -199,7 +199,6 @@ void Run::BeginLookLabSave()
 
 void Run::CancelPendingLookLabSave( const char* reason )
 {
-
     if ( !m_lookLab.HasPendingSave() )
     {
         return;
@@ -350,7 +349,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         // Invariant: the scene-authored stress harness mutates Legacy UI state.
         // Once ImGui owns the development surface, allowing that harness to
         // re-show Legacy would violate the exclusive focus/visibility contract.
-
         if ( !legacyDevelopmentUiActive )
         {
             return SkullbonezCore::Core::SbResult::Success();
@@ -392,7 +390,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto DrainRenderDefaultRequests = [&]()
     {
-
         if ( renderDefaults.PendingCount() == 0 )
         {
             return false;
@@ -440,7 +437,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     // Concept: the last completed UI frame publishes the fitted image value.
     // Mapping immediately after the sole device sample gives every existing
     // world interaction owner one coherent source-space point this frame.
-
     if ( deviceFrame.hasClientPosition && externalUiCapture.gameViewportMappingActive )
     {
         DevelopmentTools::ImGuiGameViewportRect viewport;
@@ -477,7 +473,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     inputRouter.PublishUiSnapshot( preUiPointer );
     auto commitPointerPresentation = [&]()
     {
-
         if ( externalUiCapture.mouse )
         {
 
@@ -611,7 +606,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
-
         if ( !request.accepted )
         {
             return false;
@@ -642,7 +636,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
     // Invariant: pre-UI consumers receive the router's fixed ordered events.
     // Mode checks below may fail closed after an earlier action mutates state,
     // but no consumer may re-sample its physical key.
-
     for ( std::size_t index = 0; index < inputActions.Count(); ++index )
     {
         const InputActionEvent& event = inputActions[index];
@@ -691,7 +684,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( runtimeTools.Editor().editorModeEnabled && deviceFrame.keys.IsDown( VK_CONTROL ) )
             {
-
                 if ( deviceFrame.keys.IsDown( VK_SHIFT ) )
                 {
                     (void)runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() );
@@ -777,7 +769,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
                 if ( !activeFollow )
                 {
-
                     if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
                                                                                              replayRuntime.BuildInputView() ) ) )
                     {
@@ -821,7 +812,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( camera.director.grabbed )
             {
-
                 if ( DemoDirectorPlayback::EndGrab( camera, sceneController.Scene().Cameras() ) )
                 {
                     ExitFlyModeCamera( inputRouter, camera, sceneController.Scene().Cameras(),
@@ -903,7 +893,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
             break;
         case RuntimeInputAction::ReloadShadersFromSource:
         {
-
             if ( !m_shaderDevelopment )
             {
                 fprintf( stderr, "Shader hot reload unavailable: active backend has no development capability.\n" );
@@ -937,7 +926,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             // Why: guide rings remain a Legacy-only teaching aid while ImGui
             // owns its separate development-tool presentation contract.
-
             if ( legacyDevelopmentUiActive )
             {
                 replayRuntime.ToggleGuideArcs();
@@ -970,7 +958,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
         {
-
             if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
             {
 
@@ -994,7 +981,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
             if ( shortcutResult.triggered )
             {
-
                 if ( shortcutResult.releaseMouseToUI )
                 {
                     inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( inputRouter, runtimeTools.Editor(),
@@ -1112,7 +1098,6 @@ Run::FrameInputPhaseResult Run::RunInputPhase( const InteractionAutomationFrameR
 
     if ( uiFrameResult.frameActive )
     {
-
         if ( uiFrameResult.enterInteractiveScene )
         {
             EnterInteractiveSceneRun();

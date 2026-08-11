@@ -90,7 +90,6 @@ void CameraCollection::SetLockedMode( const bool isLocked )
 
 void CameraCollection::AddCamera( const Vector3& position, const Vector3& view, const Vector3& up, uint32_t hash )
 {
-
     if ( m_arrayPosition == SkullbonezCore::Scene::Capacity::TOTAL_CAMERA_COUNT )
     {
         SB_FATAL( "CameraCollection", "Camera slot capacity exhausted in AddCamera. count=%d capacity=%d hash=0x%08X",
@@ -121,7 +120,6 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
 {
 
     // if the fromIndex is specifying to use the existing tween camera
-
     if ( fromIndex == -1 )
     {
 
@@ -151,7 +149,6 @@ void CameraCollection::UpdateTweenPath()
 
 Camera CameraCollection::GetTweenSourcePose() const
 {
-
     if ( m_isTweening )
     {
         return m_tweenCamera;
@@ -160,7 +157,6 @@ Camera CameraCollection::GetTweenSourcePose() const
     // Why: mode changes can rewrite the selected slot before render advances the
     // new tween. The render pose is what the player actually saw last frame, so
     // it is the least surprising source for a smooth transition.
-
     if ( Vector::Distance( m_renderCamera.m_position, m_renderCamera.m_view ) > 0.000001f )
     {
         return m_renderCamera;
@@ -182,7 +178,6 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     }
 
     // it is not possible to tween if there is only one camera in the scene
-
     if ( tween && m_arrayPosition == 1 )
     {
         SB_FATAL( "CameraCollection",
@@ -191,7 +186,6 @@ void CameraCollection::SelectCamera( uint32_t hash, const bool tween )
     }
 
     // where should the tween camera be referenced FROM?
-
     if ( m_isTweening && tween )
     {
 
@@ -230,10 +224,8 @@ uint32_t CameraCollection::GetSelectedCameraName()
 
 bool CameraCollection::HasCamera( uint32_t hash ) const
 {
-
     for ( int count = 0; count < m_arrayPosition; ++count )
     {
-
         if ( m_cameraHashes[count] == hash )
         {
             return true;
@@ -248,7 +240,6 @@ void CameraCollection::RotatePrimary( float xMove, float yMove )
 {
 
     // make sure a camera exists to update
-
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection", "RotatePrimary requires at least one registered camera. count=%d selected=%d",
@@ -280,7 +271,6 @@ void CameraCollection::SetPrimaryPose( const Vector3& position, const Vector3& v
 
 void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector3& view, const Vector3& up )
 {
-
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection", "TweenPrimaryToPose requires at least one registered camera. count=%d selected=%d",
@@ -318,7 +308,6 @@ void CameraCollection::MovePrimary( Camera::TravelDirection direction, float amo
 {
 
     // make sure a camera exists to update
-
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection",
@@ -390,7 +379,6 @@ void CameraCollection::SetCamera()
 {
 
     // make sure a camera exists
-
     if ( !m_arrayPosition )
     {
         SB_FATAL( "CameraCollection", "SetCamera requires at least one registered camera. count=%d selected=%d tweening=%d",
@@ -398,7 +386,6 @@ void CameraCollection::SetCamera()
     }
 
     // if we are not in tween mode
-
     if ( !m_isTweening )
     {
         SetViewMatrix( m_cameraArray[m_selectedCamera] );
@@ -408,7 +395,6 @@ void CameraCollection::SetCamera()
         m_tweenProgress += ( ( 1 - m_tweenProgress ) * m_tweenSpeed );
 
         // turn off tweening if the current tween is complete
-
         if ( m_tweenProgress > 0.99999f )
         {
             m_isTweening = false;
@@ -422,7 +408,6 @@ void CameraCollection::SetCamera()
         m_tweenCamera += m_tweenPath * m_tweenProgress;
 
         // Opposed endpoint up vectors can cancel at the tween midpoint.
-
         if ( !m_tweenCamera.m_upVector.TryNormalise() )
         {
             m_tweenCamera.m_upVector = Vector3( 0.0f, 1.0f, 0.0f );
@@ -431,7 +416,6 @@ void CameraCollection::SetCamera()
         // Avoid going through terrain during tweens when the scene owns a
         // terrain surface. Terrainless authored scenes deliberately bind null;
         // their cameras must remain unconstrained in space.
-
         if ( m_terrain )
         {
             float terrainHeight = m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x, m_tweenCamera.m_position.z );
@@ -456,10 +440,8 @@ void CameraCollection::SetViewMatrix( const Camera& camera )
 
 int CameraCollection::FindIndex( uint32_t hash )
 {
-
     for ( int count = 0; count < m_arrayPosition; ++count )
     {
-
         if ( m_cameraHashes[count] == hash )
         {
             return count;
@@ -491,7 +473,6 @@ const Vector3& CameraCollection::GetCameraUp() const
 
 void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
 {
-
     for ( int count = 0; count < m_arrayPosition; ++count )
     {
         m_cameraArray[count].m_boundary = bounds;

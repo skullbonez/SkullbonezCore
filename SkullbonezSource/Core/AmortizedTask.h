@@ -57,7 +57,6 @@ template <typename WorkFunctionT> class AmortizedTask
 
     ~AmortizedTask()
     {
-
         if ( IsInFlight() )
         {
 
@@ -70,7 +69,6 @@ template <typename WorkFunctionT> class AmortizedTask
 
     void SubmitTick( WorkerPool& pool )
     {
-
         if ( IsComplete() )
         {
             return;
@@ -101,7 +99,6 @@ template <typename WorkFunctionT> class AmortizedTask
 
     bool Reset()
     {
-
         if ( IsInFlight() )
         {
             return false;
@@ -114,7 +111,6 @@ template <typename WorkFunctionT> class AmortizedTask
 
     float GetProgress() const
     {
-
         if ( m_totalItems <= 0 )
         {
             return 1.0f;

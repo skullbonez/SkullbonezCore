@@ -106,7 +106,6 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore, const Physi
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
-
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return;
@@ -129,7 +128,6 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore, Skullbo
                                    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState, std::span<const float> timeRemaining, int bodyIndex )
 {
-
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
     {
         return;
@@ -197,7 +195,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
         // engine's 8,192-body capability. Larger fields use the original exact
         // serial order and only the body-count scratch reserved at scene load;
         // no approximation or baseline change is permitted.
-
         for ( int i = 0; i < modelCount; ++i )
         {
             const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
@@ -360,7 +357,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     }
     else
     {
-
         for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
         {
             const Threading::WorkerChunkRange& chunk = chunks[chunkIndex];
@@ -377,7 +373,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     // Invariant: chunks and entries within each chunk follow ascending `(i,j)`
     // order. Moving each written prefix forward therefore creates the exact
     // original triangular sequence without reading an unwritten scratch slot.
-
     for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
     {
         const std::size_t sourceBegin = MutualGravityRowOffset( chunks[chunkIndex].begin, modelCount );
@@ -399,7 +394,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
     // Invariant: one linear walk replays the same per-body additions as the
     // original nested reduction. Worker scheduling and sparse skipped pairs
     // cannot regroup a body's floating-point sequence.
-
     for ( std::size_t pairIndex = 0u; pairIndex < compactPairCount; ++pairIndex )
     {
         const MutualGravityPairForce& pair = m_mutualGravityPairForces[pairIndex];
@@ -444,7 +438,6 @@ void PhysicsForceStage::ApplyForces( PhysicsBodyStore& bodyStore, const Collider
     }
     else
     {
-
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
             applyAwakeBody( awakeSlot );
@@ -475,7 +468,6 @@ void PhysicsForceStage::IntegrateRemaining( PhysicsBodyStore& bodyStore, Core::P
     }
     else
     {
-
         for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
             integrateAwakeBody( awakeSlot );

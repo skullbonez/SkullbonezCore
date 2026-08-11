@@ -46,7 +46,6 @@ bool IsCineScenePath( const std::string& path )
 
 SceneLoadRequest LoadSceneFromBrowserPaths( const std::vector<std::string>& paths, int index, SceneSession& scene )
 {
-
     if ( index < 0 || index >= static_cast<int>( paths.size() ) )
     {
         return SceneLoadRequest::None();
@@ -57,7 +56,6 @@ SceneLoadRequest LoadSceneFromBrowserPaths( const std::vector<std::string>& path
 
     if ( queuedIndex >= 0 )
     {
-
         if ( queuedIndex != scene.CurrentIndex() )
         {
             return SceneLoadRequest::Load( queuedIndex, true, true, false, true );
@@ -81,7 +79,6 @@ SceneLoadRequest LoadSceneFromBrowserIndex( const SkullbonezCore::UI::SceneNavig
 int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
                                        int currentSceneBrowserIndex, bool isCinematicTabActive )
 {
-
     if ( direction == 0 )
     {
         return -1;
@@ -96,10 +93,8 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
 
     for ( int i = 0; i < static_cast<int>( navigation.browser.paths.size() ); ++i )
     {
-
         if ( IsCineScenePath( navigation.browser.paths[i] ) )
         {
-
             if ( i == navigation.browser.selectedCineModeSceneIndex )
             {
                 currentPosition = cineCount;
@@ -139,10 +134,8 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
 
     for ( int i = 0; i < static_cast<int>( navigation.browser.paths.size() ); ++i )
     {
-
         if ( IsCineScenePath( navigation.browser.paths[i] ) )
         {
-
             if ( position == nextPosition )
             {
                 return i;
@@ -159,7 +152,6 @@ int AdjacentCinematicModeBrowserIndex( const SkullbonezCore::UI::SceneNavigation
 SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationModel& navigation, int direction,
                                     int currentSceneBrowserIndex, SceneSession& scene )
 {
-
     if ( direction == 0 )
     {
         return SceneLoadRequest::None();
@@ -187,10 +179,8 @@ SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationMod
 
         for ( int i = 0; i < sceneCount; ++i )
         {
-
             if ( IsCineScenePath( navigation.browser.paths[i] ) )
             {
-
                 if ( i == currentSceneBrowserIndex )
                 {
                     currentCinePosition = cineCount;
@@ -207,10 +197,8 @@ SceneLoadRequest LoadAdjacentScene( const SkullbonezCore::UI::SceneNavigationMod
 
             for ( int i = 0; i < sceneCount; ++i )
             {
-
                 if ( IsCineScenePath( navigation.browser.paths[i] ) )
                 {
-
                     if ( position == nextCinePosition )
                     {
                         return LoadSceneFromBrowserIndex( navigation, i, scene );

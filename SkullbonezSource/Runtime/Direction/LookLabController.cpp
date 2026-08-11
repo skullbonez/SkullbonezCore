@@ -106,7 +106,6 @@ void ResolveRetainedPresentationValues( LookLabCandidate& candidate, const Core:
 
     // Why: water mode zero means this scene deliberately has no water surface.
     // A look reroll may restyle existing water but may not add scene content.
-
     if ( activePresentation.waterMode == Core::CinematicStyleMode::Water::Off )
     {
         resolved.waterMode = Core::CinematicStyleMode::Water::Off;
@@ -162,7 +161,6 @@ LookLabCandidateIssue ValidateResolvedLookLabCandidate( const LookLabCandidate& 
 
     for ( float value : retainedFloats )
     {
-
         if ( !std::isfinite( value ) )
         {
             return LookLabCandidateIssue::NonFiniteValue;
@@ -239,7 +237,6 @@ Scene::StandaloneStyleSnapshot BuildLookLabStyleSnapshot( const LookLabCandidate
 
 bool LookLabController::ResolveSeed( uint64_t seed, const Core::CinematicRenderConfig& activePresentation )
 {
-
     if ( m_pendingSave )
     {
         PublishStatus( LookLabStatusKind::Rejected, "save pending; reroll ignored" );
@@ -273,7 +270,6 @@ uint64_t LookLabController::NextAuthoringSeed()
 
     // Invariant: even a coarse or frozen host clock cannot repeat the currently
     // visible candidate because the private authoring sequence still advances.
-
     if ( m_candidate && seed == m_candidate->seed )
     {
         seed = m_candidate->seed + 1u;
@@ -284,7 +280,6 @@ uint64_t LookLabController::NextAuthoringSeed()
 
 void LookLabController::MarkApplied()
 {
-
     if ( m_candidate )
     {
         PublishStatus( LookLabStatusKind::Applied, LookLabRecipeFamilyName( m_candidate->recipe ) );
@@ -380,7 +375,6 @@ LookLabSaveStartResult LookLabController::BeginSave( Core::SbDiagnosticStore& di
 Core::SbResult LookLabController::CompleteSaveCapture( Core::SbDiagnosticStore& diagnostics, uint64_t token,
                                                        const Core::SbResult& captureResult )
 {
-
     if ( !m_pendingSave || token == 0 || m_pendingSave->token != token )
     {
         return diagnostics.Failure( OWNER, "capture completion token does not match the pending Look Lab bundle" );
@@ -412,7 +406,6 @@ Core::SbResult LookLabController::CompleteSaveCapture( Core::SbDiagnosticStore& 
 
 Core::SbResult LookLabController::CancelPendingSave( Core::SbDiagnosticStore& diagnostics, const char* reason )
 {
-
     if ( !m_pendingSave )
     {
         return Core::SbResult::Success();

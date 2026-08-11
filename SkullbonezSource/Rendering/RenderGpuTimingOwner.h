@@ -73,7 +73,6 @@ class RenderGpuTimingScope
     RenderGpuTimingScope( RenderGpuTimingOwner* owner, const char* fullPath, uint32_t hash )
         : m_owner( owner ), m_fullPath( fullPath ), m_hash( hash )
     {
-
         if ( m_owner )
         {
             m_owner->Begin( m_fullPath, m_hash );
@@ -81,7 +80,6 @@ class RenderGpuTimingScope
     }
     ~RenderGpuTimingScope()
     {
-
         if ( m_owner )
         {
             m_owner->End( m_fullPath, m_hash );

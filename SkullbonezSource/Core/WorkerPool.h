@@ -253,7 +253,6 @@ void WorkerPool::ParallelForNoAlloc( int begin, int end, IndexFunctionT&& fn, in
 template <typename ChunkFunctionT>
 void WorkerPool::ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn )
 {
-
     if ( !chunks || chunkCount <= 0 )
     {
         return;
@@ -263,7 +262,6 @@ void WorkerPool::ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int c
 
     if ( GetThreadCount() == 0 || IsCurrentThreadWorker() )
     {
-
         for ( int index = 0; index < chunkCount; ++index )
         {
             const WorkerChunkRange& chunk = chunks[index];

@@ -68,7 +68,6 @@ bool FramebufferDX12::Create( int width, int height )
     // Invariant: off-screen targets borrow stable descriptor, texture, pipeline,
     // retirement, and device owners. Without a device there is no recoverable
     // framebuffer creation boundary inside this helper.
-
     if ( !m_device.Device() )
     {
         SB_FATAL( "FramebufferDX12", "Create requires an initialized DX12 backend." );
@@ -232,7 +231,6 @@ bool FramebufferDX12::Create( int width, int height )
 
 void FramebufferDX12::Bind() const
 {
-
     if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.PrepareFramebufferBind() )
     {
         return;
@@ -256,7 +254,6 @@ void FramebufferDX12::Bind() const
 
 void FramebufferDX12::Unbind() const
 {
-
     if ( !m_device.Device() || !m_colorTexture || !m_depthTexture || !m_drawGate.CanRecord() )
     {
         return;
@@ -288,7 +285,6 @@ void FramebufferDX12::ResetResources()
 
     if ( m_colorTexture )
     {
-
         if ( backendReady )
         {
             m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, Dx12CpuDescriptorKind::Rtv, m_rtvIndex );
@@ -304,7 +300,6 @@ void FramebufferDX12::ResetResources()
 
     if ( m_depthTexture )
     {
-
         if ( backendReady )
         {
             m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, Dx12CpuDescriptorKind::Dsv, m_dsvIndex );

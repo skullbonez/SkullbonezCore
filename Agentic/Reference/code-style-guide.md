@@ -15,7 +15,9 @@ placement and parameter-order decisions.
 ## Conditions, Loops, And Comments
 
 - Leave one blank line above and below an `if`, `switch`, `for`, `while`, or
-  `do` block.
+  `do` block when it follows or precedes another completed statement or block.
+- Do not insert a blank line between an opening brace and its first control-flow
+  statement, or between an introducing comment and the control flow it explains.
 - Keep `else`, `else if`, and a `do` block's trailing `while` attached to their
   control-flow chain.
 - Leave one blank line above every standalone comment group.

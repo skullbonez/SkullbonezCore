@@ -103,7 +103,6 @@ bool IsReadableFile( const char* path ) noexcept
 
 bool CopyAbsoluteReadablePath( const char* path, char* output, size_t outputCapacity ) noexcept
 {
-
     if ( !IsReadableFile( path ) )
     {
         return false;
@@ -115,7 +114,6 @@ bool CopyAbsoluteReadablePath( const char* path, char* output, size_t outputCapa
 
 bool ResolveRepositoryPath( const char* repositoryRelativePath, char* output, size_t outputCapacity ) noexcept
 {
-
     if ( CopyAbsoluteReadablePath( repositoryRelativePath, output, outputCapacity ) )
     {
         return true;
@@ -169,7 +167,6 @@ TracyViewerLaunchTarget ResolveTracyViewerLaunchPath( char* output, size_t outpu
 
     for ( const char* candidate : candidates )
     {
-
         if ( ResolveRepositoryPath( candidate, output, outputCapacity ) )
         {
             return TracyViewerLaunchTarget::Viewer;
@@ -194,7 +191,6 @@ TracyViewerLaunchTarget ResolveTracyViewerLaunchPath( char* output, size_t outpu
 
 void DrawDisabledReason( const char* reason )
 {
-
     if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
     {
         ImGui::SetTooltip( "%s", reason );
@@ -210,7 +206,6 @@ void DrawDisabledWrapped( const char* text )
 
 const char* SceneDisplayName( const char* path ) noexcept
 {
-
     if ( !path || path[0] == '\0' )
     {
         return "generated demo";
@@ -235,7 +230,6 @@ char LowerAscii( char value ) noexcept
 
 bool ContainsAsciiInsensitive( const char* text, const char* filter ) noexcept
 {
-
     if ( !filter || filter[0] == '\0' )
     {
         return true;
@@ -309,7 +303,6 @@ ImGuiEditorOwner::~ImGuiEditorOwner()
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::Dx12ImGuiRendererOwner* renderer )
 {
-
     if ( m_context )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -418,7 +411,6 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
 
 void ImGuiEditorOwner::Shutdown() noexcept
 {
-
     if ( !m_context )
     {
         return;
@@ -496,7 +488,6 @@ void ImGuiEditorOwner::Shutdown() noexcept
 
 void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
 {
-
     if ( m_visible && !visible && m_context )
     {
         ImGui::SetCurrentContext( m_context );
@@ -505,7 +496,6 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
         // Hazard: the vendor backend and engine both use HWND-scoped native
         // capture. Release only when editor policy currently owns mouse intent;
         // a game-viewport/camera capture must remain untouched.
-
         if ( capture.mouse && GetCapture() == m_window )
         {
             ReleaseCapture();
@@ -542,7 +532,6 @@ bool ImGuiEditorOwner::IsVisible() const noexcept
 
 void ImGuiEditorOwner::InitializeSurfaceSelection( DevelopmentUiMode initialSurface ) noexcept
 {
-
     if ( m_surfaceSelectionInitialized )
     {
         return;
@@ -574,7 +563,6 @@ bool ImGuiEditorOwner::HasActivatedSurfaceSelection() const noexcept
 SkullbonezCore::Core::SbResult
 ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& command ) noexcept
 {
-
     switch ( command.type )
     {
     case ImGuiEditorAutomationCommandType::SetPanelVisible:
@@ -629,7 +617,6 @@ void ImGuiEditorOwner::ReportTracyClientStartResult( bool started ) noexcept
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
 {
-
     if ( !m_visible )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -699,7 +686,6 @@ ImGuiEditorNativeMessageRoute ImGuiEditorOwner::HandleNativeMessage( HWND window
 
     if ( route.decision.editorConsumes )
     {
-
         switch ( route.messageClass )
         {
         case ImGuiEditorMessageClass::Mouse:
@@ -722,7 +708,6 @@ ImGuiEditorNativeMessageRoute ImGuiEditorOwner::HandleNativeMessage( HWND window
 
 ImGuiEditorInputCapture ImGuiEditorOwner::CopyInputCapture() const noexcept
 {
-
     if ( !m_context )
     {
         return {};
@@ -776,7 +761,6 @@ void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) n
 
 bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
 {
-
     if ( !m_context || !m_visible || input.displayWidth <= 0 || input.displayHeight <= 0 )
     {
         return false;
@@ -851,7 +835,6 @@ uint32_t ImGuiEditorOwner::CopyPanelVisibilityMask() const noexcept
     uint32_t mask = 0u;
     const auto add = [&]( ImGuiEditorPanelId panel, bool visible )
     {
-
         if ( visible )
         {
             mask |= ImGuiEditorPanelBit( panel );
@@ -875,7 +858,6 @@ uint32_t ImGuiEditorOwner::CopyPanelVisibilityMask() const noexcept
 
 bool ImGuiEditorOwner::SetPanelVisibility( ImGuiEditorPanelId panel, bool visible ) noexcept
 {
-
     switch ( panel )
     {
     case ImGuiEditorPanelId::SceneAndModes:
@@ -924,7 +906,6 @@ bool ImGuiEditorOwner::SetPanelVisibility( ImGuiEditorPanelId panel, bool visibl
 
 void ImGuiEditorOwner::ApplyPanelVisibilityMask( uint32_t mask ) noexcept
 {
-
     for ( uint32_t index = 0u; index < static_cast<uint32_t>( ImGuiEditorPanelId::Count ); ++index )
     {
         const ImGuiEditorPanelId panel = static_cast<ImGuiEditorPanelId>( index );
@@ -1064,7 +1045,6 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
 void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view,
                                          const ReplayOverlay::ReplayOverlayStateView& replay )
 {
-
     if ( !m_frameActive )
     {
         return;
@@ -1075,7 +1055,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     const auto submit = [&]( auto& queue, const auto& command )
     {
-
         if ( m_frameCommandStatus.Ok() )
         {
             m_frameCommandStatus.Record( UI::SubmitOperatorEditorCommand( m_resultDiagnostics, queue, command ) );
@@ -1303,7 +1282,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
     {
-
         if ( view.hierarchy.rows[index].sceneObjectId == view.hierarchy.selectedSceneObjectId )
         {
             selectedEntityLocked = view.hierarchy.rows[index].locked;
@@ -1313,10 +1291,8 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( ImGui::BeginMenuBar() )
     {
-
         if ( ImGui::BeginMenu( "File" ) )
         {
-
             if ( ImGui::MenuItem( "New Scene..." ) )
             {
                 m_showSceneAndModes = true;
@@ -1359,7 +1335,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( ImGui::BeginMenu( "Edit" ) )
         {
-
             if ( ImGui::MenuItem( "Undo", "Ctrl+Z", false, view.tools.editorModeEnabled && view.tools.undoDepth > 0 ) )
             {
                 submitTool( UI::OperatorEditorToolCommandType::Undo );
@@ -1400,7 +1375,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
         if ( ImGui::BeginMenu( "View" ) )
         {
-
             if ( ImGui::MenuItem( "Switch to Legacy UI", "Ctrl+0" ) )
             {
 
@@ -1473,7 +1447,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( ImGui::BeginChild( "##SkoreEditorToolbar", ImVec2( 0.0f, toolbarHeight ), ImGuiChildFlags_Borders ) )
     {
-
         if ( ImGui::Button( modeLabel ) )
         {
             submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
@@ -1569,7 +1542,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showSceneAndModes )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::SceneAndModes, &m_showSceneAndModes ) )
         {
             ImGui::TextUnformatted( "MODE" );
@@ -1719,7 +1691,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showHierarchy )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
         {
             ImGui::Text( "%u / %u scene objects", view.hierarchy.rowCount, view.hierarchy.totalRowCount );
@@ -1766,7 +1737,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                 if ( ImGui::BeginPopupContextItem( "##HierarchyContext" ) )
                 {
-
                     if ( ImGui::MenuItem( "Select" ) )
                     {
                         submitTool( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
@@ -1831,7 +1801,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showAssetsCreate )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::AssetsCreate, &m_showAssetsCreate ) )
         {
             ImGui::InputTextWithHint( "##AssetFilter", "Search assets", m_assetFilter, sizeof( m_assetFilter ) );
@@ -1920,7 +1889,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showGameViewport )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
         {
             gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
@@ -1981,10 +1949,8 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                 if ( ImGui::BeginDragDropTarget() )
                 {
-
                     if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
                     {
-
                         if ( payload->DataSize == sizeof( int ) )
                         {
                             submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u,
@@ -2009,7 +1975,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showInspector )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Inspector, &m_showInspector ) )
         {
             const UI::OperatorEditorInspectorView& inspector = view.inspector;
@@ -2131,7 +2096,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showWorldSimulation )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::WorldSimulation, &m_showWorldSimulation ) )
         {
             const UI::OperatorEditorWorldView& world = view.world;
@@ -2250,13 +2214,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showRendering )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Rendering, &m_showRendering ) )
         {
-
             if ( ImGui::BeginTabBar( "##RenderingTabs" ) )
             {
-
                 if ( ImGui::BeginTabItem( "Rendering" ) )
                 {
                     const auto submitRendering = [&]( UI::OperatorEditorRenderingCommandType type,
@@ -2296,7 +2257,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     // Concept: the shared section catalog changes presentation
                     // topology only. Ordinary and cinematic values still travel
                     // through their existing domain enums and runtime owners.
-
                     for ( int rawSection = static_cast<int>( UI::UIRenderAuthoringSection::Lighting );
                           rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::PredictionPaths ); ++rawSection )
                     {
@@ -2369,7 +2329,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                         for ( const UI::RenderSliderSpec& spec : UI::kRenderSliderSpecs )
                         {
-
                             if ( spec.section != section )
                             {
                                 continue;
@@ -2393,7 +2352,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                         if ( section == UI::UIRenderAuthoringSection::PredictionPaths )
                         {
-
                             if ( ImGui::SmallButton( "Save path style" ) )
                             {
                                 submitRendering( UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
@@ -2407,7 +2365,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                         for ( const UI::CinematicFeatureSpec& feature : UI::kCinematicFeatureSpecs )
                         {
-
                             if ( feature.section != section )
                             {
                                 continue;
@@ -2427,7 +2384,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                         for ( const UI::CinematicSliderSpec& spec : UI::kCinematicSliderSpecs )
                         {
-
                             if ( spec.section != section )
                             {
                                 continue;
@@ -2464,7 +2420,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showDiagnostics )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
         {
             const UI::OperatorEditorDiagnosticsView& diagnostics = view.diagnostics;
@@ -2615,7 +2570,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                 if ( ImGui::CollapsingHeader( "Render Targets" ) )
                 {
-
                     for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
                     {
                         const UI::OperatorEditorRenderTargetView& target = diagnostics.renderTargets[index];
@@ -2651,7 +2605,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                 if ( ImGui::BeginCombo( "Worker threads", preview ) )
                 {
-
                     if ( ImGui::Selectable( "Auto", false ) )
                     {
                         submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, -1 );
@@ -2701,7 +2654,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showCausality )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Causality, &m_showCausality ) )
         {
             ImGui::Text( "Context: %s", ImGuiEditorCausalityStateName( causality.state ) );
@@ -2833,7 +2785,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
                 while ( clipper.Step() )
                 {
-
                     for ( int rowIndex = clipper.DisplayStart; rowIndex < clipper.DisplayEnd; ++rowIndex )
                     {
                         const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( rowIndex )];
@@ -2899,7 +2850,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showReplay )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
         {
             const ReplayPresentationSelection& selection = replay.selection;
@@ -3115,7 +3065,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     if ( m_showStatus )
     {
-
         if ( ImGui::Begin( ImGuiEditorPanel::Status, &m_showStatus,
                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
         {
@@ -3175,7 +3124,6 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
 
     // Lifetime: EndFrame publishes draw data inside this owned context; the
     // live frame-graph callback consumes it synchronously before Present.
-
     if ( !m_context || !m_renderer )
     {
         return m_resultDiagnostics.Failure( "DevelopmentTools/ImGui", "Completed frame has no DX12 draw-data target" );

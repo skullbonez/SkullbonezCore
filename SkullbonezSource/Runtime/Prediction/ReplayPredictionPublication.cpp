@@ -78,7 +78,6 @@ constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept
 {
-
     if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
     {
         return 1;
@@ -134,10 +133,8 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
 const ReplaySolverBodySample* FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample,
                                                           Physics::PhysicsSceneObjectId id, int modelIndex )
 {
-
     if ( const ReplaySolverBodySample* hinted = FindReplayBodyByModelIndex( sample, modelIndex ) )
     {
-
         if ( hinted->id.value == id.value )
         {
             return hinted;
@@ -158,7 +155,6 @@ bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelI
 
     // Hazard: physics debug contacts use -1 for terrain/world counterparts.
     // That sentinel is not a scene row and must never reach group metadata.
-
     if ( modelIndex < 0 || modelIndex >= entities.Count() )
     {
         return false;
@@ -197,10 +193,8 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
 const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
                                                                            Physics::PhysicsSceneObjectId id, int modelIndex )
 {
-
     if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
     {
-
         if ( body->id.value == id.value )
         {
             return body;
@@ -262,7 +256,6 @@ ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& stor
 bool AppendReplayTrajectoryPoint( ReplayTrajectoryStore& store, ReplayTrajectoryRecord& record, ReplayFrameIndex frameIndex,
                                   const Vector3& position )
 {
-
     if ( !store.TryAppendPoint( record, { frameIndex, position } ) )
     {
         return false;
@@ -356,7 +349,6 @@ bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& predictio
 bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& prediction, const RunReplayPredictionFrame& frame,
                                                  std::size_t frameSlot )
 {
-
     if ( !prediction.trajectoryBuild.valid || prediction.trajectoryBuild.rootId.value == 0 ||
          !prediction.trajectoryBuild.usingBuildFrames )
     {
@@ -390,7 +382,6 @@ bool PublishReplayPredictionRootTrajectoryFrame( RunReplayPredictionState& predi
 bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState& prediction,
                                                        std::size_t presentedFrameCount )
 {
-
     if ( !prediction.trajectoryBuild.valid || !prediction.trajectoryBuild.usingBuildFrames ||
          prediction.trajectoryBuild.rootId.value == 0 )
     {
@@ -417,7 +408,6 @@ bool PublishReplayPredictionBuildRootTrajectoryPrefix( RunReplayPredictionState&
 
 bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& prediction )
 {
-
     if ( prediction.simulation.targetId.value == 0 || prediction.simulation.frames.size() < 2u )
     {
         return true;
@@ -464,7 +454,6 @@ bool BuildReplayPredictionChildTrajectoryRecord( RunReplayPredictionState& predi
                                                  const RunReplayPathTraceNode& node, std::size_t nodeIndex,
                                                  bool usingBuildFrames, ReplayTrajectoryLane lane, bool seedOutgoingEntry )
 {
-
     if ( frameCount == 0 )
     {
         return true;
@@ -719,10 +708,8 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
     // Concept: every space-body record is independent of the contact-derived
     // future tree. Extending a prediction therefore appends only the new frame
     // suffix to each body record; topology churn cannot rebuild these paths.
-
     if ( !sourceChanged && prediction.trajectoryBuild.allBodyFrameCount < frameCount )
     {
-
         for ( std::size_t bodyIndex = 0; bodyIndex < prediction.trajectoryBuild.builtAllBodyCount; ++bodyIndex )
         {
             const RunReplayPredictionBodySample& seedBody = frames[0].bodies[bodyIndex];
@@ -751,7 +738,6 @@ void UpdateReplayPredictionAllBodyTrajectories( RunReplayPredictionState& predic
         // whole bodies. Recording the reached index and keeping allBodyPaths set
         // makes builtAllBodyCount the resume cursor rather than a completion
         // claim; the next frame continues from here instead of restarting.
-
         if ( ReplayPredictionSchedulingOperations::ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             completedBodies = bodyIndex;
@@ -839,10 +825,8 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
     // Hazard: child records depend on the frozen future-node order. When the
     // source prefix or topology changes, replace the affected records instead
     // of mutating already-published points under an old version.
-
     if ( !sourceChanged && prediction.trajectoryBuild.childFrameCount < frameCount )
     {
-
         for ( std::size_t i = 0; i < existingNodeCount; ++i )
         {
             const RunReplayPathTraceNode& node = prediction.futureNodeCache.futureNodes[i];
@@ -911,10 +895,8 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
     const auto idIsAlreadyPublished = [futureNodes]( Physics::PhysicsSceneObjectId id )
     {
-
         for ( const RunReplayPathTraceNode& node : futureNodes )
         {
-
             if ( node.id.value == id.value )
             {
                 return true;
@@ -932,7 +914,6 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
     for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
     {
-
         if ( trailCount >= outTrails.size() )
         {
             break;
@@ -950,7 +931,6 @@ std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPr
 
             // Why: delaying construction until the first revealed motion keeps
             // both marker publication and drawing from pre-spawning the body.
-
             if ( frames[frameSlot].frameIndex > revealFrame )
             {
                 break;
@@ -1035,7 +1015,6 @@ bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPer
 int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
                                   int modelIndex )
 {
-
     if ( contact.bodyA == modelIndex )
     {
         return contact.bodyB;
@@ -1052,7 +1031,6 @@ int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPe
 Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
                             const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
-
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
         return bodyA->position + contact.rA;
@@ -1101,7 +1079,6 @@ Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolv
 int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
                                        const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
-
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
         const PhysicsPipelineRecord& record = snapshot.pipelineTrace[static_cast<std::size_t>( i )];
@@ -1210,7 +1187,6 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
 
     for ( const RunReplayPredictionBodySample& body : firstFrame.bodies )
     {
-
         if ( prediction.baseline.bodyPoses.size() >= bodyCapacity || body.id.value == 0 )
         {
             break;
@@ -1287,7 +1263,6 @@ bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& pr
 
     for ( const ReplayPredictionBaselineRootPoint& point : baseline.rootPolyline )
     {
-
         if ( !AppendReplayTrajectoryPoint( prediction.trajectoryStore, *record, point.frameIndex, point.position ) )
         {
             return false;
@@ -1318,7 +1293,6 @@ void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& predict
 
     for ( const ReplayPredictionBaselineBodyPose& baselinePose : baseline.bodyPoses )
     {
-
         if ( baselinePose.id.value == 0 )
         {
             continue;
@@ -1329,7 +1303,6 @@ void UpdateReplayPredictionBaselineDivergence( RunReplayPredictionState& predict
 
         if ( baselinePose.hasRestPose )
         {
-
             if ( !ReplayPredictionBodyRestingPose( frames, frameCount, baselinePose.id, baselinePose.modelRow.value,
                                                    restPosition, restOrientation ) )
             {

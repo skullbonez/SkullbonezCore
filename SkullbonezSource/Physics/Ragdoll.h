@@ -118,7 +118,6 @@ class Ragdoll
 
     static bool TryBuildSimplePartName( const char* prefix, int partIndex, char ( &outName )[64] )
     {
-
         if ( partIndex < 0 || partIndex >= SIMPLE_PART_COUNT )
         {
             outName[0] = '\0';

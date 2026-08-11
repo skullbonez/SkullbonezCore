@@ -349,7 +349,6 @@ bool HandleContentClick( UIPhysicsTabState& state, InGameUIInputResult& result, 
 
 bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_ALPHA )
     {
         state.previewAlpha = state.alphaSlider.ValueFromMouse( mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX,
@@ -493,7 +492,6 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
 
 bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f )
     {
         result.commands.physics.requestedPhysicsDebugAlpha = state.previewAlpha;

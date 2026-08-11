@@ -88,7 +88,6 @@ int WorkerPool::ResolveThreadCount( int requestedThreadCount )
 
     if ( requestedThreadCount < 0 )
     {
-
         if ( maxThreadCount <= 1 )
         {
             return 0;
@@ -151,7 +150,6 @@ void WorkerPool::Shutdown()
 
     for ( std::thread& thread : m_threads )
     {
-
         if ( thread.joinable() )
         {
             thread.join();
@@ -178,7 +176,6 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
     // Why: SubmitNoAlloc chooses the typed trampoline before this private queue
     // boundary. The caller-owned task remains alive until its completion fence,
     // and the fixed record never allocates or publishes erased state.
-
     if ( !dispatch )
     {
         return;
@@ -271,10 +268,8 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState, ParallelTaskDispatche
     // Why: ParallelForChunksNoAlloc owns the typed stack state and waits on its
     // fence before returning; this private fixed queue only transports the
     // synchronous borrow plus its matching typed trampoline.
-
     if ( GetThreadCount() == 0 )
     {
-
         if ( dispatch )
         {
             dispatch( dispatchState, chunk );
@@ -360,7 +355,6 @@ void WorkerPool::WorkerLoop( int workerIndex )
 
         if ( hasParallelTask )
         {
-
             if ( parallelTask.dispatch )
             {
                 parallelTask.dispatch( parallelTask.dispatchState, parallelTask.chunk );
@@ -368,7 +362,6 @@ void WorkerPool::WorkerLoop( int workerIndex )
         }
         else
         {
-
             if ( task.dispatch )
             {
                 task.dispatch( task.state );
@@ -425,7 +418,6 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 
     for ( int index = 0; index < static_cast<int>( squares.size() ); ++index )
     {
-
         if ( squares[static_cast<size_t>( index )] != index * index )
         {
             fprintf( out, "[worker-self-test] ParallelFor mismatch at %d.\n", index );
@@ -455,7 +447,6 @@ bool RunWorkerSystemSelfTest( WorkerPool& pool, FILE* out )
 
     for ( int index = 0; index < static_cast<int>( merged.size() ); ++index )
     {
-
         if ( merged[static_cast<size_t>( index )] != index )
         {
             fprintf( out, "[worker-self-test] Ordered collection mismatch at %d.\n", index );

@@ -88,7 +88,6 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target, const Ray& 
     float radiusSumSq = radiusSum * radiusSum;
 
     // Already overlapping: skip swept solve and let static overlap handling resolve contact.
-
     if ( centerDistanceSq <= radiusSumSq )
     {
         return NO_COLLISION;

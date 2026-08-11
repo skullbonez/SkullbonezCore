@@ -74,7 +74,6 @@ void ApplyEditorSpawnMaterial( SceneEntityCreateDesc& model, bool fixedObject, b
     // Concept: editor-spawn material encodes placement mode before asset
     // recipes override it. Fixed bodies stay neutral, dynamic boxes keep the
     // legacy inverted-texture marker, and dynamic hulls use the blue editor tint.
-
     if ( fixedObject )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, 1.0f );
@@ -130,7 +129,6 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
 
     if ( building && buildingPartCount <= 0 )
     {
-
         if ( reportErrors )
         {
             fprintf( stderr, "[editor] Cannot place building asset: %s is missing or empty.\n", building->assetName );
@@ -146,7 +144,6 @@ static bool TryResolveEditorObjectPlacementPreflight( SceneWorld& world, const A
 
     if ( modelCount + requiredModelCount > activeModelCapacity )
     {
-
         if ( reportErrors )
         {
             fprintf( stderr, "[editor] Cannot place object: model capacity reached.\n" );
@@ -227,7 +224,6 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         // render rows together before the returned handle becomes observable.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
-
         if ( bodyDesc.shape.valueless_by_exception() )
         {
             SB_FATAL( "Runtime/EditorObjectPlacement",
@@ -257,7 +253,6 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
 
         if ( !modelFixed )
         {
-
             if ( modelStartsAsleep )
             {
                 SeedEditorPhysicsBodyAsleep( world, index );
@@ -493,7 +488,6 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
         const bool ok = ForEachEditorBuildingPart( type, assets,
                                                    [&]( const Json& part )
                                                    {
-
                                                        if ( failed )
                                                        {
                                                            return;
@@ -575,8 +569,7 @@ bool PlaceEditorObjectAtTerrainPoint( SkullbonezCore::Core::SbDiagnosticStore& d
                                                                             MakeEditorBodyDesc( hull, center, partOrientation, Vector3( 0.0f, 0.0f, 0.0f ),
                                                                                                 Vector3( 0.0f, 0.0f, 0.0f ), inertia, mass, restitution ),
                                                                             MakeEditorColliderDesc( hull, restitution,
-                                                                                                    MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath(
-                                                                                                                                        hullPath.c_str() ),
+                                                                                                    MakeShareableHullShapeIdentity( ResolveEditorHullAssetPath( hullPath.c_str() ),
                                                                                                                                     Vector3( 1.0f, 1.0f,
                                                                                                                                              1.0f ) ) ) );
 

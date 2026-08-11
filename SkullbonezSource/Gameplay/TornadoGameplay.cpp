@@ -115,7 +115,6 @@ const TornadoFieldConfig& TornadoGameplay::GetFieldConfig() const
 
 void TornadoGameplay::SetSystemConfig( const TornadoSystemConfig& config )
 {
-
     if ( config.vortices.size() > MAX_ACTIVE_FORCE_FIELDS )
     {
 
@@ -152,7 +151,6 @@ bool TornadoGameplay::ToggleEnabled()
 
 void TornadoGameplay::ToggleFieldVectors()
 {
-
     if ( m_system.HasAuthoredVortices() )
     {
         m_system.ToggleVelocityFieldVisualization();
@@ -190,7 +188,6 @@ void TornadoGameplay::SetFieldLiftAcceleration( float value )
 
 void TornadoGameplay::SetFieldValue( float TornadoFieldConfig::* field, float value )
 {
-
     if ( m_system.HasAuthoredVortices() )
     {
         m_system.SetFieldValue( field, value );
@@ -205,7 +202,6 @@ void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
                                       const std::vector<float>& ejectCooldownSeconds, const TornadoFieldConfig& fieldConfig,
                                       const TornadoSystemConfig& systemConfig, float systemElapsedSeconds )
 {
-
     if ( captureSeconds.size() > m_captureSeconds.capacity() ||
          ejectCooldownSeconds.size() > m_ejectCooldownSeconds.capacity() )
     {
@@ -382,7 +378,6 @@ uint64_t TornadoGameplay::CollectDebugMemoryBytes() const
 
 void TornadoGameplay::EnsureStateBuffers( int modelCount )
 {
-
     if ( modelCount < 0 || static_cast<std::size_t>( modelCount ) > m_captureSeconds.capacity() ||
          static_cast<std::size_t>( modelCount ) > m_ejectCooldownSeconds.capacity() )
     {
@@ -408,7 +403,6 @@ void TornadoGameplay::EnsureStateBuffers( int modelCount )
 
 void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )
 {
-
     if ( m_forceFieldCount >= m_forceFields.size() )
     {
         SB_FATAL( "Gameplay/TornadoGameplay", "Active external force field capacity exceeded. requested=%zu capacity=%zu",

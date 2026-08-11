@@ -231,7 +231,6 @@ void SkyBox::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& confi
 
 SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
 {
-
     for ( int i = 0; i < 6; ++i )
     {
         m_faceMeshes[i].reset();
@@ -256,7 +255,6 @@ SkullbonezCore::Core::SbResult SkyBox::ResetRenderResources()
 
 void SkyBox::ReleaseRenderResources()
 {
-
     for ( int i = 0; i < 6; ++i )
     {
         m_faceMeshes[i].reset();
@@ -272,7 +270,6 @@ void SkyBox::ReleaseRenderResources()
 
 SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 {
-
     if ( !m_shader )
     {
         return m_resultDiagnostics.Failure( "Rendering/SkyBox", "Skybox shader is unavailable." );
@@ -290,7 +287,6 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
 
     for ( int i = 0; i < 6; ++i )
     {
-
         if ( !m_faceMeshes[i] )
         {
             return m_resultDiagnostics.Failure( "Rendering/SkyBox", "Skybox face mesh %d is unavailable.", i );

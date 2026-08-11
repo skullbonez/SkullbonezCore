@@ -76,7 +76,6 @@ void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& 
 
     // Stable colors make pipeline stepping readable across frames. These colors
     // are diagnostic labels only; they do not encode any solver math.
-
     switch ( stage )
     {
     case PhysicsPipelineStage::BroadphaseCandidate:
@@ -175,10 +174,8 @@ void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& 
 // physics, sleeping, or collision response.
 PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedContact( const PhysicsDebugContact& contact )
 {
-
     for ( TrackedContact& tracked : m_trackedContacts )
     {
-
         if ( tracked.contact.bodyA == contact.bodyA && tracked.contact.bodyB == contact.bodyB &&
              tracked.contact.featureId == contact.featureId )
         {
@@ -191,7 +188,6 @@ PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedConta
 
 float PhysicsDebugVisualizer::ContactFade( const TrackedContact& contact ) const
 {
-
     if ( contact.lifetimeSeconds <= TOLERANCE )
     {
         return 1.0f;
@@ -337,7 +333,6 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
     // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
     // lines = the two sideways friction axes. A gray body-to-body line helps
     // locate which pair produced the row.
-
     for ( const TrackedContact& tracked : m_trackedContacts )
     {
         const PhysicsDebugContact& contact = tracked.contact;
@@ -435,7 +430,6 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
 
     for ( const PhysicsPipelineRecord& record : records )
     {
-
         if ( record.stage != selectedStage )
         {
             continue;
@@ -478,7 +472,6 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
 
 void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain )
 {
-
     if ( !terrain )
     {
         return;
@@ -553,7 +546,6 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
     // The C-key mode is bitmask based: axes, contacts, and sleep state can be
     // shown independently or together.  If contacts are disabled, discard the
     // linger cache immediately so re-enabling starts from live solver rows.
-
     if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
     {
         m_trackedContacts.clear();
@@ -610,7 +602,6 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
 void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Matrix4& viewProj,
                                      Dx12GeometryOwner& renderCommands, bool supportsDebugLines, Geometry::Terrain* terrain )
 {
-
     if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !supportsDebugLines )
     {
         return;
@@ -621,7 +612,6 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view, const Ma
     // Each enabled layer writes into one retained CPU line buffer, then uploads a
     // single dynamic vertex stream.  That keeps debug rendering cheap enough to
     // leave on while investigating solver state in large scenes.
-
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
         EmitObjectAxes( view );

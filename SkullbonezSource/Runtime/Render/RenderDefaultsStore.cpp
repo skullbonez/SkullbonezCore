@@ -60,7 +60,6 @@ void RenderDefaultsStore::SubmitCinematicSave()
 
 void RenderDefaultsStore::Submit( RenderDefaultsRequestType type )
 {
-
     if ( m_count >= RENDER_DEFAULTS_REQUEST_CAPACITY )
     {
 
@@ -99,7 +98,6 @@ RenderDefaultsStore::DrainAtFrameCheckpoint( const SkullbonezCore::Core::Ordinar
         }
         else
         {
-
             if ( result.status.Ok() )
             {
                 result.status = saveResult;
@@ -122,7 +120,6 @@ std::size_t RenderDefaultsStore::PendingCount() const
 
 RenderDefaultsRequestType RenderDefaultsStore::PendingTypeAt( std::size_t index ) const
 {
-
     if ( index >= static_cast<std::size_t>( m_count ) )
     {
 

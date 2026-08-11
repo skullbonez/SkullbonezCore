@@ -74,7 +74,6 @@ using UIStressState = DiagnosticsRuntime::UIStressState;
 
 unsigned int NextStressRandom( unsigned int& state )
 {
-
     if ( state == 0 )
     {
         state = 0xC11E2026u;
@@ -93,7 +92,6 @@ class StressHarness
     // policy decisions from the seed while Run applies them to live owners.
     static int NextInt( UIStressState& stress, int maxExclusive )
     {
-
         if ( maxExclusive <= 0 )
         {
             return 0;
@@ -635,7 +633,6 @@ void GraphicsStressController::RecordSceneLoad()
 
 int GraphicsStressController::NextInt( int maxExclusive )
 {
-
     if ( maxExclusive <= 0 )
     {
         return 0;
@@ -720,7 +717,6 @@ void GraphicsStressController::CaptureDescriptorBaseline( unsigned int staticUse
 
 void GraphicsStressController::ObserveRecreationGeneration( uint64_t recreationGeneration )
 {
-
     if ( recreationGeneration > m_lastRecreationGeneration )
     {
         m_acknowledgedResizeCount += static_cast<int>( recreationGeneration - m_lastRecreationGeneration );
@@ -773,7 +769,6 @@ int GraphicsStressController::TextureChurnCount() const
 
 float GraphicsStressController::RandomCinematicParamValue( UI::UICinematicParam param )
 {
-
     switch ( param )
     {
     case UICinematicParam::Exposure:
@@ -923,7 +918,6 @@ SkullbonezCore::Core::SbResult Run::RunUIStressActions( RunCameraMode replayRest
 
     const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
-
         if ( !action.status.Ok() )
         {
 
@@ -1016,7 +1010,6 @@ bool SkullbonezCore::Runtime::PrepareGraphicsStressChurn( GraphicsStressControll
                                                           RuntimeRenderer& renderer,
                                                           const Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-
     if ( !stress.IsEnabled() )
     {
         return false;
@@ -1130,7 +1123,6 @@ void SkullbonezCore::Runtime::FinishGraphicsStressFrame( GraphicsStressControlle
                                                          SceneController& sceneController, ReplayRuntime& replayRuntime,
                                                          const Rendering::Dx12Diagnostics& renderDiagnostics )
 {
-
     if ( stress.ShouldPrintFrameSummary() )
     {
         printf( "[graphics-stress] frame=%d scene_loads=%d rng=%u\n", stress.FramesRun(), stress.SceneLoadsRequested(),

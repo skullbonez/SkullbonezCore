@@ -236,7 +236,6 @@ bool PhysicsSleepController::WakeDynamicBodyStateWithForces( PhysicsBodyStore& b
 void PhysicsSleepController::WakeSleepVisualIsland( PhysicsBodyStore& bodyStore, PhysicsContactCacheWakeAccess contactCache,
                                                     int index )
 {
-
     if ( index < 0 || index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
@@ -251,7 +250,6 @@ void PhysicsSleepController::WakeSleepVisualIsland( PhysicsBodyStore& bodyStore,
 
         for ( int i = 0; i < count; ++i )
         {
-
             if ( m_sleepIslandVisualId[i] == visualId )
             {
                 WakeDynamicBodyState( bodyStore, contactCache, i );
@@ -315,7 +313,6 @@ void PhysicsSleepController::WakePointJointIsland( PhysicsBodyStore& bodyStore, 
 
     for ( int i = 0; i < modelCount; ++i )
     {
-
         if ( m_sleepScratchFlags[i].pointJointBody != 0u && sleepIslands.Find( i ) == root )
         {
             WakeDynamicBodyState( bodyStore, contactCache, i );
@@ -357,10 +354,8 @@ void PhysicsSleepController::WakeRestingContactIsland( PhysicsBodyStore& bodySto
     m_restingWakeQueueScratch.push_back( index );
     const auto hasPersistentContactEdge = [&]( int a, int b )
     {
-
         for ( const PersistentContact& contact : persistentContacts )
         {
-
             if ( ( contact.bodyA == a && contact.bodyB == b ) || ( contact.bodyA == b && contact.bodyB == a ) )
             {
                 return true;
@@ -396,7 +391,6 @@ void PhysicsSleepController::WakeRestingContactIsland( PhysicsBodyStore& bodySto
 
         for ( int candidate = 0; candidate < modelCount; ++candidate )
         {
-
             if ( m_sleepScratchFlags[static_cast<std::size_t>( candidate )].restingWakeVisited != 0u ||
                  candidate >= static_cast<int>( m_sleepState.size() ) || m_sleepState[candidate] == 0 ||
                  IsSolverBodyFixed( ConstPhysicsBodyHotFields( hotFields ), candidate ) ||
@@ -422,7 +416,6 @@ bool PhysicsSleepController::PrepareExplicitWake( PhysicsBodyStore& bodyStore, i
 
     if ( index >= 0 && index < modelCount )
     {
-
         if ( IsSolverBodyFixed( bodyStore.HotFields(), index ) )
         {
             return false;
@@ -452,10 +445,8 @@ void PhysicsSleepController::WakeModel( PhysicsBodyStore& bodyStore, PhysicsCont
                                         std::span<const PersistentContact> persistentContacts,
                                         std::span<const PointJointConstraint> pointJointConstraints, int index )
 {
-
     if ( PrepareExplicitWake( bodyStore, index ) )
     {
-
         if ( IsUnderwaterSleepLocked( static_cast<int>( m_sleepState.size() ), index ) )
         {
             return;
@@ -473,10 +464,8 @@ void PhysicsSleepController::WakeModel( PhysicsBodyStore& bodyStore, const Colli
                                         std::span<const PersistentContact> persistentContacts,
                                         std::span<const PointJointConstraint> pointJointConstraints, int index )
 {
-
     if ( PrepareExplicitWake( bodyStore, index ) )
     {
-
         if ( !m_underwaterSleepLocked[index] && m_sleepState[index] && index < static_cast<int>( buoyancyFacts.size() ) )
         {
             BuoyancyBodyFacts& facts = buoyancyFacts[static_cast<std::size_t>( index )];
@@ -545,7 +534,6 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
 
     // Why: narrowphase and external-force wakeups must re-enter the body into this
     // tick synchronously; deferring this mutation changes later pair reads.
-
     if ( sleepingIndex < 0 || sleepingIndex >= m_modelCount ||
          IsSolverBodyFixed( ConstPhysicsBodyHotFields( m_hotFields ), sleepingIndex ) ||
          ( sleepingIndex < static_cast<int>( m_sleepController.m_underwaterSleepLocked.size() ) &&
@@ -594,7 +582,6 @@ PhysicsNarrowphaseWakeAccess PhysicsSleepController::CreateNarrowphaseWakeAccess
 
 void PhysicsSleepController::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
-
     if ( !m_sleepEnabled )
     {
         return;

@@ -50,7 +50,6 @@ namespace
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsSceneObjectId id, int modelIndexHint,
                                      int modelCount, int& outModelIndex )
 {
-
     if ( id.value == 0 )
     {
         return false;
@@ -86,7 +85,6 @@ bool ReplayContactHasModelIndex( const PhysicsSolverPersistentContactSample& con
 
 int ReplayContactOtherModelIndex( const PhysicsSolverPersistentContactSample& contact, int modelIndex )
 {
-
     if ( contact.bodyA == modelIndex )
     {
         return contact.bodyB;
@@ -103,7 +101,6 @@ int ReplayContactOtherModelIndex( const PhysicsSolverPersistentContactSample& co
 Vector3 ReplayContactPoint( const SkullbonezCore::Runtime::ReplaySolverFrameSample& sample,
                             const PhysicsSolverPersistentContactSample& contact )
 {
-
     if ( const SkullbonezCore::Runtime::ReplaySolverBodySample*
              bodyA = FindReplayNonNegativeBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -146,7 +143,6 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, PhysicsS
     // Why: retained replay UI state carries a dense row only as an optimization.
     // The stable scene id remains authoritative while this resolver heals or
     // invalidates the frame-local hint.
-
     if ( !::TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
         hint.value = -1;
@@ -219,7 +215,6 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
          camera.focusKind == RunReplayCameraFocusKind::PredictionContact ||
          camera.focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
-
         if ( camera.focusKind == RunReplayCameraFocusKind::Manifold )
         {
             const ReplaySolverFrameSample* sample = currentSolverSample;
@@ -236,7 +231,6 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
                     for ( const PhysicsSolverPersistentContactSample& contact :
                           sample->worldSnapshot.physics.persistentContacts )
                     {
-
                         if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )
                         {
                             continue;
@@ -305,7 +299,6 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
 
             for ( const RunReplayPredictionFrame& frame : prediction.frames )
             {
-
                 if ( frame.frameIndex != focusFrame )
                 {
                     continue;
@@ -313,7 +306,6 @@ void ReplayPredictionPresentation::RenderCauseFocusOverlay( const RunReplayCamer
 
                 // Why: the selected future-tree contact names a body pair, but
                 // the complete manifold remains in the immutable frame debug values.
-
                 for ( const PhysicsDebugContact& contact : frame.debugContacts )
                 {
                     const int contactModelA = ReplayRagdollTorsoModelIndexForPart( entities, contact.bodyA );

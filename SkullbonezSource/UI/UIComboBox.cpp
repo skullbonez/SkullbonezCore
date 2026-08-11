@@ -209,7 +209,6 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
 
     for ( int i = 0; i < optionCount; ++i )
     {
-
         if ( !options )
         {
             break;

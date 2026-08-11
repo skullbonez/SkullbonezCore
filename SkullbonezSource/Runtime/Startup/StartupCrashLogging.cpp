@@ -49,7 +49,6 @@ namespace
 {
 const char* ExceptionCodeName( DWORD code )
 {
-
     switch ( code )
     {
     case EXCEPTION_ACCESS_VIOLATION:

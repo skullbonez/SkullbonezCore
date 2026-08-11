@@ -41,7 +41,6 @@ enum class UIRenderAuthoringSection
 
 inline constexpr const char* UIRenderAuthoringSectionName( UIRenderAuthoringSection section )
 {
-
     switch ( section )
     {
     case UIRenderAuthoringSection::Lighting:

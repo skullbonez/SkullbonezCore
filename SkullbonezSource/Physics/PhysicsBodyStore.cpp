@@ -238,7 +238,6 @@ bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler*, const Physic
 void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler, const PhysicsTerrainView& terrain,
                                 PhysicsBodyHotState& hot, const ColliderRecord& collider )
 {
-
     if ( !terrain.IsValid() )
     {
         return;
@@ -324,7 +323,6 @@ void CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies, const Ph
 
 const PreservedRefreshState* PreservedStateForHandle( const PreservedRefreshStateList& preserved, PhysicsBodyHandle handle )
 {
-
     if ( !handle.IsValid() || handle.index >= preserved.size() )
     {
         return nullptr;
@@ -352,7 +350,6 @@ void ThrottleAngularVelocity( const PhysicsBodyRecord& record, PhysicsBodyHotSta
 
 float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float inertia, float deltaSeconds )
 {
-
     if ( fabsf( angularVelocity ) <= TOLERANCE || inertia <= TOLERANCE || deltaSeconds <= TOLERANCE )
     {
         return torque;
@@ -365,7 +362,6 @@ float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float ine
 Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& worldTorque,
                                 float deltaSeconds )
 {
-
     if ( !record.usesWorldInertia )
     {
         return Vector3( ClampAngularDragTorqueAxis( worldTorque.x, hot.angularVelocity.x, record.rotationalInertia.x,
@@ -390,7 +386,6 @@ Vector3 ClampAngularDragTorque( const PhysicsBodyRecord& record, const PhysicsBo
     // body/world round trip cannot perturb an otherwise unaffected artifact.
     // A changed value returns to world space because ApplyWorldImpulse owns the
     // one world-to-body conversion used for velocity response.
-
     if ( clampedBodyTorque.x == bodyTorque.x && clampedBodyTorque.y == bodyTorque.y && clampedBodyTorque.z == bodyTorque.z )
     {
         return worldTorque;
@@ -412,7 +407,6 @@ float CalculateBuoyancyForce( const PhysicsWorldForces& worldForces, float subme
 Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces, Vector3 velocityVector, float submergedVolumePercent,
                               float dragCoefficient, float projectedSurfaceArea )
 {
-
     if ( velocityVector.IsCloseToZero() )
     {
         return ZERO_VECTOR;
@@ -430,7 +424,6 @@ Vector3 CalculateViscousDrag( const PhysicsWorldForces& worldForces, Vector3 vel
 float TerrainWaterScale( const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces, const Vector3& worldPoint,
                          float sampleBand )
 {
-
     if ( !terrain.IsValid() || !terrain.IsInBounds( worldPoint.x, worldPoint.z ) )
     {
         return 1.0f;
@@ -516,10 +509,8 @@ PhysicsBuoyancySample CalculateBuoyancySample( const PhysicsBodyHotState& hot, c
 
         for ( float sx : SAMPLE_COORDS )
         {
-
             for ( float sy : SAMPLE_COORDS )
             {
-
                 for ( float sz : SAMPLE_COORDS )
                 {
                     const Vector3 local = localCenter +
@@ -589,7 +580,6 @@ float CalculateTerrainSupportFactor( const BuoyancyBodyFacts& buoyancyFacts, con
                                      const ColliderRecord& collider, const PhysicsTerrainView& terrain,
                                      const RotationMatrix& rotMat )
 {
-
     if ( !terrain.IsValid() )
     {
         return 0.0f;
@@ -672,7 +662,6 @@ Vector3 CalculateBuoyancyRightingTorque( const PhysicsBodyRecord& record, const 
                                          const PhysicsTerrainView& terrain, const PhysicsWorldForces& worldForces,
                                          float buoyancyForce, float submergedVolumePercent )
 {
-
     if ( hot.fixed || collider.shapeKind == ColliderShapeKind::Sphere || buoyancyForce <= TOLERANCE ||
          submergedVolumePercent <= TOLERANCE )
     {
@@ -834,7 +823,6 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
     // Invariant: the world-force path historically rotates every shape. Passing
     // true preserves its byte-exact baseline arithmetic while sharing the frame
     // conversion with pending and contact impulses.
-
     if ( TryApplyWorldInertiaResponse( orientation, true, worldTorqueImpulse, tryDivideByBodyInertia, angularImpulseDelta ) )
     {
         hot.angularVelocity += angularImpulseDelta;
@@ -843,7 +831,6 @@ void ApplyWorldImpulse( const PhysicsBodyRecord& record, PhysicsBodyHotState& ho
 
 void ApplyPendingImpulse( PhysicsBodyRecord& record, PhysicsBodyHotState& hot )
 {
-
     if ( !record.hasPendingImpulse )
     {
         return;
@@ -899,7 +886,6 @@ void ApplyWorldForces( PhysicsBodyRecord& record, const BuoyancyBodyFacts& buoya
 
     // Why: mutual gravity is accumulated in PhysicsWorld's serial pair pass,
     // then injected per body so worker force integration stays order-neutral.
-
     if ( precomputedMutualGravityForce )
     {
         worldForce += *precomputedMutualGravityForce;
@@ -1243,7 +1229,6 @@ static uint32_t NextSceneObjectIdValueAfter( const PhysicsBodyRecordList& bodies
 
     for ( const PhysicsBodyRecord& body : bodies )
     {
-
         if ( body.sceneObjectId.value == maxSceneObjectIdValue )
         {
             return maxSceneObjectIdValue;
@@ -1283,7 +1268,6 @@ std::vector<PhysicsSceneObjectId> PhysicsBodyStore::BuildSceneObjectIdsForReload
     // Hazard: descriptor repair receives a scene-row count from the caller. Keep
     // the cap check in the body-store owner so invalid topology reports the
     // store, requested count, fixed capacity, live count, and cold repair phase.
-
     if ( sceneEntityCount < 0 || static_cast<std::size_t>( sceneEntityCount ) > capacity )
     {
         ReportSceneObjectIdReloadCapacityExceeded( sceneEntityCount, capacity, Count() );
@@ -1307,10 +1291,8 @@ std::vector<PhysicsSceneObjectId> PhysicsBodyStore::BuildSceneObjectIdsForReload
         // Why: descriptor repair is cold. Existing rows preserve store-owned
         // scene object identity, while scene rows that do not have a body yet receive
         // fresh ids from the same scanned range before handle reassignment.
-
         if ( !sceneObjectId.IsValid() )
         {
-
             if ( nextSceneObjectIdValue == ( std::numeric_limits<uint32_t>::max )() )
             {
                 SB_FATAL( "PhysicsBodyStore", "Scene object id scratch range exhausted while rebuilding %d scene rows.",
@@ -1337,7 +1319,6 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, 
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsBodyHandle
     {
-
         if ( slot >= assignedHandleSlots.size() )
         {
             assignedHandleSlots.resize( static_cast<std::size_t>( slot ) + 1u, 0 );
@@ -1371,10 +1352,8 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, 
 
     if ( sceneObjectId.IsValid() )
     {
-
         for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleSceneObjectIds.size() ); ++slot )
         {
-
             if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId &&
                  slot < m_handleGenerations.size() &&
                  ( slot >= assignedHandleSlots.size() || assignedHandleSlots[slot] == 0 ) )
@@ -1406,10 +1385,8 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex, 
 
 void PhysicsBodyStore::RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots )
 {
-
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
-
         if ( m_handleAlive[slot] == 0 )
         {
             continue;
@@ -1437,7 +1414,6 @@ void PhysicsBodyStore::Clear()
 
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
-
         if ( m_handleAlive[slot] != 0 )
         {
             m_handleGenerations[slot] = NextHandleGeneration( m_handleGenerations[slot] );
@@ -1453,7 +1429,6 @@ void PhysicsBodyStore::Clear()
     // Invariant: CreateBodyRecord pops from the back of the free list. Push in
     // reverse so a full Clear() reuses low handle indices first while still
     // advancing generations for stale-handle rejection.
-
     for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
         m_freeHandleSlots.push_back( remaining - 1u );
@@ -1565,7 +1540,6 @@ PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyCreateDes
 
 bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
 {
-
     if ( !Contains( handle ) )
     {
         return false;
@@ -1583,7 +1557,6 @@ bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
     // Invariant: rows are dense for simulation scans, while handles remain
     // allocator identities. Removing a row updates only the moved handle's row
     // map; no live handle encodes the previous vector position.
-
     if ( recordIndex != lastRecordIndex )
     {
         PhysicsBodyRecord& destination = m_bodies[static_cast<std::size_t>( recordIndex )];
@@ -1613,7 +1586,6 @@ bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
 
 void PhysicsBodyStore::ClearPendingImpulses()
 {
-
     for ( PhysicsBodyRecord& record : m_bodies )
     {
         record.pendingImpulse = ZERO_VECTOR;
@@ -1628,7 +1600,6 @@ void PhysicsBodyStore::ClearPendingImpulses()
 // body after allocator reuse.
 bool PhysicsBodyStore::TrimToCount( int bodyCount )
 {
-
     if ( bodyCount < 0 || bodyCount > Count() )
     {
         return false;
@@ -1794,7 +1765,6 @@ void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRele
 
     for ( int i = 0; i < bodyCount; ++i )
     {
-
         if ( i == sourceIndex )
         {
             continue;
@@ -1814,7 +1784,6 @@ void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRele
 
         if ( hotFields.fixed[static_cast<std::size_t>( i )] != 0u )
         {
-
             if ( !record.releasesFromFixedOnContact )
             {
                 continue;
@@ -1836,7 +1805,6 @@ int PhysicsBodyStore::Count() const
 
 PhysicsBodyHandle PhysicsBodyStore::HandleForModelIndex( int modelIndex ) const
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelBodyHandles.size() ) )
     {
         return PhysicsBodyHandle {};
@@ -1848,7 +1816,6 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForModelIndex( int modelIndex ) const
 
 PhysicsBodyHandle PhysicsBodyStore::HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId, int modelIndexHint ) const
 {
-
     if ( !sceneObjectId.IsValid() )
     {
         return PhysicsBodyHandle {};
@@ -1871,7 +1838,6 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForSceneObjectId( PhysicsSceneObjectId
 
     for ( std::size_t slot = 0; slot < slotCount; ++slot )
     {
-
         if ( m_handleAlive[slot] == 0 || m_handleSceneObjectIds[slot] != sceneObjectId )
         {
             continue;
@@ -1893,7 +1859,6 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForSceneObjectId( PhysicsSceneObjectId
 
 int PhysicsBodyStore::ModelIndexForHandle( PhysicsBodyHandle handle ) const
 {
-
     if ( !Contains( handle ) )
     {
         return -1;
@@ -1920,7 +1885,6 @@ int PhysicsBodyStore::ResolveModelRow( PhysicsBodyHandle handle, ModelRowHint& h
 
 bool PhysicsBodyStore::Contains( PhysicsBodyHandle handle ) const
 {
-
     if ( !handle.IsValid() || handle.index >= m_handleGenerations.size() )
     {
         return false;
@@ -2044,7 +2008,6 @@ uint64_t PhysicsBodyStore::CollectRuntimeCapacityMemoryBytes() const
 
 PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForHandle( PhysicsBodyHandle handle )
 {
-
     if ( !Contains( handle ) )
     {
         return nullptr;
@@ -2056,7 +2019,6 @@ PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForHandle( PhysicsBodyHandle h
 
 const PhysicsBodyRecord* PhysicsBodyStore::RecordForHandle( PhysicsBodyHandle handle ) const
 {
-
     if ( !Contains( handle ) )
     {
         return nullptr;
@@ -2068,7 +2030,6 @@ const PhysicsBodyRecord* PhysicsBodyStore::RecordForHandle( PhysicsBodyHandle ha
 
 PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForModelIndex( int modelIndex )
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_bodies.size() ) )
     {
         return nullptr;
@@ -2080,7 +2041,6 @@ PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForModelIndex( int modelIndex 
 
 const PhysicsBodyRecord* PhysicsBodyStore::RecordForModelIndex( int modelIndex ) const
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_bodies.size() ) )
     {
         return nullptr;

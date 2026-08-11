@@ -76,7 +76,6 @@ uint32_t HashRuntimeName( const char* name )
 
     // Why: FNV hashes the unsigned character representation so bytes above
     // ASCII cannot sign-extend differently across compiler char defaults.
-
     for ( const unsigned char* p = reinterpret_cast<const unsigned char*>( name ); *p; ++p )
     {
         hash = ( hash ^ static_cast<uint32_t>( *p ) ) * 16777619u;
@@ -87,7 +86,6 @@ uint32_t HashRuntimeName( const char* name )
 
 bool HasPathPrefix( const char* name, const char* prefix )
 {
-
     if ( !name || !prefix )
     {
         return false;
@@ -99,7 +97,6 @@ bool HasPathPrefix( const char* name, const char* prefix )
 
 bool EndsWith( const char* name, const char* suffix )
 {
-
     if ( !name || !suffix )
     {
         return false;
@@ -112,7 +109,6 @@ bool EndsWith( const char* name, const char* suffix )
 
 MarkerDomain ClassifyDomain( const char* name )
 {
-
     if ( !name )
     {
         return MarkerDomain::Fallback;
@@ -168,7 +164,6 @@ MarkerDomain ClassifyDomain( const char* name )
 
 MarkerContext ClassifyContext( const char* name )
 {
-
     if ( EndsWith( name, "_Worker" ) )
     {
         return MarkerContext::Worker;
@@ -194,7 +189,6 @@ MarkerContext ClassifyContext( const char* name )
 
 uint32_t BaseColorForDomain( MarkerDomain domain )
 {
-
     switch ( domain )
     {
     case MarkerDomain::Frame:
@@ -344,7 +338,6 @@ const char* DecorateMarkerName( const char* name, const char* suffix, char* buff
 
 void CpuBegin( const char* name, uint32_t hash )
 {
-
     if ( !IsEnabled() )
     {
         return;
@@ -366,7 +359,6 @@ void CpuEnd()
 
     if ( g_cpuDepth <= 0 )
     {
-
         if ( IsEnabled() )
         {
             Log().WriteEventf( "platform_profiler_cpu_end_without_begin" );

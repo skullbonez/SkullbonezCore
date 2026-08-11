@@ -353,7 +353,6 @@ struct ReplayVelocityDragPreviewState
 
     bool Finish( uint32_t nextGeneration ) noexcept
     {
-
         if ( !active )
         {
             return false;
@@ -366,7 +365,6 @@ struct ReplayVelocityDragPreviewState
 
     bool ClearAfterGeneration( uint32_t completedGeneration ) noexcept
     {
-
         if ( !active || !awaitingAuthoritativeReplacement || completedGeneration < replacementGeneration )
         {
             return false;
@@ -718,7 +716,6 @@ inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexc
 
 inline bool RunReplayPredictionState::BuildPrefixHasBeenPresented() const noexcept
 {
-
     if ( !BuildPrefixShouldBePresented() )
     {
         return false;

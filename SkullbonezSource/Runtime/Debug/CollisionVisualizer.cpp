@@ -142,7 +142,6 @@ void CollisionVisualizer::ResetResources( Dx12GeometryOwner* renderGeometry )
 
     if ( renderGeometry )
     {
-
         if ( m_sphereInstMesh )
         {
             renderGeometry->DestroyInstancedMesh( m_sphereInstMesh );
@@ -229,7 +228,6 @@ void CollisionVisualizer::EnsureResources( Assets::AssetSystem& assets, Renderin
     // Resource creation is lazy so toggling the visualizer off has no startup cost.
     // The shader and both primitive meshes are created together on the first visible
     // frame, then reused until ResetResources() is called.
-
     if ( !m_shader )
     {
         m_shader = assets.CreateShader( renderResources, "shader.collision_visualizer" );
@@ -330,7 +328,6 @@ void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameVi
 
     for ( int i = 0; i < modelCount; ++i )
     {
-
         if ( i >= static_cast<int>( sleepStates.size() ) || sleepStates[i] == 0 )
         {
             continue;
@@ -341,7 +338,6 @@ void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameVi
 
         for ( int j = 0; j < modelCount; ++j )
         {
-
             if ( j >= static_cast<int>( sleepStates.size() ) || sleepStates[j] == 0 )
             {
                 continue;
@@ -454,7 +450,6 @@ void CollisionVisualizer::DrawHullInstance( Dx12GeometryOwner& renderCommands, c
     int vertexCount = 0;
     auto emitVertex = [&]( uint16_t index, const Vector3& normal )
     {
-
         if ( vertexCount >= HULL_MAX_TRIANGLE_VERTICES )
         {
             return;
@@ -509,7 +504,6 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets, Rendering::Dx12Re
                                   Rendering::Dx12Diagnostics& renderDiagnostics, const CollisionVisualizerFrameView& view,
                                   const Matrix4& cameraView, const Matrix4& proj, const float lightPos[4] )
 {
-
     if ( !m_enabled || view.modelCount <= 0 )
     {
         return;

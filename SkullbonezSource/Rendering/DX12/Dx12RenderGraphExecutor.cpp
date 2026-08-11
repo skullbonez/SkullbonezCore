@@ -37,10 +37,8 @@ namespace
 void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag,
                           const char* name )
 {
-
     if ( ( state & flag ) != 0 )
     {
-
         if ( wroteAny )
         {
             out << "|";
@@ -94,7 +92,6 @@ Dx12RenderGraphBarrierRecord MakeSingleTransitionRecord( const char* sourcePrefi
 
 bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
 {
-
     switch ( access )
     {
     case RenderGraphResourceAccess::RenderTarget:

@@ -51,7 +51,6 @@ SkullbonezCore::Core::SbResult Timer::Initialise( SkullbonezCore::Core::SbDiagno
     // The platform SDK allows a successful frequency query to report zero. The
     // runtime treats that as the same startup environment failure as an API
     // failure because all later time conversion would be undefined.
-
     if ( !tmpPerformanceFreq.QuadPart )
     {
         return NoPerformanceCounterSupport( diagnostics, "QueryPerformanceFrequency zero frequency" );
@@ -112,7 +111,6 @@ double Timer::GetTotalTime()
 
 double Timer::GetCurrentTimeInSeconds()
 {
-
     if ( !m_initialized || m_performanceFrequency <= 0.0 )
     {
         SB_FATAL( "Core/Timer", "Timer sampled before successful Initialise()." );

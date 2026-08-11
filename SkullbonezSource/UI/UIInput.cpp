@@ -32,7 +32,6 @@ namespace InputControl
 
 void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const UIInputSnapshot& input )
 {
-
     if ( !keyWasDown )
     {
         return;
@@ -47,7 +46,6 @@ void CaptureKeyStates( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], cons
 
 bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const UIInputSnapshot& input, int virtualKey )
 {
-
     if ( !keyWasDown || virtualKey < 0 || virtualKey >= UIInputSnapshot::VIRTUAL_KEY_COUNT )
     {
         return false;
@@ -62,7 +60,6 @@ bool ConsumeKeyPress( bool keyWasDown[UIInputSnapshot::VIRTUAL_KEY_COUNT], const
 
 bool IsVirtualKeyDown( const UIInputSnapshot& input, int virtualKey )
 {
-
     if ( virtualKey < 0 || virtualKey >= UIInputSnapshot::VIRTUAL_KEY_COUNT )
     {
         return false;

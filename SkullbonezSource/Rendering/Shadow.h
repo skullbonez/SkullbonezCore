@@ -144,7 +144,6 @@ struct ShadowReceiverBias
 
 inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shadow, bool objectReceiver )
 {
-
     if ( !objectReceiver )
     {
         return { shadow.depthBias, shadow.slopeBias };
@@ -164,7 +163,6 @@ inline ShadowReceiverBias ResolveShadowReceiverBias( const ShadowFrameData& shad
 inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& projection,
                                              const Math::Transformation::Matrix4& view, int mapSize )
 {
-
     if ( mapSize <= 0 )
     {
         return;

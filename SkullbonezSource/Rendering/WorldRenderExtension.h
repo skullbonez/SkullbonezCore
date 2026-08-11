@@ -109,7 +109,6 @@ class WorldRenderExtensionScope
         // Invariant: the callback payload is stack-owned. Both validation and
         // live execution finish before this method returns and before graph
         // callback borrows can be released at the frame boundary.
-
         if ( m_graph.Passes().size() != firstPass + 1u )
         {
             SB_FATAL( "Rendering/WorldRenderExtension", "World extension must append exactly one pass. before=%zu after=%zu",

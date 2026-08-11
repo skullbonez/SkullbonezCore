@@ -41,7 +41,6 @@ namespace
 {
 const char* FileNameFromPath( const char* path )
 {
-
     if ( !path )
     {
         return "";
@@ -68,7 +67,6 @@ std::string NormalizeScenePath( const std::string& path )
 
 bool ScenePathEqualsNormalizedPath( const std::string& normalizedPath, const std::string& candidatePath )
 {
-
     if ( normalizedPath.size() != candidatePath.size() )
     {
         return false;
@@ -76,7 +74,6 @@ bool ScenePathEqualsNormalizedPath( const std::string& normalizedPath, const std
 
     for ( size_t i = 0; i < normalizedPath.size(); ++i )
     {
-
         if ( normalizedPath[i] != ( candidatePath[i] == '\\' ? '/' : candidatePath[i] ) )
         {
             return false;
@@ -95,7 +92,6 @@ bool IsSceneJsonFile( const std::filesystem::path& path )
 
 int RunSceneBrowserState::CurrentIndexForPath( const std::string* currentScenePath ) const
 {
-
     if ( !currentScenePath )
     {
         return -1;
@@ -103,7 +99,6 @@ int RunSceneBrowserState::CurrentIndexForPath( const std::string* currentScenePa
 
     for ( int i = 0; i < static_cast<int>( paths.size() ); ++i )
     {
-
         if ( ScenePathEqualsNormalizedPath( paths[i], *currentScenePath ) )
         {
             return i;
@@ -124,7 +119,6 @@ void SceneNavigationModel::RefreshBrowserList()
 
     if ( !std::filesystem::exists( sceneDir, error ) || error )
     {
-
         if ( error )
         {
             SkullbonezCore::Core::Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"",

@@ -194,7 +194,6 @@ RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
 
 void Dx12Diagnostics::GpuTimerBegin( int markerIndex )
 {
-
     if ( m_frame )
     {
         GpuTimerBegin( m_frame->DiagnosticsFrame(), markerIndex );
@@ -203,7 +202,6 @@ void Dx12Diagnostics::GpuTimerBegin( int markerIndex )
 
 void Dx12Diagnostics::GpuTimerEnd( int markerIndex )
 {
-
     if ( m_frame )
     {
         GpuTimerEnd( m_frame->DiagnosticsFrame(), markerIndex );
@@ -212,7 +210,6 @@ void Dx12Diagnostics::GpuTimerEnd( int markerIndex )
 
 void Dx12Diagnostics::GpuTimerInvalidate()
 {
-
     if ( m_frame )
     {
         GpuTimerInvalidate( m_frame->DiagnosticsFrame() );
@@ -226,7 +223,6 @@ bool Dx12Diagnostics::GpuTimerRead( int markerIndex, float& outMilliseconds )
 
 void Dx12Diagnostics::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
-
     if ( m_frame && SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
     {
         m_frame->BeginProfilerEvent( name, hash );
@@ -235,7 +231,6 @@ void Dx12Diagnostics::PlatformProfilerGpuBegin( const char* name, uint32_t hash 
 
 void Dx12Diagnostics::PlatformProfilerGpuEnd()
 {
-
     if ( m_frame )
     {
         m_frame->EndProfilerEvent();
@@ -310,7 +305,6 @@ void Dx12Diagnostics::ShutdownGpuTimers()
 
 void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool waitForFence )
 {
-
     if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readback.IsReady() || !frame.FrameFenceReady() )
     {
         return;
@@ -334,7 +328,6 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
 
         // Why: catch a fence that is only a few microseconds behind without a
         // kernel wait. A genuinely incomplete sample remains pending.
-
         for ( int spin = 0; spin < 512; ++spin )
         {
             YieldProcessor();
@@ -385,7 +378,6 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
 
 void Dx12Diagnostics::GpuTimerBegin( Dx12DiagnosticsFrame& frame, int markerIndex )
 {
-
     if ( !m_gpuTimers.queryHeap || markerIndex < 0 || markerIndex >= TIMER_HEAP_MARKERS || !frame.EnsureOpen().Ok() )
     {
         return;
@@ -398,7 +390,6 @@ void Dx12Diagnostics::GpuTimerBegin( Dx12DiagnosticsFrame& frame, int markerInde
 
 void Dx12Diagnostics::GpuTimerEnd( Dx12DiagnosticsFrame& frame, int markerIndex )
 {
-
     if ( !m_gpuTimers.queryHeap || !frame.CanRecord() || markerIndex < 0 || markerIndex >= TIMER_HEAP_MARKERS )
     {
         return;
@@ -411,7 +402,6 @@ void Dx12Diagnostics::GpuTimerEnd( Dx12DiagnosticsFrame& frame, int markerIndex 
 
 void Dx12Diagnostics::GpuTimerInvalidate( Dx12DiagnosticsFrame& frame )
 {
-
     if ( m_gpuTimers.readPending )
     {
         ConsumeGpuTimerReadback( frame, true );
@@ -450,7 +440,6 @@ bool Dx12Diagnostics::ResolveWrittenGpuTimers( Dx12DiagnosticsFrame& frame )
 
     while ( slot < TIMER_HEAP_SIZE )
     {
-
         if ( !m_gpuTimers.slotWritten[slot] )
         {
             ++slot;
@@ -477,7 +466,6 @@ bool Dx12Diagnostics::ResolveWrittenGpuTimers( Dx12DiagnosticsFrame& frame )
 
 void Dx12Diagnostics::PublishResolvedGpuTimerFence( bool resolvedThisFrame, UINT64 fenceValue )
 {
-
     if ( !resolvedThisFrame )
     {
         return;

@@ -78,7 +78,6 @@ struct FileCloser
 {
     void operator()( FILE* file ) const
     {
-
         if ( file )
         {
             fclose( file );
@@ -174,7 +173,6 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 
     for ( int q = 0; q < n; ++q )
     {
-
         while ( scratch_z[k + 1] < static_cast<float>( q ) )
         {
             ++k;
@@ -197,17 +195,14 @@ static void ComputeEDT2D( float* grid, int w, int h )
     std::vector<int> scratch_v( maxN );
 
     // Horizontal pass
-
     for ( int y = 0; y < h; ++y )
     {
         ComputeEDT1D( grid + y * w, w, scratch_src.data(), scratch_v.data(), scratch_z.data() );
     }
 
     // Vertical pass
-
     for ( int x = 0; x < w; ++x )
     {
-
         for ( int y = 0; y < h; ++y )
         {
             col_tmp[y] = grid[y * w + x];
@@ -244,7 +239,6 @@ static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* 
     }
 
     // Reject stale or corrupt files before touching any engine state.
-
     if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u ||
          hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) ||
          hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) ||
@@ -333,7 +327,6 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
     if ( !hBitmap || !pPixels )
     {
-
         if ( hBitmap )
         {
             DeleteObject( hBitmap );
@@ -449,10 +442,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
         // Initialise EDT source grids from the binary glyph mask.
         // edtOut: source = OUTSIDE pixels  edtIn: source = INSIDE pixels
-
         for ( int py = 0; py < FONT_CELL_H_HI; ++py )
         {
-
             for ( int px = 0; px < FONT_CELL_W_HI; ++px )
             {
                 const uint8_t val = hiAtlas[( cy + py ) * ATLAS_W_HI + ( cx + px )];
@@ -472,14 +463,12 @@ bool Text2d::GenerateSdfAtlasToFile( const char* fontName, const char* outputPat
 
         for ( int fy = 0; fy < FONT_CELL_H; ++fy )
         {
-
             for ( int fx = 0; fx < FONT_CELL_W; ++fx )
             {
                 float sum = 0.0f;
 
                 for ( int sy = 0; sy < SDF_SCALE; ++sy )
                 {
-
                     for ( int sx = 0; sx < SDF_SCALE; ++sx )
                     {
                         const int hidx = ( fy * SDF_SCALE + sy ) * FONT_CELL_W_HI + ( fx * SDF_SCALE + sx );
@@ -595,7 +584,6 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
     // Lane R: text is required UI, not an optional effect. Returning success
     // with a missing shader makes every glyph draw quietly disappear while
     // panels still render, so startup must reject any incomplete resource set.
-
     if ( !Text2d::fontTexture || !Text2d::textBatchVB || !Text2d::dynamicVB || !Text2d::quadBatchVB ||
          !Text2d::pTextShader || !Text2d::pSolidShader || !Text2d::pSolidBatchShader )
     {
@@ -625,7 +613,6 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( SkullbonezCore::Core::SbDiagno
 
 void Text2d::RebuildProjection( TextBatch& batch, int w, int h )
 {
-
     if ( w <= 0 || h <= 0 )
     {
         return;
@@ -634,7 +621,6 @@ void Text2d::RebuildProjection( TextBatch& batch, int w, int h )
     // Matches the legacy FFP coordinate space: FOV=45°, aspect=w/h.
     // halfH is derived from the half-FOV angle and is invariant to resolution;
     // halfW scales with the aspect ratio so text is never distorted on resize.
-
     if ( batch.m_projectionWidth == w && batch.m_projectionHeight == h )
     {
         return;
@@ -652,7 +638,6 @@ void Text2d::RebuildProjection( TextBatch& batch, int w, int h )
 
 float Text2d::MeasureText( float size, const char* text )
 {
-
     if ( !text )
     {
         return 0.0f;
@@ -680,10 +665,8 @@ float Text2d::MeasureText( float size, const char* text )
 
 void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx12GeometryOwner* renderGeometry )
 {
-
     if ( Text2d::fontTexture )
     {
-
         if ( renderTextures )
         {
             renderTextures->DeleteTexture( Text2d::fontTexture );
@@ -694,7 +677,6 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 
     if ( Text2d::textBatchVB )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyDynamicVB( Text2d::textBatchVB );
@@ -705,7 +687,6 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 
     if ( Text2d::dynamicVB )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyDynamicVB( Text2d::dynamicVB );
@@ -716,7 +697,6 @@ void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx1
 
     if ( Text2d::quadBatchVB )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyDynamicVB( Text2d::quadBatchVB );
@@ -750,7 +730,6 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
     {
 
         // Guard against overflowing the batch buffer.
-
         if ( batch.m_textVertexCount + TEXT_BATCH_VERTS_PER_CHAR > TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR )
         {
             break;
@@ -849,7 +828,6 @@ void Text2d::RenderTextInternal( TextBatch& batch, float xPosition, float yPosit
 
 void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderCommands )
 {
-
     if ( batch.m_textVertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
     {
         return;
@@ -872,7 +850,6 @@ void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12
 void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPosition, float size, float r, float g, float b,
                                 const char* format, ... )
 {
-
     if ( !format || !Text2d::pTextShader )
     {
         return;
@@ -891,7 +868,6 @@ void Text2d::Render2dTextColor( TextBatch& batch, float xPosition, float yPositi
 void Text2d::Render2dQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1,
                            float r, float g, float b, float a )
 {
-
     if ( !Text2d::pSolidShader || !Text2d::dynamicVB )
     {
         return;
@@ -917,7 +893,6 @@ void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, flo
     // Accumulate one quad (two triangles, 6 vertices) into the owner batch.
     // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
     // FlushQuads() uploads and draws all accumulated quads in one call.
-
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_QUAD > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
 
@@ -974,7 +949,6 @@ void Text2d::BatchQuad( TextBatch& batch, Dx12GeometryOwner& renderCommands, flo
 void Text2d::BatchTriangle( TextBatch& batch, Dx12GeometryOwner& renderCommands, float x0, float y0, float x1, float y1,
                             float x2, float y2, float r, float g, float b, float a )
 {
-
     if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
         FlushQuads( batch, renderCommands );
@@ -1009,7 +983,6 @@ void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
 
     // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).
-
     if ( batch.m_quadVertexCount == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
     {
         return;

@@ -120,7 +120,6 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_LINE_RASTER = 
 
 void HashReplaySubmissionBytes( uint64_t& hash, SkullbonezCore::Core::ByteView bytes )
 {
-
     for ( uint8_t byte : bytes )
     {
         hash ^= static_cast<uint64_t>( byte );
@@ -331,7 +330,6 @@ ReplayVisualPacket EditorTracer::BuildReplayVisualPacket( const Vector3& cameraE
 
 std::size_t EditorTracer::ReplayPathRibbonSegmentCapacityRemaining() const
 {
-
     if ( m_replayRibbonSegments.size() >= m_replayRibbonSegments.capacity() )
     {
         return 0;
@@ -343,7 +341,6 @@ std::size_t EditorTracer::ReplayPathRibbonSegmentCapacityRemaining() const
 
 std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
 {
-
     if ( m_priorityReplayRibbonSegments.size() >= m_priorityReplayRibbonSegments.capacity() )
     {
         return 0;
@@ -356,7 +353,6 @@ std::size_t EditorTracer::ReplayPriorityRibbonSegmentCapacityRemaining() const
 
 void EditorTracer::EmitLineTo( std::vector<float>& lineData, const Vector3& a, const Vector3& b, float r, float g, float bl )
 {
-
     if ( lineData.size() + EDITOR_TRACER_FLOATS_PER_LINE > lineData.capacity() )
     {
         return;
@@ -547,7 +543,6 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, co
                                               float g, float bl, const ReplayRibbonStyle& style,
                                               SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
 {
-
     if ( VectorMagSquared( b - a ) <= TOLERANCE * TOLERANCE )
     {
         return;
@@ -560,7 +555,6 @@ void EditorTracer::EmitReplayRibbonSegmentTo( std::vector<float>& ribbonData, co
     if ( combinedSegments >= EDITOR_TRACER_REPLAY_RIBBON_SEGMENT_BUDGET ||
          ribbonData.size() + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT > ribbonData.capacity() )
     {
-
         if ( laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT )
         {
             RecordReplayRibbonDroppedSegments( lane );
@@ -734,7 +728,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         for ( std::size_t i = 0; i + EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT <= ribbonData.size();
               i += EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
         {
-
             if ( vertexData.size() +
                      EDITOR_TRACER_REPLAY_RIBBON_VERTICES_PER_SEGMENT * EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX >
                  vertexData.capacity() )
@@ -760,7 +753,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
             // sample. Matching the complete style prevents unrelated path lanes
             // that merely touch at a collision point from being welded together;
             // color is intentionally excluded because it grades along one path.
-
             if ( i >= EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT )
             {
                 const std::size_t previousIndex = i - EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_SEGMENT;
@@ -797,7 +789,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
 
             // Each emitted vertex carries the same adjacency-aware payload.
             // SV_VertexID still selects the endpoint and side in the shader.
-
             for ( int vertex = 0; vertex < 6; ++vertex )
             {
 
@@ -832,7 +823,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
         // source lanes during EditorTracer construction. This copy therefore
         // replaces bytes inside retained storage instead of growing gameplay
         // memory when a prediction publication changes.
-
         for ( const float value : ribbonData )
         {
             cachedRibbonData.push_back( value );
@@ -844,7 +834,6 @@ void EditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const Ve
     // Invariant: ordinary replay paths may overflow without erasing causal
     // evidence. Priority ribbons are appended second; only the yellow entry box
     // remains on this ribbon path while rest/horizon boxes use priority lines.
-
     if ( ordinarySourceChanged || prioritySourceChanged )
     {
         PROFILE_SCOPED( "Frame/Replay/PublishRenderPacket/BuildFrameLocalPacket/BuildRibbonVertices/ExpandChangedSources" );
@@ -1434,7 +1423,6 @@ void EditorTracer::AddReplayVelocityGizmo( const Vector3& origin, const Quaterni
 void EditorTracer::Render( const ReplayVisualPacket& packet, const Matrix4& viewProjection,
                            Rendering::Dx12GeometryOwner& renderCommands )
 {
-
     if ( !packet.HasGeometry() )
     {
         return;
@@ -1533,7 +1521,6 @@ void EditorTracer::Render( const ReplayVisualPacket& packet, const Matrix4& view
         // testing disabled; the normal pass is depth-tested, so visible
         // strokes stay seated while occluded spans remain only faintly
         // readable behind scene geometry.
-
         if ( !packet.expandedRibbonVertices.empty() )
         {
             renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices, viewProjection,

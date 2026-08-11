@@ -44,7 +44,6 @@ SkullbonezCore::Core::SbResult SubmitBounded( SkullbonezCore::Core::SbDiagnostic
                                               OperatorEditorCommandQueue<Command, Capacity>& queue, const Command& command,
                                               SameIdentity sameIdentity, SamePayload samePayload, bool* duplicate )
 {
-
     if ( duplicate )
     {
         *duplicate = false;
@@ -52,7 +51,6 @@ SkullbonezCore::Core::SbResult SubmitBounded( SkullbonezCore::Core::SbDiagnostic
 
     for ( uint32_t index = 0u; index < queue.count; ++index )
     {
-
         if ( !sameIdentity( queue.commands[index], command ) )
         {
             continue;
@@ -106,7 +104,6 @@ bool IsPhysicsDebugOverlayValue( uint32_t value )
 
     // Invariant: shared editor queues carry only the UI command vocabulary.
     // Runtime performs the later UI-overlay-to-Physics-flag translation.
-
     switch ( static_cast<UIPhysicsDebugOverlay>( value ) )
     {
     case UIPhysicsDebugOverlay::Axes:
@@ -156,7 +153,6 @@ bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorE
 
 bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
 {
-
     if ( left.type != right.type )
     {
         return false;
@@ -179,7 +175,6 @@ template <typename Queue, typename Submit>
 SkullbonezCore::Core::SbResult MergeQueue( SkullbonezCore::Core::SbDiagnosticStore& diagnostics, Queue& target,
                                            const Queue& source, Submit submit, uint32_t& accepted, uint32_t& duplicates )
 {
-
     if ( source.count > Queue::capacity )
     {
         return diagnostics.Failure( OWNER, "Operator-editor command count exceeded queue capacity" );
@@ -229,7 +224,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             OperatorEditorSceneCommandQueue& queue,
                                                             const OperatorEditorSceneCommand& command, bool* duplicate )
 {
-
     if ( command.type != OperatorEditorSceneCommandType::ResetCurrentScene &&
          command.type != OperatorEditorSceneCommandType::ResetSceneDefaults &&
          command.type != OperatorEditorSceneCommandType::RequestDemoScene &&
@@ -258,7 +252,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             OperatorEditorPropertyCommandQueue& queue,
                                                             const OperatorEditorPropertyCommand& command, bool* duplicate )
 {
-
     switch ( command.type )
     {
     case OperatorEditorPropertyCommandType::SetTimeScale:
@@ -320,7 +313,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             OperatorEditorRenderingCommandQueue& queue,
                                                             const OperatorEditorRenderingCommand& command, bool* duplicate )
 {
-
     switch ( command.type )
     {
     case OperatorEditorRenderingCommandType::ToggleVsync:
@@ -380,7 +372,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             const OperatorEditorDiagnosticsCommand& command,
                                                             bool* duplicate )
 {
-
     switch ( command.type )
     {
     case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
@@ -436,7 +427,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             OperatorEditorReplayCommandQueue& queue,
                                                             const OperatorEditorReplayCommand& command, bool* duplicate )
 {
-
     switch ( command.type )
     {
     case OperatorEditorReplayCommandType::SetMemoryPolicy:
@@ -509,7 +499,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( SkullbonezCore::Core
                                                             OperatorEditorToolCommandQueue& queue,
                                                             const OperatorEditorToolCommand& command, bool* duplicate )
 {
-
     switch ( command.type )
     {
     case OperatorEditorToolCommandType::ToggleEditorMode:
@@ -604,7 +593,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
     const auto normalizeProperty = [&]( bool requested,
                                        OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0 )
     {
-
         if ( result.Ok() && requested )
         {
             result = SubmitOperatorEditorCommand( diagnostics, normalized.property,
@@ -676,7 +664,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
     const auto normalizeRendering = [&]( bool requested,
                                         OperatorEditorRenderingCommandType type, int parameter = -1, float value = 0.0f )
     {
-
         if ( result.Ok() && requested )
         {
             result = SubmitOperatorEditorCommand( diagnostics, normalized.rendering,
@@ -715,7 +702,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
     const auto normalizeDiagnostics = [&]( bool requested, OperatorEditorDiagnosticsCommandType type, uint32_t flag = 0u,
                                            int integerValue = 0, float value = 0.0f )
     {
-
         if ( result.Ok() && requested )
         {
             result = SubmitOperatorEditorCommand( diagnostics, normalized.diagnostics,
@@ -786,7 +772,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( Skullbonez
 
     const auto normalizeTool = [&]( bool requested, OperatorEditorToolCommandType type )
     {
-
         if ( result.Ok() && requested )
         {
             result = SubmitOperatorEditorCommand( diagnostics, normalized.tools, OperatorEditorToolCommand { type } );
@@ -1085,7 +1070,6 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( SkullbonezCore::Co
 
         // Invariant: preview values are presentation-local. Only the single
         // release/enter commit reaches mutation, replay, reset, or history owners.
-
         if ( command.phase == OperatorEditorEditPhase::Preview )
         {
             continue;

@@ -145,7 +145,6 @@ float ReplayEventFloatFromBits( int32_t signedBits )
 
 int ReplayHexNibble( char value )
 {
-
     if ( value >= '0' && value <= '9' )
     {
         return value - '0';
@@ -200,7 +199,6 @@ bool DecodeReplayRay9Payload( const ReplayEventSample& event, Vector3& outOrigin
 
     for ( float& value : values )
     {
-
         if ( !ReadReplayHexFloat( cursor, value ) )
         {
             return false;
@@ -240,7 +238,6 @@ bool DecodeReplayPlacePayload( const ReplayEventSample& event, Vector3& outTerra
 
     for ( int i = 0; i < valueCount; ++i )
     {
-
         if ( !ReadReplayHexFloat( cursor, values[i] ) )
         {
             return false;
@@ -283,7 +280,6 @@ bool DecodeReplayTransformPayload( const ReplayEventSample& event, Vector3& outP
 
     for ( int i = 0; i < valueCount; ++i )
     {
-
         if ( !ReadReplayHexFloat( cursor, values[i] ) )
         {
             return false;
@@ -301,10 +297,8 @@ bool DecodeReplayTransformPayload( const ReplayEventSample& event, Vector3& outP
 const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<ReplayV2SolverHashSample>& hashes,
                                                               ReplayFrameIndex frameIndex )
 {
-
     for ( const ReplayV2SolverHashSample& hash : hashes )
     {
-
         if ( hash.frameIndex == frameIndex )
         {
             return &hash;
@@ -317,10 +311,8 @@ const ReplayV2SolverHashSample* FindReplaySolverHashForFrame( const std::vector<
 const ReplayPresentationSample* FindReplayPresentationForFrame( const std::vector<ReplayPresentationSample>& samples,
                                                                 ReplayFrameIndex frameIndex )
 {
-
     for ( const ReplayPresentationSample& sample : samples )
     {
-
         if ( sample.frameIndex == frameIndex )
         {
             return &sample;
@@ -332,7 +324,6 @@ const ReplayPresentationSample* FindReplayPresentationForFrame( const std::vecto
 
 void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char* reason )
 {
-
     if ( outReason && reasonSize > 0 )
     {
         strncpy_s( outReason, reasonSize, reason ? reason : "event replay failed", _TRUNCATE );
@@ -489,7 +480,6 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEven
     // Concept: v2 restore replays editor transforms by editing the authoritative
     // PhysicsBodyStore and ColliderStore rows. Presentation samples are only
     // validation targets; they are not allowed to become collision authority.
-
     if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
     {
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported editor transform flags" );
@@ -598,7 +588,6 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world, const ReplayEven
 
     if ( hasEditedColliderDesc )
     {
-
         if ( !physics.UpdateAuthoredBodyAndCollider( bodyEdit, std::move( editedColliderDesc ) ) )
         {
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform body/collider update failed" );
@@ -636,7 +625,6 @@ bool ApplyReplayRestoreEventForTarget( SkullbonezCore::Core::SbDiagnosticStore& 
                                        SceneWorld& world, int sceneObjectCapacity, const ReplayEventSample& event,
                                        char* eventOutReason, std::size_t eventReasonSize, bool& requestInteractiveScene )
 {
-
     if ( event.payloadVersion != 1 )
     {
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
@@ -711,7 +699,6 @@ struct ReplayRestoreArtifactData
 bool LoadReplayRestoreArtifactData( const char* path, ReplayRestoreArtifactData& artifact, char* outReason,
                                     std::size_t reasonSize )
 {
-
     if ( !ReplayV2Artifact::LoadSolverCheckpoints( path, artifact.checkpoints, &artifact.checkpointResult ) )
     {
         WriteReplayProbeReason( outReason, reasonSize, "failed to load v2 solver checkpoints" );
@@ -751,10 +738,8 @@ bool SelectReplayRestoreTargetAndCheckpoint( const ReplayRestoreArtifactData& ar
 
     if ( requestedFrame == latestNonCheckpointTarget )
     {
-
         for ( auto it = artifact.hashes.rbegin(); it != artifact.hashes.rend(); ++it )
         {
-
             if ( !it->checkpointBoundary )
             {
                 outTarget = &*it;
@@ -770,10 +755,8 @@ bool SelectReplayRestoreTargetAndCheckpoint( const ReplayRestoreArtifactData& ar
     }
     else
     {
-
         for ( const ReplayV2SolverHashSample& hash : artifact.hashes )
         {
-
             if ( hash.frameIndex == requestedFrame )
             {
                 outTarget = &hash;
@@ -794,7 +777,6 @@ bool SelectReplayRestoreTargetAndCheckpoint( const ReplayRestoreArtifactData& ar
 
     for ( const ReplaySolverFrameSample& candidate : artifact.checkpoints )
     {
-
         if ( candidate.frameIndex <= outTarget->frameIndex &&
              ( !outCheckpoint || candidate.frameIndex > outCheckpoint->frameIndex ) )
         {
@@ -837,7 +819,6 @@ bool PrepareReplayRestoreArtifactSelection( const char* path, ReplayFrameIndex r
                                             const ReplaySolverFrameSample*& outCheckpoint, char* outReason,
                                             std::size_t reasonSize )
 {
-
     if ( !path || path[0] == '\0' )
     {
         WriteReplayProbeReason( outReason, reasonSize, "replay v2 target restore requires a v2 artifact path" );
@@ -864,7 +845,6 @@ bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpo
 
     for ( const ReplaySolverBodySample& body : checkpoint.bodies )
     {
-
         if ( body.modelRow.value < 0 || body.modelRow.value >= liveModelCount )
         {
             return false;
@@ -888,7 +868,6 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
 
     for ( const ReplayEventSample& event : events )
     {
-
         if ( event.kind != ReplayEventKind::GeneratedSceneConfig || event.frameIndex > checkpoint.frameIndex ||
              event.sequence >= checkpoint.eventCursor )
         {
@@ -996,7 +975,6 @@ bool ApplyReplayRestoreEventsForFrame( SkullbonezCore::Core::SbDiagnosticStore& 
 
     for ( const ReplayEventSample& event : artifact.events )
     {
-
         if ( event.frameIndex != nextFrame || event.sequence < eventCursor )
         {
             continue;
@@ -1058,7 +1036,6 @@ void AdvanceReplayRestorePhysicsFrame( SceneController& sceneController, Runtime
 
     // Replay target stepping consumes the same bounded presentation events as
     // the live frame so presentation hashes cannot drift by call path.
-
     for ( int modelIndex : postStep.fixedContactModelIndices )
     {
         contactPresentation.NotifyFixedContact( modelIndex, 0.5f );
@@ -1454,7 +1431,6 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
                                                         runtimeTools, checkpoint, checkpointReason,
                                                         sizeof( checkpointReason ) ) )
     {
-
         if ( transaction.StateMutated() )
         {
             transaction.RecordFailure( checkpointReason );
@@ -1474,7 +1450,6 @@ bool ApplyReplayRestoreCheckpoint( ReplayRestoreTransaction& transaction, SceneC
 bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, SceneController& sceneController,
                                      OverlayDebugState& debug, RuntimeTools& runtimeTools )
 {
-
     if ( !transaction.StateMutated() )
     {
         return false;
@@ -1495,7 +1470,6 @@ bool RestoreReplayLiveBackupOrFatal( ReplayRestoreTransaction& transaction, Scen
     // Hazard: recoverable artifact errors must not return control with a
     // partially rebuilt scene. Failure to reapply the retained live sample is a
     // Lane F replay invariant, not a usable runtime state.
-
     if ( !fallbackRestored )
     {
         SB_FATAL( "Runtime/ReplayRestore", "V2 restore rollback failed after live state mutation: %s",
@@ -1526,7 +1500,6 @@ bool ReplayProbeRunner::Configure( const ReplayStartupRequest& request )
     m_startup = ReplayStartupWorkflowState {};
     auto copyPath = []( char* destination, std::size_t destinationSize, const char* source )
     {
-
         if ( source && source[0] != '\0' )
         {
             strncpy_s( destination, destinationSize, source, _TRUNCATE );
@@ -1582,7 +1555,6 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
 
     if ( startup.loadPath[0] != '\0' )
     {
-
         if ( BeginLoadedPresentationActivationScrubber( HasLoadedPresentation(), loadInput.inputRouter,
                                                         loadInput.interaction ) )
         {
@@ -1739,7 +1711,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
     if ( !PrepareReplayRestoreTopology( transaction, sceneController, runtimeTools, simulation, config, uiOverrides,
                                         generatedObjectTypeOverride, artifact, *checkpoint, generatedTopologyRebuilt ) )
     {
-
         if ( transaction.StateMutated() )
         {
             return failAfterMutation( transaction.FailureReason(), target );
@@ -1751,7 +1722,6 @@ bool ReplayRuntime::RestoreV2ArtifactTargetState( ReplayRestoreTransaction& tran
 
     if ( !ApplyReplayRestoreCheckpoint( transaction, sceneController, debug, runtimeTools, *checkpoint ) )
     {
-
         if ( transaction.StateMutated() )
         {
             return failAfterMutation( transaction.FailureReason(), target );

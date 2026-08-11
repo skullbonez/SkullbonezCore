@@ -35,7 +35,6 @@ namespace
 SkullbonezCore::Core::SbResult DescriptorInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                      HRESULT result, const char* operation )
 {
-
     if ( FAILED( result ) )
     {
 
@@ -250,7 +249,6 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorHeaps::ShaderVisibleGpuHandle( UINT in
 
 void Dx12DescriptorHeaps::PublishStaticDescriptor( ID3D12Device* device, UINT index ) const
 {
-
     if ( !device )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Cannot publish a static descriptor without a device. index=%u", index );
@@ -261,7 +259,6 @@ void Dx12DescriptorHeaps::PublishStaticDescriptor( ID3D12Device* device, UINT in
 
 void Dx12DescriptorHeaps::Bind( ID3D12GraphicsCommandList* commandList ) const
 {
-
     if ( !commandList || !m_srvHeap )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Cannot bind the shader-visible heap. command_list=%p heap=%p", commandList,
@@ -275,7 +272,6 @@ void Dx12DescriptorHeaps::Bind( ID3D12GraphicsCommandList* commandList ) const
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 Dx12DevelopmentUiDescriptor Dx12DescriptorHeaps::AllocateDevelopmentUi()
 {
-
     if ( !m_developmentUiSrvHeap || m_developmentUiDescriptorSize == 0u )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor allocation has no live heap." );
@@ -283,7 +279,6 @@ Dx12DevelopmentUiDescriptor Dx12DescriptorHeaps::AllocateDevelopmentUi()
 
     for ( UINT index = 0; index < MAX_DEVELOPMENT_UI_SRVS; ++index )
     {
-
         if ( m_developmentUiRows[index] != 0u )
         {
             continue;
@@ -310,7 +305,6 @@ Dx12DevelopmentUiDescriptor Dx12DescriptorHeaps::AllocateDevelopmentUi()
 
 void Dx12DescriptorHeaps::FreeDevelopmentUi( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle )
 {
-
     if ( !m_developmentUiSrvHeap || m_developmentUiDescriptorSize == 0u )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Development UI descriptor free has no live heap." );
@@ -347,7 +341,6 @@ void Dx12DescriptorHeaps::FreeDevelopmentUi( D3D12_CPU_DESCRIPTOR_HANDLE cpuHand
 
 void Dx12DescriptorHeaps::BindDevelopmentUi( ID3D12GraphicsCommandList* commandList ) const
 {
-
     if ( !commandList || !m_developmentUiSrvHeap )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Cannot bind development UI descriptors. command_list=%p heap=%p", commandList,
@@ -404,7 +397,6 @@ Dx12CpuDescriptorAllocation Dx12DescriptorHeaps::AllocateDsv()
 
 void Dx12DescriptorHeaps::FreeCpu( Dx12CpuDescriptorKind kind, UINT index )
 {
-
     if ( index == UINT_MAX || kind == Dx12CpuDescriptorKind::None )
     {
         return;
@@ -437,7 +429,6 @@ Dx12CpuDescriptorAllocatorStats Dx12DescriptorHeaps::DsvStats() const
 
 void Dx12DescriptorHeaps::PublishBackBufferRtv( ID3D12Device* device, UINT frameIndex, ID3D12Resource* resource )
 {
-
     if ( !device || !resource )
     {
         SB_FATAL( "Dx12DescriptorHeaps",
@@ -461,7 +452,6 @@ void Dx12DescriptorHeaps::PublishBackBufferRtv( ID3D12Device* device, UINT frame
 
 void Dx12DescriptorHeaps::RepublishBackBufferRtv( ID3D12Device* device, UINT frameIndex, ID3D12Resource* resource ) const
 {
-
     if ( !device || !resource )
     {
         SB_FATAL( "Dx12DescriptorHeaps",
@@ -480,7 +470,6 @@ void Dx12DescriptorHeaps::RepublishBackBufferRtv( ID3D12Device* device, UINT fra
 
 D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeaps::BackBufferRtv( UINT frameIndex ) const
 {
-
     if ( frameIndex >= m_frameCount )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Back-buffer RTV read out of range. index=%u frames=%u", frameIndex, m_frameCount );
@@ -491,7 +480,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorHeaps::BackBufferRtv( UINT frameIndex 
 
 void Dx12DescriptorHeaps::PublishMainDsv( ID3D12Device* device, ID3D12Resource* resource )
 {
-
     if ( !device || !resource )
     {
         SB_FATAL( "Dx12DescriptorHeaps", "Cannot publish the main DSV without a device and resource. device=%p resource=%p",

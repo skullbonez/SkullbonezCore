@@ -143,7 +143,6 @@ void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryRepl
 
 std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
 {
-
     if ( chunk == 0 || requestedCapacity == 0 )
     {
         return requestedCapacity;
@@ -215,7 +214,6 @@ bool SeedReplayPredictionEngineStorage( std::unique_ptr<Physics::PhysicsEngine>&
         // Why: the private engine is retained across prediction rebuilds. Only
         // real capacity increases should consume replay growth events; same-size
         // reseeds just reuse the previous bounded reservation.
-
         if ( !RequestReplayPredictionReserveGrowth( "RunReplayPredictionSimulationState::predictionEngine", 0,
                                                     currentReservedBytes, requestedBytes, 1, result ) )
         {

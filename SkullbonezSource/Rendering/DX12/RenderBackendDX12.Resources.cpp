@@ -89,7 +89,6 @@ std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseN
 std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNormals,
                                                            bool hasTexCoords )
 {
-
     if ( !m_device.Device() )
     {
         return nullptr;
@@ -145,7 +144,6 @@ std::unique_ptr<MeshDX12> Dx12ResourceBuilder::CreateMesh( const float* data, in
 std::unique_ptr<FramebufferDX12> Dx12ResourceBuilder::CreateFramebuffer( int width, int height,
                                                                          FramebufferColorFormat colorFormat )
 {
-
     if ( !m_device.Device() )
     {
         return nullptr;

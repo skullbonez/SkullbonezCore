@@ -26,7 +26,6 @@ using namespace SkullbonezCore::Rendering;
 
 void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
 {
-
     if ( fenceValue == 0 )
     {
         return;
@@ -79,7 +78,6 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device, Dx12D
 
         if ( canRelease )
         {
-
             if ( retired.resource )
             {
                 retired.resource->Release();

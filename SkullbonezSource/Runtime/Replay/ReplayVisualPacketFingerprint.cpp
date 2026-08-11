@@ -41,7 +41,6 @@ void HashByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashScalar( uint64_t& hash, T value )
 {
-
     for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
         HashByte( hash, byte );
@@ -83,7 +82,6 @@ bool TrajectoryRecordParticipatesInCompletedPresentation( const ReplayVisualPack
     // and worker banks according to prefix readiness, which is intentionally
     // left conservative here. Once completion is published, ReplayPredictionDrawing
     // draws only the committed root (branch 0) and committed child range.
-
     if ( packet.header.predictionBuilding || !packet.header.predictionComplete )
     {
         return true;
@@ -318,7 +316,6 @@ BuildReplayVisualPacketFingerprint( const ReplayVisualPacket& packet,
 
     for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
     {
-
         if ( TrajectoryRecordParticipatesInCompletedPresentation( packet, record ) )
         {
             ++presentedTrajectoryRecordCount;

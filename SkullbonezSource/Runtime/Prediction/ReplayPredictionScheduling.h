@@ -94,7 +94,6 @@ class ReplayPredictionWorkerSchedule
 
         // Hazard: cancellation is a scene/branch mutation edge. Build scratch
         // remains worker-owned until the submitted slice drops its in-flight bit.
-
         while ( m_task && m_task->IsInFlight() )
         {
             std::this_thread::yield();
@@ -114,7 +113,6 @@ class ReplayPredictionWorkerSchedule
 
     void SetBudget( int tickBudget )
     {
-
         if ( m_task )
         {
             m_task->SetBudget( tickBudget );
@@ -123,7 +121,6 @@ class ReplayPredictionWorkerSchedule
 
     void SubmitTick( Threading::WorkerPool& workerPool )
     {
-
         if ( m_task )
         {
             m_task->SubmitTick( workerPool );
@@ -163,7 +160,6 @@ std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPred
 inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks,
                                                                   double instantBudgetMs, std::size_t bodyCount ) noexcept
 {
-
     if ( measuredTicksPerMs <= 0.0 || remainingTicks < 0 )
     {
         return ReplayPredictionBuildMode::Undecided;
@@ -189,7 +185,6 @@ inline ReplayPredictionBuildMode ChooseReplayPredictionBuildMode( double measure
 inline double UpdateReplayPredictionTicksPerMs( double measuredTicksPerMs, int completedTicks,
                                                 double elapsedMilliseconds ) noexcept
 {
-
     if ( completedTicks <= 0 || elapsedMilliseconds <= 0.0 || !std::isfinite( elapsedMilliseconds ) )
     {
         return measuredTicksPerMs;

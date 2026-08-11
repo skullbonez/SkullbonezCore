@@ -125,7 +125,6 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
 void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH, float tx, float rowY, const char* label,
                        const char* value, float vr, float vg, float vb )
 {
-
     if ( !IsRowVisible( contentY, contentH, rowY, 18.0f ) )
     {
         return;
@@ -140,7 +139,6 @@ void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH
 void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY, float contentH, float rowY, float textSize,
                        const char* text )
 {
-
     if ( !IsRowVisible( contentY, contentH, rowY, textSize + 4.0f ) )
     {
         return;
@@ -154,7 +152,6 @@ void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY
 void DrawContentToggle( const UIDrawContext& draw, float contentY, float contentH, UICheckBox& toggle, float tx, float rowY,
                         float controlW, const char* label, bool checked )
 {
-
     if ( !IsRowVisible( contentY, contentH, rowY, 24.0f ) )
     {
         return;

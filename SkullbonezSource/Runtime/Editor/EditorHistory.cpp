@@ -65,7 +65,6 @@ const ColliderAuthoringRecord* ColliderAuthoringForModelIndex( const ColliderSto
 
 bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSnapshot& after )
 {
-
     if ( VectorMagSquared( after.position - before.position ) > 1.0e-8f )
     {
         return true;
@@ -100,7 +99,6 @@ bool PosesDiffer( const EditorTransformSnapshot& before, const EditorTransformSn
 
 bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrimitiveRecreateRecipe& outRecipe )
 {
-
     if ( modelIndex < 0 || modelIndex >= world.SceneEntityCount() )
     {
         return false;
@@ -228,7 +226,6 @@ bool RecreatePrimitive( SceneWorld& world, SceneSessionState& scene, const Edito
 
     // Hazard: never report a failed inverse after leaving its partially
     // recreated entity live; that would desynchronize the cursor and scene.
-
     if ( !world.DestroySceneEntity( outBody ) )
     {
 
@@ -322,7 +319,6 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
         }
         else
         {
-
             if ( !ResetEditorModelMotionAndWake( world, modelIndices[index], update ) )
             {
 
@@ -340,7 +336,6 @@ bool ApplyTransformEntry( SceneWorld& world, const EditorCommandEntry& entry, bo
 bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const EditorCommandEntry& entry, bool redo,
                         PhysicsBodyHandle& outBody, PhysicsColliderHandle& outCollider )
 {
-
     if ( entry.kind == EditorCommandKind::Transform )
     {
         return ApplyTransformEntry( world, entry, redo );
@@ -365,7 +360,6 @@ bool ApplyHistoryEntry( SceneWorld& world, SceneSessionState& scene, const Edito
 
 void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex )
 {
-
     if ( !m_editor.editorModeEnabled || selectedModelIndex < 0 )
     {
         return;
@@ -400,7 +394,6 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmo
 
         if ( !item.before.hasShape || !item.after.hasShape || !PosesDiffer( item.before, item.after ) )
         {
-
             if ( !item.before.hasShape || !item.after.hasShape )
             {
 
@@ -465,7 +458,6 @@ void RuntimeTools::RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmo
 
 void RuntimeTools::RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter )
 {
-
     if ( !m_editor.editorModeEnabled || modelCountAfter <= modelCountBefore )
     {
         return;

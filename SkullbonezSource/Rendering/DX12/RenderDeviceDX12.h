@@ -56,7 +56,6 @@ struct Dx12UploadReservationResolution
 inline Dx12UploadOverflowAction
 SelectDx12UploadOverflowAction( bool fits, SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase )
 {
-
     if ( fits )
     {
         return Dx12UploadOverflowAction::Allocate;
@@ -96,7 +95,6 @@ Dx12UploadReservationResolution ResolveDx12UploadReservation( bool fits,
 // aligned offset prevents wraparound from turning overflow into a false fit.
 inline UINT64 AlignDx12UploadOffset( UINT64 offset, UINT64 alignment )
 {
-
     if ( alignment <= 1 )
     {
         return offset;

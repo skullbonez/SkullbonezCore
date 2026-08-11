@@ -230,7 +230,6 @@ float EditorPlacementAltitudeStepSize( SkullbonezCore::Core::SbDiagnosticStore& 
         return scale.x * 18.5f;
     default:
     {
-
         if ( EditorTreeDefinitionForType( type ) )
         {
             return EditorTreeVerticalSize( diagnostics, type );
@@ -261,7 +260,6 @@ namespace Runtime
 {
 Vector3 EditorAxisVector( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -285,7 +283,6 @@ float EditorColliderRadius( const ColliderRecord& collider )
 
 float EditorShapeAxisExtent( const CollisionShapeReference& shape, int axis )
 {
-
     if ( axis < 0 || axis > 2 )
     {
         return 1.0f;
@@ -702,7 +699,6 @@ bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, PhysicsBodyUpd
 
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
-
     if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
         WakeEditorPhysicsBody( world, index );
@@ -778,7 +774,6 @@ float ReplayVelocityAngularVisualRadius( float modelRadius, float angularCompone
 
 float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 {
-
     if ( axis == 0 )
     {
         return value.x;
@@ -795,7 +790,6 @@ float ReplayVelocityAxisComponent( const Vector3& value, int axis )
 
 void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 {
-
     if ( axis == 0 )
     {
         value.x = component;
@@ -838,7 +832,6 @@ void ReplayVelocityAxisColor( int axis, float heat, bool hot, bool active, float
 
 Vector3 EditorRotationRingBasisA( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -855,7 +848,6 @@ Vector3 EditorRotationRingBasisA( int axis )
 
 Vector3 EditorRotationRingBasisB( int axis )
 {
-
     switch ( axis )
     {
     case 0:
@@ -872,7 +864,6 @@ Vector3 EditorRotationRingBasisB( int axis )
 
 float WrapEditorAngleDelta( float delta )
 {
-
     while ( delta > _PI )
     {
         delta -= 2.0f * _PI;
@@ -958,7 +949,6 @@ namespace Runtime
 bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionController& interaction, int modelIndex, int axis,
                                   RuntimeGizmoDragKind gizmoKind, int clientX, int clientY )
 {
-
     if ( interaction.PointerCapture() != RuntimePointerCaptureOwner::None ||
          interaction.Gesture().kind != RuntimeInteractionGestureKind::None )
     {
@@ -984,7 +974,6 @@ bool BeginEditorGizmoDragGesture( SceneWorld& world, RuntimeInteractionControlle
 
 void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction )
 {
-
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::GizmoDrag )
     {
         RuntimeGestureCommand command;
@@ -999,7 +988,6 @@ void EndEditorGizmoDragGesture( RuntimeInteractionController& interaction )
 
 void EndEditorPlacementScaleGesture( RuntimeInteractionController& interaction )
 {
-
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::EditorPlacementScaleDrag )
     {
         RuntimeGestureCommand command;
@@ -1026,7 +1014,6 @@ int ResolveSelectedEditorModelIndex( RunEditorPlacementState& editor, const Phys
     // Concept: editor selection identity is the body/collider handle pair.
     // The row cache is only a UI/editor grouping hint and is repaired from the
     // live body store before any caller treats it as a model row.
-
     if ( !editor.selectedBody.IsValid() )
     {
         editor.selectedModelRow.value = -1;
@@ -1076,7 +1063,6 @@ EditorViewportPlacementResult RuntimeTools::RouteEditorViewportPlacement( const 
 
     if ( placementScaleActive && input.leftDown && !m_editor.viewportLookActive && !input.blocksCameraMouse )
     {
-
         if ( placementWheelSteps != 0 && !placementYawWheel )
         {
             result.enteredInteractiveScene = true;
@@ -1260,7 +1246,6 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 
     if ( input.leftDown && !input.suppressWorldAction && input.hasWorldRay )
     {
-
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
             ScaleSelectedEditorObjectAlongAxis( m_editor, world, interaction, input.rayOrigin, input.rayDirection );
@@ -1286,7 +1271,6 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
     if ( input.leftReleased && !input.suppressWorldAction && input.selectedModelIndex >= 0 &&
          input.selectedModelIndex < world.SceneEntityCount() )
     {
-
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
             const int scaleAxis = gesture.axis;
@@ -1313,7 +1297,6 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
 
             if ( groupCount > 0 )
             {
-
                 for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
                 {
                     const int modelIndex = m_editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
@@ -1403,7 +1386,6 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive, bool scal
 
     if ( scaleMode )
     {
-
         if ( selectedModelIndex >= world.SceneEntityCount() || m_editor.hotGizmoAxis < 0 )
         {
             return false;
@@ -1605,7 +1587,6 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {
-
         if ( routeResult.modeActionCount >= routeResult.modeActions.size() )
         {
             SB_FATAL( "Runtime/InputRouter", "Editor pointer mode-action capacity exhausted." );
@@ -1619,7 +1600,6 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
 
         // Invariant: one pointer route can begin at most one editor claim. The
         // composition shell must clean it before routing another world owner.
-
         if ( routeResult.hasInteractionTransition )
         {
             SB_FATAL( "Runtime/InputRouter", "Editor pointer emitted multiple interaction transitions." );
@@ -1698,7 +1678,6 @@ InputRouter::RouteEditorPointer( const RuntimePointerEvent& pointer, bool hasWor
 
     for ( std::size_t replayEventIndex = 0; replayEventIndex < gizmoDragResult.replayEvents.count; ++replayEventIndex )
     {
-
         if ( !routeResult.replayEvents.Append( gizmoDragResult.replayEvents.commands[replayEventIndex] ) )
         {
             SB_FATAL( "Runtime/InputRouter", "Replay editor-event batch capacity exhausted." );
@@ -1873,7 +1852,6 @@ namespace Runtime
 bool TryGetEditorTerrainPlacement( Geometry::Terrain* terrain, const Vector3& rayOrigin, const Vector3& rayDirection,
                                    EditorTerrainPlacement& outPlacement )
 {
-
     if ( !terrain )
     {
         return false;
@@ -2061,7 +2039,6 @@ bool TryUpdateEditorPlacementPreview( SkullbonezCore::Core::SbDiagnosticStore& d
     }
     else
     {
-
         if ( !mousePlacement )
         {
             return false;

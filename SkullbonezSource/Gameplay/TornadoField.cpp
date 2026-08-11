@@ -36,7 +36,6 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 static float SmoothStep01( float edge0, float edge1, float value )
 {
-
     if ( fabsf( edge1 - edge0 ) <= TOLERANCE )
     {
         return value >= edge1 ? 1.0f : 0.0f;
@@ -131,7 +130,6 @@ TornadoSystem::TornadoSystem()
 
 void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
-
     if ( config.vortices.size() > m_config.vortices.capacity() )
     {
         SB_FATAL( "Gameplay/TornadoSystem", "Authored vortex storage exceeded. requested=%zu capacity=%zu",
@@ -188,7 +186,6 @@ void TornadoSystem::ToggleVelocityFieldVisualization()
 
 void TornadoSystem::SetFieldValue( float TornadoFieldConfig::* field, float value )
 {
-
     for ( TornadoVortexConfig& vortex : m_config.vortices )
     {
         vortex.field.*field = value;
@@ -241,7 +238,6 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
 
     // Invariant: append order is authored source order. Physics consumes this
     // exact order for left-to-right floating-point accumulation.
-
     for ( int i = 0; i < static_cast<int>( config.vortices.size() ); ++i )
     {
         const TornadoVortexConfig& source = config.vortices[static_cast<size_t>( i )];
@@ -301,7 +297,6 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config, floa
 
     // Why: pair iteration is ascending and updates both centers immediately;
     // changing this to a parallel or unordered reduction changes later pairs.
-
     for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )
     {
         const TornadoVortexConfig& configA = config.vortices[static_cast<size_t>( outVortices[a].sourceIndex )];

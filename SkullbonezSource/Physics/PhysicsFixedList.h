@@ -110,7 +110,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
           m_ownerHandle( RegisterFixedOwner( m_ownerName, m_capacityReason ) ),
           m_capacityPublisher( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::ClaimCapacityPublisher( m_ownerHandle ) )
     {
-
         if ( m_ownerHandle == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER )
         {
             FailOwnerRegistration();
@@ -232,7 +231,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void Reserve( std::size_t requested )
     {
-
         if ( requested > Capacity )
         {
             FailCapacityExceeded( requested, "compile_time_ceiling" );
@@ -253,7 +251,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             // Replay prediction is the only post-gameplay consumer. Its outer
             // byte-budget owner and granted growth scope must already be active;
             // the list cannot manufacture replay authority for itself.
-
             if ( owner == INVALID_RUNTIME_RESERVE_OWNER ||
                  !RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, static_cast<int>( phase ) ) )
             {
@@ -322,7 +319,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
         // while live rows still carry authoritative state. Construct only the
         // newly admitted suffix; shrinking or resetting the prefix here would
         // detach parallel stores from their stable body identities.
-
         while ( m_count < count )
         {
             new ( RawSlot( m_count ) ) T();
@@ -429,7 +425,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     iterator erase( iterator first, iterator last )
     {
-
         if ( first == last )
         {
             return first;
@@ -491,7 +486,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     static StoragePointer AllocateStorage( std::size_t count )
     {
-
         if ( count == 0u )
         {
             return {};
@@ -533,7 +527,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void CheckCapacity( std::size_t requested ) const
     {
-
         if ( requested > Capacity )
         {
             FailCapacityExceeded( requested, "compile_time_ceiling" );
@@ -547,10 +540,8 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void RelocateInto( Storage* replacement )
     {
-
         if constexpr ( std::is_trivially_copyable<T>::value )
         {
-
             if ( m_count > 0u )
             {
                 std::memcpy( replacement, m_values.get(), m_count * sizeof( Storage ) );
@@ -563,7 +554,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
             // loop, and the class constraint makes every element move
             // non-throwing. The old prefix stays live until all replacements
             // exist, so no partial relocation state can escape.
-
             for ( std::size_t index = 0u; index < m_count; ++index )
             {
                 new ( static_cast<void*>( &replacement[index] ) ) T( std::move( *ValueAt( index ) ) );
@@ -586,7 +576,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void DestroyLivePrefix() noexcept
     {
-
         while ( m_count > 0u )
         {
             --m_count;
@@ -602,7 +591,6 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     void PublishUsage()
     {
-
         if ( m_capacityPublisher == SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
         {
             return;

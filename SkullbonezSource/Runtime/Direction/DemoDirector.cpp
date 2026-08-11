@@ -68,7 +68,6 @@ const Json* FindMember( const Json& object, const char* key )
 
 bool ReadStringValue( const Json& value, const char* path, const std::string& context, std::string& out )
 {
-
     if ( !value.is_string() )
     {
         return FailField( path, context, "must be a string" );
@@ -80,7 +79,6 @@ bool ReadStringValue( const Json& value, const char* path, const std::string& co
 
 bool ReadFloatValue( const Json& value, const char* path, const std::string& context, float& out )
 {
-
     if ( !value.is_number() )
     {
         return FailField( path, context, "must be a number" );
@@ -93,7 +91,6 @@ bool ReadFloatValue( const Json& value, const char* path, const std::string& con
 bool CopyTextField( char* destination, std::size_t destinationSize, const std::string& value, const char* path,
                     const std::string& context )
 {
-
     if ( value.size() >= destinationSize )
     {
         std::ostringstream detail;
@@ -107,7 +104,6 @@ bool CopyTextField( char* destination, std::size_t destinationSize, const std::s
 
 bool ReadVec3Value( const Json& value, const char* path, const std::string& context, Vector3& out )
 {
-
     if ( !value.is_array() || value.size() != 3u )
     {
         return FailField( path, context, "must be an array of exactly 3 numbers" );
@@ -202,7 +198,6 @@ bool ReadPhase( const Json& value, const char* path, int index, DemoPhase& outPh
 
 bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
 {
-
     if ( !root.is_object() )
     {
         return FailField( path, "document root", "must be an object" );
@@ -240,7 +235,6 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
 
     if ( const Json* loop = FindMember( root, "loop" ) )
     {
-
         if ( loop->is_boolean() )
         {
             parsed.loop = loop->get<bool>();
@@ -257,7 +251,6 @@ bool ReadRoot( const Json& root, const char* path, DemoShotList& outShotList )
 
     for ( std::size_t index = 0; index < phases->size(); ++index )
     {
-
         if ( !ReadPhase( ( *phases )[index], path, static_cast<int>( index ), parsed.phases[index] ) )
         {
             return false;
@@ -298,7 +291,6 @@ Json PhaseJson( const DemoPhase& phase )
 
 const char* PhaseAdvanceName( PhaseAdvance advance )
 {
-
     switch ( advance )
     {
     case PhaseAdvance::Manual:
@@ -315,7 +307,6 @@ const char* PhaseAdvanceName( PhaseAdvance advance )
 
 bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
 {
-
     if ( !text )
     {
         return false;
@@ -346,7 +337,6 @@ bool TryParsePhaseAdvance( const char* text, PhaseAdvance& outAdvance )
 
 bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 {
-
     if ( !path || path[0] == '\0' )
     {
         LogShotListError( path, "missing shot-list path" );
@@ -375,7 +365,6 @@ bool LoadDemoShotList( const char* path, DemoShotList& outShotList )
 
 bool SaveDemoShotList( const char* path, const DemoShotList& shotList )
 {
-
     if ( !path || path[0] == '\0' )
     {
         LogShotListError( path, "missing shot-list path" );

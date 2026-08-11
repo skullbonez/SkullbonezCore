@@ -54,7 +54,6 @@ void PhysicsPipelineTraceRecorder::Reserve()
 
 void PhysicsPipelineTraceRecorder::Record( const PhysicsPipelineRecord& record )
 {
-
     if ( !CanRecord() )
     {
         return;
@@ -70,7 +69,6 @@ void PhysicsPipelineTraceRecorder::Record( const PhysicsPipelineRecord& record )
 
 void PhysicsPipelineTraceRecorder::RecordEvents( std::size_t eventCount )
 {
-
     if ( m_retainFullRecords )
     {
         SB_FATAL( "Physics/PhysicsStepDiagnostics",
@@ -86,7 +84,6 @@ void PhysicsPipelineTraceRecorder::RecordEvents( std::size_t eventCount )
 
 void PhysicsPipelineTraceRecorder::RestoreFullRecords( std::span<const PhysicsPipelineRecord> records )
 {
-
     if ( records.size() > PHYSICS_MAX_PIPELINE_TRACE_RECORDS )
     {
         SB_FATAL( "Physics/PhysicsStepDiagnostics", "Replay pipeline trace exceeds the fixed record ceiling." );
@@ -155,7 +152,6 @@ void PhysicsStepDiagnostics::SetDiagnosticNames( std::span<const char* const> di
 
 void PhysicsStepDiagnostics::BeginStep( int modelCount )
 {
-
     if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
     {
         m_collisionVisualContacts.assign( modelCount, 0 );
@@ -188,7 +184,6 @@ void PhysicsStepDiagnostics::EndCollisionVisualFrame()
 
 void PhysicsStepDiagnostics::MarkCollisionVisualContact( int index )
 {
-
     if ( index >= 0 && index < static_cast<int>( m_collisionVisualContacts.size() ) )
     {
         m_collisionVisualContacts[index] = 1;

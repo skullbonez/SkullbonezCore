@@ -41,7 +41,6 @@ UIRect UITabBar::Bounds() const
 
 int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 {
-
     if ( tabCount <= 0 || !m_bounds.Contains( mouseX, mouseY ) )
     {
         return -1;
@@ -55,7 +54,6 @@ int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 
 void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int tabCount, int activeIndex ) const
 {
-
     if ( tabCount <= 0 )
     {
         return;

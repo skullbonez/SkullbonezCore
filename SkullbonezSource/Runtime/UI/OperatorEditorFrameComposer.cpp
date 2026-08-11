@@ -221,7 +221,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     // Invariant: copy the completed world backbuffer before either operator
     // surface draws, preserving one presentation owner at a time.
-
     if ( m_imguiEditor.IsVisible() )
     {
         const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
@@ -318,7 +317,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
 
     if ( uiTextFacts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
     {
-
         switch ( uiTextFacts.interactionGizmoKind )
         {
         case RuntimeGizmoDragKind::Rotate:
@@ -391,7 +389,6 @@ void Run::RenderOperatorUiPhase( const RuntimeRenderModelFrameView& renderModels
     // Why: the legacy surface does not consume E12 contextual detail. Sampling
     // cold body/collider/buoyancy/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
-
     if ( operatorEditorView.surfaces.secondaryVisible )
     {
         SkullbonezCore::UI::OperatorEditorInspectorView& inspector = operatorEditorView.inspector;

@@ -70,7 +70,6 @@ struct ImGuiEditorMessageDecision
 
 constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message, WPARAM wParam ) noexcept
 {
-
     switch ( message )
     {
     case WM_MOUSEMOVE:
@@ -125,7 +124,6 @@ constexpr ImGuiEditorMessageClass ClassifyImGuiEditorNativeMessage( UINT message
 
 constexpr ImGuiEditorInputCapture EvaluateImGuiEditorInputCapture( const ImGuiEditorInputIntent& intent ) noexcept
 {
-
     if ( !intent.editorVisible )
     {
         return {};

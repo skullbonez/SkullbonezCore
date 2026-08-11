@@ -94,7 +94,6 @@ SceneEntityStore::SceneEntityStore( SkullbonezCore::Core::SbDiagnosticStore& dia
 
 void SceneEntityStore::ConfigureCapacity( int capacity )
 {
-
     if ( capacity < 1 || capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS || Count() > capacity )
     {
         SB_FATAL( "Scene/SceneEntityStore", "Invalid scene entity capacity. requested=%d count=%d max=%d", capacity, Count(),
@@ -104,7 +103,6 @@ void SceneEntityStore::ConfigureCapacity( int capacity )
     // Phase: scene-load preallocation. Growth is allowed only before the first
     // entity of the replacement scene is published; Clear deliberately retains
     // the largest prior reservation for later reloads.
-
     if ( m_records.capacity() < static_cast<std::size_t>( capacity ) )
     {
         m_records.reserve( static_cast<std::size_t>( capacity ) );
@@ -120,7 +118,6 @@ void SceneEntityStore::Clear()
 
 SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEntityCreateDesc& entity ) const
 {
-
     if ( Count() >= m_capacity )
     {
         return m_diagnostics.Failure( "Scene/SceneEntityStore", "Scene entity capacity exhausted. count=%d capacity=%d",
@@ -145,7 +142,6 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
     if ( group.kind != SceneBehaviorGroupKind::None )
     {
-
         if ( !group.rootObjectId.IsValid() || group.partIndex < 0 )
         {
             return m_diagnostics.Failure( "Scene/SceneEntityStore", "Behavior group requires a valid root id and part." );
@@ -155,7 +151,6 @@ SkullbonezCore::Core::SbResult SceneEntityStore::PreflightAppend( const SceneEnt
 
         if ( group.rootObjectId.value == entity.sceneObjectId.value )
         {
-
             if ( group.partIndex != 0 )
             {
                 return m_diagnostics.Failure( "Scene/SceneEntityStore", "Behavior group root must be part zero." );
@@ -230,7 +225,6 @@ void SceneEntityStore::UpdateBodyHandleAt( int index, Physics::PhysicsBodyHandle
 
 bool SceneEntityStore::DestroyAtSwapLast( int index )
 {
-
     if ( index < 0 || index >= Count() )
     {
         return false;
@@ -240,7 +234,6 @@ bool SceneEntityStore::DestroyAtSwapLast( int index )
 
     // Invariant: scene rows share dense order with physics and render rows. The
     // coordinating collection performs the same swap-last operation everywhere.
-
     if ( row + 1u != m_records.size() )
     {
         m_records[row] = std::move( m_records.back() );
@@ -252,7 +245,6 @@ bool SceneEntityStore::DestroyAtSwapLast( int index )
 
 bool SceneEntityStore::TrimToCount( int count )
 {
-
     if ( count < 0 || count > Count() )
     {
         return false;
@@ -313,7 +305,6 @@ SceneEntityRecord* SceneEntityStore::TryGetMutable( int index )
 
 int SceneEntityStore::FindByDisplayName( const char* name ) const
 {
-
     if ( !name || name[0] == '\0' )
     {
         return -1;
@@ -321,7 +312,6 @@ int SceneEntityStore::FindByDisplayName( const char* name ) const
 
     for ( int index = 0; index < Count(); ++index )
     {
-
         if ( std::strcmp( m_records[static_cast<std::size_t>( index )].displayName, name ) == 0 )
         {
             return index;
@@ -333,7 +323,6 @@ int SceneEntityStore::FindByDisplayName( const char* name ) const
 
 int SceneEntityStore::FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneObjectId ) const
 {
-
     if ( !sceneObjectId.IsValid() )
     {
         return -1;
@@ -341,7 +330,6 @@ int SceneEntityStore::FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneOb
 
     for ( int index = 0; index < Count(); ++index )
     {
-
         if ( m_records[static_cast<std::size_t>( index )].sceneObjectId.value == sceneObjectId.value )
         {
             return index;
@@ -360,7 +348,6 @@ const SceneBehaviorGroup& SceneEntityStore::BehaviorGroupAt( int modelIndex ) co
 
 int SceneEntityStore::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const
 {
-
     if ( group.kind == SceneBehaviorGroupKind::None )
     {
         return -1;
@@ -427,10 +414,8 @@ bool SceneEntityStore::TryFindSimpleRagdollPart( int selectedModelIndex, int par
 
 int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const
 {
-
     if ( outIndices && maxIndices > 0 )
     {
-
         for ( int i = 0; i < maxIndices; ++i )
         {
             outIndices[i] = -1;

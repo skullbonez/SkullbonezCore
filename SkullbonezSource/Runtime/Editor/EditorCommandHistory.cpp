@@ -96,7 +96,6 @@ void EditorCommandHistory::InvalidateForNonUndoableEdit()
 
 void EditorCommandHistory::Push( const EditorCommandEntry& entry )
 {
-
     if ( entry.kind == EditorCommandKind::None )
     {
         return;
@@ -105,7 +104,6 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     // Hazard: a branch from before the clean cursor removes the only route
     // back to the saved state, so equality with a future cursor is no longer
     // meaningful until the next successful save.
-
     if ( m_cleanCursor <= EDITOR_COMMAND_HISTORY_CAPACITY && m_cleanCursor > m_cursor )
     {
         m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
@@ -122,7 +120,6 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
 
     // Invariant: overflow is bounded editor work. The oldest inverse command
     // is discarded without allocating or changing the remaining order.
-
     if ( m_cleanCursor == 0 )
     {
         m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
@@ -157,7 +154,6 @@ const EditorCommandEntry* EditorCommandHistory::PendingRedo() const
 
 bool EditorCommandHistory::CommitUndo()
 {
-
     if ( m_cursor == 0 )
     {
         return false;
@@ -170,7 +166,6 @@ bool EditorCommandHistory::CommitUndo()
 
 bool EditorCommandHistory::CommitRedo()
 {
-
     if ( m_cursor >= m_count )
     {
         return false;

@@ -32,7 +32,6 @@ namespace Runtime
 SceneLoadRequest SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete,
                                                      bool preserveRuntimeState )
 {
-
     if ( !HasCurrentEntry() )
     {
         return SceneLoadRequest::None();
@@ -48,7 +47,6 @@ SceneLoadRequest SceneController::ResetCurrentScene( bool preserveUIState, bool 
 
 SceneLoadRequest SceneController::AdvanceScene( bool perfTestActive, bool preserveInteractiveUI )
 {
-
     if ( perfTestActive && m_perfPass == 0 )
     {
         m_perfPass = 1;

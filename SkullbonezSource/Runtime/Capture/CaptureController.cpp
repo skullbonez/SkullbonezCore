@@ -161,10 +161,8 @@ SkullbonezCore::Core::SbResult CaptureController::QueuePostRenderPng( const char
 
 bool CaptureController::CancelPostRenderRequest( PostRenderCaptureOwner owner, uint64_t token )
 {
-
     for ( int index = 0; index < m_postRenderRequestCount; ++index )
     {
-
         if ( m_postRenderRequests[index].owner != owner || m_postRenderRequests[index].token != token )
         {
             continue;
@@ -192,7 +190,6 @@ std::size_t CaptureController::PendingPostRenderCount() const
 void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch, const CaptureRequest& request,
                                      const SkullbonezCore::Core::SbResult& requestResult )
 {
-
     if ( requestResult.Ok() )
     {
         batch.saved[batch.savedCount++] = request;

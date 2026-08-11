@@ -116,7 +116,6 @@ void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePack
 
     // Lifetime: the caller may offer a detached configuration on every apply
     // boundary; only a newly cleared generation transfers its vector storage.
-
     if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         ApplyConfiguration( std::move( configuration ) );
@@ -126,7 +125,6 @@ void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePack
 
 void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon )
 {
-
     if ( m_configuration.m_requiredContacts.empty() )
     {
         return;
@@ -143,7 +141,6 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 
     for ( SceneRequiredContactGate& required : m_configuration.m_requiredContacts )
     {
-
         if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
              required.bodyB >= contactModelCount )
         {
@@ -167,7 +164,6 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 
     for ( const PhysicsDebugContact& contact : physics.debugContacts )
     {
-
         if ( contact.bodyA < 0 || contact.bodyB < 0 )
         {
             continue;
@@ -175,7 +171,6 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 
         for ( SceneRequiredContactGate& required : m_configuration.m_requiredContacts )
         {
-
             if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
             {
                 continue;
@@ -202,7 +197,6 @@ bool SceneAutomationGateTracker::RequiresBroadphaseXCellObservation() const
 
 void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const Physics::PhysicsBroadphaseActiveCell> activeCells )
 {
-
     if ( m_configuration.m_requiredBroadphaseXCells.empty() || activeCells.empty() )
     {
         return;
@@ -210,7 +204,6 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const
 
     for ( SceneRequiredBroadphaseXCellsGate& required : m_configuration.m_requiredBroadphaseXCells )
     {
-
         if ( required.activated )
         {
             continue;
@@ -222,10 +215,8 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const
 
         for ( const Physics::PhysicsBroadphaseActiveCell& active : activeCells )
         {
-
             if ( active.iy == required.cellY && active.iz == required.cellZ )
             {
-
                 if ( !required.hasObservedXRange )
                 {
                     required.lastObservedMinX = active.ix;
@@ -251,7 +242,6 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const
 
             for ( const Physics::PhysicsBroadphaseActiveCell& active : activeCells )
             {
-
                 if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
                 {
                     found = true;
@@ -277,10 +267,8 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( std::span<const
 
 bool SceneAutomationGateTracker::RequiredContactsComplete() const
 {
-
     for ( const SceneRequiredContactGate& contact : m_configuration.m_requiredContacts )
     {
-
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
             return false;
@@ -293,10 +281,8 @@ bool SceneAutomationGateTracker::RequiredContactsComplete() const
 
 bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 {
-
     for ( const SceneRequiredBroadphaseXCellsGate& required : m_configuration.m_requiredBroadphaseXCells )
     {
-
         if ( !required.activated )
         {
             return false;
@@ -317,10 +303,8 @@ SceneAutomationGateStatus SceneAutomationGateTracker::Status() const
 
 void SceneAutomationGateTracker::PrintMissingRequirements() const
 {
-
     for ( const SceneRequiredContactGate& contact : m_configuration.m_requiredContacts )
     {
-
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
             std::fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
@@ -329,7 +313,6 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
 
     for ( const SceneRequiredBroadphaseXCellsGate& cells : m_configuration.m_requiredBroadphaseXCells )
     {
-
         if ( !cells.activated )
         {
             std::fprintf( stderr,
@@ -426,7 +409,6 @@ void RuntimeValidationHarness::SavePendingLiveStyleCapture( CaptureController& c
 
 void RuntimeValidationHarness::ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions )
 {
-
     if ( !launchOptions.graphicsStress )
     {
         return;
@@ -443,7 +425,6 @@ void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket
 
     // Invariant: a reload may be sampled more than once, but the stress random
     // stream and cadence resume exactly once after population reaches commit.
-
     if ( launchOptions.graphicsStress &&
          m_graphicsStressSceneObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterScenePopulate ) )
     {
@@ -454,7 +435,6 @@ void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket
 
 void RuntimeValidationHarness::PrintGraphicsStressExitSummary( int currentSceneFrame ) const
 {
-
     if ( !m_graphicsStress.IsEnabled() )
     {
         return;

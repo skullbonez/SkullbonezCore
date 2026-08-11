@@ -59,7 +59,6 @@ Matrix4::Matrix4()
 
 Matrix4::Matrix4( const float* values )
 {
-
     for ( int i = 0; i < 16; ++i )
     {
         m[i] = values[i];
@@ -154,7 +153,6 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
     Vector3 s = CrossProduct( f, u );
 
     // f and u are parallel (e.g. top-down camera) — pick arbitrary perpendicular
-
     if ( VectorMag( s ) < 1e-6f )
     {
         u = ( fabsf( f.x ) < 0.9f ) ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
@@ -284,7 +282,6 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 
     for ( int col = 0; col < 4; ++col )
     {
-
         for ( int row = 0; row < 4; ++row )
         {
             result.m[col * 4 + row] = 0.0f;

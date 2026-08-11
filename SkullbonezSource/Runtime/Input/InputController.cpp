@@ -51,7 +51,6 @@ void RuntimeInputContext::BeginFrame( bool appFocused, bool uiBlocksKeyboard, bo
 
 void RuntimeInputContext::SetMode( RuntimeInputMode mode, RuntimeInputAction action, RuntimeInputActionSource source )
 {
-
     if ( mode == m_currentMode )
     {
         return;
@@ -91,10 +90,8 @@ void InputController::ApplyModeAction( RuntimeInputContext& context, RuntimeInpu
 
 RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& state )
 {
-
     if ( state.editor )
     {
-
         if ( state.editorViewportLook )
         {
             return RuntimeInputMode::EditorViewportLook;
@@ -107,7 +104,6 @@ RuntimeInputMode InputController::ResolveMode( const RuntimeInputModeState& stat
 
         if ( state.editorGizmoDrag )
         {
-
             if ( state.editorGizmoScale )
             {
                 return RuntimeInputMode::EditorGizmoScale;
@@ -196,7 +192,6 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
         // Why: raw mouse input gives stable deltas during native mouse-look, and
         // client-position deltas keep remote-desktop or automation paths usable
         // when raw packets are unavailable.
-
         if ( !appFocused )
         {
             ResetMouseLook( camera );
@@ -208,7 +203,6 @@ RuntimeCameraInputFrameResult InputController::ApplyCameraInputFrame( CameraCont
         }
         else
         {
-
             if ( !deviceFrame.hasClientPosition )
             {
                 ResetMouseLook( camera );
@@ -287,7 +281,6 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
     if ( !input.attachedOrbitOwnsCamera &&
          ( input.flyControlsActive || camera.mouseLookOwnsCursor || input.editorViewportLookActive || hasTravelInput ) )
     {
-
         if ( ( !input.editorModeEnabled || input.editorViewportLookActive ) &&
              ( camera.input.xMove != 0 || camera.input.yMove != 0 ) )
         {
@@ -321,7 +314,6 @@ void InputController::ApplyCameraMovement( CameraControlState& camera, Environme
     }
 
     // Passive generated-demo camera bounds do not own manual or pinned follow views.
-
     if ( !input.manualControlsActive && !input.editorViewportLookActive && !input.authoredScene )
     {
         const Math::Vector::Vector3 translatedCameraPosition = cameras.GetCameraTranslation();

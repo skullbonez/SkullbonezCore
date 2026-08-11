@@ -46,7 +46,6 @@ namespace
 {
 void WriteAutomationReason( char* destination, std::size_t size, const char* message )
 {
-
     if ( destination && size > 0 )
     {
         std::snprintf( destination, size, "%s", message ? message : "prediction archive failure" );

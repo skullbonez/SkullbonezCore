@@ -144,7 +144,6 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene, RuntimeVal
     // Why: copying every active cell is observable debug work. Retail frames
     // pay it only for a visible overlay; automation pays it only until an
     // authored broadphase requirement has been observed.
-
     if ( requiresBroadphaseCells )
     {
         m_renderResources.m_broadphaseOverlay.SetCellSize( PhysicsEngine::ReadBroadphaseCellSize( physics ) );
@@ -233,7 +232,6 @@ void RuntimeOverlayDiagnostics::ObserveSceneLifecycle( const SceneLifecyclePacke
     // Invariant: scene loading is synchronous. This boundary observes the final
     // phase reached by the attempt, so the detached value already contains all
     // authored overrides applied before success or recoverable failure.
-
     if ( !m_scenePresentationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         return;

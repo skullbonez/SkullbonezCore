@@ -219,7 +219,6 @@ SceneGeneratedSetup::SetUpSceneEntities( SceneSessionState& scene, const Skullbo
     // Preflight a copy of the deterministic stream through the same sampling
     // function used by population. The live RNG state and output sequence stay
     // unchanged while each concrete shape store receives its exact count.
-
     for ( int index = 0; index < count; ++index )
     {
         const GeneratedObjectSample sample = SampleGeneratedObject( capacityRngState, config, objectTypeOverride );
@@ -347,7 +346,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
     auto randSign = [&]() -> float { return ( NextSceneRand( scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
     // --- Sphere pass ---
-
     for ( int i = 0; i < balls; ++i )
     {
         float posX = randFloat( config.generatedScene.spawnXBase, config.generatedScene.spawnXRange );
@@ -395,7 +393,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSolverObjects( SceneSes
     //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
     // where hx, hy, hz are the full extents (2 * half-extents).
     // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
-
     for ( int i = 0; i < boxes; ++i )
     {
         float posX = randFloat( config.generatedScene.spawnXBase, config.generatedScene.spawnXRange );
@@ -455,7 +452,6 @@ SceneGeneratedSetup::TrySetUpRequestedModels( SceneSessionState& scene, const Sk
     // Concept: Scene load resolves which request source is authoritative. This
     // helper dispatches that resolved mode beside the deterministic spawn
     // algorithms and reports whether generated setup owned population.
-
     if ( mode == GeneratedPopulationMode::Solver )
     {
         return { SetUpSolverObjects( scene, config, sceneWorld, objectTypeOverride, (std::max)( 0, balls ),

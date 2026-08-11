@@ -474,7 +474,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
     void reserve( size_t requested )
     {
-
         if ( requested > Capacity )
         {
             SB_FATAL( "RenderGraph", "Fixed-list reserve capacity exceeded. requested=%zu capacity=%zu", requested,
@@ -484,7 +483,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
     void clear()
     {
-
         for ( size_t index = 0; index < m_count; ++index )
         {
             m_values[index] = T();
@@ -495,7 +493,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
     void resize( size_t count )
     {
-
         if ( count > Capacity )
         {
             SB_FATAL( "RenderGraph", "Fixed-list resize capacity exceeded. count=%zu capacity=%zu", count, Capacity );
@@ -503,7 +500,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
         if ( count < m_count )
         {
-
             for ( size_t index = count; index < m_count; ++index )
             {
                 m_values[index] = T();
@@ -511,7 +507,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
         }
         else
         {
-
             for ( size_t index = m_count; index < count; ++index )
             {
                 m_values[index] = T();
@@ -523,7 +518,6 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
     void push_back( const T& value )
     {
-
         if ( m_count >= Capacity )
         {
             SB_FATAL( "RenderGraph", "Fixed-list push capacity exceeded. count=%zu capacity=%zu", m_count, Capacity );

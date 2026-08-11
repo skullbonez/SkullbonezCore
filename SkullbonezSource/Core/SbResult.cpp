@@ -67,7 +67,6 @@ std::uint32_t CurrentDiagnosticThreadToken() noexcept
 
 std::size_t BoundedLength( const char* text, std::size_t capacity ) noexcept
 {
-
     if ( !text )
     {
         return 0;
@@ -93,7 +92,6 @@ SbResult::~SbResult() noexcept
 
 SbResult::SbResult( const SbResult& source ) noexcept : m_store( source.m_store ), m_token( source.m_token )
 {
-
     if ( m_store )
     {
         m_store->Retain( m_token );
@@ -103,7 +101,6 @@ SbResult::SbResult( const SbResult& source ) noexcept : m_store( source.m_store 
 
 SbResult& SbResult::operator=( const SbResult& source ) noexcept
 {
-
     if ( this == &source )
     {
         return *this;
@@ -111,7 +108,6 @@ SbResult& SbResult::operator=( const SbResult& source ) noexcept
 
     // Invariant: retain the incoming lease before releasing the destination so
     // two result objects sharing one entry cannot transiently reclaim it.
-
     if ( source.m_store )
     {
         source.m_store->Retain( source.m_token );
@@ -133,7 +129,6 @@ SbResult::SbResult( SbResult&& source ) noexcept : m_store( source.m_store ), m_
 
 SbResult& SbResult::operator=( SbResult&& source ) noexcept
 {
-
     if ( this == &source )
     {
         return *this;
@@ -187,7 +182,6 @@ SbResult::SbResult( SbDiagnosticStore& store, std::uint64_t token ) noexcept : m
 
 void SbResult::Release() noexcept
 {
-
     if ( !m_store )
     {
         return;
@@ -241,7 +235,6 @@ SbResult SbDiagnosticStore::FailureV( const char* owner, const char* format, va_
 
     for ( std::size_t index = 0; index < CAPACITY; ++index )
     {
-
         if ( m_entries[index].leaseCount == 0 )
         {
             slotIndex = index;
@@ -455,7 +448,6 @@ void SbDiagnosticStore::Unlock() const noexcept
 
 bool SbDiagnosticStore::ResolveLiveEntry( std::uint64_t token, std::size_t& slotIndex ) const noexcept
 {
-
     if ( token == 0 )
     {
         return false;

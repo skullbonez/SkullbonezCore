@@ -80,7 +80,6 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadShadersFromSource()
 
 void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
 {
-
     if ( !shader )
     {
         return;
@@ -88,7 +87,6 @@ void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
 
     for ( size_t index = 0; index < m_liveShaderCount; ++index )
     {
-
         if ( m_liveShaders[index] == shader )
         {
             return;
@@ -109,10 +107,8 @@ void Dx12ShaderDevelopment::RegisterShader( ShaderDX12* shader )
 
 void Dx12ShaderDevelopment::UnregisterShader( ShaderDX12* shader )
 {
-
     for ( size_t index = 0; index < m_liveShaderCount; ++index )
     {
-
         if ( m_liveShaders[index] != shader )
         {
             continue;
@@ -136,7 +132,6 @@ void Dx12ShaderDevelopment::UnregisterShader( ShaderDX12* shader )
 
 SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::BakeSourceGeneration() const
 {
-
     if ( !Enabled() )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12", "Shader hot reload requires --dev-shader-hot-reload" );
@@ -223,7 +218,6 @@ SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadBakedGeneration( ID3
 
     for ( size_t index = 0; index < m_liveShaderCount; ++index )
     {
-
         if ( m_liveShaders[index] )
         {
             m_liveShaders[index]->AdoptReload( candidates[index] );
@@ -250,7 +244,6 @@ void Dx12ShaderDevelopment::ResetAfterShutdown()
     // Lifetime: runtime and geometry resource owners must destroy every shader
     // before the renderer tears down pipeline/device state. A remaining row
     // would become a dangling owner reference after backend destruction.
-
     if ( m_liveShaderCount != 0 )
     {
         SB_FATAL( "Dx12ShaderDevelopment", "Shader registry remained live at backend shutdown. count=%zu capacity=%zu",

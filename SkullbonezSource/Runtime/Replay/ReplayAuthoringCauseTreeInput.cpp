@@ -94,7 +94,6 @@ void ReplayAuthoring::BeginCauseTreeMove( int mouseX, int mouseY ) noexcept
 
 bool ReplayAuthoring::TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept
 {
-
     if ( rowIndex < 0 || rowIndex >= static_cast<int>( m_causeTree.rows.size() ) )
     {
         return false;
@@ -140,7 +139,6 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     const auto endCauseTreeDragIfReleased = [&]()
     {
-
         if ( leftReleased && causeTreeDragMode() >= 0 )
         {
             inputRouter.ReleaseNativeCapture();
@@ -277,7 +275,6 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
         if ( TryGetCauseTreeRow( rowIndex, selectedRow ) )
         {
-
             if ( leftPressed )
             {
                 interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,

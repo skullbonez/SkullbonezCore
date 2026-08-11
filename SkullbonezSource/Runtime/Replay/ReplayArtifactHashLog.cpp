@@ -30,7 +30,6 @@ namespace
 {
 std::string SolverHashLogPath( const std::string& presentationPath )
 {
-
     if ( presentationPath.empty() )
     {
         return {};
@@ -118,7 +117,6 @@ void ReplayArtifactHashLog::ResetTimeline( const char* sceneLabel )
 
 void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& sample )
 {
-
     if ( !m_presentation.is_open() )
     {
         return;
@@ -136,7 +134,6 @@ void ReplayArtifactHashLog::AppendPresentation( const ReplayPresentationSample& 
 
 void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample )
 {
-
     if ( !m_solver.is_open() )
     {
         return;
@@ -155,7 +152,6 @@ void ReplayArtifactHashLog::AppendSolver( const ReplaySolverFrameSample& sample 
 
 void ReplayArtifactHashLog::Flush()
 {
-
     if ( m_presentation.is_open() )
     {
         m_presentation.flush();

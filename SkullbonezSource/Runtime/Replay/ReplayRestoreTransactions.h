@@ -106,7 +106,6 @@ class ReplayRestorePhaseCursor
 
     bool TryAdvance( Phase next )
     {
-
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;
@@ -198,7 +197,6 @@ class ReplayRestoreTransaction
 
     void PrepareTimelineReset( uint32_t parentBranchId, int sceneFrame, uint64_t solverHash )
     {
-
         if ( m_phase.Current() != ReplayRestorePhaseCursor::Phase::TargetVerified || m_timelineResetRequired )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
@@ -214,7 +212,6 @@ class ReplayRestoreTransaction
 
     void MarkTimelineResetApplied()
     {
-
         if ( !m_timelineResetRequired )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
@@ -235,7 +232,6 @@ class ReplayRestoreTransaction
 
     void Complete()
     {
-
         if ( !CompletionReady() )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
@@ -269,7 +265,6 @@ class ReplayRestoreTransaction
 
     void FailBeforeMutation( const char* reason )
     {
-
         if ( m_stateMutated )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",
@@ -283,7 +278,6 @@ class ReplayRestoreTransaction
 
     void MarkLiveBackupApplied()
     {
-
         if ( !m_stateMutated || !m_hasLiveBackup || m_liveBackupApplied ||
              !ReplayRestorePhaseCursor::IsLegalTransition( m_phase.Current(), ReplayRestorePhaseCursor::Phase::RolledBack ) )
         {
@@ -304,7 +298,6 @@ class ReplayRestoreTransaction
 
     void MarkRolledBack( const char* reason )
     {
-
         if ( !RollbackReady() )
         {
             SB_FATAL( "Runtime/ReplayRestoreTransaction",

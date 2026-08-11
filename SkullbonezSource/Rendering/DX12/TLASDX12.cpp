@@ -87,7 +87,6 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
     // a BLAS is and how to transform it in the scene. This buffer lives in CPU-writable memory
     // (upload heap) because we rewrite instance positions every frame as balls move.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc,
                                                   D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
                                                   IID_PPV_ARGS( &m_instanceDescs ) ) ) )
@@ -113,7 +112,6 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
     // Hazard: this API has no HRESULT; zero capacity is its unusable-output
     // signal. Reject it before creating nominal zero-byte build resources.
-
     if ( prebuild.ScratchDataSizeInBytes == 0 || prebuild.ResultDataMaxSizeInBytes == 0 )
     {
         Reset();
@@ -130,7 +128,6 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
     // Allocate scratch buffer for TLAS build (temporary GPU workspace, same as BLAS).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
                                                   nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
@@ -145,7 +142,6 @@ SkullbonezCore::Core::SbResult TLAS::Init( ID3D12Device5* device, int maxInstanc
 
     // Allocate result buffer that holds the final TLAS (persists across frames, rebuilt in-place).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc,
                                                   D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
@@ -167,7 +163,6 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // Invariant: Init() sizes all TLAS buffers from m_maxInstances. A larger
     // rebuild would overwrite the instance descriptor upload and point the
     // GPU build at memory the TLAS does not own.
-
     if ( instanceCount > m_maxInstances )
     {
         SB_FATAL( "TLAS", "Instance count exceeds max. requested=%d max=%d", instanceCount, m_maxInstances );
@@ -234,7 +229,6 @@ D3D12_GPU_VIRTUAL_ADDRESS TLAS::GetResultVA() const
 
 void TLAS::Reset()
 {
-
     if ( m_scratch )
     {
         m_scratch->Release();

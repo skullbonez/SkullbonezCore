@@ -141,10 +141,8 @@ void BuildEditorToolOverlayTrace( const RunEditorPlacementState& editor, const R
 
     if ( rayLinger > 0.0f )
     {
-
         for ( const RunRayCastTestLine& line : rayCastTest.lines )
         {
-
             if ( line.active && line.ageSeconds < rayLinger )
             {
                 tracer.AddRayCastTestLine( line.start, line.end, 1.0f - line.ageSeconds / rayLinger, line.hit );

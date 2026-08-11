@@ -47,7 +47,6 @@ SbResult Failure( SbDiagnosticStore& diagnostics, const char* owner, const char*
 
 SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner, const char* path, std::string_view bytes )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return diagnostics.Failure( owner ? owner : "Core/AtomicTextFileWriter", "Atomic text path is empty." );
@@ -106,7 +105,6 @@ SbResult WriteTextFileAtomic( SbDiagnosticStore& diagnostics, const char* owner,
 
         if ( !wrote )
         {
-
             if ( writeCallSucceeded )
             {
                 SetLastError( ERROR_WRITE_FAULT );

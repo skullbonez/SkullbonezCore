@@ -72,7 +72,6 @@ Matrix4 BuildRenderModelMatrix( const Vector3& position, const Quaternion& orien
 
 RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
 {
-
     switch ( shapeKind )
     {
     case ColliderShapeKind::Sphere:
@@ -93,7 +92,6 @@ float ContactAlpha( float seconds, float fadeSeconds )
 
 bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record, const Vector3& position, const Quaternion& orientation )
 {
-
     if ( record.currentPosition.x != position.x || record.currentPosition.y != position.y ||
          record.currentPosition.z != position.z )
     {
@@ -130,7 +128,6 @@ Vector3 InterpolatePosition( const RenderInstanceRecord& record, float alpha )
 
 void TickContactSeconds( float& seconds, float deltaSeconds )
 {
-
     if ( seconds > 0.0f && deltaSeconds > 0.0f )
     {
         seconds = (std::max)( 0.0f, seconds - deltaSeconds );
@@ -154,7 +151,6 @@ void RenderInstanceStore::ReservePresentationCapacity( std::size_t capacity )
 
 bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
 {
-
     if ( expectedCount < 0 )
     {
         return false;
@@ -170,7 +166,6 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
                                              const PhysicsBodyRecord& body, const PhysicsBodyHotState& hotState,
                                              const ColliderRecord& collider, int expectedIndex )
 {
-
     if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() ||
          collider.body != body.handle || collider.sceneObjectId != body.sceneObjectId )
     {
@@ -206,7 +201,6 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
 
 bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 {
-
     if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= PresentationCount() )
     {
         return false;
@@ -217,7 +211,6 @@ bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 
     // Invariant: the moved row receives its dense render handle immediately;
     // retaining the old row-derived handle would redirect later draw lookups.
-
     if ( row != last )
     {
         m_presentationRecords[row] = std::move( m_presentationRecords[last] );
@@ -236,7 +229,6 @@ bool RenderInstanceStore::DestroyCreationRowAtSwapLast( int modelIndex )
 
 bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 {
-
     if ( presentationCount < 0 )
     {
         return false;
@@ -249,7 +241,6 @@ bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
 
 RenderInstancePresentationRecord* RenderInstanceStore::MutablePresentationRecordForModelIndex( int modelIndex )
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_presentationRecords.size() ) )
     {
         return nullptr;
@@ -330,7 +321,6 @@ void RenderInstanceStore::Clear()
 
 void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& bodyStore )
 {
-
     if ( bodyStore.Count() != Count() )
     {
         SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose preflight requires matching rows. bodies=%d render=%d",
@@ -362,7 +352,6 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
 
 void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore& bodyStore )
 {
-
     if ( bodyStore.Count() != Count() )
     {
         SB_FATAL( "Rendering/RenderInstanceStore", "Physics-step pose commit requires matching rows. bodies=%d render=%d",
@@ -413,7 +402,6 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
                                    const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore,
                                    float presentationAlpha )
 {
-
     if ( bodyStore.Count() != presentationCount || colliderStore.Count() != presentationCount )
     {
         assert( bodyStore.Count() == presentationCount );
@@ -490,7 +478,6 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
 bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presentationAlpha, Vector3& outPosition,
                                                   Quaternion& outOrientation ) const
 {
-
     if ( modelIndex < 0 || modelIndex >= Count() )
     {
         return false;
@@ -522,7 +509,6 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex, float presenta
 bool RenderInstanceStore::OverridePose( int modelIndex, Physics::PhysicsSceneObjectId sceneObjectId, const Vector3& position,
                                         const Quaternion& orientation, const ColliderStore& colliderStore )
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_instances.size() ) )
     {
         return false;
@@ -558,7 +544,6 @@ int RenderInstanceStore::Count() const
 
 RenderInstanceHandle RenderInstanceStore::HandleForModelIndex( int modelIndex ) const
 {
-
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelInstanceHandles.size() ) )
     {
         return RenderInstanceHandle {};
@@ -570,7 +555,6 @@ RenderInstanceHandle RenderInstanceStore::HandleForModelIndex( int modelIndex ) 
 
 int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) const
 {
-
     if ( !Contains( handle ) )
     {
         return -1;
@@ -582,7 +566,6 @@ int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) cons
 
 bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
 {
-
     if ( !handle.IsValid() || handle.generation != RENDER_INSTANCE_INITIAL_HANDLE_GENERATION )
     {
         return false;

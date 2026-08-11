@@ -50,7 +50,6 @@ Dx12FrameOwner::Dx12FrameOwner( SkullbonezCore::Core::SbDiagnosticStore& resultD
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics& diagnostics )
 {
-
     if ( HasFailure() )
     {
         return CurrentResult();
@@ -192,7 +191,6 @@ bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphReso
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 {
-
     if ( !m_deviceHealth.CanIssueDeviceWork() )
     {
         return m_recording.RetainFailure( m_deviceHealth.CurrentResult() );
@@ -267,7 +265,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
 
 bool Dx12FrameOwner::PrepareDraw()
 {
-
     if ( !EnsureOpen().Ok() )
     {
         return false;
@@ -371,7 +368,6 @@ void Dx12FrameOwner::RestoreProfilerAfterSubmit( int depth )
 
 void Dx12FrameOwner::AssertProfilerClosed( const char* reason ) const
 {
-
     if ( m_profilerStackState.Depth() == 0 )
     {
         return;
@@ -430,7 +426,6 @@ void Dx12FrameOwner::EndProfilerEvent()
 
     if ( m_profilerStackState.Depth() <= 0 )
     {
-
         if ( SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
         {
             SkullbonezCore::Core::Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
@@ -471,7 +466,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 
     if ( m_recording.HasFailure() )
     {
-
         if ( m_faultInjection.WasInjected() )
         {
             [[maybe_unused]] const SkullbonezCore::Core::SbResult blocked = m_faultInjection.BeforeSubmission();
@@ -514,10 +508,8 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::SubmitClosed()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::WaitForGpu()
 {
-
     if ( !m_device.FrameFence().IsReady() )
     {
-
         if ( m_submittedWork.HasSubmittedWork() )
         {
             const SkullbonezCore::Core::SbResult
@@ -617,7 +609,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
 
 static const char* Dx12UploadCategoryName( RenderUploadCategory category )
 {
-
     switch ( category )
     {
     case RenderUploadCategory::Constants:
@@ -680,7 +671,6 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
 
         // Rate-limit independently per owner so the first texture, constants,
         // instance, or overlay offender cannot be hidden by another category.
-
         if ( ( categoryDrops & ( categoryDrops - 1u ) ) == 0u )
         {
             SkullbonezCore::Core::Log()
@@ -701,7 +691,6 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
 D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
-
     if ( !EnsureOpen().Ok() || !PrepareUploadReservation( size, alignment, category ) )
     {
         return 0;
@@ -714,7 +703,6 @@ Dx12FrameOwner::ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCatego
 D3D12_GPU_VIRTUAL_ADDRESS
 Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory )
 {
-
     if ( !EnsureOpen().Ok() || vertexBytes == 0 )
     {
         return 0;
@@ -752,7 +740,6 @@ Dx12FrameOwner::ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes,
 
 D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameOwner::ReserveConstantUpload( UINT64 size )
 {
-
     if ( m_pendingConstantAddress != 0 && m_pendingConstantBytes == size )
     {
         const D3D12_GPU_VIRTUAL_ADDRESS address = m_pendingConstantAddress;
@@ -878,7 +865,6 @@ void Dx12FrameOwner::ReleaseCompletedRetirements( bool releaseUnfenced )
 
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
 {
-
     if ( !resource )
     {
         return;
@@ -919,7 +905,6 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource )
 
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIndex )
 {
-
     if ( !resource )
     {
         RetireStaticDescriptor( descriptorIndex );
@@ -955,10 +940,8 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind,
                                      UINT cpuDescriptorIndex )
 {
-
     if ( !resource )
     {
-
         if ( descriptorIndex != UINT_MAX )
         {
             RetireStaticDescriptor( descriptorIndex );
@@ -1054,7 +1037,6 @@ bool Dx12DrawGate::PrepareFramebufferBind()
 bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* instancedMesh,
                                           const DynamicVBDX12* dynamicVertexBuffer, const RasterStateDesc& rasterState )
 {
-
     if ( !PrepareDraw() )
     {
         return false;
@@ -1069,7 +1051,6 @@ bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format, bool instanc
                                              const DynamicVBDX12* dynamicVertexBuffer,
                                              const RasterStateDesc& declaredRasterState )
 {
-
     if ( !PrepareDraw() )
     {
         return false;

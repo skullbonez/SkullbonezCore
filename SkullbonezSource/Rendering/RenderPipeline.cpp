@@ -65,7 +65,6 @@ uint64_t FrameGraphShapeFingerprint( const RenderGraph& graph )
 
     const auto appendName = [&]( const char* name )
     {
-
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( name ); cursor && *cursor;
 
               ++cursor )

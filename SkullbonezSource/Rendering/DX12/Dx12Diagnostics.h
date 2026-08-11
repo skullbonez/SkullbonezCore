@@ -171,7 +171,6 @@ class DrawCallTraceScope
     }
     ~DrawCallTraceScope()
     {
-
         if ( m_diagnostics )
         {
             m_diagnostics->PopDrawCallTraceScope( m_hash );

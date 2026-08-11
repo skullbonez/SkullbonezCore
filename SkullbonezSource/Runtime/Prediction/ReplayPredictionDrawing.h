@@ -115,7 +115,6 @@ struct ReplayPredictionDrawListState
 
         // Hazard: assigning this whole state from {} materializes a
         // hundreds-of-KiB temporary and can exhaust nested Debug render stacks.
-
         for ( ReplayPredictionDrawRecordCursor& cursor : recordCursors )
         {
             cursor = {};

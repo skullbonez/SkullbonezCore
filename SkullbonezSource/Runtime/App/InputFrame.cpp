@@ -83,7 +83,6 @@ namespace Runtime
 {
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
-
     if ( result.Ok() )
     {
         return;
@@ -135,7 +134,6 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
 // Scene while generated demos expose Demo only when a trackable model exists.
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask )
 {
-
     if ( authoredScene )
     {
         return mode == RunCameraMode::Demo ? RunCameraMode::Scene : mode;
@@ -174,7 +172,6 @@ void EnterFlyModeCamera( InputRouter& inputRouter, CameraControlState& camera,
 
     // Why: generated demos snap to CAMERA_FREE; authored scenes keep their
     // selected camera so manual controls continue from the visible pose.
-
     if ( !authoredScene )
     {
         cameras.SelectCamera( CAMERA_FREE, true );
@@ -225,7 +222,6 @@ RuntimeInputContextMask BuildKeyboardContextMask( const KeyboardContextFacts& fa
     RuntimeInputContextMask mask = 0;
     auto include = [&mask]( RuntimeInputBindingContext context, bool enabled )
     {
-
         if ( enabled )
         {
             mask |= RuntimeInputContextBit( context );
@@ -265,7 +261,6 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner )
 
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code )
 {
-
     switch ( code )
     {
     case ReplayOwnerEventCode::SceneLoadBrowserIndex:
@@ -305,7 +300,6 @@ template <typename RecordAction>
 void RecordDiagnosticsPhysicsOverlayUIActions( const DiagnosticsPhysicsOverlayUICommandResult& commands,
                                                RecordAction recordAction )
 {
-
     if ( commands.toggledPhysicsDebugFlags )
     {
         recordAction( RuntimeInputAction::TogglePhysicsDebugFlags );
@@ -335,7 +329,6 @@ void RecordDiagnosticsPhysicsOverlayUIActions( const DiagnosticsPhysicsOverlayUI
 template <typename RecordAction>
 void RecordTornadoToggleUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     if ( commands.toggledTornado )
     {
         recordAction( RuntimeInputAction::ToggleTornado );
@@ -355,7 +348,6 @@ void RecordTornadoToggleUIActions( const OperatorCommandAcceptanceLedger& comman
 template <typename RecordAction>
 void RecordTornadoApplySettingsUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     for ( int actionIndex = 0; actionIndex < commands.tornadoApplySettingsActionCount; ++actionIndex )
     {
         recordAction( RuntimeInputAction::ApplyTornadoSettings );
@@ -365,7 +357,6 @@ void RecordTornadoApplySettingsUIActions( const OperatorCommandAcceptanceLedger&
 template <typename RecordAction>
 void RecordRuntimePresentationUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     if ( commands.toggledTerrainHidden )
     {
         recordAction( RuntimeInputAction::ToggleTerrainHidden );
@@ -410,7 +401,6 @@ void RecordRuntimePresentationUIActions( const OperatorCommandAcceptanceLedger& 
 template <typename RecordAction>
 void RecordRuntimePresentationWaterUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     if ( commands.toggledWaterReflection )
     {
         recordAction( RuntimeInputAction::ToggleWaterReflection );
@@ -425,7 +415,6 @@ void RecordRuntimePresentationWaterUIActions( const OperatorCommandAcceptanceLed
 template <typename RecordAction>
 void RecordRunSimulationUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     if ( commands.setTimeScale )
     {
         recordAction( RuntimeInputAction::SetTimeScale );
@@ -441,7 +430,6 @@ template <typename RecordAction>
 void RecordDiagnosticsPhysicsDebugValueUIActions( const DiagnosticsPhysicsDebugValueUICommandResult& commands,
                                                   RecordAction recordAction )
 {
-
     if ( commands.setAlpha )
     {
         recordAction( RuntimeInputAction::SetPhysicsDebugAlpha );
@@ -456,7 +444,6 @@ void RecordDiagnosticsPhysicsDebugValueUIActions( const DiagnosticsPhysicsDebugV
 template <typename RecordAction>
 void RecordPhysicsFrictionUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     for ( int actionIndex = 0; actionIndex < commands.frictionApplySettingsActionCount; ++actionIndex )
     {
         recordAction( RuntimeInputAction::ApplyPhysicsFrictionSettings );
@@ -466,7 +453,6 @@ void RecordPhysicsFrictionUIActions( const OperatorCommandAcceptanceLedger& comm
 template <typename RecordAction>
 void RecordCinematicTuningUIActions( const OperatorCommandAcceptanceLedger& commands, RecordAction recordAction )
 {
-
     if ( commands.toggledCinematicFeature )
     {
         recordAction( RuntimeInputAction::ToggleCinematicFeature );
@@ -481,7 +467,6 @@ void RecordCinematicTuningUIActions( const OperatorCommandAcceptanceLedger& comm
 template <typename RecordAction>
 void RecordSceneUIActions( const SceneUICommandSubmissionResult& commands, RecordAction recordAction )
 {
-
     if ( commands.resetScene )
     {
         recordAction( RuntimeInputAction::ResetScene );
@@ -674,7 +659,6 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // editor command, then translated once into replay-domain vocabulary.
     // ReplayRuntime coordinates concrete owners and publishes recoverable
     // feedback; this input boundary retains no timeline or restore authority.
-
     for ( uint32_t index = 0u; index < editorCommands.commands.replay.count; ++index )
     {
         const SkullbonezCore::UI::OperatorEditorReplayCommand& source = editorCommands.commands.replay.commands[index];
@@ -951,7 +935,6 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     // Invariant: hierarchy metadata is a live editor concern. Typed secondary
     // commands cannot mutate scene presentation or edit locks while play mode
     // owns the frame, even if a stale packet crosses the mode transition.
-
     if ( uiCommands.editor.requestSetEntityVisible && runtimeTools.Editor().editorModeEnabled )
     {
         PhysicsSceneObjectId sceneObjectId;
@@ -1108,7 +1091,6 @@ RuntimeUIFrameResult Run::ApplyInputCommandsPhase( RuntimeUIFrameResult result, 
     RecordPhysicsFrictionUIActions( operatorAcceptance, recordUIAction );
     const auto executeSceneGeneratedControlAction = [&]( const SceneGeneratedControlAction& action )
     {
-
         if ( action.resetReplayTimeline )
         {
             const ReplaySceneTimelineResetInput
@@ -1261,7 +1243,6 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result, I
 
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
-
     if ( !result.frameActive || !result.status.Ok() )
     {
         return result;

@@ -36,7 +36,6 @@ namespace Chrome
 
 void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
 {
-
     if ( outSize == 0 )
     {
         return;
@@ -51,7 +50,6 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
         if ( data.testComplete )
         {
-
             if ( data.targetFrameCount > 0 )
             {
                 snprintf( out, outSize, "%s  %d/%d complete", data.sceneName, displayedFrame, data.targetFrameCount );
@@ -92,7 +90,6 @@ void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize 
 
 void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 {
-
     if ( textSize == 0 || UIFontMetrics::MeasureText( fontSize, text ) <= maxWidth )
     {
         return;
@@ -153,7 +150,6 @@ void ClampWindowToScreen( UIWindowState& window, int screenW, int screenH, int m
 
 bool SetMaximized( UIWindowState& window, bool maximized, int screenW, int screenH, double now )
 {
-
     if ( window.isMaximized == maximized )
     {
         return false;
@@ -215,7 +211,6 @@ void BeginWindowAnimation( UIWindowState& window, const UIRect& from, const UIRe
 
 UIRect CurrentWindowRect( UIWindowState& window, double now )
 {
-
     if ( !window.animationActive )
     {
         return WindowRect( window );

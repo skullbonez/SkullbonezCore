@@ -265,7 +265,6 @@ void DrawEditorMiniIcon( const UIDrawContext& draw, const UIRect& bounds, int ob
 
     if ( type == EditorTab::OBJECT_BRICK_WALL_200_SLEEP )
     {
-
         for ( int row = 0; row < 4; ++row )
         {
             const float rowY = cy - r * 0.78f + static_cast<float>( row ) * r * 0.42f;
@@ -430,7 +429,6 @@ void DrawEditorMiniPaletteButton( const UIDrawContext& draw, const UIRect& bound
 
 void DrawEditorMiniTooltip( const UIDrawContext& draw, const UIRect& anchor, const char* label, int screenW, int screenH )
 {
-
     if ( !label || label[0] == '\0' || screenW <= 0 || screenH <= 0 )
     {
         return;
@@ -481,7 +479,6 @@ int EditorMiniRagdollObjectType( int mode )
 
 bool EditorMiniSelectionRequestsStatic( int holdMode, int treePlacement, bool& outPlaceStatic )
 {
-
     if ( holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
     {
         outPlaceStatic = treePlacement != EDITOR_MINI_TREE_PLACEMENT_SLEEPING;
@@ -501,10 +498,8 @@ bool EditorMiniSelectionRequestsStatic( int holdMode, int treePlacement, bool& o
 
 const char* EditorMiniPaletteEntryLabel( const EditorMiniPaletteEntry& entry )
 {
-
     if ( entry.holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
     {
-
         switch ( entry.treePlacement )
         {
         case EDITOR_MINI_TREE_PLACEMENT_FIXED:

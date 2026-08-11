@@ -439,7 +439,6 @@ int AuthoredScene::GetBallCount() const
 
 const SceneCamera& AuthoredScene::GetCamera( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_cameras.size() ) )
     {
         FatalSceneIndexOutOfRange( "Camera", "AuthoredScene::GetCamera", index, static_cast<int>( m_cameras.size() ) );
@@ -451,7 +450,6 @@ const SceneCamera& AuthoredScene::GetCamera( int index ) const
 
 const SceneBall& AuthoredScene::GetBall( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_balls.size() ) )
     {
         FatalSceneIndexOutOfRange( "Ball", "AuthoredScene::GetBall", index, static_cast<int>( m_balls.size() ) );
@@ -469,7 +467,6 @@ int AuthoredScene::GetBallStateCount() const
 
 const SceneBallState& AuthoredScene::GetBallState( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_ballStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "BallState", "AuthoredScene::GetBallState", index,
@@ -488,7 +485,6 @@ int AuthoredScene::GetBoxStateCount() const
 
 const SceneBoxState& AuthoredScene::GetBoxState( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_boxStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "BoxState", "AuthoredScene::GetBoxState", index, static_cast<int>( m_boxStates.size() ) );
@@ -506,7 +502,6 @@ int AuthoredScene::GetBoxCount() const
 
 const SceneBox& AuthoredScene::GetBox( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_boxes.size() ) )
     {
         FatalSceneIndexOutOfRange( "Box", "AuthoredScene::GetBox", index, static_cast<int>( m_boxes.size() ) );
@@ -524,7 +519,6 @@ int AuthoredScene::GetConvexHullCount() const
 
 const SceneConvexHull& AuthoredScene::GetConvexHull( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
     {
         FatalSceneIndexOutOfRange( "ConvexHull", "AuthoredScene::GetConvexHull", index,
@@ -543,7 +537,6 @@ int AuthoredScene::GetConvexHullStateCount() const
 
 const SceneConvexHullState& AuthoredScene::GetConvexHullState( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_convexHullStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "ConvexHullState", "AuthoredScene::GetConvexHullState", index,
@@ -562,7 +555,6 @@ int AuthoredScene::GetRagdollCount() const
 
 const SceneRagdoll& AuthoredScene::GetRagdoll( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_ragdolls.size() ) )
     {
         FatalSceneIndexOutOfRange( "Ragdoll", "AuthoredScene::GetRagdoll", index, static_cast<int>( m_ragdolls.size() ) );
@@ -580,7 +572,6 @@ int AuthoredScene::GetPointJointConstraintCount() const
 
 const ScenePointJointConstraint& AuthoredScene::GetPointJointConstraint( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
     {
         FatalSceneIndexOutOfRange( "PointJointConstraint", "AuthoredScene::GetPointJointConstraint", index,
@@ -599,7 +590,6 @@ int AuthoredScene::GetRequiredContactCount() const
 
 const SceneRequiredContact& AuthoredScene::GetRequiredContact( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
     {
         FatalSceneIndexOutOfRange( "RequiredContact", "AuthoredScene::GetRequiredContact", index,
@@ -618,7 +608,6 @@ int AuthoredScene::GetRequiredBroadphaseXCellCount() const
 
 const SceneRequiredBroadphaseXCells& AuthoredScene::GetRequiredBroadphaseXCell( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
     {
         FatalSceneIndexOutOfRange( "RequiredBroadphaseXCell", "AuthoredScene::GetRequiredBroadphaseXCell", index,
@@ -637,7 +626,6 @@ int AuthoredScene::GetAssetLibraryCount() const
 
 const SceneAssetLibraryRef& AuthoredScene::GetAssetLibrary( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_assetLibraries.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetLibrary", "AuthoredScene::GetAssetLibrary", index,
@@ -656,7 +644,6 @@ int AuthoredScene::GetAssetInstanceCount() const
 
 const SceneAssetInstanceRecord& AuthoredScene::GetAssetInstance( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_assetInstances.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetInstance", "AuthoredScene::GetAssetInstance", index,
@@ -675,7 +662,6 @@ int AuthoredScene::GetAssetPartCount() const
 
 const SceneAssetPartRef& AuthoredScene::GetAssetPart( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_assetParts.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetPart", "AuthoredScene::GetAssetPart", index,
@@ -694,7 +680,6 @@ int AuthoredScene::GetObjectMaterialOverrideCount() const
 
 const SceneObjectMaterialOverride& AuthoredScene::GetObjectMaterialOverride( int index ) const
 {
-
     if ( index < 0 || index >= static_cast<int>( m_objectMaterials.size() ) )
     {
         FatalSceneIndexOutOfRange( "ObjectMaterialOverride", "AuthoredScene::GetObjectMaterialOverride", index,

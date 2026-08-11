@@ -46,10 +46,8 @@ bool ValidPlannerBody( const ReplayTripPlannerBodyState& body ) noexcept
 const RunReplayPredictionBodySample* FindPlannerPredictionBody( const RunReplayPredictionFrame& frame,
                                                                 Physics::PhysicsSceneObjectId id ) noexcept
 {
-
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
-
         if ( body.id.value == id.value )
         {
             return &body;
@@ -69,7 +67,6 @@ bool PlanningState( ReplayTripPlannerState state ) noexcept
 
 bool ReplayTripPlanner::QueueCommand( const ReplayTripPlannerCommand& command ) noexcept
 {
-
     if ( command.kind == ReplayTripPlannerCommandKind::None || m_commandCount >= m_commands.size() )
     {
         return false;
@@ -256,7 +253,6 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
     if ( input.cancelled || input.liveAdvanceHeld || !input.targetAvailable || input.shipId.value != m_view.shipId.value ||
          input.targetId.value != m_view.targetId.value )
     {
-
         if ( PlanningState( m_view.state ) )
         {
             return CancelActivePlan();
@@ -312,7 +308,6 @@ ReplayTripPlanner::ObservePrediction( const ReplayTripPlannerPredictionInput& in
 
 void ReplayTripPlanner::ConfirmVelocityApplied() noexcept
 {
-
     if ( m_view.state == ReplayTripPlannerState::Seeding || m_view.state == ReplayTripPlannerState::Correcting )
     {
         m_view.state = ReplayTripPlannerState::AwaitingPrediction;
@@ -324,7 +319,6 @@ Math::Vector::Vector3 ReplayTripPlanner::FirstOrderCorrection( const Math::Vecto
                                                                const Math::Vector::Vector3& targetAtClosest,
                                                                float closestTimeSeconds ) noexcept
 {
-
     if ( !std::isfinite( closestTimeSeconds ) || closestTimeSeconds <= 0.0f )
     {
         return velocity;
@@ -354,7 +348,6 @@ ReplayTripPlannerVelocityMutation ReplayTripPlanner::CancelActivePlan() noexcept
 void ReplayTripPlanner::RetainGhost( std::span<const RunReplayPredictionFrame> frames,
                                      Physics::PhysicsSceneObjectId shipId ) noexcept
 {
-
     if ( frames.empty() )
     {
         return;
@@ -362,10 +355,8 @@ void ReplayTripPlanner::RetainGhost( std::span<const RunReplayPredictionFrame> f
 
     // Invariant: once four slots are full the oldest, dimmest witness is
     // discarded and the three newer candidates retain their visual ordering.
-
     if ( m_view.ghostCount == m_view.ghosts.size() )
     {
-
         for ( std::size_t index = 1; index < m_view.ghosts.size(); ++index )
         {
             m_view.ghosts[index - 1] = m_view.ghosts[index];

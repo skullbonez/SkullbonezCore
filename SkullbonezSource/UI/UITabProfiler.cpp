@@ -93,10 +93,8 @@ void SetProfilerContentBounds( SkullbonezCore::UI::ProfilerTab::UIProfilerTabSta
 
 bool ProfilerMarkerHasChildren( const SkullbonezCore::UI::ProfilerTab::FrameSnapshot& frame, int markerIndex )
 {
-
     for ( int i = 0; i < frame.markerCount; ++i )
     {
-
         if ( frame.markers[i].parentIndex == markerIndex )
         {
             return true;
@@ -125,10 +123,8 @@ float ProfilerMarkerDisplayWorkerMs( const SkullbonezCore::UI::ProfilerTab::Mark
 
 bool IsMarkerExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
-
     for ( int i = 0; i < state.expandedHashCount; ++i )
     {
-
         if ( state.expandedHashes[i] == hash )
         {
             return true;
@@ -147,10 +143,8 @@ void ToggleMarker( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, u
 
     for ( int i = 0; i < state.expandedHashCount; ++i )
     {
-
         if ( state.expandedHashes[i] == hash )
         {
-
             for ( int j = i; j < state.expandedHashCount - 1; ++j )
             {
                 state.expandedHashes[j] = state.expandedHashes[j + 1];
@@ -169,10 +163,8 @@ void ToggleMarker( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, u
 
 bool IsDrawNodeExpanded( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, uint32_t hash )
 {
-
     for ( int i = 0; i < state.drawExpandedHashCount; ++i )
     {
-
         if ( state.drawExpandedHashes[i] == hash )
         {
             return true;
@@ -188,10 +180,8 @@ void ToggleDrawNode( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
 
     for ( int i = 0; i < state.drawExpandedHashCount; ++i )
     {
-
         if ( state.drawExpandedHashes[i] == hash )
         {
-
             for ( int j = i; j < state.drawExpandedHashCount - 1; ++j )
             {
                 state.drawExpandedHashes[j] = state.drawExpandedHashes[j + 1];
@@ -210,10 +200,8 @@ void ToggleDrawNode( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
 
 bool DrawNodeHasVisibleChildren( const SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& snapshot, int nodeIndex )
 {
-
     for ( int i = 0; i < snapshot.nodeCount; ++i )
     {
-
         if ( snapshot.nodes[i].parentIndex == nodeIndex && snapshot.nodes[i].drawCallCount > 0 )
         {
             return true;
@@ -226,7 +214,6 @@ bool DrawNodeHasVisibleChildren( const SkullbonezCore::UI::ProfilerTab::DrawTrac
 int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
                           const SkullbonezCore::UI::ProfilerTab::DrawTraceSnapshot& snapshot, int* rows, int maxRows )
 {
-
     if ( !snapshot.nodes || snapshot.nodeCount <= 0 )
     {
         return 0;
@@ -252,7 +239,6 @@ int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabSt
 
     for ( int i = nodeCount - 1; i >= 0; --i )
     {
-
         if ( snapshot.nodes[i].parentIndex == -1 && snapshot.nodes[i].drawCallCount > 0 )
         {
             stack[stackTop++] = i;
@@ -321,7 +307,6 @@ int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 
     for ( int i = markerCount - 1; i >= 0; --i )
     {
-
         if ( frame.markers[i].parentIndex == -1 )
         {
             stack[stackTop++] = i;
@@ -350,7 +335,6 @@ int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 
         for ( int child = childCounts[markerIndex] - 1; child >= 0; --child )
         {
-
             if ( stackTop < SkullbonezCore::UI::ProfilerTab::MAX_MARKERS )
             {
                 stack[stackTop++] = childIndices[markerIndex][child];
@@ -432,7 +416,6 @@ void BuildTimelineSegments( const SkullbonezCore::UI::ProfilerTab::UIProfilerTab
 
     for ( int i = 0; i < markerCount; ++i )
     {
-
         if ( frame.markers[i].parentIndex == -1 )
         {
             assignSubtree( assignSubtree, i, rootStartMs );
@@ -492,7 +475,6 @@ void ResetPreviewState( UIProfilerTabState& state )
 
 void ApplyDefaultExpansion( UIProfilerTabState& state )
 {
-
     if ( state.defaultExpansionApplied && state.drawDefaultExpansionApplied )
     {
         return;
@@ -551,7 +533,6 @@ void ApplyDefaultExpansion( UIProfilerTabState& state )
 
 void ApplyExpandAll( UIProfilerTabState& state )
 {
-
     if ( !state.expandAllMarkers )
     {
         return;
@@ -614,7 +595,6 @@ bool HandleContentClick( UIProfilerTabState& state, InGameUIInputResult& result,
 
     if ( state.workerToggle.HitTest( mouseX, mouseY ) )
     {
-
         if ( workerCount > 0 )
         {
             state.restoreWorkerThreads = workerCount;
@@ -748,7 +728,6 @@ bool UpdateActiveSlider( UIProfilerTabState& state, int activeSlider, int mouseX
 
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider != SLIDER_WORKER_THREADS || state.previewWorkerThreads < 0 )
     {
         return false;
@@ -910,7 +889,6 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIF
 
         if ( state.timelineEnabled )
         {
-
             if ( segment.isFilled && segment.durationMs > 0.0f )
             {
                 const float start = std::clamp( segment.startMs / timelineBudgetMs, 0.0f, 1.0f );
@@ -1055,7 +1033,6 @@ void Draw( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIF
         }
         else
         {
-
             if ( coreSampleCount <= 0 )
             {
                 draw.Text( plotX + 10.0f, plotY + 24.0f, 10.0f, 0.76f, 0.84f, 0.86f,

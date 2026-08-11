@@ -129,7 +129,6 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::CaptureBackbuffer( std::ve
 
     if ( !submit.result.Ok() )
     {
-
         if ( submit.readbackUseUncertain )
         {
             Quarantine( readback.DetachAfterUncertainSubmission(), submit.failedOperation );
@@ -175,10 +174,8 @@ void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
 
     // Lifetime: the caller's terminal drain is the proof that makes every
     // detached readback reference safe to release.
-
     for ( size_t index = 0; index < m_quarantinedCount; ++index )
     {
-
         if ( m_quarantined[index] )
         {
             m_quarantined[index]->Release();
@@ -191,7 +188,6 @@ void Dx12BackbufferCapture::ReleaseAfterTerminalDrain()
 
 void Dx12BackbufferCapture::Quarantine( ID3D12Resource* resource, const char* failedOperation )
 {
-
     if ( !resource )
     {
         SB_FATAL( "Dx12BackbufferCapture", "Uncertain capture did not transfer a readback resource." );

@@ -111,7 +111,6 @@ void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state, Skul
 
     // Concept: The UI requests creation by name; scene runtime owns sanitizing,
     // writing the starter file, refreshing the browser, and loading it.
-
     if ( state.filter[0] == '\0' )
     {
         return;
@@ -159,7 +158,6 @@ int ContentHeight()
 
 bool FilterMatches( const char* option, const char* filter )
 {
-
     if ( !filter || filter[0] == '\0' )
     {
         return true;
@@ -192,7 +190,6 @@ bool FilterMatches( const char* option, const char* filter )
 
 bool TextEqualsIgnoreAsciiCase( const char* left, const char* right )
 {
-
     if ( !left || !right )
     {
         return false;
@@ -200,7 +197,6 @@ bool TextEqualsIgnoreAsciiCase( const char* left, const char* right )
 
     while ( *left != '\0' && *right != '\0' )
     {
-
         if ( LowerAscii( *left ) != LowerAscii( *right ) )
         {
             return false;
@@ -216,7 +212,6 @@ bool TextEqualsIgnoreAsciiCase( const char* left, const char* right )
 
 int FindExactOptionIndex( const char* const* options, int optionCount, const char* filter )
 {
-
     if ( !filter || filter[0] == '\0' )
     {
         return -1;
@@ -234,7 +229,6 @@ int FindExactOptionIndex( const char* const* options, int optionCount, const cha
 
     for ( int i = 0; i < optionCount; ++i )
     {
-
         if ( TextEqualsIgnoreAsciiCase( options[i], filter ) )
         {
             return i;
@@ -257,7 +251,6 @@ int CountFilteredOptions( const char* const* options, int optionCount, const cha
 
     for ( int i = 0; i < optionCount; ++i )
     {
-
         if ( FilterMatches( options[i], filter ) )
         {
             ++count;
@@ -270,7 +263,6 @@ int CountFilteredOptions( const char* const* options, int optionCount, const cha
 
 int FindFilteredOptionIndex( const char* const* options, int optionCount, const char* filter, int filteredIndex )
 {
-
     if ( filteredIndex < 0 )
     {
         return -1;
@@ -280,7 +272,6 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
 
     if ( filter && filter[0] != '\0' )
     {
-
         if ( filteredPosition == filteredIndex )
         {
             return NEW_SCENE_BROWSER_INDEX;
@@ -291,7 +282,6 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
 
     if ( FilterMatches( DEMO_SCENE_OPTION, filter ) )
     {
-
         if ( filteredPosition == filteredIndex )
         {
             return DEMO_SCENE_BROWSER_INDEX;
@@ -307,10 +297,8 @@ int FindFilteredOptionIndex( const char* const* options, int optionCount, const 
 
     for ( int i = 0; i < optionCount; ++i )
     {
-
         if ( FilterMatches( options[i], filter ) )
         {
-
             if ( filteredPosition == filteredIndex )
             {
                 return i;
@@ -330,7 +318,6 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 
     if ( filter && filter[0] != '\0' )
     {
-
         if ( optionIndex == NEW_SCENE_BROWSER_INDEX )
         {
             return filteredPosition;
@@ -341,7 +328,6 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 
     if ( FilterMatches( DEMO_SCENE_OPTION, filter ) )
     {
-
         if ( optionIndex < 0 )
         {
             return filteredPosition;
@@ -357,7 +343,6 @@ int FilteredPositionForIndex( const char* const* options, int optionCount, const
 
     for ( int i = 0; i < optionCount; ++i )
     {
-
         if ( !FilterMatches( options[i], filter ) )
         {
             continue;
@@ -428,7 +413,6 @@ void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, co
 
     for ( int key = 'A'; key <= 'Z'; ++key )
     {
-
         if ( ConsumeFilterKeyPress( state, input, key ) )
         {
             AppendFilterChar( state, static_cast<char>( 'a' + key - 'A' ) );
@@ -438,7 +422,6 @@ void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, co
 
     for ( int key = '0'; key <= '9'; ++key )
     {
-
         if ( ConsumeFilterKeyPress( state, input, key ) )
         {
             AppendFilterChar( state, static_cast<char>( key ) );
@@ -480,7 +463,6 @@ void UpdateFilterTyping( UISceneTabState& state, InGameUIInputResult& result, co
 
     if ( ConsumeFilterKeyPress( state, input, VK_ESCAPE ) )
     {
-
         if ( state.filter[0] != '\0' )
         {
             ClearFilter( state );
@@ -666,7 +648,6 @@ bool HandleClosedComboClick( UISceneTabState& state, const InputControl::UIInput
 
     // Invariant: HandleHeaderClick establishes the shared draw/hit-test bounds
     // before this closed-combo action runs.
-
     if ( combo.HitBox( mouseX, mouseY ) )
     {
         ClearFilter( state );
@@ -720,7 +701,6 @@ bool HandleTimeScaleClick( UISceneTabState& state, InGameUIInputResult& result, 
 
 bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_PREDICTION_REVEAL )
     {
         state.previewPredictionReveal = state.predictionRevealSlider.ValueFromMouse( mouseX, 0.0f, 1.0f, 0.0f );
@@ -746,7 +726,6 @@ bool UpdateActiveSlider( UISceneTabState& state, int activeSlider, int mouseX, I
 
 bool CommitActiveSlider( UISceneTabState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_TIME_SCALE && state.previewTimeScale > 0.0f )
     {
         result.commands.sceneOptions.requestedTimeScale = state.previewTimeScale;

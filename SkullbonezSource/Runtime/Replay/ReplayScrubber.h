@@ -292,7 +292,6 @@ class ReplayScrubber
 
     bool SetLiveAdvanceHeld( bool held ) noexcept
     {
-
         if ( m_state.liveAdvanceHeld == held )
         {
             return false;
@@ -377,7 +376,6 @@ class ReplayScrubber
     void UpdateVisibilityFade( bool targetVisible, double now, double fadeInSeconds, double fadeOutSeconds,
                                float visibleEpsilon ) noexcept
     {
-
         if ( m_state.fadeUpdatedAt <= 0.0 || now < m_state.fadeUpdatedAt )
         {
             m_state.fadeUpdatedAt = now;

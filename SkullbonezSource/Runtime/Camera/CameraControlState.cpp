@@ -80,10 +80,8 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;
     // a missing row leaves the previous view target intact for this frame.
-
     for ( int modelIndex = 0; modelIndex < 2; ++modelIndex )
     {
-
         if ( !cameras.IsCameraSelected( cameraSlots[modelIndex] ) )
         {
             continue;
@@ -102,7 +100,6 @@ void CameraControlState::UpdateViewingOrientation( RunTimerState& timers, Runtim
 
 void CameraControlState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 {
-
     if ( sceneMode && autoCycleInterval > 0.0f )
     {
         autoCycleAccum += simulationDt;

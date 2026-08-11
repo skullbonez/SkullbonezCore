@@ -119,7 +119,6 @@ class PersistentContactSolvePhaseCursor
 
     bool TryAdvance( Phase next )
     {
-
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;
@@ -131,7 +130,6 @@ class PersistentContactSolvePhaseCursor
 
     bool ResetAfterComplete()
     {
-
         if ( m_phase != Phase::Complete )
         {
             return false;

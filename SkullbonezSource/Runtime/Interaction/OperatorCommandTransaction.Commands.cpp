@@ -57,7 +57,6 @@ namespace
 {
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
-
     switch ( param )
     {
     case UICinematicParam::Exposure:
@@ -177,7 +176,6 @@ uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 
 uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
 {
-
     switch ( feature )
     {
     case UICinematicFeature::Sky:
@@ -355,7 +353,6 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
 
     if ( sceneOptions.toggleShadows )
     {
-
         if ( IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, graphicsReady ) )
         {
             const bool shadowsActive = ActiveSceneCinematicConfig( scene, config ).shadow.enabled;
@@ -390,7 +387,6 @@ void OperatorCommandTransaction::ApplyRuntimePresentation( OverlayDebugState& de
 
     if ( water.toggleWaterReflection )
     {
-
         if ( debug.isWaterNoReflect )
         {
             debug.isWaterNoReflect = false;
@@ -564,7 +560,6 @@ void OperatorCommandTransaction::ApplyCinematicPolicy( RunLaunchOptions& launchO
 
     if ( commands.requestedFeature != UICinematicFeature::None )
     {
-
         if ( commands.requestedFeature == UICinematicFeature::Shadows )
         {
             launchOptions.hasCinematicShadowsOverride = false;
@@ -886,7 +881,6 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
 void OperatorCommandTransaction::ApplyOrdinaryRenderParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
                                                            UIRenderParam param, float rawValue )
 {
-
     switch ( param )
     {
     case UIRenderParam::SunIntensity:
@@ -1014,7 +1008,6 @@ void ToggleCinematicUIFeature( SkullbonezCore::Core::CinematicRenderConfig& cine
 
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
     // Each toggle also marks the matching override bit for scene persistence.
-
     switch ( feature )
     {
     case UICinematicFeature::Sky:

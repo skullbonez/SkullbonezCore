@@ -87,7 +87,6 @@ void HashPredictionByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
 {
-
     for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
         HashPredictionByte( hash, byte );
@@ -116,7 +115,6 @@ ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& pack
 
     for ( const RunReplayPathTraceNode& node : packet.futureNodes )
     {
-
         if ( node.firstFrame > tick.revealFrame )
         {
             continue;
@@ -132,7 +130,6 @@ ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& pack
 
     for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
     {
-
         if ( record.key.lane == ReplayTrajectoryLane::PastRoot || record.firstFrame > tick.revealFrame )
         {
             continue;
@@ -167,10 +164,8 @@ ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& pack
 const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPredictionFrame& frame,
                                                              Physics::PhysicsSceneObjectId id )
 {
-
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
-
         if ( body.id.value == id.value )
         {
             return &body;
@@ -195,7 +190,6 @@ void SkullbonezCore::Runtime::InteractionAutomationRunStatus::Fail( const char* 
 SkullbonezCore::Core::SbResult
 SkullbonezCore::Runtime::InteractionAutomationRunStatus::Result( Core::SbDiagnosticStore& diagnostics ) const
 {
-
     if ( !failed )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -332,7 +326,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVis
 
     if ( m_replayVisualFidelityStartFrame < 0 && sceneFrame == fixedStartFrame )
     {
-
         if ( !revealReady )
         {
             status.Fail( "replay visual fidelity prediction was not fully published before fixed reveal start" );
@@ -362,7 +355,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::UpdateReplayVis
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureReplayVisualFrame( int sceneFrame, const ReplayAutomationView& replay, InteractionAutomationRunStatus& status )
 {
-
     if ( !m_replayVisualFidelityCaptureEnabled )
     {
         return true;
@@ -517,7 +509,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayVisualCap
 
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::ResetEditorSelectionCaptures() noexcept
 {
-
     for ( int slot = 0; slot < 2; ++slot )
     {
         m_editorSelectionCaptureFingerprints[slot] = 0;
@@ -528,7 +519,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::ResetEditorSele
 void SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureEditorSelection( int slot, uint64_t fingerprint,
                                                                                          bool valid ) noexcept
 {
-
     if ( slot < 0 || slot >= 2 )
     {
         return;
@@ -540,7 +530,6 @@ void SkullbonezCore::Runtime::InteractionAutomationReportWriter::CaptureEditorSe
 
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::TryEditorSelectionCapture( int slot, uint64_t& outFingerprint ) const noexcept
 {
-
     if ( slot < 0 || slot >= 2 || !m_editorSelectionCaptureValid[slot] )
     {
         return false;
@@ -553,7 +542,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::TryEditorSelect
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status, RuntimeTools& runtimeTools, SceneWorld& world,
                                                                                                       const ReplaySolverFrameSample* latestSolverSample )
 {
-
     if ( m_replayVisualOfflineProjectionComplete )
     {
         return true;
@@ -625,7 +613,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
 
         for ( std::size_t passIndex = 0; passIndex < update.budgetExpiries.size(); ++passIndex )
         {
-
             for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
             {
                 offlinePrediction.PresentationOwner().RecordTrajectoryBudgetExpiry( static_cast<Core::MainMemoryReplayBudgetPass>( passIndex ) );
@@ -634,7 +621,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
 
         for ( std::size_t causeIndex = 0; causeIndex < update.rebuildCauses.size(); ++causeIndex )
         {
-
             for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
             {
                 offlinePrediction.PresentationOwner().RecordTrajectoryRebuildCause( static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
@@ -670,7 +656,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
 
         const auto laneHashMatches = [&]( const char* lane, uint64_t expectedHash, uint64_t actualHash )
         {
-
             if ( expectedHash == actualHash )
             {
                 return true;
@@ -725,7 +710,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::FinishReplayVisualCapture( InteractionAutomationRunStatus& status, RuntimeTools& runtimeTools, SceneWorld& world,
                                                                                             const ReplayAutomationView& replay )
 {
-
     if ( !m_replayVisualFidelityCaptureEnabled )
     {
         return true;
@@ -876,7 +860,6 @@ std::size_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPa
 
     for ( const ReplayTrajectoryRecord& record : replay.prediction.trajectoryStore.records )
     {
-
         if ( record.key.lane == ReplayTrajectoryLane::PastRoot && record.key.bodyId.value == visualizer.targetId.value )
         {
             return (std::min)( record.publishedPointCount, record.points.size() );
@@ -906,7 +889,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictio
 
     for ( std::size_t i = 0; i < frameCount; ++i )
     {
-
         if ( ( *frames )[i].contactsIncomplete )
         {
             return true;
@@ -941,7 +923,6 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::LiveSolverHashS
 
 const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::CameraModeName( RunCameraMode mode )
 {
-
     switch ( mode )
     {
     case RunCameraMode::Demo:
@@ -967,7 +948,6 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::CameraMo
 
 const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::WorkspaceName( RuntimeWorkspace workspace )
 {
-
     switch ( workspace )
     {
     case RuntimeWorkspace::Live:
@@ -985,7 +965,6 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::Workspac
 
 const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::OwnerName( WorldInteractionOwner owner )
 {
-
     switch ( owner )
     {
     case WorldInteractionOwner::None:
@@ -1023,7 +1002,6 @@ const char* SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayTr
 const char*
 SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionBuildModeName( ReplayPredictionBuildMode mode )
 {
-
     switch ( mode )
     {
     case ReplayPredictionBuildMode::Instant:
@@ -1038,7 +1016,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::ReplayPredictionBuil
 
 uint32_t SkullbonezCore::Runtime::InteractionAutomationReportWriter::CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions )
 {
-
     if ( liveVersion == 0u )
     {
         return 0u;
@@ -1385,7 +1362,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
     const auto findPredictionBodyByModelRow = []( const RunReplayPredictionFrame* sample,
                                                   int modelIndex ) -> const RunReplayPredictionBodySample*
     {
-
         if ( !sample )
         {
             return nullptr;
@@ -1393,7 +1369,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
         for ( const RunReplayPredictionBodySample& body : sample->bodies )
         {
-
             if ( body.modelRow.value == modelIndex )
             {
                 return &body;
@@ -1462,7 +1437,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
         const auto grounded = [&]( const RunReplayPredictionBodySample& body )
         {
-
             if ( !wallBrickShape )
             {
                 return false;
@@ -1543,7 +1517,6 @@ SkullbonezCore::Core::SbResult SkullbonezCore::Runtime::InteractionAutomationRep
 
     // Why: prediction visual regressions are often spatial, so the interaction
     // report records the retained marker inventory that backs screenshot proof.
-
     for ( std::size_t i = 0; i < predictionState.futureNodeCache.retainedMarkerCount; ++i )
     {
         const ReplayPredictionRetainedMarker& marker = predictionState.futureNodeCache.retainedMarkers[i];

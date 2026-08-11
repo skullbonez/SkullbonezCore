@@ -71,7 +71,6 @@ float HashUnitFloat( uint32_t value )
 
 Vector3 NormalizeOr( Vector3 value, const Vector3& fallback )
 {
-
     if ( VectorMagSquared( value ) <= 1.0e-8f )
     {
         return fallback;
@@ -104,7 +103,6 @@ void EmitFxVertex( std::vector<float>& vertices, const Vector3& position, float 
 
 void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
 {
-
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         renderTextures.BindTexture( 0, slot );
@@ -210,7 +208,6 @@ bool TornadoVisualPass::RegisterGraphPass( TornadoVisualPass& pass, Rendering::W
 
 void TornadoVisualPass::ExecuteGraphPass( const Rendering::RenderGraphPassContext& /*context*/, GraphCallbackData& data )
 {
-
     if ( !data.pass || !data.frame )
     {
         SB_FATAL( "Gameplay/TornadoVisualPass", "Graph callback missing frame execution data." );
@@ -405,7 +402,6 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
 
                 for ( int segment = 0; segment < dustSegments; ++segment )
                 {
-
                     if ( ( segment + band * 3 ) % 5 == 0 || ( segment + band ) % 11 == 0 )
                     {
                         continue;

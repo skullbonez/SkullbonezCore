@@ -38,7 +38,6 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::Reset()
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::AdvanceReleases( int frame )
 {
-
     if ( m_releaseLeftFrame == frame )
     {
         m_leftMouseDown = false;
@@ -68,7 +67,6 @@ void SkullbonezCore::Runtime::InteractionAutomationInputDriver::MoveMouse( POINT
 
 void SkullbonezCore::Runtime::InteractionAutomationInputDriver::PressMouse( bool rightButton, int frame, int holdFrames )
 {
-
     if ( rightButton )
     {
         m_rightMouseDown = true;

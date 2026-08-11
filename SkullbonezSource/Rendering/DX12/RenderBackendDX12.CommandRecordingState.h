@@ -76,7 +76,6 @@ class Dx12PlatformProfilerGpuStackState
 
     bool CommitBegin( int capacity )
     {
-
         if ( capacity <= 0 || m_depth >= capacity )
         {
             return false;
@@ -88,7 +87,6 @@ class Dx12PlatformProfilerGpuStackState
 
     bool CommitEnd()
     {
-
         if ( m_depth <= 0 )
         {
             return false;
@@ -107,7 +105,6 @@ class Dx12PlatformProfilerGpuStackState
 
     bool RestoreAfterSubmit( int suspendedDepth, int capacity )
     {
-
         if ( suspendedDepth < 0 || suspendedDepth > capacity )
         {
             return false;
@@ -231,7 +228,6 @@ class Dx12CommandRecordingState
 
     SkullbonezCore::Core::SbResult RetainFailure( const SkullbonezCore::Core::SbResult& result )
     {
-
         if ( !result.Ok() && !HasFailure() )
         {
             m_firstFailure = result;
@@ -316,10 +312,8 @@ class Dx12SubmittedWorkState
 
     void CommitSignal( const SkullbonezCore::Core::SbResult& result, UINT64 fenceValue )
     {
-
         if ( !result.Ok() )
         {
-
             if ( HasSubmittedWork() )
             {
 
@@ -349,10 +343,8 @@ class Dx12SubmittedWorkState
 
     void CommitWait( const SkullbonezCore::Core::SbResult& result, UINT64 waitedFence )
     {
-
         if ( !result.Ok() )
         {
-
             if ( HasSubmittedWork() )
             {
                 m_phase = Dx12SubmittedWorkPhase::CompletionUncertain;
@@ -366,7 +358,6 @@ class Dx12SubmittedWorkState
 
     void ObserveCompletedFence( UINT64 completedFence )
     {
-
         if ( HasSubmittedWork() && m_completionFence != 0 && completedFence >= m_completionFence )
         {
             m_phase = Dx12SubmittedWorkPhase::Idle;
@@ -440,7 +431,6 @@ class Dx12GpuDrainProgress
 
     bool CommitClose()
     {
-
         if ( !RequiresClose() )
         {
             return false;
@@ -457,7 +447,6 @@ class Dx12GpuDrainProgress
 
     bool CommitSubmission()
     {
-
         if ( !CanSubmit() )
         {
             return false;
@@ -474,7 +463,6 @@ class Dx12GpuDrainProgress
 
     bool CommitWait()
     {
-
         if ( !CanWait() )
         {
             return false;
@@ -491,7 +479,6 @@ class Dx12GpuDrainProgress
 
     bool CommitReopen()
     {
-
         if ( !CanReopen() )
         {
             return false;
@@ -565,7 +552,6 @@ class Dx12DeviceHealthState
 
     SkullbonezCore::Core::SbResult RetainDeviceLoss( const char* operation, HRESULT result )
     {
-
         if ( !m_lost )
         {
             m_lost = true;
@@ -652,7 +638,6 @@ class Dx12RecreationTransaction
 
     bool CommitPublished( uint64_t generation )
     {
-
         if ( !Advance( Dx12RecreationStage::BackBuffersReady, Dx12RecreationStage::Published ) )
         {
             return false;
@@ -664,7 +649,6 @@ class Dx12RecreationTransaction
 
     SkullbonezCore::Core::SbResult Fail( const SkullbonezCore::Core::SbResult& result )
     {
-
         if ( result.Ok() )
         {
             return m_resultDiagnostics.Failure( "Rendering/DX12", "Recreation failure requires a failed result" );
@@ -702,7 +686,6 @@ class Dx12RecreationTransaction
   private:
     bool Advance( Dx12RecreationStage expected, Dx12RecreationStage next )
     {
-
         if ( m_stage != expected || !m_firstFailure.Ok() )
         {
             return false;
@@ -741,7 +724,6 @@ class Dx12FaultInjectionState
 
     SkullbonezCore::Core::SbResult BeforeSubmission()
     {
-
         if ( !m_armedBeforeFirstSubmission )
         {
             return SkullbonezCore::Core::SbResult::Success();

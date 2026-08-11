@@ -48,7 +48,6 @@ bool PhysicsTerrainView::IsValid() const noexcept
 
 bool PhysicsTerrainView::IsInBounds( float x, float z ) const noexcept
 {
-
     if ( !IsValid() )
     {
         return false;
@@ -68,7 +67,6 @@ float PhysicsTerrainView::HeightAt( float x, float z ) const
 
 void PhysicsTerrainView::HeightAndPlaneAt( float x, float z, float& outHeight, Plane& outPlane ) const
 {
-
     if ( !IsInBounds( x, z ) )
     {
         SB_FATAL( "Physics/PhysicsTerrainView", "Coordinates out of terrain bounds: x=%.3f z=%.3f valid=%d.", x, z,

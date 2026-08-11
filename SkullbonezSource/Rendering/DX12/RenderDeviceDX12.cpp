@@ -44,7 +44,6 @@ namespace Rendering
 static inline SkullbonezCore::Core::SbResult Dx12StartupResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                                 HRESULT hr, const char* msg )
 {
-
     if ( FAILED( hr ) )
     {
 
@@ -62,7 +61,6 @@ static inline SkullbonezCore::Core::SbResult Dx12StartupResult( SkullbonezCore::
 static inline SkullbonezCore::Core::SbResult Dx12RuntimeResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics,
                                                                 HRESULT hr, const char* msg )
 {
-
     if ( FAILED( hr ) )
     {
         return resultDiagnostics.Failure( "Rendering/DX12", "%s (HRESULT 0x%08X)", msg ? msg : "DX12 runtime call failed",
@@ -80,7 +78,6 @@ struct Dx12RenderDeviceInitRollback
 
     ~Dx12RenderDeviceInitRollback()
     {
-
         if ( !committed )
         {
             target.Shutdown();
@@ -134,7 +131,6 @@ void NameDx12Object( ID3D12Object* object, const wchar_t* name )
     // command-list pointer. With names, it can say "Skullbonez DX12 Main Command
     // List" or "Skullbonez DX12 Frame Upload Buffer 1", which is immediately
     // actionable.
-
     if ( object && name && name[0] != L'\0' )
     {
         object->SetName( name );
@@ -220,7 +216,6 @@ SkullbonezCore::Core::SbResult Dx12FenceTimeline::Signal( UINT64& outValue )
 
 SkullbonezCore::Core::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) const
 {
-
     if ( value == 0 )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -235,7 +230,6 @@ SkullbonezCore::Core::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) c
     // reached this marker, the CPU can continue immediately. Otherwise, ask the
     // fence to fire the Windows event when it reaches the value and sleep until
     // that happens.
-
     if ( m_fence->GetCompletedValue() < value )
     {
         const SkullbonezCore::Core::SbResult eventResult = Dx12RuntimeResult( m_resultDiagnostics,
@@ -263,7 +257,6 @@ SkullbonezCore::Core::SbResult Dx12FenceTimeline::WaitForValue( UINT64 value ) c
 
 UINT64 Dx12FenceTimeline::CompletedValue() const
 {
-
     if ( !m_fence )
     {
         return 0;
@@ -275,7 +268,6 @@ UINT64 Dx12FenceTimeline::CompletedValue() const
 
 void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName )
 {
-
     if ( !heap || descriptorSize == 0 || capacity == 0 || capacity > MAX_TRACKED_CPU_DESCRIPTORS )
     {
         SB_FATAL( "RenderDeviceDX12",
@@ -318,7 +310,6 @@ void Dx12CpuDescriptorAllocator::Reset()
 
 Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
 {
-
     if ( !m_heap || m_descriptorSize == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor allocator used before Init." );
@@ -355,7 +346,6 @@ Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
 
 void Dx12CpuDescriptorAllocator::Free( UINT index )
 {
-
     if ( index >= m_capacity || !m_allocated[index] || m_freeCount >= m_capacity || m_used == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor free rejected. heap=%s index=%u used=%u capacity=%u", m_heapName,
@@ -370,7 +360,6 @@ void Dx12CpuDescriptorAllocator::Free( UINT index )
 
 D3D12_CPU_DESCRIPTOR_HANDLE Dx12CpuDescriptorAllocator::CpuHandle( UINT index ) const
 {
-
     if ( !m_heap || m_descriptorSize == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 CPU descriptor heap unavailable." );
@@ -464,7 +453,6 @@ void Dx12DescriptorAllocator::Reset()
 
 void Dx12DescriptorAllocator::ResetFrame( UINT frameIndex )
 {
-
     if ( m_frameCount == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 descriptor allocator used before Init." );
@@ -527,7 +515,6 @@ UINT Dx12DescriptorAllocator::AllocateStatic()
 
 void Dx12DescriptorAllocator::FreeStatic( UINT index )
 {
-
     if ( index >= m_staticCapacity || !m_staticAllocated[index] )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 static SRV free rejected. index=%u capacity=%u allocated=%u", index,
@@ -560,7 +547,6 @@ UINT Dx12DescriptorAllocator::AllocateTransient()
     // texture handle and it is not a pointer. The caller usually copies an
     // existing static descriptor into this row, then binds this row's GPU handle
     // for the draw or dispatch being recorded.
-
     if ( m_nextTransientInFrame >= m_transientCapacityPerFrame )
     {
         SB_FATAL( "RenderDeviceDX12",
@@ -578,7 +564,6 @@ UINT Dx12DescriptorAllocator::AllocateTransient()
 
 UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
 {
-
     if ( count == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 transient descriptor range count must be greater than zero." );
@@ -628,7 +613,6 @@ void Dx12DescriptorAllocator::ValidateShaderVisibleIndex( UINT index, const char
 
 void Dx12DescriptorAllocator::ValidateStagingIndex( UINT index, const char* context ) const
 {
-
     if ( index >= m_staticCapacity )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 staging descriptor index out of range. context=%s index=%u static_capacity=%u",
@@ -647,7 +631,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleCpuHandle( UIN
     // The CPU handle is for setup work only. The shader cannot use it. Common
     // uses are CreateShaderResourceView, CreateUnorderedAccessView, or
     // CopyDescriptorsSimple into the shader-visible heap.
-
     if ( !m_shaderVisibleHeap || m_descriptorSize == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 shader-visible descriptor heap unavailable." );
@@ -671,7 +654,6 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleGpuHandle( UIN
     // This value is what root descriptor tables use. Once bound, command lists
     // can execute later on the GPU, so the descriptor row it points at must not
     // be overwritten until the frame fence says that GPU work is complete.
-
     if ( !m_shaderVisibleHeap || m_descriptorSize == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 shader-visible descriptor heap unavailable." );
@@ -692,7 +674,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT inde
     // descriptors here gives the renderer a stable template it can copy into
     // transient shader-visible rows without reconstructing the view description
     // every frame.
-
     if ( !m_stagingHeap || m_descriptorSize == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 staging descriptor heap unavailable." );
@@ -708,7 +689,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT inde
 
 void Dx12DescriptorAllocator::PublishStaticDescriptor( ID3D12Device* device, UINT index ) const
 {
-
     if ( !device )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 static descriptor publication requires a device." );
@@ -797,7 +777,6 @@ bool Dx12UploadArena::CanAllocate( UINT64 sizeBytes, UINT64 alignment ) const
 D3D12_GPU_VIRTUAL_ADDRESS
 Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 alignment, RenderUploadCategory category )
 {
-
     if ( !m_resource || !m_mappedPtr )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 upload arena used before Init." );
@@ -838,7 +817,6 @@ Dx12UploadArena::Allocate( UINT64 sizeBytes, UINT64 alignment, RenderUploadCateg
 
 uint8_t* Dx12UploadArena::GetMappedPtr( D3D12_GPU_VIRTUAL_ADDRESS address ) const
 {
-
     if ( !m_resource || !m_mappedPtr )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 upload arena used before Init." );
@@ -972,10 +950,8 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device, UINT frameCount, UINT64 
 
 void Dx12FrameUploadSystem::Shutdown()
 {
-
     for ( UINT i = 0; i < MAX_FRAME_COUNT; ++i )
     {
-
         if ( m_resources[i] )
         {
             m_resources[i]->Unmap( 0, nullptr );
@@ -1082,7 +1058,6 @@ Dx12UploadArenaStats Dx12FrameUploadSystem::GetStats( UINT frameIndex ) const
 
 void Dx12FrameUploadSystem::ValidateFrameIndex( UINT frameIndex ) const
 {
-
     if ( frameIndex >= m_frameCount )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 frame upload index out of range. frameIndex=%u frameCount=%u", frameIndex,
@@ -1139,7 +1114,6 @@ bool Dx12ReadbackBuffer::InitBuffer( ID3D12Device* device, UINT64 sizeBytes, con
 
 void Dx12ReadbackBuffer::Reset()
 {
-
     if ( m_resource )
     {
         m_resource->Release();
@@ -1152,7 +1126,6 @@ void Dx12ReadbackBuffer::Reset()
 
 const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 {
-
     if ( !m_resource )
     {
         SB_FATAL( "RenderDeviceDX12", "DX12 readback buffer unavailable." );
@@ -1171,7 +1144,6 @@ const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 
     // Lane R: Map can fail after device removal or readback-memory pressure.
     // Callers own the report boundary, so return null instead of unwinding.
-
     if ( FAILED( m_resource->Map( 0, &readRange, &mappedData ) ) )
     {
         return nullptr;
@@ -1183,7 +1155,6 @@ const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 
 void Dx12ReadbackBuffer::UnmapNoWrite() const
 {
-
     if ( !m_resource )
     {
         return;
@@ -1270,7 +1241,6 @@ SkullbonezCore::Core::SbResult Dx12RenderDevice::Init( const Dx12RenderDeviceIni
 
         if ( SUCCEEDED( m_factory->QueryInterface( IID_PPV_ARGS( &factory5 ) ) ) )
         {
-
             if ( FAILED( factory5->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing,
                                                         sizeof( allowTearing ) ) ) )
             {
@@ -1463,7 +1433,6 @@ void Dx12RenderDevice::Shutdown()
 
     for ( UINT i = 0; i < MAX_FRAME_COUNT; ++i )
     {
-
         if ( m_commandAllocators[i] )
         {
             m_commandAllocators[i]->Release();
@@ -1512,7 +1481,6 @@ void Dx12RenderDevice::PublishInitialExtent( int width, int height )
 
     // Invariant: generation zero means no complete render-device epoch has been
     // published. Initial publication creates generation one exactly once.
-
     if ( width <= 0 || height <= 0 || m_recreationGeneration != 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "Invalid initial DX12 extent publication. width=%d height=%d generation=%llu", width,
@@ -1527,7 +1495,6 @@ void Dx12RenderDevice::PublishInitialExtent( int width, int height )
 
 uint64_t Dx12RenderDevice::PublishResizedExtent( int width, int height )
 {
-
     if ( width <= 0 || height <= 0 || m_recreationGeneration == 0 )
     {
         SB_FATAL( "RenderDeviceDX12", "Invalid resized DX12 extent publication. width=%d height=%d generation=%llu", width,
@@ -1664,7 +1631,6 @@ void Dx12RenderDevice::ReportDeviceLost( const char* context, HRESULT result ) c
 
 ID3D12CommandAllocator* Dx12RenderDevice::CommandAllocator( UINT index ) const
 {
-
     if ( index >= m_frameCount )
     {
         return nullptr;
@@ -1676,7 +1642,6 @@ ID3D12CommandAllocator* Dx12RenderDevice::CommandAllocator( UINT index ) const
 
 UINT Dx12RenderDevice::AdvanceAllocatorIndex()
 {
-
     if ( m_frameCount == 0 )
     {
         return 0;
@@ -1689,7 +1654,6 @@ UINT Dx12RenderDevice::AdvanceAllocatorIndex()
 
 UINT Dx12RenderDevice::RefreshFrameIndexFromSwapChain()
 {
-
     if ( !m_swapChain )
     {
         m_frameIndex = 0;

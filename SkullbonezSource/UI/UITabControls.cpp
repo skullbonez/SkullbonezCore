@@ -198,7 +198,6 @@ bool UpdateActiveSlider( UIControlsTabState& state, int activeSlider, int mouseX
 
 bool CommitActiveSlider( UIControlsTabState& state, int activeSlider, InGameUIInputResult& result )
 {
-
     if ( activeSlider == SLIDER_SOLVER_BALLS && state.previewSolverBallCount >= 0 )
     {
         result.commands.run.requestedSolverBallCount = state.previewSolverBallCount;

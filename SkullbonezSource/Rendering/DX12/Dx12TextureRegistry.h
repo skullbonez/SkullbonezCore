@@ -47,7 +47,6 @@ class Dx12TextureRegistry
     }
     uint32_t Insert( const TextureEntryDX12& entry )
     {
-
         for ( size_t index = 0; index < m_entries.size(); ++index )
         {
             TextureEntryDX12& slot = m_entries[index];

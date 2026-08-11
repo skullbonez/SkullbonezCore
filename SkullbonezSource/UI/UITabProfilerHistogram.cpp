@@ -74,10 +74,8 @@ bool HistogramOptionKeyMatches( uint32_t hash, bool frameTotal, uint32_t candida
 
 bool HistogramMainSelected( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-
         if ( state.histogramOptionFrameTotals[i] && state.histogramOptionSelected[i] )
         {
             return true;
@@ -93,7 +91,6 @@ int HistogramSelectedOptionCount( const SkullbonezCore::UI::ProfilerTab::UIProfi
 
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-
         if ( state.histogramOptionSelected[i] )
         {
             ++count;
@@ -147,10 +144,8 @@ int HistogramMaxScroll( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabStat
 
 int FindCachedHistogramSelectionIndex( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-
         if ( state.histogramOptionSelected[i] )
         {
             return i;
@@ -162,7 +157,6 @@ int FindCachedHistogramSelectionIndex( const SkullbonezCore::UI::ProfilerTab::UI
 
 void ToggleHistogramSelectionFromCache( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int optionIndex )
 {
-
     if ( optionIndex < 0 || optionIndex >= state.histogramOptionCount )
     {
         return;
@@ -279,7 +273,6 @@ int HitHistogramDropdownOption( const SkullbonezCore::UI::ProfilerTab::UIProfile
 void RemapHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, const uint32_t* oldHashes,
                             const bool* oldFrameTotals, int oldCount )
 {
-
     if ( !oldHashes || !oldFrameTotals || oldCount <= 0 || state.histogramCount <= 0 )
     {
         return;
@@ -300,10 +293,8 @@ void RemapHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 
         for ( int newIndex = 0; newIndex < state.histogramOptionCount; ++newIndex )
         {
-
             for ( int oldIndex = 0; oldIndex < oldCount; ++oldIndex )
             {
-
                 if ( HistogramOptionKeyMatches( oldHashes[oldIndex], oldFrameTotals[oldIndex],
                                                 state.histogramOptionHashes[newIndex],
                                                 state.histogramOptionFrameTotals[newIndex] ) )
@@ -363,10 +354,8 @@ void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
         }
         else
         {
-
             for ( int oldIndex = 0; oldIndex < oldCount; ++oldIndex )
             {
-
                 if ( oldSelected[oldIndex] && HistogramOptionKeyMatches( oldHashes[oldIndex], oldFrameTotals[oldIndex],
                                                                          option.hash, option.isFrameTotal ) )
                 {
@@ -414,7 +403,6 @@ float HistogramSampleMax( const SkullbonezCore::UI::ProfilerTab::PerformanceHist
 
     for ( int optionIndex = 0; optionIndex < state.histogramOptionCount; ++optionIndex )
     {
-
         if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
         {
             maxMs = (std::max)( maxMs, sample.markerMs[optionIndex] );
@@ -435,7 +423,6 @@ float NiceHistogramAxis( float rawMs )
 
     for ( float step : kAxisSteps )
     {
-
         if ( step >= rawMs )
         {
             return step;
@@ -447,7 +434,6 @@ float NiceHistogramAxis( float rawMs )
 
 void FormatHistogramMsLabel( char* out, std::size_t outSize, float ms )
 {
-
     if ( !out || outSize == 0 )
     {
         return;
@@ -495,7 +481,6 @@ void DrawHistogramLineSegment( const SkullbonezCore::UI::UIDrawContext& draw, fl
 
 void FitHistogramText( char* text, std::size_t textSize, float pxSize, float maxWidth )
 {
-
     if ( !text || textSize == 0 || maxWidth <= 0.0f )
     {
         return;
@@ -534,7 +519,6 @@ void FitHistogramText( char* text, std::size_t textSize, float pxSize, float max
 
 const char* HistogramOptionDisplayName( const SkullbonezCore::UI::UIProfilerMarkerOption& option )
 {
-
     if ( option.isFrameTotal )
     {
         return "Main";
@@ -569,7 +553,6 @@ void HistogramOptionColor( const SkullbonezCore::UI::UIProfilerMarkerOption& opt
 void FormatHistogramSelectionText( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
                                    const SkullbonezCore::UI::InGameUIFrameData& data, char* out, std::size_t outSize )
 {
-
     if ( !out || outSize == 0 )
     {
         return;
@@ -582,7 +565,6 @@ void FormatHistogramSelectionText( const SkullbonezCore::UI::ProfilerTab::UIProf
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
-
         if ( !state.histogramOptionSelected[optionIndex] )
         {
             continue;
@@ -680,7 +662,6 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
                                       int mouseX, int mouseY, bool leftDown, bool leftPressed, bool leftReleased,
                                       int wheelDelta )
 {
-
     if ( !state.performanceHistogramEnabled )
     {
         return false;
@@ -710,7 +691,6 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
 
     if ( leftPressed )
     {
-
         if ( dropdownOpen )
         {
             const int optionIndex = HitHistogramDropdownOption( state, screenH, mouseX, mouseY );
@@ -799,7 +779,6 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state, InGameUIInputRe
 
     if ( leftReleased )
     {
-
         if ( state.histogramDragging || state.histogramResizing )
         {
             result.commands.ui.userInteracted = true;
@@ -838,7 +817,6 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
 
         for ( int optionIndex = 0; optionIndex < state.histogramOptionCount; ++optionIndex )
         {
-
             if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
             {
                 previousMaxMs[optionIndex] = (std::max)( previousMaxMs[optionIndex], sample.markerMs[optionIndex] );
@@ -858,7 +836,6 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
 
     if ( bucketExpired )
     {
-
         if ( state.histogramBucketOpen )
         {
             state.histogramHead = ( state.histogramHead + 1 ) % HISTOGRAM_SAMPLE_COUNT;
@@ -879,7 +856,6 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
 
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
-
         if ( !state.histogramOptionSelected[optionIndex] )
         {
             continue;
@@ -1073,10 +1049,8 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     // Concept: this is a CPU history line chart. Checked marker rows each get a
     // colored series; the optional light-blue line is worker-core CPU work, not
     // GPU timing, and appears only while Main is checked.
-
     for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
-
         if ( !state.histogramOptionSelected[optionIndex] )
         {
             continue;
@@ -1177,7 +1151,6 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
 
     if ( !dropdownOpen )
     {
-
         for ( int spikeIndex = 0; spikeIndex < spikeLabelCount; ++spikeIndex )
         {
             const SpikeLabel& spike = spikeLabels[spikeIndex];
@@ -1214,7 +1187,6 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
 
                 for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
                 {
-
                     if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
                     {
                         cpuSum += sample.markerMs[optionIndex];

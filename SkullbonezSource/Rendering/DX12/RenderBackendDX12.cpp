@@ -121,7 +121,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 static inline SkullbonezCore::Core::SbResult
 Dx12BackendInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, HRESULT hr, const char* msg )
 {
-
     if ( FAILED( hr ) )
     {
 
@@ -138,7 +137,6 @@ Dx12BackendInitResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostic
 static inline SkullbonezCore::Core::SbResult
 Dx12BackendOperationResult( SkullbonezCore::Core::SbDiagnosticStore& resultDiagnostics, HRESULT hr, const char* msg )
 {
-
     if ( FAILED( hr ) )
     {
 
@@ -224,7 +222,6 @@ size_t Dx12GraphTransientPool::ExecuteGraphTransitions( const RenderGraph& graph
 
     for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
     {
-
         if ( transition.passIndex != passIndex )
         {
             continue;
@@ -268,7 +265,6 @@ size_t Dx12GraphTransientPool::ExecuteGraphTransitions( const RenderGraph& graph
 
         // Hazard: leaving UAV writes unordered before the compiled consumer
         // transition can expose partially written reflection pixels to water.
-
         if ( transition.before == RenderGraphResourceAccess::UnorderedAccess )
         {
             Dx12RenderGraphUavBarrierDesc uavDesc;
@@ -441,7 +437,6 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // the image memory; CreateRenderTargetView overwrites the existing row with
     // a view record for the new image.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
-
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
         const SkullbonezCore::Core::SbResult
@@ -495,7 +490,6 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // Capacity preserves the existing 32 MiB frame arena after adding the
     // disjoint compact retained slice; retained storage must not starve scene
     // or UI uploads.
-
     if ( !m_frameOwner.Uploads().Init( Device(), Dx12FrameOwner::FRAME_COUNT,
                                        Dx12FrameOwner::UPLOAD_BUFFER_SIZE +
                                            Dx12GeometryOwner::RetainedGeometryCompactBufferSizeBytes(),
@@ -722,7 +716,6 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
     if ( FAILED( rootSignatureResult ) || !m_rootSignature )
     {
-
         if ( m_rootSignature )
         {
             m_rootSignature->Release();
@@ -737,7 +730,6 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     // Lane F: exhausting a 64-bit sequence requires more successful root-
     // signature creations than this owner can perform in any valid lifetime.
     // Publishing zero or reusing an old identity could alias incompatible PSOs.
-
     if ( m_nextRootSignatureIdentity == 0 )
     {
         SB_FATAL( "Dx12PipelineOwner", "Root-signature identity sequence exhausted." );
@@ -771,10 +763,8 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
 
 void RenderBackendDX12::Shutdown()
 {
-
     if ( !Device() )
     {
-
         if ( m_frameOwner.HasSubmittedWork() )
         {
 
@@ -796,7 +786,6 @@ void RenderBackendDX12::Shutdown()
     // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
     // below to drain the flip queue, and DX12 requires that resource to be in
     // PRESENT state first so the final DXGI Present() has a legal resource.
-
     if ( !m_frameOwner.HasFailure() && m_frameOwner.DeviceHealthy() && !m_pipelineOwner.RenderingToFramebuffer() &&
          m_frameOwner.BackBufferAccess() != RenderGraphResourceAccess::Present && SwapChain() &&
          m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() ) )
@@ -826,7 +815,6 @@ void RenderBackendDX12::Shutdown()
     // Hazard: an open epoch with a retained failure never reached
     // ExecuteCommandLists. Terminal cleanup discards it in place; closing or
     // submitting would issue work after the first retained failure.
-
     if ( m_frameOwner.IsOpen() && !m_frameOwner.HasFailure() )
     {
         m_frameOwner.AssertProfilerClosed( "Shutdown" );
@@ -874,7 +862,6 @@ void RenderBackendDX12::Shutdown()
     // terminal cleanup only. A final Present would be new native device work
     // after the first retained failure and would invalidate the fail-closed
     // guarantee exercised by the Debug fault probe.
-
     if ( SwapChain() && !m_frameOwner.HasFailure() && m_frameOwner.DeviceHealthy() )
     {
         const HRESULT drainPresentResult = SwapChain()->Present( 0, 0 );
@@ -997,7 +984,6 @@ void RenderBackendDX12::Shutdown()
 
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
-
         if ( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) )
         {
             m_frameOwner.RenderTarget( static_cast<UINT>( i ) )->Release();
@@ -1141,7 +1127,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnos
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 {
-
     if ( HasFailure() )
     {
         return CurrentResult();
@@ -1233,7 +1218,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
 {
-
     if ( !HasFailure() )
     {
         return FlushGPU();
@@ -1253,7 +1237,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
     // Lifetime: a failed, never-submitted recording epoch cannot reference any
     // resource from the GPU. Release is already safe and teardown must not turn
     // that expected Lane R path into a second submission or a destructor fatal.
-
     if ( !HasSubmittedWork() )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -1268,7 +1251,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
 
 SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 {
-
     if ( width <= 0 || height <= 0 )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -1308,10 +1290,8 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
     // DXGI requires every application-held back-buffer reference to be released
     // before ResizeBuffers. Member publication is restored from the swap chain
     // if ResizeBuffers rejects the request without removing the device.
-
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
-
         if ( RenderTarget( static_cast<UINT>( i ) ) )
         {
             RenderTarget( static_cast<UINT>( i ) )->Release();
@@ -1355,7 +1335,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
         for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
         {
-
             if ( FAILED( m_device.SwapChain()->GetBuffer( static_cast<UINT>( i ), IID_PPV_ARGS( &restored[i] ) ) ) ||
                  !restored[i] )
             {
@@ -1366,7 +1345,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
         if ( restoredAll )
         {
-
             for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
             {
                 RenderTarget( static_cast<UINT>( i ) ) = restored[i];
@@ -1380,7 +1358,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
         for ( ID3D12Resource* resource : restored )
         {
-
             if ( resource )
             {
                 resource->Release();
@@ -1409,10 +1386,8 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
         if ( !backBufferResult.Ok() )
         {
-
             for ( ID3D12Resource* resource : candidateBackBuffers )
             {
-
                 if ( resource )
                 {
                     resource->Release();
@@ -1426,7 +1401,6 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 
     if ( !transaction.CommitBackBuffersReady() )
     {
-
         for ( ID3D12Resource* resource : candidateBackBuffers )
         {
             resource->Release();
@@ -1490,7 +1464,6 @@ void Dx12FrameOwner::SetViewport( int x, int y, int w, int h )
 
 void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 {
-
     if ( !EnsureOpen().Ok() )
     {
         return;
@@ -1516,7 +1489,6 @@ void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
-
     if ( target.color )
     {
 

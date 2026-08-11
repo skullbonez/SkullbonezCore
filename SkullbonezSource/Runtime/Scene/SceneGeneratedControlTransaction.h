@@ -80,7 +80,6 @@ class SceneGeneratedControlPhaseCursor
 
     bool TryAdvance( Phase next )
     {
-
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;
@@ -184,7 +183,6 @@ class SceneGeneratedControlTransaction
     bool ResolveRequest( const SkullbonezCore::UI::RunSceneUIOverrideState& uiOverrides,
                          const SceneSessionState& sceneState )
     {
-
         if ( m_kind != RequestKind::SolverCounts && m_requestedPrimary < 0 )
         {
             return false;
@@ -260,7 +258,6 @@ class SceneGeneratedControlTransaction
 
     void RecordFollowUps()
     {
-
         if ( m_rebuildActiveScene )
         {
             m_result.action.resetReplayTimeline = true;

@@ -37,7 +37,6 @@ bool ExistingDirectory( const char* directory )
 
 bool RuntimeFileWriter::EnsureDirectory( const char* directory )
 {
-
     if ( !directory || directory[0] == '\0' )
     {
         return true;
@@ -53,7 +52,6 @@ bool RuntimeFileWriter::EnsureDirectory( const char* directory )
 
 bool RuntimeFileWriter::EnsureParentDirectory( const char* path )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return false;
@@ -82,7 +80,6 @@ bool RuntimeFileWriter::EnsureParentDirectory( const char* path )
 
 bool RuntimeFileWriter::OpenTextFile( const char* path, std::ofstream& output )
 {
-
     if ( !EnsureParentDirectory( path ) )
     {
         return false;
@@ -95,7 +92,6 @@ bool RuntimeFileWriter::OpenTextFile( const char* path, std::ofstream& output )
 bool RuntimeFileWriter::NextNumberedPath( char* outPath, std::size_t outPathSize, const char* directory, const char* prefix,
                                           const char* extension, int& sequence, int maxTries )
 {
-
     if ( !outPath || outPathSize == 0 || !directory || !prefix || !extension || maxTries <= 0 )
     {
         return false;
@@ -112,7 +108,6 @@ bool RuntimeFileWriter::NextNumberedPath( char* outPath, std::size_t outPathSize
 
     for ( int tries = 0; tries < maxTries; ++tries )
     {
-
         if ( sprintf_s( outPath, outPathSize, "%s\\%s%04d%s", directory, prefix, candidateSequence, extension ) < 0 )
         {
             outPath[0] = '\0';

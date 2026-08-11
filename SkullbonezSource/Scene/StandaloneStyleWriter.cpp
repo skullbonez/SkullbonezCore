@@ -132,7 +132,6 @@ Core::SbResult Validate( Core::SbDiagnosticStore& diagnostics, const StandaloneS
 
     for ( float value : values )
     {
-
         if ( !std::isfinite( value ) )
         {
             return diagnostics.Failure( OWNER, "Standalone style contains a non-finite cinematic value." );
@@ -196,7 +195,6 @@ Core::SbResult Validate( Core::SbDiagnosticStore& diagnostics, const StandaloneS
 
     for ( const BoundedValue& bounded : parserBounded )
     {
-
         if ( bounded.value < bounded.minimum || bounded.value > bounded.maximum )
         {
             return diagnostics.Failure( OWNER, "Standalone style contains a cinematic value outside parser bounds." );
@@ -228,7 +226,6 @@ Core::SbResult Validate( Core::SbDiagnosticStore& diagnostics, const StandaloneS
 
         for ( float value : materialValues )
         {
-
             if ( !std::isfinite( value ) )
             {
                 return diagnostics.Failure( OWNER, "Standalone material rule %zu contains a non-finite value.", index );
@@ -352,10 +349,8 @@ Json BuildDocument( const StandaloneStyleSnapshot& snapshot )
 
 void Flatten( const Json& value, const std::string& key, std::ostringstream& output )
 {
-
     if ( value.is_object() )
     {
-
         for ( const auto& item : value.items() )
         {
             Flatten( item.value(), key.empty() ? item.key() : key + "." + item.key(), output );
@@ -363,7 +358,6 @@ void Flatten( const Json& value, const std::string& key, std::ostringstream& out
     }
     else if ( value.is_array() )
     {
-
         for ( size_t index = 0; index < value.size(); ++index )
         {
             Flatten( value[index], key + "[" + std::to_string( index ) + "]", output );

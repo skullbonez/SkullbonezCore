@@ -90,7 +90,6 @@ const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 
     for ( const BuiltInShaderName& shader : builtInShaders )
     {
-
         if ( std::strcmp( shader.logicalName, logicalName ) == 0 )
         {
             return shader.baseName;
@@ -224,7 +223,6 @@ void AssetSystem::RegisterBuiltInSourceAssets( const SkullbonezCore::Core::Engin
 
 std::string AssetSystem::ResolvePath( const char* relativePath ) const
 {
-
     if ( !relativePath || relativePath[0] == '\0' )
     {
         return m_dataRoot;
@@ -247,7 +245,6 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
     // Invariant: registration is an engine-owned setup path. Authored asset
     // file failures are Lane R elsewhere; a blank registry key means the caller
     // violated the AssetSystem API contract.
-
     if ( !logicalName || logicalName[0] == '\0' )
     {
         SB_FATAL( "AssetSystem", "RegisterSourceAsset requires a logical name." );
@@ -260,7 +257,6 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
 
     for ( SourceAssetRecord& record : m_sourceAssets )
     {
-
         if ( record.logicalName == logicalName )
         {
             record.kind = kind;
@@ -299,7 +295,6 @@ const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* l
 
     for ( TextureSourceAsset& texture : m_textureAssets )
     {
-
         if ( texture.id == source.id || texture.logicalName == logicalName ||
              ( legacyHash != 0 && texture.legacyHash == legacyHash ) )
         {
@@ -331,7 +326,6 @@ const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* l
 
 const TextureSourceAsset* AssetSystem::FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const
 {
-
     if ( legacyHash == 0 )
     {
         return nullptr;
@@ -339,7 +333,6 @@ const TextureSourceAsset* AssetSystem::FindTextureSourceAssetByLegacyHash( uint3
 
     for ( const TextureSourceAsset& texture : m_textureAssets )
     {
-
         if ( texture.legacyHash == legacyHash )
         {
             return &texture;
@@ -362,7 +355,6 @@ const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* log
 
     for ( ShaderSourceAsset& shader : m_shaderAssets )
     {
-
         if ( shader.id == source.id || shader.logicalName == logicalName || shader.baseName == baseName )
         {
             shader.id = source.id;
@@ -388,7 +380,6 @@ const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* log
 
 const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logicalNameOrBaseName ) const
 {
-
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
     {
         return nullptr;
@@ -396,7 +387,6 @@ const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logical
 
     for ( const ShaderSourceAsset& shader : m_shaderAssets )
     {
-
         if ( shader.logicalName == logicalNameOrBaseName || shader.baseName == logicalNameOrBaseName )
         {
             return &shader;
@@ -414,7 +404,6 @@ std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx1
 
     // Invariant: empty shader keys are owner API violations. A non-empty miss
     // can still use the built-in compatibility map or explicit base-name path.
-
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
     {
         SB_FATAL( "AssetSystem", "CreateShader requires a logical name or base name." );
@@ -435,7 +424,6 @@ const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( con
 
     for ( AssetLibrarySourceAsset& library : m_assetLibraryAssets )
     {
-
         if ( library.id == source.id || library.logicalName == logicalName )
         {
             library.id = source.id;
@@ -457,7 +445,6 @@ const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( con
 
 const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAsset( const char* logicalName ) const
 {
-
     if ( !logicalName || logicalName[0] == '\0' )
     {
         return nullptr;
@@ -465,7 +452,6 @@ const AssetLibrarySourceAsset* AssetSystem::FindAssetLibrarySourceAsset( const c
 
     for ( const AssetLibrarySourceAsset& library : m_assetLibraryAssets )
     {
-
         if ( library.logicalName == logicalName )
         {
             return &library;

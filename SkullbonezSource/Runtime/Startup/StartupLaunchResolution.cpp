@@ -156,7 +156,6 @@ std::string ResolveSuiteLaunchPath( const char* rawSuiteArg )
 }
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return false;
@@ -280,7 +279,6 @@ struct RunCliValueDirective
 
 bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--live-style-control expects a directory path." );
@@ -299,7 +297,6 @@ bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
 }
 bool ApplyPredictTargetName( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--predict expects a scene object display name." );
@@ -337,7 +334,6 @@ bool ApplyPredictHorizonSeconds( const char* value, ParsedArgs& args )
 }
 bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--scene-snapshot-out expects a file path." );
@@ -356,7 +352,6 @@ bool ApplySceneSnapshotOutPath( const char* value, ParsedArgs& args )
 }
 bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
 {
-
     if ( !CopyCommandLinePath( value, "--memory-dump", args.memoryDumpPath, sizeof( args.memoryDumpPath ) ) )
     {
         return false;
@@ -368,7 +363,6 @@ bool ApplyMemoryDumpPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 {
-
     if ( !CopyCommandLinePath( value, "--interaction-script", args.interactionScriptPath,
                                sizeof( args.interactionScriptPath ) ) )
     {
@@ -383,7 +377,6 @@ bool ApplyInteractionScriptPath( const char* value, ParsedArgs& args )
 }
 bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 {
-
     if ( !CopyCommandLinePath( value, "--interaction-report", args.interactionReportPath,
                                sizeof( args.interactionReportPath ) ) )
     {
@@ -396,7 +389,6 @@ bool ApplyInteractionReportPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-hashes expects a file path." );
@@ -415,7 +407,6 @@ bool ApplyReplayHashLogPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-save-probe expects a file path." );
@@ -438,7 +429,6 @@ bool ApplyReplaySaveProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-load expects a file path." );
@@ -458,7 +448,6 @@ bool ApplyReplayLoadPath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( !ApplyReplayLoadPath( value, args ) )
     {
         return false;
@@ -472,7 +461,6 @@ bool ApplyReplayLoadProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-file-probe expects a file path." );
@@ -492,7 +480,6 @@ bool ApplyReplayRestoreFileProbePath( const char* value, ParsedArgs& args )
 }
 bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-target-file-probe expects a file path." );
@@ -512,7 +499,6 @@ bool ApplyReplayRestoreTargetFileProbePath( const char* value, ParsedArgs& args 
 }
 bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-branch-file-probe expects a file path." );
@@ -532,7 +518,6 @@ bool ApplyReplayRestoreBranchFileProbePath( const char* value, ParsedArgs& args 
 }
 bool ApplyReplayRestoreFailureFileProbePath( const char* value, ParsedArgs& args )
 {
-
     if ( IsOptionValueMissing( value ) )
     {
         return FailCommandLineParse( "--replay-restore-failure-file-probe expects a file path." );
@@ -557,7 +542,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     if ( modeValue )
     {
-
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
             return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
@@ -576,7 +560,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-
         if ( !ApplyPhysicsDebugComponentOverride( commandLine, component.dashedName, component.underscoredName,
                                                   component.flag, out ) )
         {
@@ -589,7 +572,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     if ( transparentValue )
     {
-
         if ( !ParseOptionalOnOffValue( transparentValue, out.physicsDebugTransparentOverride ) )
         {
             return FailCommandLineParse( "--physics-debug-transparent expects optional on|off." );
@@ -608,7 +590,6 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
 
     for ( const PhysicsDebugFloatDirective& directive : kFloatOverrides )
     {
-
         if ( !ApplyPhysicsDebugFloatOverride( commandLine, directive, out ) )
         {
             return false;
@@ -658,7 +639,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     }
     else if ( suiteArg )
     {
-
         if ( IsOptionValueMissing( suiteArg ) )
         {
             return FailCommandLineParse( "--suite requires a path." );
@@ -701,7 +681,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
         for ( const Json& scene : *scenesIt )
         {
-
             if ( !scene.is_string() )
             {
                 return FailCommandLineParse( "--suite '%s' scenes entries must be strings.", suitePath.c_str() );
@@ -714,7 +693,6 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     }
     else if ( sceneArg )
     {
-
         if ( IsOptionValueMissing( sceneArg ) )
         {
             return FailCommandLineParse( "--scene requires a path." );
@@ -889,7 +867,6 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           "--dev_ui",
           []( const char* value, ParsedArgs& args ) -> bool
           {
-
               if ( !value || IsOptionValueMissing( value ) )
               {
                   return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
@@ -1141,7 +1118,6 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
     };
 
     // clang-format on
-
     for ( const RunCliValueDirective& directive : kValues )
     {
         const char* value = FindOptionValue( commandLine, directive.name );

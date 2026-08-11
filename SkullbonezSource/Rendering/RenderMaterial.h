@@ -85,7 +85,6 @@ struct RenderMaterial
 // are authoring surface, so keep old spellings valid when adding new categories.
 inline const char* RenderMaterialKindName( RenderMaterialKind kind )
 {
-
     switch ( kind )
     {
     case RenderMaterialKind::Textured:
@@ -127,7 +126,6 @@ inline const char* RenderMaterialKindName( RenderMaterialKind kind )
 // bridge is in place.
 inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
 {
-
     if ( legacyMode < -0.5f )
     {
         return RenderMaterialKind::Textured;
@@ -156,7 +154,6 @@ inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
 // packed tint.a material value.
 inline float RenderMaterialKindLegacyMode( RenderMaterialKind kind )
 {
-
     if ( kind == RenderMaterialKind::Textured )
     {
         return -1.0f;
@@ -176,7 +173,6 @@ inline uint32_t RenderMaterialKindIndex( RenderMaterialKind kind )
 // material response data in material1/material2.
 inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
 {
-
     if ( material.kind != RenderMaterialKind::Textured )
     {
         return RenderMaterialKindLegacyMode( material.kind );

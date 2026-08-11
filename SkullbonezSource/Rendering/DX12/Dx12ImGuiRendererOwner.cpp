@@ -54,7 +54,6 @@ namespace
 void AllocateImGuiDescriptor( ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE* outCpu,
                               D3D12_GPU_DESCRIPTOR_HANDLE* outGpu )
 {
-
     if ( !info || !info->UserData || !outCpu || !outGpu )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "Descriptor allocation callback received an invalid capability." );
@@ -71,7 +70,6 @@ void AllocateImGuiDescriptor( ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTO
 
 void FreeImGuiDescriptor( ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE cpu, D3D12_GPU_DESCRIPTOR_HANDLE gpu )
 {
-
     if ( !info || !info->UserData )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "Descriptor free callback received an invalid capability." );
@@ -94,7 +92,6 @@ Dx12ImGuiRendererOwner::Dx12ImGuiRendererOwner( SkullbonezCore::Core::SbDiagnost
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext& context )
 {
-
     if ( m_initialized )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -149,7 +146,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture( int width, int height )
 {
-
     if ( width <= 0 || height <= 0 )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -216,7 +212,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
 
     // Lifetime: swap-chain extent/generation publication follows a GPU drain.
     // Reusing the one descriptor row is therefore safe for prior ImGui draws.
-
     if ( m_gameViewportTexture )
     {
         m_gameViewportTexture->Release();
@@ -232,7 +227,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
 {
-
     if ( !m_initialized )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Game viewport capture has no live renderer binding" );
@@ -268,7 +262,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
     // Hazard: the copy shares the live graphics command list with world and UI
     // recording. Both resources must return to their entry/sample states before
     // subsequent ImGui draw commands are allowed to observe them.
-
     if ( !m_frame.TransitionBackbuffer( "DevelopmentViewportCopyBegin", RenderGraphResourceAccess::CopySource ) )
     {
         return m_frame.CurrentResult();
@@ -299,7 +292,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
 
 void Dx12ImGuiRendererOwner::BeginFrame( ImGuiContext& context )
 {
-
     if ( !m_initialized )
     {
         SB_FATAL( "Rendering/DX12/ImGui", "BeginFrame called without a live renderer binding." );
@@ -311,7 +303,6 @@ void Dx12ImGuiRendererOwner::BeginFrame( ImGuiContext& context )
 
 SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiContext& context, ImDrawData& drawData )
 {
-
     if ( !m_initialized )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12/ImGui", "Draw submission has no live renderer binding" );
@@ -361,10 +352,8 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 
     for ( const ImDrawList* drawList : drawData.CmdLists )
     {
-
         for ( const ImDrawCmd& command : drawList->CmdBuffer )
         {
-
             if ( !command.UserCallback && command.ElemCount > 0u )
             {
                 ++m_indexedDraws;
@@ -377,7 +366,6 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
 
 void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
 {
-
     if ( !m_initialized )
     {
         return;

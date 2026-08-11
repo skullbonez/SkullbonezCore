@@ -39,7 +39,6 @@ namespace
 {
 const char* FileNameFromPath( const char* path )
 {
-
     if ( !path )
     {
         return "";
@@ -78,7 +77,6 @@ char NormalizedScenePathChar( char value )
 
 bool ScenePathEqualsNormalizedPath( const std::string& normalizedPath, const std::string& candidatePath )
 {
-
     if ( normalizedPath.size() != candidatePath.size() )
     {
         return false;
@@ -86,7 +84,6 @@ bool ScenePathEqualsNormalizedPath( const std::string& normalizedPath, const std
 
     for ( size_t i = 0; i < normalizedPath.size(); ++i )
     {
-
         if ( normalizedPath[i] != NormalizedScenePathChar( candidatePath[i] ) )
         {
             return false;
@@ -104,10 +101,8 @@ bool IsSceneJsonFile( const std::filesystem::path& path )
 
 int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, const std::string& scenePath )
 {
-
     for ( int i = 0; i < static_cast<int>( browserPaths.size() ); ++i )
     {
-
         if ( ScenePathEqualsNormalizedPath( browserPaths[i], scenePath ) )
         {
             return i;
@@ -174,7 +169,6 @@ void SceneLoadTransaction::CommitLoad( SceneController& controller, SceneLoadNav
     // Invariant: preparation has validated the index and drained the device;
     // the caller has already opened the lifecycle generation and completed the
     // BeforeSceneUnload phase before committing these navigation mutations.
-
     if ( prepared.makeInteractive )
     {
         controller.State().isInteractiveRun = true;

@@ -69,7 +69,6 @@ Environment::FluidSurfaceAdjustment BuildFluidSurfaceAdjustment( const InputKeyS
 
 bool RuntimePointerArbitration::BeginStage( RuntimePointerRouteStage stage )
 {
-
     if ( m_active != RuntimePointerRouteStage::None || stage != m_next || stage == RuntimePointerRouteStage::Complete )
     {
         SB_FATAL( "Runtime/InputRouter", "Illegal runtime pointer arbitration stage begin." );
@@ -82,7 +81,6 @@ bool RuntimePointerArbitration::BeginStage( RuntimePointerRouteStage stage )
 
 void RuntimePointerArbitration::FinishStage( RuntimePointerRouteStage stage, bool consumed )
 {
-
     if ( m_active != stage )
     {
         SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration finished a stage that is not active." );
@@ -127,7 +125,6 @@ void RuntimePointerArbitration::FinishStage( RuntimePointerRouteStage stage, boo
 
 bool RuntimePointerArbitration::Consumed() const
 {
-
     if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
     {
         SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration was observed before all stages completed." );
@@ -139,7 +136,6 @@ bool RuntimePointerArbitration::Consumed() const
 
 RuntimePointerRouteStage RuntimePointerArbitration::Winner() const
 {
-
     if ( m_active != RuntimePointerRouteStage::None || m_next != RuntimePointerRouteStage::Complete )
     {
         SB_FATAL( "Runtime/InputRouter", "Runtime pointer arbitration winner was observed before route completion." );
@@ -159,7 +155,6 @@ InputKeySnapshot InputKeySnapshot::FromWords( const std::array<uint64_t, WORD_CO
 
 bool InputKeySnapshot::IsDown( int virtualKey ) const
 {
-
     if ( virtualKey < 0 || virtualKey >= VIRTUAL_KEY_COUNT )
     {
         return false;
@@ -207,7 +202,6 @@ const InputActionEvent& InputActions::operator[]( std::size_t index ) const
 
 bool InputActions::TryAppend( const InputActionEvent& event )
 {
-
     if ( m_count >= CAPACITY )
     {
 
@@ -291,7 +285,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
     if ( !routedFrame.appFocused )
     {
-
         if ( focusLost )
         {
             output.focusLost = true;
@@ -342,7 +335,6 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPhase phase,
                               RuntimeInputContextMask activeContexts, InputActions& output )
 {
-
     if ( !m_frameFocused || !bindings.bindings || !IsPhaseValid( phase ) )
     {
         return;
@@ -403,7 +395,6 @@ void InputRouter::RoutePhase( RuntimeInputKeyBindingView bindings, InputActionPh
 
         if ( observedEdge == InputActionEdge::Pressed )
         {
-
             if ( output.TryAppend( InputActionEvent { binding.action, RuntimeInputActionSource::Keyboard, phase,
                                                       InputActionEdge::Pressed, binding.virtualKey } ) )
             {
@@ -561,7 +552,6 @@ bool InputRouter::ReleasePointerToUi( const PointerPresentationPolicy& policy )
 
     // Invariant: UI release cannot steal the pointer from an active camera-look
     // gesture. A true result tells the camera owner to clear accumulated deltas.
-
     if ( policy.mouseLookOwnsCursor )
     {
         return false;
@@ -592,7 +582,6 @@ void InputRouter::RequestCursorVisible( bool visible )
 
 bool InputRouter::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool hideCursorAfterActivation )
 {
-
     if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) &&
          hideCursorAfterActivation )
     {
@@ -654,7 +643,6 @@ bool InputRouter::CursorVisibleRequested() const
 
 bool InputRouter::IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const
 {
-
     if ( !IsActionValid( action ) )
     {
         return false;
@@ -668,7 +656,6 @@ bool InputRouter::IsQuickRepeat( RuntimeInputAction action, double nowSeconds, d
 
 void InputRouter::RecordTap( RuntimeInputAction action, double nowSeconds )
 {
-
     if ( IsActionValid( action ) )
     {
         m_lastTapSeconds[ActionIndex( action )] = nowSeconds;
@@ -690,7 +677,6 @@ bool InputRouter::ContextsSatisfied( RuntimeInputContextMask requiredContexts, R
 
 InputActionPhase InputRouter::PhaseForBinding( const RuntimeInputKeyBinding& binding )
 {
-
     if ( ( binding.contexts & ContextBit( RuntimeInputBindingContext::Capture ) ) != 0u )
     {
         return InputActionPhase::Capture;
@@ -733,7 +719,6 @@ std::size_t InputRouter::PhaseIndex( InputActionPhase phase )
 
 RuntimeInputContextMask InputRouter::EffectiveContexts( InputActionPhase phase, RuntimeInputContextMask activeContexts )
 {
-
     if ( phase == InputActionPhase::AfterUi )
     {
         activeContexts |= ContextBit( RuntimeInputBindingContext::AfterUIUpdate );
@@ -769,7 +754,6 @@ void InputRouter::CaptureFocusLoss( RuntimeInputKeyBindingView bindings, InputAc
 
     if ( bindings.bindings )
     {
-
         for ( std::size_t bindingIndex = 0; bindingIndex < bindings.count; ++bindingIndex )
         {
             const RuntimeInputKeyBinding& binding = bindings.bindings[bindingIndex];
@@ -836,7 +820,6 @@ void InputRouter::SynchronizeFocusedInputs( const DeviceInputFrame& frame, Runti
 
 void InputRouter::SampleKeyboard( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings )
 {
-
     if ( !bindings.bindings )
     {
         return;

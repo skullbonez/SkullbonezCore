@@ -73,7 +73,6 @@ Core::SbResult SaveSceneLoadOnlySnapshot( Core::SbDiagnosticStore& diagnostics, 
                                           const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                           const PresentationSaveState& presentation )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return diagnostics.Failure( "Runtime/SceneLoadOnly", "Scene snapshot output path is empty." );
@@ -87,7 +86,6 @@ Core::SbResult SaveEditableSceneBeforeReplacement( Core::SbDiagnosticStore& diag
                                                    const SceneWorldSaveState& world, const SceneSessionSaveState& session,
                                                    const PresentationSaveState& presentation )
 {
-
     if ( !activeScenePath || activeScenePath[0] == '\0' )
     {
         return diagnostics.Failure( "Runtime/SceneController", "Editable scene has no active authored path to save." );

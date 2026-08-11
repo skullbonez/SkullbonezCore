@@ -52,10 +52,8 @@ bool ReplayPredictionContactsIncomplete( const ReplayPredictionPresentationView&
     // Concept: contact payloads are optional prediction evidence. The root path
     // can still be correct when contact-tree rows are partial, but the overlay
     // should label that loss instead of implying a complete causal tree.
-
     for ( const RunReplayPredictionFrame& frame : prediction.frames )
     {
-
         if ( frame.contactsIncomplete )
         {
             return true;
@@ -67,7 +65,6 @@ bool ReplayPredictionContactsIncomplete( const ReplayPredictionPresentationView&
 
 float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayTrack track )
 {
-
     switch ( track )
     {
     case RunReplayTrack::Presentation:
@@ -864,7 +861,6 @@ void RenderReplayPorkchopOverlay( UiDrawSubmission& submission, Text::TextBatch&
 
     const auto outlineCell = [&]( int cellIndex, const UI::Style::UIColor& color, float thickness )
     {
-
         if ( cellIndex < 0 || static_cast<std::size_t>( cellIndex ) >= porkchop.deltaV.size() )
         {
             return;
@@ -1003,7 +999,6 @@ void RenderReplayCauseTreeOverlay( UiDrawSubmission& submission, Text::TextBatch
 
     auto truncateText = []( const char* src, char* dst, std::size_t dstSize, int maxChars ) -> void
     {
-
         if ( dstSize == 0 )
         {
             return;

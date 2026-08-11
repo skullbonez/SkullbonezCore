@@ -37,7 +37,6 @@ namespace SkullbonezCore::Runtime
 {
 const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept
 {
-
     switch ( mode )
     {
     case ReplayPathColorMode::LaneFlat:
@@ -92,7 +91,6 @@ void ReplayPresentation::StoreLauncherVisualBackupFrom( RuntimeTools& runtimeToo
 
 void ReplayPresentation::RestoreAndClearLauncherVisualBackup( RuntimeTools& runtimeTools )
 {
-
     if ( !m_launcherVisualBackupActive )
     {
         return;
@@ -294,7 +292,6 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
 
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
-
         if ( matchedBodies[static_cast<std::size_t>( modelIndex )] != 0 )
         {
             continue;
@@ -324,10 +321,8 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
 
 RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer, Physics::PhysicsSceneObjectId id )
 {
-
     for ( RunReplayPathTarget& target : visualizer.targets )
     {
-
         if ( target.id.value == id.value )
         {
             return &target;
@@ -484,7 +479,6 @@ void ReplayPresentation::ClearPathState()
 
 void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore )
 {
-
     if ( !m_pathVisualizer.hasTarget || !m_pathVisualizer.pastPathVisible || m_pathVisualizer.targetId.value == 0 )
     {
         return;
@@ -579,7 +573,6 @@ ReplayPathColorMode ReplayPresentation::CyclePathColorMode() noexcept
 
 bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name )
 {
-
     if ( id.value == 0 || modelRow.value < 0 )
     {
         return false;
@@ -610,7 +603,6 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
 
     if ( !input.hasWorldRay )
     {
-
         if ( input.clearOnMiss )
         {
             ClearPathState();
@@ -623,7 +615,6 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
     const int modelCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
     const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
     {
-
         if ( !outName || outSize == 0 )
         {
             return;
@@ -711,7 +702,6 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
 
     if ( pickedId.value != 0 )
     {
-
         if ( !input.additive )
         {
             m_pathVisualizer.targets.clear();
@@ -724,7 +714,6 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input, const S
 
             // Invariant: constructor-reserved target storage rotates entries;
             // live picking never grows the vector.
-
             if ( m_pathVisualizer.targets.capacity() < REPLAY_PATH_MAX_ROOT_TARGETS )
             {
                 return result;
@@ -832,7 +821,6 @@ bool ReplayPresentation::ApplySolverSampleForRender( Rendering::RenderInstanceSt
 
 bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 {
-
     if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         return false;

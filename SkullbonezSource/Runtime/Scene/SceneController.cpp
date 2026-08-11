@@ -118,7 +118,6 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
     // Invariant: lifecycle publication is the commit edge observed by later
     // owners. Never publish a cleared or populated phase while scene metadata,
     // bodies, and colliders disagree about the live topology.
-
     if ( ( requiresEmptyTopology && ( entityCount != 0 || bodyCount != 0 || colliderCount != 0 ) ) ||
          ( requiresMatchedTopology && ( entityCount != bodyCount || entityCount != colliderCount ) ) )
     {
@@ -311,7 +310,6 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
 
         if ( !result.loadRequest.HasLoad() )
         {
-
             if ( CanAutomationQuit() )
             {
                 result.requestQuit = true;

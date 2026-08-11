@@ -98,7 +98,6 @@ class ImmediateUiSubmitter
 
     void RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
     {
-
         if ( radius > 1.0f && w > 4.0f && h > 4.0f && a > 0.05f )
         {
             RoundedRectFill( x - 0.5f, y - 0.5f, w + 1.0f, h + 1.0f, radius + 0.5f, r, g, b, a * 0.30f );
@@ -131,7 +130,6 @@ class ImmediateUiSubmitter
 
     void RoundedSpan( float left, float y, float right, float r, float g, float b, float a )
     {
-
         if ( right <= left || a <= 0.0f )
         {
             return;
@@ -160,7 +158,6 @@ class ImmediateUiSubmitter
 
     void RoundedRectFill( float x, float y, float w, float h, float radius, float r, float g, float b, float a )
     {
-
         if ( w <= 0.0f || h <= 0.0f || a <= 0.0f )
         {
             return;
@@ -257,7 +254,6 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 
     for ( const UI::UIDrawList::Command& command : drawList.Commands() )
     {
-
         switch ( command.type )
         {
         case UI::UIDrawList::CommandType::Rect:
@@ -394,7 +390,6 @@ void UiDrawSubmission::SubmitCommands( const UI::UIDrawList& drawList, const Run
 void UiDrawSubmission::EnsurePreviewResources( Assets::AssetSystem& assets, Rendering::Dx12ResourceBuilder& renderResources,
                                                Rendering::Dx12GeometryOwner& renderGeometry )
 {
-
     if ( !m_previewShader )
     {
         m_previewShader = assets.CreateShader( renderResources, "shader.ui_render_target_preview" );
@@ -421,7 +416,6 @@ void UiDrawSubmission::ReleaseGpuResources( Rendering::Dx12GeometryOwner* render
 
     if ( m_previewVertexBuffer != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyDynamicVB( m_previewVertexBuffer );

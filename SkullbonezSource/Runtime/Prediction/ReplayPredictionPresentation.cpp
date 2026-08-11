@@ -95,7 +95,6 @@ bool HideUnmatchedBodies( Rendering::RenderInstanceStore& renderInstances, const
 
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
-
         if ( matchedBodies[static_cast<std::size_t>( modelIndex )] != 0 )
         {
             continue;
@@ -185,7 +184,6 @@ bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisua
                                                         const Physics::PhysicsBodyStore& bodyStore, int modelCount,
                                                         std::span<const RunReplayPathTraceNode> futureNodes )
 {
-
     if ( !path.hasTarget || path.targetId.value == 0 || modelCount <= 0 ||
          modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
@@ -197,7 +195,6 @@ bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisua
     int markedCount = 0;
     const auto markBySceneObjectId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex )
     {
-
         if ( id.value == 0 )
         {
             return;
@@ -224,7 +221,6 @@ bool ReplayPredictionPresentation::BuildFocusModelMask( const RunReplayPathVisua
     }
     else
     {
-
         for ( const RunReplayPathTarget& target : path.targets )
         {
             markBySceneObjectId( target.id, target.modelRow.value );
@@ -263,7 +259,6 @@ void ReplayPredictionPresentation::AppendGhostDrawRequest( const ReplayPredictio
 
     // Invariant: callers prove capacity before the bounded presentation pass;
     // replay steady-state rendering must never grow this vector.
-
     if ( m_ghostDrawRequests.size() < m_ghostDrawRequests.capacity() )
     {
         m_ghostDrawRequests.push_back( request );
@@ -279,7 +274,6 @@ bool ReplayPredictionPresentation::HasGhostDrawRequests() const noexcept
 
 bool ReplayPredictionPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 {
-
     if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         return false;
@@ -362,10 +356,8 @@ bool ReplayPredictionPresentation::BuildGhostDrawRequests( const ReplayPredictio
 
     if ( drawBaseline )
     {
-
         for ( const ReplayPredictionBaselineBodyPose& pose : prediction.baselineBodyPoses )
         {
-
             if ( !pose.hasRestPose || !IsRagdollPart( presentationRecords, pose.modelRow.value ) )
             {
                 continue;
@@ -509,7 +501,6 @@ void ReplayPredictionPresentation::AttachRetainedPredictionGeometry( ReplayVisua
                                                                      const Math::Vector::Vector3& cameraEye,
                                                                      const Math::Vector::Vector3& cameraUp )
 {
-
     if ( !m_retainedRenderingActive )
     {
         return;
@@ -554,7 +545,6 @@ void ReplayPredictionPresentation::PublishVisualPacket( ReplayVisualPacket packe
 
     if ( m_trajectorySubmissionProbe.presentationKeyValid )
     {
-
         if ( m_trajectorySubmissionProbe.futureTreeReadySeen && m_trajectorySubmissionProbe.futureTreeReadyLastFrame &&
              !prediction.futureTreeReady )
         {
@@ -607,7 +597,6 @@ void ReplayPredictionPresentation::ResetTrajectoryVisualStats() noexcept
 
 void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats )
 {
-
     for ( std::size_t index = 0; index < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT; ++index )
     {
         m_trajectoryVisualStats.emittedSegments[index] += frameStats.emittedSegments[index];
@@ -619,7 +608,6 @@ void ReplayPredictionPresentation::RecordTrajectoryFrameStats( const SkullbonezC
 void ReplayPredictionPresentation::RecordTrajectorySubmissionFrame( const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submissionStats, int frameNumber,
                                                                     uint64_t reserveGrowthEventCount )
 {
-
     if ( !submissionStats.hasGeometry || submissionStats.vertexBytes == 0 || submissionStats.vertexCount == 0 )
     {
         return;

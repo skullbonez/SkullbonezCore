@@ -110,7 +110,6 @@ inline bool ValidateGeneratedShaderVertexInputLayout( const char* sourcePath, co
 
 inline std::uint32_t ShaderValueByteSize( ShaderValueType type )
 {
-
     switch ( type )
     {
     case ShaderValueType::Int:
@@ -166,7 +165,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 
         for ( const auto* reflectedStage : stages )
         {
-
             for ( std::uint32_t i = 0; i < reflectedStage->fieldCount; ++i )
             {
                 const auto& field = GeneratedShaderReflection::Fields[reflectedStage->fieldStart + i];
@@ -181,7 +179,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 
         // Optional means the compiler may remove an unused declaration. When
         // the declaration survives, it still owns the same name and type.
-
         if ( ( expected.required && !found ) || ( found && found->size != ShaderValueByteSize( expected.type ) ) )
         {
             outError = std::string( "cbuffer field mismatch: " ) + expected.name;
@@ -197,7 +194,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 
         for ( const auto* reflectedStage : stages )
         {
-
             for ( std::uint32_t i = 0; i < reflectedStage->resourceCount; ++i )
             {
                 const auto& resource = GeneratedShaderReflection::Resources[reflectedStage->resourceStart + i];
@@ -216,7 +212,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 
         // Optional means absence is legal, not that a present declaration may
         // silently move to another UnifiedRaster slot.
-
         if ( ( expected.required && !found ) || ( found && !matches ) )
         {
             outError = std::string( "resource binding mismatch: " ) + expected.name;
@@ -231,7 +226,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 
     for ( const auto* reflectedStage : stages )
     {
-
         for ( std::uint32_t i = 0; i < reflectedStage->fieldCount; ++i )
         {
             const auto& field = GeneratedShaderReflection::Fields[reflectedStage->fieldStart + i];
@@ -261,7 +255,6 @@ inline bool ValidateGeneratedShaderProgramContract( const char* path, const Shad
 inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stage& stage,
                                            const GeneratedShaderReflection::Resource& resource, std::string& outError )
 {
-
     if ( resource.space != UnifiedRasterRootSignature::REGISTER_SPACE )
     {
         outError = std::string( stage.source ) + ":" + stage.stage + " uses non-zero register space for " + resource.name;
@@ -281,7 +274,6 @@ inline bool ValidateUnifiedRasterResource( const GeneratedShaderReflection::Stag
     }
     else if ( resource.registerClass == 's' )
     {
-
         if ( std::strcmp( stage.stage, "ps" ) == 0 && UnifiedRasterRootSignature::AcceptsSamplerRegister( resource.slot ) &&
              std::strcmp( resource.type, "sampler" ) == 0 )
         {

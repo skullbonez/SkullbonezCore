@@ -123,10 +123,8 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
 
     for ( std::size_t heldIndex = g_heldLockCount; heldIndex > 0; --heldIndex )
     {
-
         if ( g_heldLocks[heldIndex - 1] == lockId )
         {
-
             for ( std::size_t moveIndex = heldIndex; moveIndex < g_heldLockCount; ++moveIndex )
             {
                 g_heldLocks[moveIndex - 1] = g_heldLocks[moveIndex];
@@ -146,7 +144,6 @@ void LockOrderValidator::RecordRelease( uint32_t lockId )
 bool LockOrderValidator::HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting,
                                        std::bitset<MAX_LOCK_COUNT>& visited ) const
 {
-
     if ( visiting.test( node ) )
     {
         return true;
@@ -161,7 +158,6 @@ bool LockOrderValidator::HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT
 
     for ( uint32_t next = 0; next < MAX_LOCK_COUNT; ++next )
     {
-
         if ( m_edges[node].test( next ) && HasCycleFrom( next, visiting, visited ) )
         {
             return true;
@@ -181,7 +177,6 @@ bool LockOrderValidator::DetectCycleUnlocked() const
 
     for ( uint32_t node = 0; node + 1 < m_nextLockId; ++node )
     {
-
         if ( HasCycleFrom( node, visiting, visited ) )
         {
             return true;

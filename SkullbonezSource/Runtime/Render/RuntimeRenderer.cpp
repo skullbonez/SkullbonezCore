@@ -305,7 +305,6 @@ size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderG
                                         const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled,
                                         size_t expectedTransitionCount )
 {
-
     if ( expectedTransitionCount == 0 )
     {
         return 0;
@@ -347,7 +346,6 @@ void ExecuteBackbufferAcquireGraphCallback( const SkullbonezCore::Rendering::Ren
 void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  ShadowGraphInvocation& data )
 {
-
     if ( !data.shadowPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "ShadowMapPass graph callback missing execution data." );
@@ -360,7 +358,6 @@ void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      ReflectionGraphInvocation& data )
 {
-
     if ( !data.reflectionPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "ReflectionPass graph callback missing execution data." );
@@ -373,7 +370,6 @@ void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 void ExecuteObjectGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                  ObjectGraphInvocation& data )
 {
-
     if ( !data.objectPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "ObjectPass graph callback missing execution data." );
@@ -385,7 +381,6 @@ void ExecuteObjectGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                   TerrainGraphInvocation& data )
 {
-
     if ( !data.terrainPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "TerrainPass graph callback missing execution data." );
@@ -397,7 +392,6 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                 WaterGraphInvocation& data )
 {
-
     if ( !data.waterPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "WaterPass graph callback missing execution data." );
@@ -409,7 +403,6 @@ void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPass
 void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                        DebugOverlayGraphInvocation& data )
 {
-
     if ( !data.debugOverlayPass || !data.inputs )
     {
         SB_FATAL( "RunRender", "DebugOverlayPass graph callback missing execution data." );
@@ -452,7 +445,6 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 
     for ( const ReplayPredictionGhostDrawRequest& request : visualPacket.ghostRequests )
     {
-
         if ( request.modelRow.value < 0 || request.modelRow.value >= static_cast<int>( colliders.size() ) ||
              request.modelRow.value >= static_cast<int>( renderInstances.size() ) )
         {
@@ -494,7 +486,6 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket, Skull
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                       ReplayGhostGraphInvocation& data )
 {
-
     if ( !data.replayVisualPacket || !data.camera || !data.models || !data.primitive || !data.textures )
     {
         SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
@@ -508,7 +499,6 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
 void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                         DevelopmentUiGraphInvocation& data )
 {
-
     if ( !data.editor )
     {
         SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing its presentation owner." );
@@ -522,7 +512,6 @@ void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderG
 void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                       SceneTargetGraphInvocation& data )
 {
-
     if ( !data.sceneTargetPass || !data.camera || !data.cinematic || !data.renderFrame || !data.renderGeometry ||
          !data.renderTextures || !data.renderDiagnostics )
     {
@@ -537,7 +526,6 @@ void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGra
 void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                  SkyboxGraphInvocation& data )
 {
-
     if ( !data.skyPass || !data.camera || !data.renderGeometry || !data.renderTextures )
     {
         SB_FATAL( "RunRender", "SkyboxPass graph callback missing execution data." );
@@ -550,7 +538,6 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                    UiChromeGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.debug || !data.scene || !data.camera || !data.replayHud ||
          !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
@@ -572,7 +559,6 @@ void ExecuteUiChromeGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
 void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                             UiOperatorPrepareGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.renderTextures || !data.renderGeometry ||
          !data.renderDiagnostics )
     {
@@ -587,7 +573,6 @@ void ExecuteUiOperatorPrepareGraphCallback( const SkullbonezCore::Rendering::Ren
 void ExecuteUiOperatorDiagnosticsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                 UiOperatorDiagnosticsGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.replayHud || !data.timers || !data.models ||
          !data.diagnosticsRuntime || !data.ui || !data.renderDiagnostics )
     {
@@ -603,7 +588,6 @@ void ExecuteUiOperatorDiagnosticsGraphCallback( const SkullbonezCore::Rendering:
 void ExecuteUiOperatorSettingsGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                              UiOperatorSettingsGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.debug || !data.renderPresentation || !data.world ||
          !data.config || !data.cinematic )
     {
@@ -618,7 +602,6 @@ void ExecuteUiOperatorSettingsGraphCallback( const SkullbonezCore::Rendering::Re
 void ExecuteUiOperatorInteractionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                 UiOperatorInteractionGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.rayCastTest || !data.editor || !data.runtimeInput ||
          !data.camera || !data.ui )
     {
@@ -633,7 +616,6 @@ void ExecuteUiOperatorInteractionGraphCallback( const SkullbonezCore::Rendering:
 void ExecuteUiOperatorPresentationGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                  UiOperatorPresentationGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.scene || !data.runtimeViewModel || !data.sceneBrowser ||
          !data.operatorEditorView )
     {
@@ -649,7 +631,6 @@ void ExecuteUiOperatorPresentationGraphCallback( const SkullbonezCore::Rendering
 void ExecuteUiOperatorSubmissionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                                UiOperatorSubmissionGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.uiData || !data.ui || !data.renderTargetPreviews || !data.assets ||
          !data.renderResources || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
@@ -665,7 +646,6 @@ void ExecuteUiOperatorSubmissionGraphCallback( const SkullbonezCore::Rendering::
 void ExecuteUiOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                     UiOverlayGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI overlay graph callback missing execution data." );
@@ -680,7 +660,6 @@ void ExecuteUiOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraph
 void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                    UiReplayGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.overlay || !data.renderTextures || !data.renderGeometry ||
          !data.renderDiagnostics )
     {
@@ -696,7 +675,6 @@ void ExecuteUiReplayGraphCallback( const SkullbonezCore::Rendering::RenderGraphP
 void ExecuteUiFinalizeGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      UiFinalizeGraphInvocation& data )
 {
-
     if ( !data.pass || !data.renderGraph || !data.renderTextures || !data.renderGeometry || !data.renderDiagnostics )
     {
         SB_FATAL( "RunRender", "UI finalize graph callback missing execution data." );
@@ -709,7 +687,6 @@ void ExecuteUiFinalizeGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      VolumetricGraphInvocation& data )
 {
-
     if ( !data.pass || !data.camera || !data.cinematic || !data.renderGeometry || !data.renderTextures ||
          !data.renderFrame || !data.renderGraph || !data.renderDiagnostics || !data.state || !data.state->compiled ||
          !context.graph )
@@ -750,7 +727,6 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                   TonemapGraphInvocation& data )
 {
-
     if ( !data.pass || !data.cinematic || !data.renderGeometry || !data.renderTextures || !data.renderFrame ||
          !data.renderGraph || !data.renderDiagnostics || !data.state || !data.state->compiled || !context.graph )
     {
@@ -766,7 +742,6 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
 
     if ( sceneNeedsPublish )
     {
-
         if ( !data.state->sceneTarget )
         {
             SB_FATAL( "RunRender", "ToneMapPass missing the cinematic target binding." );
@@ -874,7 +849,6 @@ size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderG
 
     for ( const SkullbonezCore::Rendering::RenderGraphTransitionDesc& transition : compiled.transitions )
     {
-
         if ( transition.passIndex == passIndex )
         {
             ++count;
@@ -967,7 +941,6 @@ GraphFramebufferResources AddGraphFramebuffer( SkullbonezCore::Rendering::Render
 
 void AddFramebufferWrites( Rendering::RenderGraph& graph, uint32_t pass, const GraphFramebufferResources& resources )
 {
-
     if ( resources.transitionCount == 0 )
     {
         return;
@@ -979,7 +952,6 @@ void AddFramebufferWrites( Rendering::RenderGraph& graph, uint32_t pass, const G
 
 void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const GraphFramebufferResources& resources )
 {
-
     if ( resources.transitionCount == 0 )
     {
         return;
@@ -1803,7 +1775,6 @@ int RuntimeRenderer::RenderUiText( RunTimerState& timers, const RuntimeRenderMod
     chrome.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, chromePass );
     auto bindCompiledPass = [&]( auto& invocation, uint32_t pass )
     {
-
         if ( pass != INVALID_PASS )
         {
             invocation.compiled = &compiled;
@@ -1944,7 +1915,6 @@ RuntimeRenderer::CompileRenderPassGraph( SkullbonezCore::Rendering::RenderGraph&
 
 void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resources )
 {
-
     if ( resources.cinematicEnabled )
     {
 
@@ -1968,7 +1938,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Invariant: Run opens graph ownership before choosing a world or text-only
     // path. RenderPreparedFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
-
     if ( m_frameGraphFinalized || m_frameGraphRenderGraph != &m_resources.RenderGraph() )
     {
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
@@ -2054,7 +2023,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
     // allocator waits do not block work that can overlap the previous frame.
-
     if ( !useCinematicTarget )
     {
 
@@ -2136,7 +2104,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderCameraLighting. Using the selected destination camera here would
     // stretch reflected geometry during camera transitions.
-
     if ( !cinematicRender )
     {
         PROFILE_GPU_BEGIN( &m_resources.GpuTiming(), "Frame/Render/Skybox" );
@@ -2190,7 +2157,6 @@ bool RuntimeRenderer::RenderPreparedFrame( const FrameEntryContext& context,
 
     // Opaque bodies render before terrain/water unless debug transparency asks
     // for a late transparent body pass.
-
     if ( !debugTransparentBodyPass )
     {
         const ObjectPassInputs objectInputs { camera,
@@ -2428,7 +2394,6 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
     // Lifetime: RuntimeRenderer owns the ordered teardown recipe because pass
     // resources and their consumers must release before backend-owned caches.
     // The successful drain above is the proof that every release is GPU-safe.
-
     for ( const BackendResourcePhase& phase : releaseSteps )
     {
         logLifecycleStep( phase.name );
@@ -2475,7 +2440,6 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
 void RuntimeRenderer::BeginFrameGraph()
 {
-
     if ( m_frameGraphRenderGraph && !m_frameGraphFinalized )
     {
         SB_FATAL( "RunRender", "A new frame cannot replace an unfinished frame graph." );
@@ -2505,7 +2469,6 @@ void RuntimeRenderer::PrepareUiFrameTarget()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor )
 {
-
     if ( !m_frameGraphRenderGraph )
     {
         return m_resultDiagnostics.Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
@@ -2549,7 +2512,6 @@ void RuntimeRenderer::FinalizeCaptureOnlyFrameGraph()
 void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent,
                                                   bool releaseGraphStorage )
 {
-
     if ( m_frameGraphFinalized || !m_frameGraphRenderGraph )
     {
         SB_FATAL( "RunRender", "Frame graph finalization requires one active, unfinished frame graph." );

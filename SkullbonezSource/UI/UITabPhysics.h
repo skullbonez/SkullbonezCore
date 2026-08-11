@@ -52,7 +52,6 @@ constexpr int SLIDER_ROLLING_FRICTION = SLIDER_PHYSICS_BASE + 12;
 // different Runtime mutation.
 inline bool EmitPhysicsToggleCommand( int toggleIndex, UIPhysicsCommands& commands )
 {
-
     switch ( toggleIndex )
     {
     case 0:

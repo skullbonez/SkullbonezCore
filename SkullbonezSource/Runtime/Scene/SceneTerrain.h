@@ -58,7 +58,6 @@ class SceneTerrain
 
     void Replace( std::unique_ptr<Geometry::Terrain> terrain, bool isFlatSlope )
     {
-
         if ( !terrain )
         {
 

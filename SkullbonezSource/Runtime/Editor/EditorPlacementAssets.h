@@ -209,7 +209,6 @@ template <typename Fn> bool ForEachEditorBuildingPart( int objectType, const Ass
 
     for ( const EditorPlacementJson& part : *parts )
     {
-
         if ( !part.is_object() )
         {
             return false;

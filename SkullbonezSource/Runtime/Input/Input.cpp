@@ -135,7 +135,6 @@ void EnsureShowCursorHidden()
 
 long RawAbsoluteToPixels( long value, int extent )
 {
-
     if ( extent <= 0 )
     {
         return 0;
@@ -189,7 +188,6 @@ SkullbonezCore::Core::SbResult Input::CaptureDeviceInputFrame( SkullbonezCore::C
 
     for ( int virtualKey = 0; virtualKey < InputKeySnapshot::VIRTUAL_KEY_COUNT; ++virtualKey )
     {
-
         if ( ( keyboardState[virtualKey] & 0x80u ) == 0u )
         {
             continue;
@@ -272,7 +270,6 @@ SkullbonezCore::Core::SbResult Input::SetNativeMouseCapture( SkullbonezCore::Cor
 
     // Do not release capture acquired by another window on this thread; this
     // seam owns only the bound runtime HWND.
-
     if ( GetCapture() != windowHandle )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -409,7 +406,6 @@ void Input::ClearCallbackEventBuffer( HWND window )
 
 void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
 {
-
     if ( !IsCallbackBridgeBoundForWindow( window ) || !rawInput || !IsAppFocused() )
     {
         return;
@@ -458,7 +454,6 @@ void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
 
 bool Input::ConsumeRawMouseDelta( long& xMove, long& yMove )
 {
-
     if ( !IsAppFocused() )
     {
         ResetMouseLookDeltas();
@@ -550,7 +545,6 @@ Input::MouseCoordinatesResult Input::GetClientMouseCoordinates( SkullbonezCore::
 
 int Input::ConsumeMouseWheelDelta()
 {
-
     if ( !IsAppFocused() )
     {
         g_mouseWheelDelta = 0;
@@ -565,7 +559,6 @@ int Input::ConsumeMouseWheelDelta()
 
 void Input::AccumulateMouseWheelDelta( HWND window, int delta )
 {
-
     if ( !IsCallbackBridgeBoundForWindow( window ) || !IsAppFocused() )
     {
         return;

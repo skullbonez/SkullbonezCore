@@ -53,7 +53,6 @@ SkullbonezCore::GameObjects::SceneSessionSaveState SceneSessionState::GetSaveSta
 
 const char* SkullbonezCore::Runtime::SceneFileNameFromPath( const char* path )
 {
-
     if ( !path )
     {
         return "";
@@ -82,7 +81,6 @@ std::string SkullbonezCore::Runtime::NormalizeSceneQueuePath( const std::string&
 
 const char* SkullbonezCore::Runtime::SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event )
 {
-
     switch ( event )
     {
     case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
@@ -149,7 +147,6 @@ SkullbonezCore::Physics::PhysicsSceneObjectId SceneSessionState::AllocateSceneOb
     // Invariant: scene object id 0 means "not assigned." Compound creators
     // reserve one contiguous range before appending any child bodies so partial
     // failure cannot interleave another object's replay-facing identity.
-
     if ( count <= 0 )
     {
         return SkullbonezCore::Physics::PhysicsSceneObjectId {};
@@ -255,7 +252,6 @@ void SceneSession::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy&
 
     // Hazard: generation zero is the observer sentinel. Wrapping would make a
     // real load invisible and could suppress every once-per-generation reset.
-
     if ( m_lifecyclePacket.generation == UINT64_MAX )
     {
         SB_FATAL( "Runtime/SceneSession", "Scene lifecycle generation exhausted." );
@@ -281,7 +277,6 @@ void SceneSession::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
     // Hazard: accepting a skipped or repeated phase would publish plausible
     // but false progress to every generation observer. A retry must begin a new
     // generation before it can emit BeforeSceneUnload again.
-
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
         SB_FATAL( "Runtime/SceneSession", "Invalid scene lifecycle transition. previous=%s next=%s",
@@ -313,10 +308,8 @@ void SceneSession::MarkManualReset()
 
 int SceneSession::FindNormalizedPath( const std::string& normalizedPath ) const
 {
-
     for ( int i = 0; i < QueueSize(); ++i )
     {
-
         if ( NormalizeSceneQueuePath( m_queue[i] ) == normalizedPath )
         {
             return i;
@@ -328,10 +321,8 @@ int SceneSession::FindNormalizedPath( const std::string& normalizedPath ) const
 
 int SceneSession::FindGeneratedDemo() const
 {
-
     for ( int i = 0; i < QueueSize(); ++i )
     {
-
         if ( m_queue[i].empty() )
         {
             return i;
@@ -349,7 +340,6 @@ int SceneSession::Append( std::string path )
 
 bool SceneSession::CurrentQueueIsCinematicDeck() const
 {
-
     if ( !HasCurrentEntry() || m_queue.size() <= 1 )
     {
         return false;
@@ -357,7 +347,6 @@ bool SceneSession::CurrentQueueIsCinematicDeck() const
 
     for ( const std::string& queuedPath : m_queue )
     {
-
         if ( queuedPath.empty() || !IsCineScenePath( queuedPath ) )
         {
             return false;

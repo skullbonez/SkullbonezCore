@@ -33,10 +33,8 @@ namespace
 const RunReplayPredictionBodySample* FindPredictionBody( const RunReplayPredictionFrame& frame,
                                                          Physics::PhysicsSceneObjectId id ) noexcept
 {
-
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
-
         if ( body.id.value == id.value )
         {
             return &body;
@@ -55,7 +53,6 @@ float MagnitudeSquared( const Math::Vector::Vector3& value ) noexcept
 
 void ReplayInterceptReadout::SetTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow ) noexcept
 {
-
     if ( id.value == m_targetId.value && modelRow.value == m_targetModelRow.value )
     {
         return;
@@ -116,7 +113,6 @@ void ReplayInterceptReadout::ResetScan() noexcept
 
 void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) noexcept
 {
-
     if ( !input.enabled || input.shipId.value == 0 || input.targetId.value == 0 ||
          input.shipId.value == input.targetId.value || input.frames.empty() || input.shipRadius <= 0.0f ||
          input.targetRadius <= 0.0f )
@@ -162,7 +158,6 @@ void ReplayInterceptReadout::Update( const ReplayInterceptUpdateInput& input ) n
 
         // Invariant: strict comparison preserves the first frame when two
         // samples have exactly the same miss distance.
-
         if ( m_view.valid && distanceSquared >= bestDistanceSquared )
         {
             continue;

@@ -239,7 +239,6 @@ void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int isla
 
     // Why: the worker selects once per island so the pair loop contains no
     // runtime diagnostic-mode branch.
-
     if ( policy.retainPipelineRecords )
     {
         stage.ProcessObjectNarrowphaseIsland<true>( bodyStore, colliderStore, terrain, buoyancyFacts, candidatePairs,

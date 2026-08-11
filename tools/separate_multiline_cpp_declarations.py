@@ -6,8 +6,9 @@ Purpose:
   It also rejects assignment lines that strand `=` without the expression.
   One-to-three short parenthesized arguments remain on one line. Wider
   expressions keep the first argument beside the opening parenthesis and align
-  continuations beneath it. Standalone comments and control-flow blocks receive
-  the owner-requested paragraph space above them.
+  continuations beneath it. Standalone comments receive paragraph space above
+  them. Control-flow blocks are separated from prior executable statements but
+  remain attached to an introducing comment or opening brace.
 
 Summary:
   clang-format owns token layout but intentionally does not create semantic
@@ -39,8 +40,10 @@ Invariants:
     most 125 columns.
   - A wrapped expression never leaves its opening parenthesis on an otherwise
     parameter-free line.
-  - Standalone comment groups and condition/loop blocks have one blank line
-    above them.
+  - Standalone comment groups have one blank line above them.
+  - Condition/loop blocks have a leading blank line only after a completed
+    executable statement or block, never after an introducing comment or `{`.
+  - Blank lines contain no spaces or tabs.
   - Running the pass repeatedly produces byte-identical output.
 
 Related:
@@ -84,6 +87,7 @@ STRANDED_ASSIGNMENT = re.compile(r"(?<![=!<>])=(?!=)\s*(?://.*)?$")
 MAX_REPORTED_FILES = 40
 COMPACT_ARGUMENT_COLUMN_LIMIT = 125
 MAX_COMPACT_ARGUMENTS = 3
+MAX_LAYOUT_NORMALIZATION_PASSES = 16
 
 
 @dataclass(frozen=True)
@@ -363,9 +367,33 @@ def normalize_first_argument_heads(text: str) -> tuple[str, int]:
     return formatted, joined_heads
 
 
+def normalize_expression_layout(text: str) -> tuple[str, int, int]:
+    """Normalize nested assignment and call heads to a fixed point."""
+    joined_assignments = 0
+    joined_compact_calls = 0
+
+    for _ in range(MAX_LAYOUT_NORMALIZATION_PASSES):
+        previous = text
+        text, assignment_count = normalize_assignment_heads(text)
+        text, compact_call_count = normalize_compact_parenthesized_expressions(text)
+        text, first_argument_count = normalize_first_argument_heads(text)
+        joined_assignments += assignment_count
+        joined_compact_calls += compact_call_count + first_argument_count
+        if text == previous:
+            return text, joined_assignments, joined_compact_calls
+
+    raise RuntimeError("parenthesized source layout did not converge")
+
+
 def standalone_comment_start(line: str) -> bool:
     stripped = line.lstrip()
     return stripped.startswith("//") or stripped.startswith("/*")
+
+
+def control_flow_attaches_to_previous_line(line: str) -> bool:
+    """Keep control flow beside its opening brace or introducing comment."""
+    stripped = line.strip()
+    return stripped == "{" or standalone_comment_start(line) or stripped.endswith("*/")
 
 
 def ensure_comment_spacing(text: str) -> tuple[str, int]:
@@ -407,6 +435,15 @@ def remove_macro_continuation_breaks(text: str) -> str:
         output.append(line)
 
     formatted = "\n".join(output)
+    if trailing_newline:
+        formatted += "\n"
+    return formatted
+
+
+def normalize_blank_lines(text: str) -> str:
+    """Remove spaces and tabs from otherwise empty lines."""
+    trailing_newline = text.endswith("\n")
+    formatted = "\n".join("" if not line.strip() else line for line in text.splitlines())
     if trailing_newline:
         formatted += "\n"
     return formatted
@@ -622,9 +659,13 @@ def ensure_control_flow_spacing(text: str) -> tuple[str, int]:
             and not stripped.startswith(("else", "catch"))
             and not (stripped.startswith("while") and previous_nonempty.strip() == "}")
         )
-        if starts_condition_or_loop and output and output[-1].strip():
-            output.append("")
-            inserted_breaks += 1
+        if starts_condition_or_loop and output:
+            if control_flow_attaches_to_previous_line(previous_nonempty):
+                while output and not output[-1].strip():
+                    output.pop()
+            elif output[-1].strip():
+                output.append("")
+                inserted_breaks += 1
 
         output.append(line)
         if index in control_ends and following_line_allows_break(lines, index):
@@ -638,10 +679,7 @@ def ensure_control_flow_spacing(text: str) -> tuple[str, int]:
 
 
 def separate_multiline_statements(text: str) -> SpacingResult:
-    text, joined_assignments = normalize_assignment_heads(text)
-    text, joined_compact_calls = normalize_compact_parenthesized_expressions(text)
-    text, joined_first_argument_heads = normalize_first_argument_heads(text)
-    joined_compact_calls += joined_first_argument_heads
+    text, joined_assignments, joined_compact_calls = normalize_expression_layout(text)
     text, comment_breaks = ensure_comment_spacing(text)
     text, control_breaks = ensure_control_flow_spacing(text)
     trailing_newline = text.endswith("\n")
@@ -659,6 +697,7 @@ def separate_multiline_statements(text: str) -> SpacingResult:
     formatted = "\n".join(output)
     if trailing_newline:
         formatted += "\n"
+    formatted = normalize_blank_lines(formatted)
 
     return SpacingResult(
         formatted,
@@ -940,7 +979,6 @@ def run_self_test() -> int:
 """
     control_flow_expected = """void Example()
 {
-
     if ( ready )
     {
         Use();
@@ -977,7 +1015,6 @@ def run_self_test() -> int:
 
     if ( outer )
     {
-
         if ( inner )
         {
             Nested();
@@ -989,7 +1026,7 @@ def run_self_test() -> int:
 """
     control_first = separate_multiline_statements(control_flow)
     control_second = separate_multiline_statements(control_first.text)
-    if control_first.text != control_flow_expected or control_first.inserted_breaks != 8:
+    if control_first.text != control_flow_expected or control_first.inserted_breaks != 6:
         print("SELF_TEST_FAIL: control-flow blocks were not separated as expected.", file=sys.stderr)
         return 1
     if control_second.text != control_flow_expected or control_second.inserted_breaks != 0:
@@ -1146,6 +1183,72 @@ def run_self_test() -> int:
         print("SELF_TEST_FAIL: standalone comment groups did not receive space above them.", file=sys.stderr)
         return 1
 
+    attached_control_flow = """void Example()
+{
+
+    // Why: readiness owns whether the operation can run.
+
+    if ( ready )
+    {
+
+        while ( pending )
+        {
+            Poll();
+        }
+    }
+}
+"""
+    attached_control_flow_expected = """void Example()
+{
+
+    // Why: readiness owns whether the operation can run.
+    if ( ready )
+    {
+        while ( pending )
+        {
+            Poll();
+        }
+    }
+}
+"""
+    if separate_multiline_statements(attached_control_flow).text != attached_control_flow_expected:
+        print("SELF_TEST_FAIL: control flow was separated from a comment or opening brace.", file=sys.stderr)
+        return 1
+
+    whitespace_only_blank_lines = "\n".join(
+        [
+            "void Example()",
+            "{",
+            "    Prepare();",
+            "    " + "\t ",
+            "    if ( ready )",
+            "    {",
+            "        Use();",
+            "    }",
+            " " + "\t",
+            "    Finish();",
+            "}",
+        ]
+    ) + "\n"
+    normalized_blank_lines = separate_multiline_statements(whitespace_only_blank_lines).text
+    expected_blank_lines = """void Example()
+{
+    Prepare();
+
+    if ( ready )
+    {
+        Use();
+    }
+
+    Finish();
+}
+"""
+    if normalized_blank_lines != expected_blank_lines or any(
+        line and not line.strip() for line in normalized_blank_lines.splitlines()
+    ):
+        print("SELF_TEST_FAIL: whitespace-only blank lines were not normalized.", file=sys.stderr)
+        return 1
+
     print(
         "SELF_TEST_PASS: multiline spacing, assignment heads, and compact calls are stable."
     )
@@ -1203,12 +1306,10 @@ def main() -> int:
         if source.suffix.lower() == ".cpp":
             result = separate_multiline_statements(candidate)
         else:
-            normalized, joined_assignments = normalize_assignment_heads(candidate)
-            normalized, joined_compact_calls = normalize_compact_parenthesized_expressions(normalized)
-            normalized, joined_first_argument_heads = normalize_first_argument_heads(normalized)
-            joined_compact_calls += joined_first_argument_heads
+            normalized, joined_assignments, joined_compact_calls = normalize_expression_layout(candidate)
             normalized, comment_breaks = ensure_comment_spacing(normalized)
             normalized, control_breaks = ensure_control_flow_spacing(normalized)
+            normalized = normalize_blank_lines(normalized)
             result = SpacingResult(
                 normalized,
                 inserted_breaks=comment_breaks + control_breaks,

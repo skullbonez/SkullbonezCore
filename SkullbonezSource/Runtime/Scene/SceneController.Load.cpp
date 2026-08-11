@@ -224,7 +224,6 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
     // Scene JSON can include reusable style files plus a few local overrides.
     // The touched mask prevents "Save Defaults" from expanding every engine.cfg
     // or style default into the scene file.
-
     if ( touchedMask == 0 )
     {
         return;
@@ -233,7 +232,6 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
     Json& cinematic = EnsureJsonObject( root, "cinematic" );
     const auto writeBool = [&]( uint64_t bit, const char* key, bool value )
     {
-
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -242,7 +240,6 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
 
     const auto writeFloat = [&]( uint64_t bit, const char* key, float value )
     {
-
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -251,7 +248,6 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
 
     const auto writeInt = [&]( uint64_t bit, const char* key, int value )
     {
-
         if ( ( touchedMask & bit ) != 0 )
         {
             cinematic[key] = value;
@@ -366,7 +362,6 @@ void SetTouchedCinematicSceneProperties( Json& root, uint64_t touchedMask,
 
 const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
 {
-
     if ( noReflect )
     {
         return "none";
@@ -377,7 +372,6 @@ const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
 
 void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
 {
-
     if ( !terrain )
     {
         return;
@@ -399,7 +393,6 @@ void ApplyConfiguredWorldEnvironment( WorldEnvironment& world, const SkullbonezC
 
 void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWater )
 {
-
     if ( !noWater || !terrain )
     {
         return;
@@ -426,7 +419,6 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SkullbonezCore::Core::SbDiagno
 
     if ( !terrainOwner.Get() || terrainOwner.IsFlatSlope() )
     {
-
         if ( renderFrame )
         {
             const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
@@ -549,7 +541,6 @@ void SceneLoadTransaction::AdvanceOrFatal( SceneLoadPhaseCursor::Phase next, con
 
 void SceneLoadTransaction::FinishLoadPhase()
 {
-
     if ( m_phase.Current() == SceneLoadPhaseCursor::Phase::Idle )
     {
         AdvanceOrFatal( SceneLoadPhaseCursor::Phase::Load, "FinishLoadPhase" );
@@ -608,7 +599,6 @@ SceneLoadTransaction::Load( SceneController& sceneController, const SceneLoadReq
 
 void SceneLoadTransaction::PreserveInactiveDevelopmentUi()
 {
-
     if ( m_phase.Current() != SceneLoadPhaseCursor::Phase::Load )
     {
         SB_FATAL( "Runtime/SceneLoadTransaction", "Development UI policy changed outside the load phase. current=%u",
@@ -704,10 +694,8 @@ void SceneLoadTransaction::ApplyRuntimeReactions( const RunLaunchOptions& launch
 
     // Invariant: only a successfully completed defaults write enters this
     // batch, so a failed Lane-R save cannot advance the editor clean cursor.
-
     for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
     {
-
         if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
         {
             runtimeTools.Editor().history.MarkClean();
@@ -763,7 +751,6 @@ void SceneLoadTransaction::ApplyPresentationOutputs( Window& window, UI::InGameU
 
     // Invariant: device swap policy commits only with a fully activated scene;
     // partial loads may publish clear/populate reactions but not presentation.
-
     if ( renderDevice && SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
     {
         renderDevice->SetVsyncEnabled( rendererVsyncEnabled );
@@ -811,7 +798,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     CameraControlState& camera = consumerOutputs.camera;
     const auto recordCompletedWorldChange = [&]( const Environment::WorldOverrideChange& change )
     {
-
         if ( consumerOutputs.completedWorldChangeCount >= consumerOutputs.completedWorldChanges.size() )
         {
             SB_FATAL( "Runtime/SceneController", "Fixed completed world-change capacity exhausted." );
@@ -840,7 +826,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( !request.HasLoad() )
     {
-
         if ( request.enterInteractiveSceneRun )
         {
             State().isInteractiveRun = true;
@@ -949,7 +934,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     sceneController.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
 
     // Branch on file-backed scene mode vs generated demo mode.
-
     if ( scenePath.empty() )
     {
         config.runtimeCapacity.sceneObjectCapacity = startup.sceneObjectCapacity;
@@ -1134,7 +1118,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
-
         if ( scene.GetSeed() > 0 )
         {
             rngSeed = scene.GetSeed();
@@ -1150,7 +1133,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         // Scene terrain is authoritative.  A flat-slope test scene must not leak
         // its analytic terrain into the next height-map scene.
-
         if ( scene.HasFlatSlope() )
         {
             const SkullbonezCore::Core::SbResult terrainResult = UseFlatSlopeTerrain( m_resultDiagnostics,
@@ -1196,7 +1178,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                          sceneController.Scene().Terrain().Get() );
 
         // Override world environment if scene specifies world values
-
         if ( scene.HasWorldOverride() )
         {
             sceneController.Scene().Environment() = WorldEnvironment( scene.GetWorldFluidHeight(),
@@ -1288,7 +1269,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #endif
 
         // Ball-tracking camera: enabled when scene specifies a positive track_height
-
         if ( scene.GetTrackHeight() > 0.0f )
         {
             camera.trackHeight = scene.GetTrackHeight();
@@ -1337,7 +1317,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
-
     if ( launchOptions.timeScaleOverride > 0.0f )
     {
         SceneState().timeScale = launchOptions.timeScaleOverride;
@@ -1376,7 +1355,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
     if ( launchOptions.hasTornadoOverride )
     {
-
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
         {
             tornadoSystem.enabled = launchOptions.tornadoEnabled;

@@ -51,7 +51,6 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
     }
     else
     {
-
         if ( key.screenW != m_lastKey.screenW || key.screenH != m_lastKey.screenH )
         {
             flags |= UI_DIRTY_VIEWPORT;

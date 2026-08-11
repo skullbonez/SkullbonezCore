@@ -82,10 +82,8 @@ int64_t BroadphaseVisualizer::PackKey( int16_t ix, int16_t iy, int16_t iz )
 
 int BroadphaseVisualizer::FindCell( int64_t key ) const
 {
-
     for ( int i = 0; i < m_cellCount; ++i )
     {
-
         if ( m_cells[i].key == key )
         {
             return i;
@@ -128,7 +126,6 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
 
 void BroadphaseVisualizer::RemoveCell( int index )
 {
-
     if ( index < 0 || index >= m_cellCount )
     {
         return;
@@ -266,7 +263,6 @@ void BroadphaseVisualizer::EmitCubeWireframe( int16_t ix, int16_t iy, int16_t iz
 void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseActiveCell> activeCells,
                                    std::span<const int64_t> collisionKeys )
 {
-
     if ( !m_enabled )
     {
         return;
@@ -276,7 +272,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
     // hard to see. This visual tracker gives cells enter/collide/fade lifetimes
     // purely for display, without changing pair generation.
     // Mark all existing cells as inactive for this frame
-
     for ( int i = 0; i < m_cellCount; ++i )
     {
         m_cells[i].activeThisFrame = false;
@@ -284,7 +279,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
     }
 
     // Process active cells from the spatial grid
-
     for ( const PhysicsBroadphaseActiveCell& activeCell : activeCells )
     {
         int64_t key = PackKey( activeCell.ix, activeCell.iy, activeCell.iz );
@@ -299,7 +293,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
         cell.activeThisFrame = true;
 
         // Transition logic for newly occupied cells
-
         if ( cell.state == CellState::Empty )
         {
 
@@ -310,7 +303,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
     }
 
     // Process collision cells — mark them as colliding with increased heat
-
     for ( int64_t collisionKey : collisionKeys )
     {
         int idx = FindCell( collisionKey );
@@ -330,7 +322,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
     }
 
     // Timers age out cells after their hit/visited highlight fades.
-
     for ( int i = 0; i < m_cellCount; )
     {
         TrackedCell& cell = m_cells[i];
@@ -341,7 +332,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
         case CellState::Empty:
 
             // If cell is no longer active, remove it after a brief hold
-
             if ( !cell.activeThisFrame && cell.timer > FADE_DURATION )
             {
                 RemoveCell( i );
@@ -378,7 +368,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
 
             // Stay in colliding state only while collisions arrive each frame.
             // If no collision this frame, start fading back to blue.
-
             if ( !cell.collidedThisFrame )
             {
                 cell.state = CellState::Fading;
@@ -393,7 +382,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
             {
 
                 // Fade complete — return to occupied or empty
-
                 if ( cell.activeThisFrame )
                 {
                     cell.state = CellState::Occupied;
@@ -417,7 +405,6 @@ void BroadphaseVisualizer::Update( float dt, std::span<const PhysicsBroadphaseAc
 
 void BroadphaseVisualizer::Render( const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
 {
-
     if ( !m_enabled || m_cellCount == 0 || !supportsDebugLines )
     {
         return;

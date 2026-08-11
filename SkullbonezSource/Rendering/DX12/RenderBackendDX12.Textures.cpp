@@ -59,7 +59,6 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
 static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                                        HRESULT hr, const char* msg )
 {
-
     if ( FAILED( hr ) )
     {
 
@@ -79,7 +78,6 @@ static inline SkullbonezCore::Core::SbResult Dx12TextureStartupResult( Skullbone
 bool Dx12TextureCommands::Transition( const char* passName, const char* resourceName, ID3D12Resource* resource,
                                       RenderGraphResourceAccess before, RenderGraphResourceAccess after, UINT subresource )
 {
-
     if ( !resource || before == after )
     {
         return true;
@@ -112,7 +110,6 @@ bool Dx12TextureCommands::Transition( const char* passName, const char* resource
 
 bool Dx12TextureCommands::UavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource )
 {
-
     if ( !resource )
     {
         return true;
@@ -249,7 +246,6 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands
 
         // Lifetime: a failed COM creation is not allowed to leave a partially
         // published mip pipeline behind for a later reusable initialization.
-
         if ( m_genMipsRS )
         {
             m_genMipsRS->Release();
@@ -275,7 +271,6 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands
 
     if ( !startupResult.Ok() )
     {
-
         if ( m_genMipsPSO )
         {
             m_genMipsPSO->Release();
@@ -350,7 +345,6 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload
 
     if ( FAILED( result ) || !candidate )
     {
-
         if ( candidate )
         {
             candidate->Release();
@@ -370,7 +364,6 @@ void Dx12TextureOwner::AdoptGenerateMipsShaderReload( ID3D12PipelineState* candi
 
     // Lifetime: the caller drained the GPU and prepared candidate completely.
     // This no-fail swap is the compute half of the all-shader reload commit.
-
     if ( m_genMipsPSO )
     {
         m_genMipsPSO->Release();
@@ -384,7 +377,6 @@ void Dx12TextureOwner::AdoptGenerateMipsShaderReload( ID3D12PipelineState* candi
 bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h,
                                      UINT numMips, bool& graphicsStateInvalidated )
 {
-
     if ( numMips <= 1 )
     {
         return true;
@@ -393,7 +385,6 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
     // Transition mip 0 from COPY_DEST to SHADER_RESOURCE so compute can sample it
     // now and later pixel passes can sample the same texture without another
     // read-only transition. Stress runs flip those consumers rapidly.
-
     if ( !commands.Transition( "GenerateMipsMip0", "TextureMip0", tex, RenderGraphResourceAccess::CopyDest,
                                RenderGraphResourceAccess::ShaderResource, 0 ) )
     {
@@ -471,10 +462,8 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         // ------------------------------------------------------------------
         // Transition destination mips COPY_DEST → UNORDERED_ACCESS
         // ------------------------------------------------------------------
-
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-
             if ( !commands.Transition( "GenerateMipsCopyToUav", "TextureMip", tex, RenderGraphResourceAccess::CopyDest,
                                        RenderGraphResourceAccess::UnorderedAccess, srcMip + 1 + i ) )
             {
@@ -512,7 +501,6 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         // Hazard: mip N may be written as a UAV in this dispatch and sampled as
         // an SRV in the next dispatch. The UAV barrier orders those writes
         // before any later read/write work continues.
-
         if ( !commands.UavBarrier( "GenerateMipsUavOrder", "TextureMips", tex ) )
         {
             return false;
@@ -522,10 +510,8 @@ bool Dx12TextureOwner::GenerateMips( Dx12TextureCommands& commands, ID3D12Resour
         // Transition output mips UNORDERED_ACCESS -> SHADER_RESOURCE so the next
         // compute batch and later pixel passes both see a legal read state.
         // ------------------------------------------------------------------
-
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
-
             if ( !commands.Transition( "GenerateMipsUavToSrv", "TextureMip", tex, RenderGraphResourceAccess::UnorderedAccess,
                                        RenderGraphResourceAccess::ShaderResource, srcMip + 1 + i ) )
             {
@@ -553,7 +539,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
                                             int channels, TextureMipPolicy mipPolicy, TextureFilterPolicy filterPolicy,
                                             bool& graphicsStateInvalidated )
 {
-
     if ( !commands.EnsureOpen().Ok() )
     {
         return 0;
@@ -699,10 +684,8 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
     // Generate remaining mips on the GPU (compute shader), or transition
     // directly to PIXEL_SHADER_RESOURCE for single-mip textures.
     // -------------------------------------------------------------------------
-
     if ( numMips > 1 )
     {
-
         if ( !GenerateMips( commands, texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips,
                             graphicsStateInvalidated ) )
         {
@@ -718,7 +701,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( Dx12TextureCommands& commands, const
     }
     else
     {
-
         if ( !commands.Transition( "TextureUploadFinalPixelSrv", "Texture2D", texResource,
                                    RenderGraphResourceAccess::CopyDest, RenderGraphResourceAccess::PixelShaderResource ) )
         {
@@ -758,7 +740,6 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
     // handles. When an FBO or texture unregisters an SRV, clear any cached slot
     // that still names that row before a later draw can publish the retired
     // descriptor index to a bindless shader.
-
     if ( srvIndex == UINT_MAX )
     {
         return;
@@ -768,7 +749,6 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 
     for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
     {
-
         if ( m_boundTexSlot[slot] == srvIndex )
         {
             m_boundTexSlot[slot] = UINT_MAX;
@@ -785,7 +765,6 @@ void Dx12TextureOwner::ClearBoundSlotsForSrv( UINT srvIndex )
 
 void Dx12TextureOwner::BindTexture( uint32_t handle, int slot )
 {
-
     if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
     {
 #ifdef _DEBUG
@@ -863,10 +842,8 @@ UINT Dx12TextureOwner::UnregisterSRV( uint32_t handle )
 
 void Dx12TextureOwner::Shutdown()
 {
-
     for ( TextureEntryDX12& texture : m_registry.Entries() )
     {
-
         if ( texture.owned && texture.resource )
         {
             texture.resource->Release();
@@ -953,7 +930,6 @@ const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
 
     if ( !entry )
     {
-
         if ( handle != 0 )
         {
             ReportStaleHandle( handle );
@@ -972,7 +948,6 @@ TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )
 
     if ( !entry )
     {
-
         if ( handle != 0 )
         {
             ReportStaleHandle( handle );

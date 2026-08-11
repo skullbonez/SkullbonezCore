@@ -66,7 +66,6 @@ Window::~Window()
     // Lifetime: Run must remove the native-message borrow before its ImGui
     // context disappears. A surviving pointer would let late messages enter
     // freed vendor state during native teardown.
-
     if ( m_developmentUiInput )
     {
         SB_FATAL( "Runtime/Window", "Development UI input owner remained bound during Window destruction." );
@@ -78,7 +77,6 @@ Window::~Window()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 {
-
     if ( m_developmentUiInput && m_developmentUiInput != &owner )
     {
         SB_FATAL( "Runtime/Window", "A different development UI input owner is already bound." );
@@ -90,7 +88,6 @@ void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 
 void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
 {
-
     if ( !m_developmentUiInput )
     {
 
@@ -160,7 +157,6 @@ HDC Window::AcquireDeviceContext()
 
 void Window::ReleaseDeviceContext()
 {
-
     if ( !m_sDevice )
     {
         return;
@@ -180,7 +176,6 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
-
     if ( w <= 0 || h <= 0 || !m_resizeRenderFrame )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -228,7 +223,6 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
     int result = ChangeDisplaySettings( &dmSettings, CDS_FULLSCREEN );
 
     // If we failed, quit
-
     if ( result != DISP_CHANGE_SUCCESSFUL )
     {
         MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
@@ -265,7 +259,6 @@ LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPAR
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
-
     switch ( messageId )
     {
 
@@ -283,7 +276,6 @@ LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPAR
     case WM_SIZE:
 
         // LoWord = m_width, HiWord = m_height
-
         if ( window )
         {
             window->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
@@ -383,7 +375,6 @@ LRESULT CALLBACK WndProc( HWND windowHandle, UINT messageId, WPARAM wParam, LPAR
 
         if ( LOWORD( lParam ) == HTCLIENT )
         {
-
             if ( GetForegroundWindow() == windowHandle )
             {
                 Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
@@ -509,7 +500,6 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE instance, bool
     // chain so screenshots and presentation buffers follow production. The
     // hidden lane only suppresses repeated desktop demonstrations; it does not
     // switch validation to a headless or alternate renderer.
-
     if ( showOnCreate )
     {
         ShowWindow( hWnd, SW_SHOWNORMAL );

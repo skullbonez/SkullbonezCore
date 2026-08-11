@@ -58,7 +58,6 @@ std::string EscapeSkullScopeJson( const char* value )
 
     for ( const char* p = value; *p != '\0'; ++p )
     {
-
         switch ( *p )
         {
         case '\\':
@@ -137,7 +136,6 @@ bool SkullScope::IsFrameEnabled() const
 
 void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )
 {
-
     if ( !IsFrameEnabled() )
     {
         return;
@@ -149,10 +147,8 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     // Lifetime: records may borrow presentation name strings from the frame
     // name view; keeping them inside this emission avoids caching aliases.
-
     for ( int i = 0; i < modelCount; ++i )
     {
-
         if ( !Physics::TryBuildPhysicsDiagnosticsModelRecord( i, frameInput.bodyStore, frameInput.colliderStore,
                                                               frameInput.names,
                                                               modelDiagnostics[static_cast<std::size_t>( i )] ) )
@@ -226,7 +222,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     for ( const auto& c : persistentContacts )
     {
-
         if ( c.penetration > maxPenetration )
         {
             maxPenetration = c.penetration;
@@ -341,7 +336,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
             for ( int existingRoot : islandRoots )
             {
-
                 if ( existingRoot == root )
                 {
                     seen = true;
@@ -493,7 +487,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
         for ( const PhysicsBroadphaseActiveCell& cell : activeCells )
         {
-
             if ( cell.objectCount > maxCellOccupancy )
             {
                 maxCellOccupancy = cell.objectCount;
@@ -506,7 +499,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     for ( const auto& c : persistentContacts )
     {
-
         if ( c.isTerrain )
         {
             continue;
@@ -524,7 +516,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
         for ( const auto& pair : contactPairs )
         {
-
             if ( pair.first == a && pair.second == b )
             {
                 seen = true;
@@ -584,7 +575,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     if ( hasPenetrationContact && maxPenetration >= penetrationGrowthTrackThreshold )
     {
-
         if ( strcmp( m_physicsDiagnosticsPenetrationContact, maxPenetrationContact ) != 0 )
         {
             strcpy_s( m_physicsDiagnosticsPenetrationContact, sizeof( m_physicsDiagnosticsPenetrationContact ),
@@ -610,7 +600,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
         if ( maxPenetration > m_physicsDiagnosticsPrevPenetration + penetrationGrowthEpsilon )
         {
-
             if ( m_physicsDiagnosticsPenetrationGrowthFrames == 0 )
             {
                 m_physicsDiagnosticsPenetrationWindowStart = m_physicsDiagnosticsPrevPenetration;
@@ -687,7 +676,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     for ( const auto& c : persistentContacts )
     {
-
         if ( c.bodyA < 0 || c.bodyA >= modelCount || ( !c.isTerrain && ( c.bodyB < 0 || c.bodyB >= modelCount ) ) )
         {
             continue;
@@ -750,7 +738,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     for ( const auto& manifold : terrainContactManifolds )
     {
-
         if ( manifold.supportsRestingPolicy )
         {
             SkullbonezCore::Core::Log()
@@ -763,7 +750,6 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
 
     for ( int root : islandRoots )
     {
-
         if ( root < 0 || root >= static_cast<int>( islandStats.size() ) || islandStats[root].root < 0 )
         {
             continue;

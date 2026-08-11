@@ -30,7 +30,6 @@ bool IsEditorMiniTreePlacementValid( int placement )
 
 int EditorMiniPaletteFlyoutOptionCount( int holdMode )
 {
-
     if ( holdMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
     {
         return EDITOR_MINI_TREE_TYPE_COUNT;
@@ -46,7 +45,6 @@ int EditorMiniPaletteFlyoutOptionCount( int holdMode )
 
 bool EditorMiniTreeTypeForType( int objectType, int& outTreeType, int& outPlacement )
 {
-
     switch ( objectType )
     {
     case EditorTab::OBJECT_TREE_SMALL:
@@ -118,10 +116,8 @@ bool EditorMiniPaletteTreeStateForType( int objectType, bool editorPlaceStatic, 
 
 int EditorMiniTreeObjectType( int treeType, int placement )
 {
-
     if ( treeType == EDITOR_MINI_TREE_TYPE_SMALL )
     {
-
         if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_SMALL_SLEEP;
@@ -137,7 +133,6 @@ int EditorMiniTreeObjectType( int treeType, int placement )
 
     if ( treeType == EDITOR_MINI_TREE_TYPE_PINE )
     {
-
         if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_BIG_SLEEP;
@@ -153,7 +148,6 @@ int EditorMiniTreeObjectType( int treeType, int placement )
 
     if ( treeType == EDITOR_MINI_TREE_TYPE_CEDAR )
     {
-
         if ( placement == EDITOR_MINI_TREE_PLACEMENT_SLEEPING )
         {
             return EditorTab::OBJECT_TREE_CEDAR_SLEEP;
@@ -254,10 +248,8 @@ EditorMiniPaletteLayout BuildEditorMiniPaletteLayout( int screenW, int screenH, 
 
 int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
 {
-
     for ( int i = 0; i < layout.buttonCount; ++i )
     {
-
         if ( layout.buttons[i].Contains( mouseX, mouseY ) )
         {
             return i;
@@ -269,7 +261,6 @@ int HitEditorMiniPaletteButton( const EditorMiniPaletteLayout& layout, int mouse
 
 int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int mouseX, int mouseY )
 {
-
     if ( !layout.flyoutVisible )
     {
         return -1;
@@ -277,7 +268,6 @@ int HitEditorMiniPaletteFlyoutOption( const EditorMiniPaletteLayout& layout, int
 
     for ( int i = 0; i < layout.flyoutOptionCount; ++i )
     {
-
         if ( layout.flyoutOptions[i].Contains( mouseX, mouseY ) )
         {
             return i;
@@ -302,7 +292,6 @@ bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH 
 void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, float g, float b, float fillA,
                      float outlineA )
 {
-
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
         return;
@@ -366,7 +355,6 @@ float RenderSliderY( int index, float baseY )
 
     for ( int i = 0; i <= index; ++i )
     {
-
         if ( RenderSliderStartsSection( i ) )
         {
             y += UI_RENDER_SECTION_H;
@@ -389,7 +377,6 @@ int RenderContentHeight()
 
     for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
     {
-
         if ( RenderSliderStartsSection( i ) )
         {
             height += UI_RENDER_SECTION_H;
@@ -408,7 +395,6 @@ int RenderTargetsContentHeight()
 
 float RenderValueForParam( const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary, UIRenderParam param )
 {
-
     switch ( param )
     {
     case UIRenderParam::SunIntensity:

@@ -114,7 +114,6 @@ struct CameraControlState
     // transaction value.
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const CameraControlState& sceneState )
     {
-
         if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
         {
             return;

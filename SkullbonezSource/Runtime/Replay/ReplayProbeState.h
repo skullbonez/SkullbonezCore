@@ -105,7 +105,6 @@ struct ReplayProbeState
 {
     void RecordFailure( const SkullbonezCore::Core::SbResult& result )
     {
-
         if ( result.Ok() || failure.failed )
         {
             return;

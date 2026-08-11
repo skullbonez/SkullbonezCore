@@ -75,13 +75,10 @@ bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const 
 
     // Invariant: Keep the first occurrence in place and delete duplicate keys so
     // engine.cfg remains deterministic after repeated Save Defaults actions.
-
     for ( std::size_t i = 0; i < lines.size(); )
     {
-
         if ( ConfigLineMatchesKey( lines[i], key ) )
         {
-
             if ( !replaced )
             {
                 lines[i] = lineText;
@@ -125,10 +122,8 @@ void EraseConfigLinesWithPrefix( std::vector<std::string>& lines, const char* pr
 
 std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 {
-
     for ( std::size_t i = 0; i < lines.size(); ++i )
     {
-
         if ( lines[i].find( "Ordinary rendering" ) != std::string::npos )
         {
             std::size_t sectionBody = i + 1;
@@ -143,7 +138,6 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 
             for ( std::size_t j = sectionBody; j < lines.size(); ++j )
             {
-
                 if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
                      std::string::npos )
                 {
@@ -157,7 +151,6 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 
     for ( std::size_t i = 0; i < lines.size(); ++i )
     {
-
         if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
         {
             return i > 1 ? i - 1 : i;
@@ -169,10 +162,8 @@ std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 
 std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
 {
-
     for ( std::size_t i = 0; i < lines.size(); ++i )
     {
-
         if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
         {
             std::size_t sectionBody = i + 1;
@@ -187,7 +178,6 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
 
             for ( std::size_t j = sectionBody; j < lines.size(); ++j )
             {
-
                 if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
                      std::string::npos )
                 {
@@ -201,7 +191,6 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
 
     for ( std::size_t i = 0; i < lines.size(); ++i )
     {
-
         if ( lines[i].find( "Physics" ) != std::string::npos )
         {
             return i > 1 ? i - 1 : i;
@@ -213,7 +202,6 @@ std::size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
 
 void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
 {
-
     if ( missing.empty() )
     {
         return;
@@ -242,7 +230,6 @@ void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vec
 
 void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
 {
-
     if ( missing.empty() )
     {
         return;
@@ -279,7 +266,6 @@ bool LoadConfigLines( const std::string& configPath, std::vector<std::string>& l
 
     while ( std::getline( input, line ) )
     {
-
         if ( !line.empty() && line.back() == '\r' )
         {
             line.pop_back();

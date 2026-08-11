@@ -63,7 +63,6 @@ struct FileCloser
 {
     void operator()( FILE* file ) const
     {
-
         if ( file )
         {
             fclose( file );
@@ -329,7 +328,6 @@ void Terrain::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& c
 
 void Terrain::EnsureShadowDepthResources()
 {
-
     if ( m_shadowDepthShader )
     {
         return;
@@ -375,7 +373,6 @@ void Terrain::BuildTerrain()
 
     for ( const auto& post : m_postData )
     {
-
         if ( post.vPosition.y > m_maxTerrainHeight )
         {
             m_maxTerrainHeight = post.vPosition.y;
@@ -399,7 +396,6 @@ void Terrain::BuildCollisionCache()
     // physics query only needs to find the quad and choose triangle A or B, then
     // read its plane/normal directly. This turns repeated terrain collision
     // lookups into cheap table reads instead of geometry rebuilds.
-
     if ( m_isFlatSlope )
     {
         m_cachedCollisionData.clear();
@@ -419,10 +415,8 @@ void Terrain::BuildCollisionCache()
     // Invariant: both cell loops stop at postsPerSide - 2. The target post is
     // the next-X/current-Z corner, so target, previous-X, previous-X/next-Z,
     // and next-Z all remain inside the BuildTerrain-sized post grid.
-
     for ( int worldXCell = 0; worldXCell < quadsPerSide; ++worldXCell )
     {
-
         for ( int worldZCell = 0; worldZCell < quadsPerSide; ++worldZCell )
         {
             int targetQuad = worldXCell * m_postsPerSide + worldZCell + m_postsPerSide;
@@ -477,7 +471,6 @@ SkullbonezCore::Physics::PhysicsTerrainView Terrain::PhysicsView() const noexcep
 
 void Terrain::QueryCollisionData( float xPosition, float zPosition, float& outHeight, Vector3* outNormal, Plane* outPlane )
 {
-
     if ( !PhysicsView().IsInBounds( xPosition, zPosition ) )
     {
         SB_FATAL( "Terrain", "Coordinates out of terrain bounds in QueryCollisionData: x=%.3f z=%.3f.", xPosition,
@@ -522,7 +515,6 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( SkullbonezCore::Core::S
 
     // Lane R: height-map files are config/scene-selected assets. Missing or
     // truncated bytes report a recoverable load failure at the scene boundary.
-
     if ( !fileName || fileName[0] == '\0' )
     {
         return diagnostics.Failure( "World/Terrain", "Height map file path is empty." );
@@ -560,7 +552,6 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, Dx12Textur
                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride, const ShadowFrameData* shadow,
                       const ShadowFrameData* detailShadow )
 {
-
     if ( !m_terrainShader || !m_terrainMesh )
     {
         return;
@@ -764,10 +755,8 @@ XZBounds Terrain::GetXZBounds()
 
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
-
     if ( m_isFlatSlope )
     {
-
         if ( !IsInBounds( xPosition, zPosition ) )
         {
             SB_FATAL( "Terrain", "Coordinates out of terrain bounds in LocatePolygon: x=%.3f z=%.3f.", xPosition,
@@ -874,7 +863,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // Invariant: gradient -1 is the quad diagonal. The strict comparison and
     // vertical-case choice preserve the same triangle on the diagonal as the
     // cached PhysicsTerrainView lookup.
-
     if ( isGradientInfinite || gradient < -1.0f )
     {
 
@@ -903,10 +891,8 @@ void Terrain::TranslatePostings()
     // Invariant: the loaded heightfield contract makes map size an exact
     // multiple of step size, so these world-X/world-Z loops write exactly
     // postsPerSide * postsPerSide entries into the BuildTerrain-sized post vector.
-
     for ( int worldXCoordinate = 0; worldXCoordinate < m_mapSize; worldXCoordinate += m_stepSize )
     {
-
         for ( int worldZCoordinate = 0; worldZCoordinate < m_mapSize; worldZCoordinate += m_stepSize )
         {
             m_postData[indexCounter]
@@ -938,7 +924,6 @@ void Terrain::GenerateNormals()
 
     for ( int worldXPost = 0; worldXPost < m_postsPerSide; ++worldXPost )
     {
-
         if ( worldXPost > 0 )
         {
             isFirstXPost = false;
@@ -980,7 +965,6 @@ void Terrain::GenerateNormals()
                 // x 0 0 0
                 // x 0 0 0
                 // x 0 0 0
-
                 if ( isFirstXPost )
                 {
 
@@ -1058,7 +1042,6 @@ void Terrain::GenerateNormals()
                 // 0 0 0 x
                 // 0 0 0 x
                 // 0 0 0 x
-
                 if ( isFirstXPost )
                 {
 
@@ -1136,7 +1119,6 @@ void Terrain::GenerateNormals()
                 // 0 x x 0
                 // 0 x x 0
                 // 0 x x 0
-
                 if ( isFirstXPost )
                 {
 
@@ -1238,7 +1220,6 @@ void Terrain::GenerateNormals()
 
             // Hazard: a fully degenerate neighborhood can cancel every
             // weighted face; publish +Y instead of a NaN render normal.
-
             if ( !m_postData[postIndex].vNormal.TryNormalise() )
             {
                 m_postData[postIndex].vNormal = Vector3( 0.0f, 1.0f, 0.0f );
@@ -1276,10 +1257,8 @@ std::vector<float> Terrain::BuildRenderVertexData() const
 
     // Invariant: both cell loops stop at postsPerSide - 2, so the four named
     // post indices below remain in [0, postsPerSide * postsPerSide - 1].
-
     for ( int worldXCell = 0; worldXCell < quadsPerSide; ++worldXCell )
     {
-
         for ( int worldZCell = 0; worldZCell < quadsPerSide; ++worldZCell )
         {
             float texCoordS = ( static_cast<float>( worldZCell ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
@@ -1367,7 +1346,6 @@ void Terrain::BuildFlatSlopeMesh()
 
     for ( int worldZCell = 0; worldZCell < gridN; ++worldZCell )
     {
-
         for ( int worldXCell = 0; worldXCell < gridN; ++worldXCell )
         {
             float x0 = worldXCell * step;

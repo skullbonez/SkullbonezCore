@@ -204,7 +204,6 @@ template <typename T> bool ReadBytes( ByteCursor& cursor, T& out )
 
 bool SkipBytes( ByteCursor& cursor, std::size_t size )
 {
-
     if ( cursor.offset > cursor.size || size > cursor.size - cursor.offset )
     {
         return false;
@@ -278,7 +277,6 @@ uint8_t WorldFlags( const ReplayWorldPresentationSample& world )
 
 const char* ShapeKindName( ReplayBodyShapeKind kind )
 {
-
     switch ( kind )
     {
     case ReplayBodyShapeKind::Sphere:
@@ -745,7 +743,6 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
 
 bool RangeFits( std::size_t totalSize, uint64_t offset, uint64_t size )
 {
-
     if ( offset > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) ||
          size > static_cast<uint64_t>( ( std::numeric_limits<std::size_t>::max )() ) )
     {
@@ -759,7 +756,6 @@ bool RangeFits( std::size_t totalSize, uint64_t offset, uint64_t size )
 
 bool MakeCursor( const std::vector<uint8_t>& bytes, uint64_t offset, uint64_t size, ByteCursor& out )
 {
-
     if ( !RangeFits( bytes.size(), offset, size ) )
     {
         return false;
@@ -888,10 +884,8 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes, std::vector<ChunkTab
 
 const ChunkTableEntry* FindChunk( const std::vector<ChunkTableEntry>& chunks, const char id[4] )
 {
-
     for ( const ChunkTableEntry& chunk : chunks )
     {
-
         if ( std::memcmp( chunk.id, id, 4 ) == 0 )
         {
             return &chunk;
@@ -1149,10 +1143,8 @@ bool ParseEventRecords( const std::vector<uint8_t>& fileBytes, const ChunkTableE
 
 ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, ReplayFrameIndex frameIndex )
 {
-
     for ( const BranchRecord& record : branches )
     {
-
         if ( frameIndex >= record.firstRetainedFrame && frameIndex <= record.lastRetainedFrame )
         {
             return record.branch;
@@ -1164,7 +1156,6 @@ ReplayBranchInfo BranchForFrame( const std::vector<BranchRecord>& branches, Repl
 
 template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>& branches, std::vector<T>& samples )
 {
-
     if ( branches.empty() )
     {
         return;
@@ -1178,7 +1169,6 @@ template <typename T> void ApplyBranchMetadata( const std::vector<BranchRecord>&
 
 void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records, std::vector<ReplaySolverFrameSample>& samples )
 {
-
     if ( records.empty() )
     {
         return;
@@ -1186,10 +1176,8 @@ void ApplyEventCursorMetadata( const std::vector<EventCursorRecord>& records, st
 
     for ( ReplaySolverFrameSample& sample : samples )
     {
-
         for ( const EventCursorRecord& record : records )
         {
-
             if ( record.frameIndex == sample.frameIndex &&
                  ( record.solverHash == 0 || record.solverHash == sample.solverHash ) )
             {
@@ -1249,7 +1237,6 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
         // Invariant: INDX offsets are relative to the PRES payload, not the
         // whole file. Add the chunk offset only after proving the relative seek
         // stays inside the presentation chunk.
-
         if ( indexed.presentationChunkOffset > chunk.size )
         {
             return false;
@@ -1370,7 +1357,6 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes, const Chun
             // Invariant: validate the historical bytes against their historical
             // hash before migrating. Published samples then carry a hash of the
             // canonical in-memory values exposed to current replay consumers.
-
             for ( ReplayBodyPresentationSample& body : sample.bodies )
             {
                 SkullbonezCore::Math::Orientation::ConjugateQuaternionVectorPart( body.orientation[0], body.orientation[1],
@@ -1400,7 +1386,6 @@ template <typename T> bool ReadCountedPodVector( ByteCursor& cursor, std::vector
 
     for ( T& value : outValues )
     {
-
         if ( !ReadPod( cursor, value ) )
         {
             return false;
@@ -1481,7 +1466,6 @@ bool ReadCountedStructVector( ByteCursor& cursor, std::vector<T>& outValues, Rea
 
     for ( T& value : outValues )
     {
-
         if ( !readFunc( cursor, value ) )
         {
             return false;
@@ -1515,7 +1499,6 @@ bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoFie
 
 bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoVortexConfig& outConfig )
 {
-
     if ( !ReadTornadoConfig( cursor, outConfig.field ) || !ReadPod( cursor, outConfig.spawnSeconds ) ||
          !ReadPod( cursor, outConfig.timeToLiveSeconds ) || !ReadPod( cursor, outConfig.growSeconds ) ||
          !ReadPod( cursor, outConfig.shrinkSeconds ) || !ReadPod( cursor, outConfig.driftRadius ) ||
@@ -1543,7 +1526,6 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
 
     // Lane R: artifact input must fail before restore reaches Gameplay's fatal
     // fixed-capacity invariant; replay files never receive a truncation path.
-
     if ( count > SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS )
     {
         return false;
@@ -1556,7 +1538,6 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::Torn
 
     for ( SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : outConfig.vortices )
     {
-
         if ( !ReadTornadoVortexConfig( cursor, vortex ) )
         {
             return false;
@@ -1706,7 +1687,6 @@ bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolv
 
     if ( physics.version >= 2 )
     {
-
         if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) ||
              !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
         {
@@ -1928,7 +1908,6 @@ bool ParseSolverCheckpoints( const std::vector<uint8_t>& fileBytes, const ChunkT
 
         for ( ReplaySolverBodySample& body : sample.bodies )
         {
-
             if ( !ReadSolverBody( cursor, version, dictionary, body ) )
             {
                 return false;
@@ -2097,7 +2076,6 @@ std::vector<EventCursorRecord> BuildEventCursorRecords( const std::vector<Replay
 
     for ( const ReplaySolverFrameSample& sample : *solverSamples )
     {
-
         if ( !sample.checkpointBoundary )
         {
             continue;
@@ -2467,7 +2445,6 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
 
     for ( const ReplaySolverFrameSample& sample : solverSamples )
     {
-
         if ( !sample.checkpointBoundary )
         {
             continue;
@@ -2499,7 +2476,6 @@ bool BuildSolverCheckpointChunk( const std::vector<ReplaySolverFrameSample>& sol
 
         for ( const ReplaySolverBodySample& body : sample.bodies )
         {
-
             if ( !AppendSolverBodyRecord( outBytes, dictionary, body ) )
             {
                 return false;
@@ -2516,7 +2492,6 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
                   std::span<const ReplayVisualArchiveSample> visualPackets, std::span<const uint8_t> visualPredictionState,
                   std::vector<Chunk>& outChunks )
 {
-
     if ( samples.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
@@ -2549,7 +2524,6 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     // Concept: BODY deduplicates body identity, PRES stores dense render poses,
     // and optional solver/event chunks attach restore data to the same frame
     // ids. Keep this relationship stable for replay_query and old artifacts.
-
     for ( const ReplayPresentationSample& sample : samples )
     {
         IndexedFrame frame;
@@ -2625,7 +2599,6 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
 
 bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& outBytes )
 {
-
     if ( chunks.size() > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         return false;
@@ -2640,7 +2613,6 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 
     // Why: payload offsets are computed before writing bytes so the chunk table
     // can be emitted once at the front without seeking or patching the file.
-
     for ( const Chunk& chunk : chunks )
     {
         chunkOffsets.push_back( nextChunkOffset );
@@ -2957,7 +2929,6 @@ bool ReplayV2Artifact::LoadPresentation( const char* path, std::vector<ReplayPre
 
     // Invariant: BODY, PRES, and INDX form the minimum render-preview artifact.
     // Branch data is optional so old or partial files remain readable.
-
     if ( !bodyChunk || !presentationChunk || !indexChunk )
     {
         return false;
@@ -3037,7 +3008,6 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path, std::vector<Repl
     // Invariant: solver restore requires a body dictionary and checkpoint
     // payloads. Branch/event cursors improve rollback provenance but are not
     // required for basic checkpoint loading.
-
     if ( !bodyChunk || !checkpointChunk )
     {
         return false;

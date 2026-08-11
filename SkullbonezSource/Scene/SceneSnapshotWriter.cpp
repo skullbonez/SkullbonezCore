@@ -310,7 +310,6 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // AuthoredSceneParser without reinterpreting authored placement offsets.
-
     if ( sceneView.entities.Count() != sceneView.bodies.Count() ||
          sceneView.entities.Count() != sceneView.colliders.Count() )
     {
@@ -399,7 +398,6 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
 
         if ( entity.asset.isAssetBacked && entity.asset.partIndex == 0 )
         {
-
             if ( entity.asset.rootObjectId.value != entity.sceneObjectId.value || entity.asset.libraryToken[0] == '\0' ||
                  entity.asset.assetName[0] == '\0' || entity.asset.instanceName[0] == '\0' ||
                  entity.asset.partName[0] == '\0' )
@@ -416,7 +414,6 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
                 if ( partEntity.asset.isAssetBacked &&
                      partEntity.asset.rootObjectId.value == entity.asset.rootObjectId.value )
                 {
-
                     if ( !SameAssetInstance( entity.asset, partEntity.asset ) )
                     {
                         SB_FATAL( "Scene/SceneSnapshotWriter",
@@ -463,7 +460,6 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
                 // name, not the authored library token/path. Asset affiliation
                 // proves this row still belongs to the recipe, so the recipe's
                 // exact hull field remains authoritative on reparse.
-
                 if ( partState["type"] == "convexHullState" )
                 {
                     partState.erase( "hull" );
@@ -503,7 +499,6 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( SkullbonezCore::Core::
 
     for ( int i = 0; i < sceneView.entities.Count(); ++i )
     {
-
         if ( sceneView.entities.At( i ).asset.isAssetBacked && !emittedAssetRows[static_cast<std::size_t>( i )] )
         {
             SB_FATAL( "Scene/SceneSnapshotWriter", "Asset-backed entity was not emitted. row=%d", i );

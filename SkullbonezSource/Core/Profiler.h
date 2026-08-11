@@ -322,7 +322,6 @@ class ProfilerScope
     ProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
         : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash )
     {
-
         if ( m_profiler )
         {
             m_profiler->Begin( m_fullPath, m_hash );
@@ -330,7 +329,6 @@ class ProfilerScope
     }
     ~ProfilerScope()
     {
-
         if ( m_profiler )
         {
             m_profiler->End( m_fullPath, m_hash );

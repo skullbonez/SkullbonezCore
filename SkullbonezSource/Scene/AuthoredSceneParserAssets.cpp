@@ -49,7 +49,6 @@ constexpr uint32_t ASSET_LIBRARY_FORMAT_VERSION = 1;
 
 const Assets::AssetLibrarySourceAsset* AuthoredSceneParser::FindRegisteredAssetLibrary( const std::string& token ) const
 {
-
     if ( !m_assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".assets.json" ) )
     {
@@ -67,7 +66,6 @@ const Assets::AssetLibrarySourceAsset* AuthoredSceneParser::FindRegisteredAssetL
 
 std::string AuthoredSceneParser::ResolveAssetLibraryPath( const std::string& token ) const
 {
-
     if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".assets.json" ) )
     {
@@ -84,7 +82,6 @@ std::string AuthoredSceneParser::ResolveAssetLibraryPath( const std::string& tok
 
 const AuthoredSceneParser::ParsedAssetDefinition* AuthoredSceneParser::FindAssetDefinition( const std::string& name ) const
 {
-
     for ( const ParsedAssetDefinition& asset : m_assetDefinitions )
     {
         const Json* assetName = FindMember( asset.value, "name" );
@@ -148,7 +145,6 @@ void AuthoredSceneParser::ValidateAssetMaterial( const Json& owner, const std::s
 void AuthoredSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset, const std::string& path, const char* context,
                                                             bool requireMass ) const
 {
-
     if ( const Json* mass = FindMember( asset, "mass" ) )
     {
         const float value = ReadFloat( *mass, path, "asset.mass" );
@@ -219,7 +215,6 @@ std::string AuthoredSceneParser::ReadAssetPrimitiveType( const Json& asset, cons
 
     // Concept: old compound parts used a bare `hull` member. Keep that as a
     // convex-hull shorthand while new container parts name their primitive.
-
     if ( const Json* type = FindMember( asset, "type" ) )
     {
         const std::string primitiveType = ReadString( *type, path, "asset.primitive.type" );
@@ -501,7 +496,6 @@ void AuthoredSceneParser::LoadAssetLibraries( const Json& root, const std::strin
 void AuthoredSceneParser::CheckGeneratedSceneName( const std::string& name, const std::string& path,
                                                    const char* context ) const
 {
-
     if ( name.empty() )
     {
         Fail( path, std::string( context ) + " must not be empty" );
@@ -584,7 +578,6 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset, const std:
 
     if ( authoredPartIdentity )
     {
-
         if ( const Json* authoredObjectName = FindMember( *authoredPartIdentity, "objectName" ) )
         {
             effectiveObjectName = ReadString( *authoredObjectName, path, "assetInstance.parts[].objectName" );
@@ -736,7 +729,6 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset, const std:
     // packet. Identity-only part records still expand the recipe exactly as
     // before, while a typed packet replaces every independently simulated
     // body/collider field without reapplying the stale instance transform.
-
     if ( liveStateType )
     {
         const std::string expectedStateType = primitiveType == "sphere" ? "ballState"
@@ -761,7 +753,6 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset, const std:
 
     const auto applyLiveState = [&]()
     {
-
         if ( !liveStateType )
         {
             return;
@@ -788,7 +779,6 @@ void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset, const std:
 
         for ( const char* field : kLiveStateFields )
         {
-
             if ( const Json* value = FindMember( *authoredPartIdentity, field ) )
             {
                 object[field] = *value;
@@ -1020,7 +1010,6 @@ void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::s
 
     for ( const SceneAssetInstanceRecord& existing : m_scene.m_assetInstances )
     {
-
         if ( instanceName == existing.instanceName )
         {
             Fail( path, "Duplicate asset instance name: " + instanceName );

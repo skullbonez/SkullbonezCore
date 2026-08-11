@@ -230,7 +230,6 @@ InputRouter::RouteRuntimePointer( const RuntimePointerEvent& pointer, bool repla
     RuntimePointerRouteResult result;
     auto appendModeAction = [&result]( RuntimeInputAction action )
     {
-
         if ( result.modeActionCount >= result.modeActions.size() )
         {
             SB_FATAL( "Runtime/InputRouter", "Runtime pointer mode-action capacity exhausted." );
@@ -486,7 +485,6 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource 
 
     if ( wasFlyMode != isFlyMode )
     {
-
         if ( isFlyMode )
         {
             EnterFlyModeCamera( inputRouter, camera, m_sceneController.Scene().Cameras(), authoredScene,
@@ -583,7 +581,6 @@ void InputRouter::CycleCameraMode( RuntimeTools& runtimeTools, RuntimeInteractio
         // Why: Attach is a temporary follow workspace. Keyboard cycling out of
         // it should return to the camera mode that entered Attach, not continue
         // to the next enum value and strand the operator at the follow pose.
-
         if ( restoreIndex >= 0 && restoreIndex < static_cast<int>( RunCameraMode::Count ) &&
              ( enabledMask & ( 1u << restoreIndex ) ) != 0 )
         {
@@ -614,7 +611,6 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeTools& runtimeTools, RuntimeInter
                                         UI::InGameUI& ui, SceneController& sceneController, ReplayRuntime& replayRuntime,
                                         RuntimeInputContext& runtimeInput )
 {
-
     if ( AppFocused() )
     {
         return false;
@@ -681,7 +677,6 @@ void InputRouter::DispatchCaptureActions( InputActions& actions, DiagnosticsRunt
 
     // Invariant: side-effect dispatch consumes only accepted semantic events.
     // It must not reopen hardware polling or maintain a second edge latch.
-
     for ( std::size_t index = 0; index < actions.Count(); ++index )
     {
         const InputActionEvent& event = actions[index];

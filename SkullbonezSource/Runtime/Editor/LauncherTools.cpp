@@ -58,7 +58,6 @@ constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 
 const char* LauncherReproShapeName( ColliderShapeKind kind )
 {
-
     switch ( kind )
     {
     case ColliderShapeKind::Box:
@@ -267,7 +266,6 @@ LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const Laun
 
     if ( context.sceneState.isSceneMode )
     {
-
         if ( context.currentScenePath )
         {
             scenePath = context.currentScenePath->c_str();

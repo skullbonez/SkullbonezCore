@@ -75,7 +75,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
     // Hazard: generated rebuilds destroy model/render state. A failed GPU drain
     // must return before overrides, topology, simulation, or tools mutate.
-
     if ( renderFrame )
     {
         const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
@@ -95,7 +94,6 @@ SkullbonezCore::Core::SbResult SceneGeneratedControlTransaction::DrainAndReset( 
 
     // Invariant: RecordDrainResult is the single gate between the device
     // result and owner mutation. Failure returns above with this predicate false.
-
     if ( !MutationAllowedAfterDrain() )
     {
         SB_FATAL( "Runtime/SceneGeneratedControlTransaction",
@@ -203,7 +201,6 @@ SceneGeneratedControlTransaction::Execute( const SkullbonezCore::Core::EngineCon
 
     // Invalid UI sentinel values do not represent a transaction and therefore
     // do not enter the phase machine.
-
     if ( !ResolveRequest( uiOverrides, scene.State() ) )
     {
         return m_result;

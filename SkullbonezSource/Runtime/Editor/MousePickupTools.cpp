@@ -64,7 +64,6 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
         // captured grab depth. Rebuilding that plane from the current camera
         // lets forward/back camera movement change object depth without
         // introducing a mouse-driven depth jump.
-
         if ( !hasClampedWorldRay )
         {
             return false;
@@ -215,7 +214,6 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const RuntimePoi
 void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
 {
-
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;
@@ -280,7 +278,6 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world, InputRouter& 
 void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world, InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )
 {
-
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::MousePickupDrag )
     {
         return;

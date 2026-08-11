@@ -144,7 +144,6 @@ class PersistentContactConvergenceTrace
 
     void Append( const PersistentContactIterationDiagnostics& sample ) noexcept
     {
-
         if ( m_sampleCount < m_samples.size() )
         {
             m_samples[m_sampleCount] = sample;

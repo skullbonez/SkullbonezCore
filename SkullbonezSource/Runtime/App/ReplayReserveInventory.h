@@ -31,7 +31,6 @@ inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLI
 
 inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept
 {
-
     if ( !ownerName )
     {
         return nullptr;

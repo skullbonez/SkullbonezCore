@@ -89,7 +89,6 @@ struct ReplayEventCommandBatch
 
     bool Append( const ReplayEventCommand& command ) noexcept
     {
-
         if ( count >= commands.size() )
         {
             return false;

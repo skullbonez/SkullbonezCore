@@ -78,7 +78,6 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
 
     // Invariant: one editor visibility bit suppresses every raster path. A
     // hidden main-pass object must not remain as a detached shadow or bound.
-
     if ( !instance.editorVisible )
     {
         return ShadowCasterStream::None;
@@ -108,7 +107,6 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
 
 void IncrementShadowCasterCount( ShadowCasterStreamCounts& counts, ShadowCasterStream stream )
 {
-
     switch ( stream )
     {
     case ShadowCasterStream::Sphere:
@@ -290,7 +288,6 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 
     if ( hit > 0.0f )
     {
-
         if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
         {
             constexpr float fixedBase = 241.0f / 255.0f;
@@ -334,7 +331,6 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
 
     // Invariant: the visible-index scratch array mirrors the scene store's
     // compile-time ceiling. Crossing it would corrupt render-thread stack data.
-
     if ( modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         SB_FATAL( "Rendering/Visibility", "Render instance count exceeds visibility capacity. count=%d capacity=%d",
@@ -348,7 +344,6 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
     // Why: the planar reflection has its own mirrored camera volume. Its water
     // half-space removes only instances wholly below the surface; straddlers
     // still reach the shader clip plane for pixel-accurate clipping.
-
     if ( visibilityView == RenderVisibilityView::Main || visibilityView == RenderVisibilityView::Reflection )
     {
         const SkullbonezCore::Math::Visibility::Frustum
@@ -384,10 +379,8 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
     }
     else
     {
-
         for ( int index = 0; index < modelCount; ++index )
         {
-
             if ( instances[static_cast<std::size_t>( index )].editorVisible )
             {
                 visibleIndices[visibleCount++] = index;
@@ -399,7 +392,6 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
     const bool alphaBlendedPass = renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
-
         if ( !modelMask )
         {
             return true;
@@ -446,7 +438,6 @@ void RenderModelsForView( const PrimitiveRenderContext& primitiveContext, const 
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass, PrimitiveBatchRenderer::PrimitiveBatchScope& batch )
     {
-
         for ( int visibleIndex = 0; visibleIndex < visibleCount; ++visibleIndex )
         {
             const int x = visibleIndices[visibleIndex];
@@ -617,7 +608,6 @@ void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Pro
     const auto colliders = colliderStore.Records();
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
-
         for ( int x = begin; x < end; ++x )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
@@ -648,7 +638,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
                                                         const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                                         Rendering::RenderVisibilityView visibilityView )
 {
-
     if ( batches.Empty() )
     {
         return;
@@ -679,7 +668,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
         for ( const ShadowCasterInstance& caster : batches.spheres )
         {
-
             if ( isVisible( caster ) )
             {
                 sphereBatch.DrawShadowModel( caster.model );
@@ -696,7 +684,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
         for ( const ShadowCasterInstance& caster : batches.boxes )
         {
-
             if ( isVisible( caster ) )
             {
                 boxBatch.DrawShadowModel( caster.model );
@@ -714,7 +701,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
         for ( const ShadowCasterInstance& caster : batches.pines )
         {
-
             if ( isVisible( caster ) )
             {
                 pineBatch.DrawShadowModel( caster.model );
@@ -730,7 +716,6 @@ void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Pr
 
         for ( const auto& caster : batches.convexHulls )
         {
-
             if ( caster.hull && isVisible( caster.instance ) )
             {
                 primitiveContext.renderer.DrawShadowDepthConvexHullModel( primitiveContext, *caster.hull,
@@ -823,7 +808,6 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
 
     auto mergeBounds = []( BoundsAccumulator& dst, const BoundsAccumulator& src )
     {
-
         if ( !src.found )
         {
             return;

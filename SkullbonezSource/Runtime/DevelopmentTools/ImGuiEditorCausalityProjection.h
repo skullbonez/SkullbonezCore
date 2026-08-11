@@ -76,7 +76,6 @@ struct ImGuiEditorCausalityContext
 
 inline const char* ImGuiEditorCausalityStateName( ImGuiEditorCausalityState state ) noexcept
 {
-
     switch ( state )
     {
     case ImGuiEditorCausalityState::Ready:
@@ -96,7 +95,6 @@ inline const char* ImGuiEditorCausalityStateName( ImGuiEditorCausalityState stat
 
 inline const char* ImGuiEditorPredictionStateName( ImGuiEditorPredictionState state ) noexcept
 {
-
     switch ( state )
     {
     case ImGuiEditorPredictionState::Disabled:
@@ -114,7 +112,6 @@ inline const char* ImGuiEditorPredictionStateName( ImGuiEditorPredictionState st
 
 inline const char* ImGuiEditorCauseRowKindName( RunReplayCauseTreeRowKind kind ) noexcept
 {
-
     switch ( kind )
     {
     case RunReplayCauseTreeRowKind::Body:
@@ -142,7 +139,6 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
 
     const auto setTick = [&]( const auto* sample ) -> bool
     {
-
         if ( !sample )
         {
             return false;
@@ -228,10 +224,8 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
 
     const auto appendRelevant = [&]( const RunReplayCauseTreeRow& row )
     {
-
         for ( std::size_t index = 0u; index < context.relevantLinkCount; ++index )
         {
-
             if ( context.relevantLinks[index] == &row )
             {
                 return;

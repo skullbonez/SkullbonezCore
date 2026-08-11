@@ -108,7 +108,6 @@ static_assert( sizeof( kSkyFeatureSpecs ) / sizeof( kSkyFeatureSpecs[0] ) ==
 void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r,
                      float g, float b )
 {
-
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
         return;
@@ -130,7 +129,6 @@ float SkySliderY( int index, float baseY )
 
     for ( int i = 0; i <= index; ++i )
     {
-
         if ( kSkySliderSpecs[i].section )
         {
             y += UI_SKY_SECTION_H;
@@ -166,7 +164,6 @@ SkullbonezCore::UI::UIRect SkySaveButtonBounds( float contentX, float scrolledY,
 bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                         SkullbonezCore::UI::UICinematicFeature feature )
 {
-
     switch ( feature )
     {
     case SkullbonezCore::UI::UICinematicFeature::Sky:
@@ -185,7 +182,6 @@ bool SkyFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinem
 float SkyValueForParam( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                         SkullbonezCore::UI::UICinematicParam param )
 {
-
     switch ( param )
     {
     case SkullbonezCore::UI::UICinematicParam::Exposure:
@@ -267,7 +263,6 @@ int ContentHeight()
 
     for ( int i = 0; i < UI_SKY_SLIDER_COUNT; ++i )
     {
-
         if ( kSkySliderSpecs[i].section )
         {
             height += UI_SKY_SECTION_H;

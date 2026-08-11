@@ -87,10 +87,8 @@ void ReplayTrajectoryStore::Clear() noexcept
 
 ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) noexcept
 {
-
     for ( ReplayTrajectoryRecord& record : records )
     {
-
         if ( record.key == key )
         {
             return &record;
@@ -102,10 +100,8 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajector
 
 const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept
 {
-
     for ( const ReplayTrajectoryRecord& record : records )
     {
-
         if ( record.key == key )
         {
             return &record;
@@ -123,7 +119,6 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayT
 
     if ( !record )
     {
-
         if ( records.size() >= records.capacity() )
         {
             return nullptr;
@@ -148,7 +143,6 @@ ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayT
 
 bool ReplayTrajectoryStore::TryAppendPoint( ReplayTrajectoryRecord& record, const ReplayTrajectoryPoint& point )
 {
-
     if ( record.points.size() >= record.points.capacity() )
     {
         return false;
@@ -206,7 +200,6 @@ std::size_t ReplayTrajectoryStore::TrimPublishedPointsBeforeFrame( ReplayTraject
 
 bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int frameNumber )
 {
-
     if ( requestedCapacity <= records.capacity() )
     {
         return true;
@@ -259,7 +252,6 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
 bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record, std::size_t requestedCapacity,
                                                  int frameNumber )
 {
-
     if ( requestedCapacity <= record.points.capacity() )
     {
         return true;

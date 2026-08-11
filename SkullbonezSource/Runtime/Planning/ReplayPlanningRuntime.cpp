@@ -83,7 +83,6 @@ bool ReadGuideSunState( const Physics::PhysicsBodyStore& bodyStore, ReplayGuideB
 
     for ( std::size_t bodyIndex = 0; bodyIndex < records.size() && bodyIndex < hot.fixed.size(); ++bodyIndex )
     {
-
         if ( hot.fixed[bodyIndex] == 0 || records[bodyIndex].mass <= heaviestFixedMass )
         {
             continue;
@@ -298,7 +297,6 @@ ReplayPathPickResult ReplayPlanningRuntime::TryPickInterceptTarget( const Replay
 
     if ( !input.hasWorldRay )
     {
-
         if ( input.clearOnMiss )
         {
             m_interceptReadout.ClearTarget();
@@ -411,7 +409,6 @@ void ReplayPlanningRuntime::UpdateGuideArcs( Physics::PhysicsEngine& physics, co
 void ReplayPlanningRuntime::UpdatePorkchopPanel( Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
                                                  const Physics::PhysicsWorldForces& worldForces, double nowSeconds )
 {
-
     if ( !m_porkchopPanel.Visible() )
     {
         return;
@@ -453,7 +450,6 @@ void ReplayPlanningRuntime::BeginTripPlannerFrame( Physics::PhysicsEngine& physi
                                                    const ReplayPredictionPresentationView& prediction, bool liveAdvanceHeld,
                                                    ReplayPrediction& predictionOwner )
 {
-
     if ( !m_tripPlanner.RequiresLiveInput() )
     {
         return;
@@ -480,7 +476,6 @@ void ReplayPlanningRuntime::ObserveTripPlannerPrediction( Physics::PhysicsEngine
                                                           const ReplayPredictionPresentationView& prediction,
                                                           bool liveAdvanceHeld, ReplayPrediction& predictionOwner )
 {
-
     if ( !m_tripPlanner.AwaitingPrediction() )
     {
         return;
@@ -503,7 +498,6 @@ bool ReplayPlanningRuntime::ApplyTripPlannerMutation( Physics::PhysicsEngine& ph
                                                       const ReplayTripPlannerVelocityMutation& mutation,
                                                       ReplayPrediction& predictionOwner )
 {
-
     if ( !mutation.requested )
     {
         return false;
@@ -534,7 +528,6 @@ bool ReplayPlanningRuntime::ApplyTripPlannerMutation( Physics::PhysicsEngine& ph
 
     if ( !physics.SetBodyVelocity( handle, mutation.linearVelocity, angularVelocity, true ) )
     {
-
         if ( !mutation.restoresPrePlanVelocity )
         {
             const ReplayTripPlannerVelocityMutation restore = m_tripPlanner.CancelActivePlan();

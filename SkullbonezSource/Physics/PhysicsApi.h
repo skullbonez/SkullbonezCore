@@ -211,7 +211,6 @@ inline HullShapeIdentity MakeShareableHullShapeIdentity( const char* resolvedAut
 
     for ( const char* read = resolvedAuthoredPath; *read != '\0'; ++read )
     {
-
         if ( writeIndex + 1u >= HullShapeIdentity::MAX_PATH_BYTES )
         {
             return HullShapeIdentity {};

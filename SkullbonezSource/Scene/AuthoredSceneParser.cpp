@@ -62,7 +62,6 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::RegisterSceneObjectIdRange( u
     // Invariant: duplicate detection covers derived ragdoll parts as well as
     // directly authored rows, so no two bodies can enter creation with the
     // same persistent identity.
-
     for ( uint32_t offset = 0; offset < count; ++offset )
     {
         const uint32_t candidate = first + offset;
@@ -97,7 +96,6 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json
     }
     else
     {
-
         if ( m_currentDocumentVersion == 1 && FindMember( object, "sceneObjectId" ) )
         {
             Fail( path, "sceneObjectId requires scene schema version 2 or later" );
@@ -129,7 +127,6 @@ Physics::PhysicsSceneObjectId AuthoredSceneParser::AllocateVersion1SceneObjectId
 
         for ( uint32_t offset = 0; offset < count; ++offset )
         {
-
             if ( std::find( m_sceneObjectIds.begin(), m_sceneObjectIds.end(), next + offset ) != m_sceneObjectIds.end() )
             {
                 next += offset + 1u;
@@ -155,10 +152,8 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
     uint32_t next = 1;
     auto assignRows = [&]( auto& rows )
     {
-
         for ( auto& row : rows )
         {
-
             if ( !row.sceneObjectId.IsValid() )
             {
                 row.sceneObjectId = AllocateVersion1SceneObjectIdRange( next, 1, path );
@@ -182,7 +177,6 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
 
     for ( SceneRagdoll& ragdoll : m_scene.m_ragdolls )
     {
-
         if ( !ragdoll.firstSceneObjectId.IsValid() )
         {
             ragdoll.firstSceneObjectId = AllocateVersion1SceneObjectIdRange( next,
@@ -199,7 +193,6 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
 
     for ( SceneAssetPartRef& part : m_scene.m_assetParts )
     {
-
         switch ( part.source )
         {
         case SceneAssetPartSource::BallState:
@@ -219,7 +212,6 @@ void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path
 
     for ( SceneAssetInstanceRecord& instance : m_scene.m_assetInstances )
     {
-
         if ( instance.partCount > 0 )
         {
             instance.rootSceneObjectId = m_scene.m_assetParts[instance.firstPart].sceneObjectId;
@@ -241,7 +233,6 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
     if ( m_currentDocumentVersion == 1 )
     {
-
         if ( parts )
         {
             Fail( path, "assetInstance.parts requires scene schema version 2" );
@@ -252,7 +243,6 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
     if ( !parts )
     {
-
         if ( m_currentDocumentVersion == 2 )
         {
             Fail( path, "assetInstance is missing required field 'parts'" );
@@ -300,7 +290,6 @@ const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( con
 
 std::string AuthoredSceneParser::ResolveStylePath( const std::string& token ) const
 {
-
     if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".style.json" ) )
     {
@@ -569,7 +558,6 @@ void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& p
 
 void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
 {
-
     if ( depth > kMaxStyleIncludeDepth )
     {
         Fail( path, "Style include depth exceeded" );

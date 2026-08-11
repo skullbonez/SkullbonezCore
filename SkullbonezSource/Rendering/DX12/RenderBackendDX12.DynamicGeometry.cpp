@@ -69,7 +69,6 @@ namespace
 {
 std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 {
-
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -86,7 +85,6 @@ std::size_t TransientTriangleStyleIndex( TransientTriangleStyle style )
 
 const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 {
-
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -102,7 +100,6 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
 
 const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
 {
-
     switch ( style )
     {
     case TransientTriangleStyle::InstancedRibbonDepthHint:
@@ -154,7 +151,6 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
     // Runtime allocation policy: PSO cache misses are legal only during
     // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
     // future RTV format fails visibly under the allocation guard.
-
     if ( !m_gridLineShader )
     {
         return false;
@@ -162,7 +158,6 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-
         if ( m_gridLinePSOs[i].format == rtvFormat )
         {
             return true;
@@ -240,7 +235,6 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device, Dx12Pipeli
     // Invariant: grid-line PSO variants are bounded by the fixed cache in the
     // backend. A new RTV format should be added deliberately with cache budget,
     // not by growing during draw-line submission.
-
     if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
     {
         SB_FATAL( "RenderBackendDX12", "DX12 grid-line PSO cache exhausted. capacity=%zu format=%u", m_gridLinePSOs.size(),
@@ -266,7 +260,6 @@ Dx12GeometryOwner::Dx12GeometryOwner()
 
 uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
-
     if ( m_dynamicVBs.size() >= MAX_DYNAMIC_VERTEX_BUFFERS )
     {
         SB_FATAL( "Rendering/Dx12GeometryOwner",
@@ -297,7 +290,6 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
                                                 ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
                                                 Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
-
     if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) || packedVertices.empty() )
     {
         return;
@@ -358,7 +350,6 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle, std::span<const
 bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle, Dx12DrawGate& drawGate,
                                                         const RasterStateDesc& declaredRasterState )
 {
-
     if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) )
     {
         return false;
@@ -387,7 +378,6 @@ void Dx12GeometryOwner::DrawLinesColored( std::span<const float> packedVertices,
 
     // Invariant: the specialized line-topology PSO is immutable. Declared
     // callers must select its depth-disabled, unblended, two-sided recipe.
-
     if ( packedVertices.empty() || packedVertices.size() % 6 != 0 || !IsGridLineRasterState( rasterState ) )
     {
         return;
@@ -411,7 +401,6 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
                                                     Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics,
                                                     const RasterStateDesc& rasterState )
 {
-
     if ( packedFloatCount == 0u || packedFloatCount % 6u != 0u || vertexAddress == 0 ||
          !IsGridLineRasterState( rasterState ) )
     {
@@ -422,7 +411,6 @@ void Dx12GeometryOwner::DrawLinesColoredFromBuffer( std::size_t packedFloatCount
 
     for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-
         if ( m_gridLinePSOs[i].format == pipeline.RenderTargetFormat() )
         {
             gridLinePSO = m_gridLinePSOs[i].pso;
@@ -490,7 +478,6 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
                                                        ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
                                                        Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
-
     if ( packedVertices.empty() || vbAddress == 0 || !uploadPointer )
     {
         return;
@@ -510,7 +497,6 @@ void Dx12GeometryOwner::DrawColoredTrianglesFromBuffer( std::size_t packedFloatC
                                                         ID3D12GraphicsCommandList* commandList, Dx12DrawGate& drawGate,
                                                         Dx12Diagnostics& diagnostics, const RasterStateDesc& rasterState )
 {
-
     if ( packedFloatCount == 0u || vbAddress == 0 )
     {
         return;
@@ -629,7 +615,6 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
                                                  ID3D12GraphicsCommandList* commandList, ID3D12Resource* uploadResource,
                                                  D3D12_GPU_VIRTUAL_ADDRESS uploadAddress, uint8_t* uploadPointer )
 {
-
     if ( !device || !commandList || !uploadResource || uploadAddress == 0 || !uploadPointer )
     {
         return 0;
@@ -737,7 +722,6 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticVertices, in
 void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const float> packedInstances,
                                             D3D12_GPU_VIRTUAL_ADDRESS addr, uint8_t* uploadPointer )
 {
-
     if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) || packedInstances.empty() )
     {
         return;
@@ -767,7 +751,6 @@ void Dx12GeometryOwner::UploadInstanceData( uint32_t handle, std::span<const flo
 void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID3D12GraphicsCommandList* commandList,
                                            Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
 {
-
     if ( draw.handle == 0 || draw.handle > static_cast<uint32_t>( m_instancedMeshes.size() ) || draw.instanceCount <= 0 )
     {
         return;
@@ -810,7 +793,6 @@ void Dx12GeometryOwner::DrawInstancedMesh( const InstancedMeshDrawDesc& draw, ID
 
 void Dx12GeometryOwner::DestroyInstancedMesh( uint32_t handle )
 {
-
     if ( handle == 0 || handle > static_cast<uint32_t>( m_instancedMeshes.size() ) )
     {
         return;
@@ -850,7 +832,6 @@ size_t Dx12GeometryOwner::DynamicCapacity() const
 }
 UINT64 Dx12GeometryOwner::DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const
 {
-
     if ( handle == 0 || handle > m_dynamicVBs.size() || packedVertices.empty() )
     {
         return 0;
@@ -877,10 +858,8 @@ void Dx12GeometryOwner::InvalidateGridLinePipelinesForShaderReload()
     // Lifetime: the caller has drained the GPU. Grid-line PSOs bypass the main
     // raster cache, so they must be released explicitly before the registered
     // grid-line ShaderDX12 adopts new bytecode.
-
     for ( GridLinePSODX12& entry : m_gridLinePSOs )
     {
-
         if ( entry.pso )
         {
             entry.pso->Release();
@@ -905,7 +884,6 @@ void Dx12GeometryOwner::Shutdown()
 
     for ( InstancedMeshDX12& mesh : m_instancedMeshes )
     {
-
         if ( mesh.staticVB )
         {
             mesh.staticVB->Release();
@@ -1058,7 +1036,6 @@ void Dx12GeometryOwner::DrawRetainedGeometryRibbon( std::span<const float> packe
         // for the transient submission contract. Retained GPU storage keeps one
         // per-instance record and patches only the formerly open adjacency tail
         // plus the appended suffix.
-
         for ( std::size_t segment = uploadPlan.firstChangedUnit; segment < segmentCount; ++segment )
         {
             memcpy( retainedBytes + ( laneOffset + segment * capacity.floatsPerRecord ) * sizeof( float ),
@@ -1266,7 +1243,6 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameO
 
 bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapacity capacity ) noexcept
 {
-
     if ( !IsRetainedGeometryCapacitySupported( capacity ) )
     {
         return false;
@@ -1275,7 +1251,6 @@ bool Dx12GeometryOwner::ConfigureRetainedGeometryCapacity( RetainedGeometryCapac
     // Invariant: the composition root configures one immutable logical layout
     // before publishing this owner. A second, different layout could reinterpret
     // persistent bytes that are still referenced by frame-fenced command lists.
-
     if ( m_retainedGeometryCapacity.floatsPerRecord != 0u )
     {
         return m_retainedGeometryCapacity.floatsPerRecord == capacity.floatsPerRecord &&

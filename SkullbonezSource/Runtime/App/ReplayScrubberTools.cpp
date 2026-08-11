@@ -110,7 +110,6 @@ void ReplayScrubber::CompleteRestore( const ReplayLiveRestoreRequest& request, b
 
     if ( request.kind == ReplayLiveRestoreKind::V2ArtifactTarget )
     {
-
         if ( outV2Result )
         {
             *outV2Result = v2Result;
@@ -143,7 +142,6 @@ void ReplayScrubber::CompleteRestore( const ReplayLiveRestoreRequest& request, b
 
 void ReplayScrubber::WriteRestoreReason( char* outReason, std::size_t reasonSize, const char* reason )
 {
-
     if ( outReason && reasonSize > 0 )
     {
         strncpy_s( outReason, reasonSize, reason ? reason : "restore failed", _TRUNCATE );
@@ -183,7 +181,6 @@ void PublishReplayLoadResult( ReplayScrubber& scrubber, const char* path, bool l
 void PositionReplayCauseTreeCamera( SkullbonezCore::Environment::CameraCollection* cameras, const Vector3& targetPosition,
                                     float targetRadius )
 {
-
     if ( !cameras )
     {
         return;
@@ -214,7 +211,6 @@ void PositionReplayCauseTreeCamera( SkullbonezCore::Environment::CameraCollectio
 
 void SkullbonezCore::Runtime::ReplayInteractionOperations::CancelToolGesture( RuntimeInteractionController& interaction )
 {
-
     switch ( interaction.Gesture().kind )
     {
     case RuntimeInteractionGestureKind::ReplayScrubDrag:
@@ -254,7 +250,6 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::EnterInspectionCamer
 
     // Lifetime: Replay camera activation captures the current camera/mode so
     // exiting scrub/velocity/cause inspection can restore the operator's view.
-
     if ( !cameras )
     {
         return;
@@ -409,7 +404,6 @@ void SkullbonezCore::Runtime::ReplayPresentationOperations::ExitInspectionCamera
 bool SkullbonezCore::Runtime::ReplayPresentationOperations::BeginLoadedPresentationActivation( bool hasLoadedPresentation, ReplayScrubber& scrubber, ReplayPresentation& presentation, ReplayAuthoring& authoring,
                                                                                                RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
-
     if ( !hasLoadedPresentation )
     {
         return false;
@@ -588,7 +582,6 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input, Input
 
     if ( !loadedPresentationActivated )
     {
-
         switch ( scrubberHostAction )
         {
         case ReplayInspectionCameraAction::Enter:
@@ -738,7 +731,6 @@ void ReplayRuntime::ApplyRestoredBranchTimeline( ReplayRestoreTransaction& trans
                                                  CameraControlState& camera, RunCameraMode normalizedRestoreMode,
                                                  bool attachedFollow, bool directorGrabbed )
 {
-
     if ( outcome.restored && transaction.TimelineResetRequired() )
     {
         ReplaySceneTimelineResetInput reset = transaction.TimelineReset();
@@ -1065,7 +1057,6 @@ bool SelectReplayPresentationArtifact( ReplayScrubber& scrubber, HWND window, do
 
     if ( !GetOpenFileNameA( &openFile ) )
     {
-
         if ( CommDlgExtendedError() != 0 )
         {
             scrubber.PublishFeedback( RunReplayTrack::Presentation, "REPLAY PICKER FAILED", now, 2.5 );
@@ -1112,7 +1103,6 @@ bool HandleReplayPredictionHorizonPressed( ReplayPrediction& predictionOwner, Re
                                            const SkullbonezCore::UI::UIRect& horizon, int mouseX, int mouseY, double now,
                                            bool& outEnterInteractive )
 {
-
     if ( !BeginReplayScrubberGesture( inputRouter, interaction, RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag,
                                       WorldInteractionOwner::ReplayPrediction, mouseX, mouseY ) )
     {
@@ -1146,7 +1136,6 @@ bool TickReplayScrubDrag( ReplayScrubber& scrubber, InputRouter& inputRouter, Ru
                           float solverPresentTrackPosition, bool loadedPresentation, int mouseX, int screenWidth,
                           int screenHeight, bool leftReleased )
 {
-
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::ReplayScrubDrag )
     {
         return false;
@@ -1162,7 +1151,6 @@ bool TickReplayScrubDrag( ReplayScrubber& scrubber, InputRouter& inputRouter, Ru
     }
     else
     {
-
         if ( ReplayAtPresentTrackPosition( scrubber.View().position, solverPresentTrackPosition ) )
         {
             scrubber.SetTrackPosition( activeTrack, solverPresentTrackPosition );
@@ -1187,7 +1175,6 @@ bool TickReplayPredictionHorizonDrag( ReplayPrediction& predictionOwner, ReplayS
                                       const SkullbonezCore::UI::UIRect& predictionHorizon, int mouseX, bool leftReleased,
                                       double now )
 {
-
     if ( interaction.Gesture().kind != RuntimeInteractionGestureKind::ReplayPredictionHorizonDrag )
     {
         return false;
@@ -1261,7 +1248,6 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
 
     // Invariant: the fixed scrubber builder always publishes the horizon row;
     // disabled state changes eligibility, not the geometry table.
-
     if ( !horizonControl )
     {
         SB_FATAL( "ReplayScrubberSurface", "Prediction horizon control is missing from the scrubber surface." );
@@ -1289,7 +1275,6 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
     // Why: passive Scene/Demo cameras still reveal the replay bar at its hot
     // zone, while UI-owned mouse regions do not. Active replay state pins the
     // surface open without making empty screen space consume pointer input.
-
     if ( pointerRequestsReplayOverlay || replayStateKeepsScrubberVisible )
     {
         KeepVisible( frame.now, REPLAY_SCRUBBER_VISIBLE_SECONDS );
@@ -1392,7 +1377,6 @@ void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command
 
     const auto returnToLive = [&]()
     {
-
         if ( HasLoadedPresentation() )
         {
             m_timeline.ClearLoadedPresentation();
@@ -1619,7 +1603,6 @@ ReplayInspectionCameraAction ReplayRuntime::TickScrubberInput( bool uiBlocksMous
     // Concept: pointer rows and keyboard shortcuts select the same semantic
     // action before any owner mutation. The switch is an explicit value dispatch,
     // not a callback table retained on the hot path.
-
     switch ( requestedAction )
     {
     case ReplayScrubberAction::RestoreBranch:

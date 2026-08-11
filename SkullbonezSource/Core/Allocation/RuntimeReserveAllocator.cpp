@@ -132,7 +132,6 @@ class GrowthEventLock
   public:
     GrowthEventLock() noexcept
     {
-
         while ( s_growthEventLock.test_and_set( std::memory_order_acquire ) )
         {
         }
@@ -157,7 +156,6 @@ bool IsGameplayPhaseIndex( int phaseIndex ) noexcept
 
 const char* SafeOwnerName( const OwnerRecord& owner, int index ) noexcept
 {
-
     if ( index == 0 )
     {
         return "unregistered_runtime_allocation";
@@ -183,7 +181,6 @@ const char* SafeReason( const char* reason ) noexcept
 
 bool SameOwnerName( const char* lhs, const char* rhs ) noexcept
 {
-
     if ( lhs == rhs )
     {
         return true;
@@ -246,7 +243,6 @@ OwnerRecord& OwnerForHandle( RuntimeReserveOwnerHandle owner ) noexcept
 
 RuntimeReserveOwnerHandle NormalizeOwnerHandle( RuntimeReserveOwnerHandle owner ) noexcept
 {
-
     if ( owner >= MAX_RUNTIME_RESERVE_OWNERS )
     {
         return UNREGISTERED_OWNER;
@@ -369,7 +365,6 @@ RuntimeReserveGrowthScope::RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle 
 
 RuntimeReserveGrowthScope::~RuntimeReserveGrowthScope() noexcept
 {
-
     if ( m_active )
     {
         s_approvedReplayGrowthOwner = m_previousOwner;
@@ -488,7 +483,6 @@ RuntimeReserveGrowthResult RuntimeReserveAllocator::RequestGrowth( RuntimeReserv
     // Invariant: replay byte-budget owners pass byte capacities with
     // elementSizeBytes=1. Enforce their cap across every live allocation owned
     // by the subsystem, not independently for each vector target.
-
     if ( owner.subsystem == RuntimeReserveSubsystem::Replay && elementBytes == 1 )
     {
         const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
@@ -590,7 +584,6 @@ bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( Runtime
 
     for ( ;; )
     {
-
         if ( activeBefore > hardBytes || bytes > hardBytes - activeBefore )
         {
 
@@ -668,7 +661,6 @@ void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle,
 
 int RuntimeReserveAllocator::CopyRecentGrowthEvents( RuntimeReserveGrowthEventView* outEvents, int maxEvents ) noexcept
 {
-
     if ( !outEvents || maxEvents <= 0 )
     {
         return 0;
@@ -799,7 +791,6 @@ void RuntimeReserveAllocator::ReleaseCapacityPublisher( RuntimeReserveOwnerHandl
                                                         RuntimeReserveCapacityPublisherToken publisher,
                                                         int sessionHighWater ) noexcept
 {
-
     if ( publisher == INVALID_RUNTIME_RESERVE_CAPACITY_PUBLISHER )
     {
         return;
@@ -894,7 +885,6 @@ void RuntimeReserveAllocator::BeginCapacitySession() noexcept
 
 void RuntimeReserveAllocator::PrintCapacityRows( FILE* out, const char* sceneName, const char* status ) noexcept
 {
-
     if ( !out )
     {
         return;
@@ -912,7 +902,6 @@ void RuntimeReserveAllocator::PrintCapacityRows( FILE* out, const char* sceneNam
     std::sort( sortedRows, sortedRows + rowCount,
                []( const RuntimeReserveCapacityView* left, const RuntimeReserveCapacityView* right )
                {
-
                    if ( left->residentBytes != right->residentBytes )
                    {
                        return left->residentBytes > right->residentBytes;
@@ -988,7 +977,6 @@ void RuntimeReserveAllocator::ResetCounters() noexcept
 
 void RuntimeReserveAllocator::PrintSummary( FILE* out ) noexcept
 {
-
     if ( !out )
     {
         return;
@@ -1084,7 +1072,6 @@ const char* RuntimeReservePhaseName( RuntimeReservePhase phase ) noexcept
 
 const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noexcept
 {
-
     switch ( subsystem )
     {
     case RuntimeReserveSubsystem::Unknown:
@@ -1118,7 +1105,6 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
 
 RuntimeReservePhase RuntimeReservePhaseFromAllocationPhaseIndex( int phaseIndex ) noexcept
 {
-
     if ( phaseIndex < 0 || phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) )
     {
         return RuntimeReservePhase::SteadyGameplay;

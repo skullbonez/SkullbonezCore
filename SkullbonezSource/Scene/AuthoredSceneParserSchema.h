@@ -105,7 +105,6 @@ inline bool ParserFailed() noexcept
 inline SkullbonezCore::Core::SbResult ParserFailureResult( SkullbonezCore::Core::SbDiagnosticStore& diagnostics,
                                                            const ParserFailureState& state )
 {
-
     if ( !state.failed )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -172,10 +171,8 @@ struct SceneIntOption
 
 template <size_t N> bool TryParseIntOption( const std::string& token, const SceneIntOption ( &options )[N], int& out )
 {
-
     for ( const SceneIntOption& option : options )
     {
-
         if ( token == option.name )
         {
             out = option.value;
@@ -208,7 +205,6 @@ inline bool IsSceneNameDigit( char c )
 
 inline bool IsSceneTreePartNameSuffix( const char* suffix )
 {
-
     if ( !suffix || suffix[0] == '\0' )
     {
         return false;
@@ -238,7 +234,6 @@ inline bool TryGetSceneTreeInstancePrefixLength( const char* name, size_t& outPr
 
     for ( size_t i = 0; i + 5 < nameLength; ++i )
     {
-
         if ( name[i] == '_' && IsSceneNameDigit( name[i + 1] ) && IsSceneNameDigit( name[i + 2] ) &&
              IsSceneNameDigit( name[i + 3] ) && name[i + 4] == '_' )
         {
@@ -261,7 +256,6 @@ inline bool TryGetSceneTreeInstancePrefixLength( const char* name, size_t& outPr
 
     for ( size_t i = 0; i + 1 < nameLength; ++i )
     {
-
         if ( name[i] == '_' && IsSceneTreePartNameSuffix( name + i + 1 ) )
         {
             outPrefixLength = i + 1;
@@ -287,7 +281,6 @@ inline bool TryGetEditorTreeInstancePrefixLengthAnyPart( const char* name, size_
 
     for ( size_t i = 0; i + 5 < nameLength; ++i )
     {
-
         if ( name[i] == '_' && IsSceneNameDigit( name[i + 1] ) && IsSceneNameDigit( name[i + 2] ) &&
              IsSceneNameDigit( name[i + 3] ) && name[i + 4] == '_' )
         {
@@ -319,7 +312,6 @@ inline bool IsReleasableTreeSceneHull( const char* hullPath )
 
 template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<THull>& hulls )
 {
-
     for ( int i = 0; i < static_cast<int>( hulls.size() ); ++i )
     {
         THull& hull = hulls[static_cast<std::size_t>( i )];
@@ -400,10 +392,8 @@ template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<TH
 
 template <typename THull> void ValidateReleasableTreeGroups( const std::vector<THull>& hulls, const std::string& path )
 {
-
     for ( const THull& hull : hulls )
     {
-
         if ( hull.group.kind == SceneObjectGroupKind::None )
         {
             continue;
@@ -420,7 +410,6 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
 
         for ( const THull& candidate : hulls )
         {
-
             if ( candidate.sceneObjectId.value == hull.group.rootObjectId.value )
             {
                 root = &candidate;
@@ -430,7 +419,6 @@ template <typename THull> void ValidateReleasableTreeGroups( const std::vector<T
 
         // Lane R: a parsed scene must never publish group metadata that can
         // only fail after earlier entities have already entered runtime stores.
-
         if ( !root || root->group.kind != hull.group.kind || root->group.rootObjectId.value != root->sceneObjectId.value ||
              root->group.partIndex != 0 )
         {
@@ -448,7 +436,6 @@ template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std
     // Why: Older rooted-tree scenes placed trunk foliage too low relative to the
     // root hull. Apply the compatibility lift only to matching fixed parts so
     // saved legacy scenes keep their intended clearance without moving roots.
-
     for ( const THull& root : hulls )
     {
         const float liftY = SkullbonezCore::Assets::EditorTreeRootedAboveRootLiftY( root.name );
@@ -505,7 +492,6 @@ template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std
 
 inline std::string JsonTypeName( const Json& value )
 {
-
     if ( value.is_null() )
     {
         return "null";
@@ -562,7 +548,6 @@ inline void Fail( const std::string& path, const std::string& detail )
 
 inline void RequireObject( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_object() )
     {
         std::ostringstream message;
@@ -573,7 +558,6 @@ inline void RequireObject( const Json& value, const std::string& path, const cha
 
 inline void RequireArray( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_array() )
     {
         std::ostringstream message;
@@ -584,7 +568,6 @@ inline void RequireArray( const Json& value, const std::string& path, const char
 
 inline const Json* FindMember( const Json& object, const char* key )
 {
-
     if ( !object.is_object() )
     {
         return nullptr;
@@ -612,7 +595,6 @@ inline const Json& RequireMember( const Json& object, const std::string& path, c
 
 inline std::string ReadString( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_string() )
     {
         std::ostringstream message;
@@ -626,7 +608,6 @@ inline std::string ReadString( const Json& value, const std::string& path, const
 
 inline float ReadFloat( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_number() )
     {
         std::ostringstream message;
@@ -640,7 +621,6 @@ inline float ReadFloat( const Json& value, const std::string& path, const char* 
 
 inline int ReadInt( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_number_integer() && !value.is_number_unsigned() )
 
     {
@@ -655,7 +635,6 @@ inline int ReadInt( const Json& value, const std::string& path, const char* cont
 
 inline unsigned int ReadUInt( const Json& value, const std::string& path, const char* context )
 {
-
     if ( !value.is_number_integer() && !value.is_number_unsigned() )
     {
         std::ostringstream message;
@@ -713,7 +692,6 @@ inline bool TryParseBoolWord( const std::string& value, bool& out )
 
 inline bool ReadBool( const Json& value, const std::string& path, const char* context )
 {
-
     if ( value.is_boolean() )
     {
         return value.get<bool>();
@@ -748,7 +726,6 @@ template <size_t N> void CopyStringField( char ( &out )[N], const std::string& t
 template <size_t N>
 inline bool CopyCheckedStringField( char ( &out )[N], const std::string& text, const std::string& path, const char* context )
 {
-
     if ( text.size() >= N )
     {
         std::ostringstream message;
@@ -895,7 +872,6 @@ inline int MaxConfigurableWorkerThreadCount()
 
 inline int ParseUITab( const Json& value, const std::string& path )
 {
-
     if ( value.is_number_integer() || value.is_number_unsigned() )
     {
         return value.get<int>();
@@ -927,7 +903,6 @@ inline int ParseUITab( const Json& value, const std::string& path )
 
 inline int ParseWaterReflectionMode( const Json& value, const std::string& path )
 {
-
     if ( value.is_number_integer() || value.is_number_unsigned() )
     {
         return value.get<int>();
@@ -995,7 +970,6 @@ inline uint32_t ParsePhysicsDebugMode( const Json& value, const std::string& pat
 
 inline float ParseMaterialModeValue( const Json& value, const std::string& path, const char* context )
 {
-
     if ( value.is_number() )
     {
         return value.get<float>();
@@ -1086,7 +1060,6 @@ inline std::string ReadContactMaterialToken( const Json& value, const std::strin
 
 inline std::string ReadInferredContactMaterial( const Json& object, const std::string& path, const char* context )
 {
-
     if ( const Json* material = FindMember( object, "contactMaterial" ) )
     {
         return ReadContactMaterialToken( *material, path, context );
@@ -1099,7 +1072,6 @@ inline std::string ReadInferredContactMaterial( const Json& object, const std::s
 
         // Why: asset libraries already tag render materials by substance; using
         // that token keeps gameplay contact policies material-aware without duplicating JSON.
-
         if ( const Json* mode = FindMember( *renderMaterial, "mode" ); mode && mode->is_string() )
         {
             return ReadContactMaterialToken( *mode, path, "asset.material.mode" );

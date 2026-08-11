@@ -102,7 +102,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].hasGpu && markers[index].gpuRingFilled > 0 )
         {
             anyGpu = true;
@@ -117,7 +116,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].workerAvgMs > 0.0f || markers[index].lastFrameWorkerMs > 0.0f )
         {
             anyWorker = true;
@@ -201,7 +199,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].hash == kFrameHash )
         {
             frameAverageMs = markers[index].avgMs;
@@ -238,7 +235,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
     const float budgetMs = ( cpuMs > 0.001f ) ? cpuMs : 1.0f;
     auto recordMarkerRow = [&]( const Marker& marker )
     {
-
         if ( y < yBottom )
         {
             y -= lineHeight;
@@ -316,7 +312,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
         if ( anyGpu )
         {
-
             if ( marker.hasGpu && marker.gpuRingFilled > 0 )
             {
                 draw.Text( xLeft + gpuColumn, y, fontSize, gpuRed, gpuGreen, gpuBlue, "%6.2f", marker.gpuAvgMs );
@@ -356,7 +351,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
     for ( int index = markerCount - 1; index >= 0; --index )
     {
-
         if ( markers[index].parentIndex == -1 && markers[index].hash != kVsyncHash )
         {
             stack[stackSize++] = index;
@@ -376,7 +370,6 @@ void UIProfilerOverlayPresenter::RecordOverlay( const Core::Profiler::ProfilerFr
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].hash == kVsyncHash )
         {
             recordMarkerRow( markers[index] );
@@ -408,7 +401,6 @@ void UIProfilerOverlayPresenter::RecordBarOverlay( const Core::Profiler::Profile
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].parentIndex >= 0 )
         {
             isLeaf[markers[index].parentIndex] = false;
@@ -426,7 +418,6 @@ void UIProfilerOverlayPresenter::RecordBarOverlay( const Core::Profiler::Profile
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( !isLeaf[index] || markers[index].hash == kFrameHash )
         {
             continue;
@@ -451,7 +442,6 @@ void UIProfilerOverlayPresenter::RecordBarOverlay( const Core::Profiler::Profile
 
     for ( int index = 0; index < markerCount; ++index )
     {
-
         if ( markers[index].hash == kFrameHash )
         {
             frameMs = markers[index].avgMs;
@@ -592,7 +582,6 @@ void UIProfilerOverlayPresenter::RecordBarOverlay( const Core::Profiler::Profile
 
     for ( int leafIndex = 0; leafIndex < gpuLeafCount; ++leafIndex )
     {
-
         if ( !inLegend[gpuLeaves[leafIndex]] )
         {
             inLegend[gpuLeaves[leafIndex]] = true;

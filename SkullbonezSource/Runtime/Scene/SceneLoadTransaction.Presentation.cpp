@@ -45,7 +45,6 @@ void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, Ov
 
     // Why: diagnostics and debug values already have genuine load-phase owners;
     // only window presentation crosses the returned activation value.
-
     if ( !preserveUIState && options.hasTestPattern )
     {
         debug.isUITestPattern = options.testPatternEnabled;
@@ -70,21 +69,18 @@ void SceneLoadTransaction::PrepareUiOptions( DiagnosticsRuntime& diagnostics, Ov
 
 void SceneLoadTransaction::ApplyUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
 {
-
     if ( activation.hasAuthoredOptions && !activation.preserveUIState )
     {
         const SceneUIOptions& options = activation.authoredOptions;
 
         if ( !options.hasVisible )
         {
-
             if ( activation.automationScene && !options.hasSettings )
             {
                 ui.SetVisible( false, activation.nowSeconds );
             }
             else if ( !options.hasSettings )
             {
-
                 if ( !ui.IsVisible() )
                 {
                     ui.SetVisible( true, activation.nowSeconds );

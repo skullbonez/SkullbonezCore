@@ -64,7 +64,6 @@ uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store ) 
 
     for ( const ReplayTrajectoryRecord& record : store.records )
     {
-
         if ( !IsInactivePredictionWorkerBankRecord( record ) )
         {
             ++count;
@@ -76,7 +75,6 @@ uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store ) 
 
 void WriteReason( char* destination, std::size_t size, const char* message )
 {
-
     if ( destination && size > 0 )
     {
         std::snprintf( destination, size, "%s", message ? message : "prediction archive failure" );
@@ -407,7 +405,6 @@ bool BuildReplayPredictionArchiveForSchemaValidation( const RunReplayPathVisuali
 
     for ( const RunReplayPredictionFrame& frame : prediction.simulation.frames )
     {
-
         if ( frame.bodies.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BODIES )
         {
             return false;
@@ -558,7 +555,6 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
 bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathVisualizerState& pathVisualizer,
                                   RunReplayPredictionState& prediction, char* outReason, std::size_t reasonSize )
 {
-
     if ( bytes.size() > REPLAY_PREDICTION_ARCHIVE_MAX_BYTES )
     {
         WriteReason( outReason, reasonSize, "prediction archive exceeds byte cap" );
@@ -654,7 +650,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
         for ( RunReplayPredictionBodySample& body : frame.bodies )
         {
-
             if ( !ReadBody( reader, schema, body ) )
             {
                 WriteReason( outReason, reasonSize, "truncated prediction body" );
@@ -680,7 +675,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     for ( RunReplayPathTraceNode& node : prediction.futureNodeCache.futureNodes )
     {
-
         if ( !ReadNode( reader, node ) )
         {
             WriteReason( outReason, reasonSize, "truncated future node" );
@@ -698,7 +692,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     for ( uint32_t markerIndex = 0; markerIndex < markerCount; ++markerIndex )
     {
-
         if ( !ReadMarker( reader, schema, prediction.futureNodeCache.retainedMarkers[markerIndex] ) )
         {
             WriteReason( outReason, reasonSize, "truncated retained marker" );
@@ -754,7 +747,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
         for ( ReplayTrajectoryPoint& point : record.points )
         {
-
             if ( !reader.Scalar( point.frameIndex ) || !reader.Vector( point.position ) )
             {
                 WriteReason( outReason, reasonSize, "truncated trajectory point" );
@@ -787,7 +779,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
     {
-
         if ( record.key.lane != ReplayTrajectoryLane::FutureRoot || record.key.branchOrdinal != activeRootBranch ||
              record.key.bodyId.value == prediction.trajectoryBuild.rootId.value )
         {
@@ -826,7 +817,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     for ( ReplayPredictionBaselineRootPoint& point : baseline.rootPolyline )
     {
-
         if ( !reader.Scalar( point.frameIndex ) || !reader.Vector( point.position ) )
         {
             WriteReason( outReason, reasonSize, "truncated baseline point" );
@@ -844,7 +834,6 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes, RunReplayPathV
 
     for ( ReplayPredictionBaselineBodyPose& pose : baseline.bodyPoses )
     {
-
         if ( !ReadBaselinePose( reader, schema, pose ) )
         {
             WriteReason( outReason, reasonSize, "truncated baseline pose" );

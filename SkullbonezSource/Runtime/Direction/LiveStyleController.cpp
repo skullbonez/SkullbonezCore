@@ -46,7 +46,6 @@ bool IsAbsolutePath( const char* path )
 
 void JoinControlPath( const char* directory, const char* fileName, char* out, size_t outSize )
 {
-
     if ( !directory || directory[0] == '\0' )
     {
         strcpy_s( out, outSize, fileName );
@@ -92,7 +91,6 @@ uint64_t FileStamp( const char* path )
 
 char* TrimLeft( char* text )
 {
-
     while ( *text == ' ' || *text == '\t' )
     {
         ++text;
@@ -187,7 +185,6 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 
     while ( fgets( line, sizeof( line ), file ) )
     {
-
         if ( ExtractCapturePath( line, out, outSize ) )
         {
             found = true;
@@ -205,7 +202,6 @@ bool ReadCaptureRequest( const char* path, char* out, size_t outSize )
 
 void LiveStyleController::WriteStatus( const char* status, const char* detail ) const
 {
-
     if ( !m_enabled || m_statusPath[0] == '\0' )
     {
         return;
@@ -231,7 +227,6 @@ void LiveStyleController::WriteStatus( const char* status, const char* detail ) 
 
 bool LiveStyleController::ConfigureDirectory( const char* path )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return false;
@@ -265,7 +260,6 @@ void LiveStyleController::Tick( SkullbonezCore::Core::SbDiagnosticStore& resultD
                                 SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                                 const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
-
     if ( !m_enabled )
     {
         return;
@@ -306,7 +300,6 @@ void LiveStyleController::Tick( SkullbonezCore::Core::SbDiagnosticStore& resultD
 
         if ( ReadCaptureRequest( m_capturePath, requestedPath, sizeof( requestedPath ) ) )
         {
-
             if ( IsAbsolutePath( requestedPath ) )
             {
                 strcpy_s( m_pendingScreenshotPath, sizeof( m_pendingScreenshotPath ), requestedPath );
@@ -361,7 +354,6 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
 
 void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
-
     if ( !HasPendingCapture() )
     {
         return;

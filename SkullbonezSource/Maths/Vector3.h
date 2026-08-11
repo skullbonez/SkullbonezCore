@@ -133,7 +133,6 @@ class Vector3
 
     void Simplify()                                                // Components within the engine epsilon snap to 0.0f.
     {
-
         if ( x < TOLERANCE && x > ZERO_TAKE_TOLERANCE )
         {
             x = 0.0f;
@@ -204,7 +203,6 @@ class Vector3
 
     bool TryDivide( float f )
     {
-
         if ( f == 0.0f )
         {
             return false;
@@ -219,7 +217,6 @@ class Vector3
 
     bool TryDivide( const Vector3& v )
     {
-
         if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
         {
             return false;
@@ -266,7 +263,6 @@ class Vector3
 
     bool TryDivided( float f, Vector3& out ) const
     {
-
         if ( f == 0.0f )
         {
             return false;
@@ -279,7 +275,6 @@ class Vector3
 
     bool TryDivided( const Vector3& v, Vector3& out ) const
     {
-
         if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
         {
             return false;

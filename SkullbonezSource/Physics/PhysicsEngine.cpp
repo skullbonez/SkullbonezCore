@@ -185,7 +185,6 @@ ColliderAuthoringRecord MakeColliderAuthoringRecordFromDesc( const PhysicsCollid
 bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields, std::size_t bodyIndex, bool includeFixedBodies,
                              bool includeSleepingBodies, bool sleepEnabled )
 {
-
     if ( !includeFixedBodies && hotFields.fixed[bodyIndex] != 0u )
     {
         return false;
@@ -552,7 +551,6 @@ void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc
 
     for ( const PhysicsBodyCreateDesc& desc : bodyDescs )
     {
-
         if ( !m_buoyancySystem.AppendBodyFacts( desc ) )
         {
             SB_FATAL( "Physics/PhysicsEngine", "Buoyancy facts exceeded fixed scene capacity during descriptor load." );
@@ -571,7 +569,6 @@ PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const Physi
     // Invariant: authored registration must never let an invalid variant reach
     // std::visit, whose exception-disabled failure otherwise loses the owning
     // subsystem and descriptor stage from captured automation logs.
-
     if ( bodyDesc.shape.valueless_by_exception() )
     {
         SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: input collision shape is valueless." );
@@ -739,7 +736,6 @@ bool PhysicsEngine::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
 
     if ( update.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
-
         if ( update.sleeping )
         {
             SeedBodyAsleep( update.body );
@@ -835,7 +831,6 @@ bool PhysicsEngine::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 
     if ( trimmed )
     {
-
         if ( !m_buoyancySystem.TrimToCount( targetCount ) )
         {
             SB_FATAL( "Physics/PhysicsEngine", "Buoyancy trim failed after body-store trim." );
@@ -911,7 +906,6 @@ void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& world
     // Why: fixed-tree release changes live simulation state, then wake
     // propagation may touch neighbouring bodies. Keep both operations on the
     // body store before Debug diagnostics or presentation sampling reads it.
-
     for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
     {
         m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
@@ -946,7 +940,6 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
         // policy accepts the tool impulse. The source body receives the actual
         // launcher impulse separately, so its release preserves current velocity
         // while attached parts inherit the seeded breakaway velocity.
-
         if ( !sourceRecord->releasesFromFixedOnContact ||
              releaseImpulseStrength < sourceRecord->contactReleaseImpulseThreshold )
         {
@@ -967,7 +960,6 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
 
     const auto wakeReleasedIndex = [&]( int index )
     {
-
         if ( m_hasLastWorldForces )
         {
             world.WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
@@ -1040,7 +1032,6 @@ bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body, const Math::Vector:
 
     if ( shouldWake )
     {
-
         if ( m_hasLastWorldForces )
         {
             m_world->WakeModel( m_bodyStore, m_colliderStore, m_buoyancySystem.MutableFacts(), m_lastWorldForces, index );
@@ -1072,7 +1063,6 @@ void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
     // Why: sleep seeding is solver state, not presentation. Seed both the
     // dense body store and PhysicsWorld's sleep counters, then leave
     // presentation projection to the next normal step boundary.
-
     if ( m_bodyStore.SeedBodyAsleep( body ) )
     {
         m_world->SeedModelAsleep( m_bodyStore, index );
@@ -1141,7 +1131,6 @@ PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJoint
 
     // Why: stale body handles should fail at the scene/store boundary before
     // the solver receives an append-only point-joint row.
-
     if ( !m_bodyStore.Contains( desc.bodyA ) || !m_bodyStore.Contains( desc.bodyB ) || desc.bodyA == desc.bodyB )
     {
         return PhysicsConstraintHandle {};
@@ -1208,7 +1197,6 @@ PhysicsRayCastHit PhysicsEngine::RayCast( const PhysicsRayCastDesc& desc ) const
     // Concept: the public ray is a conservative store query, not a second
     // narrowphase. It returns stable physics identities and leaves exact
     // collision/contact generation to the shipping solver.
-
     for ( const ColliderRecord& collider : m_colliderStore.Records() )
     {
         const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( collider.body );
@@ -1269,7 +1257,6 @@ PhysicsBroadphaseQueryResultView PhysicsEngine::QueryBroadphaseCells( const Phys
 
         for ( const ColliderRecord& collider : colliders )
         {
-
             if ( overlaps )
             {
                 break;

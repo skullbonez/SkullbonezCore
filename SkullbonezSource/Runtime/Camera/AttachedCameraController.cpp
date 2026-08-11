@@ -72,7 +72,6 @@ bool TryNormalizeVector( Vector3& v )
     // Hazard: attachment and replay camera targets can briefly collapse to a
     // zero-length vector after a reset or stale body recovery. Callers must use
     // a fallback instead of feeding NaNs into camera matrices.
-
     if ( !IsFiniteVector( v ) )
     {
         return false;
@@ -92,7 +91,6 @@ bool TryNormalizeVector( Vector3& v )
 
 Vector3 NormalizedOr( Vector3 v, const Vector3& fallback )
 {
-
     if ( TryNormalizeVector( v ) )
     {
         return v;
@@ -148,7 +146,6 @@ const char* PresentationNameForModelIndex( const SceneWorld& collection, int mod
 
 bool EndsWith( const char* value, const char* suffix )
 {
-
     if ( !value || !suffix )
     {
         return false;
@@ -162,7 +159,6 @@ bool EndsWith( const char* value, const char* suffix )
 
 float WrapAttachedCameraOrbitYaw( float yaw )
 {
-
     while ( yaw > _PI )
     {
         yaw -= _2PI;
@@ -192,7 +188,6 @@ float AttachedCameraOrbitMaxDistance( float targetRadius )
 
 float ClampAttachedCameraOrbitDistance( float targetRadius, float distance )
 {
-
     if ( !std::isfinite( distance ) )
     {
         distance = targetRadius * 8.0f;
@@ -205,7 +200,6 @@ float ClampAttachedCameraOrbitDistance( float targetRadius, float distance )
 
 float ClampAttachedCameraOrbitPitch( float pitch )
 {
-
     if ( !std::isfinite( pitch ) )
     {
         return ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
@@ -265,7 +259,6 @@ const char* AttachedCameraController::ModeLabel() const
 
 void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras )
 {
-
     if ( previousMode == RunCameraMode::Attach )
     {
         return;
@@ -294,7 +287,6 @@ void AttachedCameraController::CaptureReturnState( RunCameraMode previousMode, E
 
 void AttachedCameraController::RestoreReturnState( Environment::CameraCollection& cameras )
 {
-
     if ( !m_state.hasReturnCameraPose )
     {
         return;
@@ -312,7 +304,6 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 
 bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneWorld& collection, int& outModelIndex )
 {
-
     if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
     {
         return true;
@@ -362,7 +353,6 @@ bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection, floa
 
     // Why: only the first valid solve starts a tween. Later solves retarget the
     // live destination so a moving body never restarts the transition.
-
     if ( command.startEntryTween )
     {
         cameras.TweenPrimaryToPose( command.pose.eye, command.pose.view, command.pose.up );
@@ -627,13 +617,10 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
         // Invariant: duplicate scene object ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.
-
         for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
-
             if ( bodyRecords[static_cast<std::size_t>( i )].sceneObjectId == target.sceneObjectId )
             {
-
                 if ( match >= 0 )
                 {
                     target = AttachedCameraTarget {};
@@ -721,7 +708,6 @@ bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collecti
 
     for ( int i = 0; i < modelCount; ++i )
     {
-
         if ( entities.IsSimpleRagdollPart( i ) && entities.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
              EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
         {
@@ -882,7 +868,6 @@ bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection, At
                                                 float orbitPitchDelta, float presentationAlpha,
                                                 AttachedCameraPoseCommand& outCommand )
 {
-
     if ( state.submode == AttachedCameraSubmode::RagdollEyes )
     {
         int headIndex = -1;

@@ -47,7 +47,6 @@ constexpr uint32_t PHYSICS_EXTERNAL_FORCE_WORKER_HASH = HashStr( EXTERNAL_FORCE_
 
 float SmoothStep01( float edge0, float edge1, float value )
 {
-
     if ( fabsf( edge1 - edge0 ) <= TOLERANCE )
     {
         return value >= edge1 ? 1.0f : 0.0f;
@@ -86,7 +85,6 @@ Vector3 SampleFieldAcceleration( const ExternalCylindricalForceField& field, con
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 {
-
     if ( maxMagnitude <= TOLERANCE )
     {
         return ZERO_VECTOR;
@@ -186,7 +184,6 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input, 
                                           const ColliderStore& colliderStore, PhysicsNarrowphaseWakeAccess wakeAccess,
                                           const PhysicsExecutionSettings& execution, Threading::WorkerPool& workerPool )
 {
-
     if ( !input.Active() )
     {
         return;
@@ -283,7 +280,6 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input, 
     }
     else
     {
-
         for ( int index = 0; index < modelCount; ++index )
         {
             applyAt( index );
@@ -306,7 +302,6 @@ Vector3 ExternalForceStage::SampleAcceleration( const ExternalForceFrameInput& i
 
     // Invariant: strict-best selection and left-to-right accumulation preserve
     // the pre-extraction ejection owner and exact floating-point witness.
-
     for ( const ExternalCylindricalForceField& field : input.fields )
     {
         const Vector3 sample = SampleFieldAcceleration( field, position );

@@ -60,7 +60,6 @@ std::atomic<bool> g_tracyAllocationTracingEnabled { false };
 
 RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner ) noexcept
 {
-
     if ( owner == DevelopmentToolAllocationOwner::DearImGui )
     {
         static const RuntimeReserveOwnerHandle imguiOwner = RuntimeReserveAllocator::RegisterOwner( { "DevelopmentTools/DearImGui", RuntimeReserveSubsystem::DevelopmentTools, RuntimeReservePhase::BackendInit, 0,
@@ -128,7 +127,6 @@ void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::
 
 void FreeDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, void* pointer ) noexcept
 {
-
     if ( !pointer )
     {
         return;

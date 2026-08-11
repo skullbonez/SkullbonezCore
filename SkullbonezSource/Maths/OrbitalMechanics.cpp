@@ -144,7 +144,6 @@ OrbitalStatus SolveEccentricAnomaly( float meanAnomaly, float eccentricity, floa
 
 void Stumpff( double z, double& outC, double& outS )
 {
-
     if ( std::fabs( z ) < 1.0e-8 )
     {
         outC = 0.5;
@@ -349,7 +348,6 @@ OrbitalStatus PropagateToTime( const OrbitalElements& elements, float deltaSecon
 
 std::size_t SampleOrbitPolyline( const OrbitalElements& elements, std::span<Vector3> outPoints )
 {
-
     if ( !ValidElements( elements ) || outPoints.empty() )
     {
         return 0;

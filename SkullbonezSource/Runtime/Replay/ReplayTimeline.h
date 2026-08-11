@@ -80,7 +80,6 @@ namespace ReplayTimelineOperations
 {
 inline ReplayMemoryPreset ReplayMemoryPresetFromIndex( int presetIndex )
 {
-
     switch ( presetIndex )
     {
     case static_cast<int>( ReplayMemoryPreset::Balanced ):
@@ -138,7 +137,6 @@ inline ReplayMemoryPolicy ResolveReplayMemoryPolicy( ReplayMemoryPolicy policy )
 
     // Why: lower memory-budget requests keep the visual/presentation look as
     // long as possible and shorten solver/debug inspection history first.
-
     if ( policy.requestedBudgetMiB < 192 )
     {
         policy.solverRetentionSeconds = (std::min)( policy.solverRetentionSeconds, 30 );

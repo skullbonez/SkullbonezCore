@@ -130,7 +130,6 @@ template <std::size_t Capacity> struct RuntimeUiSurface
     // Returns false instead of growing storage or accepting an ambiguous id.
     bool TryAdd( const RuntimeUiControl& control )
     {
-
         if ( !control.id || controlCount >= Capacity || Find( control.id ) != nullptr )
         {
             return false;
@@ -143,10 +142,8 @@ template <std::size_t Capacity> struct RuntimeUiSurface
 
     RuntimeUiControl* Find( RuntimeUiControlId id )
     {
-
         for ( std::size_t index = 0; index < controlCount; ++index )
         {
-
             if ( controls[index].id == id )
             {
                 return &controls[index];
@@ -158,10 +155,8 @@ template <std::size_t Capacity> struct RuntimeUiSurface
 
     const RuntimeUiControl* Find( RuntimeUiControlId id ) const
     {
-
         for ( std::size_t index = 0; index < controlCount; ++index )
         {
-
             if ( controls[index].id == id )
             {
                 return &controls[index];
@@ -193,7 +188,6 @@ template <std::size_t Capacity> struct RuntimeUiSurface
 
         // Invariant: a higher-priority surface blocks both actions and visual
         // hover; clearing first prevents the previous pointer result leaking.
-
         if ( pointerBlocked )
         {
             return;

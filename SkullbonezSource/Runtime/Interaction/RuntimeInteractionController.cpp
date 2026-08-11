@@ -52,7 +52,6 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture, RuntimePoin
     // Invariant: every non-empty gesture must have both a compatible pointer
     // capture owner and a world owner. This keeps replay, editor, and
     // manipulator drags from overlapping after mode transitions.
-
     switch ( gesture.kind )
     {
     case RuntimeInteractionGestureKind::None:
@@ -162,7 +161,6 @@ RuntimeInteractionTransition RuntimeInteractionController::EnterCameraMode( RunC
     // Why: camera mode is the user-facing command, while workspace/owner is the
     // interaction contract. Keeping this mapping here makes mode transitions use
     // the same cleanup metadata as direct tool and replay owner transitions.
-
     switch ( mode )
     {
     case RunCameraMode::Demo:
@@ -189,7 +187,6 @@ RuntimeWorkspace RuntimeInteractionController::WorkspaceForOwner( WorldInteracti
 
     // Concept: workspace classification is interaction-domain vocabulary. Tool
     // routers ask this owner instead of duplicating replay/edit/live mappings.
-
     if ( owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
          owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
          owner == WorldInteractionOwner::ReplayCauseTree )
@@ -288,7 +285,6 @@ bool RuntimeInteractionController::ApplyGestureCommand( const RuntimeGestureComm
     }
     else
     {
-
         if ( command.gesture.kind == RuntimeInteractionGestureKind::None || m_gesture.kind != command.gesture.kind )
         {
             return false;
@@ -327,7 +323,6 @@ bool RuntimeInteractionController::BeginOwnedToolGesture( RuntimeWorkspace works
 
 void RuntimeInteractionController::EndGestureIfKind( RuntimeInteractionGestureKind kind )
 {
-
     if ( m_gesture.kind == kind )
     {
         EndGesture( InteractionExitReason::EndGesture );
@@ -337,7 +332,6 @@ void RuntimeInteractionController::EndGestureIfKind( RuntimeInteractionGestureKi
 
 void RuntimeInteractionController::CancelCameraLookGesture()
 {
-
     if ( m_pointerCapture == RuntimePointerCaptureOwner::CameraLook )
     {
         EndGesture( InteractionExitReason::EndGesture );
@@ -381,7 +375,6 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 void RuntimeInteractionController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
                                                           bool enterInspectAfterActivation )
 {
-
     if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         ResetForScene( InteractionExitReason::LoadScene );

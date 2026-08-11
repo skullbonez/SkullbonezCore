@@ -156,7 +156,6 @@ bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& comma
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
     // to commands whose interaction owner is already established.
-
     if ( command.claimSelectionOwner )
     {
         return false;
@@ -206,7 +205,6 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection, Sce
 void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneWorld& world, InputRouter& inputRouter,
                                           RuntimeInteractionController& interaction )
 {
-
     if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         return;
@@ -226,7 +224,6 @@ void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteracti
 
     // Invariant: the controller gesture is the sole capture fact. Clear native
     // presentation only when this owner actually held the typed pickup gesture.
-
     if ( interaction.Gesture().kind == RuntimeInteractionGestureKind::MousePickupDrag )
     {
         inputRouter.ReleaseNativeCapture();
@@ -267,7 +264,6 @@ bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int mode
 void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics, Physics::PhysicsBodyHandle body,
                                   const Math::Vector::Vector3& impulse, const Math::Vector::Vector3& worldApplicationOffset )
 {
-
     if ( !body.IsValid() )
     {
         return;
@@ -315,7 +311,6 @@ RunRayCastTestState& RuntimeTools::RayCastTest()
 
 bool RuntimeTools::ApplyRayCastVisualizationUICommand( const UI::UIPhysicsCommands& commands )
 {
-
     if ( !commands.toggleRayCastVisualization )
     {
         return false;
@@ -366,7 +361,6 @@ void RuntimeTools::ClearRayCastTestLines()
 
 void RuntimeTools::AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, bool hit )
 {
-
     if ( !m_rayCastTest.visualizeRays )
     {
         return;
@@ -387,7 +381,6 @@ void RuntimeTools::AddRayCastTestLine( const Math::Vector::Vector3& start, const
 
 void RuntimeTools::TickRayCastTestLines( float dt )
 {
-
     if ( dt <= 0.0f )
     {
         return;
@@ -395,7 +388,6 @@ void RuntimeTools::TickRayCastTestLines( float dt )
 
     for ( RunRayCastTestLine& line : m_rayCastTest.lines )
     {
-
         if ( line.active )
         {
             line.ageSeconds += dt;
@@ -405,7 +397,6 @@ void RuntimeTools::TickRayCastTestLines( float dt )
 
 bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 {
-
     if ( maxAgeSeconds <= 0.0f )
     {
         return false;
@@ -413,7 +404,6 @@ bool RuntimeTools::HasLingeredRayCastLine( float maxAgeSeconds ) const
 
     for ( const RunRayCastTestLine& line : m_rayCastTest.lines )
     {
-
         if ( line.active && line.ageSeconds < maxAgeSeconds )
         {
             return true;
@@ -569,7 +559,6 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain, const Math
     // Why: Terrain has no dedicated runtime ray query here, so the launcher
     // walks the ray and bisects the first terrain crossing to keep laser and
     // projectile aim consistent.
-
     for ( int step = 0; step <= RAY_STEPS; ++step )
     {
         const float t = maxDistance * static_cast<float>( step ) / static_cast<float>( RAY_STEPS );
@@ -633,7 +622,6 @@ bool RuntimeTools::TryLauncherTerrainHit( Geometry::Terrain* terrain, const Math
 bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cameras, Math::Vector::Vector3& outOrigin,
                                               Math::Vector::Vector3& outDirection, Math::Vector::Vector3& outCameraUp ) const
 {
-
     if ( !cameras )
     {
         return false;
@@ -709,7 +697,6 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
 
     // Why: the launcher is a cold input action, so it repairs any construction-
     // time world/store drift before entering handle-based physics queries.
-
     if ( world.RepairPhysicsBodyAndColliderTopology() &&
          FireLauncherRay( world, scene, input.activeModelCapacity, rayOrigin, rayDirection, cameraUp ) )
     {

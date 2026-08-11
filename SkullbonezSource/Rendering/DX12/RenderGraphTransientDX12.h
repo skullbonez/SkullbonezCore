@@ -55,7 +55,6 @@ struct GraphTransientResourceDX12
 
 inline bool ReleaseGraphTransientPoolSlotResourceDX12( GraphTransientResourceDX12& slot )
 {
-
     if ( !slot.resource )
     {
         return false;

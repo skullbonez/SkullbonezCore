@@ -569,7 +569,6 @@ class ReplaySolverRecorder
 
         for ( std::size_t i = 0; i < m_sampleCount; ++i )
         {
-
             if ( ResolveSolverSampleAtOffset( i, m_resolvedSolverSample ) )
             {
                 visitor( m_resolvedSolverSample );
@@ -583,7 +582,6 @@ class ReplaySolverRecorder
     template <typename Visitor>
     bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
     {
-
         if ( m_sampleCount == 0 || m_samples.empty() )
         {
             return true;
@@ -607,7 +605,6 @@ class ReplaySolverRecorder
 
             for ( uint32_t metadataIndex : frame.bodyMetadataIndices )
             {
-
                 if ( metadataIndex >= m_solverBodyMetadata.size() )
                 {
                     return false;
@@ -631,7 +628,6 @@ class ReplaySolverRecorder
 
             for ( const ReplaySolverBodyDelta& delta : frame.changedBodies )
             {
-
                 if ( delta.metadataIndex == frameMetadataIndex )
                 {
                     activeState = delta.state;

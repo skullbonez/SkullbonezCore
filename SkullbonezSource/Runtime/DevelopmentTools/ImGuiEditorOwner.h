@@ -211,7 +211,6 @@ class ImGuiEditorFrameStatusLease
 
     void Record( const SkullbonezCore::Core::SbResult& status ) noexcept
     {
-
         if ( m_status.Ok() && !status.Ok() )
         {
             m_status = status;

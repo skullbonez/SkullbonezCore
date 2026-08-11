@@ -134,7 +134,6 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
 
     // Invariant: the probe applies the same owner-to-owner publication facts as
     // production without receiving mutable prediction storage.
-
     if ( result.targetModelRowRepaired )
     {
         presentation.SetPathTargetModelRow( result.repairedTargetModelRow );
@@ -152,7 +151,6 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
 
     for ( std::size_t passIndex = 0; passIndex < result.budgetExpiries.size(); ++passIndex )
     {
-
         for ( uint32_t count = 0; count < result.budgetExpiries[passIndex]; ++count )
         {
             prediction.PresentationOwner().RecordTrajectoryBudgetExpiry( static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
@@ -161,7 +159,6 @@ void ApplyReplayProbePredictionResult( const ReplayPredictionUpdateResult& resul
 
     for ( std::size_t causeIndex = 0; causeIndex < result.rebuildCauses.size(); ++causeIndex )
     {
-
         for ( uint32_t count = 0; count < result.rebuildCauses[causeIndex]; ++count )
         {
             prediction.PresentationOwner().RecordTrajectoryRebuildCause( static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
@@ -412,7 +409,6 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( Skullbone
 
         // Invariant: the replay probe exercises the same explicit collider
         // edit command as the editor instead of relying on a model recapture.
-
         if ( !physics
                   .UpdateAuthoredBodyAndCollider( placedBodyEdit,
                                                   MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
@@ -554,10 +550,8 @@ SkullbonezCore::Core::SbResult ValidateReplaySaveProbeArtifact( SkullbonezCore::
 
     for ( const ReplayBodyPresentationSample& candidate : selected.bodies )
     {
-
         for ( const ReplayBodyPresentationSample& liveCandidate : live.bodies )
         {
-
             if ( liveCandidate.id.value != candidate.id.value )
             {
                 continue;
@@ -770,7 +764,6 @@ ReplayRuntime::TickProbes( SceneController& sceneController, OverlayDebugState& 
             // Invariant: the external fixture returns facts only. Apply replay
             // events here in the same order as the live actions so recorder
             // sequence numbers and artifact bytes remain unchanged.
-
             if ( commands.recordWorldOverride )
             {
                 SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( commands.previousGravity, commands.previousFluidHeight,
@@ -883,7 +876,6 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( SceneWorld& wo
 
     for ( const ReplayBodyPresentationSample& candidate : selected->bodies )
     {
-
         if ( candidate.fixed )
         {
             continue;
@@ -891,7 +883,6 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( SceneWorld& wo
 
         for ( const ReplayBodyPresentationSample& liveCandidate : live->bodies )
         {
-
             if ( liveCandidate.id.value != candidate.id.value )
             {
                 continue;
@@ -1081,7 +1072,6 @@ ReplayProbeRestoreRequest ReplayProbeRunner::PrepareRestoreProbe( const ReplayTi
 SkullbonezCore::Core::SbResult ReplayProbeRunner::CompleteRestoreProbe( const ReplayProbeRestoreRequest& request,
                                                                         bool restored, const char* reason )
 {
-
     if ( !restored )
     {
         return m_resultDiagnostics.Failure( REPLAY_PROBE_OWNER, "replay restore probe failed: %s",
@@ -1139,7 +1129,6 @@ ReplayProbeSaveRequest ReplayProbeRunner::PrepareSaveProbe( const ReplayTimeline
 void ReplayProbeRunner::CompleteSaveProbe( const ReplayProbeSaveRequest& request,
                                            const SkullbonezCore::Core::SbResult& result )
 {
-
     if ( request.action == ReplayProbeSaveAction::ValidateArtifact && result.Ok() )
     {
         m_probes.save.completed = true;
@@ -1163,7 +1152,6 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
                                              ReplayPrediction& prediction, const ReplayStartupLoadInput& loadInput,
                                              SceneWorld& world, RuntimeTools& runtimeTools, float normalized )
 {
-
     if ( prediction.GenerationPermitted() )
     {
         return ReplayProbeFailure( "replay load probe did not disable prediction generation" );
@@ -1190,7 +1178,6 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
 
     if ( hasVisualPackets )
     {
-
         for ( std::size_t index = 0; index < visualPackets.size(); ++index )
         {
             const ReplayVisualArchiveSample& packet = visualPackets[index];
@@ -1345,10 +1332,8 @@ ReplayProbeRunner::VerifyLoadedPresentation( ReplayTimeline& timeline, ReplayScr
 
     for ( const ReplayBodyPresentationSample& candidate : selected->bodies )
     {
-
         for ( const ReplayBodyPresentationSample& latestCandidate : latest->bodies )
         {
-
             if ( latestCandidate.id.value != candidate.id.value )
             {
                 continue;
@@ -1461,7 +1446,6 @@ SkullbonezCore::Core::SbResult
 ReplayProbeRunner::PrepareCheckpointFileProbe( const char* path, ReplaySolverFrameSample& outCheckpoint,
                                                ReplayV2SolverCheckpointLoadResult& outLoadResult )
 {
-
     if ( !path || path[0] == '\0' )
     {
         return ReplayProbeFailure( "replay restore file probe requires a v2 artifact path" );
@@ -1493,7 +1477,6 @@ ReplayProbeRunner::CompleteCheckpointFileProbe( const char* path, const ReplaySo
                                                 const ReplayV2SolverCheckpointLoadResult& loadResult, bool restored,
                                                 const char* reason )
 {
-
     if ( !restored )
     {
         return m_resultDiagnostics.Failure( REPLAY_PROBE_OWNER, "replay restore file probe failed: %s",
@@ -1516,7 +1499,6 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::CompleteTargetFileProbe( const
                                                                            const RunReplayV2TargetRestoreResult& result,
                                                                            bool restored, const char* reason )
 {
-
     if ( !restored )
     {
         return m_resultDiagnostics.Failure( REPLAY_PROBE_OWNER, "replay restore target probe failed: %s",
@@ -1564,7 +1546,6 @@ ReplayFailureProbeRequest ReplayProbeRunner::AdvanceFailureFileProbe( const Repl
 
     if ( request.action == ReplayFailureProbeAction::RestoreMissingTarget )
     {
-
         if ( result.succeeded )
         {
             next.status = ReplayProbeFailure( "replay restore failure probe unexpectedly restored a missing target frame" );
@@ -1590,7 +1571,6 @@ ReplayFailureProbeRequest ReplayProbeRunner::AdvanceFailureFileProbe( const Repl
 
     if ( request.action == ReplayFailureProbeAction::CaptureRollbackSample )
     {
-
         if ( !result.succeeded || !result.capturedSample )
         {
             next.status = ReplayProbeFailure( "replay restore failure probe could not capture the live rollback sample" );
@@ -1606,7 +1586,6 @@ ReplayFailureProbeRequest ReplayProbeRunner::AdvanceFailureFileProbe( const Repl
 
     if ( request.action == ReplayFailureProbeAction::RestoreCorruptedTarget )
     {
-
         if ( result.succeeded )
         {
             next.status = ReplayProbeFailure( "replay restore hash-failure probe unexpectedly restored a corrupted target" );
@@ -1632,7 +1611,6 @@ ReplayFailureProbeRequest ReplayProbeRunner::AdvanceFailureFileProbe( const Repl
 
     if ( request.action == ReplayFailureProbeAction::CaptureRollbackHash )
     {
-
         if ( !result.succeeded || !request.rollbackReference )
         {
             next.status = ReplayProbeFailure( "replay restore hash-failure probe could not capture the rolled-back live solver" );
@@ -1671,7 +1649,6 @@ ReplayProbeRunner::PrepareBranchFileProbe( ReplayTimeline& timeline, ReplayScrub
                                            ReplayPrediction& prediction, const ReplayStartupLoadInput& loadInput,
                                            SceneWorld& world, const char* path, ReplayLiveRestoreRequest& outRequest )
 {
-
     if ( !timeline.LoadPresentationArtifact( path ) )
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
@@ -1749,7 +1726,6 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
 {
     auto copyPath = []( char* destination, std::size_t destinationSize, const char* source )
     {
-
         if ( source && source[0] != '\0' )
         {
             strncpy_s( destination, destinationSize, source, _TRUNCATE );
@@ -1763,7 +1739,6 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
 
     // Probe assertion lane: launch configuration is an owner command. Run
     // supplies value-only CLI facts and cannot mutate completion/failure state.
-
     if ( request.scrubProbe )
     {
         m_probes.scrub.enabled = true;
@@ -1782,7 +1757,6 @@ void ReplayProbeRunner::ConfigureDebug( const ReplayStartupRequest& request )
 
     if ( request.saveProbe )
     {
-
         if ( !request.saveProbePath || request.saveProbePath[0] == '\0' )
         {
             m_probes.RecordFailure( m_resultDiagnostics.Failure( "ReplayProbe", "replay save probe requires an output path" ) );
@@ -1813,7 +1787,6 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
 
     auto acceptProbe = [&result]( const SkullbonezCore::Core::SbResult& probeResult ) -> bool
     {
-
         if ( !probeResult.Ok() )
         {
             result.status = probeResult;
@@ -1827,7 +1800,6 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
 
     if ( startup.loadProbe )
     {
-
         if ( startup.loadPath[0] == '\0' )
         {
             result.status = m_resultDiagnostics.Failure( "ReplayProbe", "replay load probe requires a replay path" );
@@ -1940,7 +1912,6 @@ ReplayStartupResult ReplayRuntime::RunStartupProbeWorkflows( const ReplayStartup
 
         // Lifetime: each result is consumed immediately. The request may borrow
         // liveBackup only until this synchronous startup loop finishes.
-
         while ( request.status.Ok() && request.action != ReplayFailureProbeAction::None )
         {
             ReplayFailureProbeStepResult step;

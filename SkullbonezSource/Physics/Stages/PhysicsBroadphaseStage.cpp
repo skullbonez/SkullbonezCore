@@ -93,7 +93,6 @@ void AppendCandidatePairIfMissing( Physics::PhysicsCandidatePairList& candidateP
 
     for ( const std::pair<int, int>& pair : candidatePairs )
     {
-
         if ( pair.first == a && pair.second == b )
         {
             return;
@@ -116,7 +115,6 @@ void AppendCandidatePairIfMissing( Physics::PhysicsCandidatePairList& candidateP
 bool IsFastSmallSweepBody( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                            std::span<const Physics::ColliderRecord> colliderRecords, int bodyIndex, float dt )
 {
-
     if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return false;
@@ -177,7 +175,6 @@ bool AppendFastSmallSweepPairs( Physics::PhysicsCandidatePairList& candidatePair
 
     for ( int movingIndex : awakeBodyIndices )
     {
-
         if ( !IsFastSmallSweepBody( hotFields, colliderRecords, movingIndex, dt ) )
         {
             continue;
@@ -187,7 +184,6 @@ bool AppendFastSmallSweepPairs( Physics::PhysicsCandidatePairList& candidatePair
 
         for ( int targetIndex = 0; targetIndex < modelCount; ++targetIndex )
         {
-
             if ( movingIndex != targetIndex && SweptSegmentTouchesExpandedBody( hotFields, colliderRecords, movingIndex,
                                                                                 targetIndex, dt, contactEpsilon ) )
             {
@@ -285,7 +281,6 @@ void TryRecordSleepPrunedCandidatePair( Physics::PhysicsPipelineTraceRecorder& p
                                         const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                         const std::pair<int, int>& pair )
 {
-
     if ( !physicsPipelineTrace.CanRecord() )
     {
         return;
@@ -309,7 +304,6 @@ bool TryRecordBroadphaseCandidatePair( Physics::PhysicsPipelineTraceRecorder& ph
                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields, int modelCount,
                                        const std::pair<int, int>& pair, size_t candidateCount )
 {
-
     if ( !physicsPipelineTrace.CanRecord() )
     {
         return false;
@@ -516,7 +510,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
             // Cold boundary: seed every persistent membership once, but stamp
             // only awake dynamic bodies as this frame's pair-work sources.
-
             for ( int bodyIndex = 0; bodyIndex < modelCount; ++bodyIndex )
             {
                 const bool isAwakeSource = !IsSolverBodyFixed( hotFields, bodyIndex ) &&
@@ -533,7 +526,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
             // P3 invariant: sleepers keep their last persistent range. Only
             // awake bodies can move, sweep, or source new narrowphase work.
-
             for ( int bodyIndex : awakeBodyIndices )
             {
                 maintainBody( bodyIndex, true );
@@ -604,7 +596,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // Why: every retained candidate already passed the pair-validity gate,
         // so count-only mode can batch the canonical event cardinality without
         // loading either body's position or comparing capacity per pair.
-
         if ( !physicsPipelineTrace.RetainsFullRecords() )
         {
             std::size_t pipelineEventCount = m_candidatePairs.size();
@@ -643,7 +634,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
             for ( const auto& pair : m_candidatePairs )
             {
-
                 if ( !TryRecordBroadphaseCandidatePair( physicsPipelineTrace, hotFields, modelCount, pair,
                                                         m_candidatePairs.size() ) )
                 {
@@ -660,14 +650,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // The production path never walks sleep-only cells. Debug retains the
         // old diagnostic evidence at the earlier emission skip instead of
         // paying for a solver-visible list followed by a prune pass.
-
         if ( !physicsPipelineTrace.RetainsFullRecords() )
         {
             physicsPipelineTrace.RecordEvents( m_sleepPrunedPairs.size() );
         }
         else
         {
-
             for ( const std::pair<int, int>& pair : m_sleepPrunedPairs )
             {
                 TryRecordSleepPrunedCandidatePair( physicsPipelineTrace, hotFields, pair );
@@ -718,7 +706,6 @@ PhysicsCollisionCellKeyList& PhysicsBroadphaseStage::CollisionCellKeysForReplay(
 
 void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 {
-
     if ( m_collisionCellKeys.size() >= m_collisionCellKeys.capacity() )
     {
         assert( false && "Physics collision-cell key capacity exceeded" );

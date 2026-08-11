@@ -125,7 +125,6 @@ static_assert( PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES == 106u );
 // from attributing work to the wrong frame.
 double EstimatePhysicsHotBytesPerBodyStep( int totalBodies, int forceAwakeBodies, int integrateAwakeBodies )
 {
-
     if ( totalBodies <= 0 )
     {
         return 0.0;
@@ -158,7 +157,6 @@ float SolverBodyRadius( std::span<const ColliderRecord> colliderRecords, int bod
 bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore, std::span<const PointJointConstraint> pointJointConstraints,
                            int bodyA, int bodyB )
 {
-
     if ( bodyA < 0 || bodyB < 0 || bodyA == bodyB )
     {
         return false;
@@ -222,7 +220,6 @@ std::size_t ReplaySolverSnapshotReserveCapacity( const std::vector<T>& values, s
     // Why: replay snapshots are diagnostics payloads, not steady gameplay
     // storage. Chunking capacity here keeps prediction exploration from logging
     // a chain of tiny reserve events as contact caches discover denser frames.
-
     if ( requestedCapacity <= values.capacity() )
     {
         return values.capacity();
@@ -255,7 +252,6 @@ uint64_t ReplaySolverSnapshotRequestedBytes( const std::vector<T>& values, std::
 template <typename T>
 void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requestedCapacity, const char* label )
 {
-
     if ( requestedCapacity <= values.capacity() )
     {
         return;
@@ -476,7 +472,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 
     if ( snapshotNeedsGrowth )
     {
-
         if ( requestedSnapshotBytes > static_cast<uint64_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
         {
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
@@ -529,7 +524,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 
 bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount )
 {
-
     if ( snapshot.version < 1 || snapshot.version > 2 || snapshot.modelCount != modelCount )
     {
         return false;
@@ -570,10 +564,8 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 
     // Invariant: Solve selected this same step-owned mode before producing
     // effects, so exactly one representation is committed here.
-
     if ( m_stepDiagnostics.RetainsFullPipelineRecords() )
     {
-
         for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
         {
             m_stepDiagnostics.RecordPipelineStage( record );
@@ -703,7 +695,6 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore, const Colli
                                         const ExternalForceFrameInput& input, const PhysicsExecutionSettings& execution,
                                         Threading::WorkerPool& workerPool )
 {
-
     if ( !input.Active() )
     {
         return;
@@ -730,7 +721,6 @@ void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore, const Colli
 
 void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event )
 {
-
     if ( event.emitCollisionTime )
     {
 #ifdef _DEBUG
@@ -782,10 +772,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
         // Cold/explicit-seed boundary only. Ordinary island transitions probe
         // the exact body as it sleeps, so dormant rows have zero steady cost.
-
         for ( int x = 0; x < modelCount; ++x )
         {
-
             if ( sleepStates[x] )
             {
                 m_sleepController.LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, buoyancyFacts,
@@ -862,7 +850,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
         if ( narrowphasePolicy.retainPipelineRecords )
         {
-
             for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
             {
                 const ObjectNarrowphaseEvent& event = events[static_cast<size_t>( pairIndex )];
@@ -901,7 +888,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
         if ( narrowphasePolicy.retainPipelineRecords )
         {
-
             for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
             {
                 ObjectNarrowphaseEvent event;
@@ -961,10 +947,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore, const Collider
 
     // Why: duplicate the short commit lane so the diagnostic-mode decision is
     // hoisted outside the body loop and count-only code cannot construct rows.
-
     if ( m_stepDiagnostics.RetainsFullPipelineRecords() )
     {
-
         for ( int x : awakeBodyIndices )
         {
             const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
@@ -1153,7 +1137,6 @@ void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
     // Invariant: remove every joint that names the retiring handle before the
     // body slot can be reused. Runtime joint rows are dense, but moving a row
     // retains its stable handle so unrelated callers are never retargeted.
-
     for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
     {
         const PointJointConstraint& constraint = m_pointJointConstraints[index];
@@ -1176,7 +1159,6 @@ void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
 
 PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-
     if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
     {
         return PhysicsConstraintHandle {};
@@ -1204,7 +1186,6 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
 
     // Lane F: exhausting the monotonic handle space would let a stale command
     // retarget a new joint. A scene cannot approach this limit legitimately.
-
     if ( m_nextPointJointHandleIndex == ( std::numeric_limits<uint32_t>::max )() )
     {
         SB_FATAL( "Physics/PointJoint", "Constraint handle index exhausted before a lifecycle clear" );
@@ -1272,7 +1253,6 @@ bool PhysicsWorld::DestroyConstraint( PhysicsConstraintHandle constraint )
 
     // Invariant: compaction moves the complete row, including its stable
     // handle, so a surviving constraint keeps its identity.
-
     if ( found + 1 != m_pointJointConstraints.end() )
     {
         *found = m_pointJointConstraints.back();

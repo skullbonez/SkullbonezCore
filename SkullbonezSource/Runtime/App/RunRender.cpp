@@ -45,7 +45,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     Renderer().ResourceLifecycle().SetUiTextDxrReflectionPreviewTexture( 0 );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
-
     if ( debug.isTextOnly )
     {
         return;

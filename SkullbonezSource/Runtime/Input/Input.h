@@ -99,7 +99,6 @@ struct InputState
     }
     void Set( Key k, bool v )
     {
-
         if ( v )
         {
             keys |= ( 1u << k );

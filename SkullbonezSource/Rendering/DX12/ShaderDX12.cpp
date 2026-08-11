@@ -52,7 +52,6 @@ size_t HashShaderBytecode( ID3DBlob* blob )
     // Why: PSO cache keys must survive scene reloads. Shader blobs can be
     // reallocated at new addresses even when their compiled bytecode is
     // identical, so pointer identity is too volatile for long stress runs.
-
     if ( !blob )
     {
         return 0;
@@ -82,7 +81,6 @@ ShaderDX12::ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, D
       m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ),
       m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
-
     if ( registerForDevelopment )
     {
         m_shaderDevelopment.RegisterShader( this );
@@ -94,7 +92,6 @@ ShaderDX12::ShaderDX12( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, D
 
 ShaderDX12::~ShaderDX12()
 {
-
     if ( m_registeredForDevelopment )
     {
         m_shaderDevelopment.UnregisterShader( this );
@@ -158,7 +155,6 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
     }
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
-
     if ( !ReflectCB( m_vsBlob.Get(), hlslPath, "vs" ) || !ReflectCB( m_psBlob.Get(), hlslPath, "ps" ) )
     {
         return false;
@@ -196,7 +192,6 @@ bool ShaderDX12::Compile( const char* hlslPath, const char* contractBaseName )
 
 bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
 {
-
     if ( m_sourcePath != candidate.m_sourcePath || m_contract != candidate.m_contract ||
          m_cbReflectedSize != candidate.m_cbReflectedSize || m_cbSize != candidate.m_cbSize ||
          m_uniformMap.size() != candidate.m_uniformMap.size() )
@@ -379,7 +374,6 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
             // Invariant: only b0 draw constants belong to the CPU uniform
             // image. The b1 bindless indices are root constants published by
             // the pipeline owner immediately before each draw.
-
             if ( isDrawConstants )
             {
                 m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
@@ -390,7 +384,6 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
     // Invariant: startup reflects the loaded bytes again and compares every
     // field against the checked-in POD table. This catches stale generated
     // metadata, offsets, or cbuffer sizes even if an asset was copied by hand.
-
     if ( bakedStage->cbufferSize != 0 )
     {
         bool sizeMatched = false;
@@ -460,7 +453,6 @@ bool ShaderDX12::ReflectCB( ID3DBlob* blob, const char* hlslPath, const char* st
 
 bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 {
-
     if ( !m_contract )
     {
         outError = "missing CPU shader contract";
@@ -497,7 +489,6 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
     for ( const auto& reflected : m_uniformMap )
     {
-
         if ( !reflected.first.empty() && reflected.first[0] != '_' &&
              !FindShaderUniformDecl( *m_contract, reflected.first.c_str() ) )
         {
@@ -508,7 +499,6 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
     for ( const auto& reflected : m_resourceMap )
     {
-
         if ( reflected.second.type == D3D_SIT_TEXTURE && !FindShaderResourceDecl( *m_contract, reflected.first.c_str() ) )
         {
             outError = std::string( "undeclared texture resource: " ) + reflected.first;
@@ -522,7 +512,6 @@ bool ShaderDX12::ValidateReflectedContract( std::string& outError ) const
 
 void ShaderDX12::Use() const
 {
-
     if ( m_device.Device() )
     {
         m_pipeline.SetActiveShader( this );
@@ -539,10 +528,8 @@ namespace
 {
 bool ContainsWarningKey( const std::vector<std::string>& warnings, const std::string& key )
 {
-
     for ( const std::string& warning : warnings )
     {
-
         if ( warning == key )
         {
             return true;
@@ -554,7 +541,6 @@ bool ContainsWarningKey( const std::vector<std::string>& warnings, const std::st
 
 ShaderValueType ShaderValueTypeForSetter( const char* setterName )
 {
-
     if ( std::strcmp( setterName, "SetInt" ) == 0 )
     {
         return ShaderValueType::Int;
@@ -580,7 +566,6 @@ ShaderValueType ShaderValueTypeForSetter( const char* setterName )
 
 const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
 {
-
     switch ( type )
     {
     case D3D_SIT_CBUFFER:
@@ -604,7 +589,6 @@ const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
 
 const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
 {
-
     switch ( dimension )
     {
     case D3D_SRV_DIMENSION_UNKNOWN:
@@ -637,7 +621,6 @@ const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
 bool ShaderResourceKindMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType,
                                 D3D_SRV_DIMENSION reflectedDimension )
 {
-
     switch ( kind )
     {
     case ShaderResourceKind::Texture2D:
@@ -651,7 +634,6 @@ bool ShaderResourceKindMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE r
 
 void ShaderDX12::ResetContractActivation() const
 {
-
     if ( !m_contract )
     {
         return;
@@ -670,7 +652,6 @@ void ShaderDX12::ResetContractActivation() const
 
 void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterName ) const
 {
-
     if ( !m_contract || !name )
     {
         return;
@@ -681,7 +662,6 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
 
     if ( !uniform )
     {
-
         for ( size_t i = 0; i < m_contract->resourceCount; ++i )
         {
             const ShaderResourceDecl& resource = m_contract->resources[i];
@@ -739,7 +719,6 @@ void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterNam
 
 void ShaderDX12::ReportMissingRequiredContractUniforms() const
 {
-
     if ( !m_contract || m_contractUniformsSet.size() != m_contract->uniformCount )
     {
         return;
@@ -768,7 +747,6 @@ void ShaderDX12::ReportMissingRequiredContractUniforms() const
 
 void ShaderDX12::ReportContractReflectionMismatch() const
 {
-
     if ( !m_contract )
     {
         return;
@@ -793,7 +771,6 @@ void ShaderDX12::ReportContractReflectionMismatch() const
 
         if ( reflected == m_resourceMap.end() )
         {
-
             if ( resource.required )
             {
                 SkullbonezCore::Core::Log().WriteEventf( "shader_contract_required_resource_not_reflected shader=%s "
@@ -827,7 +804,6 @@ void ShaderDX12::ReportContractReflectionMismatch() const
 
 void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setterName ) const
 {
-
     if ( !m_contract )
     {
         return;
@@ -854,7 +830,6 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
 
 const ShaderDX12::UniformInfo* ShaderDX12::FindUniformInfo( const char* name ) const
 {
-
     if ( !name )
     {
         return nullptr;
@@ -864,10 +839,8 @@ const ShaderDX12::UniformInfo* ShaderDX12::FindUniformInfo( const char* name ) c
     // temporary std::string in C++17. Uniform tables are small and populated at
     // shader compile time, so a direct compare keeps per-draw setters allocation
     // free while preserving the reflected-name contract.
-
     for ( const auto& entry : m_uniformMap )
     {
-
         if ( std::strcmp( entry.first.c_str(), name ) == 0 )
         {
             return &entry.second;
@@ -996,7 +969,6 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
     // not a partial update API. Require the reflected byte size exactly so field
     // order, padding, and matrix packing cannot silently drift between C++ and
     // shader code.
-
     if ( bytes.size() != m_cbReflectedSize )
     {
 #ifdef _DEBUG
@@ -1022,7 +994,6 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
         // Typed blocks replace per-uniform setters for this activation. Mark
         // all contract uniforms as set so Debug diagnostics still catch stale
         // reflected layouts without falsely reporting every field in the block.
-
         if ( m_contractUniformsSet.size() != m_contract->uniformCount )
         {
             m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 1 ) );
@@ -1040,7 +1011,6 @@ bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, c
 
 D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 {
-
     if ( m_cbSize == 0 )
     {
         return 0;
@@ -1125,7 +1095,6 @@ bool ShaderDX12::ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, 
 
     auto componentCount = []( DXGI_FORMAT format ) -> size_t
     {
-
         switch ( format )
         {
         case DXGI_FORMAT_R32_FLOAT:

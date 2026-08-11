@@ -113,7 +113,6 @@ constexpr int REPLAY_PREDICTION_DETERMINISTIC_TICKS_PER_SUBMIT = 8;
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics::PhysicsSceneObjectId id, int modelIndexHint,
                                      int modelCount, int& outModelIndex )
 {
-
     if ( id.value == 0 )
     {
         return false;
@@ -140,7 +139,6 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore, Physics:
     // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
     // keeps stable scene object identity in Physics::PhysicsSceneObjectId while this resolver heals or
     // invalidates the dense-row guess.
-
     if ( !TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
         hint.value = -1;
@@ -259,7 +257,6 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore, Skullb
     // Invariant: this loop reads authoritative hot-field rows and one
     // presentation timer, then writes one output slot per body. Applying
     // backups remains serial because it mutates physics body state.
-
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelForNoAlloc( 0, modelCount, captureBody, REPLAY_PREDICTION_PARALLEL_BODY_MIN,
@@ -268,7 +265,6 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore, Skullb
     }
     else
     {
-
         for ( int i = 0; i < modelCount; ++i )
         {
             captureBody( i );
@@ -425,7 +421,6 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
     // Invariant: capture reads the store rows advanced by the prediction step.
     // A replay-only legacy object record writeback would copy every temporary pose just so
     // this loop could read the same values back into prediction samples.
-
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelForNoAlloc( 0, modelCount, captureBody, REPLAY_PREDICTION_PARALLEL_BODY_MIN,
@@ -434,7 +429,6 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction, const P
     }
     else
     {
-
         for ( int i = 0; i < modelCount; ++i )
         {
             captureBody( i );
@@ -561,7 +555,6 @@ int RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction, const 
         // Invariant: a physics tick is indivisible. Check the real worker
         // clock only after publishing the completed tick, then leave the
         // unprocessed range at the task cursor for the next frame.
-
         if ( !prediction.revealClock.deterministicFrameEnabled &&
              std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - probeStart ).count() >=
                  REPLAY_PREDICTION_MAX_WORK_MILLISECONDS )
@@ -622,7 +615,6 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
                                                float solverTrackPosition, float solverPresentTrackPosition,
                                                ReplayPredictionUpdateResult& result )
 {
-
     if ( prediction.build.publication.WorkerFailed() )
     {
         const bool preserveCommittedFuture = prediction.simulation.frames.size() >= 2u;
@@ -731,7 +723,6 @@ ReplayPrediction::BeginFrameSource( PhysicsEngine& physicsEngine, const Skullbon
     // us before setup starts, but once replay scratch and solver state are
     // reserved we must publish frame 0 so large predictions can draw progress
     // instead of thrashing a dirty begin job every render frame.
-
     if ( ReplayPredictionBudgetExpiredForPass( result, SkullbonezCore::Core::MainMemoryReplayBudgetPass::PredictionBegin,
                                                budgetStart, budgetMilliseconds ) )
     {
@@ -1033,7 +1024,6 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner, RunReplayPredic
     // Invariant: every mode offers the worker the complete remaining horizon.
     // The worker's steady-clock check, not a predicted tick count, stops the
     // submitted range at the first completed tick at or after five milliseconds.
-
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Instant" );
@@ -1102,7 +1092,6 @@ ReplayPredictionFrameSourceAction ReplayPrediction::SelectFrameSource( const Rep
 
     if ( !prediction.enabled )
     {
-
         if ( prediction.build.building )
         {
             predictionOwner.CancelJob( false );
@@ -1192,7 +1181,6 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
     // accounting and baseline capture therefore occur only on a pass that is
     // actually allowed to begin replacement work, matching the original
     // single-operation ordering.
-
     if ( prediction.build.dirty )
     {
         ++result.rebuildCauses[static_cast<std::size_t>( SkullbonezCore::Core::MainMemoryReplayRebuildCause::Dirty )];
@@ -1204,7 +1192,6 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
 
     if ( prediction.baseline.comparisonActive && !prediction.baseline.valid && prediction.simulation.frames.size() >= 2 )
     {
-
         if ( !CaptureReplayPredictionBaselineSnapshot( prediction, prediction.simulation.frames,
                                                        prediction.simulation.frames.size(), targetId,
                                                        targetModelRow.value ) )
@@ -1217,10 +1204,8 @@ void ReplayPrediction::PrepareFrameRebuild( Physics::PhysicsSceneObjectId target
 
 void ReplayPrediction::CompleteFrameSourceBegin( bool began, bool wasDirty, bool wasPendingLatestRestart ) noexcept
 {
-
     if ( began )
     {
-
         if ( wasPendingLatestRestart )
         {
             ++m_state.build.latestRestartBeginCount;
@@ -1299,7 +1284,6 @@ void ReplayPrediction::PreparePresentation( const SceneEntityStore& entities, co
 }
 void ReplayPrediction::MarkDirty() noexcept
 {
-
     if ( !m_generationPermitted )
     {
 
@@ -1340,7 +1324,6 @@ void ReplayPrediction::SetEnabled( bool enabled ) noexcept
 void ReplayPrediction::ApplyAuthoringRequest( const ReplayAuthoringPredictionRequest& request, float minHorizonSeconds,
                                               float maxHorizonSeconds )
 {
-
     if ( request.prepareVelocityMutationBaseline )
     {
         (void)PrepareVelocityMutationBaseline();
@@ -1394,7 +1377,6 @@ bool ReplayPrediction::BuildArchive( const RunReplayPathVisualizerState& pathVis
 
 void ReplayPrediction::SetHorizonSeconds( float horizonSeconds ) noexcept
 {
-
     if ( m_state.simulation.horizonSeconds == horizonSeconds )
     {
         return;
@@ -1459,7 +1441,6 @@ void ReplayPrediction::SetRevealRatePreservingCursor( double revealRate ) noexce
 
 bool ReplayPrediction::PrepareVelocityMutationBaseline() noexcept
 {
-
     if ( ( !m_state.build.complete || m_state.simulation.frames.size() < 2u ) && !m_state.baseline.comparisonActive )
     {
         return false;
@@ -1585,7 +1566,6 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
     const bool traversalOk = solver.ForEachBodyPositionChronological( path.targetId,
                                                                       [&]( ReplayFrameIndex frameIndex, SkullbonezCore::Physics::ModelRowHint modelRow, const Vector3& position )
                                                                       {
-
                                                                       if ( !rebuildOk )
                                                                       {
                                                                       return;
@@ -1595,7 +1575,6 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
 
                                                                       if ( rebuildOk )
                                                                       {
-
                                                                       if ( !hasSample )
                                                                       {
                                                                       firstFrame = frameIndex;
@@ -1631,7 +1610,6 @@ ReplayPastTrajectoryUpdate ReplayPrediction::RefreshPastTrajectoryStore( const R
                                                                       const ReplaySolverFrameSample& sample,
                                                                       ReplayPastTrajectoryUpdate& update )
 {
-
     if ( !path.hasTarget || path.targetId.value == 0 || !path.valid || path.retainedTargetId.value != path.targetId.value )
     {
         return;

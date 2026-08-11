@@ -75,7 +75,6 @@ DemoCameraPose LerpPose( const DemoCameraPose& from, const DemoCameraPose& to, f
 
 float PhaseBlendAlpha( const DemoPhase& phase, float blendElapsedSeconds )
 {
-
     if ( phase.blendInSeconds <= 0.0f )
     {
         return 1.0f;
@@ -167,7 +166,6 @@ void ResetPhaseEntryApplications( DemoDirectorPlaybackState& director )
 
 bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, DemoDirectorPredictionView prediction )
 {
-
     if ( !IsCurrentPhaseValid( director ) )
     {
         return false;
@@ -193,7 +191,6 @@ bool CurrentPhaseRequestsAdvance( const DemoDirectorPlaybackState& director, Dem
 
 void ApplyPhaseRevealRateIfNeeded( DemoDirectorPlaybackState& director, DemoDirectorTickResult& result )
 {
-
     if ( !IsCurrentPhaseValid( director ) )
     {
         return;
@@ -227,7 +224,6 @@ void ApplyPhaseStyleIfNeeded( SkullbonezCore::Core::SbDiagnosticStore& resultDia
                               SkullbonezCore::Core::CinematicRenderConfig& activeCinematic,
                               const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic )
 {
-
     if ( !IsCurrentPhaseValid( director ) )
     {
         return;
@@ -309,7 +305,6 @@ bool AdvancePhase( CameraControlState& camera, Environment::CameraCollection& ca
 
     if ( nextPhase >= director.activeShotList.phaseCount )
     {
-
         if ( !director.activeShotList.loop )
         {
             return false;

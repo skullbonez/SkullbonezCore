@@ -76,7 +76,6 @@ class SceneLoadPhaseCursor
 
     bool TryAdvance( Phase next )
     {
-
         if ( !IsLegalTransition( m_phase, next ) )
         {
             return false;

@@ -57,7 +57,6 @@ void DrawCallTrace::BeginFrame()
 
 void DrawCallTrace::PushScope( const char* fullPathOrLeaf, uint32_t hash )
 {
-
     if ( !fullPathOrLeaf || fullPathOrLeaf[0] == '\0' )
     {
         ++m_scopeMismatchCount;
@@ -81,7 +80,6 @@ void DrawCallTrace::PushScope( const char* fullPathOrLeaf, uint32_t hash )
 
 void DrawCallTrace::PopScope( uint32_t hash )
 {
-
     if ( m_currentNodeIndex >= 0 )
     {
         const DrawCallTraceNode& node = m_nodes[m_currentNodeIndex];
@@ -112,7 +110,6 @@ void DrawCallTrace::PopScope( uint32_t hash )
 
 void DrawCallTrace::RecordDrawCall( const DrawCallRecord& record )
 {
-
     if ( m_eventCount < MAX_DRAW_TRACE_EVENTS )
     {
         ++m_eventCount;
@@ -216,7 +213,6 @@ int DrawCallTrace::EnsurePathNode( const char* path, uint32_t fullHash )
 
     for ( int i = 0; path[i] != '\0'; ++i )
     {
-
         if ( path[i + 1] != '\0' && path[i + 1] != '/' )
         {
             continue;
@@ -272,7 +268,6 @@ int DrawCallTrace::EnsureRelativeNode( const char* leaf )
 
 int DrawCallTrace::AppendNode( const char* path, int pathLength, uint32_t hash, int parentIndex, int depth )
 {
-
     if ( m_nodeCount >= MAX_DRAW_TRACE_NODES )
     {
         ++m_nodeOverflowCount;
@@ -296,10 +291,8 @@ int DrawCallTrace::AppendNode( const char* path, int pathLength, uint32_t hash, 
 
 int DrawCallTrace::FindNode( uint32_t hash ) const
 {
-
     for ( int i = 0; i < m_nodeCount; ++i )
     {
-
         if ( m_nodes[i].hash == hash )
         {
             return i;
@@ -312,7 +305,6 @@ int DrawCallTrace::FindNode( uint32_t hash ) const
 
 void DrawCallTrace::PushCurrentNode( int nodeIndex )
 {
-
     if ( m_scopeStackDepth < MAX_DRAW_TRACE_DEPTH )
     {
         m_scopeStack[m_scopeStackDepth++] = m_currentNodeIndex;
@@ -341,10 +333,8 @@ uint32_t DrawCallTrace::HashStringRange( const char* text, int length )
 
 bool DrawCallTrace::HasPathSeparator( const char* text )
 {
-
     for ( int i = 0; text && text[i] != '\0'; ++i )
     {
-
         if ( text[i] == '/' )
         {
             return true;
@@ -361,7 +351,6 @@ int DrawCallTrace::PathDepth( const char* text, int length )
 
     for ( int i = 0; i < length && text[i] != '\0'; ++i )
     {
-
         if ( text[i] == '/' )
         {
             ++depth;
@@ -378,7 +367,6 @@ int DrawCallTrace::LeafOffset( const char* text )
 
     for ( int i = 0; text && text[i] != '\0'; ++i )
     {
-
         if ( text[i] == '/' )
         {
             offset = i + 1;

@@ -119,7 +119,6 @@ bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes, Physics::PhysicsSce
                                      ReplayFrameIndex rootFrame, bool requireRootFrame, Physics::PhysicsSceneObjectId id,
                                      ReplayFrameIndex frame, int& outDepth )
 {
-
     if ( id.value == 0 )
     {
         return false;
@@ -133,7 +132,6 @@ bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes, Physics::PhysicsSce
 
     for ( const RunReplayPathTraceNode& node : nodes )
     {
-
         if ( node.id.value == id.value && frame >= node.firstFrame )
         {
             outDepth = node.depth;
@@ -147,10 +145,8 @@ bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes, Physics::PhysicsSce
 template <typename NodeRange>
 RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, Physics::PhysicsSceneObjectId id )
 {
-
     for ( RunReplayPathTraceNode& node : nodes )
     {
-
         if ( node.id.value == id.value )
         {
             return &node;
@@ -186,7 +182,6 @@ bool ReplayFutureNodeTopologyEquals( const RunReplayPathTraceNode& a, const RunR
 bool ReplayFutureNodeTopologyEquals( const std::vector<RunReplayPathTraceNode>& a,
                                      const std::vector<RunReplayPathTraceNode>& b )
 {
-
     if ( a.size() != b.size() )
     {
         return false;
@@ -194,7 +189,6 @@ bool ReplayFutureNodeTopologyEquals( const std::vector<RunReplayPathTraceNode>& 
 
     for ( std::size_t i = 0; i < a.size(); ++i )
     {
-
         if ( !ReplayFutureNodeTopologyEquals( a[i], b[i] ) )
         {
             return false;
@@ -238,7 +232,6 @@ bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts, ReplayFra
 
         // Invariant: callers that slice a frame on budget exhaustion must resume
         // from this contact index before advancing the frame cursor.
-
         if ( budgetExpired() )
         {
             return false;
@@ -307,7 +300,6 @@ struct ReplayPathChildDrawContext
 // shape, not the broadphase radius used for cheap collision culling.
 const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex )
 {
-
     if ( !colliderStore )
     {
         return nullptr;
@@ -330,7 +322,6 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction,
                                                                          Physics::PhysicsSceneObjectId id, int modelIndex )
 {
-
     if ( id.value == 0 )
     {
         return nullptr;
@@ -342,7 +333,6 @@ ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunRepl
 
         if ( marker.id.value == id.value )
         {
-
             if ( modelIndex >= 0 )
             {
                 marker.modelRow.value = modelIndex;
@@ -370,7 +360,6 @@ ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunRepl
 void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
                                         int modelIndex, const Vector3& position, Quaternion orientation )
 {
-
     if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
     {
         marker->hasEntryPose = true;
@@ -383,7 +372,6 @@ void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction, Ph
 void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
                                        int modelIndex, const Vector3& position, Quaternion orientation )
 {
-
     if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
     {
         marker->hasRestPose = true;
@@ -397,10 +385,8 @@ void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction, Phy
 void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction, Physics::PhysicsSceneObjectId id,
                                           int modelIndex, const Vector3& position, Quaternion orientation )
 {
-
     if ( ReplayPredictionRetainedMarker* marker = FindOrAddReplayPredictionRetainedMarker( prediction, id, modelIndex ) )
     {
-
         if ( marker->hasRestPose )
         {
             return;
@@ -430,7 +416,6 @@ void RetainReplayPredictionEndStateMarkers( RunReplayPredictionState& prediction
     // line scan can rediscover every brick. The stable end state is cheap to
     // prove from the final and grace frames. Resting bodies get grey boxes;
     // bodies still moving when the event horizon ends get a ghost endpoint.
-
     for ( std::size_t i = 0; i < prediction.futureNodeCache.retainedMarkerCount; ++i )
     {
         ReplayPredictionRetainedMarker& marker = prediction.futureNodeCache.retainedMarkers[i];
@@ -483,7 +468,6 @@ void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction, 
                                           const std::vector<RunReplayPredictionFrame>* completeFrames,
                                           std::size_t completeFrameCount )
 {
-
     for ( std::size_t i = 0; i < context.nodeCount; ++i )
     {
         const ReplayPathChildDrawState& drawState = context.nodes[i];
@@ -498,7 +482,6 @@ void RetainReplayPredictionCausalMarkers( RunReplayPredictionState& prediction, 
         // growing prefix has no authoritative ending, so no grey box may
         // exist yet. The reveal timing check keeps the grey pop causal: it
         // appears only after the cursor has watched the body stop.
-
         if ( !drawState.active || !completeFrames )
         {
             continue;
@@ -570,7 +553,6 @@ void BuildReplayPredictionChildMarkerContext( ReplayPathChildDrawContext& contex
 
             if ( !drawState.active )
             {
-
                 if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
                 {
                     continue;
@@ -666,7 +648,6 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
     // Why: marker publication is bounded and independent of render traversal.
     // Once revealed, a causal box stays in the prediction owner's published
     // cache even when the draw quota later degrades line work.
-
     for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
         const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
@@ -681,7 +662,6 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
 
         // Why: grey exists only for stories that end at rest inside the
         // completed horizon - see RetainReplayPredictionCausalMarkers.
-
         if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
         {
             continue;
@@ -722,7 +702,6 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context, Phys
                                     ReplayFrameIndex firstFrame, const Vector3& contactPoint, const Vector3& contactNormal,
                                     int depth, bool contactDerived )
 {
-
     if ( id.value == 0 || id.value == context.rootId.value || !context.nodes )
     {
         return;
@@ -735,7 +714,6 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context, Phys
 
         // Why: a real contact edge carries stronger causal evidence than an
         // earlier motion-only fallback for the same future body.
-
         if ( contactDerived && !existing->contactDerived )
         {
             AssignReplayFutureNode( *existing, parentId, parentModelIndex, id, modelIndex, firstFrame, contactPoint,
@@ -814,7 +792,6 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
     // for measured displacement from the first prediction sample instead of a
     // one-frame speed spike, so slow-pushed bodies join on the tick they
     // actually begin to move.
-
     for ( std::size_t bodyIndex = bodyCursor; bodyIndex < firstFrame.bodies.size(); ++bodyIndex )
     {
         const RunReplayPredictionBodySample& initialBody = firstFrame.bodies[bodyIndex];
@@ -847,7 +824,6 @@ bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredic
 
         for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
         {
-
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
                 bodyCursor = bodyIndex;
@@ -998,7 +974,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     // Why: a longer horizon can activate a body that had not moved yet, so a
     // grown frameCount reopens the pass from the start. A settled horizon leaves
     // it closed, which is what stops the rescan from costing budget forever.
-
     if ( prediction.futureNodeCache.futureNodesAffectedFrameCount < frameCount )
     {
         prediction.futureNodeCache.futureNodesAffectedBodyCursor = 0;
@@ -1008,7 +983,6 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     if ( prediction.futureNodeCache.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
          !prediction.futureNodeCache.futureNodesAffectedComplete )
     {
-
         if ( !BuildReplayPredictionAffectedFutureNodes( frames, frameCount, futureContext, budgetStart, budgetMilliseconds,
                                                         prediction.futureNodeCache.futureNodesAffectedBodyCursor ) )
         {
@@ -1039,7 +1013,6 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
                                                                 const SceneEntityStore& modelCollection,
                                                                 Physics::PhysicsSceneObjectId rootId )
 {
-
     if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
     {
         return;
@@ -1160,7 +1133,6 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     // Why: the scan cache is the resume token. Skipping the block leaves
     // markerScan.Matches false, so the next frame retries the whole rebuild
     // rather than committing a half-built marker set.
-
     if ( futureTreeReady && !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
         ReplayPredictionChildMarkerScanState& markerScan = prediction.futureNodeCache.childMarkerScan;
@@ -1193,7 +1165,6 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction, const
     // Why: skipping a retention phase keeps the previous frame's marker set
     // rather than clearing it, so a deferred frame reads as one frame stale
     // instead of losing markers outright.
-
     if ( !ReplayPredictionBudgetExpired( overlayBudgetStart, budgetMilliseconds ) )
     {
 

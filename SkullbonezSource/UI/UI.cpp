@@ -394,7 +394,6 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     auto drawHistogramOverlay = [&]()
     {
-
         if ( !histogramEnabled )
         {
             return;
@@ -411,7 +410,6 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
 
     auto drawMemoryOverlay = [&]()
     {
-
         if ( !memoryOverlayEnabled )
         {
             return;
@@ -959,7 +957,6 @@ const UIDrawList& InGameUI::Draw( const InGameUIFrameData& data )
     }
     else
     {
-
         if ( titleStatW > 0.0f && titleStatX + titleStatW < x + w - 116.0f )
         {
             draw.Text( titleStatX, y + 17.0f, 10.5f, palette.accent.r, palette.accent.g, palette.accent.b, titleStat );

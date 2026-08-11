@@ -215,7 +215,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions&
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides, ReplayRuntime& replayRuntime,
                                       int sceneObjectCapacity )
 {
-
     if ( !overrides.configureReplayRecording )
     {
         return false;
@@ -258,7 +257,6 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides, Repl
 void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides, DiagnosticsRuntime& diagnosticsRuntime,
                                     PhysicsEngine& physics )
 {
-
     if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
     {
         diagnosticsRuntime.SetPhysicsRegressionLogOverride( overrides.physicsRegressionLogPath );
@@ -546,7 +544,6 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
 
 void Run::ApplyStartupPredictionRequest()
 {
-
     if ( m_startupPredictionApplied || m_launchOptions.predictTargetName[0] == '\0' )
     {
         return;
@@ -558,7 +555,6 @@ void Run::ApplyStartupPredictionRequest()
     // physics, so arming into a scene that is not simulating yet clears the
     // rebuild request and the horizon never starts. Wait for a simulating scene
     // that has run a frame rather than arming on the load frame.
-
     if ( !sceneState.isScenePhysics || sceneState.currentFrame < REPLAY_STARTUP_PREDICTION_ARM_FRAME )
     {
         return;
@@ -571,10 +567,8 @@ void Run::ApplyStartupPredictionRequest()
     // Lane R: --predict names external launch input. A scene whose bodies are
     // still loading simply retries next frame; only a scene that has finished
     // loading without the name is a reportable operator mistake.
-
     if ( !body || !body->sceneObjectId.IsValid() )
     {
-
         if ( sceneWorld.SceneEntityCount() > 0 )
         {
             m_startupPredictionApplied = true;
@@ -815,7 +809,6 @@ void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
 
     // Invariant: deactivate the source before activating the target. The two
     // implementations coexist in the build but never own focus in one instant.
-
     if ( DevelopmentUiModeShowsLegacy( surface ) )
     {
         m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );

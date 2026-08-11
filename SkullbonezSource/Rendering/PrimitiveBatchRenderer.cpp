@@ -160,7 +160,6 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
     // carries draw-local values; the t4 table gives shaders a stable fallback
     // and a validation-visible binding point without expanding the resource
     // model beyond the ordinary raster ABI.
-
     if ( state.materialTableTexture != 0 )
     {
         Textures( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
@@ -228,7 +227,6 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMatrixPayload( const Matrix
 
 static void EnsureConvexHullDynamicVB( const PrimitiveRenderContext& context, PrimitiveBatchRendererState& state )
 {
-
     if ( state.convexHullDynamicVB != 0 )
     {
         return;
@@ -245,7 +243,6 @@ static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
     int vertexCount = 0;
     auto emitVertex = [&]( uint16_t index, const Vector3& normal, float u, float v )
     {
-
         if ( vertexCount >= HULL_MAX_TRIANGLE_VERTICES )
         {
             return;
@@ -324,7 +321,6 @@ static void ApplySceneLightUniforms( const PrimitiveRenderContext& context, Shad
 static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, const PrimitiveRenderContext& context,
                                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
-
     if ( cinematicOverride )
     {
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic = *cinematicOverride;
@@ -482,7 +478,6 @@ PrimitiveBatchRenderer::PrimitiveBatchScope::PrimitiveBatchScope( PrimitiveBatch
 PrimitiveBatchRenderer::PrimitiveBatchScope&
 PrimitiveBatchRenderer::PrimitiveBatchScope::operator=( PrimitiveBatchScope&& other ) noexcept
 {
-
     if ( this != &other )
     {
         EndIfActive();
@@ -549,7 +544,6 @@ void PrimitiveBatchRenderer::PrimitiveBatchScope::DrawShadowModel( const Matrix4
 
 void PrimitiveBatchRenderer::PrimitiveBatchScope::EndIfActive()
 {
-
     if ( !m_active || !m_renderer || !m_context )
     {
         return;
@@ -672,7 +666,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.sphereInstMesh != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyInstancedMesh( m_state.sphereInstMesh );
@@ -683,7 +676,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.lowPolySphereInstMesh != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyInstancedMesh( m_state.lowPolySphereInstMesh );
@@ -694,7 +686,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.boxInstMesh != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyInstancedMesh( m_state.boxInstMesh );
@@ -705,7 +696,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.pineInstMesh != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyInstancedMesh( m_state.pineInstMesh );
@@ -716,7 +706,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.materialTableTexture != 0 )
     {
-
         if ( renderTextures )
         {
             renderTextures->DeleteTexture( m_state.materialTableTexture );
@@ -727,7 +716,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
     if ( m_state.convexHullDynamicVB != 0 )
     {
-
         if ( renderGeometry )
         {
             renderGeometry->DestroyDynamicVB( m_state.convexHullDynamicVB );
@@ -746,7 +734,6 @@ void PrimitiveBatchRenderer::ReleaseOwnedRenderResources()
 
 void PrimitiveBatchRenderer::EnsureSphereShader( const PrimitiveRenderContext& context )
 {
-
     if ( !m_state.sphereShader )
     {
         m_state.sphereShader = AssetRegistry( context ).CreateShader( Resources( context ),
@@ -768,7 +755,6 @@ void PrimitiveBatchRenderer::EnsureSphereShader( const PrimitiveRenderContext& c
 
 void PrimitiveBatchRenderer::EnsureShadowDepthShader( const PrimitiveRenderContext& context )
 {
-
     if ( !m_state.shadowDepthShader )
     {
 
@@ -802,7 +788,6 @@ void PrimitiveBatchRenderer::EnsureShadowDepthPrimitiveResources( const Primitiv
     // Runtime allocation policy: the first shadowed frame must not compile the
     // shared depth shader or create primitive buffers. Build the primitive meshes
     // under backend init while command/resource services are explicitly borrowed.
-
     if ( m_state.sphereInstMesh == 0 )
     {
         BuildSphereMesh( context, 25, 25 );
@@ -893,7 +878,6 @@ void PrimitiveBatchRenderer::DrawSphereBatchBegin( const PrimitiveRenderContext&
 
     if ( useLowPolySphereMesh )
     {
-
         if ( m_state.lowPolySphereInstMesh == 0 )
         {
             BuildLowPolySphereMesh( context, 12, 7 );
@@ -904,7 +888,6 @@ void PrimitiveBatchRenderer::DrawSphereBatchBegin( const PrimitiveRenderContext&
     }
     else
     {
-
         if ( m_state.sphereInstMesh == 0 )
         {
             BuildSphereMesh( context, 25, 25 );
@@ -948,7 +931,6 @@ void PrimitiveBatchRenderer::DrawSphereBatchEnd( const PrimitiveRenderContext& c
 
     if ( instanceCount > 0 && m_state.activeSphereInstMesh != 0 )
     {
-
         if ( m_state.sphereBatchReady )
         {
             Commands( context ).UploadInstanceData( m_state.activeSphereInstMesh, m_state.sphereInstanceData );
@@ -976,7 +958,6 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchBegin( const PrimitiveRen
 
     if ( useLowPolySphereMesh )
     {
-
         if ( m_state.lowPolySphereInstMesh == 0 )
         {
             BuildLowPolySphereMesh( context, 12, 7 );
@@ -987,7 +968,6 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchBegin( const PrimitiveRen
     }
     else
     {
-
         if ( m_state.sphereInstMesh == 0 )
         {
             BuildSphereMesh( context, 25, 25 );

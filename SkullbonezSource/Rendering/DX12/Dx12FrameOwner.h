@@ -77,7 +77,6 @@ class Dx12RetirementDiagnosticState
   public:
     void ObservePendingCount( size_t pendingCount )
     {
-
         if ( pendingCount > m_pendingHighWater )
         {
             m_pendingHighWater = pendingCount;
@@ -85,7 +84,6 @@ class Dx12RetirementDiagnosticState
     }
     void ObserveRelease( size_t inputCount, size_t survivorCount, bool frameFenceReady, UINT64 completedFence )
     {
-
         if ( survivorCount > inputCount )
         {
             SB_FATAL( "Dx12RetirementDiagnosticState",
@@ -174,7 +172,6 @@ class Dx12DeferredReleaseOwner
     void Quarantine( ID3D12Resource* resource, UINT descriptorIndex = UINT_MAX,
                      Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None, UINT cpuDescriptorIndex = UINT_MAX )
     {
-
         if ( !resource && descriptorIndex == UINT_MAX && cpuKind == Dx12CpuDescriptorKind::None )
         {
             return;
@@ -195,7 +192,6 @@ class Dx12DeferredReleaseOwner
     }
     void QuarantineStaticDescriptor( UINT descriptorIndex )
     {
-
         if ( descriptorIndex != UINT_MAX )
         {
             Quarantine( nullptr, descriptorIndex );
@@ -206,7 +202,6 @@ class Dx12DeferredReleaseOwner
                            bool releaseUnfenced );
     void ResetForDevice()
     {
-
         if ( m_pendingCount != 0 )
         {
             SB_FATAL( "Dx12DeferredReleaseOwner",
@@ -219,7 +214,6 @@ class Dx12DeferredReleaseOwner
     }
     void ResetAfterShutdown()
     {
-
         if ( m_pendingCount != 0 )
         {
             SB_FATAL( "Dx12DeferredReleaseOwner",

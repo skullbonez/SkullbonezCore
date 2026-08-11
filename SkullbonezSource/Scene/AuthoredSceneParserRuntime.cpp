@@ -48,7 +48,6 @@ void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string
 
     if ( const Json* frames = FindMember( playback, "frames" ) )
     {
-
         if ( frames->is_string() )
         {
             const std::string value = Lowercase( frames->get<std::string>() );
@@ -272,7 +271,6 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
 void AuthoredSceneParser::ApplyTornadoFloat( const Json& source, const std::string& path, const char* memberName,
                                              float& target, float minimum )
 {
-
     if ( const Json* value = FindMember( source, memberName ) )
     {
         const std::string context = std::string( "tornadoSystem." ) + memberName;

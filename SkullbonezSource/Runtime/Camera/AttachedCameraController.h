@@ -184,7 +184,6 @@ class AttachedCameraController
 
     void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
     {
-
         if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
         {
             Reset( m_state );

@@ -151,7 +151,6 @@ static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs
 void DrawHitboxRect( const SkullbonezCore::UI::UIDrawContext& draw, const SkullbonezCore::UI::UIRect& bounds, float r,
                      float g, float b, float fillA = 0.060f, float outlineA = 0.94f )
 {
-
     if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
     {
         return;
@@ -179,7 +178,6 @@ void DrawComboHitboxes( const SkullbonezCore::UI::UIDrawContext& draw, const Sku
 
 bool IsCineSceneOptionName( const char* name )
 {
-
     if ( !name )
     {
         return false;
@@ -199,7 +197,6 @@ int BuildCineSceneOptions( const char* const* sceneOptions, int sceneOptionCount
 
     for ( int i = 0; i < sceneOptionCount && sceneOptions && count < UI_CINE_SCENE_MAX_OPTIONS; ++i )
     {
-
         if ( IsCineSceneOptionName( sceneOptions[i] ) )
         {
             labels[count] = sceneOptions[i];
@@ -214,10 +211,8 @@ int BuildCineSceneOptions( const char* const* sceneOptions, int sceneOptionCount
 int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], int cineOptionCount,
                              int selectedSceneOption )
 {
-
     for ( int i = 0; i < cineOptionCount; ++i )
     {
-
         if ( sceneIndices[i] == selectedSceneOption )
         {
             return i;
@@ -245,7 +240,6 @@ float CinematicSliderY( int index, float baseY )
 
     for ( int i = 0; i <= index; ++i )
     {
-
         if ( kCinematicSliderSpecs[i].section )
         {
             y += UI_CINEMATIC_SECTION_H;
@@ -268,7 +262,6 @@ float CinematicValueForParam( const SkullbonezCore::Core::CinematicRenderConfig&
 
     // Read the live value for a Cine slider. This is the inverse of the command
     // application in InputRouter.Interactions.cpp.
-
     switch ( param )
     {
     case SkullbonezCore::UI::UICinematicParam::Exposure:
@@ -424,7 +417,6 @@ float CinematicFeatureX( int index, float contentX, float colW )
 bool CinematicFeatureEnabled( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                               SkullbonezCore::UI::UICinematicFeature feature )
 {
-
     switch ( feature )
     {
     case SkullbonezCore::UI::UICinematicFeature::Sky:
@@ -463,7 +455,6 @@ int ContentHeight()
 
     for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
     {
-
         if ( kCinematicSliderSpecs[i].section )
         {
             height += UI_CINEMATIC_SECTION_H;

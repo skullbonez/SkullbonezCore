@@ -41,7 +41,6 @@ namespace
 {
 WaterMode WaterModeFromConfigValue( int value )
 {
-
     switch ( value )
     {
     case 0:
@@ -251,7 +250,6 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
                                     const PassRasterStateBucket& rasterState, float time, bool flatWater, bool cinematic,
                                     const SkullbonezCore::Core::CinematicRenderConfig* cinematicConfig )
 {
-
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
         ResetRenderResources();
@@ -334,7 +332,6 @@ void WorldEnvironment::BuildFluidMesh()
 
     for ( int row = 0; row < CALM_N; ++row )
     {
-
         for ( int col = 0; col < CALM_N; ++col )
         {
             float x0 = calmXMin + static_cast<float>( col ) * calmStepX;
@@ -366,7 +363,6 @@ void WorldEnvironment::BuildFluidMesh()
 
     for ( int row = 0; row < N; ++row )
     {
-
         for ( int col = 0; col < N; ++col )
         {
             float x0 = -f + static_cast<float>( col ) * step;

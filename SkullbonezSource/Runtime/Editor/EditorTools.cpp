@@ -60,7 +60,6 @@ static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
 
 int EditorMouseWheelSteps( int wheelDelta )
 {
-
     if ( wheelDelta == 0 )
     {
         return 0;
@@ -71,7 +70,6 @@ int EditorMouseWheelSteps( int wheelDelta )
 
 Assets::EditorHullAsset EditorHullAssetForType( int objectType )
 {
-
     switch ( ClampEditorObjectType( objectType ) )
     {
     case UI::EditorTab::OBJECT_HULL_WEDGE:
@@ -174,7 +172,6 @@ Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
     // Concept: Object families define the shape of the scale value. Trees and
     // buildings ignore user scale, balls use one radius, hulls use hull-local
     // factors, and boxes use world half extents.
-
     if ( EditorPlacementUsesTreeScaleLock( type ) )
     {
         return Vector3( 1.0f, 1.0f, 1.0f );
@@ -334,7 +331,6 @@ void ExitEditorModeState( RunEditorPlacementState& editor, RuntimeInteractionCon
 
 bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject )
 {
-
     if ( editor.placeStaticObject == placeStaticObject )
     {
         return false;
@@ -436,7 +432,6 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
                                   const SceneSessionState& scene, const GameObjects::PresentationSaveState& presentation,
                                   bool wasPressed )
 {
-
     if ( !wasPressed )
     {
         return;
@@ -456,7 +451,6 @@ void HandleEditorSceneSaveHotkey( SkullbonezCore::Core::SbDiagnosticStore& diagn
 
 void HandleEditorScreenshotHotkey( CaptureController& capture, bool wasPressed )
 {
-
     if ( !wasPressed )
     {
         return;

@@ -174,7 +174,6 @@ void PersistentContactSolveTransaction::AdvanceOrFatal( PersistentContactSolvePh
 
 void PersistentContactSolveTransaction::BeginEntryPolicySetup()
 {
-
     if ( m_phase.Current() == PersistentContactSolvePhaseCursor::Phase::Complete && !m_phase.ResetAfterComplete() )
     {
         SB_FATAL( "Physics/PersistentContactSolveTransaction", "Completed solve cursor could not reset." );
@@ -199,7 +198,6 @@ void PersistentContactSolveTransaction::Complete()
 //   bit for terrain rows.
 int64_t PersistentContactSolveTransaction::MakeKey( int bodyA, int bodyB, uint32_t featureId )
 {
-
     if ( bodyB == TERRAIN_BODY_INDEX )
     {
         const uint64_t packed = ( 1ull << 62 ) |
@@ -263,7 +261,6 @@ float PersistentContactSolveTransaction::ConservativeContactRadius( const Collid
 // local inertia axes rotate with orientation; spheres remain isotropic.
 Vector3 PersistentContactSolveTransaction::ApplyInverseInertia( int bodyIndex, const Vector3& value ) const
 {
-
     if ( bodyIndex == TERRAIN_BODY_INDEX )
     {
         return ZERO_VECTOR;
@@ -321,7 +318,6 @@ void PersistentContactSolveTransaction::SetupBodies( const PhysicsBodyStore& bod
     //   We keep compact per-body solver state here and write back once after PGS.
     //   That preserves Catto's sparse-row shape while avoiding repeated
     //   body-store writes inside the row loop.
-
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
@@ -372,7 +368,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
     auto isFixedBody = [&]( int index ) -> bool { return hotRead.fixed[static_cast<std::size_t>( index )] != 0u; };
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -409,7 +404,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
         // not grant sleep support by itself; support must propagate later from
         // terrain or a body that already passed the full sleep gate. That keeps
         // mid-air object-object impacts from becoming false "grounded" evidence.
-
         if ( normal.y > supportNormalY )
         {
             AppendSleepSupportEdge( sleepSupportEdges, aIndex, bIndex );
@@ -489,7 +483,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
     {
         auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
         {
-
             if ( rhs < 0 )
             {
                 return true;
@@ -510,7 +503,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
-
             if ( betterPenetrationTie( pointIndex, deepest ) )
             {
                 deepest = pointIndex;
@@ -526,7 +518,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
-
             if ( HasCachedImpulse( stage.m_persistentContactCache, bodyA, bodyB, manifold.points[pointIndex].featureId ) )
             {
                 ++cachedPointCount;
@@ -545,7 +536,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
 
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
-
             if ( pointIndex == deepest )
             {
                 continue;
@@ -612,7 +602,6 @@ void PersistentContactSolveTransaction::BuildManifolds( PhysicsContactSolverStag
     // Most manifold points become one persistent row each. Quiet multi-point
     // object footprints can use a two-point subset because spread plus cached
     // feature IDs keep the support plane stable while cutting solver work.
-
     for ( const auto& cp : candidatePairs )
     {
         int aIndex = cp.first;
@@ -788,7 +777,6 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
     const std::span<const PhysicsBodyRecord> bodyRecords = bodyStore.Records();
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -805,7 +793,6 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
     // later solver phases treat it as infinite mass, zero velocity, and no
     // writeback. From this point on, terrain response is ordinary shared-row
     // normal/friction solving.
-
     for ( const Physics::TerrainContactManifold& manifold : terrainContactManifolds )
     {
 
@@ -813,7 +800,6 @@ void PersistentContactSolveTransaction::BuildTerrainRows( PhysicsContactSolverSt
         // pipeline records, or the warm-start cache. Sleeping bodies do not
         // need fresh terrain rows; their accepted support state is already
         // represented by the sleep island data.
-
         if ( manifold.bodyA < 0 || manifold.bodyA >= modelCount || manifold.pointCount == 0 ||
              ( manifold.bodyA < static_cast<int>( sleepState.size() ) && sleepState[manifold.bodyA] ) )
         {
@@ -925,7 +911,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -944,7 +929,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
     //   below expands that sparse matrix math into scalar effective masses.
     // The setup below builds friction axes, effective masses, bias, friction
     // limits, and pulls the previous frame's accumulated impulses from the cache.
-
     for ( PersistentContact& c : stage.m_persistentContacts )
     {
         const SolverBodyState& bodyA = Body( static_cast<std::size_t>( c.bodyA ) );
@@ -1124,7 +1108,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
 
         if ( canUseCachedWarmStart )
         {
-
             if ( c.isTerrain )
             {
                 auto cachedIt = std::lower_bound( stage.m_persistentContactCache.begin(),
@@ -1192,7 +1175,6 @@ void PersistentContactSolveTransaction::PrecomputeRows( PhysicsContactSolverStag
         // Invariant: the terrain seed is a minimum normal impulse even on a
         // cache miss. Consequently warmStarted means an impulse was applied
         // before iteration; it does not by itself prove previous-tick reuse.
-
         if ( c.isTerrain && c.terrainWarmStart > c.accN )
         {
             c.accN = c.terrainWarmStart;
@@ -1251,7 +1233,6 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
     const float objectFrictionCoeff = stepPolicy.objectFrictionCoefficient;
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -1272,7 +1253,6 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
     // In engine terms, each contact computes the extra impulse needed to reduce
     // its current violation, adds that to the accumulated total, clamps the total
     // to valid bounds, then applies only the difference.
-
     for ( int iter = 0; iter < solverIterations; ++iter )
     {
         stage.m_persistentContactSolverStats.solverIterations = iter + 1;
@@ -1400,7 +1380,6 @@ void PersistentContactSolveTransaction::SolveRowsIterations( PhysicsContactSolve
         //   Gauss-Seidel criterion on PDF p. 15, Section 7.1, then uses fixed
         //   iterations for simplicity. This deterministic early-out is a local
         //   optimization using total squared impulse delta.
-
         if ( iterImpulseSq < 1.0e-6f )
         {
             break;
@@ -1422,7 +1401,6 @@ void PersistentContactSolveTransaction::SolveRows( PhysicsContactSolverStage& st
     // branches from ordinary/Profile worlds while preserving the same solver
     // statements. Profile tests intentionally select the attributed path so the
     // diagnostic contract remains covered by the repository's formal test gate.
-
     if ( stepPolicy.collectConvergenceDiagnostics && retainPipelineRecords )
     {
         SolveRowsIterations<true, true>( stage, bodyStore, stepPolicy, pipelineRecordCapacity );
@@ -1709,7 +1687,6 @@ void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& st
     auto isFixedBody = [&]( int index ) -> bool { return hotFields.fixed[static_cast<size_t>( index )] != 0u; };
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -1723,7 +1700,6 @@ void PersistentContactSolveTransaction::WriteBack( PhysicsContactSolverStage& st
 
     for ( int i = 0; i < modelCount; ++i )
     {
-
         if ( sleepState[i] || isFixedBody( i ) )
         {
             continue;
@@ -1766,10 +1742,8 @@ void PersistentContactSolveTransaction::PublishDebugContacts( PhysicsContactSolv
 
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
-
         if ( c.accN > 0.0f )
         {
-
             if ( isFixedBody( c.bodyA ) )
             {
                 markFixedContact( c.bodyA );
@@ -1812,7 +1786,6 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
     const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -1839,7 +1812,6 @@ void PersistentContactSolveTransaction::CorrectPositions( PhysicsContactSolverSt
     // Fourth pass: remove any visible leftover overlap. The velocity solver does
     // most of the work, but this direct correction keeps persistent contacts from
     // sinking deeper into each other over many frames.
-
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
         const float rowContactSlop = c.isTerrain ? stepPolicy.terrainSlop : stepPolicy.objectSlop;
@@ -1924,7 +1896,6 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
     const PhysicsBodyHotFieldsConstView hotRead = bodyStore.HotFields();
     auto observePipelineEvent = [&]()
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             return stage.m_sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
@@ -1947,7 +1918,6 @@ void PersistentContactSolveTransaction::StoreCache( PhysicsContactSolverStage& s
 
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
-
         if ( !c.supportsRestingPolicy )
         {
             continue;
@@ -2005,7 +1975,6 @@ void PersistentContactSolveTransaction::ReleaseFixedContacts( PhysicsContactSolv
 
     auto releaseFixedContactBody = [&]( int fixedIndex, int otherIndex, const PersistentContact& c, bool fixedIsBodyA )
     {
-
         if ( fixedIndex < 0 || fixedIndex >= modelCount || otherIndex < 0 || otherIndex >= modelCount )
         {
             return;
@@ -2063,7 +2032,6 @@ void PersistentContactSolveTransaction::ReleaseFixedContacts( PhysicsContactSolv
 
     for ( const PersistentContact& c : stage.m_persistentContacts )
     {
-
         if ( c.isTerrain || c.accN <= TOLERANCE )
         {
             continue;

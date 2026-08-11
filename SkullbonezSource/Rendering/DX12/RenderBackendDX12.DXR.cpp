@@ -214,7 +214,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12D
     // Create the DXR root signature from the serialized blob. Same concept as the raster root
     // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-
     if ( FAILED( device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(),
                                               IID_PPV_ARGS( &m_rootSignature ) ) ) )
     {
@@ -314,7 +313,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
     // map geometry types to closest-hit shaders, shader config (payload/attribute sizes), pipeline
     // config (max recursion), and the root signature. This is more flexible than graphics PSOs.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-createstateobject
-
     if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_pipeline ) ) ) )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12", "CreateStateObject (RTPSO) failed" );
@@ -328,7 +326,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 
     // Query the state object for shader identifier lookup (used when building the SBT).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
-
     if ( FAILED( m_pipeline->QueryInterface( IID_PPV_ARGS( &m_pipelineProperties ) ) ) || !m_pipelineProperties )
     {
         return m_resultDiagnostics.Failure( "Rendering/DX12", "QueryInterface for RT pipeline shader identifiers failed" );
@@ -364,7 +361,6 @@ Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device, Dx12Descript
     // Rays are cast from the water surface and the resulting reflections are written here.
     // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc,
                                                   D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
                                                   IID_PPV_ARGS( &m_reflectionTexture ) ) ) )
@@ -425,7 +421,6 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
     // meshes (and their BLAS) do not change between scenes — only the TLAS is rebuilt per-frame.
     // The full init path is only needed after a new DX12 device/backend is created, where
     // m_commandList4 is null and we fall through to the full init below.
-
     if ( m_commandList4 )
     {
         return outcome;
@@ -592,7 +587,6 @@ void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& fail
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSetupDesc& setup )
 {
-
     if ( !Supported() || Initialized() )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -677,7 +671,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSet
 
 void Dx12RaytracingOwner::BuildTLAS( std::span<const Matrix4> instanceTransforms )
 {
-
     if ( !Supported() || !m_frame.EnsureOpen().Ok() )
     {
         return;
@@ -694,7 +687,6 @@ void Dx12RaytracingOwner::BuildTLAS( std::span<const Matrix4> instanceTransforms
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const Matrix4> instanceTransforms )
 {
-
     if ( !m_supported || !m_commandList4 )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -734,7 +726,6 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( std::span<const 
     terrainInst.InstanceID = 0;
 
     // Sphere instances
-
     for ( int i = 0; i < instanceCount; ++i )
     {
         D3D12_RAYTRACING_INSTANCE_DESC& inst = m_instances[static_cast<size_t>( i ) + 1];
@@ -848,7 +839,6 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     for ( int i = 0; i < 8; ++i )
     {
-
         if ( textures.ResolveSrv( textureHandles[i] ) == UINT_MAX )
         {
             allValid = false;
@@ -905,7 +895,6 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
 void Dx12RaytracingOwner::DispatchReflectionRays( const WaterReflectionRayDesc& reflection )
 {
-
     if ( !Supported() || !m_frame.EnsureOpen().Ok() )
     {
         return;
@@ -954,7 +943,6 @@ void Dx12RaytracingOwner::PublishReflectionTextureHandle( uint32_t handle )
 
     // Invariant: the texture registry exposes at most one handle for the
     // reflection SRV during a raytracing-owner epoch.
-
     if ( handle == 0 || m_reflectionTextureHandle != 0 )
     {
         SB_FATAL( "Dx12RaytracingOwner", "Invalid reflection texture handle publication. handle=%u current=%u", handle,

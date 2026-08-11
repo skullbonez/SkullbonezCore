@@ -397,7 +397,6 @@ void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int sc
 
 void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
 {
-
     if ( !state.hasWindowPlacement )
     {
         const int minY = ReplayCauseWindowMinY( screenH );

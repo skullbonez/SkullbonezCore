@@ -110,7 +110,6 @@ int ReplayRecorderGrowthFrameNumber( ReplayFrameIndex frameIndex )
 
 std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
 {
-
     if ( requestedCapacity <= currentCapacity )
     {
         return currentCapacity;
@@ -136,7 +135,6 @@ std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std
     // Why: solver-world deltas include contact/debug vectors whose natural
     // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS, so they use the byte-budget
     // reserve gate without the body-vector element-count clamp.
-
     if ( requestedCapacity <= currentCapacity )
     {
         return currentCapacity;
@@ -182,7 +180,6 @@ template <typename T>
 void ReserveReplayRecorderSampleVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex,
                                         const char* targetName )
 {
-
     if ( requestedCapacity <= values.capacity() )
     {
         return;
@@ -238,7 +235,6 @@ template <typename T>
 void ReserveReplayRecorderDeltaVector( std::vector<T>& values, std::size_t requestedCapacity, ReplayFrameIndex frameIndex,
                                        const char* targetName )
 {
-
     if ( requestedCapacity <= values.capacity() )
     {
         return;
@@ -432,7 +428,6 @@ uint64_t SolverDeltaFrameMemoryBytes( const ReplaySolverDeltaFrame& frame )
 
 uint32_t CheckedVisualMetadataIndex( std::size_t index )
 {
-
     if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         SB_FATAL( "Runtime/Replay", "Replay visual metadata index overflow. index=%llu",
@@ -444,7 +439,6 @@ uint32_t CheckedVisualMetadataIndex( std::size_t index )
 
 uint32_t CheckedSolverMetadataIndex( std::size_t index )
 {
-
     if ( index > static_cast<std::size_t>( ( std::numeric_limits<uint32_t>::max )() ) )
     {
         SB_FATAL( "Runtime/Replay", "Replay solver metadata index overflow. index=%llu",
@@ -471,7 +465,6 @@ int32_t SignedFloatBits( float value )
 
 void AppendReplayEventFloatHex( char*& cursor, std::size_t& remaining, float value )
 {
-
     if ( remaining == 0 )
     {
         return;
@@ -793,7 +786,6 @@ void StoreSolverVectorDelta( ReplaySolverVectorDelta<T>& delta, const std::vecto
 
     for ( std::size_t i = 0; i < source.size(); ++i )
     {
-
         if ( SameSolverValueBytes( source[i], previous[i] ) )
         {
             continue;
@@ -812,7 +804,6 @@ template <typename T>
 bool ApplySolverVectorDelta( const ReplaySolverVectorDelta<T>& delta, std::vector<T>& target, ReplayFrameIndex frameIndex,
                              const char* targetName )
 {
-
     if ( delta.full )
     {
         ReserveReplayRecorderDeltaVector( target, delta.fullValues.size(), frameIndex, targetName );
@@ -971,7 +962,6 @@ uint64_t HashByte( uint64_t hash, uint8_t value )
 
 uint64_t HashBytes( uint64_t hash, SkullbonezCore::Core::ByteView bytes )
 {
-
     for ( uint8_t byte : bytes )
     {
         hash = HashByte( hash, byte );
@@ -1215,7 +1205,6 @@ uint64_t HashLauncherControlState( uint64_t hash, const ReplayLauncherVisualSamp
 
 ReplayBodyShapeKind ShapeKindForCollider( const ColliderRecord& collider )
 {
-
     switch ( collider.shapeKind )
     {
     case Physics::ColliderShapeKind::Sphere:
@@ -1252,7 +1241,6 @@ void IncrementBodyContactSummary( int bodyIndex, float penetration, float normal
                                   std::vector<uint16_t>& contactCounts, std::vector<float>& maxPenetrations,
                                   std::vector<float>& normalImpulseSums )
 {
-
     if ( bodyIndex < 0 || bodyIndex >= static_cast<int>( contactCounts.size() ) )
     {
         return;
@@ -1361,7 +1349,6 @@ bool BuildReplayPresentationBodySample( int modelIndex, const SceneEntityStore& 
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore, ReplayBodyPresentationSample& outBody )
 {
-
     if ( modelIndex < 0 || modelIndex >= bodyStore.Count() || modelIndex >= colliderStore.Count() )
     {
         return false;
@@ -1659,7 +1646,6 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildL
                                                                                                float impulseStrength,
                                                                                                float projectileSpeed )
 {
-
     if ( changedFlags == 0 )
     {
         return {};
@@ -1903,7 +1889,6 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 
 void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -1952,7 +1937,6 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
                                    Physics::PhysicsEngine& physics, const SceneEntityStore& entities,
                                    const Physics::PhysicsBodyStore& bodyStore, const Physics::ColliderStore& colliderStore )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -2071,7 +2055,6 @@ void ReplayRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_t even
 
 void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -2244,7 +2227,6 @@ void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemor
 
 const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 {
-
     if ( m_sampleCount == 0 || m_samples.empty() )
     {
         return nullptr;
@@ -2265,7 +2247,6 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 
 const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normalized ) const
 {
-
     if ( m_sampleCount == 0 || m_samples.empty() )
     {
         return nullptr;
@@ -2288,7 +2269,6 @@ std::size_t ReplayRecorder::AcquireSampleSlotIndex()
 
     // Lifetime: returned slot indices stay valid until the next capture that
     // wraps the ring buffer onto the same slot.
-
     if ( m_sampleCount < m_samples.size() )
     {
         const std::size_t index = ( m_sampleHead + m_sampleCount ) % m_samples.size();
@@ -2299,7 +2279,6 @@ std::size_t ReplayRecorder::AcquireSampleSlotIndex()
     // Invariant: when the retained head advances, the new oldest frame must be
     // self-contained. Promote it before overwriting the previous keyframe that
     // its deltas may still depend on.
-
     if ( m_sampleCount > 1u )
     {
         PromoteVisualFrameToKeyframe( 1u );
@@ -2359,7 +2338,6 @@ void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const Repla
                                               const std::vector<ReplayBodyPresentationSample>& bodies, bool forceKeyframe,
                                               bool updateCarry )
 {
-
     if ( slotIndex >= m_visualFrames.size() )
     {
         return;
@@ -2410,10 +2388,8 @@ void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const Repla
 
     if ( updateCarry )
     {
-
         for ( std::size_t i = 0; i < m_visualCarryActive.size(); ++i )
         {
-
             if ( m_visualCarrySeenScratch[i] == 0u )
             {
                 m_visualCarryActive[i] = static_cast<uint8_t>( 0 );
@@ -2424,7 +2400,6 @@ void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex, const Repla
 
 bool ReplayRecorder::ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const
 {
-
     if ( offset >= m_sampleCount || m_samples.empty() || m_visualFrames.size() != m_samples.size() )
     {
         return false;
@@ -2506,7 +2481,6 @@ bool ReplayRecorder::ResolveSampleAtOffset( std::size_t offset, ReplayPresentati
 
 void ReplayRecorder::PromoteVisualFrameToKeyframe( std::size_t offset )
 {
-
     if ( offset >= m_sampleCount || m_samples.empty() )
     {
         return;
@@ -2527,7 +2501,6 @@ void ReplayRecorder::PromoteVisualFrameToKeyframe( std::size_t offset )
 
 void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount )
 {
-
     if ( m_checkpoints.empty() )
     {
         return;
@@ -2652,7 +2625,6 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
 
 void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -2702,7 +2674,6 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayBranchInfo& branch, uint32_
                                          const SceneEntityStore& entities, const Physics::PhysicsBodyStore& bodyStore,
                                          const Physics::ColliderStore& colliderStore )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -2960,7 +2931,6 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::Mai
 
 const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
 {
-
     if ( m_sampleCount == 0 || m_samples.empty() )
     {
         return nullptr;
@@ -2979,7 +2949,6 @@ const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
 
 const ReplaySolverFrameSample* ReplaySolverRecorder::SampleAtNormalized( float normalized ) const
 {
-
     if ( m_sampleCount == 0 || m_samples.empty() )
     {
         return nullptr;
@@ -3013,7 +2982,6 @@ std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
 
     // Lifetime: compact solver frames follow the same ring position as their
     // public sample headers, so a slot index is the join key for reconstruction.
-
     if ( m_sampleCount < m_samples.size() )
     {
         const std::size_t index = ( m_sampleHead + m_sampleCount ) % m_samples.size();
@@ -3023,7 +2991,6 @@ std::size_t ReplaySolverRecorder::AcquireSampleSlotIndex()
 
     // Invariant: after wrap, the new oldest solver frame must no longer depend
     // on the evicted frame's body/world carry state.
-
     if ( m_sampleCount > 1u )
     {
         PromoteSolverFrameToKeyframe( 1u );
@@ -3090,7 +3057,6 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
     // Invariant: slotIndex addresses both the retained sample header and the
     // compact solver payload. Saved replay artifacts still see a dense sample
     // because readers reconstruct through ResolveSolverSampleAtOffset().
-
     if ( slotIndex >= m_solverFrames.size() )
     {
         return;
@@ -3141,10 +3107,8 @@ void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex, const
 
     if ( updateCarry )
     {
-
         for ( std::size_t i = 0; i < m_solverCarryActive.size(); ++i )
         {
-
             if ( m_solverCarrySeenScratch[i] == 0u )
             {
                 m_solverCarryActive[i] = static_cast<uint8_t>( 0 );
@@ -3170,7 +3134,6 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
     // Concept: public solver samples are a compatibility view over compact
     // storage. Start from the nearest retained keyframe, replay sparse deltas,
     // then rebuild the old dense body/world snapshot shape.
-
     if ( offset >= m_sampleCount || m_samples.empty() || m_solverFrames.size() != m_samples.size() )
     {
         return false;
@@ -3262,7 +3225,6 @@ bool ReplaySolverRecorder::ResolveSolverSampleAtOffset( std::size_t offset, Repl
 
 void ReplaySolverRecorder::PromoteSolverFrameToKeyframe( std::size_t offset )
 {
-
     if ( offset >= m_sampleCount || m_samples.empty() )
     {
         return;
@@ -3284,7 +3246,6 @@ void ReplaySolverRecorder::PromoteSolverFrameToKeyframe( std::size_t offset )
 
 void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount )
 {
-
     if ( m_checkpoints.empty() )
     {
         return;
@@ -3349,7 +3310,6 @@ bool ReplayEventRecorder::Configure( const ReplayRecorderConfig& config )
 
 void ReplayEventRecorder::ResetTimeline( const char* )
 {
-
     if ( !m_config.enabled )
     {
         return;
@@ -3362,7 +3322,6 @@ void ReplayEventRecorder::ResetTimeline( const char* )
 
 void ReplayEventRecorder::RecordEvent( const ReplayEventInput& input )
 {
-
     if ( !m_config.enabled || m_events.empty() )
     {
         return;
@@ -3429,7 +3388,6 @@ void ReplayEventRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::Main
 
 ReplayEventSample& ReplayEventRecorder::AcquireEventSlot()
 {
-
     if ( m_eventCount < m_events.size() )
     {
         const std::size_t index = ( m_eventHead + m_eventCount ) % m_events.size();

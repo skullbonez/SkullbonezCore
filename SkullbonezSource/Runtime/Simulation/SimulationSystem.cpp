@@ -45,7 +45,6 @@ void SimulationSystem::Reset()
 
 void SimulationSystem::ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
 {
-
     if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
     {
         Reset();
@@ -74,7 +73,6 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 
     if ( input.isFixedStep )
     {
-
         if ( !canStepPhysics )
         {
             m_physicsAccumulator = 0.0f;

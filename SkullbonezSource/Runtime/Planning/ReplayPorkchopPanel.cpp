@@ -116,7 +116,6 @@ void ReplayPorkchopPanel::BeginSweep( const ReplayPorkchopSweepInput& input ) no
 
 void ReplayPorkchopPanel::AdvanceSweep( double nowSeconds ) noexcept
 {
-
     if ( !m_view.visible )
     {
         return;
@@ -221,7 +220,6 @@ void ReplayPorkchopPanel::SetHoveredCell( int cellIndex ) noexcept
 
 bool ReplayPorkchopPanel::SelectCell( std::size_t cellIndex ) noexcept
 {
-
     if ( !m_view.complete || cellIndex >= m_deltaV.size() || m_deltaV[cellIndex] < 0.0f )
     {
         return false;

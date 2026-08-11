@@ -78,7 +78,6 @@ class SceneLifecycleGenerationObserver
   public:
     bool ShouldApply( const SceneLifecyclePacket& packet, SceneRuntimeLifecycleEvent requiredEvent )
     {
-
         if ( packet.generation == 0 || packet.generation == m_lastAppliedGeneration ||
              !SceneLifecycleReached( packet.event, requiredEvent ) )
         {
@@ -114,7 +113,6 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleConsumerBit( SceneLifecycleCo
 
 constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent event )
 {
-
     switch ( event )
     {
     case SceneRuntimeLifecycleEvent::BeforeSceneUnload:

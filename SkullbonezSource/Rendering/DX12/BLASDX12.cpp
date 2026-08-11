@@ -121,7 +121,6 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // freed afterwards. It must allow unordered access because the GPU reads
     // and writes to it during construction.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON,
                                                   nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
@@ -141,7 +140,6 @@ SkullbonezCore::Core::SbResult BLAS::Build( ID3D12Device5* device, ID3D12Graphic
     // RAYTRACING_ACCELERATION_STRUCTURE because DXR TraceRay hardware reads it
     // directly.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
                                                   D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr,
                                                   IID_PPV_ARGS( &m_result ) ) ) )
@@ -189,7 +187,6 @@ D3D12_GPU_VIRTUAL_ADDRESS BLAS::GetResultVA() const
 
 void BLAS::ReleaseAfterBuild()
 {
-
     if ( m_scratch )
     {
         m_scratch->Release();
@@ -200,7 +197,6 @@ void BLAS::ReleaseAfterBuild()
 
 void BLAS::Reset()
 {
-
     if ( m_scratch )
     {
         m_scratch->Release();

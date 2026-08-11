@@ -54,7 +54,6 @@ bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
                                            SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
                                            const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
 {
-
     if ( !ReplayPredictionBudgetExpired( start, budgetMilliseconds ) )
     {
         return false;
@@ -72,7 +71,6 @@ bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
 
 double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
 {
-
     if ( budgetMilliseconds <= 0.0 )
     {
         return 0.0;
@@ -102,7 +100,6 @@ double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& p
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
                                                    ReplayFrameIndex lastAvailableFrame )
 {
-
     if ( prediction.revealClock.deterministicFrameEnabled )
     {
         prediction.revealClock.presentedFrame = (std::min)( lastAvailableFrame, prediction.revealClock.deterministicFrame );
@@ -152,7 +149,6 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
                                                                    Physics::PhysicsSceneObjectId requestedTargetId )
 {
-
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
          prediction.simulation.frames.size() < 2u )
     {
@@ -172,7 +168,6 @@ int ReplayPredictionSimulationSlice::operator()( int beginTickIndex, int endTick
 
     // Lifetime: CancelPredictionJob waits for the enclosing AmortizedTask before
     // any of these prediction-owned borrows can be cleared or replaced.
-
     if ( prediction && config && workerPool )
     {
         return prediction->RunWorkerRange( *config, *workerPool, modelCount, beginTickIndex, endTickIndex );
@@ -197,7 +192,6 @@ void ReplayPrediction::WaitForJobIdle()
 
 bool ReplayPrediction::PromoteBuildPrefixToCommitted()
 {
-
     if ( !m_state.BuildPrefixShouldBePresented() )
     {
         return false;

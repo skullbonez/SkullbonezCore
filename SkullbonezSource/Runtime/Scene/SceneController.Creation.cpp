@@ -59,7 +59,6 @@ std::string SanitizeSceneFileName( const char* requestedName )
 
     if ( requestedName )
     {
-
         for ( const char* cursor = requestedName; *cursor != '\0' && clean.size() < 48; ++cursor )
         {
             const char value = *cursor;
@@ -94,7 +93,6 @@ std::string NormalizeScenePathForCreate( const std::string& path )
 
     for ( char& value : normalized )
     {
-
         if ( value == '\\' )
         {
             value = '/';

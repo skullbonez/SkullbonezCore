@@ -220,7 +220,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
 
     // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
     // ragdoll parts append with deterministic, gap-free scene identity.
-
     if ( !options.firstSceneObjectId.IsValid() )
     {
         return resultDiagnostics.Failure( "Runtime/SceneAuthoredSetup", "Ragdoll build requires a scene object id range." );
@@ -230,7 +229,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
 
     for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
     {
-
         if ( !Ragdoll::TryBuildSimplePartName( prefix, i, partNames[i] ) )
         {
 
@@ -307,7 +305,6 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SkullbonezCore::Core
 
     if ( options.startsAsleep && !options.fixed )
     {
-
         for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
         {
 
@@ -325,7 +322,6 @@ SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::Sb
                                                         const SceneObjectGroupMetadata& group,
                                                         SceneEntityCreateDesc& entity )
 {
-
     if ( group.kind == SceneObjectGroupKind::None )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -348,7 +344,6 @@ SkullbonezCore::Core::SbResult ApplySceneBehaviorGroup( SkullbonezCore::Core::Sb
 
 bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
 {
-
     if ( !name || !suffix )
     {
         return false;
@@ -400,7 +395,6 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     // Invariant: broad scene style targets must not recolor generated ragdoll
     // body parts, but a named prefix/exact target may opt one authored ragdoll
     // into a scene-local presentation material.
-
     if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
     {
         return false;
@@ -449,7 +443,6 @@ bool IsEditorPlacedSphereName( const char* name )
 
 void ApplyEditorPlacedSphereMaterial( SceneEntityCreateDesc& model, const char* displayName )
 {
-
     if ( IsEditorPlacedSphereName( displayName ) )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
@@ -468,7 +461,6 @@ void ApplyAssetAffiliation( SceneEntityCreateDesc& entity, const AuthoredScene& 
     // Why: parser provenance keeps exact shape-vector indices. Resolve that
     // cold key once during creation so steady runtime rows retain durable asset
     // identity without keeping or searching the parsed AuthoredScene.
-
     for ( int partRow = 0; partRow < scene.GetAssetPartCount(); ++partRow )
     {
         const SceneAssetPartRef& part = scene.GetAssetPart( partRow );
@@ -626,7 +618,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     }
 
     // ball_state entries: full dynamic state from a snapshot
-
     for ( int i = 0; i < scene.GetBallStateCount(); ++i )
     {
         const SceneBallState& bs = scene.GetBallState( i );
@@ -669,7 +660,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     }
 
     // box entries: rigid box entities
-
     for ( int i = 0; i < scene.GetBoxCount(); ++i )
     {
         const SceneBox& box = scene.GetBox( i );
@@ -713,7 +703,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     }
 
     // box_state entries: full dynamic state from an editable scene snapshot
-
     for ( int i = 0; i < scene.GetBoxStateCount(); ++i )
     {
         const SceneBoxState& box = scene.GetBoxState( i );
@@ -753,7 +742,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     }
 
     // convex_hull entries: authored immutable hull assets
-
     for ( int i = 0; i < scene.GetConvexHullCount(); ++i )
     {
         const SceneConvexHull& hullScene = scene.GetConvexHull( i );
@@ -779,7 +767,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
 
         // Invariant: asset hierarchy composition has already produced an exact
         // quaternion. Euler remains only for ordinary version-1 authored hulls.
-
         if ( hullScene.hasInitQuaternionOrient )
         {
             hullQuaternion = Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW );
@@ -839,7 +826,6 @@ SceneAuthoredSetup::SetUpSceneEntities( SkullbonezCore::Core::SbDiagnosticStore&
     // Invariant: convex_hull_state entries come from editable scene snapshots.
     // The writer stores body-store position, the simulated body/COM position,
     // so do not add the authored hull COM here.
-
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );

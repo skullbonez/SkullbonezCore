@@ -97,7 +97,6 @@ class Sha256Writer
 
     bool Write( SkullbonezCore::Core::ByteView bytes )
     {
-
         if ( !m_hash || bytes.size() > ULONG_MAX )
         {
             return false;
@@ -141,7 +140,6 @@ class Sha256Writer
   private:
     void Close()
     {
-
         if ( m_hash )
         {
             BCryptDestroyHash( m_hash );
@@ -265,7 +263,6 @@ bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE
 
     // Invariant: hash individual values rather than descriptor structs. Native
     // structs contain padding and pointers whose bytes are process-dependent.
-
     if ( !HashShaderBytecode( writer, desc.VS ) || !HashShaderBytecode( writer, desc.PS ) ||
          !HashShaderBytecode( writer, desc.DS ) || !HashShaderBytecode( writer, desc.HS ) ||
          !HashShaderBytecode( writer, desc.GS ) )
@@ -297,7 +294,6 @@ bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE
 
     for ( UINT index = 0; index < desc.StreamOutput.NumStrides; ++index )
     {
-
         if ( !HashValue( writer, desc.StreamOutput.pBufferStrides[index] ) )
         {
             return false;
@@ -313,7 +309,6 @@ bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE
 
     for ( const D3D12_RENDER_TARGET_BLEND_DESC& target : desc.BlendState.RenderTarget )
     {
-
         if ( !HashValue( writer, target.BlendEnable ) || !HashValue( writer, target.LogicOpEnable ) ||
              !HashValue( writer, target.SrcBlend ) || !HashValue( writer, target.DestBlend ) ||
              !HashValue( writer, target.BlendOp ) || !HashValue( writer, target.SrcBlendAlpha ) ||
@@ -371,7 +366,6 @@ bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE
 
     for ( DXGI_FORMAT format : desc.RTVFormats )
     {
-
         if ( !HashValue( writer, format ) )
         {
             return false;
@@ -418,7 +412,6 @@ bool EnsureCacheDirectory( wchar_t ( &directory )[MAX_PATH] )
 
 bool EntryNameDigest( const wchar_t* name, std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest )
 {
-
     if ( !name || std::wcslen( name ) != Dx12CachedPsoStore::ENTRY_NAME_CHARS - 1 )
     {
         return false;
@@ -426,7 +419,6 @@ bool EntryNameDigest( const wchar_t* name, std::array<std::uint8_t, Dx12CachedPs
 
     auto nibble = []( wchar_t value ) -> int
     {
-
         if ( value >= L'0' && value <= L'9' )
         {
             return value - L'0';
@@ -458,7 +450,6 @@ bool EntryNameDigest( const wchar_t* name, std::array<std::uint8_t, Dx12CachedPs
 
 bool WriteAll( HANDLE file, SkullbonezCore::Core::ByteView bytes )
 {
-
     if ( bytes.size() > MAXDWORD )
     {
         return false;
@@ -670,7 +661,6 @@ void Dx12CachedPsoStore::RejectAttached( D3D12_GRAPHICS_PIPELINE_STATE_DESC& des
 
     for ( std::size_t index = 0; index < m_mappedEntryCount; ++index )
     {
-
         if ( m_mappedEntries[index].digest == digest )
         {
             m_mappedEntries[index].rejected = true;
@@ -683,7 +673,6 @@ void Dx12CachedPsoStore::RejectAttached( D3D12_GRAPHICS_PIPELINE_STATE_DESC& des
 
 void Dx12CachedPsoStore::Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, ID3D12PipelineState* pipeline )
 {
-
     if ( !pipeline )
     {
         return;
@@ -707,7 +696,6 @@ void Dx12CachedPsoStore::Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, 
 
     for ( std::size_t index = 0; index < m_liveEntryCount; ++index )
     {
-
         if ( m_liveEntries[index].digest == digest )
         {
             return;
@@ -727,7 +715,6 @@ void Dx12CachedPsoStore::Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, 
 
 void Dx12CachedPsoStore::Persist()
 {
-
     if ( !m_cachePath[0] || m_liveEntryCount == 0 )
     {
         return;
@@ -739,7 +726,6 @@ void Dx12CachedPsoStore::Persist()
 
     for ( std::size_t index = 0; index < m_liveEntryCount; ++index )
     {
-
         if ( m_liveEntries[index].pipeline &&
              SUCCEEDED( m_liveEntries[index].pipeline->GetCachedBlob( blobs[index].GetAddressOf() ) ) && blobs[index] )
         {
@@ -778,7 +764,6 @@ void Dx12CachedPsoStore::Persist()
 
     for ( std::size_t index = 0; wrote && index < m_liveEntryCount; ++index )
     {
-
         if ( !blobs[index] )
         {
             continue;
@@ -828,7 +813,6 @@ void Dx12CachedPsoStore::Shutdown()
     // Lifetime: mapped warm bytes are needed only while creating PSOs. Close
     // the old file before atomic replacement so Windows cannot reject rename
     // with a sharing violation. Live PSOs remain valid for GetCachedBlob below.
-
     if ( m_mappedBytes )
     {
         UnmapViewOfFile( m_mappedBytes );

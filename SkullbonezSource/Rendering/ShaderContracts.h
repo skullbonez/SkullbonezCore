@@ -130,7 +130,6 @@ inline constexpr size_t ShippingShaderVertexInputContractCount()
 
 inline const char* ShaderValueTypeName( ShaderValueType type )
 {
-
     switch ( type )
     {
     case ShaderValueType::Int:
@@ -150,7 +149,6 @@ inline const char* ShaderValueTypeName( ShaderValueType type )
 
 inline const char* ShaderResourceKindName( ShaderResourceKind kind )
 {
-
     switch ( kind )
     {
     case ShaderResourceKind::Texture2D:
@@ -171,7 +169,6 @@ inline bool ShaderContractNameEquals( const char* left, const char* right )
 inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& desc, const char* name,
                                                        size_t* outIndex = nullptr )
 {
-
     if ( outIndex )
     {
         *outIndex = static_cast<size_t>( -1 );
@@ -184,10 +181,8 @@ inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& 
 
     for ( size_t i = 0; i < desc.uniformCount; ++i )
     {
-
         if ( ShaderContractNameEquals( desc.uniforms[i].name, name ) )
         {
-
             if ( outIndex )
             {
                 *outIndex = i;
@@ -202,10 +197,8 @@ inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& 
 
 inline const ShaderResourceDecl* FindShaderResourceDecl( const ShaderProgramDesc& desc, const char* name )
 {
-
     for ( size_t i = 0; name && i < desc.resourceCount; ++i )
     {
-
         if ( ShaderContractNameEquals( desc.resources[i].name, name ) )
         {
             return &desc.resources[i];
@@ -224,7 +217,6 @@ inline const char* ShaderBaseNameFromPath( const char* path, size_t& outLength )
 
     for ( const char* cursor = start; *cursor != '\0'; ++cursor )
     {
-
         if ( *cursor == '/' || *cursor == '\\' )
         {
             start = cursor + 1;
@@ -463,7 +455,6 @@ inline const ShaderProgramDesc* FindShaderProgramDesc( const char* pathOrBaseNam
 
     for ( size_t i = 0; i < count; ++i )
     {
-
         if ( ShaderContractMatchesBaseName( contracts[i].baseName, pathOrBaseName ) )
         {
             return &contracts[i];

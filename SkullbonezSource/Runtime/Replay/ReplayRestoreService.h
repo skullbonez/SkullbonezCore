@@ -82,7 +82,6 @@ class ReplayRestoreService
 
             // Invariant: the scene object id resolves identity. The retained row is
             // only a cache and cannot redirect restore after topology changes.
-
             if ( !liveBody || liveBody->sceneObjectId != body.id || liveRow < 0 || liveRow >= restoreModelCount )
             {
                 WriteReason( outReason, reasonSize, "selected frame body ids no longer match" );
@@ -95,7 +94,6 @@ class ReplayRestoreService
                 // Invariant: one sample row owns one live body. Duplicate ids
                 // would otherwise apply two states to one handle while silently
                 // leaving another body unrestored.
-
                 if ( outBodies[previousIndex] == liveHandle )
                 {
                     WriteReason( outReason, reasonSize, "selected frame contains duplicate body ids" );
@@ -113,7 +111,6 @@ class ReplayRestoreService
                                         RuntimeTools& runtimeTools, const ReplaySolverFrameSample& sample, char* outReason,
                                         std::size_t reasonSize )
     {
-
         if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > 2 )
         {
             WriteReason( outReason, reasonSize, "unsupported snapshot version" );
@@ -280,7 +277,6 @@ class ReplayRestoreService
   private:
     static void WriteReason( char* outReason, std::size_t reasonSize, const char* message )
     {
-
         if ( outReason && reasonSize > 0 )
         {
             strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );

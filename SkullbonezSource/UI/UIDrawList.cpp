@@ -134,7 +134,6 @@ void UIDrawList::AddText( float x, float y, float pxSize, float r, float g, floa
 
 void UIDrawList::PushClip( float x, float y, float w, float h )
 {
-
     if ( m_clipDepth >= MAX_CLIP_DEPTH )
     {
 
@@ -165,7 +164,6 @@ void UIDrawList::PushClip( float x, float y, float w, float h )
 
 void UIDrawList::PopClip()
 {
-
     if ( m_suppressedClipDepth > 0 )
     {
         --m_suppressedClipDepth;
@@ -216,10 +214,8 @@ void UIDrawList::AddPreviewImage( PreviewTargetId target, float x, float y, floa
 
 void UIDrawList::Append( const UIDrawList& source, float offsetX, float offsetY )
 {
-
     for ( const Command& command : source.Commands() )
     {
-
         switch ( command.type )
         {
         case CommandType::Rect:
@@ -319,7 +315,6 @@ uint64_t UIDrawList::Fingerprint() const
 
     auto addText = [&]( const char* value )
     {
-
         for ( const unsigned char* cursor = reinterpret_cast<const unsigned char*>( value ); *cursor; ++cursor )
         {
             addByte( *cursor );
@@ -362,7 +357,6 @@ uint64_t UIDrawList::Fingerprint() const
 
 UIDrawList::Command* UIDrawList::PushCommand()
 {
-
     if ( m_commandCount >= MAX_COMMANDS )
     {
         m_commandOverflow = true;
@@ -378,7 +372,6 @@ UIDrawList::Command* UIDrawList::PushCommand()
 
 int UIDrawList::StoreText( const char* value )
 {
-
     if ( !value )
     {
         value = "";

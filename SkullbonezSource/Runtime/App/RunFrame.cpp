@@ -119,7 +119,6 @@ void PrintRuntimeExitReason( const char* reason )
 float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config, bool capturePresentationPinned,
                                 float simulationPresentationAlpha )
 {
-
     if ( !config.runtimeRender.presentationInterpolation || capturePresentationPinned )
     {
         return 1.0f;
@@ -188,7 +187,6 @@ bool Run::PumpFrameMessages( int& messageExitCode )
 
     // Hazard: a device or window can flood the thread queue faster than frame
     // work consumes it. The cap defers excess FIFO messages to the next frame.
-
     while ( messagesDrained < kMaxMessagesPerFrame && PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
     {
         ++messagesDrained;
@@ -221,7 +219,6 @@ double Run::BeginFrameTurn()
 
     // Lifetime: every facet is a startup-owned borrow for this synchronous
     // frame turn. A missing facet is a composition invariant failure.
-
     if ( !m_renderer )
     {
         SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
@@ -633,7 +630,6 @@ bool Run::CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy )
 
 SkullbonezCore::Core::SbResult Run::Execute()
 {
-
     if ( m_skipExecute )
     {
         return SkullbonezCore::Core::SbResult::Success();
@@ -648,7 +644,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
     for ( ;; )
     {
-
         if ( PumpFrameMessages( messageExitCode ) )
         {
             break;
@@ -678,7 +673,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
         // Invariant: every frame phase below has a status-free return. Failure
         // is observable only through the ApplicationExitState latch.
-
         if ( m_applicationExit.ExitRequested() )
         {
             return m_applicationExit.Resolve( 0 );
@@ -789,7 +783,6 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
         // Why: SimulationSystem now returns only a deterministic tick count.
         // Runtime executes the store-owned physics step directly, then applies
         // the remaining model-owned presentation sync as explicit edge work.
-
         for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
@@ -813,7 +806,6 @@ float Run::TickPhysics( double secondsPerFrame, bool capturePresentationPinned,
 
             // The physics owner publishes a bounded span; the presentation owner
             // consumes it before the next step can replace those dense-row facts.
-
             for ( int modelIndex : postStep.fixedContactModelIndices )
             {
                 contactPresentation.NotifyFixedContact( modelIndex, 0.5f );
@@ -1044,7 +1036,6 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
         if ( !advanced )
         {
-
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )
             {
                 PrintRuntimeExitReason( "Exiting because scene screenshot capture completed and no next scene is queued." );
@@ -1070,7 +1061,6 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
 
 void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
 {
-
     if ( !proceedPolicy.proceedAllowed )
     {
         return;

@@ -93,7 +93,6 @@ int CountSlashes( const char* s )
 
     for ( const char* p = s; *p; ++p )
     {
-
         if ( *p == '/' )
         {
             ++n;
@@ -109,7 +108,6 @@ const char* FindLeafName( const char* fullPath )
 
     for ( const char* p = fullPath; *p; ++p )
     {
-
         if ( *p == '/' )
         {
             leaf = p + 1;
@@ -156,10 +154,8 @@ int Profiler::FindOrRegisterCounter( const char* fullPath, uint32_t hash )
 
     // Hazard: counter columns are durable measurement-ledger identities. A
     // collision must fail instead of silently combining unrelated units.
-
     for ( int i = 0; i < m_counterCount; ++i )
     {
-
         if ( m_counters[i].hash != hash )
         {
             continue;
@@ -208,7 +204,6 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     // Hazard: marker hash collisions and begin/end mismatches corrupt the
     // profiler's nesting stack. Treat them as Lane F engine invariants so the
     // fatal path owns stderr logging, event-log flushing, and termination.
-
     if ( safeDetails[0] != '\0' )
     {
         SB_FATAL( "Core/Profiler", "%s [%s]", safeMessage, safeDetails );
@@ -223,15 +218,12 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
     // Hazard: profiler overlays and CSVs rely on stable marker identity. A
     // collision is surfaced immediately instead of silently merging samples.
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == hash )
         {
 
             // Hash collision guard: full-path strcmp must match
-
             if ( std::strcmp( m_markers[i].name, fullPath ) != 0 )
             {
                 AbortMismatch( "FNV-1a hash collision between markers", fullPath );
@@ -297,7 +289,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
 
     // Resolve parentIndex by stripping last '/' segment and looking up that prefix
-
     if ( m.depth == 0 )
     {
         m.parentIndex = -1;
@@ -311,7 +302,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
         for ( const char* p = fullPath; *p; ++p )
         {
-
             if ( *p == '/' )
             {
                 lastSlash = p;
@@ -333,7 +323,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
         for ( int i = 0; i < m_markerCount; ++i )
         {
-
             if ( m_markers[i].hash == pHash && std::strcmp( m_markers[i].name, parentPath ) == 0 )
             {
                 pIdx = i;
@@ -352,7 +341,6 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
 void Profiler::Begin( const char* fullPath, uint32_t hash )
 {
-
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         WorkerBeginEndStack& stack = CurrentWorkerBeginEndStack();
@@ -375,7 +363,6 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
 
 void Profiler::End( const char* fullPath, uint32_t hash )
 {
-
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         WorkerBeginEndStack& stack = CurrentWorkerBeginEndStack();
@@ -406,7 +393,6 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks,
                                    int64_t endTicks, bool outermostOnThread )
 {
-
     if ( !m_inFrame || workerIndex < 0 || workerIndex >= MAX_WORKER_CORES )
     {
         return;
@@ -474,7 +460,6 @@ void Profiler::RecordWorkerSample( const char* fullPath, uint32_t hash, int work
 
 void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value )
 {
-
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;
@@ -555,7 +540,6 @@ WorkerProfilerScope::~WorkerProfilerScope()
 
 void WorkerProfilerScope::Close()
 {
-
     if ( m_workerIndex < 0 )
     {
         return;
@@ -594,7 +578,6 @@ void WorkerProfilerScope::Close()
 
 void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
 {
-
     if ( !m_inFrame )
     {
         AbortMismatch( "PROFILE_BEGIN called outside frame", fullPath );
@@ -650,7 +633,6 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
 
 void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
 {
-
     if ( m_stackTop == 0 )
     {
         AbortMismatch( "PROFILE_END with empty stack", fullPath );
@@ -706,7 +688,6 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 
 int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
 {
-
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return -1;
@@ -731,7 +712,6 @@ int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
 
 void Profiler::EndRenderRecord( const char* fullPath, uint32_t hash )
 {
-
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;
@@ -756,7 +736,6 @@ void Profiler::EndRenderRecord( const char* fullPath, uint32_t hash )
 
 void Profiler::MarkGpuMarkerWritten( int markerIndex )
 {
-
     if ( markerIndex < 0 || markerIndex >= m_markerCount )
     {
         SB_FATAL( "Profiler", "GPU marker index %d is outside [0,%d)", markerIndex, m_markerCount );
@@ -770,10 +749,8 @@ void Profiler::MarkGpuMarkerWritten( int markerIndex )
 
 void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples )
 {
-
     for ( const GpuTimingSample& sample : samples )
     {
-
         for ( int markerIndex = 0; markerIndex < m_markerCount; ++markerIndex )
         {
             Marker& marker = m_markers[markerIndex];
@@ -809,7 +786,6 @@ void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples )
 
 void Profiler::AdvanceGpuWriteCursors()
 {
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];
@@ -824,7 +800,6 @@ void Profiler::AdvanceGpuWriteCursors()
 
 void Profiler::InvalidateGpuSamples()
 {
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];
@@ -867,7 +842,6 @@ void Profiler::ScheduleReset()
 
 void Profiler::FrameBegin()
 {
-
     if ( m_resetPending )
     {
 
@@ -908,7 +882,6 @@ void Profiler::FrameBegin()
     m_frameStartTicks = frameStart.QuadPart;
 
     // Consume warmup budget at frame start so FrameEnd and WritePerfCSVRow see the same value
-
     if ( m_warmupFrames > 0 )
     {
         --m_warmupFrames;
@@ -951,7 +924,6 @@ void Profiler::FrameBegin()
 
 void Profiler::FrameEnd()
 {
-
     if ( !m_inFrame )
     {
         AbortMismatch( "FrameEnd called without FrameBegin", nullptr );
@@ -981,7 +953,6 @@ void Profiler::FrameEnd()
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == kVsyncHash )
         {
             vsyncMsThisFrame = static_cast<float>( m_markers[i].accumSecondsThisFrame * 1000.0 );
@@ -1082,7 +1053,6 @@ void Profiler::FrameEnd()
     // Direct self time explains parent rows whose visible children do not sum
     // to the parent total. Frame is already VSync-excluded, so skip VsyncWait
     // when accounting for Frame's direct children.
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& marker = m_markers[i];
@@ -1179,10 +1149,8 @@ void Profiler::FrameEnd()
         // Why: per-marker worker averages share the worker mutex and the same
         // 500 ms cadence as the CPU/GPU averages, so an overlay row never mixes
         // a fresh worker number with a stale CPU one.
-
         if ( refreshAverages )
         {
-
             for ( int index = 0; index < m_markerCount; ++index )
             {
                 Marker& marker = m_markers[index];
@@ -1220,7 +1188,6 @@ void Profiler::FrameEnd()
 
         for ( int index = 0; index < m_markerCount; ++index )
         {
-
             if ( m_markers[index].hash == kFrameHash )
             {
                 frameMs = m_markers[index].lastFrameMs;
@@ -1247,7 +1214,6 @@ void Profiler::FrameEnd()
 
     if ( refreshAverages )
     {
-
         for ( int i = 0; i < m_markerCount; ++i )
         {
             Marker& m = m_markers[i];
@@ -1282,7 +1248,6 @@ void Profiler::FrameEnd()
             }
 
             // GPU average
-
             if ( m.hasGpu )
             {
                 int gn = m.gpuRingFilled;
@@ -1308,10 +1273,8 @@ void Profiler::FrameEnd()
 
 float Profiler::LastFrameMsByHash( uint32_t hash ) const
 {
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == hash )
         {
             return m_markers[i].lastFrameMs;
@@ -1324,10 +1287,8 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
 
 float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
 {
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == hash )
         {
             return m_markers[i].gpuLastFrameMs > 0.0f ? m_markers[i].gpuLastFrameMs : m_markers[i].gpuAvgMs;
@@ -1363,7 +1324,6 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == kVsyncHash )
         {
             continue;
@@ -1383,10 +1343,8 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
     }
 
     // Keep VsyncWait at the end so it doesn't skew active-frame averages when viewed together.
-
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == kVsyncHash )
         {
             fprintf( f, ",%s", m_markers[i].name );
@@ -1417,7 +1375,6 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
 
 void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 {
-
     if ( m_warmupFrames > 0 )
     {
         return;
@@ -1427,7 +1384,6 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     // Re-emit the dynamic header before the first wider row so columns never
     // shift silently; analyze_perf already treats each header as authoritative
     // for the rows that follow it.
-
     if ( m_lastPerfCSVColumnCount != PerfCSVColumnCount() )
     {
         WritePerfCSVHeader( f );
@@ -1439,7 +1395,6 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == kVsyncHash )
         {
             continue;
@@ -1460,7 +1415,6 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
-
         if ( m_markers[i].hash == kVsyncHash )
         {
             fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
@@ -1631,7 +1585,6 @@ void WorkerProfilerScope::Close()
 
 Profiler::~Profiler()
 {
-
     if ( s_active == this )
     {
         s_active = nullptr;

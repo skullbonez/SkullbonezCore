@@ -93,7 +93,6 @@ struct PhysicsPipelineRecord
 // visualizer state.
 inline const char* PhysicsPipelineStageName( PhysicsPipelineStage stage )
 {
-
     switch ( stage )
     {
     case PhysicsPipelineStage::BroadphaseCandidate:

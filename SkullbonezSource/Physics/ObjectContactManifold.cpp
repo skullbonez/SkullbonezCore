@@ -165,7 +165,6 @@ float Component( const Vector3& v, int axis )
     // ENGINE-SPECIFIC:
     //   Small helper for indexing half-extents and local coordinates without
     //   changing Vector3's public API during this focused physics change.
-
     if ( axis == 0 )
     {
         return v.x;
@@ -266,7 +265,6 @@ void AddContactPoint( const ObjectContactBodyView& a, const ObjectContactBodyVie
     //   Catto Section 4 rows store a contact point plus r1/r2 arms. This helper
     //   centralizes that setup so every manifold path feeds the solver the same
     //   row shape.
-
     if ( manifold.pointCount >= 4 )
     {
         return;
@@ -294,7 +292,6 @@ SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContac
     // Hazard: the selection bitmap is deliberately fixed-capacity for the hot
     // narrowphase path. Reject an invalid public borrow before indexing it;
     // production clipping owns 8-row and 32-row buffers under this ceiling.
-
     if ( !candidates || candidateCount <= 0 || candidateCount > MAX_OBJECT_CONTACT_CANDIDATES )
     {
         return selection;
@@ -304,7 +301,6 @@ SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContac
 
     auto betterPenetrationTie = [&]( int lhs, int rhs ) -> bool
     {
-
         if ( rhs < 0 )
         {
             return true;
@@ -322,7 +318,6 @@ SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContac
 
     for ( int i = 0; i < candidateCount; ++i )
     {
-
         if ( betterPenetrationTie( i, deepest ) )
         {
             deepest = i;
@@ -368,7 +363,6 @@ SkullbonezCore::Physics::SelectObjectContactCandidateIndices( const ObjectContac
 
         for ( int i = 0; i < candidateCount; ++i )
         {
-
             if ( selected[i] )
             {
                 continue;
@@ -596,7 +590,6 @@ bool AcceptSatAxis( const BoxWorld& a, const BoxWorld& b, const Vector3& axisRaw
 
     if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
     {
-
         if ( axisType < best.axisType )
         {
             better = true;
@@ -624,7 +617,6 @@ bool BoxBoxSat( const BoxWorld& a, const BoxWorld& b, float contactSkin, SatResu
 
     for ( int i = 0; i < 3; ++i )
     {
-
         if ( !AcceptSatAxis( a, b, a.axes[i], 0, i, -1, centerDelta, contactSkin, out ) )
         {
             return false;
@@ -633,7 +625,6 @@ bool BoxBoxSat( const BoxWorld& a, const BoxWorld& b, float contactSkin, SatResu
 
     for ( int i = 0; i < 3; ++i )
     {
-
         if ( !AcceptSatAxis( a, b, b.axes[i], 1, -1, i, centerDelta, contactSkin, out ) )
         {
             return false;
@@ -642,7 +633,6 @@ bool BoxBoxSat( const BoxWorld& a, const BoxWorld& b, float contactSkin, SatResu
 
     for ( int i = 0; i < 3; ++i )
     {
-
         for ( int j = 0; j < 3; ++j )
         {
             Vector3 axis = CrossProduct( a.axes[i], b.axes[j] );
@@ -689,7 +679,6 @@ int ClipPolygonAgainstPlane( const ClipVertex* input, int inputCount, const Vect
     // Keep only the portion of an incident face that lies inside one boundary
     // plane of the reference face. Repeating this for all four side planes trims
     // the touching face down to the actual contact patch.
-
     if ( inputCount <= 0 )
     {
         return 0;
@@ -754,7 +743,6 @@ int ClipIncidentFaceToReference( const BoxWorld& refBox, int refAxis, float refS
 
     for ( int sideIndex = 0; sideIndex < 3; ++sideIndex )
     {
-
         if ( sideIndex == refAxis )
         {
             continue;
@@ -1073,7 +1061,6 @@ uint32_t EncodeHullEdgeFeature( uint32_t edgeA, uint32_t edgeB )
 
 void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId, uint16_t faceA, uint16_t faceB )
 {
-
     if ( poly.edgeCount >= ConvexHullShape::MAX_EDGES )
     {
         return;
@@ -1089,7 +1076,6 @@ void AddPolyEdge( PolytopeWorld& poly, uint16_t a, uint16_t b, uint16_t sourceId
 
 void AddPolyFace( PolytopeWorld& poly, const Vector3& normal, const uint16_t* indices, uint8_t count, uint16_t sourceId )
 {
-
     if ( poly.faceCount >= ConvexHullShape::MAX_FACES || poly.faceIndexCount + count > ConvexHullShape::MAX_FACE_INDICES )
     {
         return;
@@ -1149,7 +1135,6 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
 
         for ( int sign0 = -1; sign0 <= 1; sign0 += 2 )
         {
-
             for ( int sign1 = -1; sign1 <= 1; sign1 += 2 )
             {
                 uint16_t a = 0;
@@ -1161,7 +1146,6 @@ PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const Bounding
 
                     if ( signs[side0] == sign0 && signs[side1] == sign1 )
                     {
-
                         if ( signs[axis] < 0 )
                         {
                             a = v;
@@ -1243,7 +1227,6 @@ void ProjectPolytope( const PolytopeWorld& poly, const Vector3& axis, float& out
 
 bool EdgeSupportsAxis( const PolytopeWorld& poly, const PolyEdgeWorld& edge, const Vector3& axis )
 {
-
     if ( edge.faceA >= poly.faceCount || edge.faceB >= poly.faceCount )
     {
         return false;
@@ -1304,7 +1287,6 @@ bool AcceptPolyAxis( const PolytopeWorld& a, const PolytopeWorld& b, const Vecto
 
     if ( !better && fabsf( overlap - best.overlap ) <= tieEpsilon )
     {
-
         if ( axisType < best.axisType )
         {
             better = true;
@@ -1334,7 +1316,6 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
 
     for ( uint16_t i = 0; i < a.faceCount; ++i )
     {
-
         if ( !AcceptPolyAxis( a, b, a.faces[i].normal, 0, i, -1, contactSkin, out ) )
         {
             return false;
@@ -1345,7 +1326,6 @@ bool PolytopeSat( const PolytopeWorld& a, const PolytopeWorld& b, float contactS
 
     for ( uint16_t i = 0; i < b.faceCount; ++i )
     {
-
         if ( !AcceptPolyAxis( a, b, b.faces[i].normal, 1, -1, i, contactSkin, out ) )
         {
             return false;
@@ -1396,7 +1376,6 @@ uint16_t EncodeClippedPolyVertexId( uint16_t prevId, uint16_t curId )
 int ClipPolyAgainstPlaneLimited( const ClipVertex* input, int inputCount, const Vector3& planePoint,
                                  const Vector3& inwardNormal, float contactSkin, ClipVertex* output, int maxOutput )
 {
-
     if ( inputCount <= 0 )
     {
         return 0;

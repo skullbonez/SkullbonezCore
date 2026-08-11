@@ -89,7 +89,6 @@ bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler, const P
     // awake body's correction step. This fresh manifold test catches that
     // persistent contact so the sleeper cannot remain frozen inside the
     // awake body until a later frame happens to generate a swept hit.
-
     if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) ||
          sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
     {
@@ -137,7 +136,6 @@ float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler, co
     // forward until exact manifold contact appears, then binary-searches the
     // edge of that contact window. This keeps fast objects from advancing
     // too far into each other before persistent rows solve the response.
-
     if ( coarseTime <= 0.0f || coarseTime >= availableTime )
     {
         return coarseTime;
@@ -242,7 +240,6 @@ bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
                               std::span<const PersistentContactCacheEntry> persistentContactCache, int bodyAIndex,
                               int bodyBIndex, float availableTime, float contactSkin )
 {
-
     if ( availableTime <= TOLERANCE )
     {
         return false;
@@ -349,12 +346,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     // Wake a sleeping object only after an energetic awake neighbor proves
     // an actual swept hit or persistent overlap. Underwater-locked sleepers
     // still receive the swept hit timing, but remain static solver anchors.
-
     if ( wakeAccess.IsSleeping( x ) || wakeAccess.IsSleeping( y ) )
     {
 
         // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
-
         if ( wakeAccess.IsSleeping( x ) && !wakeAccess.IsSleeping( y ) )
         {
             const bool sleepingLocked = wakeAccess.IsUnderwaterSleepLocked( x );
@@ -420,10 +415,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
             if ( !wokeBySweptImpact &&
                  HasPersistentWakeContact( profiler, hotFields, colliderRecords, y, x, policy.contactEpsilon ) )
             {
-
                 if constexpr ( RetainPipelineRecords )
                 {
                     Physics::PhysicsPipelineRecord record;
+
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = y;
                     record.bodyB = x;
@@ -513,10 +508,10 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
             if ( !wokeBySweptImpact &&
                  HasPersistentWakeContact( profiler, hotFields, colliderRecords, x, y, policy.contactEpsilon ) )
             {
-
                 if constexpr ( RetainPipelineRecords )
                 {
                     Physics::PhysicsPipelineRecord record;
+
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = x;
                     record.bodyB = y;
@@ -561,7 +556,6 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     if ( !ObjectPairNeedsSweptCcd( hotFields, colliderRecords, persistentContactCache, x, y, availableTime,
                                    policy.contactSkin ) )
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             Physics::PhysicsPipelineRecord record;
@@ -625,7 +619,6 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( PhysicsBodyStore& bo
     }
     else
     {
-
         if constexpr ( RetainPipelineRecords )
         {
             Physics::PhysicsPipelineRecord record;

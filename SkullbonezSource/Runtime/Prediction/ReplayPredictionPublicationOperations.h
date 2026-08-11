@@ -64,10 +64,8 @@ struct ReplayPredictionAffectedBodyTrail
 template <typename FrameSample, typename BodySample>
 const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
 {
-
     for ( const BodySample& body : sample.bodies )
     {
-
         if ( body.id.value == id.value )
         {
             return &body;
@@ -80,10 +78,8 @@ const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
-
     if constexpr ( !AllowNegativeModelIndex )
     {
-
         if ( modelIndex < 0 )
         {
             return nullptr;
@@ -102,7 +98,6 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 
     for ( const BodySample& body : sample.bodies )
     {
-
         if ( body.modelRow.value == modelIndex )
         {
             return &body;
@@ -115,7 +110,6 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
-
     if ( const BodySample* body = FindReplayBodyByModelIndexInSample<FrameSample, BodySample,
                                                                      AllowNegativeModelIndex>( sample, modelIndex ) )
     {
